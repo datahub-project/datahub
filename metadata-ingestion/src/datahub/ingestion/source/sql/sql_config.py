@@ -21,6 +21,7 @@ from datahub.ingestion.agent.verdicts import (
     Verdict,
     VerdictContext,
     ancestors_in,
+    parent_required,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -256,17 +257,50 @@ class SQLCommonConfig(
     def default_schemas(cls) -> FrozenSet[str]:
         return frozenset()
 
-    def probe_match_target(self, ctx: ClassifyContext) -> str:
-        """The exact string ingestion filters this node's pattern against.
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """The identifier ingestion matches a table or view against, or None
+        to judge the bare name.
 
-        Routes to sql_probe's get_identifier shim, so the connection-free
-        `probe filter` path and the hierarchy walk resolve the identifier the
-        same single way. Distinct from probe_filter_target below, which is the
-        per-connector *override* that shim consults first.
+        From the connector's own get_identifier, through sql_probe's shim;
+        probe_filter_target below is the override that shim consults first.
+        Containers and top-level kinds match on the bare name: the shim
+        builds a table's identifier, and asked about a schema it would build
+        "analytics..public". A qualified schema match is probe_verdict_override's,
+        which reports its own target.
         """
+        if ctx.kind in (
+            DatasetContainerSubTypes.SCHEMA,
+            DatasetContainerSubTypes.DATABASE,
+        ):
+            return None
+        if self.probe_ancestor_kinds(ctx.kind) == ():
+            return None
+        # Without the container the shim builds ".orders" (MySQL) or
+        # "db..orders" (Postgres), a string ingestion never matches.
+        if parent_required(ctx):
+            return None
+        # lazy: sql_probe imports sql_common, which imports this module
         from datahub.ingestion.source.sql.sql_probe import _identifier_target
 
-        return _identifier_target(ctx)
+        target = _identifier_target(ctx)
+        if not isinstance(target, str) or not target:
+            # Not naming the object: ctx.warn dedupes by message, so one
+            # connector-wide reason is reported once.
+            ctx.warn(
+                "the connector's identifier resolver returned nothing usable, so "
+                "these were judged on their bare names; the verdict may not be "
+                "the one ingestion makes"
+            )
+            return None
+        if target.startswith(".") or ".." in target:
+            # A component the connector expected is missing. Per object, so
+            # it names the identifier it could not complete.
+            ctx.warn(
+                f"could not build a complete identifier for '{ctx.name}' (got "
+                f"'{target}'); judged on its bare name instead"
+            )
+            return None
+        return target
 
     def probe_filter_target(
         self,
@@ -322,14 +356,22 @@ class SQLCommonConfig(
         return sql_structural_verdict(self, ctx)
 
     @classmethod
+    def probe_kind_overrides(cls) -> Mapping[str, str]:
+        """`containers` lists schemas or databases, by tier: see
+        probe_container_kind. A subclass adding a kind of its own adds it to
+        super().probe_kind_overrides()."""
+        return {"containers": str(cls.probe_container_kind())}
+
+    @classmethod
     def probe_container_kind(cls) -> str:
         """What `containers` returns on this source: Schema, or Database.
 
         The same Inspector call (get_schema_names) means different things per tier --
         three-tier sources return schemas filtered by schema_pattern, two-tier ones
         return databases filtered by database_pattern, where schema_pattern is
-        deprecated. One provider class serves both, so the class cannot say which;
-        the recipe's config can.
+        deprecated. One provider class serves both, so the config says which.
+        Read by probe_kind_overrides and probe_ancestor_kinds, so a two-tier
+        config overrides this one and the two cannot disagree.
         """
         return DatasetContainerSubTypes.SCHEMA
 

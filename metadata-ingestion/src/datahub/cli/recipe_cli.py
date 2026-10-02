@@ -684,10 +684,10 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     """
     secret_values: Set[str] = set()
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
-        source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        source_type, _, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
         _ping_probe("methods", source_type)
-        specs = list_probe_methods(source_type, resolved)
+        specs = list_probe_methods(source_type)
         payload = {
             "source_type": source_type,
             "methods": [s.to_dict() for s in specs],

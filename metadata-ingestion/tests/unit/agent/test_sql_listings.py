@@ -17,6 +17,7 @@ from datahub.ingestion.agent.probe_methods import (
     config_class_for,
     probe_method,
 )
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 
@@ -41,9 +42,7 @@ def _probe(source_type: str = "postgres") -> SqlAlchemyMetadataProbe:
     # Inspector, which is what ingestion enumerates through too.
     probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
     probe._insp = _FakeInspector()  # type: ignore[assignment]
-    probe.kind_overrides = {
-        "containers": str(config_class_for(source_type).probe_container_kind())
-    }
+    probe.container_kind = str(config_class_for(source_type).probe_container_kind())
     return probe
 
 
@@ -104,11 +103,32 @@ def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():
     assert kinds["hive"] == "Database"
 
 
-def test_the_provider_reports_the_runtime_kind_for_containers():
-    assert _probe("postgres").kind_overrides["containers"] == "Schema"
-    assert _probe("mysql").kind_overrides["containers"] == "Database"
-    # The spec itself declares none, because the class cannot know it.
+def test_the_config_class_declares_the_kind_containers_reports():
+    assert config_class_for("postgres").probe_kind_overrides() == {
+        "containers": "Schema"
+    }
+    assert config_class_for("mysql").probe_kind_overrides() == {
+        "containers": "Database"
+    }
+    # The spec itself declares none, because the provider class cannot know it.
     assert _spec("containers").kind is None
+
+
+def test_a_two_tier_provider_names_its_containers_databases():
+    from datahub.ingestion.source.sql.mysql import MySQLConfig
+
+    # An in-memory engine: for_config builds a real one, and only the kind
+    # the config declares is under test.
+    config = MySQLConfig.model_validate(
+        {"host_port": "h:3306", "sqlalchemy_uri": "sqlite://"}
+    )
+    probe = SqlAlchemyMetadataProbe.for_config(config)
+    try:
+        assert probe.container_kind == "Database"
+        with pytest.raises(ProbeArgumentError, match="no database named"):
+            probe.tables("nope")
+    finally:
+        probe.__exit__(None, None, None)
 
 
 def test_a_denied_container_is_still_listed():

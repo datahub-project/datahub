@@ -135,9 +135,7 @@ def test_probe_methods_lists(monkeypatch, tmp_path):
     monkeypatch.setattr(
         rc,
         "list_probe_methods",
-        # list_probe_methods also takes the recipe config, so a
-        # recipe-dependent kind can be reported without running the command.
-        lambda st, config_dict=None: [
+        lambda st: [
             ProbeMethodSpec("foreign_keys", [ProbeParam("table", "str", True)], "FKs.")
         ],
     )
@@ -146,6 +144,18 @@ def test_probe_methods_lists(monkeypatch, tmp_path):
     )
     assert res.exit_code == 0
     assert "foreign_keys" in res.output and "FKs." in res.output
+
+
+def test_probe_methods_reports_the_container_kind_of_an_incomplete_recipe(tmp_path):
+    # The recipe names no host or credentials; the kind comes from the config
+    # class, so it is still reported.
+    res = CliRunner().invoke(
+        recipe, ["probe", "methods", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code == 0, res.output
+    kinds = {m["command"]: m["kind"] for m in json.loads(res.output)["methods"]}
+    assert kinds["containers"] == "Schema"
+    assert kinds["tables"] == "Table"
 
 
 def test_collect_nested_secret_values():
@@ -159,7 +169,7 @@ def test_probe_methods_redacts_error(monkeypatch, tmp_path):
         rc, "_resolve_for_probe", lambda r: ("kafka", {}, {"topsecret"})
     )
 
-    def fake_list(st, config_dict=None):
+    def fake_list(st):
         raise ValueError("boom topsecret")
 
     monkeypatch.setattr(rc, "list_probe_methods", fake_list)

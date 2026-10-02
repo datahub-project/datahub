@@ -79,6 +79,31 @@ class ClassifyContext:
     # list ProbeSoftError does, deduplicated by check_filters so a single
     # connector-wide reason isn't appended once per node it's classified for.
     warn: Callable[[str], None]
+    # The kind being judged, in the spelling check_filters canonicalised
+    # --kind to. Empty only for a context built outside check_filters.
+    kind: str = ""
+
+
+_NO_PARENT_WARNING = (
+    "no parent given, so these were judged on their bare names; this "
+    "source filters on a qualified identifier, so pass the containing "
+    "schema/database to get the verdict ingestion actually makes"
+)
+
+
+def parent_required(ctx: ClassifyContext) -> bool:
+    """True, after warning, when ctx has no parent to qualify its name with.
+
+    For a probe_match_target whose identifier needs the containing
+    container: without it, the identifier would be one ingestion never
+    builds (".orders", "db..orders"), so the hook should leave the bare
+    name. The warning does not name the object, so check_filters' dedupe
+    reports this connector-wide reason once.
+    """
+    if ctx.parent_path:
+        return False
+    ctx.warn(_NO_PARENT_WARNING)
+    return True
 
 
 @dataclass(frozen=True)

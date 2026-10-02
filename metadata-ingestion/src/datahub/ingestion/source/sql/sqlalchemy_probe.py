@@ -19,7 +19,10 @@ from datahub.ingestion.agent.error_policy import (
     generic_error_code,
     sqlstate_code,
 )
-from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.probe_methods import (
+    declared_kind_overrides,
+    probe_method,
+)
 from datahub.ingestion.agent.provider_helpers import echoed
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
 from datahub.ingestion.source.common.subtypes import (
@@ -140,10 +143,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         self._engine = engine
         self._insp = inspect(engine)
 
-    # `containers` returns Schemas on a three-tier source and Databases on a two-tier
-    # one, and this class serves both -- so the kind comes from the recipe's config,
-    # primed in for_config and read back by run_probe_method.
-    kind_overrides: Dict[str, str] = {}
+    # What `containers` lists, which names the container in a refusal. This
+    # class serves both tiers, so for_config primes it from the config's
+    # probe_kind_overrides, the same declaration `probe run` reports.
+    container_kind: str = str(DatasetContainerSubTypes.SCHEMA)
 
     # The containers this recipe reads, when it names any -- primed in
     # for_config, since only the config knows. Empty on a three-tier source,
@@ -219,7 +222,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             raise
 
     def _container_label(self) -> str:
-        return str(self.kind_overrides.get("containers", "schema")).lower()
+        return self.container_kind.lower()
 
     def _resolve_schema(self, schema: str) -> str:
         def accepted() -> Iterator[str]:
@@ -306,10 +309,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # class attribute here -- it comes from the connector's own config, which is
         # per dialect.
         probe.catalog_scope = config.probe_catalog_scope()
-        probe.kind_overrides = cls.probe_kind_overrides(config)
-        probe.pinned_containers = _pinned_containers(
-            config, str(config.probe_container_kind())
+        probe.container_kind = declared_kind_overrides(config).get(
+            "containers", probe.container_kind
         )
+        probe.pinned_containers = _pinned_containers(config, probe.container_kind)
         probe.container_normalizer = staticmethod(_container_normalizer(config))  # type: ignore[assignment]
         return probe
 
@@ -353,19 +356,6 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             return CatalogRows(
                 columns=list(result.keys()), rows=[list(row) for row in rows]
             )
-
-    @classmethod
-    def probe_kind_overrides(cls, config: SQLCommonConfig) -> Dict[str, str]:
-        """Kinds this provider cannot declare on the class, keyed by command.
-
-        `containers` returns Schemas on a three-tier source and Databases on a
-        two-tier one, and one provider class serves both -- so the kind comes
-        from the recipe, not the decorator. Connection-free: it reads a
-        classmethod on the config, which is why `probe methods` can apply it
-        too rather than reporting null and leaving the caller to find out by
-        running the command.
-        """
-        return {"containers": str(config.probe_container_kind())}
 
     @probe_method(row_limit_param="limit")
     def containers(self, limit: int = 200) -> List[str]:

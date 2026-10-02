@@ -16,7 +16,11 @@ from datahub.ingestion.agent.pattern_path import (
     unset_block_on,
     validate_pattern_at,
 )
-from datahub.ingestion.agent.probe_methods import config_class_for, list_probe_methods
+from datahub.ingestion.agent.probe_methods import (
+    config_class_for,
+    declared_kind_overrides,
+    list_probe_methods,
+)
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
@@ -29,9 +33,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 
-# _match_target branches on these four by identity, so --kind has to reach it
-# in this spelling (see _canonical_kind).
-_MATCH_TARGET_KINDS = frozenset(
+# The relational kinds. Canonical for every source, declared or not: a
+# miscased `--kind schema` is echoed and warned about as `Schema`, and every
+# config hook that compares kinds by identity sees that one spelling.
+_STANDARD_KINDS = frozenset(
     {
         str(DatasetSubTypes.TABLE),
         str(DatasetSubTypes.VIEW),
@@ -111,90 +116,18 @@ class FilterCheckResult:
         }
 
 
-def _match_target(config: object, kind: str, ctx: ClassifyContext) -> str:
+def _match_target(config: object, ctx: ClassifyContext) -> str:
     """The string this connector's ingestion would filter on for one node.
 
-    Resolved by asking the config, never by re-deriving it here: the SQL family
-    routes to its own get_identifier (see SQLCommonConfig.probe_match_target),
-    and a connector whose display name IS its filter target -- Kafka topics,
-    Mode spaces -- needs no hook and falls through to the bare name.
+    The config's probe_match_target answers, for every kind; None or an empty
+    string leaves the bare name, which is right for a source whose display
+    name is its filter target (Kafka topics, Mode spaces).
     """
-    container_target = getattr(config, "probe_container_match_target", None)
-    if kind not in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW) and callable(
-        container_target
-    ):
-        # A connector whose containers are filtered on a composed id rather
-        # than the bare name -- Unity matches schema_pattern against
-        # `[metastore.]catalog.schema` -- says so here. None: not one of its
-        # container kinds, resolve the usual way.
-        target = container_target(
-            kind=kind, name=ctx.name, parent_path=ctx.parent_path, warn=ctx.warn
-        )
-        if target is not None:
-            return target
-
-    if kind in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
-        # The SQL shim resolves a *table's* identifier (db.schema.table); asked
-        # about a container it would build "analytics..public". Containers
-        # match on the bare name here; a qualified schema match is the
-        # config's probe_verdict_override, which reports its own target.
+    hook = getattr(config, "probe_match_target", None)
+    if not callable(hook):
         return ctx.name
-
-    resolver = getattr(config, "probe_match_target", None)
-    if not callable(resolver):
-        # The display name IS what this source filters on -- Kafka topics, Mode
-        # spaces. Checked before the parent, because warning here would tell an
-        # agent to distrust a correct answer and go looking for a container that
-        # does not exist.
-        return ctx.name
-
-    ancestors_for = getattr(config, "probe_ancestor_kinds", None)
-    if callable(ancestors_for) and ancestors_for(kind) == ():
-        # A top-level kind (a BigQuery project) has no container to pass, and
-        # the SQL shim below resolves table identifiers, not this.
-        return ctx.name
-
-    if not ctx.parent_path:
-        # Without the container we cannot build the identifier ingestion uses:
-        # the shim emits ".orders" for MySQL, "db..orders" for Postgres. A pattern
-        # judged against that is judged against a string ingestion never sees.
-        # Deliberately does not name the object: the reason is connector-wide,
-        # and ClassifyContext.warn dedupes by message so one cause is reported
-        # once rather than once per name judged.
-        ctx.warn(
-            "no parent given, so these were judged on their bare names; this "
-            "source filters on a qualified identifier, so pass the containing "
-            "schema/database to get the verdict ingestion actually makes"
-        )
-        return ctx.name
-    target = resolver(ctx)
-    if not isinstance(target, str) or not target:
-        # The only degrade here that used to be silent, while the branches on
-        # either side both warn -- and for the same reason they do: judging a
-        # Postgres table on its bare name when ingestion matches
-        # db.schema.table gives the wrong verdict, and a wrong verdict with
-        # nothing marking it is indistinguishable from a right one.
-        # Deliberately does not name the object, like the no-parent branch
-        # above: check_filters' warn closure dedupes on the message string, so
-        # embedding ctx.name emits one near-identical warning per table judged.
-        # The branch below is the exception and keeps both name and target on
-        # purpose -- it reports the malformed identifier it built, which is
-        # per-object by nature and useless without them.
-        ctx.warn(
-            "the connector's identifier resolver returned nothing usable, so "
-            "these were judged on their bare names; the verdict may not be the "
-            "one ingestion makes"
-        )
-        return ctx.name
-    if target.startswith(".") or ".." in target:
-        # A missing component the connector expected. Match on the bare name and
-        # flag it rather than report a verdict from an impossible identifier.
-        ctx.warn(
-            f"could not build a complete identifier for '{ctx.name}' (got "
-            f"'{target}'); judged on its bare name instead"
-        )
-        return ctx.name
-    return target
+    target = hook(ctx=ctx)
+    return target if isinstance(target, str) and target else ctx.name
 
 
 def _switch_verdict(config: object, kind: str) -> Optional[Verdict]:
@@ -268,40 +201,31 @@ def _parent_exclusion(
 def _canonical_kind(source_type: str, config: object, kind: str) -> str:
     """The declared spelling of a kind the caller may have cased differently.
 
-    The `<kind>_pattern` name convention lowercases, while kind switches,
-    _match_target and the config's hooks compare kinds by identity, so
-    `--kind table` and `--kind Table` must reach them as one spelling or they
-    answer differently. Canonicalised once, here, so everything downstream
-    reads one spelling. A kind nothing declares is returned untouched, which
-    keeps the "declares no kind" warning below able to fire.
+    The `<kind>_pattern` name convention lowercases, while kind switches and
+    the config's hooks compare kinds by identity, so `--kind table` and
+    `--kind Table` must reach them as one spelling or they answer
+    differently. Canonicalised once, here, so everything downstream reads one
+    spelling. A kind nothing declares is returned untouched, which keeps the
+    "declares no kind" warning below able to fire.
     """
-    if kind in _MATCH_TARGET_KINDS:
+    if kind in _STANDARD_KINDS:
         return kind
     lowered = kind.lower()
-    for declared in sorted(_declared_kinds(source_type, config) | _MATCH_TARGET_KINDS):
+    for declared in sorted(_declared_kinds(source_type, config) | _STANDARD_KINDS):
         if declared.lower() == lowered:
             return declared
     return kind
 
 
 def _declared_kinds(source_type: str, config: object) -> Set[str]:
-    """The kinds this source's probe methods name, as far as is knowable without
-    a connection.
+    """The kinds this source's probe methods name, and the kinds its config
+    declares for them (probe_kind_overrides), as far as is knowable without a
+    connection.
 
-    Incomplete on purpose, and only ever used to warn. `containers` takes its
-    kind from the recipe (schema on a three-tier source, database on a two-tier
-    one), which is why probe_container_kind is consulted here rather than read
-    off a provider instance -- building one of those needs a connection.
+    Incomplete on purpose, and only ever used to canonicalise and to warn.
     """
     kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
-    container_kind = getattr(config, "probe_container_kind", None)
-    if callable(container_kind):
-        try:
-            kinds.add(str(container_kind()))
-        except Exception:
-            # A config that cannot answer it does not get a worse warning.
-            pass
-    return kinds
+    return kinds | set(declared_kind_overrides(config).values())
 
 
 def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
@@ -601,9 +525,10 @@ def check_filters(
             pattern_field=pattern_field,
             parent_path=tuple(parent_path),
             warn=warn,
+            kind=kind,
         )
         structural = _switch_verdict(config, kind)
-        target = name if filtering == "by_rule" else _match_target(config, kind, ctx)
+        target = name if filtering == "by_rule" else _match_target(config, ctx)
         # The connector's word on what no single pattern states -- the SQL
         # family's system catalogs and qualified schema names, a view that
         # must also pass table_pattern, a pinned SQL Server database. Told the

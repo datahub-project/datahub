@@ -175,7 +175,7 @@ def test_a_normalized_container_spelling_resolves_to_a_server_string() -> None:
     fake = _TwoTierInspector()
     probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
     probe._insp = cast(Inspector, fake)
-    probe.kind_overrides = {"containers": "Database"}
+    probe.container_kind = "Database"
     normalizer: Callable[[str], str] = _strip_catalog
     probe.container_normalizer = normalizer
 

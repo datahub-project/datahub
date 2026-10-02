@@ -251,26 +251,17 @@ _CONFIG_HOOKS = frozenset(
         # Read by agent.config_validation: the pydantic context a source type
         # validates with (mssql-odbc).
         "probe_validation_context",
+        # What `probe sql` may read (CatalogScope), which the sql gate enforces.
         "probe_catalog_scope",
-        "probe_container_kind",
+        # Read by filter_check._match_target: the string a pattern is matched
+        # against, for every kind.
         "probe_match_target",
-        "probe_filter_target",
         # Read by filter_check._override_verdict: the connector's verdict for
-        # one name when no single pattern states it. Replaces the per-plan
-        # entity/database overrides; see VerdictContext.
+        # one name when no single pattern states it; see VerdictContext.
         "probe_verdict_override",
-        "probe_prepare_engine",
         "probe_unfiltered_kinds",
-        # Read by sqlalchemy_probe._container_normalizer: how a listed
-        # container is spelled for ingestion.
-        "probe_normalize_container",
-        # Read by filter_check: the containers above a kind, and the id a
-        # container is matched on when it is not the bare name.
+        # Read by filter_check: the containers above a kind.
         "probe_ancestor_kinds",
-        "probe_container_match_target",
-        # Read by sqlalchemy_probe.for_config: the URL the probe dials when
-        # it differs from get_sql_alchemy_url().
-        "probe_sql_alchemy_url",
         # Read by filter_check._kind_switches: the bool field that switches a
         # kind off (Fabric's extract_lakehouses, Unity's include_notebooks).
         "probe_kind_switches",
@@ -278,8 +269,50 @@ _CONFIG_HOOKS = frozenset(
         # rules that are not an AllowDenyPattern (GCS/S3 path_specs), judged
         # through probe_verdict_override.
         "probe_rule_filtered_kinds",
+        # Read by probe_methods.declared_kind_overrides: the kind a command
+        # reports when the config class, not the provider, decides it.
+        "probe_kind_overrides",
     }
 )
+
+# Read only by source/sql/, so only a SQLCommonConfig subclass may declare one.
+_SQL_FAMILY_HOOKS = frozenset(
+    {
+        # Read by sql_probe._identifier_target: the identifier for a source
+        # whose real Source is not a SQLAlchemySource.
+        "probe_filter_target",
+        # Read by sqlalchemy_probe._container_normalizer: how a listed
+        # container is spelled for ingestion.
+        "probe_normalize_container",
+        # Read by sqlalchemy_probe.for_config: connection-time engine setup,
+        # and the URL the probe dials when it differs from
+        # get_sql_alchemy_url().
+        "probe_prepare_engine",
+        "probe_sql_alchemy_url",
+        # Read by SQLCommonConfig: whether `containers` lists schemas or
+        # databases, which its probe_kind_overrides and ancestor chain follow.
+        "probe_container_kind",
+    }
+)
+
+
+def _unread_probe_hooks(config_cls: type) -> Dict[str, List[str]]:
+    """class name -> its `probe_` attributes that no reader would ever call."""
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    known = _CONFIG_HOOKS
+    if issubclass(config_cls, SQLCommonConfig):
+        known = known | _SQL_FAMILY_HOOKS
+    unread: Dict[str, List[str]] = {}
+    for klass in config_cls.__mro__:
+        suspects = [
+            name
+            for name in vars(klass)
+            if name.startswith("probe_") and name not in known
+        ]
+        if suspects:
+            unread[klass.__name__] = sorted(suspects)
+    return unread
 
 
 def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
@@ -303,18 +336,38 @@ def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
             continue
         if config_cls is None:
             continue
-        for klass in config_cls.__mro__:
-            suspects = [
-                name
-                for name in vars(klass)
-                if name.startswith("probe_") and name not in _CONFIG_HOOKS
-            ]
-            if suspects:
-                unknown[klass.__name__] = sorted(suspects)
+        unknown.update(_unread_probe_hooks(config_cls))
     assert unknown == {}, (
         "these look like probe hooks but the framework reads none of them, so they "
-        f"do nothing; expected one of {sorted(_CONFIG_HOOKS)}: {unknown}"
+        f"do nothing; expected one of {sorted(_CONFIG_HOOKS)}, or on a "
+        f"SQLCommonConfig one of {sorted(_SQL_FAMILY_HOOKS)}: {unknown}"
     )
+
+
+def test_a_sql_family_hook_is_read_only_on_a_sql_config():
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    class _Outside(ConfigModel):
+        def probe_normalize_container(self, name: str) -> str:
+            return name
+
+        def probe_match_targets(self) -> None:
+            return None
+
+    class _Inside(SQLCommonConfig):
+        def get_sql_alchemy_url(self) -> str:
+            return "sqlite://"
+
+        def probe_normalize_container(self, name: str) -> str:
+            return name
+
+        def probe_match_targets(self) -> None:
+            return None
+
+    assert _unread_probe_hooks(_Outside) == {
+        "_Outside": ["probe_match_targets", "probe_normalize_container"]
+    }
+    assert _unread_probe_hooks(_Inside) == {"_Inside": ["probe_match_targets"]}
 
 
 _GUIDE = (
@@ -351,6 +404,28 @@ def test_the_guide_documents_exactly_the_hooks_the_framework_reads():
         f"{_GUIDE.name} '{_HOOK_REFERENCE_HEADING}' and _CONFIG_HOOKS disagree. "
         f"In _CONFIG_HOOKS but missing from the guide: {undocumented}. "
         f"In the guide but not in _CONFIG_HOOKS: {unread}."
+    )
+
+
+_SQL_FAMILY_HEADING = "### If your source IS in the SQL family"
+
+
+def _documented_sql_family_hooks(markdown: str) -> Set[str]:
+    """Hook names in the first column of the guide's SQL-family section."""
+    start = markdown.find(f"\n{_SQL_FAMILY_HEADING}\n")
+    if start == -1:
+        raise ValueError(f"the guide has no '{_SQL_FAMILY_HEADING}' section")
+    body = markdown[start + len(_SQL_FAMILY_HEADING) + 2 :]
+    ends = [i for i in (body.find("\n## "), body.find("\n### ")) if i != -1]
+    return set(_HOOK_ROW.findall(body[: min(ends)] if ends else body))
+
+
+def test_the_guide_documents_exactly_the_sql_family_hooks():
+    documented = _documented_sql_family_hooks(_GUIDE.read_text(encoding="utf-8"))
+    assert documented == set(_SQL_FAMILY_HOOKS), (
+        f"{_GUIDE.name} '{_SQL_FAMILY_HEADING}' and _SQL_FAMILY_HOOKS disagree. "
+        f"Missing from the guide: {sorted(_SQL_FAMILY_HOOKS - documented)}. "
+        f"Not in _SQL_FAMILY_HOOKS: {sorted(documented - _SQL_FAMILY_HOOKS)}."
     )
 
 
@@ -774,6 +849,7 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     # every one of these -- by name, since every call site uses keywords.
     required_kwargs = {
         "probe_validation_context": {"source_type"},
+        "probe_match_target": {"ctx"},
         "probe_verdict_override": {"ctx"},
         # Widened with `database` when Snowflake and BigQuery turned out to
         # be judging tables on `schema.entity` while ingestion matched three
@@ -1027,98 +1103,38 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
     )
 
 
-def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
-    """`probe methods` must not say null where `probe run` says a kind.
-
-    `containers` returns Schemas on a three-tier source and Databases on a
-    two-tier one, so its kind comes from the recipe rather than the
-    decorator. That override lived on the provider *instance*, which only
-    the run path builds -- so `probe methods` advertised kind=null and an
-    agent could not learn what `probe filter --kind` to pass without first
-    running the command and reading the kind back.
-
-    Found by running it: against a live MySQL, `probe methods` reported
-    containers kind=null while `probe run containers` reported Database.
-
-    The fix moved the mapping to a connection-free classmethod both paths
-    call, so this asserts the two agree for every SQL source rather than
-    hardcoding Database -- postgres must still say Schema.
+def test_containers_reports_the_tier_every_sql_config_declares():
+    """`containers` lists schemas on a three-tier source and databases on a
+    two-tier one. `probe methods` and `probe run` report the kind from
+    probe_kind_overrides, while the ancestor chain `probe filter` judges
+    --parent with follows probe_container_kind, so the two must agree on
+    every SQL source.
     """
-    from datahub.ingestion.agent.probe_methods import (
-        _provider_class,
-        list_probe_methods,
-    )
-
-    common = {
-        "host_port": "host:1234",
-        "username": "u",
-        "password": "p",
-        "database": "DB",
-        "scheme": "postgresql",
-    }
+    from datahub.ingestion.agent.probe_methods import list_probe_methods
 
     found = _sql_source_types()
     assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
 
     disagreed = {}
-    skipped: List[str] = []
     checked = 0
     for source_type, config_cls in found.items():
-        provider_cls = _provider_class(source_type)
-        overrides_for = getattr(provider_cls, "probe_kind_overrides", None)
-        if not callable(overrides_for):
-            continue
-        fields = set(getattr(config_cls, "model_fields", {}))
-        config_dict = {k: v for k, v in common.items() if k in fields}
-        try:
-            config = config_cls.model_validate(config_dict)
-            # What the run path would report.
-            expected = {k: str(v) for k, v in (overrides_for(config) or {}).items()}
-            # What the discovery path reports.
-            declared = {
-                spec.command: spec.kind
-                for spec in list_probe_methods(source_type, config_dict)
-            }
-        except Exception:
-            # This generic dict is not a valid recipe for every connector
-            # (athena wants aws_region, a work group and a result location).
-            # That is about the fixture, not about kind agreement -- skip it
-            # rather than report a disagreement that is not one.
-            skipped.append(source_type)
+        listed = {spec.command: spec.kind for spec in list_probe_methods(source_type)}
+        if "containers" not in listed:
+            # A SQL config with a provider of its own may have no
+            # `containers` command to report a kind for.
             continue
         checked += 1
-        for command, kind in expected.items():
-            if command not in declared:
-                # Not a skip. `expected` is what `probe run` would report and
-                # `declared` is what `probe methods` lists, so a command in
-                # one and not the other is the failure this test is named for
-                # -- an agent cannot discover the command at all, which is
-                # strictly worse than discovering it with the wrong kind.
-                # `continue` let that pass silently.
-                disagreed[source_type] = (
-                    f"{command}: run would report kind {kind!r} but methods "
-                    f"does not list the command at all"
-                )
-                continue
-            if declared[command] != kind:
-                disagreed[source_type] = (
-                    f"{command}: methods says {declared[command]!r}, "
-                    f"run would say {kind!r}"
-                )
+        tier = str(config_cls.probe_container_kind())
+        if listed["containers"] != tier:
+            disagreed[source_type] = (
+                f"probe methods says {listed['containers']!r}, "
+                f"probe_container_kind says {tier!r}"
+            )
 
-    # `skipped` is reported rather than asserted on: which connectors reject
-    # the generic recipe is a property of the fixture, not of kind agreement,
-    # so pinning the list would fail every time a connector gains a required
-    # field. It earns its place here -- when the scan does break, "only 3
-    # sources declared kind overrides" is unactionable without knowing which
-    # ones fell out on the way.
-    assert checked > 5, (
-        f"only {checked} sources declared kind overrides; scan broke. "
-        f"skipped as unfixturable: {sorted(skipped)}"
-    )
+    assert checked > 5, f"only {checked} SQL sources list containers; scan broke"
     assert not disagreed, (
-        "probe methods and probe run disagree about a command's kind, so an "
-        "agent reading methods cannot pick the right --kind:\n  "
+        "`containers` reports a kind its config's tier does not, so `probe filter` "
+        "would judge the wrong pattern:\n  "
         + "\n  ".join(f"{k}: {v}" for k, v in disagreed.items())
     )
 

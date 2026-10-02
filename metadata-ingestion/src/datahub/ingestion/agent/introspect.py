@@ -21,7 +21,10 @@ from datahub.ingestion.agent.models import (
     ProbeNodeKind,
     SourceSpec,
 )
-from datahub.ingestion.agent.probe_methods import list_probe_methods
+from datahub.ingestion.agent.probe_methods import (
+    declared_kind_overrides,
+    list_probe_methods,
+)
 from datahub.ingestion.agent.verdicts import UNFILTERED
 from datahub.ingestion.source.source_registry import source_registry
 
@@ -253,8 +256,7 @@ def declared_unfiltered_kinds(config: object) -> Set[str]:
 
     Read duck-typed rather than off SQLCommonConfig, because the sources that
     need it are not all SQL: Mode filters spaces and reports and nothing below
-    them, and its config is not a SQLCommonConfig. Same reason
-    probe_container_kind is read this way.
+    them, and its config is not a SQLCommonConfig.
     """
     declared = getattr(config, "probe_unfiltered_kinds", None)
     if not callable(declared):
@@ -438,24 +440,16 @@ def _declared_filter_kind(field_info: FieldInfo) -> Optional[str]:
 
 
 def declared_kinds_for_class(source_type: str, config_cls: type) -> Set[str]:
-    """The kinds this source names, as far as is knowable without a connection.
-
-    probe_container_kind is a classmethod, so `containers` can be resolved from
-    the class -- which is what lets `describe` answer the same question
-    `probe filter` answers against a live config.
+    """The kinds this source names, as far as is knowable without a connection:
+    its probe methods' kinds and the kinds its config declares for them
+    (probe_kind_overrides), so `describe` answers what `probe filter` does.
     """
     try:
         kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
     except Exception:
         # A source whose provider will not import still gets described.
         kinds = set()
-    container_kind = getattr(config_cls, "probe_container_kind", None)
-    if callable(container_kind):
-        try:
-            kinds.add(str(container_kind()))
-        except Exception:
-            pass
-    return kinds
+    return kinds | set(declared_kind_overrides(config_cls).values())
 
 
 def _filter_kinds_by_field(source_type: str, config_cls: type) -> Dict[str, str]:

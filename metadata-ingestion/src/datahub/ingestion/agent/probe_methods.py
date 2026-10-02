@@ -6,7 +6,6 @@ from typing import (
     Callable,
     Dict,
     List,
-    Mapping,
     NoReturn,
     Optional,
     Protocol,
@@ -463,47 +462,32 @@ def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
     return sorted(found.items())
 
 
-def list_probe_methods(
-    source_type: str, config_dict: Optional[Mapping[str, object]] = None
-) -> List[ProbeMethodSpec]:
-    """Every command this source offers.
+def declared_kind_overrides(config: object) -> Dict[str, str]:
+    """command -> the kind it reports, where the config class rather than the
+    provider decides it (probe_kind_overrides).
 
-    `config_dict` is the recipe's source config. Pass it wherever you have it:
-    a command whose kind depends on the recipe rather than the class (see
-    probe_kind_overrides) can only be reported correctly with it, and a caller
-    reading a null kind here would otherwise have to run the command to learn
-    what `probe filter --kind` to pass. Still connection-free -- the override
-    is a classmethod on the config.
+    One provider class may serve several configs that disagree about a
+    command's kind: the SQL family's `containers` lists schemas on a
+    three-tier source and databases on a two-tier one. A classmethod, so
+    discovery answers it without a recipe and without a connection.
     """
+    declared = getattr(config, "probe_kind_overrides", None)
+    if not callable(declared):
+        return {}
+    return {str(command): str(kind) for command, kind in declared().items()}
+
+
+def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
+    """Every command this source offers, with the kind each one reports."""
     provider_cls = _provider_class(source_type)
     if provider_cls is None:
         return []
-    specs = [spec for _, spec in _iter_specs(provider_cls)]
-    if config_dict is None:
-        return specs
-    overrides_for = getattr(provider_cls, "probe_kind_overrides", None)
-    if not callable(overrides_for):
-        return specs
-    config_cls = config_class_for(source_type)
-    if config_cls is None:
-        return specs
-    try:
-        config = validate_source_config(config_cls, source_type, config_dict)
-    except Exception:
-        # Discovery is connection-free AND recipe-incomplete-free. The config
-        # is built only to ask a classmethod which kind a per-recipe command
-        # reports; a recipe still being written cannot answer that, and the
-        # un-overridden kinds are what a caller passing no config gets anyway.
-        # Failing instead made `probe methods` -- the agent's first call, and
-        # the one that lists the commands telling it what to fix -- exit 2 on
-        # a recipe missing any required field.
-        return specs
-    overrides = overrides_for(config) or {}
+    overrides = declared_kind_overrides(config_class_for(source_type))
     return [
-        replace(spec, kind=str(overrides[spec.command]))
+        replace(spec, kind=overrides[spec.command])
         if spec.command in overrides
         else spec
-        for spec in specs
+        for _, spec in _iter_specs(provider_cls)
     ]
 
 
@@ -843,7 +827,6 @@ def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoRet
 
 @dataclass(frozen=True)
 class _CallOutcome:
-    provider: object
     result: object
     warnings: Set[str]
     failures: Set[str]
@@ -951,7 +934,6 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     ) | _report_entries(provider_report, "failures")
     report_warnings = _report_entries(provider_report, "warnings")
     return _CallOutcome(
-        provider=provider,
         result=result,
         warnings=set(list(provider_warnings) if provider_warnings else [])
         | report_warnings,
@@ -1003,9 +985,8 @@ def run_probe_method(
     # the operator's switch, and it must not depend on the source being
     # reachable.
     _refuse_withheld_passthrough(specs[command], source_type)
-    config = validate_source_config(
-        config_class_for(source_type), source_type, config_dict
-    )
+    config_cls = config_class_for(source_type)
+    config = validate_source_config(config_cls, source_type, config_dict)
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
         raise ProbeArgumentError(
@@ -1029,16 +1010,9 @@ def run_probe_method(
                 source_type=source_type,
             )
         )
-    provider = outcome.provider
     result = outcome.result
     spec = specs[command]
-    # A command whose kind depends on the recipe rather than the class declares it
-    # here: get_schema_names() returns Schemas on a three-tier source and Databases
-    # on a two-tier one, and the same provider class serves both.
-    overrides = getattr(provider, "kind_overrides", None)
-    kind = spec.kind
-    if isinstance(overrides, dict) and command in overrides:
-        kind = str(overrides[command])
+    kind = declared_kind_overrides(config_cls).get(command, spec.kind)
     # Undo the +1 before anything reads it back: `params` is echoed to the
     # caller, and reporting the limit we asked the driver for rather than the
     # one that applies would be a small lie in the field a caller uses to
