@@ -1,8 +1,8 @@
-import { PlusOutlined } from '@ant-design/icons';
 import { Button, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
@@ -20,9 +20,7 @@ const CreateButton = styled(Button)`
         color: ${(props) => props.theme.colors.textHover};
     }
 
-    .anticon-plus {
-        margin-right: 5px;
-    }
+    gap: 5px;
 `;
 
 interface Props {
@@ -62,7 +60,7 @@ function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
     return (
         <>
             <CreateButton onClick={() => setIsCreateModalVisible(true)} type="text">
-                <PlusOutlined /> {t('secret.createButton')}
+                <Plus /> {t('secret.createButton')}
             </CreateButton>
             {isCreateModalVisible && (
                 <SecretBuilderModal

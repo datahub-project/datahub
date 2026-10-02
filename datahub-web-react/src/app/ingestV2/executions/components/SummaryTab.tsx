@@ -1,4 +1,3 @@
-import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,6 +15,7 @@ import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 const Section = styled.div`
     display: flex;
@@ -107,7 +107,7 @@ export const SummaryTab = ({
                         </Button>
                         <Tooltip title={t('executions.downloadLogs')}>
                             <Button variant="text" onClick={downloadLogs}>
-                                <DownloadOutlined />
+                                <DownloadSimple />
                             </Button>
                         </Tooltip>
                     </ButtonGroup>
@@ -131,7 +131,7 @@ export const SummaryTab = ({
                             </Button>
                             <Tooltip title={t('executions.downloadRecipe')}>
                                 <Button variant="text" onClick={downloadRecipe}>
-                                    <DownloadOutlined />
+                                    <DownloadSimple />
                                 </Button>
                             </Tooltip>
                         </ButtonGroup>

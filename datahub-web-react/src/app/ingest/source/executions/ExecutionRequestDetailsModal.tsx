@@ -1,4 +1,3 @@
-import { DownloadOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -22,6 +21,7 @@ import { Message } from '@app/shared/Message';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -207,7 +207,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                             View logs that were collected during the sync.
                         </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
-                            <DownloadOutlined />
+                            <DownloadSimple />
                             Download
                         </Button>
                     </SectionSubHeader>

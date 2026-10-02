@@ -1,7 +1,7 @@
-import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 import { DetailsContainer } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
@@ -40,7 +40,7 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
                 <SubHeaderParagraph>{t('executions.logsSubtitle')}</SubHeaderParagraph>
                 <Tooltip title={t('executions.downloadLogs')}>
                     <Button variant="text" onClick={downloadLogs}>
-                        <DownloadOutlined />
+                        <DownloadSimple />
                     </Button>
                 </Tooltip>
             </SectionSubHeader>

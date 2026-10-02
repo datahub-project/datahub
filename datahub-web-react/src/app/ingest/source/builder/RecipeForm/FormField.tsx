@@ -1,5 +1,6 @@
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { MinusCircle } from '@phosphor-icons/react/dist/csr/MinusCircle';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Checkbox, Form, Input, Select } from 'antd';
 import Button from 'antd/lib/button';
 import React from 'react';
@@ -22,7 +23,7 @@ const StyledButton = styled(Button)`
     width: 80%;
 `;
 
-const StyledRemoveIcon = styled(MinusCircleOutlined)`
+const StyledRemoveIcon = styled(MinusCircle)`
     font-size: 14px;
     margin-left: 10px;
 `;
@@ -51,7 +52,7 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
                             <StyledRemoveIcon onClick={() => remove(item.name)} />
                         </Form.Item>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
+                    <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<Plus />}>
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>
