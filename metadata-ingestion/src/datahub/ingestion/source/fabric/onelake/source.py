@@ -56,6 +56,10 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricView,
     FabricWarehouse,
 )
+from datahub.ingestion.source.fabric.onelake.profiling import (
+    FabricProfileTarget,
+    emit_dataset_profiles,
+)
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
     FabricOneLakeSourceReport,
@@ -138,6 +142,11 @@ class WarehouseSchemaKey(WarehouseKey):
 @support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via `profiling`. Uses the SQL Analytics Endpoint and the "
+    "Microsoft ODBC Driver for SQL Server, the same profiler as `mssql-odbc`.",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -393,7 +402,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         """Process a lakehouse and its tables and views."""
         # Create lakehouse container
         lakehouse_key = LakehouseKey(
@@ -425,6 +434,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
+        profile_targets: list[FabricProfileTarget] = []
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -434,6 +444,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             item_display_name=lakehouse.name,
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
+            profile_targets=profile_targets,
         )
 
         # Process views (requires SQL endpoint)
@@ -451,10 +462,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         self._extract_item_usage(
             workspace.id, lakehouse.id, lakehouse.name, schema_client
         )
+        yield from self._profile_item(
+            workspace.id, lakehouse.id, schema_client, profile_targets
+        )
 
     def _process_warehouse(
         self, workspace: FabricWorkspace, warehouse: FabricWarehouse
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         """Process a warehouse and its tables and views."""
         # Create warehouse container
         warehouse_key = WarehouseKey(
@@ -486,6 +500,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
+        profile_targets: list[FabricProfileTarget] = []
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -495,6 +510,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             item_display_name=warehouse.name,
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
+            profile_targets=profile_targets,
         )
 
         # Process views (requires SQL endpoint)
@@ -511,6 +527,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         self._extract_item_usage(
             workspace.id, warehouse.id, warehouse.name, schema_client
+        )
+        yield from self._profile_item(
+            workspace.id, warehouse.id, schema_client, profile_targets
         )
 
     def _extract_item_usage(
@@ -545,6 +564,48 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             schema_client=schema_client,
         )
 
+    def _profile_item(
+        self,
+        workspace_id: str,
+        item_id: str,
+        schema_client: Optional["SchemaExtractionClient"],
+        profile_targets: list[FabricProfileTarget],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Profile ingested tables on this item's SQL Analytics Endpoint."""
+        if not self.config.is_profiling_enabled() or not profile_targets:
+            return
+        if schema_client is None:
+            self.report.warning(
+                title="Profiling Skipped",
+                message=(
+                    "SQL Analytics Endpoint is unavailable, so table and column "
+                    "profiling was skipped for this item."
+                ),
+                context=f"item_id={item_id}",
+            )
+            return
+        try:
+            engine = schema_client.get_engine(workspace_id, item_id)
+        except Exception as e:
+            self.report.warning(
+                title="Profiling Skipped",
+                message="Failed to open the SQL Analytics Endpoint for profiling.",
+                context=f"item_id={item_id}, error={e}",
+                exc=e,
+            )
+            return
+        yield from emit_dataset_profiles(
+            engine=engine,
+            report=self.report,
+            profiling=self.config.profiling,
+            profile_pattern=self.config.profile_pattern,
+            targets=profile_targets,
+            platform=PLATFORM,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+            field_path_transform=self._norm,
+        )
+
     def _process_item_tables(
         self,
         workspace: FabricWorkspace,
@@ -554,6 +615,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_display_name: str,
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
+        profile_targets: list[FabricProfileTarget],
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -617,6 +679,19 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 # Create table datasets
                 for table in schema_tables:
                     columns = self._get_columns(schema_map, schema_name, table.name)
+                    if self.config.is_profiling_enabled():
+                        profile_targets.append(
+                            FabricProfileTarget(
+                                schema_name=schema_name,
+                                table_name=table.name,
+                                dataset_name=make_table_name(
+                                    workspace.id,
+                                    item_id,
+                                    schema_urn_name,
+                                    self._norm(table.name),
+                                ),
+                            )
+                        )
                     yield from self._create_table_dataset(
                         workspace,
                         item_id,
@@ -732,6 +807,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             self.config.extract_schema.enabled
             or self.config.extract_views
             or self.config.usage.include_usage_statistics
+            or self.config.is_profiling_enabled()
         )
         if not (needs_endpoint and self.config.sql_endpoint):
             return None
@@ -758,16 +834,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             error_msg = str(e)
             logger.warning(
                 f"Failed to initialize SQL Analytics Endpoint for item {item_id}: "
-                f"{error_msg}. If enabled, column-schema, view extraction, and "
-                "usage statistics will be skipped for this item.",
+                f"{error_msg}. If enabled, column-schema, view extraction, "
+                "usage statistics, and profiling will be skipped for this item.",
                 exc_info=True,
             )
             self.report.warning(
                 title="SQL Analytics Endpoint Initialization Failed",
                 message=(
                     "Failed to initialize the SQL Analytics Endpoint client. "
-                    "If enabled, column-schema, view extraction, and usage "
-                    "statistics will be skipped for this item."
+                    "If enabled, column-schema, view extraction, usage "
+                    "statistics, and profiling will be skipped for this item."
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
