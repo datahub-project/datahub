@@ -103,6 +103,13 @@ def test_label_ids_replacing_group_sibling_drops_only_same_group_child():
         "old-ref",
         "release",
     ]
+    # An ungrouped reused label is added without dropping either group's child.
+    assert utils.label_ids_replacing_group_sibling(current, "legacy", None) == [
+        "static",
+        "old-ref",
+        "release",
+        "legacy",
+    ]
 
 
 def test_random_label_color_hex_format():
@@ -153,6 +160,26 @@ def test_get_or_create_label_group_id_respects_create_if_missing(monkeypatch):
         utils.get_or_create_label_group_id("k", "OSS Release", create_if_missing=False)
 
 
+def test_get_or_create_label_group_id_recovers_after_duplicate(monkeypatch):
+    calls = {"n": 0}
+
+    def find_twice(*_args, **_kwargs):
+        calls["n"] += 1
+        return "GRP-RACE" if calls["n"] >= 2 else None
+
+    monkeypatch.setattr(utils, "find_label_group_id", find_twice)
+
+    def fake_create(*_args, **_kwargs):
+        raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
+
+    monkeypatch.setattr(utils, "create_label_group", fake_create)
+    assert (
+        utils.get_or_create_label_group_id("k", "Security Scan", "team-1", create_if_missing=True)
+        == "GRP-RACE"
+    )
+    assert calls["n"] == 2
+
+
 def test_get_or_create_group_child_label_id_recovers_after_duplicate(monkeypatch):
     calls = {"n": 0}
 
@@ -167,19 +194,27 @@ def test_get_or_create_group_child_label_id_recovers_after_duplicate(monkeypatch
         raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
 
     monkeypatch.setattr(utils, "create_group_child_label", fake_create)
-    assert utils.get_or_create_group_child_label_id("k", "GRP", "main") == "LBL-RACE"
+    assert utils.get_or_create_group_child_label_id("k", "GRP", "main") == utils.ResolvedLabel(
+        "LBL-RACE", "GRP"
+    )
     assert calls["n"] == 2
 
 
 def test_get_or_create_group_child_label_id_reuses_name_taken_elsewhere(monkeypatch):
     monkeypatch.setattr(utils, "find_group_child_label_id", lambda *_a, **_k: None)
-    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_a, **_k: "LBL-EXISTING")
+    monkeypatch.setattr(
+        utils,
+        "find_label_id_by_name",
+        lambda *_a, **_k: utils.ResolvedLabel("LBL-EXISTING", "OTHER"),
+    )
 
     def fake_create(*_args, **_kwargs):
         raise AssertionError("create should not run when the label name already exists")
 
     monkeypatch.setattr(utils, "create_group_child_label", fake_create)
-    assert utils.get_or_create_group_child_label_id("k", "GRP", "v1.6.0.3") == "LBL-EXISTING"
+    assert utils.get_or_create_group_child_label_id("k", "GRP", "v1.6.0.3") == utils.ResolvedLabel(
+        "LBL-EXISTING", "OTHER"
+    )
 
 
 def test_get_or_create_group_child_label_id_reraises_when_name_still_missing(monkeypatch):

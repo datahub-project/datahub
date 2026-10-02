@@ -208,14 +208,19 @@ query IssueLabelsWithParents($id: String!) {
 
 
 def label_ids_replacing_group_sibling(
-    current: list[IssueLabelRef], new_label_id: str, group_id: str
+    current: list[IssueLabelRef], new_label_id: str, group_id: str | None
 ) -> list[str]:
     """Current label ids with any other child of ``group_id`` dropped and ``new_label_id`` added.
 
     Linear label groups are exclusive: an issue may carry only one child per group, and
     ``issueUpdate`` rejects a set that contains two. The scan-history comment keeps the full
     list of refs, so replacing the previous child is lossless.
+
+    ``group_id`` is the parent of the label being applied. ``None`` means that label is
+    ungrouped, so every current label stays and the new id is added.
     """
+    if group_id is None:
+        return dedupe_preserve_order([*(ref.id for ref in current), new_label_id])
     kept = [
         ref.id
         for ref in current
@@ -285,25 +290,33 @@ query WorkspaceLabelGroupByName($name: String!) {
     return str(found) if found else None
 
 
-def find_label_id_by_name(api_key: str, label_name: str) -> str | None:
-    """Id of any issue label with this name, regardless of parent or team.
+class ResolvedLabel(NamedTuple):
+    """A label and the group it actually belongs to (``None`` when ungrouped)."""
+
+    id: str
+    parent_id: str | None
+
+
+def find_label_id_by_name(api_key: str, label_name: str) -> ResolvedLabel | None:
+    """Any issue label with this name, regardless of parent or team.
 
     Linear label names are unique in the workspace, so a name taken outside the group we
-    intended still identifies the label to reuse.
+    intended still identifies the label to reuse. The parent is that label's real group.
     """
     q = """
 query IssueLabelByName($name: String!) {
   issueLabels(filter: { name: { eq: $name } }, first: 1) {
-    nodes { id }
+    nodes { id parent { id } }
   }
 }
 """
     data = graphql(api_key, q, {"name": label_name})
     nodes = (data.get("issueLabels") or {}).get("nodes") or []
-    if not nodes:
+    if not nodes or not nodes[0].get("id"):
         return None
-    found = nodes[0].get("id")
-    return str(found) if found else None
+    parent = nodes[0].get("parent") or {}
+    parent_id = parent.get("id")
+    return ResolvedLabel(str(nodes[0]["id"]), str(parent_id) if parent_id else None)
 
 
 def find_group_child_label_id(api_key: str, group_id: str, label_name: str) -> str | None:
@@ -392,40 +405,49 @@ def get_or_create_label_group_id(
         raise
 
 
-def _reuse_existing_label(group_id: str, label_name: str, label_id: str) -> str:
-    print(
-        f"Linear label {label_name!r} already exists ({label_id}); "
-        f"reusing it instead of creating a child of {group_id}"
-    )
-    return label_id
+def _resolve_existing_child_label(
+    api_key: str, group_id: str, label_name: str
+) -> ResolvedLabel | None:
+    """Child of ``group_id`` with this name, or the workspace label when the name is taken.
+
+    A label found outside the group is reused as-is. It is not moved, so callers must use
+    its real parent when replacing group siblings.
+    """
+    child_id = find_group_child_label_id(api_key, group_id, label_name)
+    if child_id:
+        return ResolvedLabel(child_id, group_id)
+    found = find_label_id_by_name(api_key, label_name)
+    if not found:
+        return None
+    if found.parent_id != group_id:
+        print(
+            f"Linear label {label_name!r} already exists ({found.id}) "
+            f"outside group {group_id}; reusing it without moving it"
+        )
+    return found
 
 
 def get_or_create_group_child_label_id(
     api_key: str, group_id: str, label_name: str, team_id: str | None = None
-) -> str:
+) -> ResolvedLabel:
     """Reuse or create ``label_name`` as a child of ``group_id``.
 
     Label names are unique in the workspace. A child of this group is preferred. If the name
-    already exists outside the group, that label is reused instead of failing the sync.
+    already exists outside the group, that label is reused and keeps its current parent.
     """
-    existing = find_group_child_label_id(api_key, group_id, label_name)
+    existing = _resolve_existing_child_label(api_key, group_id, label_name)
     if existing:
         return existing
-    existing_by_name = find_label_id_by_name(api_key, label_name)
-    if existing_by_name:
-        return _reuse_existing_label(group_id, label_name, existing_by_name)
     try:
-        return create_group_child_label(
+        created = create_group_child_label(
             api_key, group_id, label_name, random_label_color_hex(), team_id
         )
+        return ResolvedLabel(created, group_id)
     except RuntimeError as e:
         if is_duplicate_label_error(e):
-            existing_after = find_group_child_label_id(api_key, group_id, label_name)
+            existing_after = _resolve_existing_child_label(api_key, group_id, label_name)
             if existing_after:
                 return existing_after
-            existing_by_name = find_label_id_by_name(api_key, label_name)
-            if existing_by_name:
-                return _reuse_existing_label(group_id, label_name, existing_by_name)
         raise
 
 

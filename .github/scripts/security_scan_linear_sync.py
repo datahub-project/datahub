@@ -27,17 +27,20 @@ Feature summary:
   - Apply a dynamic ref label named after ``SCAN_REF_NAME``. CI sets this to the repository
     default branch when the scanned image tag is ``quickstart``, ``head``, or ``latest``;
     otherwise to the image tag. The label lives in a label group chosen by the ref:
-    - Semantic versions, including release candidates (``vX.Y.Z``, ``vX.Y.Z.W``, optional
-      ``rcN`` / ``-rcN``, optional ``-cloud``), reuse the child of a workspace release group.
-      A ``-cloud`` suffix uses ``Saas Release`` and the tag as the label name. A tag without
-      it uses ``OSS Release`` and the label name ``OSS <tag>`` (for example ``OSS v1.7.0.1``).
-      The group is the one the release workflow creates when a final tag is cut, and it must
-      already exist. An RC child is created under that group when missing.
-    - Non-semantic refs (default branch, ``sha-*`` tags, custom builds) go under the team
-      label group ``Security Scan``. Within that group the last scan wins. The group and the
-      child are created when missing.
-    Label groups are exclusive, so on existing issues the previous child of the same group is
-    replaced; the refs comment keeps the full history.
+    - Tag refs whose names are semantic versions, including release candidates (``vX.Y.Z``,
+      ``vX.Y.Z.W``, optional ``rcN`` / ``-rcN``, optional ``-cloud``), reuse the child of a
+      workspace release group. A ``-cloud`` suffix uses ``Saas Release`` and the tag as the
+      label name. A tag without it uses ``OSS Release`` and the label name ``OSS <tag>``
+      (for example ``OSS v1.7.0.1``). The group is the one the release workflow creates when
+      a final tag is cut, and it must already exist. An RC child is created under that group
+      when missing. A branch is never a release, even when its name looks like a version.
+    - Branch refs, and non-semantic tag refs (default branch, ``sha-*`` tags, custom builds),
+      go under the team label group ``Security Scan``. Within that group the last scan wins.
+      The group and the child are created when missing.
+    Label groups are exclusive, so on existing issues the previous child of the applied
+    label's group is replaced. A reused label that lives outside that group keeps its current
+    parent and is added without dropping the group's existing child. The refs comment keeps
+    the full history.
 - Refs comment tracking:
   - Maintain a single marker comment per issue with deduped branch/tag history for where the
     finding was observed.
@@ -71,6 +74,7 @@ from utils.linear_sync_utils import (
     get_marker_comment_id as _get_marker_comment_id_util,
     get_or_create_group_child_label_id as _get_or_create_group_child_label_id_util,
     get_or_create_label_group_id as _get_or_create_label_group_id_util,
+    ResolvedLabel,
     issue_labels_with_parents as _issue_labels_with_parents_util,
     issue_update_label_ids as _issue_update_label_ids_util,
     label_ids_replacing_group_sibling as _label_ids_replacing_group_sibling_util,
@@ -104,11 +108,7 @@ SECURITY_SCAN_LABEL_GROUP = "Security Scan"
 OSS_RELEASE_LABEL_PREFIX = "OSS "
 CLOUD_RELEASE_SUFFIX = "-cloud"
 
-# Final release tags: vX.Y.Z or vX.Y.Z.W, optionally with the DataHub Cloud -cloud suffix.
-OFFICIAL_RELEASE_TAG_RE = re.compile(
-    rf"^v\d+\.\d+\.\d+(?:\.\d+)?(?:{re.escape(CLOUD_RELEASE_SUFFIX)})?$"
-)
-# Same shape plus an rc marker (v1.2.3rc1, v1.2.3-rc1), still with an optional -cloud suffix.
+# Release tags: vX.Y.Z or vX.Y.Z.W, optional rc (v1.2.3rc1, v1.2.3-rc1), optional -cloud.
 # Anything else (sha-*, branch names, custom builds) is non-semantic.
 SEMANTIC_VERSION_TAG_RE = re.compile(
     rf"^v\d+\.\d+\.\d+(?:\.\d+)?(?:-?rc\d+)?(?:{re.escape(CLOUD_RELEASE_SUFFIX)})?$"
@@ -127,10 +127,15 @@ class ScanRef:
 
 @dataclass(frozen=True)
 class RefLabel:
-    """The ref label to apply and the label group it belongs to."""
+    """The ref label to apply and the group it actually belongs to.
+
+    ``group_id`` is ``None`` when the label is ungrouped. Sibling replacement uses this
+    parent, which can differ from the group the ref was routed to when an existing label
+    is reused in place.
+    """
 
     label_id: str
-    group_id: str
+    group_id: str | None
 
 
 # Trivy rows: (artifact_ref, result_target, class/type, vuln). artifact_ref = scanned image ref for scope.
@@ -141,10 +146,6 @@ SCANNERS: dict[str, ParserFn] = {
     "trivy": parse_trivy_reports,
     "trivy_grype": parse_trivy_grype_merged,
 }
-
-
-def is_official_release_tag(ref_name: str) -> bool:
-    return OFFICIAL_RELEASE_TAG_RE.match(ref_name.strip()) is not None
 
 
 def is_semantic_version_tag(ref_name: str) -> bool:
@@ -166,27 +167,34 @@ def release_label_group_for_tag(ref_name: str) -> str | None:
     return OSS_RELEASE_LABEL_GROUP
 
 
-def ref_label_name(ref_name: str) -> str:
+def ref_label_name(ref_name: str, ref_kind: str = "tag") -> str:
     """Linear child label name for a scan ref.
 
     OSS release tags follow the workspace convention ``OSS v1.7.0.1``. SaaS
-    release tags and non-semantic refs use the ref name itself.
+    release tags, branch refs, and non-semantic refs use the ref name itself.
     """
     name = ref_name.strip()
-    if release_label_group_for_tag(name) == OSS_RELEASE_LABEL_GROUP:
+    if ref_kind == "tag" and release_label_group_for_tag(name) == OSS_RELEASE_LABEL_GROUP:
         return f"{OSS_RELEASE_LABEL_PREFIX}{name}"
     return name
 
 
-def _resolve_ref_label(api_key: str, team_id: str, ref_name: str) -> RefLabel:
-    """Pick the label group for ``ref_name`` and reuse or create the child label under it."""
-    release_group = release_label_group_for_tag(ref_name)
-    label_name = ref_label_name(ref_name)
+def _resolve_ref_label(
+    api_key: str, team_id: str, ref_name: str, ref_kind: str = "tag"
+) -> RefLabel:
+    """Pick the label group for ``ref_name`` and reuse or create the child label under it.
+
+    Release groups apply only to tag refs. The returned group is the parent of the label
+    that was found or created, which is the routed group unless an existing label was reused.
+    """
+    label_name = ref_label_name(ref_name, ref_kind)
+    release_group = release_label_group_for_tag(ref_name) if ref_kind == "tag" else None
+    resolved: ResolvedLabel
     if release_group:
         group_id = _get_or_create_label_group_id_util(
             api_key, release_group, None, create_if_missing=False
         )
-        label_id = _get_or_create_group_child_label_id_util(
+        resolved = _get_or_create_group_child_label_id_util(
             api_key, group_id, label_name
         )
         print(f"Linear ref label {label_name!r}: workspace group {release_group!r}")
@@ -194,13 +202,13 @@ def _resolve_ref_label(api_key: str, team_id: str, ref_name: str) -> RefLabel:
         group_id = _get_or_create_label_group_id_util(
             api_key, SECURITY_SCAN_LABEL_GROUP, team_id, create_if_missing=True
         )
-        label_id = _get_or_create_group_child_label_id_util(
+        resolved = _get_or_create_group_child_label_id_util(
             api_key, group_id, label_name, team_id
         )
         print(
-            f"Linear ref label {ref_name!r}: team group {SECURITY_SCAN_LABEL_GROUP!r}"
+            f"Linear ref label {label_name!r}: team group {SECURITY_SCAN_LABEL_GROUP!r}"
         )
-    return RefLabel(label_id=label_id, group_id=group_id)
+    return RefLabel(label_id=resolved.id, group_id=resolved.parent_id)
 
 
 def _create_issue_relations_cve_or_pkg(
@@ -361,7 +369,7 @@ def main() -> int:
         )
         return 1
     scan_ref = ScanRef(kind=kind, name=name)
-    ref_label = _resolve_ref_label(api_key, team_id, scan_ref.name)
+    ref_label = _resolve_ref_label(api_key, team_id, scan_ref.name, scan_ref.kind)
 
     initial_state_id = _resolve_issue_create_state_id_from_linear_util(
         api_key, team_id, os.environ.get("LINEAR_ISSUE_STATE_ID", "").strip()

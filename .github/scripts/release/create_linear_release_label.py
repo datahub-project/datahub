@@ -75,6 +75,20 @@ def find_existing_label_id(api_key: str, name: str, parent_id: str) -> str | Non
     return nodes[0]["id"] if nodes else None
 
 
+def find_label_id_by_name(api_key: str, name: str) -> str | None:
+    """Id of any workspace label with this name. Linear label names are unique."""
+    query = """
+        query($name: String!) {
+          issueLabels(filter: { name: { eq: $name } }, first: 1) {
+            nodes { id }
+          }
+        }
+    """
+    data = graphql(api_key, query, {"name": name})
+    nodes = data["issueLabels"]["nodes"]
+    return nodes[0]["id"] if nodes else None
+
+
 def create_label(api_key: str, name: str, parent_id: str, description: str) -> str:
     query = """
         mutation($name: String!, $parent: String!, $description: String) {
@@ -123,6 +137,12 @@ def run(tag: str, group_name: str) -> int:
     existing_id = find_existing_label_id(api_key, label_name, group_id)
     if existing_id:
         print(f"Label '{label_name}' already exists under '{group_name}' (id: {existing_id}), nothing to do")
+        return 0
+    existing_id = find_label_id_by_name(api_key, label_name)
+    if existing_id:
+        print(
+            f"Label '{label_name}' already exists in the workspace (id: {existing_id}); reusing it"
+        )
         return 0
 
     new_id = create_label(

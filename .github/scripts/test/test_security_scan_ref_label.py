@@ -19,29 +19,6 @@ sys.modules["security_scan_linear_sync"] = sync
 spec.loader.exec_module(sync)
 
 
-@pytest.mark.parametrize(
-    "ref_name",
-    ["v2.3.0-cloud", "v2.3.0.1-cloud", "v1.7.0", "v1.7.0.1"],
-)
-def test_official_release_tags(ref_name):
-    assert sync.is_official_release_tag(ref_name)
-
-
-@pytest.mark.parametrize(
-    "ref_name",
-    [
-        "v2.3.0rc1-cloud",
-        "v1.7.0rc1",
-        "sha-abc1234",
-        "master",
-        "acryl-main",
-        "v1.0.0-cx42-06",
-    ],
-)
-def test_non_release_refs(ref_name):
-    assert not sync.is_official_release_tag(ref_name)
-
-
 def _stub_groups(monkeypatch, seen: dict):
     def fake_group(_api_key, group_name, team_id=None, *, create_if_missing):
         seen["group"] = (group_name, team_id, create_if_missing)
@@ -49,7 +26,7 @@ def _stub_groups(monkeypatch, seen: dict):
 
     def fake_child(_api_key, group_id, label_name, team_id=None):
         seen["child"] = (group_id, label_name, team_id)
-        return f"label:{label_name}"
+        return sync.ResolvedLabel(f"label:{label_name}", group_id)
 
     monkeypatch.setattr(sync, "_get_or_create_label_group_id_util", fake_group)
     monkeypatch.setattr(sync, "_get_or_create_group_child_label_id_util", fake_child)
@@ -123,6 +100,16 @@ def test_rc_uses_release_group_not_security_scan(monkeypatch):
     assert out == sync.RefLabel("label:v2.3.0rc1-cloud", "group:Saas Release")
     assert seen["group"] == ("Saas Release", None, False)
     assert seen["child"] == ("group:Saas Release", "v2.3.0rc1-cloud", None)
+
+
+def test_version_named_branch_stays_in_security_scan(monkeypatch):
+    seen: dict = {}
+    _stub_groups(monkeypatch, seen)
+    out = sync._resolve_ref_label("k", "team-1", "v1.7.0.1", "branch")
+    assert out == sync.RefLabel("label:v1.7.0.1", "group:Security Scan")
+    assert seen["group"] == ("Security Scan", "team-1", True)
+    assert seen["child"] == ("group:Security Scan", "v1.7.0.1", "team-1")
+    assert sync.ref_label_name("v1.7.0.1", "branch") == "v1.7.0.1"
 
 
 @pytest.mark.parametrize("ref_name", ["master", "acryl-main", "sha-abc1234"])
