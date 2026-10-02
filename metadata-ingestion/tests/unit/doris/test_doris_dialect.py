@@ -668,27 +668,33 @@ class TestDorisComments:
 
         assert table_comment == {"text": "Parsed"}
 
-    def test_external_catalog_matches_bare_and_qualified_database_name(self, mock_text):
+    @pytest.mark.parametrize("table_schema", ["my_db", "my_catalog.my_db"])
+    def test_external_catalog_matches_bare_and_qualified_database_name(
+        self, mock_text, table_schema
+    ):
         """An external catalog's information_schema rows carry the bare database
         name, or `catalog.database` when show_full_dbname_in_info_schema_db is on."""
         dialect = DorisDialect()
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_catalog.my_db"
-        mock_connection.execute.side_effect = _execute_by_query(
-            column_comment_rows=[("my_table", "col_a", "From the catalog")],
-        )
+        describe = _execute_by_query()
+
+        # Like Doris, return a row only when its TABLE_SCHEMA is one of the bound values.
+        def execute(
+            statement: str, params: Optional[Dict[str, Any]] = None
+        ) -> List[Sequence[Any]]:
+            if "information_schema.COLUMNS" not in statement:
+                return describe(statement, params)
+            assert params is not None
+            if table_schema not in params.values():
+                return []
+            return [("my_table", "col_a", "From the catalog")]
+
+        mock_connection.execute.side_effect = execute
 
         columns = self._get_columns(dialect, mock_connection, "my_table")
 
         assert columns[0]["comment"] == "From the catalog"
-        comment_calls = [
-            call
-            for call in mock_connection.execute.call_args_list
-            if "information_schema" in call.args[0]
-        ]
-        assert [call.args[1] for call in comment_calls] == [
-            {"database": "my_db", "qualified_database": "my_catalog.my_db"}
-        ]
 
     def test_failed_lookup_keeps_columns_and_is_recorded_once(self, mock_text):
         """A missing information_schema grant costs descriptions, not tables, and
