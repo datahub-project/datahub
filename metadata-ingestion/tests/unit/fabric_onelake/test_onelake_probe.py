@@ -687,3 +687,10 @@ def test_exit_closes_the_rest_session_even_if_a_sql_client_close_fails() -> None
     with pytest.raises(RuntimeError):
         probe.__exit__(None, None, None)
     assert rest.closed
+
+
+def test_a_case_only_workspace_miss_names_the_listed_spelling() -> None:
+    probe, _ = _probe()
+    with pytest.raises(ValueError, match="did you mean 'sales-ws'"):
+        probe.lakehouses(workspace="SALES-WS")
+    assert probe.failures == []
