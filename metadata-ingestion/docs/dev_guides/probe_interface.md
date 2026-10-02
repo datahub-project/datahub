@@ -178,20 +178,21 @@ every call site:
 - **Every log line not written by the framework is scrubbed** while a probe or
   `test-connection` runs, with its traceback dropped, including under `datahub --debug`.
   The guard rewrites each record as logging creates it, so that includes loggers and
-  handlers a library creates mid-probe, and `warnings.warn` text: warning capture is on
-  while the guard runs. `test-connection`'s guard also covers importing the source. Two
-  cases bypass it: a `Logger` subclass that overrides `makeRecord`, and code that builds
-  a `LogRecord` itself and hands it to a handler. Only the framework's own loggers
+  handlers a library creates mid-probe, and `warnings.warn` text: warnings are routed to
+  logging while the guard runs. `test-connection`'s guard also covers importing the
+  source. Not covered: a `Logger` subclass that overrides `makeRecord`, code that builds a
+  `LogRecord` itself and hands it to a handler, and `extra=` fields, which only a
+  formatter that names them prints. Only the framework's own loggers
   (`datahub.ingestion.agent`, `datahub.cli`, `datahub.masking`, `datahub.entrypoints`,
-  `datahub.telemetry`) pass as logged. The guard scrubs but does not change levels: how
-  much shows is the host's logging config (the CLI shows other libraries at `WARNING`,
-  `INFO` under `--debug`), and your provider's own `logger.debug` shows under `--debug`,
-  scrubbed. Scrubbing works by shape, so if your reused code logs values that have none
-  (a cluster's connector config, a response body), list its loggers in the provider's
-  `silenced_loggers` and their records are dropped instead. Never call `setLevel` on them yourself: that is
-  process-global and outlives a failed `__exit__`. Set
-  `DATAHUB_PROBE_VERBOSE_LOGS=1` to see those logs unscrubbed when debugging a
-  connector locally.
+  `datahub.telemetry`) pass as logged. Other than for `silenced_loggers` (below), the
+  guard scrubs without changing levels: how much shows is the host's logging config (the
+  CLI shows other libraries at `WARNING`, `INFO` under `--debug`), and your provider's own
+  `logger.debug` shows under `--debug`, scrubbed. Scrubbing works by shape, so if your
+  reused code logs values that have none (a cluster's connector config, a response body),
+  list its loggers in the provider's `silenced_loggers` and their records are dropped
+  instead. Never call `setLevel` on them yourself: that is process-global and outlives a
+  failed `__exit__`. Set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see those logs unscrubbed when
+  debugging a connector locally.
 
 **A source type that validates differently from its config class.** Some registered
 names share one config class and differ only in the pydantic context their `create()`

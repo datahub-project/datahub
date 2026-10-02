@@ -1843,6 +1843,9 @@ def test_test_connection_keeps_reused_logs_scrubbed(
         _LoggingTestableSource,
         raising=False,
     )
+    if not debug:
+        # tests/conftest.py turns DATAHUB_DEBUG on for the whole run.
+        monkeypatch.delenv("DATAHUB_DEBUG", raising=False)
     args = ["--debug"] if debug else []
     res = CliRunner().invoke(
         _real_cli_logging,

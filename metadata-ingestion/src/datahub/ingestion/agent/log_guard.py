@@ -1,12 +1,12 @@
 import logging
 import threading
+import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, Sequence, Set, Tuple
+from typing import Callable, Dict, Iterator, Optional, Sequence, Set, Tuple
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
-from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 # Loggers whose text the framework writes itself, and so may show as logged,
 # tracebacks included. Every other record is reused code -- a source, a
@@ -30,7 +30,8 @@ def _under(name: str, prefixes: Tuple[str, ...]) -> bool:
 
 @dataclass(eq=False)
 class _Guard:
-    # The caller's set, not a copy: the CLI masks its own output against it.
+    # The caller's set, not a copy, so a value it adds while the guard is open
+    # is scrubbed too.
     secrets: Set[str]
     silenced: Tuple[str, ...]
 
@@ -78,6 +79,8 @@ class _Active:
         self.lock = threading.Lock()
         self.guards: Tuple[_Guard, ...] = ()
         self.turned_on_capture = False
+        # The showwarning put aside while logging's own is put back in front.
+        self.bypass: Optional[Callable[..., None]] = None
         # Each silenced logger's level before the first open guard naming it.
         self.saved_levels: Dict[str, int] = {}
 
@@ -87,9 +90,7 @@ class _Active:
             current = logging.getLogRecordFactory()
             if not isinstance(current, _Scrubbing):
                 logging.setLogRecordFactory(_Scrubbing(current))
-            if getattr(logging, "_warnings_showwarning", None) is None:
-                logging.captureWarnings(True)
-                self.turned_on_capture = True
+            self._capture_warnings()
             for name in guard.silenced:
                 logger = logging.getLogger(name)
                 if name not in self.saved_levels and logger.level < _SILENT:
@@ -115,6 +116,25 @@ class _Active:
             if self.turned_on_capture:
                 logging.captureWarnings(False)
                 self.turned_on_capture = False
+            if self.bypass is not None:
+                if warnings.showwarning is getattr(logging, "_showwarning", None):
+                    warnings.showwarning = self.bypass
+                self.bypass = None
+
+    def _capture_warnings(self) -> None:
+        # Judged by what warnings calls, not by logging's flag alone: the flag
+        # stays set after a catch_warnings block that turned capture on exits,
+        # or after a library puts its own showwarning in, and then
+        # captureWarnings(True) does nothing while warnings print raw.
+        to_logging = getattr(logging, "_showwarning", None)
+        if warnings.showwarning is to_logging:
+            return
+        if getattr(logging, "_warnings_showwarning", None) is None:
+            logging.captureWarnings(True)
+            self.turned_on_capture = True
+        elif to_logging is not None:
+            self.bypass = warnings.showwarning
+            warnings.showwarning = to_logging
 
 
 _ACTIVE = _Active()
@@ -130,27 +150,28 @@ def quiet_reused_logs(
     (setLogRecordFactory): message scrubbed with `secret_values`, args,
     exc_info and stack_info cleared. That covers loggers and handlers created
     mid-probe, non-propagating loggers, lastResort, and Logger subclasses
-    that do not override makeRecord; warning capture is on meanwhile, so
-    warnings.warn is covered as `py.warnings`.
+    that do not override makeRecord; warnings.warn is routed to logging
+    meanwhile, so it is covered as `py.warnings`.
 
     `silenced` loggers (code that logs source values with no credential
     shape) are raised above CRITICAL: they and children inheriting the level
-    make no records, and a child with its own level is still scrubbed. Naming
-    a framework logger or an ancestor of one is a provider defect.
+    make no records, and a child with its own level is still scrubbed.
 
     Not covered: a record built directly (LogRecord(...), makeLogRecord) and
-    handed to a handler; capture someone else turns on mid-guard goes off
-    with the last guard. Guards may nest or close in any order, and all is
-    undone on exit. DATAHUB_PROBE_VERBOSE_LOGS=1 turns the guard off.
+    handed to a handler; fields passed as `extra=`, which makeRecord adds
+    after the factory runs (a JSON formatter, or a DATAHUB_LOG_CONFIG_FILE
+    format naming them, prints them); a record factory installed mid-guard
+    that does not call the one it replaced, which turns scrubbing off until
+    the next guard opens; and a silenced logger whose level is reset
+    mid-guard, which is then only scrubbed.
+
+    Guards may nest or close in any order. When the last one closes,
+    exception or not, its factory comes out unless a third party's wrapper
+    sits over it (left there, it passes records through); warning capture it
+    turned on goes off, with any capture turned on by someone else meanwhile;
+    and each silenced level is restored unless someone else changed it.
+    DATAHUB_PROBE_VERBOSE_LOGS=1 turns the guard off.
     """
-    for name in silenced:
-        if name in ("", logging.root.name) or any(
-            _under(name, (f,)) or _under(f, (name,)) for f in FRAMEWORK_LOGGERS
-        ):
-            raise ProbeInternalError(
-                f"silenced_loggers cannot name '{name}': it would hide the probe "
-                f"framework's own logs; this is a defect in the probe provider"
-            )
     if get_probe_verbose_logs():
         yield
         return

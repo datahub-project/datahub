@@ -341,6 +341,42 @@ def test_warnings_warn_is_scrubbed_under_prior_capture_which_is_left_on(
         logging.captureWarnings(was_capturing)
 
 
+@pytest.mark.usefixtures("warnings_not_captured")
+@pytest.mark.parametrize("bypassed_by", ["a_catch_warnings_block", "a_library"])
+def test_warnings_warn_is_scrubbed_when_capture_is_on_but_bypassed(
+    bypassed_by: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """logging still reports capture as on, but warnings no longer reach it:
+    capture was turned on inside a catch_warnings block that has since put
+    its showwarning back, or a library installed its own printer since."""
+    caplog.set_level(logging.DEBUG)
+    printed: List[str] = []
+    if bypassed_by == "a_catch_warnings_block":
+        with warnings.catch_warnings():
+            logging.captureWarnings(True)
+    else:
+        logging.captureWarnings(True)
+        warnings.showwarning = lambda message, *args, **kwargs: printed.append(
+            str(message)
+        )
+    bypassing = warnings.showwarning
+    try:
+        # Not record=True: that would put warnings' own printer in front.
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            with quiet_reused_logs(set()):
+                warnings.warn(
+                    f"retrying password={SENTINEL}", UserWarning, stacklevel=1
+                )
+            assert warnings.showwarning is bypassing
+        assert printed == []
+        assert "retrying" in caplog.text
+        assert SENTINEL not in caplog.text
+        assert _capturing_warnings()
+    finally:
+        logging.captureWarnings(False)
+
+
 def test_a_silenced_logger_and_its_inheriting_children_are_dropped(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -369,24 +405,6 @@ def test_a_silenced_logger_and_its_inheriting_children_are_dropped(
     assert "kept" in caplog.text
     logging.getLogger("datahub.ingestion.source.leaky").warning("after the guard")
     assert "after the guard" in caplog.text
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "datahub.ingestion.agent",
-        "datahub.cli.recipe_cli",
-        # Ancestors: framework loggers inherit their level.
-        "datahub.ingestion",
-        "datahub",
-        "root",
-    ],
-)
-def test_silencing_a_framework_logger_is_a_defect(name: str) -> None:
-    before = _logging_state()
-    with pytest.raises(ProbeInternalError), quiet_reused_logs(set(), silenced=(name,)):
-        pass
-    _assert_restored(before)
 
 
 def test_a_logger_silenced_by_two_guards_stays_silent_until_both_close(
@@ -434,6 +452,12 @@ def test_everything_is_restored_when_the_guarded_code_raises() -> None:
         _assert_restored(before)
     finally:
         logging.getLogger(name).setLevel(logging.NOTSET)
+
+
+def test_every_open_guards_secrets_are_scrubbed() -> None:
+    with quiet_reused_logs({"PLANTED-outer"}), quiet_reused_logs({"PLANTED-inner"}):
+        assert _scrubbed_by_the_guard("some_lib.two_open", "PLANTED-outer")
+        assert _scrubbed_by_the_guard("some_lib.two_open", "PLANTED-inner")
 
 
 def test_guards_closing_out_of_order_keep_the_open_one_scrubbing() -> None:
@@ -617,10 +641,6 @@ class _MisdeclaredProvider:
         return [{"name": "t"}]
 
 
-class _FrameworkSilencingProvider(_SilencingProvider):
-    silenced_loggers = ("datahub.ingestion.agent",)
-
-
 def test_run_probe_method_drops_a_providers_silenced_loggers(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -654,13 +674,52 @@ def test_probe_run_keeps_silencing_under_the_clis_own_guard(
     assert SENTINEL not in result.output
 
 
-@pytest.mark.parametrize(
-    "provider", [_MisdeclaredProvider, _FrameworkSilencingProvider]
-)
 def test_a_misdeclared_silenced_loggers_is_a_defect(
-    provider: type, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(pm, "_provider_class", lambda st: provider)
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _MisdeclaredProvider)
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     with pytest.raises(ProbeInternalError):
         pm.run_probe_method("x", {}, "tables", {})
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "datahub.ingestion.agent",
+        "datahub.cli.recipe_cli",
+        # Ancestors: framework loggers inherit their level.
+        "datahub.ingestion",
+        "datahub",
+        "root",
+    ],
+)
+def test_silencing_a_framework_logger_is_a_defect(
+    name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = type("_Provider", (_SilencingProvider,), {"silenced_loggers": (name,)})
+    monkeypatch.setattr(pm, "_provider_class", lambda st: provider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
+    before = _logging_state()
+    with pytest.raises(ProbeInternalError, match="silenced_loggers cannot name"):
+        pm.run_probe_method("x", {}, "tables", {})
+    _assert_restored(before)
+
+
+class _FrameworkSilencingProvider(_SilencingProvider):
+    silenced_loggers = ("datahub.ingestion.agent",)
+
+
+def test_probe_run_exits_1_when_a_provider_silences_the_framework(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    recipe = tmp_path / "recipe.yml"
+    recipe.write_text(
+        yaml.safe_dump({"source": {"type": RESOLVABLE_SOURCE, "config": {}}})
+    )
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _FrameworkSilencingProvider)
+    result = CliRunner().invoke(
+        recipe_group, ["probe", "run", "tables", "--recipe", str(recipe)]
+    )
+    assert result.exit_code == 1, result.output
+    assert "silenced_loggers cannot name 'datahub.ingestion.agent'" in result.output

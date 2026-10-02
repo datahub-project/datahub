@@ -34,7 +34,7 @@ from datahub.ingestion.agent.error_policy import (
     withheld_text,
     withhold_foreign_text,
 )
-from datahub.ingestion.agent.log_guard import quiet_reused_logs
+from datahub.ingestion.agent.log_guard import FRAMEWORK_LOGGERS, quiet_reused_logs
 from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -393,7 +393,9 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
 
     Refused unless it is a tuple or list of logger names: a bare string is the
     likely slip, and iterating it would silence one-letter loggers while the
-    one meant stayed audible.
+    one meant stayed audible. Also refused: a framework logger, one under it,
+    or an ancestor it inherits its level from (the root included), so a
+    provider can never hide the probe's own diagnostics.
     """
     declared = getattr(provider_cls, "silenced_loggers", ())
     if not isinstance(declared, (tuple, list)) or not all(
@@ -404,6 +406,16 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
             f"of logger names, got {type(declared).__name__}; this is a defect in "
             f"the probe provider"
         )
+    for name in declared:
+        # logging.getLogger("root") is the root logger.
+        if name == "root" or any(
+            name == f or name.startswith(f + ".") or f.startswith(name + ".")
+            for f in FRAMEWORK_LOGGERS
+        ):
+            raise ProbeInternalError(
+                f"silenced_loggers cannot name '{name}': it would hide the probe "
+                f"framework's own logs; this is a defect in the probe provider"
+            )
     return tuple(declared)
 
 
