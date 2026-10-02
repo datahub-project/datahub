@@ -112,16 +112,17 @@ class GenericProfiler:
             # A non-FULL_TABLE partition spec means the profiler measured only part
             # of the dataset -- one partition, or a TABLESAMPLE materialized into a
             # temp table. Column statistics necessarily describe just that subset,
-            # but rowCount is a property of the dataset, so it comes from the source
-            # metadata instead of the subset that was scanned. Deliberate since
-            # #8902; see docs/dev_guides/sql_profiles.md.
+            # but DatasetProfile.rowCount is "the total number of rows" of the
+            # dataset, so it comes from the source metadata rather than from the
+            # subset that was scanned. Deliberate since #8902; see
+            # docs/dev_guides/sql_profiles.md.
             #
-            # Only when the metadata actually has a count: overwriting with None
-            # would discard the measured count and emit no row count at all.
+            # Assigning None when the metadata has no count is intentional: the
+            # field is optional precisely so "unknown" can be expressed, and the
+            # subset's own size is not an answer to the question it asks.
             if (
                 profile.partitionSpec
                 and profile.partitionSpec.type != PartitionType.FULL_TABLE
-                and request.table.rows_count is not None
             ):
                 profile.rowCount = request.table.rows_count
 

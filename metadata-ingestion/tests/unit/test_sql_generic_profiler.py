@@ -1,10 +1,9 @@
-"""The rowCount contract for profiles that only measured part of a dataset.
+"""The rowCount contract for profiles that measured only part of a dataset.
 
 A non-FULL_TABLE partition spec means the profiler scanned a sample or a single
-partition. `rowCount` is then taken from the source metadata rather than from
-what was scanned, while the column statistics still describe only the scanned
-rows. Nothing in this repo covered that until now -- it was guaranteed only by
-the goldens of an external integration-test repo.
+partition. `rowCount` then comes from the source metadata rather than from what
+was scanned, while the column statistics still describe only the scanned rows.
+Previously untested: no golden in this repo contains a non-FULL_TABLE profile.
 """
 
 from typing import Iterable, List, Optional, Tuple
@@ -33,36 +32,30 @@ SAMPLED_PARTITION = PartitionSpecClass(
 
 
 class _StubProfiler(GenericProfiler):
-    """A GenericProfiler whose column profiler returns a canned profile."""
+    """A GenericProfiler whose column profiler hands back one canned profile."""
 
     def __init__(self, profile: DatasetProfileClass) -> None:
         super().__init__(
-            config=SQLAlchemyGenericConfig(
-                platform="mydb", connect_uri="sqlite:///:memory:"
-            ),
+            config=SQLAlchemyGenericConfig(platform="mydb", connect_uri="sqlite://"),
             report=SQLSourceReport(),
             platform="mydb",
         )
-        self._profile = profile
+        self.profile = profile
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return f"{db_name}.{schema_name}.{table_name}"
 
-    def get_profiler_instance(self, db_name: Optional[str] = None):  # type: ignore[no-untyped-def,override]
-        canned = self._profile
+    def get_profiler_instance(self, db_name: Optional[str] = None) -> "_StubProfiler":  # type: ignore[override]
+        return self
 
-        class _Inner:
-            def generate_profiles(
-                self,
-                requests: List[ProfilerRequest],
-                max_workers: int,
-                platform: Optional[str] = None,
-                profiler_args: Optional[dict] = None,
-            ) -> Iterable[Tuple[ProfilerRequest, DatasetProfileClass]]:
-                for request in requests:
-                    yield request, canned
-
-        return _Inner()
+    def generate_profiles(
+        self,
+        requests: List[ProfilerRequest],
+        max_workers: int,
+        platform: Optional[str] = None,
+        profiler_args: Optional[dict] = None,
+    ) -> Iterable[Tuple[ProfilerRequest, DatasetProfileClass]]:
+        return [(request, self.profile) for request in requests]
 
 
 def _emit(
@@ -118,11 +111,13 @@ def test_sampled_partition_reports_the_whole_tables_row_count() -> None:
     )
 
 
-def test_no_metadata_row_count_keeps_the_measured_count() -> None:
-    # Nothing to substitute, so the sample's own count is better than nothing.
+def test_no_metadata_row_count_emits_no_row_count() -> None:
+    # rowCount is the dataset's total, so the sample's size is not a fallback for
+    # it. Unknown is expressible -- the field is optional -- and that is what a
+    # sampled view or external table gets.
     assert (
         _emit(SAMPLED, measured_row_count=1000, metadata_rows_count=None).rowCount
-        == 1000
+        is None
     )
 
 
