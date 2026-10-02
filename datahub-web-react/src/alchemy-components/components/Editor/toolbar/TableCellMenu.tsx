@@ -30,11 +30,7 @@ export const TableCellMenu = () => {
 
     const menu = (
         <Menu>
-            <Menu.Item
-                icon={<Plus />}
-                disabled={active.tableHeaderCell()}
-                onClick={() => commands.addTableRowBefore()}
-            >
+            <Menu.Item icon={<Plus />} disabled={active.tableHeaderCell()} onClick={() => commands.addTableRowBefore()}>
                 {t('editor.table.insertRowAbove')}
             </Menu.Item>
             <Menu.Item icon={<Plus />} onClick={() => commands.addTableRowAfter()}>
@@ -47,11 +43,7 @@ export const TableCellMenu = () => {
                 {t('editor.table.insertColumnRight')}
             </Menu.Item>
             <Menu.Divider />
-            <Menu.Item
-                icon={<Trash />}
-                disabled={active.tableHeaderCell()}
-                onClick={() => commands.deleteTableRow()}
-            >
+            <Menu.Item icon={<Trash />} disabled={active.tableHeaderCell()} onClick={() => commands.deleteTableRow()}>
                 {t('editor.table.deleteRow')}
             </Menu.Item>
             <Menu.Item icon={<Trash />} onClick={() => commands.deleteTableColumn()}>
@@ -64,12 +56,6 @@ export const TableCellMenu = () => {
     );
 
     return (
-        <StyledDropdownButton
-            size="small"
-            icon={<CaretDown />}
-            placement="bottomLeft"
-            overlay={menu}
-            type="primary"
-        />
+        <StyledDropdownButton size="small" icon={<CaretDown />} placement="bottomLeft" overlay={menu} type="primary" />
     );
 };

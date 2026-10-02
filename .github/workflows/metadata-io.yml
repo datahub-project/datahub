@@ -39,7 +39,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name == 'release' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name == 'release' }}
@@ -57,7 +57,7 @@ jobs:
   # legs restore — otherwise each of the 7 legs recompiles the whole dependency graph from cold.
   # Also gates codegen freshness here (a whole-module property, no need to repeat it per suite).
   metadata-io-seed:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: setup
     if: ${{ needs.setup.outputs.backend_change == 'true' }}
@@ -101,7 +101,7 @@ jobs:
         run: ./gradlew :metadata-io:testClasses --build-cache
 
   build-metadata-io:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [setup, metadata-io-seed]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.backend_change == 'true' }}
@@ -217,7 +217,7 @@ jobs:
   # ensure-codegen-updated is just `git status`, so codegen must actually run first: restore the
   # seed's build cache and compile FROM-CACHE (fast) to materialize generated sources, then diff.
   codegen-check:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [setup, metadata-io-seed]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.backend_change == 'true' }}
@@ -251,7 +251,7 @@ jobs:
         uses: ./.github/actions/ensure-codegen-updated
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Upload
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
