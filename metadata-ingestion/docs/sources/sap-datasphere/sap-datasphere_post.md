@@ -140,8 +140,15 @@ keeps EDMX schema and labels). Design-time-only assets get schema and
 lineage from their CSN. Set `discover_unexposed_views: false` for
 catalog-only discovery. No-op when `expose_for_consumption_only: true`.
 
+Each discovered asset is routed by its own CSN, like a catalog asset: one
+whose `@remote.source` connection is mapped emits on that platform even
+when `_managed` is disabled, and unmapped ones land in the usual
+`assets_skipped_*` report lists. If a space's catalog listing fails, discovery
+is skipped for that space, since exposure can't be determined.
+
 Cost: one list call per type per space, plus one CSN fetch per newly
-discovered asset. Reported under `report.non_consumption_views_emitted`.
+discovered asset (parallelized by `max_workers_assets`). Reported under
+`report.non_consumption_views_emitted`.
 
 #### Local Tables (base tables)
 
@@ -241,8 +248,10 @@ commands (`datasphere objects <type> list|read`):
 - `/api/v1/datasphere/consumption/relational/.../$metadata` — EDMX schema
 - `/api/v1/datasphere/spaces/X/connections` — Connections API
 - `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables,remotetables}` —
-  per-type design-time listing (bare JSON array of `{technicalName}`; used when
-  the matching `include_*` flag is set). The `localtables` list shape was
+  per-type design-time listing (bare JSON array of `{technicalName}`). `views`
+  and `analyticmodels` are listed when `discover_unexposed_views` is on (and
+  `expose_for_consumption_only` is off); `localtables` / `remotetables` when
+  `include_local_tables` / `include_remote_tables` is set. The `localtables` list shape was
   verified against a live tenant; `views` / `analyticmodels` listing follows
   the same CLI object-type contract (`datasphere objects views list`,
   `datasphere objects analytic-models list`).

@@ -1039,22 +1039,3 @@ def test_discover_unexposed_views_does_not_relabel_views_when_catalog_listing_fa
     for props in _dataset_properties_by_urn(workunits).values():
         for p in props:
             assert p.customProperties.get("exposed_for_consumption") != "false"
-
-
-def test_discover_unexposed_views_no_managed_warning_for_space_without_views() -> None:
-    with rm_module.Mocker() as m:
-        _install_lineage_mocks(m)
-        source, _ = _run_lineage_source(
-            m,
-            connection_to_platform_map={
-                "_managed": {"platform": "sap-datasphere", "enabled": False}
-            },
-        )
-
-    # /views and /analyticmodels are empty, so there is nothing to warn about.
-    warnings = [
-        f"{w.title} {w.message}"
-        for w in source.report.warnings
-        if "non-consumption" in f"{w.title} {w.message}"
-    ]
-    assert not warnings, warnings

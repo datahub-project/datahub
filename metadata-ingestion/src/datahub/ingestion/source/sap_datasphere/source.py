@@ -2,6 +2,7 @@ import itertools
 import json
 import logging
 from typing import (
+    Callable,
     ClassVar,
     Dict,
     Iterable,
@@ -11,6 +12,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
@@ -200,7 +202,10 @@ _FLOW_EMITTED_ATTR: Dict[str, str] = {
 }
 
 
-def _chunked(iterable: Iterable[Dict], size: int) -> Iterator[List[Dict]]:
+_T = TypeVar("_T")
+
+
+def _chunked(iterable: Iterable[_T], size: int) -> Iterator[List[_T]]:
     # Lazy chunking keeps peak memory bounded: only the current chunk is materialized.
     iterator = iter(iterable)
     while True:
@@ -344,7 +349,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         try:
             for asset in self._client.list_assets(space_name):
                 if isinstance(asset, dict) and asset.get(CATALOG_FIELD_NAME):
-                    listing.names.add(asset[CATALOG_FIELD_NAME])
+                    listing.dataset_names.add(
+                        self._build_dataset_name(space_name, asset[CATALOG_FIELD_NAME])
+                    )
                 yield asset
         except requests.RequestException as e:
             listing.failed = True
@@ -417,7 +424,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     and not catalog.failed
                 ):
                     yield from self._emit_non_consumption_views_for_space(
-                        space_name, catalog.names
+                        space_name, catalog.dataset_names
                     )
 
                 if self.config.include_local_tables:
@@ -466,29 +473,37 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
                 )
 
+        yield from self._run_asset_workers(
+            _emit_asset_with_isolation,
+            ((asset,) for asset in self._safe_list_assets(space_name, catalog)),
+        )
+
+    def _run_asset_workers(
+        self,
+        worker_func: Callable[..., Iterable[MetadataWorkUnit]],
+        args_list: Iterable[tuple],
+    ) -> Iterable[MetadataWorkUnit]:
         if self.config.max_workers_assets > 1:
             # Bounded chunks cap peak memory at ~asset_batch_size live tasks
             # (ThreadedIteratorExecutor otherwise submits every task up front).
-            for chunk in _chunked(
-                self._safe_list_assets(space_name, catalog),
-                self.config.asset_batch_size,
-            ):
+            for chunk in _chunked(args_list, self.config.asset_batch_size):
                 yield from ThreadedIteratorExecutor.process(
-                    worker_func=_emit_asset_with_isolation,
-                    args_list=((asset,) for asset in chunk),
+                    worker_func=worker_func,
+                    args_list=chunk,
                     max_workers=self.config.max_workers_assets,
                 )
         else:
-            for asset in self._safe_list_assets(space_name, catalog):
-                yield from _emit_asset_with_isolation(asset)
+            for args in args_list:
+                yield from worker_func(*args)
 
     def _emit_non_consumption_views_for_space(
-        self, space_name: str, catalog_names: Set[str]
+        self, space_name: str, catalog_dataset_names: Set[str]
     ) -> Iterable[MetadataWorkUnit]:
         """Emit design-time Views / Analytic Models missing from the catalog."""
-        # Skip by catalog name, not emitted URN: a federated catalog View lives
-        # on its remote platform's URN, and skipped catalog assets have none.
-        # Neither may be re-emitted here as non-consumption.
+        # Skip by catalog dataset name, not emitted URN: a federated catalog View
+        # lives on its remote platform's URN, and skipped catalog assets have none.
+        # Neither may be re-emitted here as non-consumption. Routing (and any
+        # unmapped-connection skip) is decided per object by _emit_asset.
         pending: List[Tuple[str, str, bool]] = []
         for object_type, is_analytic in (
             (OBJECT_TYPE_VIEWS, False),
@@ -504,39 +519,31 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
             for technical_name in self._iter_allowed_technical_names(entries or []):
-                if technical_name not in catalog_names:
+                dataset_name = self._build_dataset_name(space_name, technical_name)
+                if dataset_name not in catalog_dataset_names:
                     pending.append((object_type, technical_name, is_analytic))
-        if not pending:
-            return
 
-        # Resolve only once there is something to emit, so spaces without
-        # unexposed Views don't warn about an intentionally unmapped _managed.
-        if (
-            self._resolve_managed_or_warn(
-                space_name,
-                "non-consumption Views / Analytic Models",
-                extra_hint=(
-                    " Configure connection_to_platform_map to enable design-time "
-                    "View discovery."
-                ),
-            )
-            is None
-        ):
-            return
-
-        for object_type, technical_name, is_analytic in pending:
+        def _emit_design_time_object(
+            object_type: str, technical_name: str, is_analytic: bool
+        ) -> Iterable[MetadataWorkUnit]:
             asset: JsonDict = {
                 CATALOG_FIELD_NAME: technical_name,
                 CATALOG_FIELD_LABEL: technical_name,
                 CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: is_analytic,
             }
-            before = self._datasets_emitted
-            yield from self._isolate(
+            # _emit_asset yields nothing when it skips, so any workunit means the
+            # dataset was emitted. Tracked per worker, not via a shared counter.
+            emitted = False
+            for wu in self._isolate(
                 f"{space_name}.{object_type}.{technical_name}",
                 self._emit_asset(space_name, asset),
-            )
-            if self._datasets_emitted > before:
+            ):
+                emitted = True
+                yield wu
+            if emitted:
                 self.report.non_consumption_views_emitted += 1
+
+        yield from self._run_asset_workers(_emit_design_time_object, pending)
 
     def _emit_local_tables_for_space(
         self, space_name: str

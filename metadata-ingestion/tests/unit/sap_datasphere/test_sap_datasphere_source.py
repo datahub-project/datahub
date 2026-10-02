@@ -3668,6 +3668,18 @@ def test_discover_unexposed_views_emits_missing_catalog_views(requests_mock):
     assert any("downstream_view" in u for u in dataset_urns)
     assert source.report.non_consumption_views_emitted == 1
 
+    # The point of discovery: the downstream view's lineage edge lands on the
+    # emitted design-time upstream, not a dangling URN.
+    upstream_urn = next(u for u in dataset_urns if "unexposed_upstream" in u)
+    downstream_lineage = [
+        aspect_as(wu, UpstreamLineageClass)
+        for wu in workunits
+        if "downstream_view" in (entity_urn_of(wu) or "")
+        and isinstance(aspect_of(wu), UpstreamLineageClass)
+    ]
+    assert downstream_lineage
+    assert upstream_urn in {u.dataset for u in downstream_lineage[0].upstreams}
+
     schema_paths_by_urn: Dict[str, set] = {}
     for wu in workunits:
         urn = entity_urn_of(wu) or ""
@@ -3898,8 +3910,10 @@ def test_discover_unexposed_views_false_skips_design_time_listing(requests_mock)
     assert not any("Failed to list" in (w.title or "") for w in source.report.warnings)
 
 
-def test_discover_unexposed_views_managed_unresolvable_skips_space(requests_mock):
-    """Unresolvable _managed skips the design-time pass with a warning."""
+def test_discover_unexposed_views_routes_per_object_when_managed_disabled(
+    requests_mock,
+):
+    """A disabled _managed skips only managed objects; federated ones still route."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -3907,6 +3921,7 @@ def test_discover_unexposed_views_managed_unresolvable_skips_space(requests_mock
             "discover_unexposed_views": True,
             "connection_to_platform_map": {
                 "_managed": {"platform": "hana", "enabled": False},
+                "SNOW_CONN": {"platform": "snowflake"},
             },
         }
     )
@@ -3919,21 +3934,112 @@ def test_discover_unexposed_views_managed_unresolvable_skips_space(requests_mock
         f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
         json={"value": []},
     )
-    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/spaces/S1/connections",
+        json=[{"name": "SNOW_CONN", "typeId": "SNOWFLAKE"}],
+    )
     requests_mock.get(
         f"{base}/dwaas-core/api/v1/spaces/S1/views",
-        json=[{"technicalName": "HIDDEN_VIEW"}],
+        json=[{"technicalName": "MANAGED_VIEW"}, {"technicalName": "FED_VIEW"}],
     )
     requests_mock.get(f"{base}/dwaas-core/api/v1/spaces/S1/analyticmodels", json=[])
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/views/MANAGED_VIEW",
+        json={"definitions": {"MANAGED_VIEW": {"kind": "entity"}}},
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/views/FED_VIEW",
+        json={
+            "definitions": {
+                "FED_VIEW": {"kind": "entity", "@remote.source": "SNOW_CONN"}
+            }
+        },
+    )
 
     source = SapDatasphereSource(PipelineContext(run_id="ncv-managed"), cfg)
-    list(source.get_workunits())
+    workunits = list(source.get_workunits())
+
+    dataset_urns = {
+        entity_urn_of(wu)
+        for wu in workunits
+        if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
+    }
+    assert any("snowflake" in u and "fed_view" in u for u in dataset_urns)
+    assert not any("managed_view" in u for u in dataset_urns)
+    assert any("MANAGED_VIEW" in s for s in source.report.assets_skipped_disabled)
+    assert source.report.non_consumption_views_emitted == 1
+
+
+def test_discover_unexposed_views_listing_failure_warns_and_continues(
+    requests_mock,
+):
+    """A failed design-time listing warns and leaves the catalog emit intact."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(f"{tenant}/dwaas-core/api/v1/spaces/S1/views", status_code=500)
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels", status_code=500
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant, token="t", discover_unexposed_views=True
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
 
     titles = [w.title or "" for w in source.report.warnings]
-    assert (
-        "Cannot emit non-consumption Views / Analytic Models — _managed "
-        "connection unresolvable" in titles
+    assert "Failed to list views in space" in titles
+    assert "Failed to list analyticmodels in space" in titles
+    assert source.report.non_consumption_views_emitted == 0
+    # The space container still emits; the failure stays scoped to discovery.
+    assert any(isinstance(aspect_of(wu), ContainerPropertiesClass) for wu in workunits)
+
+
+def test_discover_unexposed_views_matches_catalog_case_insensitively(
+    requests_mock,
+):
+    """Catalog and design-time names that lower to one URN are one asset."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
     )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "Sales_View",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "SALES_VIEW"}],
+    )
+    requests_mock.get(f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels", json=[])
+    requests_mock.get(
+        re.compile(rf"{re.escape(tenant)}/dwaas-core/api/v1/spaces/S1/views/.*"),
+        json={"definitions": {}},
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant, token="t", discover_unexposed_views=True
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+
     assert source.report.non_consumption_views_emitted == 0
 
 
