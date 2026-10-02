@@ -1,0 +1,33 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ec9e03587c36d845d32ede1487a26e520601a89c3a175033c5057c03906888a9",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "1 AS \"1\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT ? FROM (SELECT b.id, g.x FROM s.b AS b CROSS JOIN GENERATE_SERIES(?, ?) AS g(x)) AS t CROSS JOIN s.b"
+    }
+}

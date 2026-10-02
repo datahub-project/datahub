@@ -89,8 +89,10 @@ class PostgresQuery:
         raw listing rather than each re-deriving it.
         """
         rows = conn.execute(
-            f"SELECT datname from pg_database where datname not in ({_SYSTEM_DATABASE_EXCLUSION})"
-        )
+            text(
+                f"SELECT datname from pg_database where datname not in ({_SYSTEM_DATABASE_EXCLUSION})"
+            )
+        ).mappings()
         return [str(row["datname"]) for row in rows]
 
     @staticmethod

@@ -192,7 +192,7 @@ export default function EditBusinessAttributeModal({
         }
     };
 
-    // When a Tag or term search result is deselected, remove the urn from the Owners
+    // When a business attribute search result is deselected, remove its urn from the selection
     const onDeselectValue = (selectedUrn: string) => {
         setUrn(urn === selectedUrn ? '' : urn);
         setInputValue('');

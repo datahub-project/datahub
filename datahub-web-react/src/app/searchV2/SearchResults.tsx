@@ -1,4 +1,4 @@
-import { Pagination } from 'antd';
+import { Pagination } from '@components';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -292,11 +292,11 @@ export const SearchResults = ({
                                             {totalResults > 0 && (
                                                 <PaginationControlContainer id="search-pagination">
                                                     <Pagination
-                                                        current={page}
-                                                        pageSize={numResultsPerPage}
+                                                        currentPage={page}
+                                                        itemsPerPage={numResultsPerPage}
                                                         total={totalResults}
                                                         showLessItems
-                                                        onChange={handlePageChange}
+                                                        onPageChange={handlePageChange}
                                                         showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                                                         pageSizeOptions={['10', '20', '30']}
                                                     />

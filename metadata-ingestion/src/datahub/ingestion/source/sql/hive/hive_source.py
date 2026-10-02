@@ -1,14 +1,12 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 from pydantic import field_validator
 from pydantic.fields import Field
-
-# This import verifies that the dependencies are available.
-from pyhive import hive  # noqa: F401
-from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
+from sqlalchemy import text, types, util
+from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import HiddenFromDocs
@@ -27,6 +25,14 @@ from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
+)
+
+# pyhive is SQLAlchemy-1.4-era; importing via _pyhive_compat applies its SA 2.0 patches.
+from datahub.ingestion.source.sql._pyhive_compat import (
+    HiveDate,
+    HiveDecimal,
+    HiveDialect,
+    HiveTimestamp,
 )
 from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
 from datahub.ingestion.source.sql.hive.storage_lineage import (
@@ -63,10 +69,8 @@ register_custom_type(HiveDecimal, NumberTypeClass)
 try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
-    from sqlalchemy import types, util
-    from sqlalchemy.engine import reflection
 
-    @reflection.cache  # type: ignore
+    @reflection.cache
     def dbapi_get_columns_patched(self, connection, table_name, schema=None, **kw):
         """Patches the get_columns method from dbapi (databricks_dbapi.sqlalchemy_dialects.base) to pass the native type through"""
         rows = self._get_table_columns(connection, table_name, schema)
@@ -83,7 +87,7 @@ try:
             # e.g. 'map<int,int>' -> 'map'
             #      'decimal(10,1)' -> decimal
             orig_col_type = col_type  # keep a copy
-            col_type = re.search(r"^\w+", col_type).group(0)  # type: ignore
+            col_type = re.search(r"^\w+", col_type).group(0)  # type: ignore[union-attr]
             try:
                 coltype = _type_map[col_type]
             except KeyError:
@@ -92,7 +96,7 @@ try:
                         col_type, col_name
                     )
                 )
-                coltype = types.NullType  # type: ignore
+                coltype = types.NullType
             result.append(
                 {
                     "name": col_name,
@@ -112,15 +116,15 @@ except Exception as exp:
     logger.warning(f"Failed to patch method due to {exp}")
 
 
-@reflection.cache  # type: ignore
+@reflection.cache
 def get_view_names_patched(self, connection, schema=None, **kw):
     query = "SHOW VIEWS"
     if schema:
         query += " IN " + self.identifier_preparer.quote_identifier(schema)
-    return [row[0] for row in connection.execute(query)]
+    return [row[0] for row in connection.execute(text(query))]
 
 
-@reflection.cache  # type: ignore
+@reflection.cache
 def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
     full_table = self.identifier_preparer.quote_identifier(view_name)
     if schema:
@@ -132,7 +136,7 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
     # including the view definition. However, for multiline view definitions,
     # it returns multiple rows (of one column each), each with a part of the definition.
     # Any whitespace at the beginning/end of each view definition line is lost.
-    rows = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchall()
+    rows = connection.execute(text(f"SHOW CREATE TABLE {full_table}")).fetchall()
     parts = [row[0] for row in rows]
     return "\n".join(parts)
 
@@ -257,9 +261,9 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: Dict[Any, Any],
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[Dict[Any, Any]] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
@@ -357,7 +361,7 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        partition_columns: List[dict] = inspector.get_indexes(
+        partition_columns: Sequence[Mapping[str, Any]] = inspector.get_indexes(
             table_name=table, schema=schema
         )
         for partition_column in partition_columns:

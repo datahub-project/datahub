@@ -20,6 +20,7 @@ import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -69,6 +70,9 @@ const ContentCard = styled.div`
 const MainContent = styled.div`
     flex: 1;
     overflow-y: auto;
+    /* Always reserve space for the scrollbar so content doesn't shift when it appears/disappears
+       (e.g. when expanding a section makes the page taller). */
+    scrollbar-gutter: stable;
     padding: 0 20px 20px 20px;
 `;
 
@@ -216,7 +220,10 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>
-                                            <DocumentSummaryTab />
+                                            {/* Prompts before navigating away with unsaved explicit-save body edits */}
+                                            <DiscardUnsavedChangesConfirmationProvider>
+                                                <DocumentSummaryTab />
+                                            </DiscardUnsavedChangesConfirmationProvider>
                                         </MainContent>
                                     )}
                                 </ContentCard>

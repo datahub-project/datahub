@@ -905,6 +905,11 @@ type FeatureFlagsConfig {
   contextDocumentsEnabled: Boolean!
 
   """
+  If enabled, document body edits stay local until the user saves instead of auto-saving.
+  """
+  documentExplicitSaveEnabled: Boolean!
+
+  """
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!

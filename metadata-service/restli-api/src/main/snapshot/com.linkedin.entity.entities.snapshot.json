@@ -6470,6 +6470,18 @@
       "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
       "optional" : true
     }, {
+      "name" : "includeExplain",
+      "type" : "boolean",
+      "doc" : "Include Elasticsearch scoring explanation in search results.\nWhen enabled, each result includes detailed score breakdown in extraProperties._explain.\nNote: Adds 10-30% computational overhead - use for debugging only.",
+      "default" : false,
+      "optional" : true
+    }, {
+      "name" : "searchType",
+      "type" : "string",
+      "doc" : "Elasticsearch search type for controlling IDF calculation across shards.\n- QUERY_THEN_FETCH: Shard-local IDF (default, faster, but less accurate scoring)\n- DFS_QUERY_THEN_FETCH: Global IDF across all shards (more accurate scoring)\n\nOnly affects relevance scoring in multi-shard scenarios.\nDFS mode adds 20-50% latency overhead but provides consistent scoring.",
+      "default" : "QUERY_THEN_FETCH",
+      "optional" : true
+    }, {
       "name" : "minScore",
       "type" : "float",
       "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",

@@ -479,7 +479,7 @@ public class ElasticSearchTimeseriesAspectService
             .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     searchRequest.indices(indexName);
 
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
     return opContext.withSpan(
         "searchAspectValues_search",
         () -> {
