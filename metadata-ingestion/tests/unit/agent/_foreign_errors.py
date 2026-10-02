@@ -1,7 +1,6 @@
 """Stands in for ingestion code a probe reuses: it quotes its input on failure.
 
-Lives in its own module so the framework sees the raise as foreign, exactly as
-it sees source_connectors.py or glue.py.
+Every message carries SENTINEL, which no probe output may ever contain.
 """
 
 SENTINEL = "PLANTED-foreign-secret"

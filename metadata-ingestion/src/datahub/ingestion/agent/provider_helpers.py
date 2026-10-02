@@ -6,14 +6,11 @@ listing that stops paging at the limit, a lazily built client closed on exit,
 a 403 that degrades to a warning -- and the copies drifted in wording, in the
 errors they raised, and in whether they closed what they opened.
 
-Everything here is framework-authored, but error_policy.is_authored does not
-vouch for this module by file path: it calls provider callables that may be C
-code, whose failures would surface with this module's frame innermost. So
-what it raises on purpose is a framework type, trusted by type: a
-caller-facing refusal is a ProbeArgumentError (exit 2) or a ProbeSoftError, a
-helper misused by the provider is a ProbeInternalError (exit 1), and no
-message is ever built from the text of an exception this module did not
-raise.
+What these helpers raise on purpose is a framework type, so its text is
+shown (see agent.error_policy): a caller-facing refusal is a
+ProbeArgumentError (exit 2) or a ProbeSoftError, and a helper misused by the
+provider is a ProbeInternalError (exit 1). No message is ever built from the
+text of an exception this module did not raise.
 """
 
 import itertools
@@ -121,8 +118,7 @@ def resolve_name(
     workspace 'x'"); it must not carry exception text.
     """
     if stop_at_first and id_key is not None:
-        # ProbeInternalError, not TypeError: this module is not vouched for,
-        # so a TypeError's text would be withheld from the provider's author.
+        # A framework type, so the provider's author sees which rule broke.
         raise ProbeInternalError(
             "resolve_name cannot take stop_at_first with an id_key"
         )
@@ -288,8 +284,7 @@ class soft_listing:
         self, warn: Callable[[str], None], *codes: int, context: Optional[str] = None
     ) -> None:
         if codes and context is None:
-            # ProbeInternalError, not TypeError: this module is not vouched
-            # for, so a TypeError's text would be withheld from the author.
+            # A framework type, so the provider's author sees which rule broke.
             raise ProbeInternalError(
                 "soft_listing needs a context to map HTTP statuses"
             )
@@ -315,9 +310,7 @@ class soft_listing:
                 soft.__cause__ = exc
         if soft is None:
             return False
-        # No provider files: every non-framework exception in the chain counts
-        # as foreign, which only ever withholds more.
-        self._warn(withhold_foreign_text(soft, frozenset()))
+        self._warn(withhold_foreign_text(soft))
         return True
 
 

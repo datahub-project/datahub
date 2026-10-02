@@ -14,6 +14,7 @@ from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 
+from datahub.ingestion.agent.error_policy import errno_code, sqlstate_code
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import echoed
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
@@ -86,6 +87,28 @@ def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
     if isinstance(several, (list, tuple, set, frozenset)):
         return frozenset(str(one) for one in several if one)
     return frozenset()
+
+
+# Drivers whose errors carry their code as args[0]: pyodbc a SQLSTATE, PyMySQL
+# and mysqlclient an errno. Read from no other exception: args[0] of a plain
+# ValueError or KeyError is free text or caller data.
+_SQLSTATE_ARG_DRIVERS = ("pyodbc",)
+_ERRNO_ARG_DRIVERS = ("pymysql", "MySQLdb")
+
+
+def _driver_code(error: BaseException) -> Optional[str]:
+    """The code one driver error carries itself, in its driver's spelling."""
+    pgcode = sqlstate_code(getattr(error, "pgcode", None))
+    if pgcode:
+        return pgcode
+    driver = str(getattr(type(error), "__module__", "")).split(".")[0]
+    args = getattr(error, "args", ())
+    first = args[0] if isinstance(args, tuple) and args else None
+    if driver in _SQLSTATE_ARG_DRIVERS:
+        return sqlstate_code(first)
+    if driver in _ERRNO_ARG_DRIVERS:
+        return errno_code(first)
+    return None
 
 
 def _container_normalizer(config: object) -> Callable[[str], str]:
@@ -288,6 +311,19 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._engine.dispose()
+
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The driver's code for a failure in this family: "SQLSTATE 42P01"
+        from psycopg2's pgcode or pyodbc, "errno 1146" from PyMySQL or
+        mysqlclient. SQLAlchemy keeps the driver's error as `.orig`, so that
+        is read when the exception is SQLAlchemy's wrapper. The framework
+        reads `.sqlstate` and `.errno` itself."""
+        code = _driver_code(exc)
+        orig = getattr(exc, "orig", None)
+        if code is None and isinstance(orig, BaseException):
+            code = _driver_code(orig)
+        return code
 
     @property
     def sql_dialect(self) -> str:

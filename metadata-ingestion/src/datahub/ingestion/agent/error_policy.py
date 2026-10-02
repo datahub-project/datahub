@@ -1,10 +1,29 @@
-import copy
-import inspect
-import os
-import re
-import types
-from typing import AbstractSet, Dict, List, Optional, Set, Tuple, cast
+"""Which exception text a probe may show, and how the rest is named.
 
+Text is trusted by type only. A framework type (TRUSTED_TYPES, which the SQL
+and API gate refusals subclass) carries a message written for the caller.
+Anything else raised while a provider is opened, called or closed -- reused
+ingestion code, a driver, an SDK, or the provider's own plain ValueError --
+is named by `foreign_label` instead: its class name and at most one short
+code, because its text is where connection strings, token-endpoint bodies and
+query literals come from.
+
+Codes come from cross-library conventions only (an HTTP status, a SQLSTATE,
+an errno). A provider that knows its vendor's error shape declares
+`probe_error_code(exc)` on its class, and that is asked first. Attributes are
+read with plain getattr under try/except: the threat is accidental leakage,
+and a strict pattern on every value is what keeps a code from carrying text.
+
+`DATAHUB_PROBE_VERBOSE_LOGS=1` appends each foreign exception's scrubbed text
+to its label, for a person debugging a connector locally.
+"""
+
+import copy
+import re
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Type
+
+from datahub.configuration.env_vars import get_probe_verbose_logs
+from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
@@ -13,27 +32,7 @@ from datahub.ingestion.agent.verdicts import (
     ProbeSoftError,
 )
 
-# Directory of the framework package, with a trailing separator so a sibling
-# such as `agent_extras/` cannot match by prefix.
-_FRAMEWORK_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "")
-
-# Framework files whose frames do NOT vouch for an exception. These modules
-# are trampolines: they call back into provider-supplied callables (openers,
-# closers, `keep`/`key` functions, listings to iterate). When that callable is
-# C code -- sqlite3.Connection.close, functools.partial over a driver's
-# connect, a DB-API cursor -- no Python frame of its own is recorded, so the
-# innermost frame is the helper's and the driver's text would pass as
-# authored. What these modules raise on purpose is a framework type, trusted
-# by type wherever it is raised.
-_TRAMPOLINE_FILES = frozenset(
-    os.path.join(_FRAMEWORK_DIR, name) for name in ("provider_helpers.py",)
-)
-
-# Exceptions whose text the framework vouches for: raised deliberately, by code
-# that knows the message is safe to show. SqlScopeError / ApiScopeError live in
-# sql_gate / api_gate under the framework package, so is_authored covers them by
-# file path.
-_FRAMEWORK_TYPES: Tuple[type, ...] = (
+TRUSTED_TYPES: Tuple[Type[BaseException], ...] = (
     ProbeArgumentError,
     ProbeSoftError,
     ProbeReadFailed,
@@ -43,7 +42,7 @@ _FRAMEWORK_TYPES: Tuple[type, ...] = (
 
 # Python defects: after run_probe_method has coerced the arguments, these mean
 # the code misread something, not that the caller's input was wrong (exit 1).
-DEFECT_TYPES: Tuple[type, ...] = (
+DEFECT_TYPES: Tuple[Type[BaseException], ...] = (
     TypeError,
     KeyError,
     AttributeError,
@@ -53,257 +52,134 @@ DEFECT_TYPES: Tuple[type, ...] = (
 )
 
 # What the CLI reads as "your input was wrong" (exit 2) when raised bare.
-_ARGUMENT_TYPES: Tuple[type, ...] = (ValueError, re.error)
+_ARGUMENT_TYPES: Tuple[Type[BaseException], ...] = (ValueError, re.error)
 
-
-def is_authored(exc: BaseException, provider_files: AbstractSet[str]) -> bool:
-    """Whether the framework may show this exception's text.
-
-    True for framework types, and for an exception whose innermost raising
-    Python frame is in one of the provider's own source files (see
-    probe_methods.provider_source_files) or in the framework package (minus
-    the trampoline modules in _TRAMPOLINE_FILES): a message the provider
-    wrote on purpose. Anything raised inside
-    reused ingestion code or a third-party library is foreign -- that is where
-    text quoting a JDBC URL, a YAML node or a token endpoint body comes from.
-
-    Compared by resolved file path, not dotted module name: the same file can
-    import as `tests.unit.agent.x` or `unit.agent.x` depending on pytest's
-    rootdir, and as an installed or editable package in production.
-
-    Limitation: an exception raised by a C extension called directly from the
-    provider's frame (int("..."), a C YAML loader) reports that frame and so
-    counts as authored. Its text still goes through scrub_text.
-    """
-    # By type, and the traceback through its slot: this also judges links in
-    # a foreign exception's chain, whose class may override __getattribute__
-    # (see _plain_attr).
-    if issubclass(type(exc), _FRAMEWORK_TYPES):
-        return True
-    tb = _plain_attr(exc, "__traceback__")
-    if not isinstance(tb, types.TracebackType):
-        # Never raised, so there is no frame to vouch for it: fail closed.
-        return False
-    while tb.tb_next is not None:
-        tb = tb.tb_next
-    # From the code object rather than traceback.extract_tb, which reads
-    # source lines through linecache for every frame.
-    innermost = os.path.realpath(tb.tb_frame.f_code.co_filename)
-    if innermost.startswith(_FRAMEWORK_DIR) and innermost not in _TRAMPOLINE_FILES:
-        return True
-    return any(innermost == os.path.realpath(f) for f in provider_files if f)
-
-
-# Every code shown must match one of these in full; anything else is dropped
-# without a word, since a "code" attribute is still the foreign library's
-# text and may hold whatever it was handed.
+# The shape every provider-read code must match in full: a name and at most
+# one short token, so a reader that returns a message by mistake shows nothing.
+_PROVIDER_CODE = re.compile(r"[A-Za-z][A-Za-z0-9_.-]{0,47}( [A-Za-z0-9_.-]{1,32})?")
 _SQLSTATE = re.compile(r"[0-9A-Z]{5}")
-_ERRNO = re.compile(r"\d{1,6}")
-_AWS_CODE = re.compile(r"[A-Za-z][A-Za-z0-9.]{1,63}")
+_MAX_ERRNO = 999_999
 
-# Drivers whose errors carry their code as args[0] -- pyodbc a SQLSTATE,
-# PyMySQL and mysqlclient an int errno. Read from no other exception: args[0]
-# of a plain ValueError or KeyError is free text or caller data.
-_SQLSTATE_ARG_MODULES = ("pyodbc",)
-_ERRNO_ARG_MODULES = ("pymysql", "MySQLdb")
-
-# `response["Error"]["Code"]` is botocore's error shape; another library's
-# dict there could hold any token.
-_AWS_MODULES = ("botocore", "aiobotocore", "boto3")
-
-# `.code` is an HTTP status only on these SDKs' exceptions (google-api-core,
-# googleapiclient, urllib's HTTPError); elsewhere it is anything.
-_HTTP_CODE_MODULES = ("google", "googleapiclient", "urllib")
-
-# Attribute descriptors implemented in C (psycopg2's pgcode, BaseException's
-# args): reading them runs no foreign Python code.
-_C_DESCRIPTORS = (types.GetSetDescriptorType, types.MemberDescriptorType)
-
-# How far down a cause/context chain to look for a code.
-_MAX_CHAIN = 8
+# How many `raise ... from` links a code is looked for in, and how many
+# cause/context links the backstop walks.
+_MAX_CODE_LINKS = 8
+_MAX_CHAIN_LINKS = 32
 
 
-def _plain_attr(obj: object, name: str) -> object:
-    """`obj.name` when reading it cannot run the foreign library's Python
-    code, else None.
+def is_trusted(exc: BaseException) -> bool:
+    """Whether the framework may show this exception's text."""
+    return isinstance(exc, TRUSTED_TYPES)
 
-    A property, a __getattr__ or any other Python descriptor is code that
-    may raise with the text it holds, so it is not read at all. A value
-    stored on the instance or class, or a C-level slot, is. The slot is read
-    through its own descriptor, never through getattr: that would go through
-    the class's __getattribute__, which a foreign class may override.
-    """
+
+def _attr(obj: object, name: str) -> object:
+    # A foreign property or __getattr__ may raise with the text it holds.
     try:
-        raw = inspect.getattr_static(obj, name)
+        return getattr(obj, name, None)
     except Exception:
         return None
+
+
+def _cause_links(exc: BaseException) -> List[BaseException]:
+    """`exc` and its `raise ... from` causes, outermost first.
+
+    Never the context: an exception raised while handling another is not that
+    other failure, and a 429 handled before an unrelated ConnectionError would
+    label it as rate limiting.
+    """
+    links: List[BaseException] = []
+    link: object = exc
+    while isinstance(link, BaseException) and len(links) < _MAX_CODE_LINKS:
+        if any(link is seen for seen in links):
+            break
+        links.append(link)
+        link = _attr(link, "__cause__")
+    return links
+
+
+def http_status_code(value: object) -> Optional[str]:
+    """`HTTP n` when `value` is an int status from 100 to 599. A bool is an
+    int, and True is not a status."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    number = int(value)
+    return f"HTTP {number}" if 100 <= number <= 599 else None
+
+
+def sqlstate_code(value: object) -> Optional[str]:
+    """`SQLSTATE x` when `value` is a SQLSTATE: five capitals or digits, at
+    least one a digit (five capitals alone is a word, and words are what a
+    code must not carry)."""
+    match = _SQLSTATE.fullmatch(value) if isinstance(value, str) else None
+    if match is None or not any(c.isdigit() for c in match.group(0)):
+        return None
+    return f"SQLSTATE {match.group(0)}"
+
+
+def errno_code(value: object) -> Optional[str]:
+    """`errno n` when `value` is a non-negative error number of at most six
+    digits."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    number = int(value)
+    return f"errno {number}" if 0 <= number <= _MAX_ERRNO else None
+
+
+def _generic_code(exc: BaseException) -> Optional[str]:
+    for status in (
+        _attr(_attr(exc, "response"), "status_code"),
+        _attr(exc, "status_code"),
+        _attr(exc, "status"),
+    ):
+        code = http_status_code(status)
+        if code:
+            return code
+    return sqlstate_code(_attr(exc, "sqlstate")) or errno_code(_attr(exc, "errno"))
+
+
+def _provider_code(exc: BaseException, provider_cls: Optional[type]) -> Optional[str]:
+    reader = _attr(provider_cls, "probe_error_code")
+    if not callable(reader):
+        return None
     try:
-        if type(raw) in _C_DESCRIPTORS:
-            return raw.__get__(obj, type(obj))
-        if hasattr(type(raw), "__get__"):
-            return None
+        code = reader(exc)
     except Exception:
         return None
-    return raw
+    match = _PROVIDER_CODE.fullmatch(code) if isinstance(code, str) else None
+    # The matched characters, not `code` itself: a str subclass may render as
+    # anything.
+    return match.group(0) if match else None
 
 
-def _code_links(exc: BaseException) -> List[BaseException]:
-    """Where a code for `exc` may come from, in the order looked at: the
-    driver error SQLAlchemy wraps, then the cause (`raise ... from`).
+def _first(
+    links: Iterable[BaseException], read: Callable[[BaseException], Optional[str]]
+) -> Optional[str]:
+    return next((code for code in map(read, links) if code), None)
 
-    Never the context. An exception raised while handling another is not
-    that other failure: a 429 handled before an unrelated ConnectionError
-    would label it as rate limiting, and a caller would back off from a
-    limit it did not hit. A wrapper that means its context as the cause but
-    omits `from` loses the code, which only costs a hint.
+
+def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> str:
+    """How an untrusted exception is named in place of its text: its class
+    name, plus one short code when it or its cause chain carries one.
+
+    `ProgrammingError; SQLSTATE 42P01`, `HTTPError; HTTP 403`. The code tells
+    the caller what kind of failure it was (missing relation, permission,
+    throttling) without the message. The provider's own reader is tried on
+    every link before the generic one is. Never raises: a failure reading the
+    exception leaves the class name alone.
     """
-    links = (_exception_attr(exc, "orig"), _exception_attr(exc, "__cause__"))
-    return [link for link in links if link is not None]
-
-
-def _exception_attr(obj: object, name: str) -> Optional[BaseException]:
-    """_plain_attr, when the value is an exception."""
-    value = _plain_attr(obj, name)
-    # By type, not isinstance: a failed isinstance falls back to reading
-    # value.__class__, which is the foreign object's own code.
-    if issubclass(type(value), BaseException):
-        return cast(BaseException, value)
-    return None
-
-
-def _module_root(exc: BaseException) -> str:
-    module = type(exc).__dict__.get("__module__")
-    return module.split(".")[0] if isinstance(module, str) else ""
-
-
-def _as_str(value: object) -> Optional[str]:
-    # str.__str__ rather than str(): a str subclass may render anything.
-    return str.__str__(cast(str, value)) if issubclass(type(value), str) else None
-
-
-def _as_int(value: object) -> Optional[int]:
-    # bool is an int, and True is not an error number. int.__int__ for the
-    # same reason as str.__str__: http.HTTPStatus is an int subclass, and
-    # another subclass may override __int__ or __format__.
-    if issubclass(type(value), bool) or not issubclass(type(value), int):
-        return None
-    return int.__int__(cast(int, value))
-
-
-def _sqlstate(value: object) -> Optional[str]:
-    text = _as_str(value)
-    if text is None or not _SQLSTATE.fullmatch(text):
-        return None
-    # Every SQLSTATE class has a digit in it; five capitals with none is a
-    # word, and words are what this must not show.
-    return f"SQLSTATE {text}" if any(c.isdigit() for c in text) else None
-
-
-def _errno(value: object) -> Optional[str]:
-    number = _as_int(value)
-    if number is None or not _ERRNO.fullmatch(str(number)):
-        return None
-    return f"errno {number}"
-
-
-def _http(value: object) -> Optional[str]:
-    number = _as_int(value)
-    return f"HTTP {number}" if number is not None and 100 <= number <= 599 else None
-
-
-def _aws_code(response: object) -> Optional[str]:
-    # dict.get, not response.get: a dict subclass may override it.
-    if not issubclass(type(response), dict):
-        return None
-    error = dict.get(cast(Dict[str, object], response), "Error")
-    if not issubclass(type(error), dict):
-        return None
-    text = _as_str(dict.get(cast(Dict[str, object], error), "Code"))
-    return text if text is not None and _AWS_CODE.fullmatch(text) else None
-
-
-def _codes_of(exc: BaseException) -> List[str]:
-    """The codes this one exception carries itself, without its chain."""
-    codes: List[str] = []
-    sqlstate = _sqlstate(_plain_attr(exc, "pgcode")) or _sqlstate(
-        _plain_attr(exc, "sqlstate")
-    )
-    args = _plain_attr(exc, "args")
-    first = args[0] if isinstance(args, tuple) and args else None
-    root = _module_root(exc)
-    if sqlstate is None and root in _SQLSTATE_ARG_MODULES:
-        sqlstate = _sqlstate(first)
-    if sqlstate:
-        codes.append(sqlstate)
-    errno = _errno(_plain_attr(exc, "errno"))
-    if errno is None and root in _ERRNO_ARG_MODULES:
-        errno = _errno(first)
-    if errno:
-        codes.append(errno)
-    if codes:
-        return codes
-    aws = _aws_code(_plain_attr(exc, "response")) if root in _AWS_MODULES else None
-    if aws:
-        return [aws]
-    response = _plain_attr(exc, "response")
-    http = (
-        (_http(_plain_attr(response, "status_code")) if response is not None else None)
-        or _http(_plain_attr(exc, "status_code"))
-        or _http(_plain_attr(exc, "status"))
-        or (_http(_plain_attr(exc, "code")) if root in _HTTP_CODE_MODULES else None)
-    )
-    return [http] if http else []
-
-
-def foreign_label(exc: BaseException) -> str:
-    """How a foreign exception is named in place of its text: its class name,
-    plus a short machine code when it or its cause chain carries one.
-
-    `ProgrammingError; SQLSTATE 42P01`, `HTTPError; HTTP 403`,
-    `ClientError; AccessDenied`. A code tells the caller what kind of
-    failure it was (missing relation, permission, throttling) without the
-    message, which is where the URL or the query text is. Read duck-typed:
-    the SDKs are optional, and none is imported here. SQLAlchemy's
-    DBAPIError keeps the driver's error as `.orig`, so that is looked at
-    right after the exception itself, before its cause (see _code_links).
-    """
-    # type.__name__ through type's own descriptor: a foreign metaclass may
-    # override the attribute.
-    name: str = type.__dict__["__name__"].__get__(type(exc))
+    name = type(exc).__name__
     try:
-        codes = _first_codes(exc)
+        links = _cause_links(exc)
+        code = _first(links, lambda link: _provider_code(link, provider_cls))
+        code = code or _first(links, _generic_code)
+        label = f"{name}; {code}" if code else name
+        if get_probe_verbose_logs():
+            return f"{label}: {scrub_text(str(exc), set())}"
+        return label
     except Exception:
-        # Never let reading a foreign exception raise: its text would reach
-        # the CLI's catch-all instead of the class name.
-        codes = []
-    return "; ".join([name, *codes])
+        return name
 
 
-def _first_codes(exc: BaseException) -> List[str]:
-    seen: Set[int] = set()
-    pending: List[BaseException] = [exc]
-    while pending and len(seen) < _MAX_CHAIN:
-        current = pending.pop(0)
-        if id(current) in seen:
-            continue
-        seen.add(id(current))
-        codes = _codes_of(current)
-        if codes:
-            return codes
-        pending.extend(_code_links(current))
-    return []
-
-
-def classify_foreign(exc: BaseException, context: str) -> Exception:
-    """The framework exception a foreign failure in a provider call is reported
-    as -- by class name and code (see foreign_label), never its text.
-
-    Withholding the text must not also move the exit code, so this keeps the
-    family the bare exception would have reached the CLI as: a defect stays
-    exit 1, the ValueError family stays exit 2, and everything else (drivers,
-    SDKs, HTTP and permission errors) stays exit 3.
-    """
-    message = f"{context} failed ({foreign_label(exc)})"
+def _foreign_family(exc: BaseException, message: str) -> Exception:
     if isinstance(exc, DEFECT_TYPES):
         return ProbeInternalError(message)
     if isinstance(exc, _ARGUMENT_TYPES):
@@ -311,74 +187,79 @@ def classify_foreign(exc: BaseException, context: str) -> Exception:
     return ProbeConnectionError(message)
 
 
-def _foreign_in_chain(
-    exc: BaseException, provider_files: AbstractSet[str]
-) -> List[BaseException]:
-    """Every foreign exception in `exc`'s cause and context chain."""
+def classify_foreign(
+    exc: BaseException, context: str, provider_cls: Optional[type] = None
+) -> Exception:
+    """The framework exception an untrusted failure in a provider call is
+    reported as, named by foreign_label.
+
+    Withholding the text must not also move the exit code, so this keeps the
+    family the bare exception would have reached the CLI as: a defect exits 1,
+    the ValueError family 2, and everything else (drivers, SDKs, HTTP and
+    permission errors) 3.
+    """
+    return _foreign_family(
+        exc, f"{context} failed ({foreign_label(exc, provider_cls)})"
+    )
+
+
+def _foreign_in_chain(exc: BaseException) -> List[BaseException]:
+    """Every untrusted exception in `exc`'s cause and context chain."""
     found: List[BaseException] = []
     seen: Set[int] = {id(exc)}
-    pending = _links(exc)
-    while pending:
-        link = pending.pop()
-        if id(link) in seen:
-            continue
-        seen.add(id(link))
-        if not is_authored(link, provider_files):
-            found.append(link)
-        pending.extend(_links(link))
+    pending = [exc]
+    while pending and len(seen) <= _MAX_CHAIN_LINKS:
+        current = pending.pop()
+        for name in ("__cause__", "__context__"):
+            link = _attr(current, name)
+            if not isinstance(link, BaseException) or id(link) in seen:
+                continue
+            seen.add(id(link))
+            if not is_trusted(link):
+                found.append(link)
+            pending.append(link)
     return found
 
 
-def _links(exc: BaseException) -> List[BaseException]:
-    """`exc.__cause__` and `exc.__context__`, read without running the
-    class's own code."""
-    return [
-        link
-        for link in (
-            _exception_attr(exc, "__cause__"),
-            _exception_attr(exc, "__context__"),
-        )
-        if link is not None
-    ]
+def withhold_foreign_text(
+    exc: BaseException, provider_cls: Optional[type] = None
+) -> str:
+    """`str(exc)` with the text of any untrusted exception in its chain
+    replaced by `(label)`.
 
-
-def withhold_foreign_text(exc: BaseException, provider_files: AbstractSet[str]) -> str:
-    """`str(exc)` with the text of any foreign exception it wraps replaced by
-    that exception's class name.
-
-    Framework types are trusted wherever they are raised, and so is anything
-    the provider raises in its own file -- which makes
+    A trusted type is trusted wherever it is raised, which makes
     `ProbeConnectionError(f"login failed: {exc}")` around a driver error carry
-    the driver's text out under a vouched-for type. Only text that appears
-    verbatim can be caught (str or repr of the foreign exception); a message
-    built from parts of it cannot, which is why the docs say never to
-    interpolate an exception you did not raise.
+    the driver's text out. Only text that appears verbatim can be caught (the
+    str or repr of the foreign exception); a message built from parts of it
+    cannot, which is why the guide says never to interpolate an exception you
+    did not raise.
     """
     message = str(exc)
-    swaps = []
-    for foreign in _foreign_in_chain(exc, provider_files):
-        name = f"({foreign_label(foreign)})"
+    labels: Dict[str, str] = {}
+    for foreign in _foreign_in_chain(exc):
+        label = f"({foreign_label(foreign, provider_cls)})"
         for render in (repr, str):
             try:
                 rendering = render(foreign)
             except Exception:
-                # A rendering that raises cannot have reached the message
-                # either, so there is nothing to substitute -- and the
-                # render's own exception text is never shown.
+                # A rendering that raises cannot be in the message either.
                 continue
             if rendering:
-                swaps.append((rendering, name))
-    # Longest first: a repr contains its str, and replacing the str first
-    # would leave the repr's class-name wrapper around a placeholder.
-    for rendering, name in sorted(swaps, key=lambda s: len(s[0]), reverse=True):
-        message = message.replace(rendering, name)
-    return message
+                labels.setdefault(rendering, label)
+    if not labels:
+        return message
+    # One pass, longest first: a repr contains its str, and a label must not
+    # be rewritten by a later, shorter match.
+    pattern = re.compile(
+        "|".join(re.escape(r) for r in sorted(labels, key=len, reverse=True))
+    )
+    return pattern.sub(lambda match: labels[match.group(0)], message)
 
 
 def police_authored(
-    exc: BaseException, provider_files: AbstractSet[str]
+    exc: BaseException, provider_cls: Optional[type] = None
 ) -> Optional[BaseException]:
-    """A replacement for an authored exception whose message quotes a foreign
+    """A replacement for a trusted exception whose message quotes an untrusted
     one, or None when it may be raised as it is.
 
     The replacement keeps the exception's type, so the exit code does not
@@ -386,7 +267,7 @@ def police_authored(
     takes other arguments, or its __str__ ignores args) is replaced by the
     framework type of the same exit family instead.
     """
-    message = withhold_foreign_text(exc, provider_files)
+    message = withhold_foreign_text(exc, provider_cls)
     if message == str(exc):
         return None
     try:
@@ -396,16 +277,7 @@ def police_authored(
             return rebuilt
     except Exception:
         pass
-    return _same_family(exc, message)
-
-
-def _same_family(exc: BaseException, message: str) -> Exception:
-    if isinstance(exc, (ProbeInternalError, *DEFECT_TYPES)):
-        return ProbeInternalError(message)
-    if isinstance(exc, ProbeReadFailed):
-        return ProbeReadFailed(message)
-    if isinstance(exc, ProbeConnectionError):
-        return ProbeConnectionError(message)
-    if isinstance(exc, _ARGUMENT_TYPES):
-        return ProbeArgumentError(message)
-    return ProbeConnectionError(message)
+    for family in (ProbeInternalError, ProbeReadFailed, ProbeConnectionError):
+        if isinstance(exc, family):
+            return family(message)
+    return _foreign_family(exc, message)

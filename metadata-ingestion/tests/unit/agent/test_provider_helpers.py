@@ -532,10 +532,10 @@ def test_base_warnings_reach_the_result(run: Callable[..., ProbeMethodResult]) -
     assert run("warn").warnings == ["one listing degraded"]
 
 
-# Helpers call back into provider-supplied callables. When one is C code (a
+# Helpers call back into provider-supplied callables, some of them C code (a
 # DB-API close, functools.partial over a driver's connect, a cursor iterated
-# by take), the innermost Python frame is the helper's -- which must not
-# vouch for the foreign text.
+# by take). What those raise is untrusted whichever frame raised it, so it is
+# named by class only.
 
 
 def test_a_c_closer_registered_by_open_once_is_foreign(

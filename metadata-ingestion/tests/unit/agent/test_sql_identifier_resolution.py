@@ -246,8 +246,8 @@ def test_a_dialect_that_cannot_list_schemas_exits_on_the_unsupported_code(
 ) -> None:
     """Resolving a schema now lists schemas first, so a dialect without
     get_schema_names fails there. It must still reach run_probe_method's
-    "does not support" branch (a ValueError, exit 2) rather than escape as a
-    foreign error the CLI reports as an unreachable source (exit 3)."""
+    "does not support" branch (exit 2) rather than escape as a foreign error
+    the CLI reports as an unreachable source (exit 3)."""
     db = tmp_path / "t.db"
     seed = create_engine(f"sqlite:///{db}")
     with seed.begin() as c:
@@ -266,15 +266,14 @@ def test_a_dialect_that_cannot_list_schemas_exits_on_the_unsupported_code(
     monkeypatch.setattr(Inspector, "get_schema_names", no_schemas)
     monkeypatch.setattr(Inspector, "get_table_names", table_names)
 
-    with pytest.raises(ValueError) as info:
+    with pytest.raises(ProbeArgumentError) as info:
         run_probe_method(
             "sqlalchemy",
             {"platform": "sqlite", "connect_uri": f"sqlite:///{db}"},
             "tables",
             {"schema": "main"},
         )
-    assert not isinstance(info.value, ProbeArgumentError)
-    assert "tables" in str(info.value)
+    assert "does not support the 'tables' command" in str(info.value)
     assert reflected == []
 
 

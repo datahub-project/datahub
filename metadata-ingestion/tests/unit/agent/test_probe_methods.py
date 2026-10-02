@@ -832,14 +832,11 @@ def test_a_connect_failure_is_not_reported_as_bad_input(
         if on_open
         else _provider_raising(on_call=error)
     )
-    # Opening, only a ValueError the provider raised itself keeps its text
-    # (agent.error_policy); anything else is reported by class name, since a
-    # connect failure's text is the driver's and is where connection strings
-    # leak from.
-    expected = "ConfigurationError" if on_open else "host unreachable"
-    with pytest.raises(ProbeConnectionError, match=expected) as exc_info:
+    # Not a framework type, so it is named by class only (agent.error_policy):
+    # a connect failure's text is the driver's, where connection strings leak.
+    with pytest.raises(ProbeConnectionError, match="ConfigurationError") as exc_info:
         _run_with(monkeypatch, provider)
-    assert not isinstance(exc_info.value, ValueError)
+    assert "host unreachable" not in str(exc_info.value)
 
 
 def test_a_getter_defect_is_not_reported_as_bad_input(
@@ -856,7 +853,10 @@ def test_a_getter_defect_is_not_reported_as_bad_input(
 def test_a_getter_refusing_its_input_is_still_bad_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(ValueError, match="no table named"):
+    from datahub.ingestion.agent.verdicts import ProbeArgumentError
+
+    with pytest.raises(ProbeArgumentError, match="no table named"):
         _run_with(
-            monkeypatch, _provider_raising(on_call=ValueError("no table named t"))
+            monkeypatch,
+            _provider_raising(on_call=ProbeArgumentError("no table named t")),
         )

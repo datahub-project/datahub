@@ -2,9 +2,10 @@ import io
 import json
 import pathlib
 import sys
+from typing import List, Tuple
 
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from sqlalchemy import create_engine
 
 import datahub.cli.recipe_cli as rc
@@ -19,7 +20,7 @@ from datahub.ingestion.agent.probe_methods import (
     probe_method,
 )
 from datahub.ingestion.agent.redact import collect_nested_secret_values, redact
-from datahub.ingestion.agent.verdicts import ProbeSoftError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
 
 
 @pytest.fixture(autouse=True)
@@ -1963,3 +1964,133 @@ def test_a_hostile_schema_exits_on_the_bad_argument_code(
     )
     assert res.exit_code == 2, res.output
     assert "containers" in res.output
+
+
+_TRUST_SENTINEL = "PLANTED-trust-by-type"
+
+
+class _TrustProvider:
+    """Takes SQL and API paths but declares neither sql_dialect nor
+    api_allowlist, and raises each kind of error the trust rule sorts."""
+
+    @classmethod
+    def for_config(cls, config: object) -> "_TrustProvider":
+        return cls()
+
+    def __enter__(self) -> "_TrustProvider":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    @probe_method(name="sql", scoped_sql_param="query")
+    def sql(self, query: str) -> List[str]:
+        """Run SQL."""
+        return []
+
+    @probe_method(name="api", scoped_path_param="path")
+    def api(self, path: str) -> List[str]:
+        """Call an API path."""
+        return []
+
+    @probe_method(name="plain_value")
+    def plain_value(self) -> List[str]:
+        """Raise a plain ValueError."""
+        raise ValueError(f"no widget named {_TRUST_SENTINEL}")
+
+    @probe_method(name="argument")
+    def argument(self) -> List[str]:
+        """Raise a ProbeArgumentError."""
+        raise ProbeArgumentError("no widget named 'w'; run `widgets`")
+
+    @probe_method(name="foreign")
+    def foreign(self) -> List[str]:
+        """Raise an untrusted error carrying a credential."""
+        raise RuntimeError(
+            f"fetcher gave up on https://user:{_TRUST_SENTINEL}@host/api"
+        )
+
+
+def _invoke_trust(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    command: str,
+    *params: str,
+) -> Result:
+    from datahub.ingestion.agent import probe_methods
+
+    class _Config:
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            return cls()
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: _TrustProvider)
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+    return CliRunner().invoke(
+        recipe,
+        ["probe", "run", command, "--recipe", _recipe_file(tmp_path), *params],
+    )
+
+
+@pytest.mark.parametrize(
+    "command, params, declaration",
+    [
+        ("sql", ("--query", "SELECT 1"), "sql_dialect"),
+        ("api", ("--path", "/widgets"), "api_allowlist"),
+    ],
+)
+def test_a_scoped_command_without_its_declaration_is_a_provider_defect(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    command: str,
+    params: Tuple[str, ...],
+    declaration: str,
+) -> None:
+    """A provider that takes SQL or a path but declares no dialect or
+    allowlist cannot be fixed by the caller, so it exits 1, not 2."""
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+    res = _invoke_trust(monkeypatch, tmp_path, command, *params)
+    assert res.exit_code == rc.EXIT_INTERNAL, res.output
+    assert declaration in res.stderr
+
+
+def test_a_providers_plain_value_error_exits_2_by_class_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+    res = _invoke_trust(monkeypatch, tmp_path, "plain_value")
+    assert res.exit_code == rc.EXIT_USER, res.output
+    assert "'plain_value' failed (ValueError)" in res.stderr
+    assert _TRUST_SENTINEL not in res.output
+
+
+def test_a_probe_argument_error_exits_2_with_its_message(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+    res = _invoke_trust(monkeypatch, tmp_path, "argument")
+    assert res.exit_code == rc.EXIT_USER, res.output
+    assert "no widget named 'w'; run `widgets`" in res.stderr
+
+
+def test_untrusted_text_is_withheld_by_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+    res = _invoke_trust(monkeypatch, tmp_path, "foreign")
+    assert res.exit_code == rc.EXIT_CONNECTION, res.output
+    assert "'foreign' failed (RuntimeError)" in res.stderr
+    assert "fetcher gave up" not in res.output
+    assert _TRUST_SENTINEL not in res.output
+
+
+def test_the_verbose_switch_shows_untrusted_text_scrubbed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
+    res = _invoke_trust(monkeypatch, tmp_path, "foreign")
+    assert res.exit_code == rc.EXIT_CONNECTION, res.output
+    assert "'foreign' failed (RuntimeError: fetcher gave up on https://" in res.stderr
+    assert _TRUST_SENTINEL not in res.output

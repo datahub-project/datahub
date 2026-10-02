@@ -5,6 +5,8 @@ from urllib.parse import parse_qsl, unquote, urlsplit
 
 import requests
 
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
+
 # Only reads. Unlike the SQL gate's "is this a SELECT", which needed CTE and
 # subquery analysis to mean anything, this one is exact.
 #
@@ -25,10 +27,11 @@ _PLACEHOLDER = re.compile(r"\{[^/}]+\}")
 _SEGMENT = "[^/]+"
 
 
-class ApiScopeError(ValueError):
+class ApiScopeError(ProbeArgumentError):
     """A request was refused because it is not a listed read endpoint.
 
-    A ValueError so recipe_cli maps it to the user-error exit code.
+    A ProbeArgumentError: the refusal is the caller's to fix (exit 2), and its
+    message is shown.
 
     Weaker in kind than the SQL gate, and worth being honest about: there is no
     parser here. sqlglot lets sql_gate reason about what a query *touches*; a

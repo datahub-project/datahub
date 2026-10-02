@@ -107,6 +107,7 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
 | `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
 | `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Framework loggers cannot be silenced; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
+| `probe_error_code(exc)`             | if your vendor's errors carry a code the framework does not read (see [Errors, logs and secrets](#errors-logs-and-secrets)): a staticmethod returning a short code such as `"ORA-00942"`, or `None`                                                                              |
 | `ProbeProviderBase` (optional base) | to get `warnings`/`_warn`, lazily opened clients (`_open_once`) and an `__exit__` that closes them all; see [Shared provider helpers](#shared-provider-helpers)                                                                                                                  |
 
 ### Errors, logs and secrets
@@ -114,29 +115,20 @@ implement exactly this one hook and nothing else in this guide. Everything below
 The framework owns what reaches the caller, so a provider does not have to scrub
 every call site:
 
-- **Your own argument errors keep their message.** Raise `ProbeArgumentError` when
-  the caller's argument is wrong (exit 2); it keeps its message wherever it is raised.
-  A plain `ValueError` keeps its text only when it is raised in a provider file: the
-  file that defines your provider class, or one defining a base class that is itself
-  a provider (declares `for_config` or a `@probe_method`) and is not an ingestion
-  `Source`. From a helper module, an ingestion `Source`, or around a stdlib or SDK call
-  that validates a caller argument, raise `ProbeArgumentError`.
+- **Raise `ProbeArgumentError` to show a message.** Exception text is shown by
+  type only. `ProbeArgumentError` (the caller's argument is wrong, exit 2),
+  `ProbeSoftError`, `ProbeConnectionError`, `ProbeReadFailed`, `ProbeInternalError`
+  and the SQL and API gates' refusals keep their message wherever they are raised.
+  Any other exception, a plain `ValueError` from your own provider included, is
+  reported by class name only. Around a stdlib or SDK call that validates a caller's
+  argument, catch its error and raise `ProbeArgumentError` from it.
 
-  While the provider is being built, only the `ValueError` family and the framework's
-  own types (`ProbeConnectionError`, `ProbeInternalError`, `ProbeReadFailed`) keep
-  their text. Any other type you raise there, such as `RuntimeError`, is reported by
-  class name as `ProbeConnectionError` (exit 3). During a command, an authored
-  defect type (`TypeError`, `KeyError`, `IndexError`, ...) is reported as
-  `ProbeInternalError` (exit 1) with its message.
-
-- **Everything else is reported by class name only.** An exception raised inside
-  reused ingestion code, a driver or an SDK keeps its exit code but loses its text:
+- **Everything else is reported by class name only.** It keeps its exit code but
+  loses its text:
 
   - while the provider is being built or closed (its `__exit__`):
-    `ProbeConnectionError` (exit 3). An authored failure while closing keeps its
-    type, except that a defect type (`TypeError`, `KeyError`, ...) is reported as
-    `ProbeInternalError` (exit 1). A failure while closing never replaces the
-    command's own failure;
+    `ProbeConnectionError` (exit 3), whatever its type. A failure while closing never
+    replaces the command's own failure;
   - during a command: Python defects (`TypeError`, `KeyError`, `AttributeError`,
     `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
     exits 2, and everything else (HTTP, cloud SDK, database, Kafka errors) exits 3.
@@ -145,32 +137,36 @@ every call site:
   from. If a command already recorded read failures, it reports `ProbeReadFailed`
   (exit 3) instead.
 
-  The class name carries a short machine code when the exception, the driver error
-  SQLAlchemy wraps as `.orig`, or an exception in its cause chain has one:
-  `'tables' failed (ProgrammingError; SQLSTATE 42P01)`, `(ProgrammingError; errno 1146)`,
-  `(HTTPError; HTTP 403)`, `(ClientError; AccessDenied)`. It reads:
+  The class name carries one short machine code when the exception, or one in its
+  `raise ... from` cause chain, has one: `'tables' failed (ProgrammingError; SQLSTATE 42P01)`,
+  `(HTTPError; HTTP 403)`. The framework reads cross-library conventions only:
 
-  - a SQLSTATE: `pgcode`, `sqlstate`, or pyodbc's first argument;
-  - an errno: `errno`, or the first argument of PyMySQL's and mysqlclient's
-    (`MySQLdb`) errors;
-  - an HTTP status: `response.status_code`, `status_code`, `status`, and `code` on
-    Google and urllib errors;
-  - an AWS error code: `response["Error"]["Code"]` on botocore and boto3 errors.
+  - an HTTP status: `response.status_code`, `status_code` or `status`, an int from
+    100 to 599;
+  - a SQLSTATE: `sqlstate`, five capitals or digits including a digit;
+  - an errno: `errno`, up to six digits.
 
-  Codes come from the `raise ... from` cause chain, never from an exception the error
-  was raised while handling. A code is shown only if it matches a strict pattern: five
-  capitals or digits including a digit, up to six digits, a status from 100 to 599, or
-  an AWS-style error name. Anything else is left out without notice. The attributes
-  are read without running the library's code, so a property, `__getattr__` or
-  `__getattribute__` that raises cannot leak through. The code never changes the exit
+  A vendor's own error shape is read by its provider: declare
+  `probe_error_code(exc) -> Optional[str]` as a staticmethod or classmethod (it is
+  also asked while the provider is being built, when there is no instance). It is
+  asked first, for every link of the cause chain, and its answer is shown only if it
+  is a name with at most one short token (`ORA-00942`, `SQLSTATE 42P01`); anything
+  else is dropped. The SQLAlchemy family reads psycopg2's `pgcode`, pyodbc's
+  SQLSTATE and PyMySQL's and mysqlclient's errno, through SQLAlchemy's `.orig`;
+  BigQuery reads google-api-core's `.code`. An exception raised while handling
+  another is never read for that other's code, and a code never changes the exit
   code.
+
+  When debugging a connector locally, set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see the
+  withheld text after the label, scrubbed:
+  `'tables' failed (RuntimeError: fetcher gave up on https://***@host/api)`.
 
 - **Never interpolate `{exc}` from an exception you did not raise; name the
   operation and the class.** `ProbeConnectionError(f"login failed: {exc}")` around a
   driver error would carry the driver's text out under a type the framework trusts.
-  As a backstop, a foreign exception's text found verbatim in your message is replaced
-  by its class name and code, as above, and the exception keeps its type and exit code. Text you rebuilt
-  from parts of it is not caught.
+  As a backstop, an untrusted exception's text found verbatim in your message is
+  replaced by its class name and code, as above, and the exception keeps its type
+  and exit code. Text you rebuilt from parts of it is not caught.
 
 - **All free text is scrubbed.** The recipe's own secret values are masked first,
   then credential shapes (`user:pass@` in URLs, `password=` / `client_secret=` /
@@ -683,9 +679,9 @@ what a connector could do. The guarantee is now "the channel is gated by a decla
 framework enforces," which is worth knowing when reviewing a new `scoped_*` declaration.
 
 A provider supplies what each gate needs: `sql_dialect` (a name sqlglot resolves) for queries, and
-`api_allowlist` for paths. Either one missing refuses the call and says the provider is what is
-incomplete — rather than guessing a grammar, or reporting an unlistable path as though the caller
-had chosen a bad one. If your connector's dialect name differs from SQLAlchemy's (`postgresql` vs
+`api_allowlist` for paths. Either one missing refuses the call as a provider defect
+(`ProbeInternalError`, exit 1) — rather than guessing a grammar, or reporting an unlistable path as
+though the caller had chosen a bad one. If your connector's dialect name differs from SQLAlchemy's (`postgresql` vs
 `postgres`), add it to the map in `sqlalchemy_probe.py`.
 
 ### Turning the passthroughs off
@@ -1044,7 +1040,7 @@ Every item has cost a review round on at least one connector.
 - [ ] **Metadata only.** Listings return names and structure, never row data.
       Degradation is a warning, not an empty result.
 - [ ] **Caller errors.** A caller's bad argument raises `ProbeArgumentError`
-      (exit 2); a plain `ValueError` keeps its text only in a provider file. See
+      (exit 2); a plain `ValueError` is reported by class name only. See
       [Errors, logs and secrets](#errors-logs-and-secrets).
 - [ ] **No foreign `{exc}`.** Never interpolate the text of an exception you did
       not raise; name the operation and the class instead. Providers need no

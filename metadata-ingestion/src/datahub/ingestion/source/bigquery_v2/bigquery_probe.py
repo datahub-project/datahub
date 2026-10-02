@@ -1,6 +1,7 @@
 import itertools
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from datahub.ingestion.agent.error_policy import http_status_code
 from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
     PROBE_QUERY_LABEL,
@@ -81,6 +82,18 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._client.close()
+
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The HTTP status a google-api-core error carries as `.code`
+        ("HTTP 403"). Read from those errors only: elsewhere `.code` is
+        anything."""
+        # lazy: the google client libraries are only needed once a probe runs
+        from google.api_core.exceptions import GoogleAPICallError
+
+        if not isinstance(exc, GoogleAPICallError):
+            return None
+        return http_status_code(exc.code)
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         # lazy: the bigquery client library is only needed once a probe runs

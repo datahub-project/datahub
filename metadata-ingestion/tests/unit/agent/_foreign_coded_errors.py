@@ -1,10 +1,11 @@
 """Driver and SDK errors that carry a short machine code next to their text.
 
 Shaped like the real ones (psycopg2, snowflake-connector, pyodbc, PyMySQL,
-SQLAlchemy, requests, google-api-core, azure-core, botocore) without importing
-them. Lives in its own module so the framework sees every raise as foreign.
+mysqlclient, SQLAlchemy, requests, azure-core, botocore) without importing the
+drivers. Every message quotes SENTINEL, which no label may ever contain.
 """
 
+import errno as errno_codes
 from typing import Dict, NoReturn
 
 import requests
@@ -40,19 +41,23 @@ class MySqlProgrammingError(Exception):
 MySqlProgrammingError.__module__ = "pymysql.err"
 
 
-class PermissionDenied(Exception):
-    """google.api_core's exceptions declare their HTTP status on the class."""
-
-    code = 403
+class MySqldbProgrammingError(Exception):
+    """mysqlclient's errors carry (errno, message) as their args."""
 
 
-PermissionDenied.__module__ = "google.api_core.exceptions"
+MySqldbProgrammingError.__module__ = "MySQLdb._exceptions"
 
 
 class HttpResponseError(Exception):
     def __init__(self, message: str, status_code: object) -> None:
         super().__init__(message)
         self.status_code = status_code
+
+
+class StatusError(Exception):
+    def __init__(self, message: str, status: object) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 class ClientError(Exception):
@@ -62,6 +67,34 @@ class ClientError(Exception):
 
 
 ClientError.__module__ = "botocore.exceptions"
+
+
+class FakeGoogleError(Exception):
+    """Named and placed like a google-api-core error, but not one."""
+
+    code = 403
+
+
+FakeGoogleError.__module__ = "google.api_core.exceptions"
+
+
+class VendorError(Exception):
+    """An error whose code only its own provider knows how to read."""
+
+    def __init__(self, message: str, vendor_code: object, status_code: object) -> None:
+        super().__init__(message)
+        self.vendor_code = vendor_code
+        self.status_code = status_code
+
+
+class SneakyStr(str):
+    """A str whose rendering is not its characters."""
+
+    def __str__(self) -> str:
+        return SENTINEL
+
+    def __format__(self, spec: str) -> str:
+        return SENTINEL
 
 
 class _RaisingCode(Exception):
@@ -77,79 +110,13 @@ class _BrokenGetattr(Exception):
         raise RuntimeError(f"no {name} in {SENTINEL}")
 
 
-class _SneakyStr(str):
-    def __str__(self) -> str:
-        return SENTINEL
+class _HostileGetattribute(Exception):
+    """Every chain and code attribute read through __getattribute__ raises."""
 
-    def __format__(self, spec: str) -> str:
-        return SENTINEL
-
-
-def pg(pgcode: object = "42P01") -> NoReturn:
-    raise PgError(f'relation "{SENTINEL}" does not exist', pgcode)
-
-
-def snowflake(errno: object = 2003, sqlstate: object = "42S02") -> NoReturn:
-    raise SnowflakeProgrammingError(
-        f"Object '{SENTINEL}' does not exist or not authorized", errno, sqlstate
-    )
-
-
-def odbc() -> NoReturn:
-    raise OdbcProgrammingError("42S02", f"Invalid object name '{SENTINEL}'")
-
-
-def mysql() -> NoReturn:
-    raise MySqlProgrammingError(1146, f"Table '{SENTINEL}' doesn't exist")
-
-
-def sqlalchemy_wrapping_pg() -> NoReturn:
-    raise sqlalchemy.exc.ProgrammingError(
-        f"SELECT * FROM {SENTINEL}",
-        {"p": SENTINEL},
-        PgError(f'relation "{SENTINEL}" does not exist', "42P01"),
-    )
-
-
-def http(status: int = 403) -> NoReturn:
-    response = requests.Response()
-    response.status_code = status
-    response.url = f"https://host/api?token={SENTINEL}"
-    raise requests.HTTPError(f"{status} for url {response.url}", response=response)
-
-
-def google() -> NoReturn:
-    raise PermissionDenied(f"caller {SENTINEL} lacks bigquery.tables.list")
-
-
-def azure(status_code: object = 404) -> NoReturn:
-    raise HttpResponseError(f"container {SENTINEL} not found", status_code)
-
-
-def aws(code: object = "AccessDenied") -> NoReturn:
-    raise ClientError(
-        f"An error occurred ({code}) for arn:aws:iam::{SENTINEL}",
-        {"Error": {"Code": code, "Message": SENTINEL}},
-    )
-
-
-def chained_from_pg() -> NoReturn:
-    try:
-        pg()
-    except PgError as exc:
-        raise RuntimeError(f"query failed: {exc}") from exc
-
-
-def raising_code() -> NoReturn:
-    raise _RaisingCode(SENTINEL)
-
-
-def broken_getattr() -> NoReturn:
-    raise _BrokenGetattr(SENTINEL)
-
-
-def sneaky_str() -> NoReturn:
-    raise PgError(SENTINEL, _SneakyStr("42P01"))
+    def __getattribute__(self, name: str) -> object:
+        if name in ("__cause__", "__context__", "args", "errno", "orig", "status"):
+            raise RuntimeError(f"no {name} in {SENTINEL}")
+        return super().__getattribute__(name)
 
 
 class _CauseProperty(Exception):
@@ -166,33 +133,108 @@ def _raising_cause(self: BaseException) -> BaseException:
 setattr(_CauseProperty, "__cause__", property(_raising_cause))  # noqa: B010
 
 
-class _HostileGetattribute(Exception):
-    """Every chain and code attribute read through __getattribute__ raises."""
-
-    def __getattribute__(self, name: str) -> object:
-        if name in ("__cause__", "__context__", "args", "errno", "orig"):
-            raise RuntimeError(f"no {name} in {SENTINEL}")
-        return super().__getattribute__(name)
+def pg(pgcode: object = "42P01") -> NoReturn:
+    raise PgError(f'relation "{SENTINEL}" does not exist', pgcode)
 
 
-def cause_property() -> NoReturn:
-    raise _CauseProperty(SENTINEL)
+def snowflake(errno: object = 2003, sqlstate: object = "42S02") -> NoReturn:
+    raise SnowflakeProgrammingError(
+        f"Object '{SENTINEL}' does not exist or not authorized", errno, sqlstate
+    )
+
+
+def odbc(sqlstate: object = "42S02") -> NoReturn:
+    raise OdbcProgrammingError(sqlstate, f"Invalid object name '{SENTINEL}'")
+
+
+def mysql(errno: object = 1146) -> NoReturn:
+    raise MySqlProgrammingError(errno, f"Table '{SENTINEL}' doesn't exist")
+
+
+def mysqldb() -> NoReturn:
+    raise MySqldbProgrammingError(1146, f"Table '{SENTINEL}' doesn't exist")
+
+
+def sqlalchemy_wrapping_pg() -> NoReturn:
+    raise sqlalchemy.exc.ProgrammingError(
+        f"SELECT * FROM {SENTINEL}",
+        {"p": SENTINEL},
+        PgError(f'relation "{SENTINEL}" does not exist', "42P01"),
+    )
+
+
+def sqlalchemy_wrapping_mysql() -> NoReturn:
+    raise sqlalchemy.exc.ProgrammingError(
+        f"SELECT * FROM {SENTINEL}",
+        {"p": SENTINEL},
+        MySqlProgrammingError(1146, f"Table '{SENTINEL}' doesn't exist"),
+    )
+
+
+def http(status: int = 403) -> NoReturn:
+    response = requests.Response()
+    response.status_code = status
+    response.url = f"https://host/api?token={SENTINEL}"
+    raise requests.HTTPError(f"{status} for url {response.url}", response=response)
+
+
+def azure(status_code: object = 404) -> NoReturn:
+    raise HttpResponseError(f"container {SENTINEL} not found", status_code)
+
+
+def status(code: object = 429) -> NoReturn:
+    raise StatusError(f"slow down, {SENTINEL}", code)
+
+
+def refused() -> NoReturn:
+    raise ConnectionRefusedError(
+        errno_codes.ECONNREFUSED, f"Connection refused by {SENTINEL}"
+    )
+
+
+def aws(code: object = "AccessDenied") -> NoReturn:
+    raise ClientError(
+        f"An error occurred ({code}) for arn:aws:iam::{SENTINEL}",
+        {"Error": {"Code": code, "Message": SENTINEL}},
+    )
+
+
+def fake_google() -> NoReturn:
+    raise FakeGoogleError(f"caller {SENTINEL} lacks bigquery.tables.list")
+
+
+def vendor(vendor_code: object = "ORA-00942", status_code: object = None) -> NoReturn:
+    raise VendorError(f"table {SENTINEL} does not exist", vendor_code, status_code)
+
+
+def chained_from_azure() -> NoReturn:
+    try:
+        azure()
+    except HttpResponseError as exc:
+        raise RuntimeError(f"listing failed: {exc}") from exc
+
+
+def chained_from_vendor() -> NoReturn:
+    try:
+        vendor()
+    except VendorError as exc:
+        raise RuntimeError(f"query failed: {exc}") from exc
+
+
+def raising_code() -> NoReturn:
+    raise _RaisingCode(SENTINEL)
+
+
+def broken_getattr() -> NoReturn:
+    raise _BrokenGetattr(SENTINEL)
 
 
 def hostile_getattribute() -> NoReturn:
     raise _HostileGetattribute(SENTINEL)
 
 
-class _NotAws(Exception):
-    """Any library's error that happens to keep a botocore-shaped dict."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-        self.response = {"Error": {"Code": "PLANTEDtokenABC"}}
-
-
-def not_aws() -> NoReturn:
-    raise _NotAws(SENTINEL)
+def cause_property() -> NoReturn:
+    raise _CauseProperty(SENTINEL)
 
 
 def connection_error_while_handling_429() -> NoReturn:

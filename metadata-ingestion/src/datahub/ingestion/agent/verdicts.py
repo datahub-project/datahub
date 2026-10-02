@@ -168,7 +168,7 @@ class ProbeSoftError(ValueError):
     reason is the connector's job, and the two connectors that raise this
     disagreed about it: Mode caught it, Hex did not.
 
-    Prefer a plain ValueError for "the caller named something that is not
+    Prefer ProbeArgumentError for "the caller named something that is not
     there" -- a nonexistent space or report is a bad argument, not a degraded
     read, and routing it through the soft path reports exit 0 with an empty
     result for what is really exit 2.
@@ -186,18 +186,10 @@ class ProbeSoftError(ValueError):
 class ProbeArgumentError(ValueError):
     """The caller named something that is wrong or does not exist.
 
-    The explicit way for a provider to say "fix your argument" (exit 2) with a
-    message the caller should read. Since the framework stopped echoing the
-    text of exceptions it cannot vouch for (see agent.error_policy), a plain
-    ValueError raised from code the provider did not write is reported by its
-    class name only -- raise this to keep your message.
-
-    A plain ValueError keeps its message only when raised lexically in a
-    provider file: the one defining the provider class, or one defining a base
-    class that is itself a probe provider (declares for_config or a
-    @probe_method) and is not an ingestion Source. From a helper module, an
-    ingestion Source base, or around stdlib/SDK validation of a caller's
-    argument (int(), a URL parser), raise this instead.
+    The way for a provider to say "fix your argument" (exit 2) with a message
+    the caller should read. The framework shows exception text by type only
+    (see agent.error_policy), so a plain ValueError keeps exit 2 but is
+    reported by its class name, wherever it was raised.
 
     If the provider already recorded read failures before raising, the call
     reports ProbeReadFailed (exit 3) instead: the recorded failure is what

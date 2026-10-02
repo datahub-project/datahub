@@ -4,6 +4,7 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 import sqlglot
 from sqlglot import exp
 
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 # The one schema that is catalog metadata by definition, in every dialect that has
@@ -175,12 +176,11 @@ _STATEMENT_KEYWORDS: Dict[type, str] = {
 _WRITE_NODES: Tuple[type, ...] = tuple(_STATEMENT_KEYWORDS) + (exp.Command,)
 
 
-class SqlScopeError(ValueError):
+class SqlScopeError(ProbeArgumentError):
     """A query was refused because it is not a read of catalog metadata.
 
-    Deliberately a ValueError: recipe_cli already maps ValueError to the
-    user-error exit code, so a refusal reads as "your input was wrong" rather
-    than "the source could not be reached".
+    A ProbeArgumentError: the refusal is the caller's to fix (exit 2), and its
+    message is shown.
 
     This check narrows what a probe query can touch; it is not a security
     boundary. A determined query against a permissive credential is stopped by

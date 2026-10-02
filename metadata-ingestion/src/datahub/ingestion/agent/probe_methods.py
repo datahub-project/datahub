@@ -5,7 +5,6 @@ from typing import (
     Any,
     Callable,
     Dict,
-    FrozenSet,
     List,
     Mapping,
     NoReturn,
@@ -27,16 +26,16 @@ from datahub.configuration.env_vars import (
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import (
-    DEFECT_TYPES,
     classify_foreign,
     foreign_label,
-    is_authored,
+    is_trusted,
     police_authored,
     withhold_foreign_text,
 )
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
     ProbeConnectionError,
     ProbeInternalError,
     ProbeReadFailed,
@@ -450,53 +449,6 @@ def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
     return sorted(found.items())
 
 
-def _declares_probe_provider(klass: type) -> bool:
-    """Whether `klass` itself (not a base) builds a provider or declares a
-    command: the classes whose files hold code written for the probe."""
-    if "for_config" in vars(klass):
-        return True
-    return any(
-        isinstance(getattr(value, "__probe_command__", None), ProbeMethodSpec)
-        for value in vars(klass).values()
-    )
-
-
-def provider_source_files(provider_cls: type) -> FrozenSet[str]:
-    """The files whose raises carry a message the provider wrote on purpose
-    (see agent.error_policy.is_authored).
-
-    The provider class's own file, plus the file of every base that is itself
-    a probe provider: a shared provider base raising ValueError for a bad
-    argument wrote that message for the caller exactly as a subclass would.
-
-    Never an ingestion Source's file, even one carrying @probe_method: that is
-    reused ingestion code, the very text the policy withholds. So
-    ModeProbeSource(RestApiPassthrough, ModeSource) vouches for mode_probe.py
-    (and the framework's rest_passthrough.py, authored anyway) but not mode.py.
-    The provider class itself always counts, Source subclass or not -- it is
-    the file written for the probe.
-    """
-    # lazy: the ingestion API module is heavy and only needed once a probe runs
-    from datahub.ingestion.api.source import Source
-
-    files = set()
-    for klass in provider_cls.__mro__:
-        if klass is object or getattr(klass, "_is_protocol", False):
-            continue
-        if klass is not provider_cls and (
-            issubclass(klass, Source) or not _declares_probe_provider(klass)
-        ):
-            continue
-        try:
-            path = inspect.getsourcefile(klass)
-        except TypeError:
-            # A class whose module has no __file__: nothing to vouch for.
-            continue
-        if path:
-            files.add(path)
-    return frozenset(files)
-
-
 def list_probe_methods(
     source_type: str, config_dict: Optional[Mapping[str, object]] = None
 ) -> List[ProbeMethodSpec]:
@@ -612,7 +564,12 @@ def _bound_method(provider: object, command: str) -> Callable:
         spec = getattr(getattr(type(provider), attr, None), "__probe_command__", None)
         if isinstance(spec, ProbeMethodSpec) and spec.command == command:
             return getattr(provider, attr)
-    raise ValueError(f"no probe method bound for command '{command}'")
+    # The command was found on the provider class, so a built provider lacking
+    # it means for_config returned something else: the provider's defect.
+    raise ProbeInternalError(
+        f"the provider built for this source has no method for command "
+        f"'{command}'; this is a defect in the probe provider"
+    )
 
 
 def _effective_row_limit(
@@ -729,9 +686,11 @@ def _enforce_gates(
 
         dialect = getattr(provider, "sql_dialect", None)
         if not isinstance(dialect, str) or not dialect:
-            raise ValueError(
+            # The provider's defect, not the caller's: no query could pass.
+            raise ProbeInternalError(
                 f"probe method '{spec.command}' takes SQL but its provider "
-                f"declares no sql_dialect, so the query cannot be checked"
+                f"declares no sql_dialect, so the query cannot be checked; "
+                f"this is a defect in the probe provider"
             )
         # The scope is the connector's declaration of what its dialect's catalog
         # is; absent one, check_query_scope falls back to information_schema only.
@@ -744,14 +703,13 @@ def _enforce_gates(
     if spec.scoped_path_param is not None:
         allowlist = getattr(provider, "api_allowlist", None)
         if allowlist is None:
-            # Distinct from an unlisted path, which is the caller's to fix. An
-            # absent allowlist means no path can ever work, so reporting it as
-            # "not in this connector's allowlist" would send the caller off to
-            # rewrite a path when the connector is what is incomplete. Mirrors
-            # the missing-sql_dialect refusal above.
-            raise ValueError(
+            # Distinct from an unlisted path, which is the caller's to fix: an
+            # absent allowlist means no path can ever work, and the connector
+            # is what is incomplete.
+            raise ProbeInternalError(
                 f"probe method '{spec.command}' takes an API path but its "
-                f"provider declares no api_allowlist, so no path can be permitted"
+                f"provider declares no api_allowlist, so no path can be "
+                f"permitted; this is a defect in the probe provider"
             )
         # GET-only is the rule, so the method is not the caller's to choose.
         # The base URL is passed so the gate can resolve the path the way the
@@ -796,56 +754,37 @@ def _report_entries(report: object, kind: str) -> Set[str]:
 
 
 def _raise_call_failure(
-    exc: Exception,
-    provider: object,
-    provider_files: FrozenSet[str],
-    command: str,
-    source_type: str,
+    exc: Exception, provider: object, provider_cls: type, command: str
 ) -> NoReturn:
     """Re-raise a provider call's failure in the shape the CLI reports.
 
-    Foreign text (reused ingestion code, a driver, an SDK) is where connection
-    strings and token-endpoint bodies leak from, so a foreign exception is
-    reported by class name only and not chained (see agent.error_policy).
+    An untrusted exception is named by class and code only and not chained
+    (see agent.error_policy); a trusted one keeps its type and message, minus
+    any untrusted text it quotes.
     """
-    # lazy: keeps the configuration module off this module's import path
-    from datahub.configuration.common import ConfigurationError
-
     recorded = set(getattr(provider, "failures", None) or []) | _report_entries(
         getattr(provider, "probe_report", None), "failures"
     )
-    authored = is_authored(exc, provider_files)
+    trusted = is_trusted(exc)
     detail = (
-        scrub_text(withhold_foreign_text(exc, provider_files), set())
-        if authored
-        else foreign_label(exc)
+        scrub_text(withhold_foreign_text(exc, provider_cls), set())
+        if trusted
+        else foreign_label(exc, provider_cls)
     )
     if recorded:
+        # The recorded failure explains the miss, whatever was raised after it.
         raise ProbeReadFailed(
             f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))
         ) from None
-    if not authored:
-        raise classify_foreign(exc, f"'{command}'") from None
-    if isinstance(exc, ConfigurationError):
-        # A connector that connects lazily, on the first query.
-        raise ProbeConnectionError(
-            f"'{command}' could not reach source '{source_type}': {detail}"
-        ) from exc
-    if isinstance(exc, DEFECT_TYPES):
-        # Still a defect when the provider raised it itself: after the
-        # arguments were coerced these do not mean "bad input", so they must
-        # not fall through to the CLI's exit-2 family.
-        raise ProbeInternalError(
-            f"'{command}' failed inside the connector ({type(exc).__name__}: "
-            f"{detail}); this is a defect, not a problem with the arguments"
-        ) from exc
-    _reraise_authored(exc, provider_files)
+    if not trusted:
+        raise classify_foreign(exc, f"'{command}'", provider_cls) from None
+    _reraise_trusted(exc, provider_cls)
 
 
-def _reraise_authored(exc: BaseException, provider_files: FrozenSet[str]) -> NoReturn:
-    """Raise an authored exception, minus any foreign text it quotes (see
+def _reraise_trusted(exc: BaseException, provider_cls: type) -> NoReturn:
+    """Raise a trusted exception, minus any untrusted text it quotes (see
     agent.error_policy.police_authored)."""
-    replacement = police_authored(exc, provider_files)
+    replacement = police_authored(exc, provider_cls)
     if replacement is not None:
         raise replacement from None
     raise exc
@@ -857,7 +796,7 @@ class _ProviderCall:
     config: Any
     spec: ProbeMethodSpec
     call_kwargs: Dict[str, object]
-    provider_files: FrozenSet[str]
+    provider_cls: type
     source_type: str
 
 
@@ -894,20 +833,13 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
             # The command's failure was already policed; keep it, with the
             # close failure out of the displayed chain.
             raise body_error from body_error.__cause__
-        if is_authored(exc, call.provider_files):
-            if isinstance(exc, DEFECT_TYPES):
-                # As on the call path: a TypeError or KeyError the provider
-                # raised itself is a defect, not the CLI's bad-input family.
-                detail = scrub_text(
-                    withhold_foreign_text(exc, call.provider_files), set()
-                )
-                raise ProbeInternalError(
-                    f"closing source '{call.source_type}' failed inside the "
-                    f"connector ({type(exc).__name__}: {detail}); this is a defect"
-                ) from None
-            _reraise_authored(exc, call.provider_files)
+        if is_trusted(exc):
+            _reraise_trusted(exc, call.provider_cls)
+        # As on the open path: whatever its type, an untrusted failure while
+        # closing is the source's (exit 3).
         raise ProbeConnectionError(
-            f"closing source '{call.source_type}' failed ({foreign_label(exc)})"
+            f"closing source '{call.source_type}' failed "
+            f"({foreign_label(exc, call.provider_cls)})"
         ) from None
     # Reached only when the provider's __exit__ returned true and so swallowed
     # the command's own failure: there is no result to report.
@@ -923,33 +855,26 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     try:
         provider = stack.enter_context(call.builder(call.config))
     except Exception as exc:
-        # A provider refusing the recipe on purpose (an argument it can
-        # explain) keeps its message and exits 2. Anything else -- reused
-        # ingestion code, a driver, an SDK -- is reported by class name
-        # only: that text is where connection strings and token-endpoint
-        # bodies leak from.
-        if isinstance(
-            exc,
-            (ValueError, ProbeConnectionError, ProbeInternalError, ProbeReadFailed),
-        ) and is_authored(exc, call.provider_files):
-            _reraise_authored(exc, call.provider_files)
-        # Always a connection error here, not classify_foreign's split: the
-        # caller's input was all checked above, so a foreign failure while
+        # A provider refusing the recipe on purpose raises a trusted type and
+        # keeps its message. Anything else is named by class only, and is
+        # always a connection error rather than classify_foreign's split: the
+        # caller's input was all checked above, so an untrusted failure while
         # building the provider is the source's (exit 3), whatever its type.
+        if is_trusted(exc):
+            _reraise_trusted(exc, call.provider_cls)
         raise ProbeConnectionError(
-            f"opening source '{source_type}' failed ({foreign_label(exc)})"
+            f"opening source '{source_type}' failed "
+            f"({foreign_label(exc, call.provider_cls)})"
         ) from None
     _enforce_gates(call.spec, provider, call.call_kwargs)
+    method = _bound_method(provider, command)
     try:
-        result = _bound_method(provider, command)(**call.call_kwargs)
+        result = method(**call.call_kwargs)
     except NotImplementedError as exc:
-        # A dialect that does not implement a reflection method raises this, and
-        # it is the one failure a caller cannot reason its way out of: without
-        # this branch it falls to recipe_cli's catch-all and exits 3, "I could
-        # not reach the source" -- so an agent concludes the source is
-        # unreachable and retries, when the connection was fine and the engine
-        # simply has no such concept. ValueError maps to exit 2, which is the
-        # honest answer: the command was the wrong one to ask for.
+        # A dialect that does not implement a reflection method raises this.
+        # Exit 3 would tell the caller the source was unreachable and send it
+        # to retry; the connection was fine and the engine has no such
+        # concept, so this is exit 2: the command was the wrong one to ask for.
         #
         # Deliberately NOT backed by a per-dialect capability table. Everything
         # else about an unsupported command is already derivable by the caller:
@@ -957,22 +882,17 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
         # answers in a self-describing way -- Trino's get_indexes returns
         # {"name": "partition", ...} because it reflects partition keys, which an
         # agent that knows Trino reads for what it is.
-        raise ValueError(
+        raise ProbeArgumentError(
             f"source '{source_type}' does not support the '{command}' command: "
             f"its SQL dialect does not implement it. The source was reached "
             f"fine -- this is a limit of the engine, so choose another command "
             f"rather than retrying"
         ) from exc
     except Exception as exc:
-        # The report was only read on the success path, so a getter that
-        # recorded a failure and then raised had its reason discarded --
-        # Hex's _project_id_or_raise raises ProbeSoftError("no project
-        # titled 'x'") after a failed /projects fetch, and the caller was
-        # told at exit 2 to fix a title when the listing had 401'd.
-        # Both shapes, as the success path does. Reading only probe_report
-        # here meant a provider using the plain `failures` list and then
-        # raising still reached the CLI as a user error.
-        _raise_call_failure(exc, provider, call.provider_files, command, source_type)
+        # Recorded failures are read here as on the success path, in both
+        # shapes: a getter that recorded a failed fetch and then raised
+        # "no such name" is reporting the fetch, not a bad argument.
+        _raise_call_failure(exc, provider, call.provider_cls, command)
     # Optional, source-agnostic: a provider that degrades a sub-fetch
     # instead of failing outright (see agent.verdicts.ProbeSoftError) may
     # expose its own `warnings` list to report that here. Duck-typed
@@ -1051,9 +971,6 @@ def run_probe_method(
     config = validate_source_config(
         config_class_for(source_type), source_type, config_dict
     )
-    # The provider's own source files: an exception raised there carries a
-    # message the provider wrote, so it may be shown (see agent.error_policy).
-    provider_files = provider_source_files(provider_cls)
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
         raise ValueError(
@@ -1073,7 +990,7 @@ def run_probe_method(
                 config=config,
                 spec=specs[command],
                 call_kwargs=call_kwargs,
-                provider_files=provider_files,
+                provider_cls=provider_cls,
                 source_type=source_type,
             )
         )

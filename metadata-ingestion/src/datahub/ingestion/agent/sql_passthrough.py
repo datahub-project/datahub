@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Sequence, TypeVar
 from datahub.ingestion.agent.probe_methods import clamp_item_limit, probe_method
 from datahub.ingestion.agent.redact import mask_identity_columns
 from datahub.ingestion.agent.sql_gate import CatalogScope
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 
 # `__enter__` must hand back the concrete provider, not this base: a caller writing
 # `with SqlAlchemyMetadataProbe(...) as probe` otherwise sees only the base's members
@@ -84,7 +85,7 @@ class QueryBudget:
         for name in ("timeout_seconds", "max_bytes_billed"):
             value = getattr(self, name)
             if value is not None and value <= 0:
-                raise ValueError(
+                raise ProbeArgumentError(
                     f"QueryBudget.{name} must be positive or None; got {value!r}. "
                     f"None means no ceiling -- a non-positive number would be "
                     f"reported as a ceiling that nothing enforces"
