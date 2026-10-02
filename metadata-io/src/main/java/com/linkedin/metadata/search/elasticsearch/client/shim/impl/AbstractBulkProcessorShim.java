@@ -2,7 +2,9 @@ package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
@@ -30,6 +32,9 @@ public abstract class AbstractBulkProcessorShim<T> {
   protected int itemRequeueMaxAttempts = 3;
 
   @Nullable protected BulkItemRequeueSupport bulkItemRequeueSupport;
+
+  /** Bulk-write attribution; the disabled instance unless {@link #configureBulkTelemetry}. */
+  @Getter @Nonnull protected BulkTelemetry bulkTelemetry = BulkTelemetry.disabled();
 
   /**
    * Initialize bulk processor infrastructure with common fields and build the processor array.
@@ -68,6 +73,10 @@ public abstract class AbstractBulkProcessorShim<T> {
     this.itemRequeueMaxAttempts = itemRequeueMaxAttempts;
   }
 
+  public void configureBulkTelemetry(@Nonnull BulkTelemetryConfig config) {
+    this.bulkTelemetry = BulkTelemetry.create(config);
+  }
+
   /**
    * Add a write request using URN-based consistent hashing for entity document consistency.
    * Subclasses must implement the actual processor-specific add logic.
@@ -81,6 +90,7 @@ public abstract class AbstractBulkProcessorShim<T> {
       @Nonnull String urn,
       @Nonnull DocWriteRequest<?> writeRequest) {
     bulkWriteResultTracker.recordEnqueued(1);
+    bulkTelemetry.onAdd(writeRequest);
     int index = Math.floorMod(urn.hashCode(), threadCount);
     addToProcessor(bulkProcessors[index], writeRequest);
   }
@@ -130,6 +140,8 @@ public abstract class AbstractBulkProcessorShim<T> {
             ? writeRequest.id()
             : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
     int index = Math.floorMod(routingKey.hashCode(), threadCount);
+    // Re-added from the flush thread, so the retry batch would otherwise lose the request's link.
+    bulkTelemetry.onRequeue(writeRequest);
     addToProcessor(bulkProcessors[index], writeRequest);
   }
 

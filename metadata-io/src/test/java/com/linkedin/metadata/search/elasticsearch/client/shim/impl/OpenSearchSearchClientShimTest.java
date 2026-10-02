@@ -1,16 +1,21 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.elasticsearch.update.BulkTelemetryTest;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -18,6 +23,11 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +59,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.ResponseListener;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.ResizeRequest;
@@ -719,5 +730,355 @@ public class OpenSearchSearchClientShimTest {
     assertEquals(
         header,
         "trace=0af7651916cd43dd8448eb211c80319c|actor=urn:li:corpuser:jdoe|req=explain|n=1");
+  }
+
+  private static final String BULK_OK =
+      "{\"took\":5,\"errors\":false,\"items\":[{\"index\":{\"_index\":\"idx\",\"_id\":\"1\","
+          + "\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,"
+          + "\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}}]}";
+
+  @Test
+  public void bulkTelemetryIsOffByDefault() {
+    OpenSearchSearchClientShim shim = shimWith(mock(RestClient.class));
+    assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled());
+    shim.configureBulkTelemetry(BulkTelemetryConfig.of(null, true, false, null));
+    assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled(), "spans need a tracer");
+    shim.configureBulkTelemetry(BulkTelemetryConfig.DISABLED);
+    assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled());
+  }
+
+  private static final String BULK_REJECTED =
+      "{\"took\":5,\"errors\":true,\"items\":[{\"index\":{\"_index\":\"idx\",\"_id\":\"1\","
+          + "\"status\":429,\"error\":{\"type\":\"es_rejected_execution_exception\","
+          + "\"reason\":\"rejected execution\"}}}]}";
+
+  private static BulkTelemetryConfig telemetry(
+      BulkTelemetryTest.Collector collector, boolean opaqueId, String service) {
+    return BulkTelemetryConfig.of(BulkTelemetryTest.tracer(collector), true, opaqueId, service);
+  }
+
+  @Test
+  public void syncBulkFlushCarriesBatchOpaqueIdAndBatchSpan() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    when(restClient.performRequest(any(Request.class))).thenReturn(ok);
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, true, "gms"));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      try (Scope ignored =
+          BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+              .makeCurrent()) {
+        shim.addBulk(
+            OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      }
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient).performRequest(captor.capture());
+    String header = BulkTelemetryTest.header(captor.getValue().getOptions());
+    assertNotNull(header);
+    assertTrue(header.matches("bulk\\|gms\\|batch=[0-9a-f]{8}-1\\|n=1"), header);
+
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertEquals(span.getName(), "index bulk");
+    assertEquals(
+        header, "bulk|gms|batch=" + span.getAttributes().get(BulkTelemetry.BATCH_ID) + "|n=1");
+    assertEquals(span.getAttributes().get(BulkTelemetry.INDICES), List.of("idx"));
+    // BulkProcessor routes every flush through Retry, whose RetryHandler.getAccumulatedResponse
+    // builds a new BulkResponse with the measured round trip (System.nanoTime), discarding the
+    // store's took (5 here). The listener therefore sees the client-side latency, which in a mocked
+    // round trip is usually 0; only its presence and sign are asserted.
+    assertTrue(span.getAttributes().get(BulkTelemetry.TOOK_MS) >= 0L);
+    assertEquals(span.getLinks().size(), 1);
+    assertEquals(
+        span.getLinks().get(0).getSpanContext().getTraceId(), "0af7651916cd43dd8448eb211c80319c");
+    assertFalse(span.getParentSpanContext().isValid());
+  }
+
+  @Test
+  public void asyncBulkFlushCarriesBatchOpaqueIdAndEndsSpanOnFailure() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    doAnswer(
+            inv -> {
+              inv.getArgument(1, ResponseListener.class).onSuccess(ok);
+              return null;
+            })
+        .doAnswer(
+            inv -> {
+              inv.getArgument(1, ResponseListener.class).onFailure(new IOException("reset"));
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, true, "mae"));
+    shim.configureBulkProcessorWriteOptions(false, 0); // a failed batch would otherwise requeue
+    shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+      shim.addBulk(OP, "urn:li:dataset:y", new IndexRequest("idx").id("2").source(Map.of("a", 2)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient, org.mockito.Mockito.times(2))
+        .performRequestAsync(captor.capture(), any(ResponseListener.class));
+    for (Request r : captor.getAllValues()) {
+      String header = BulkTelemetryTest.header(r.getOptions());
+      assertTrue(header != null && header.startsWith("bulk|mae|batch="), String.valueOf(header));
+    }
+    assertEquals(collector.spans.size(), 2);
+    assertEquals(collector.spans.get(0).getStatus().getStatusCode(), StatusCode.UNSET);
+    assertEquals(collector.spans.get(1).getStatus().getStatusCode(), StatusCode.ERROR);
+    assertEquals(
+        collector.spans.get(1).getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(1));
+  }
+
+  @Test
+  public void syncBulkRequeueCarriesTheOriginalLinkIntoTheRetryBatch() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response rejected = jsonResponse(200, BULK_REJECTED);
+    Response ok = jsonResponse(200, BULK_OK);
+    when(restClient.performRequest(any(Request.class))).thenReturn(rejected).thenReturn(ok);
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, false, null));
+    shim.configureBulkProcessorWriteOptions(true, 3);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      try (Scope ignored =
+          BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+              .makeCurrent()) {
+        shim.addBulk(
+            OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      }
+      shim.flushBulkProcessor(); // 429: the listener requeues the item from afterBulk
+      shim.flushBulkProcessor(); // the retry batch
+    } finally {
+      shim.closeBulkProcessor();
+    }
+
+    org.mockito.Mockito.verify(restClient, org.mockito.Mockito.times(2))
+        .performRequest(any(Request.class));
+    assertEquals(collector.spans.size(), 2);
+    SpanData first = collector.spans.get(0);
+    SpanData retry = collector.spans.get(1);
+    assertEquals(first.getStatus().getStatusCode(), StatusCode.ERROR);
+    assertEquals(first.getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(1));
+    assertEquals(retry.getStatus().getStatusCode(), StatusCode.UNSET);
+    assertEquals(retry.getLinks().size(), 1, "requeued item keeps its link");
+    assertEquals(
+        retry.getLinks().get(0).getSpanContext().getTraceId(), "0af7651916cd43dd8448eb211c80319c");
+    assertEquals(
+        retry.getLinks().get(0).getSpanContext(), first.getLinks().get(0).getSpanContext());
+    assertEquals(shim.getBulkTelemetry().pendingCount(), 0);
+  }
+
+  @Test
+  public void syncBulkFlushEndsTheSpanWhenTheStoreCallFails() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    ResponseException unavailable =
+        responseException(503, "{\"error\":{\"type\":\"unavailable\"}}");
+    when(restClient.performRequest(any(Request.class))).thenThrow(unavailable);
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, true, "gms"));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertEquals(span.getStatus().getStatusCode(), StatusCode.ERROR);
+    assertEquals(span.getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(1));
+    assertEquals(span.getEvents().get(0).getName(), "exception");
+    assertEquals(shim.getBulkTelemetry().openBatches(), 0);
+  }
+
+  @Test
+  public void asyncBulkFlushFailureBranchesEndTheSpan() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response unparseable = jsonResponse(200, "this is not json");
+    ResponseException storeError =
+        responseException(
+            500, "{\"error\":{\"type\":\"illegal_state\",\"reason\":\"boom\"},\"status\":500}");
+    doAnswer(
+            inv -> {
+              inv.getArgument(1, ResponseListener.class).onSuccess(unparseable);
+              return null;
+            })
+        .doAnswer(
+            inv -> {
+              inv.getArgument(1, ResponseListener.class).onFailure(storeError);
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, false, null));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor(); // 200 with a body the parser rejects
+      shim.addBulk(OP, "urn:li:dataset:y", new IndexRequest("idx").id("2").source(Map.of("a", 2)));
+      shim.flushBulkProcessor(); // ResponseException, translated to OpenSearchStatusException
+    } finally {
+      shim.closeBulkProcessor();
+    }
+
+    assertEquals(collector.spans.size(), 2);
+    for (SpanData span : collector.spans) {
+      assertEquals(span.getStatus().getStatusCode(), StatusCode.ERROR);
+      assertEquals(span.getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(1));
+      assertEquals(span.getEvents().get(0).getName(), "exception");
+    }
+    assertTrue(
+        collector.spans.get(1).getStatus().getDescription().contains("boom"),
+        collector.spans.get(1).getStatus().getDescription());
+    assertEquals(shim.getBulkTelemetry().openBatches(), 0);
+  }
+
+  @Test
+  public void syncBulkStoreCallRunsWithTheBatchSpanCurrent() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    List<SpanContext> currentInsideCall = new java.util.ArrayList<>();
+    when(restClient.performRequest(any(Request.class)))
+        .thenAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              return ok;
+            });
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, true, "gms"));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+    assertEquals(currentInsideCall.size(), 1);
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertEquals(span.getName(), "index bulk");
+    assertTrue(currentInsideCall.get(0).isValid(), "the batch span is current around the call");
+    assertEquals(currentInsideCall.get(0).getSpanId(), span.getSpanContext().getSpanId());
+    assertEquals(currentInsideCall.get(0).getTraceId(), span.getSpanContext().getTraceId());
+    assertFalse(Span.current().getSpanContext().isValid(), "and no longer current after the flush");
+  }
+
+  @Test
+  public void asyncBulkStoreCallRunsWithTheBatchSpanCurrent() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    List<SpanContext> currentInsideCall = new java.util.ArrayList<>();
+    doAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              inv.getArgument(1, ResponseListener.class).onSuccess(ok);
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, false, null));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+    assertEquals(currentInsideCall.size(), 1);
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertNotNull(span.getAttributes().get(BulkTelemetry.BATCH_ID));
+    assertTrue(currentInsideCall.get(0).isValid(), "the batch span is current around the call");
+    assertEquals(currentInsideCall.get(0).getSpanId(), span.getSpanContext().getSpanId());
+    assertEquals(currentInsideCall.get(0).getTraceId(), span.getSpanContext().getTraceId());
+  }
+
+  @Test
+  public void bulkStoreCallsHaveNoCurrentSpanWhenTelemetryIsOff() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    List<SpanContext> currentInsideCall = new java.util.ArrayList<>();
+    when(restClient.performRequest(any(Request.class)))
+        .thenAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              return ok;
+            });
+    doAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              inv.getArgument(1, ResponseListener.class).onSuccess(ok);
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    for (boolean async : new boolean[] {false, true}) {
+      OpenSearchSearchClientShim shim = shimWith(restClient);
+      shim.configureBulkProcessorWriteOptions(false, 0);
+      if (async) {
+        shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+      } else {
+        shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+      }
+      try {
+        shim.addBulk(
+            OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+        shim.flushBulkProcessor();
+      } finally {
+        shim.closeBulkProcessor();
+      }
+    }
+    assertEquals(currentInsideCall.size(), 2);
+    for (SpanContext ctx : currentInsideCall) {
+      assertFalse(ctx.isValid(), "telemetry off: no span is made current around the call");
+    }
+  }
+
+  @Test
+  public void bulkFlushWithTelemetryOffSendsNoHeaderAndNoSpan() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    when(restClient.performRequest(any(Request.class))).thenReturn(ok);
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient).performRequest(captor.capture());
+    assertEquals(BulkTelemetryTest.header(captor.getValue().getOptions()), null);
+    assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled());
   }
 }
