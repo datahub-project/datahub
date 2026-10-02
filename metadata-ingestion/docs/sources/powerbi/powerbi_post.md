@@ -300,8 +300,8 @@ The `profiling_pattern` setting may be used to limit profiling actions to only a
 | Command            | Parameters  | Returns                                                                                                                     |
 | ------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `workspaces`       | `limit`     | Each listed workspace's name, id, type, `type_allowed` (the `workspace_type_filter` verdict) and, with the admin API, state |
-| `reports`          | `workspace` | The reports in one workspace, by workspace name, with `type` `Report` or `PaginatedReport`                                  |
-| `dashboards`       | `workspace` | The dashboards in one workspace, by workspace name                                                                          |
+| `reports`          | `workspace` | The reports in one workspace, by workspace name, with `type` `Report` or `PaginatedReport`, and the workspace's id and type |
+| `dashboards`       | `workspace` | The dashboards in one workspace, by workspace name, with the workspace's id and type                                        |
 | `admin_api_access` | none        | Whether the credential can call the read-only admin APIs                                                                    |
 | `api`              | `path`      | One raw response from `/groups`, `/groups/{id}/reports` or `/groups/{id}/dashboards`                                        |
 
@@ -315,7 +315,7 @@ datahub recipe probe filter --recipe recipe.yml --kind Workspace --from-run work
 datahub recipe probe run reports --recipe recipe.yml --workspace "Sales"
 ```
 
-With `--name` instead of `--from-run`, the id and type rules are not judged, and the result warns about them. Reports and dashboards have no filters of their own: their workspace's verdict decides, and `extract_reports` and `extract_dashboards` switch them off.
+With `--name` instead of `--from-run`, the id and type rules are not judged, and the result warns about them. Reports and dashboards have no filters of their own: their workspace's verdict decides, and `extract_reports` and `extract_dashboards` switch them off. Each report and dashboard record carries its workspace's `workspace_id` and `workspace_type`, so a saved `reports` or `dashboards` run judged with `--from-run` applies all three workspace rules. With `--parent` alone, only the workspace's name is judged.
 
 `admin_api_access: denied` means ingestion still runs but gets none of the workspace scan's metadata: no scan-derived lineage, endorsements or apps, because the scan always uses the admin APIs, even with `admin_apis_only: false`. Paginated-report datasource lineage still comes through the regular API.
 

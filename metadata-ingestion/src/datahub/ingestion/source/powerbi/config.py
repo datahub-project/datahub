@@ -895,6 +895,23 @@ class PowerBiDashboardSourceConfig(
         }
         return ancestors.get(kind)
 
+    def _workspace_child_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """A report or dashboard inherits its workspace's verdict. The
+        framework judges the --parent workspace on its name; a saved
+        `reports`/`dashboards` run also stamps the workspace's id and type on
+        each record, so the other two rules apply here."""
+        if not ctx.parent_path:
+            return None
+        verdict = workspace_verdict(
+            self,
+            WorkspaceFacts(
+                ctx.parent_path[-1],
+                ctx.attributes.get("workspace_id", UNKNOWN),
+                ctx.attributes.get("workspace_type", UNKNOWN),
+            ),
+        )
+        return None if verdict.included else verdict
+
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """get_allowed_workspaces also requires workspace_id_pattern on the id
         and `type in workspace_type_filter`, and the scan drops a workspace
@@ -902,10 +919,11 @@ class PowerBiDashboardSourceConfig(
         judged from the per-name attributes the probe's `workspaces` listing
         emits; a missing id or type is warned about rather than passed
         silently."""
-        if (
-            ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE
-            or ctx.structural is not None
-        ):
+        if ctx.structural is not None:
+            return None
+        if ctx.kind in self.probe_unfiltered_kinds():
+            return self._workspace_child_verdict(ctx)
+        if ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE:
             return None
         # A saved run drops a null field, so a missing attribute is unknown.
         facts = WorkspaceFacts(

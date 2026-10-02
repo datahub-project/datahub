@@ -286,6 +286,13 @@ class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
             )
         return workspace
 
+    @staticmethod
+    def _workspace_facts(workspace: Workspace) -> Dict[str, object]:
+        # `probe filter` judges a --parent workspace by name only; with these
+        # a saved run lets it apply the id and type rules too. The id and the
+        # type, never the name: a personal workspace is named after its owner.
+        return {"workspace_id": workspace.id, "workspace_type": workspace.type}
+
     def _scoped(
         self, fetch: Callable[[], List[Dict[str, object]]], context: str
     ) -> List[Dict[str, object]]:
@@ -311,7 +318,12 @@ class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
             self._warn("extract_reports is false, so ingestion emits none of these")
         return self._scoped(
             lambda: [
-                {"name": r.name, "id": r.id, "type": r.type.value}
+                {
+                    "name": r.name,
+                    "id": r.id,
+                    "type": r.type.value,
+                    **self._workspace_facts(ws),
+                }
                 for r in self._listing_resolver().get_reports(ws)
             ],
             context=f"reports listing for workspace '{workspace}'",
@@ -329,7 +341,7 @@ class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
             self._warn("extract_dashboards is false, so ingestion emits none of these")
         return self._scoped(
             lambda: [
-                {"name": d.displayName, "id": d.id}
+                {"name": d.displayName, "id": d.id, **self._workspace_facts(ws)}
                 for d in self._listing_resolver().get_dashboards(ws)
             ],
             context=f"dashboards listing for workspace '{workspace}'",
