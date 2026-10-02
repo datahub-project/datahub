@@ -237,7 +237,7 @@ class DorisSourceReport(SQLSourceReport):
     # Doris-specific column types were downgraded to MySQL equivalents.
     tables_with_unreflected_types: int = 0
     # Nonzero means the information_schema comment lookup failed for a database, so
-    # its tables and columns were ingested without descriptions.
+    # some or all of its table and column descriptions are missing.
     databases_without_comments: int = 0
 
 
@@ -396,13 +396,13 @@ class DorisSource(MySQLSource):
             if fallback.expected:
                 self.report.warning(
                     title="Table reflected without keys",
-                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: columns and comments are complete but keys and foreign keys are missing.",
+                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: its columns are complete but keys and foreign keys are missing.",
                     context=f"{full_name}: {fallback.error}",
                 )
             else:
                 self.report.warning(
                     title="Table reflected without keys after an unexpected error",
-                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so columns and comments are complete, but keys and foreign keys are missing. Check the account's grants on this table.",
+                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so its columns are complete, but keys and foreign keys are missing. Check the account's grants on this table.",
                     context=f"{full_name}: {fallback.error}",
                 )
 
@@ -418,7 +418,7 @@ class DorisSource(MySQLSource):
             self.report.databases_without_comments += 1
             self.report.warning(
                 title="Doris table and column comments unavailable",
-                message="Reading comments from information_schema failed, so this database's tables and columns were ingested without descriptions. Check that the account can read information_schema.TABLES and information_schema.COLUMNS.",
+                message="Reading comments from information_schema failed, so some or all of this database's table and column descriptions are missing. Check that the account can read information_schema.TABLES and information_schema.COLUMNS.",
                 context=f"{database}: {error}",
             )
 

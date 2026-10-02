@@ -120,13 +120,16 @@ _DESCRIBE_DEFAULT_INDEX = 4
 # (`hll HLL_UNION`) and complex types (`array<int>`) defeat its column regex
 # outright, so the parse yields no comments at all. information_schema serves the
 # same comments unescaped; one query per database covers every table in it.
+# An external catalog keys its rows by the bare database name by default, but by
+# `catalog.database` once the global show_full_dbname_in_info_schema_db is on, so
+# both forms are matched rather than reading that server setting first.
 _COLUMN_COMMENTS_SQL = (
     "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT FROM information_schema.COLUMNS "
-    "WHERE TABLE_SCHEMA = :schema"
+    "WHERE TABLE_SCHEMA IN (:database, :qualified_database)"
 )
 _TABLE_COMMENTS_SQL = (
     "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
-    "WHERE TABLE_SCHEMA = :schema"
+    "WHERE TABLE_SCHEMA IN (:database, :qualified_database)"
 )
 
 
@@ -136,6 +139,13 @@ class ReflectionFallback:
     # Whether `error` matched a known Doris refusal. Drives which warning the source
     # raises, so an unexpected failure is not reported as routine degradation.
     expected: bool
+
+
+@dataclass(frozen=True)
+class CommentScope:
+    database: str
+    # `catalog.database` for an external catalog, otherwise the same as `database`.
+    qualified_database: str
 
 
 @dataclass(frozen=True)
@@ -332,10 +342,10 @@ class DorisDialect(MySQLDialect_pymysql):
         if full_name not in self.reflection_fallbacks:
             self._overlay_doris_types(connection, full_name, columns)
 
-        comment_schema = self._comment_schema(connection, schema)
-        if comment_schema is not None:
+        scope = self._comment_scope(connection, schema)
+        if scope is not None:
             table_comments = self._column_comments(
-                connection, comment_schema, **kw
+                connection, scope.database, scope.qualified_database, **kw
             ).get(table_name, {})
             for col in columns:
                 # information_schema wins: it has the comment unescaped, and the DDL
@@ -358,60 +368,84 @@ class DorisDialect(MySQLDialect_pymysql):
         """
         table_comment = super().get_table_comment(connection, table_name, schema, **kw)
 
-        comment_schema = self._comment_schema(connection, schema)
-        if comment_schema is None:
+        scope = self._comment_scope(connection, schema)
+        if scope is None:
             return table_comment
 
-        comment = self._table_comments(connection, comment_schema, **kw).get(table_name)
+        comment = self._table_comments(
+            connection, scope.database, scope.qualified_database, **kw
+        ).get(table_name)
         if comment is None:
             return table_comment
         return ReflectedTableComment(text=comment)
 
+    # The scope is passed as two strings rather than a CommentScope because
+    # reflection.cache builds its key from string arguments only.
     @reflection.cache  # type: ignore[call-arg]
-    def _column_comments(self, connection, schema, **kw):
-        # type: (Connection, str, Any) -> Dict[str, Dict[str, str]]
+    def _column_comments(self, connection, database, qualified_database, **kw):
+        # type: (Connection, str, str, Any) -> Dict[str, Dict[str, str]]
         comments: Dict[str, Dict[str, str]] = {}
-        for row in self._query_comments(connection, _COLUMN_COMMENTS_SQL, schema):
+        for row in self._query_comments(
+            connection, _COLUMN_COMMENTS_SQL, database, qualified_database
+        ):
             comment = _non_empty_comment(row[2])
             if comment is not None:
                 comments.setdefault(str(row[0]), {})[str(row[1])] = comment
         return comments
 
     @reflection.cache  # type: ignore[call-arg]
-    def _table_comments(self, connection, schema, **kw):
-        # type: (Connection, str, Any) -> Dict[str, str]
+    def _table_comments(self, connection, database, qualified_database, **kw):
+        # type: (Connection, str, str, Any) -> Dict[str, str]
         comments: Dict[str, str] = {}
-        for row in self._query_comments(connection, _TABLE_COMMENTS_SQL, schema):
+        for row in self._query_comments(
+            connection, _TABLE_COMMENTS_SQL, database, qualified_database
+        ):
             comment = _non_empty_comment(row[1])
             if comment is not None:
                 comments[str(row[0])] = comment
         return comments
 
     def _query_comments(
-        self, connection: Connection, sql: str, schema: str
+        self,
+        connection: Connection,
+        sql: str,
+        database: str,
+        qualified_database: str,
     ) -> List[Sequence[Any]]:
         try:
-            return list(connection.execute(text(sql), {"schema": schema}))
+            return list(
+                connection.execute(
+                    text(sql),
+                    {"database": database, "qualified_database": qualified_database},
+                )
+            )
         except SQLAlchemyError as e:
             # Comments are lost but the tables are not. The empty result is what the
             # reflection cache memoises, so a database whose lookup fails costs one
             # failed query rather than one per table.
-            self.comment_lookup_failures.setdefault(schema, str(e))
+            self.comment_lookup_failures.setdefault(qualified_database, str(e))
             logger.info(
-                f"Reading comments from information_schema failed for {schema}: {e}. "
-                f"Its tables and columns will have no descriptions."
+                f"Reading comments from information_schema failed for "
+                f"{qualified_database}: {e}. Some or all of its tables and columns "
+                f"will have no descriptions."
             )
             return []
 
-    def _comment_schema(self, connection, schema):
-        # type: (Connection, Optional[str]) -> Optional[str]
-        # An external-catalog connection's URL database is `catalog.database`, but
-        # information_schema keys rows by the bare database name. Doris database
+    def _comment_scope(self, connection, schema):
+        # type: (Connection, Optional[str]) -> Optional[CommentScope]
+        # An external-catalog connection's URL database is `catalog.database`, while
+        # the schema the inspector passes in is usually the bare name. Doris database
         # names cannot contain a dot, so the last segment is always the database.
         current_schema = schema or connection.engine.url.database
         if not current_schema:
             return None
-        return current_schema.rsplit(".", 1)[-1]
+        catalog, _, database = current_schema.rpartition(".")
+        if not catalog:
+            catalog = (connection.engine.url.database or "").rpartition(".")[0]
+        return CommentScope(
+            database=database,
+            qualified_database=f"{catalog}.{database}" if catalog else database,
+        )
 
     def _overlay_doris_types(
         self, connection: Connection, full_name: str, columns: List[ReflectedColumn]

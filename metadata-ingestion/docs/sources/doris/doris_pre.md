@@ -2,10 +2,6 @@
 
 The `doris` module ingests metadata from Doris into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-#### Table and Column Descriptions
-
-Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database, and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
-
 #### Profiling
 
 Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling as they don't support standard aggregation operations. Table-level statistics are still collected for all tables.

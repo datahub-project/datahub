@@ -519,21 +519,26 @@ class TestDorisSourceMethods:
     def test_comment_lookup_failure_reported_per_database(self):
         """Descriptions missing from a whole database look like undocumented tables
         unless the report says the lookup failed."""
-        config = DorisConfig(host_port="localhost:9030", database="db1")
+        config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
 
-        dialect = DorisDialect()
-        dialect.comment_lookup_failures["db1"] = "Access denied"
+        dialects = []
+        for db in ("db1", "db2"):
+            dialect = DorisDialect()
+            dialect.comment_lookup_failures[db] = "Access denied"
+            conn = MagicMock()
+            conn.dialect = dialect
+            source._report_reflection_fallbacks(conn)
+            dialects.append(dialect)
 
-        conn = MagicMock()
-        conn.dialect = dialect
-        source._report_reflection_fallbacks(conn)
-
-        assert source.report.databases_without_comments == 1
+        assert source.report.databases_without_comments == 2
         assert [w.title for w in source.report.warnings] == [
             "Doris table and column comments unavailable"
         ]
-        assert dialect.comment_lookup_failures == {}
+        contexts = " ".join(str(warning) for warning in source.report.warnings)
+        assert contexts.count("db1: Access denied") == 1
+        assert contexts.count("db2: Access denied") == 1
+        assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")
