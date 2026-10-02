@@ -154,6 +154,7 @@ function list_markdown_files(): string[] {
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^README\.md$/, // The root README is GitHub-only; /docs/introduction redirects to /docs/features.
     /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
+    /^docs\/_archive\//, // Unpublished backup content, intentionally kept out of the docs site.
     /^\s*$/, //Empty string
   ];
 

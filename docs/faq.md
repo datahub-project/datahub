@@ -15,7 +15,7 @@ DataHub was previously hosted at `datahubproject.io`. That domain now redirects 
 
 ## Is DataHub related to LinkedIn's internal DataHub?
 
-Yes. DataHub was originally built at LinkedIn to manage metadata at scale across their data ecosystem. LinkedIn open-sourced DataHub in 2020. It has since grown into an independent community project under the [datahub-project](https://github.com/datahub-project) GitHub organization, now hosted at [datahub.com](https://datahub.com). DataHub is built with ❤️ by [DataHub](https://datahub.com) and [LinkedIn](https://engineering.linkedin.com).
+Yes. DataHub was originally built at LinkedIn to manage metadata at scale across their data ecosystem. LinkedIn open-sourced DataHub in 2020. It has since grown into an independent community project under the [datahub-project](https://github.com/datahub-project) GitHub organization, now hosted at [datahub.com](https://datahub.com).
 
 ## How do I install the DataHub metadata platform?
 

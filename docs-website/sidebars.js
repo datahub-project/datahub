@@ -35,11 +35,6 @@ module.exports = {
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
-        {
-          type: "doc",
-          label: "FAQ",
-          id: "docs/faq",
-        },
       ],
     },
     {
@@ -1736,6 +1731,11 @@ module.exports = {
     },
     {
       "Release History": ["releases", "docs/how/updating-datahub"],
+    },
+    {
+      type: "doc",
+      label: "FAQ",
+      id: "docs/faq",
     },
 
     // "Candidates for Deprecation": [

@@ -31,7 +31,7 @@ DataHub transforms enterprise data into trusted context, enabling intelligent de
 
 <p align="center">
   <a href="https://demo.datahub.com">
-    <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/demos/datahub-tour.gif" alt="DataHub Product Tour" />
+    <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/demos/datahub-product-tour.webp" alt="DataHub Product Tour" />
   </a>
 </p>
 
@@ -96,7 +96,7 @@ Know when something breaks before your users do.
 
 [Learn more about Observability →](https://datahub.com/products/data-observability/)
 
-[→ See the full product tour at datahub.com](https://datahub.com/product-tour/) · [Explore common use cases →](https://docs.datahub.com/docs/features#common-use-cases)
+[→ See the full product tour at datahub.com](https://datahub.com/product-tour/)
 
 ## Quick start
 

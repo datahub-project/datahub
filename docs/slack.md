@@ -2,7 +2,7 @@
 title: Slack Community
 ---
 
-# Slack
+# Slack Community
 
 The DataHub Slack is a thriving and rapidly growing community - we can't wait for you to join us!
 
