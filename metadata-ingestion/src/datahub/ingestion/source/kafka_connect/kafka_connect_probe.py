@@ -9,18 +9,17 @@ return configs, and /status returns stack traces.
 """
 
 import logging
-import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Iterator, List, Optional, Set
-from urllib.parse import unquote, urlsplit
+from typing import Any, Dict, FrozenSet, Iterator, List, Optional
+from urllib.parse import urlsplit
 
 import requests
 from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeReadFailed
+from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
 from datahub.ingestion.api.source import (
     StructuredLogCategory,
     StructuredLogLevel,
@@ -49,24 +48,10 @@ PROBE_REQUEST_TIMEOUT_SECONDS = 30
 # read, "x?expand=info" returns every config at once.
 _URL_SIGNIFICANT = ("/", "?", "#", "%")
 
-# Any `scheme://<userinfo>@`, judged by shape rather than by the configured
-# value: requests percent-encodes userinfo ("a|b" becomes "a%7Cb"), so the
-# configured string is not what appears in an error.
-_URL_USERINFO = re.compile(r"(?<=://)[^/@\s]+@")
-
-
-def _without_userinfo(text: str) -> str:
-    return _URL_USERINFO.sub("", text)
-
-
 # Unencoded, these end a URL's authority early, so requests/urllib3 split
 # `user:pass/x@host` as host "user", port "pass" and quote that pair in the
 # InvalidURL they raise -- text with neither "://" nor "@" to scrub by shape.
 _AUTHORITY_TERMINATORS = ("/", "?", "#", "\\")
-
-# Shorter credential parts are not scrubbed by value: replacing a two-letter
-# user name everywhere would corrupt unrelated text and protect nothing.
-_MIN_SCRUBBED_LEN = 4
 
 
 def _raw_userinfo(uri: str) -> str:
@@ -92,20 +77,10 @@ def _connect_uri_problem(uri: str) -> Optional[str]:
         return "connect_uri is not a valid URL: its host or port cannot be parsed"
     # Both, not just a host when there is a scheme: requests rejects a
     # schemeless "//user:pass@host" by quoting it whole, and with no "://" in
-    # front of the userinfo neither scrub can find it.
+    # front of the userinfo nothing downstream can find it.
     if not parts.scheme or not parts.hostname:
         return "connect_uri is not a valid URL: it needs a scheme and a host"
     return None
-
-
-def _userinfo_values(uri: str) -> Set[str]:
-    """connect_uri's user and password, raw and decoded, for scrubbing by value."""
-    values: Set[str] = set()
-    for part in _raw_userinfo(uri).split(":", 1):
-        for form in (part, unquote(part)):
-            if len(form) >= _MIN_SCRUBBED_LEN:
-                values.add(form)
-    return values
 
 
 # The package every reused ingestion step logs under.
@@ -349,32 +324,21 @@ class KafkaConnectMetadataProbe:
         which `probe run connector` reports as `emitted: false`. Names only."""
         return sorted(self._listed_names())[:limit]
 
+    @staticmethod
     @contextmanager
-    def _userinfo_scrubbed(self) -> Iterator[None]:
-        """Re-raise a requests error without connect_uri's userinfo.
+    def _connect_request(what: str) -> Iterator[None]:
+        """Name the HTTP status of a refused Connect request.
 
-        requests keeps `user:password@` in Response.url, so raise_for_status()
-        writes a password embedded in connect_uri into the error text. The CLI
-        masks only recipe values a key hint marks secret, and `connect_uri` is
-        not one, so that text would reach stderr as-is."""
+        Nothing else of the error is used: requests writes the request URL,
+        connect_uri's userinfo included, into its text. Any other requests
+        failure propagates, and the framework reports it by class name."""
         try:
             yield
-        except requests.RequestException as exc:
-            scrubbed = _without_userinfo(str(exc))
-            # Defence in depth for a userinfo the shape rule cannot see.
-            # Longest first, so a password containing the user name is
-            # removed whole.
-            for value in sorted(
-                _userinfo_values(self._source.config.connect_uri), key=len, reverse=True
-            ):
-                scrubbed = scrubbed.replace(value, "***")
-            if scrubbed == str(exc):
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status is None:
                 raise
-            # from None: the original, unscrubbed message must not ride along as
-            # __cause__ into a traceback.
-            raise type(exc)(
-                scrubbed, request=exc.request, response=exc.response
-            ) from None
+            raise ProbeConnectionError(f"{what} returned HTTP {status}") from None
 
     @contextmanager
     def _ingestion_step(self, connector: str) -> Iterator[None]:
@@ -409,7 +373,7 @@ class KafkaConnectMetadataProbe:
         # The GET /connectors ingestion's endpoint discovery already makes, which
         # (unlike get_connectors_manifest's) raises on 401/5xx.
         self._refuse_recipe_problem()
-        with self._userinfo_scrubbed():
+        with self._connect_request("GET /connectors"):
             payload: object = self._source._get_connector_names_for_endpoint_discovery()
         if isinstance(payload, list):
             return [str(name) for name in payload]
@@ -450,7 +414,7 @@ class KafkaConnectMetadataProbe:
         self._warn_unreproduced()
         source = self._source
         url = f"{source.config.connect_uri}/connectors/{connector}"
-        with self._userinfo_scrubbed():
+        with self._connect_request(f"GET /connectors/{connector}"):
             response = source.session.get(url)
             if response.status_code == 404:
                 raise ValueError(
