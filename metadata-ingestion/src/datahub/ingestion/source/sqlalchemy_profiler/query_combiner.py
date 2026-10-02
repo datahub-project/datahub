@@ -552,19 +552,26 @@ class SQLAlchemyQueryCombiner:
         # each query into its own CTE, (2) selecting all the columns we need
         # and (3) extracting the results once the query finishes.
 
-        ctes = {
-            k: query_future.query.cte(k) for k, query_future in pending_queue.items()
-        }
+        if len(pending_queue) == 1:
+            # Nothing to cross-join, and a one-member CTE only makes the server
+            # materialize the query. Issue it as written; the extraction below
+            # reads columns in the same order either way.
+            combined_query = queue_item.query
+        else:
+            ctes = {
+                k: query_future.query.cte(k)
+                for k, query_future in pending_queue.items()
+            }
 
-        combined_cols = list(
-            itertools.chain.from_iterable(
-                get_query_columns(cte) for cte in ctes.values()
+            combined_cols = list(
+                itertools.chain.from_iterable(
+                    get_query_columns(cte) for cte in ctes.values()
+                )
             )
-        )
-        # SA 2.0 removed the list form of select() and Select.append_from().
-        combined_query = sqlalchemy.select(*combined_cols)
-        for cte in ctes.values():
-            combined_query = combined_query.select_from(cte)
+            # SA 2.0 removed the list form of select() and Select.append_from().
+            combined_query = sqlalchemy.select(*combined_cols)
+            for cte in ctes.values():
+                combined_query = combined_query.select_from(cte)
 
         query_id = SQLAlchemyQueryCombiner._generate_query_id()
         self.report.combined_queries_issued += 1
