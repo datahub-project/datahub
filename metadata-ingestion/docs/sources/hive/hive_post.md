@@ -148,6 +148,11 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **No Proxy Support**: Direct connection to HiveServer2 required
 - **Token-Based Auth**: Not natively supported (use Kerberos or basic auth)
 - **Multi-Factor Authentication**: Not supported
+- **Remote Executor Kerberos**: `extraSidecars` is defined in the executor `values.yaml` but is not
+  rendered in any executor deployment template — sidecar-based ticket renewal is not available. Use
+  an `extraInitContainers` entry instead (see the Kerberos with Remote Executor section in
+  Prerequisites above). For ingestions that run longer than the TGT lifetime (typically 10 hours),
+  coordinate with your KDC administrator to issue a renewable ticket.
 
 ### Troubleshooting
 
@@ -159,3 +164,17 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
    - Hive is case-insensitive by default
    - DataHub automatically lowercases URNs for consistency
 4. **View Lineage Parsing**: Complex views using non-standard SQL may not have complete lineage extracted.
+
+5. **Kerberos Ticket Not Found (Remote Executor)**: If ingestion fails with `GSS initiate failed` or
+   `No Kerberos credentials available`, diagnose with these steps:
+
+   - **Check init container logs**: `kubectl logs <pod> -c kerberos-init` — look for `kinit` errors
+     such as bad keytab path, wrong principal, or KDC unreachable.
+   - **Verify `KRB5CCNAME`**: Both the init container and the main executor container must set
+     `KRB5CCNAME=FILE:/tmp/krb5cc/krb5cc_default` (paths must match exactly).
+   - **Verify emptyDir mounts**: Confirm the `krb5-ccache` volume is mounted at the same `mountPath`
+     in both `extraInitContainers.volumeMounts` and `extraVolumeMounts`.
+   - **Verify keytab secret**: Run `kubectl get secret executor-krb5-keytab -o yaml` and confirm the
+     `user.keytab` key is present.
+   - **Run `klist`**: Add `klist` as the last command in the init container `args` — it exits
+     non-zero if the ticket cache is empty, causing the pod to fail fast rather than silently.
