@@ -1,0 +1,18 @@
+source:
+  type: datahub-entity-embeddings
+  config:
+    # Embeds every entity type the server has enabled for semantic search,
+    # using the server's embedding configuration.
+    # Optional: only embed entities from some platforms.
+    # platform_pattern:
+    #   allow:
+    #     - "snowflake"
+    #     - "bigquery"
+    # Optional: bound each run; the next run continues where this one stopped.
+    # time_budget_seconds: 3000
+
+sink:
+  type: datahub-rest
+  config:
+    server: "${DATAHUB_GMS_URL}"
+    token: "${DATAHUB_GMS_TOKEN}"
