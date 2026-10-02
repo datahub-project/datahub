@@ -25,13 +25,16 @@ from datahub.sdk._shared import (
     HasSubtype,
     HasTags,
     HasTerms,
-    HasUpstreamMetrics,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
     TagsInputType,
     TermsInputType,
+)
+from datahub.sdk._upstream_metrics import (
+    HasUpstreamMetrics,
     UpstreamMetricsInputType,
+    _reject_metric_as_dataset_input,
 )
 from datahub.sdk.chart import Chart
 from datahub.sdk.dataset import Dataset
@@ -334,10 +337,14 @@ class Dashboard(
     def set_input_datasets(
         self, input_datasets: Sequence[Union[DatasetUrnOrStr, Dataset]]
     ) -> None:
-        """Set the input datasets of the dashboard."""
+        """Set the input datasets of the dashboard.
+
+        Metric URNs are rejected. Declare them with ``set_upstream_metrics``.
+        """
         props = self._ensure_dashboard_props()
         dataset_edges = props.datasetEdges or []
         for dataset in input_datasets:
+            _reject_metric_as_dataset_input(dataset)
             if isinstance(dataset, Dataset):
                 dataset_urn = dataset.urn
             else:
@@ -346,7 +353,11 @@ class Dashboard(
         props.datasetEdges = dataset_edges
 
     def add_input_dataset(self, input_dataset: Union[DatasetUrnOrStr, Dataset]) -> None:
-        """Add an input dataset to the dashboard."""
+        """Add an input dataset to the dashboard.
+
+        Metric URNs are rejected. Declare them with ``set_upstream_metrics``.
+        """
+        _reject_metric_as_dataset_input(input_dataset)
         if isinstance(input_dataset, Dataset):
             input_dataset_urn = input_dataset.urn
         else:

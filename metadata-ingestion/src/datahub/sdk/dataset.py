@@ -31,7 +31,6 @@ from datahub.sdk._shared import (
     HasSubtype,
     HasTags,
     HasTerms,
-    HasUpstreamMetrics,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
@@ -40,10 +39,13 @@ from datahub.sdk._shared import (
     TagsInputType,
     TermInputType,
     TermsInputType,
-    UpstreamMetricsInputType,
-    _reject_metric_as_dataset_input,
     make_time_stamp,
     parse_time_stamp,
+)
+from datahub.sdk._upstream_metrics import (
+    HasUpstreamMetrics,
+    UpstreamMetricsInputType,
+    _reject_metric_as_dataset_input,
 )
 from datahub.sdk._utils import add_list_unique, remove_list_unique
 from datahub.sdk.entity import Entity, ExtraAspectsType

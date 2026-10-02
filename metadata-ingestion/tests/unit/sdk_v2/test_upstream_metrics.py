@@ -16,7 +16,6 @@ from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 from datahub.sdk.metric import Metric
-from datahub.utilities.urns.error import InvalidUrnError
 
 METRIC_A = "urn:li:metric:(urn:li:dataPlatform:snowflake,finance,total_revenue)"
 METRIC_B = "urn:li:metric:(urn:li:dataPlatform:snowflake,finance,margin)"
@@ -89,6 +88,7 @@ def test_list_replaces_and_edges_carry_destination_only(factory: EntityFactory) 
 @pytest.mark.parametrize("factory", FACTORIES)
 def test_empty_list_clears_and_is_distinct_from_omit(factory: EntityFactory) -> None:
     entity = factory()
+    entity.set_upstream_metrics([METRIC_A])
     entity.set_upstream_metrics([])
 
     assert entity.upstream_metrics == []
@@ -114,6 +114,15 @@ def test_dedupe_preserves_first_seen_order(factory: EntityFactory) -> None:
 
     assert entity.upstream_metrics is not None
     assert [str(urn) for urn in entity.upstream_metrics] == [METRIC_B, METRIC_A]
+
+
+@pytest.mark.parametrize("factory", FACTORIES)
+def test_metric_entity_is_written(factory: EntityFactory) -> None:
+    entity = factory()
+    entity.set_upstream_metrics([_metric_entity()])
+
+    assert entity.upstream_metrics is not None
+    assert [str(urn) for urn in entity.upstream_metrics] == [METRIC_A]
 
 
 @pytest.mark.parametrize("factory", FACTORIES)
@@ -246,10 +255,12 @@ def test_chart_rejects_metric_urn_as_dataset_input() -> None:
     assert chart.upstream_metrics is None
 
 
-def test_dashboard_metric_urn_still_rejected_as_dataset_urn() -> None:
+def test_dashboard_rejects_metric_urn_as_dataset_input() -> None:
     dashboard = _dashboard()
-    with pytest.raises(InvalidUrnError):
+    with pytest.raises(SdkUsageError, match="set_upstream_metrics"):
         dashboard.set_input_datasets([METRIC_A])
+    with pytest.raises(SdkUsageError, match="set_upstream_metrics"):
+        dashboard.add_input_dataset(METRIC_A)
     assert dashboard.upstream_metrics is None
 
 
@@ -272,6 +283,13 @@ def test_dataset_rejects_metric_urn_in_each_upstream_shape() -> None:
                 ]
             )
         )
+    metric_upstream = models.UpstreamClass(
+        dataset=METRIC_A,
+        type=models.DatasetLineageTypeClass.TRANSFORMED,
+    )
+    metric_upstream.dataset = MetricUrn.from_string(METRIC_A)  # type: ignore[assignment]
+    with pytest.raises(SdkUsageError, match="set_upstream_metrics"):
+        dataset.set_upstreams([metric_upstream])
 
     assert dataset.upstreams is not None
     assert [upstream.dataset for upstream in dataset.upstreams.upstreams] == [DATASET]

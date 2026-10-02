@@ -24,12 +24,14 @@ from datahub.sdk._shared import (
     HasSubtype,
     HasTags,
     HasTerms,
-    HasUpstreamMetrics,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
     TagsInputType,
     TermsInputType,
+)
+from datahub.sdk._upstream_metrics import (
+    HasUpstreamMetrics,
     UpstreamMetricsInputType,
     _reject_metric_as_dataset_input,
 )
