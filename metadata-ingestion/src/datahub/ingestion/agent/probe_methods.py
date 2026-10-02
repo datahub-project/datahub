@@ -29,7 +29,7 @@ from datahub.ingestion.agent.error_policy import (
     classify_foreign,
     foreign_label,
     is_trusted,
-    police_authored,
+    police_trusted,
     withhold_foreign_text,
 )
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
@@ -765,26 +765,25 @@ def _raise_call_failure(
     recorded = set(getattr(provider, "failures", None) or []) | _report_entries(
         getattr(provider, "probe_report", None), "failures"
     )
-    trusted = is_trusted(exc)
-    detail = (
-        scrub_text(withhold_foreign_text(exc, provider_cls), set())
-        if trusted
-        else foreign_label(exc, provider_cls)
-    )
     if recorded:
         # The recorded failure explains the miss, whatever was raised after it.
+        detail = (
+            scrub_text(withhold_foreign_text(exc, provider_cls), set())
+            if is_trusted(exc)
+            else foreign_label(exc, provider_cls)
+        )
         raise ProbeReadFailed(
             f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))
         ) from None
-    if not trusted:
+    if not is_trusted(exc):
         raise classify_foreign(exc, f"'{command}'", provider_cls) from None
     _reraise_trusted(exc, provider_cls)
 
 
 def _reraise_trusted(exc: BaseException, provider_cls: type) -> NoReturn:
     """Raise a trusted exception, minus any untrusted text it quotes (see
-    agent.error_policy.police_authored)."""
-    replacement = police_authored(exc, provider_cls)
+    agent.error_policy.police_trusted)."""
+    replacement = police_trusted(exc, provider_cls)
     if replacement is not None:
         raise replacement from None
     raise exc
@@ -798,6 +797,23 @@ class _ProviderCall:
     call_kwargs: Dict[str, object]
     provider_cls: type
     source_type: str
+
+
+def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoReturn:
+    """Re-raise a failure while opening or closing the provider.
+
+    A provider refusing the recipe on purpose raises a trusted type and keeps
+    its message. Anything else is named by class only, and is always a
+    connection error rather than classify_foreign's split: the caller's input
+    was all checked before the provider is built, so an untrusted failure
+    while building or closing it is the source's (exit 3), whatever its type.
+    """
+    if is_trusted(exc):
+        _reraise_trusted(exc, call.provider_cls)
+    raise ProbeConnectionError(
+        f"{verb} source '{call.source_type}' failed "
+        f"({foreign_label(exc, call.provider_cls)})"
+    ) from None
 
 
 @dataclass(frozen=True)
@@ -833,14 +849,7 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
             # The command's failure was already policed; keep it, with the
             # close failure out of the displayed chain.
             raise body_error from body_error.__cause__
-        if is_trusted(exc):
-            _reraise_trusted(exc, call.provider_cls)
-        # As on the open path: whatever its type, an untrusted failure while
-        # closing is the source's (exit 3).
-        raise ProbeConnectionError(
-            f"closing source '{call.source_type}' failed "
-            f"({foreign_label(exc, call.provider_cls)})"
-        ) from None
+        _source_failure(exc, call, "closing")
     # Reached only when the provider's __exit__ returned true and so swallowed
     # the command's own failure: there is no result to report.
     raise ProbeInternalError(
@@ -855,17 +864,7 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     try:
         provider = stack.enter_context(call.builder(call.config))
     except Exception as exc:
-        # A provider refusing the recipe on purpose raises a trusted type and
-        # keeps its message. Anything else is named by class only, and is
-        # always a connection error rather than classify_foreign's split: the
-        # caller's input was all checked above, so an untrusted failure while
-        # building the provider is the source's (exit 3), whatever its type.
-        if is_trusted(exc):
-            _reraise_trusted(exc, call.provider_cls)
-        raise ProbeConnectionError(
-            f"opening source '{source_type}' failed "
-            f"({foreign_label(exc, call.provider_cls)})"
-        ) from None
+        _source_failure(exc, call, "opening")
     _enforce_gates(call.spec, provider, call.call_kwargs)
     method = _bound_method(provider, command)
     try:

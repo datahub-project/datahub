@@ -11,7 +11,7 @@ from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.error_policy import (
     TRUSTED_TYPES,
     is_trusted,
-    police_authored,
+    police_trusted,
     withhold_foreign_text,
 )
 from datahub.ingestion.agent.probe_methods import (
@@ -106,6 +106,10 @@ class _Provider:
             raise ProbeConnectionError("closing the session timed out")
         if self.mode == "exit-plain-defect":
             raise TypeError(f"close bookkeeping broke on {SENTINEL}")
+        if self.mode == "exit-plain-key":
+            raise KeyError(f"no session {SENTINEL}")
+        if self.mode == "exit-plain-value":
+            raise ValueError(f"session {SENTINEL} was already closed")
         return None
 
     def _raise_wrapped(self, name: str) -> None:
@@ -328,7 +332,12 @@ def test_a_trusted_argument_error_while_opening_exits_2(run: RunFn) -> None:
 
 @pytest.mark.parametrize(
     "mode, class_name",
-    [("exit-foreign", "TypeError"), ("exit-plain-defect", "TypeError")],
+    [
+        ("exit-foreign", "TypeError"),
+        ("exit-plain-defect", "TypeError"),
+        ("exit-plain-key", "KeyError"),
+        ("exit-plain-value", "ValueError"),
+    ],
 )
 def test_an_untrusted_failure_closing_the_source_is_a_connection_error(
     run: RunFn, mode: str, class_name: str
@@ -450,13 +459,35 @@ def test_the_backstop_reads_the_context_as_well_as_the_cause() -> None:
             raise ProbeConnectionError(f"fetch said {exc}")  # noqa: B904
     except ProbeConnectionError as wrapper:
         assert withhold_foreign_text(wrapper) == "fetch said (RuntimeError)"
-        replacement = police_authored(wrapper)
+        replacement = police_trusted(wrapper)
     assert isinstance(replacement, ProbeConnectionError)
     assert str(replacement) == "fetch said (RuntimeError)"
 
 
+class _SoftRebuildRefusing(ProbeSoftError):
+    def __init__(self, endpoint: str, detail: str) -> None:
+        super().__init__(endpoint, detail)
+        self.endpoint = endpoint
+        self.detail = detail
+
+    def __str__(self) -> str:
+        return f"{self.endpoint}: {self.detail}"
+
+
+def test_an_unrebuildable_trusted_type_falls_back_to_its_own_family() -> None:
+    try:
+        try:
+            _foreign_errors.fetch()
+        except RuntimeError as exc:
+            raise _SoftRebuildRefusing("/reports", f"said {exc}") from exc
+    except _SoftRebuildRefusing as wrapper:
+        replacement = police_trusted(wrapper)
+    assert type(replacement) is ProbeSoftError
+    assert str(replacement) == "/reports: said (RuntimeError)"
+
+
 def test_a_trusted_exception_quoting_nothing_foreign_is_left_alone() -> None:
-    assert police_authored(ProbeArgumentError("no thing named 'x'")) is None
+    assert police_trusted(ProbeArgumentError("no thing named 'x'")) is None
 
 
 def test_the_backstop_shows_the_scrubbed_text_under_verbose(
@@ -497,6 +528,8 @@ def test_the_backstop_shows_the_scrubbed_text_under_verbose(
         ("open-argument", 2),
         ("exit-foreign", 3),
         ("exit-plain-defect", 3),
+        ("exit-plain-key", 3),
+        ("exit-plain-value", 3),
         ("exit-foreign-after-argument", 2),
         ("exit-foreign-after-foreign", 3),
         ("exit-trusted", 3),

@@ -182,14 +182,6 @@ def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> st
         return name
 
 
-def _foreign_family(exc: BaseException, message: str) -> Exception:
-    if isinstance(exc, DEFECT_TYPES):
-        return ProbeInternalError(message)
-    if isinstance(exc, _ARGUMENT_TYPES):
-        return ProbeArgumentError(message)
-    return ProbeConnectionError(message)
-
-
 def classify_foreign(
     exc: BaseException, context: str, provider_cls: Optional[type] = None
 ) -> Exception:
@@ -201,9 +193,12 @@ def classify_foreign(
     the ValueError family 2, and everything else (drivers, SDKs, HTTP and
     permission errors) 3.
     """
-    return _foreign_family(
-        exc, f"{context} failed ({foreign_label(exc, provider_cls)})"
-    )
+    message = f"{context} failed ({foreign_label(exc, provider_cls)})"
+    if isinstance(exc, DEFECT_TYPES):
+        return ProbeInternalError(message)
+    if isinstance(exc, _ARGUMENT_TYPES):
+        return ProbeArgumentError(message)
+    return ProbeConnectionError(message)
 
 
 def _foreign_in_chain(exc: BaseException) -> List[BaseException]:
@@ -263,16 +258,16 @@ def withhold_foreign_text(
     return pattern.sub(lambda match: labels[match.group(0)], message)
 
 
-def police_authored(
+def police_trusted(
     exc: BaseException, provider_cls: Optional[type] = None
 ) -> Optional[BaseException]:
     """A replacement for a trusted exception whose message quotes an untrusted
     one, or None when it may be raised as it is.
 
     The replacement keeps the exception's type, so the exit code does not
-    move. A type that cannot be rebuilt with a plain message (its constructor
-    takes other arguments, or its __str__ ignores args) is replaced by the
-    framework type of the same exit family instead.
+    move. A subclass that cannot be rebuilt with a plain message (its
+    constructor takes other arguments, or its __str__ ignores args) is
+    replaced by the trusted type it derives from.
     """
     message = withhold_foreign_text(exc, provider_cls)
     if message == str(exc):
@@ -284,7 +279,4 @@ def police_authored(
             return rebuilt
     except Exception:
         pass
-    for family in (ProbeInternalError, ProbeReadFailed, ProbeConnectionError):
-        if isinstance(exc, family):
-            return family(message)
-    return _foreign_family(exc, message)
+    return next(t for t in TRUSTED_TYPES if isinstance(exc, t))(message)
