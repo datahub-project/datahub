@@ -194,13 +194,16 @@ public class AutocompleteRequestHandlerTest {
             .getSearchRequest(mockOpContext, null, "input", null, filter, 10)
             .source()
             .toString();
-    Assert.assertTrue(v3Request.contains("\"terms\":{\"keyPart1\":"), v3Request);
+    // Both filter on the V2 .keyword subfield; only the V3 handler matches the tier text fields
+    Assert.assertTrue(v3Request.contains("\"terms\":{\"keyPart1.keyword\":"), v3Request);
+    Assert.assertTrue(v3Request.contains("_search.tier_1.full"), v3Request);
     String v2Request =
         handler
             .getSearchRequest(mockOpContext, null, "input", null, filter, 10)
             .source()
             .toString();
     Assert.assertTrue(v2Request.contains("\"terms\":{\"keyPart1.keyword\":"), v2Request);
+    Assert.assertFalse(v2Request.contains("_search.tier_1"), v2Request);
   }
 
   private static final QueryConfiguration TEST_QUERY_CONFIG =

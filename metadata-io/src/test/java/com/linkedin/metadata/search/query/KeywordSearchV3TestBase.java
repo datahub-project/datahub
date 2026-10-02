@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
@@ -29,10 +30,12 @@ import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -45,6 +48,7 @@ import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -140,11 +144,21 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   // Its indices get no documents, so the dynamic _search.tier_N fields stay unmapped in its V3
   // index
   private static final String EMPTY_ENTITY_TYPE = GLOSSARY_TERM_ENTITY_NAME;
+  // A camelCase entity type, and an entity whose _entityName aliases its own name field because
+  // no aspect labels a field entityName
+  private static final Urn NIGHTLY_JOB =
+      UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,nightly,PROD),refresh)");
+  private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
   private static final String BROWSE_DELIMITER = "␟";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
 
   private final List<String> createdIndices = new ArrayList<>();
+  // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
+  private MappingsBuilder mappingsBuilder;
+  private ESIndexBuilder indexBuilder;
+  private SettingsBuilder settingsBuilder;
+  private IndexConfiguration indexConfiguration;
   private OperationContext opContext;
   private ElasticSearchService searchService;
 
@@ -177,7 +191,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             new ConfiguredIndexPrefixResolver(isV2Enabled() ? "keywordv3dual" : "keywordv3"),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
-    MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
     // Both the document transformer and the filter resolver look the definition up
     StructuredPropertyDefinition retentionPolicy =
         new StructuredPropertyDefinition()
@@ -206,15 +220,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
                 .build());
 
-    ESIndexBuilder indexBuilder =
+    indexBuilder =
         new ESIndexBuilder(
             getSearchClient(),
             config,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
             new GitVersion("0.0.0-test", "123456", Optional.empty()));
-    SettingsBuilder settingsBuilder =
-        createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
+    indexConfiguration = config.getIndex();
+    settingsBuilder =
+        createDelegatingSettingsBuilder(entityIndex, indexConfiguration, indexConvention);
     // The production query configurations, e.g. quoted queries skip the simple query
     CustomConfiguration customConfiguration = new CustomConfiguration();
     customConfiguration.setEnabled(true);
@@ -251,7 +266,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
     for (String entityType :
-        Stream.concat(ENTITY_TYPES.stream(), Stream.of(EMPTY_ENTITY_TYPE))
+        Stream.of(ENTITY_TYPES, List.of(EMPTY_ENTITY_TYPE), EXTRA_ENTITY_TYPES)
+            .flatMap(List::stream)
             .collect(Collectors.toList())) {
       List<String> indexNames = new ArrayList<>();
       indexNames.add(
@@ -285,6 +301,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 events(
                     ORDERS,
                     new DatasetProperties().setName("orders"),
+                    // Mixed case: keyword roots are normalized, so facets must read .keyword
+                    new SubTypes().setTypeNames(new StringArray("Table")),
                     browsePaths("prod", "sales"),
                     new StructuredProperties()
                         .setProperties(
@@ -306,7 +324,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                         .setTitle("Orders by region")
                         .setDescription("Monthly orders")
                         .setLastModified(new ChangeAuditStamps()),
-                    browsePaths("prod", "sales"))),
+                    browsePaths("prod", "sales")),
+                NIGHTLY_JOB,
+                events(NIGHTLY_JOB)),
             false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -318,6 +338,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           .deleteIndex(
               OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
     }
+  }
+
+  /**
+   * The engine accepts the mapping and settings of every V3 entity index of the registry, not only
+   * the ones the other tests seed.
+   */
+  @Test
+  public void testEngineAcceptsEveryRegistryIndex() throws IOException {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    int created = 0;
+    for (MappingsBuilder.IndexMapping mapping : mappingsBuilder.getIndexMappings(opContext)) {
+      if (!indexConvention.isV3EntityIndexType(mapping.getIndexName())) {
+        continue;
+      }
+      String index = "accepted_" + mapping.getIndexName();
+      indexBuilder.buildIndex(
+          opContext,
+          indexBuilder.buildReindexState(
+              opContext,
+              index,
+              mapping.getMappings(),
+              settingsBuilder.getSettings(indexConfiguration, mapping.getIndexName())));
+      getSearchClient()
+          .deleteIndex(
+              OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+      created++;
+    }
+    assertTrue(created > 20, "Only " + created + " V3 indices");
   }
 
   @Test
@@ -345,7 +393,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS);
-    // Callers that name the V2 .keyword subfield read the root field
+    // Callers that name the V2 .keyword subfield read the same subfield
     assertUrns(
         searchService
             .filter(
@@ -430,6 +478,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.aggregateByValue(
             opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10),
         Map.of(HIVE.toString(), 1L, POSTGRES.toString(), 1L));
+    // The raw value, not the lower-cased root keyword
+    assertEquals(
+        searchService.aggregateByValue(
+            opContext, List.of(DATASET_ENTITY_NAME), "typeNames", null, 10),
+        Map.of("Table", 1L));
   }
 
   @Test
@@ -442,12 +495,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testRawEntity() {
     Map<Urn, Map<String, Object>> raw = searchService.raw(opContext, Set.of(ORDERS, ORDERS_CHART));
     assertEquals(raw.keySet(), Set.of(ORDERS, ORDERS_CHART));
     // _entityType is only stored on V3 documents
     assertEquals(raw.get(ORDERS).get("_entityType"), DATASET_ENTITY_NAME);
     assertEquals(raw.get(ORDERS_CHART).get("_entityType"), CHART_ENTITY_NAME);
+    // Each aspect's fields sit at the root, as on V2, and under _aspects.<aspect>
+    assertEquals(raw.get(ORDERS).get("name"), "orders");
+    Map<String, Object> aspects = (Map<String, Object>) raw.get(ORDERS).get("_aspects");
+    assertEquals(((Map<String, Object>) aspects.get("datasetProperties")).get("name"), "orders");
+    assertEquals(raw.get(ORDERS_CHART).get("title"), "Orders by region");
   }
 
   @Test
@@ -492,7 +551,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             null,
             0,
             10,
-            List.of("platform", "_entityType"));
+            List.of("platform", "_entityType", "typeNames"));
     assertUrns(acrossEntities.getEntities(), ORDERS, ORDERS_CHART);
     Map<String, Map<String, Long>> facets =
         acrossEntities.getMetadata().getAggregations().stream()
@@ -500,6 +559,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 Collectors.toMap(
                     AggregationMetadata::getName, AggregationMetadata::getAggregations));
     assertEquals(facets.get("platform"), Map.of(HIVE.toString(), 1L));
+    assertEquals(facets.get("typeNames"), Map.of("Table", 1L));
     assertEquals(facets.get("_entityType"), Map.of(DATASET_ENTITY_NAME, 1L, CHART_ENTITY_NAME, 1L));
     // Each returned Type value filters back to its entities
     for (Map.Entry<String, Urn> type :
@@ -525,12 +585,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // _entityName aliases the raw name, so the chart title's capital sorts first ascending. The urn
-    // tie-break gives that order too; only a working name sort reverses it descending
+    // _entityName sorts ignoring case, as on V2, so "orders" comes before "Orders by region"
+    // ascending. The urn tie-break alone would put the chart first
     for (Map.Entry<SortOrder, List<Urn>> sort :
         Map.of(
-                SortOrder.ASCENDING, List.of(ORDERS_CHART, ORDERS),
-                SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
+                SortOrder.ASCENDING, List.of(ORDERS, ORDERS_CHART),
+                SortOrder.DESCENDING, List.of(ORDERS_CHART, ORDERS))
             .entrySet()) {
       assertEquals(
           searchService
@@ -603,6 +663,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(
         urns(searchService.autoComplete(opContext, EMPTY_ENTITY_TYPE, "ord", null, null, 10)),
         List.of());
+  }
+
+  @Test
+  public void testCamelCaseEntityType() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    List<String> entityTypes = List.of(DATA_JOB_ENTITY_NAME, DATASET_ENTITY_NAME);
+    SearchResult result =
+        searchService.search(fulltext, entityTypes, "*", null, null, 0, 10, List.of("_entityType"));
+    assertEquals(
+        result.getMetadata().getAggregations().stream()
+            .filter(agg -> agg.getName().equals("_entityType"))
+            .findFirst()
+            .get()
+            .getAggregations(),
+        Map.of(DATA_JOB_ENTITY_NAME, 1L, DATASET_ENTITY_NAME, 2L));
+    // The UI sends the entity type enum name
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                entityTypes,
+                "*",
+                QueryUtils.newFilter("_entityType", "DATA_JOB"),
+                null,
+                0,
+                10)
+            .getEntities(),
+        NIGHTLY_JOB);
   }
 
   @Test

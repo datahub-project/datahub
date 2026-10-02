@@ -619,7 +619,6 @@ public class ESSearchDAO {
   }
 
   static final String INCIDENT_ENTITIES_FIELD = "entities.keyword";
-  static final String INCIDENT_ENTITIES_ROOT_FIELD = "entities";
   static final String INCIDENT_STATE_FIELD = "state";
   static final String INCIDENT_LAST_UPDATED_FIELD = "lastUpdated";
   static final String INCIDENT_ACTIVE_STATE = "ACTIVE";
@@ -672,16 +671,11 @@ public class ESSearchDAO {
   public SearchRequest buildActiveIncidentStatsRequest(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
     final String[] urnStrings = entityUrns.stream().map(Urn::toString).toArray(String[]::new);
-    // Search V3 entity indices keep entities at the root, without a .keyword subfield
-    final String entitiesField =
-        EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-            ? INCIDENT_ENTITIES_ROOT_FIELD
-            : INCIDENT_ENTITIES_FIELD;
 
     final BoolQueryBuilder query =
         QueryBuilders.boolQuery()
             .filter(QueryBuilders.termQuery(INCIDENT_STATE_FIELD, INCIDENT_ACTIVE_STATE))
-            .filter(QueryBuilders.termsQuery(entitiesField, urnStrings));
+            .filter(QueryBuilders.termsQuery(INCIDENT_ENTITIES_FIELD, urnStrings));
 
     // This aggregation bypasses SearchRequestHandler, so apply the same soft-delete / hidden-stage
     // defaults the unbatched entityClient.filter path gets, keeping the two paths in agreement.
@@ -696,7 +690,7 @@ public class ESSearchDAO {
 
     final TermsAggregationBuilder byEntity =
         AggregationBuilders.terms(BY_ENTITY_AGG)
-            .field(entitiesField)
+            .field(INCIDENT_ENTITIES_FIELD)
             .includeExclude(new IncludeExclude(urnStrings, null))
             .size(entityUrns.size())
             .subAggregation(

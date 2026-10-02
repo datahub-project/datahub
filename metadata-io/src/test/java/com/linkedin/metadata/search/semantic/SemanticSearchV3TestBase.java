@@ -163,7 +163,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
               + " ignore fields under an underscore-prefixed object such as V3's _aspects; this"
               + " test builds the service directly");
     }
-    // URN and keyword fields have no .keyword subfield on V3, unlike the V2 indices
+    // V3 root fields carry the .keyword subfields V2 filters read
     SearchResult byDomain =
         service.search(
             opContext, List.of("document"), "query", filter("domains", DOMAIN_URN), null, 0, 10);
@@ -181,18 +181,14 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
                 .extraRootProperties("document"));
     properties.put("urn", Map.of("type", "keyword"));
     properties.put("_entityType", Map.of("type", "keyword"));
-    // A URN field the way the V3 mappings builder lays it out: keyword under _aspects, reached
-    // through a root alias
+    // A URN field at the root and under _aspects, with the .keyword subfield V3 root fields carry
+    // (this index has no analyzers, so the analyzed subfields are left out)
+    Map<String, Object> domains =
+        Map.of("type", "keyword", "fields", Map.of("keyword", Map.of("type", "keyword")));
     properties.put(
         "_aspects",
-        Map.of(
-            "properties",
-            Map.of(
-                "domains",
-                Map.of(
-                    "properties",
-                    Map.of("domains", Map.of("type", "keyword", "ignore_above", 255))))));
-    properties.put("domains", Map.of("type", "alias", "path", "_aspects.domains.domains"));
+        Map.of("properties", Map.of("domains", Map.of("properties", Map.of("domains", domains)))));
+    properties.put("domains", domains);
     Map<String, Object> indexSettings = new HashMap<>();
     indexSettings.put("number_of_shards", 1);
     indexSettings.put("number_of_replicas", 0);
@@ -221,6 +217,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         SemanticEmbeddingMappings.EMBEDDINGS_FIELD,
         Map.of(MODEL_KEY, Map.of("chunks", List.of(chunk))));
     if (domain != null) {
+      document.put("domains", List.of(domain));
       document.put("_aspects", Map.of("domains", Map.of("domains", List.of(domain))));
     }
     lowLevel("PUT", "/" + index + "/_doc/" + urn.hashCode(), document);

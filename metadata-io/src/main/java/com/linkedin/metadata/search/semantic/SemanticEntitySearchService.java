@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Semantic search service that issues approximate nearest-neighbour (kNN) queries against semantic
@@ -361,10 +362,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             ? ESUtils.buildFilterMap(
                 // Use the new method that delegates to buildFilterQuery
                 transformedFilters, // Use transformed filters instead of raw postFilters
-                // The timeseries flag drops the .keyword suffix, which V3 needs: its keyword and
-                // URN fields have no such subfield, and its text fields are keyword-typed too. The
-                // flag's other effect, the rewrite context, is unused with an empty rewrite chain.
-                readV3,
+                false, // not timeseries
                 searchableFieldTypes,
                 opContext,
                 queryFilterRewriteChain)
@@ -575,9 +573,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * Adapts a filter to the V3 mapping. {@code _entityType} becomes an {@code _index} filter on the
    * V3 index names, resolved like the V2 rewrite (underscores dropped, case ignored), because
    * GraphQL sends {@code DOCUMENT} while V3 stores {@code document}. Only entity-named V3 indices
-   * are searched, so an index name identifies the entity type. An explicit {@code .keyword} suffix
-   * is dropped: V3 keyword and URN fields have no such subfield, and its text fields are
-   * keyword-typed at the root.
+   * are searched, so an index name identifies the entity type. Other fields keep their V2 names: V3
+   * root fields carry the same {@code .keyword} subfields.
    */
   @Nonnull
   private static Filter toV3Filter(@Nonnull OperationContext opContext, @Nonnull Filter filter) {
@@ -597,19 +594,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     for (ConjunctiveCriterion conjunction : filter.getOr()) {
       CriterionArray and = new CriterionArray();
       for (Criterion criterion : conjunction.getAnd()) {
-        String field = criterion.getField();
-        if (field.endsWith(ESUtils.KEYWORD_SUFFIX)) {
-          field = field.substring(0, field.length() - ESUtils.KEYWORD_SUFFIX.length());
-        }
-        if (!field.equalsIgnoreCase(SearchUtil.INDEX_VIRTUAL_FIELD)) {
-          and.add(
-              field.equals(criterion.getField())
-                  ? criterion
-                  : buildCriterion(
-                      field,
-                      criterion.getCondition(),
-                      criterion.isNegated(),
-                      criterion.getValues()));
+        if (!StringUtils.removeEnd(criterion.getField(), ESUtils.KEYWORD_SUFFIX)
+            .equalsIgnoreCase(SearchUtil.INDEX_VIRTUAL_FIELD)) {
+          and.add(criterion);
           continue;
         }
         List<String> indexNames = new ArrayList<>();
