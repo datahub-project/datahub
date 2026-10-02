@@ -1026,8 +1026,11 @@ its retries.
 **Using it.** Filter spans named `index bulk` by duration or by `datahub.bulk.failures` to find the
 slow or failing flushes; group by `datahub.bulk.indices` to see which indices they hit; follow the
 links to the changes in a batch. Two things to know when turning it on: each batch span is the
-root of its own trace, so a sampler that keeps a fraction of traces decides per batch (keeping 100%
-on the MAE consumer is cheap, it flushes a few times a second at most); and `datahub.bulk.batch_id`
+root of its own trace, so a sampler that keeps a fraction of traces decides per batch. Batches
+themselves are few (one per flush, bounded by batch size and flush interval), but the MAE consumer's
+sampler also governs its far more numerous per-event hook spans, so on a busy consumer keep every
+`index bulk` span with a tail-sampling rule on the span name in your collector rather than by
+raising the consumer's head-sampling ratio; and `datahub.bulk.batch_id`
 is unique per flush, fine on a span and never to be used as a metric label. Off by default; when
 off, nothing is recorded and no header is sent.
 
