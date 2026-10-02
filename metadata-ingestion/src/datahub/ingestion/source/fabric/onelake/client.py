@@ -11,6 +11,7 @@ from datahub.ingestion.source.fabric.common.auth import (
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
+from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
     FabricTable,
@@ -23,26 +24,10 @@ logger = logging.getLogger(__name__)
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
-
-def _parse_table_name(full_name: str) -> tuple[str, str]:
-    """Parse schema and table name from fully qualified name.
-
-    Args:
-        full_name: Fully qualified table name (e.g., "schema.table" or "table")
-
-    Returns:
-        Tuple of (schema_name, table_name)
-    """
-    if "." in full_name:
-        schema_name, table_name = full_name.rsplit(".", 1)
-    else:
-        from datahub.ingestion.source.fabric.onelake.constants import (
-            FABRIC_SQL_DEFAULT_SCHEMA,
-        )
-
-        schema_name = FABRIC_SQL_DEFAULT_SCHEMA
-        table_name = full_name
-    return schema_name, table_name
+# Page size requested from the Unity Catalog list endpoints (`max_results`).
+# The service may return fewer and caps large values; paging continues until
+# no `next_page_token` is returned.
+ONELAKE_CATALOG_PAGE_SIZE = 1000
 
 
 class OneLakeClient(BaseFabricClient):
@@ -195,22 +180,28 @@ class OneLakeClient(BaseFabricClient):
             )
             return False
 
-    def _list_schemas_via_onelake_api(
-        self, workspace_id: str, lakehouse_id: str
-    ) -> Iterator[str]:
-        """List schemas in a lakehouse using OneLake Delta Table APIs.
+    def _paginate_unity_catalog(
+        self,
+        url: str,
+        params: dict[str, str],
+        items_key: str,
+        description: str,
+    ) -> Iterator[dict]:
+        """Yield every item from a paginated OneLake Unity Catalog list endpoint.
 
+        The list endpoints return at most one page per call and carry the next
+        page in `next_page_token`. The token is sent back as `page_token`.
         Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 
         Args:
-            workspace_id: Workspace GUID
-            lakehouse_id: Lakehouse GUID
+            url: Full endpoint URL
+            params: Initial query parameters
+            items_key: Response key holding the page's items ("schemas" or "tables")
+            description: Used in log messages
 
         Yields:
-            Schema names
+            Item dictionaries from each page
         """
-        url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{lakehouse_id}/api/2.1/unity-catalog/schemas"
-        params = {"catalog_name": lakehouse_id}
         headers = {}
         try:
             # Use Storage audience for OneLake Table APIs
@@ -221,38 +212,100 @@ class OneLakeClient(BaseFabricClient):
             logger.error(f"Failed to get authorization header: {e}")
             raise
 
-        logger.debug(
-            f"Listing schemas via OneLake Table API for lakehouse {lakehouse_id}"
-        )
-        try:
+        request_params = dict(params)
+        request_params["max_results"] = str(ONELAKE_CATALOG_PAGE_SIZE)
+        page = 1
+        total = 0
+        seen_tokens: set[str] = set()
+        while True:
             response = self._session.get(
-                url, headers=headers, params=params, timeout=self.timeout
+                url, headers=headers, params=request_params, timeout=self.timeout
             )
             response.raise_for_status()
             data = response.json()
 
-            schemas = data.get("schemas", [])
-            logger.info(f"Found {len(schemas)} schema(s) in lakehouse {lakehouse_id}")
+            items = data.get(items_key, []) or []
+            total += len(items)
+            logger.debug(f"Page {page}: got {len(items)} item(s) for {description}")
+            yield from items
 
-            for schema_data in schemas:
+            next_token = data.get("next_page_token")
+            if not next_token:
+                break
+            if next_token in seen_tokens:
+                # Guard against an endpoint that keeps returning the same token.
+                logger.warning(
+                    f"Repeated page token while listing {description}; stopping "
+                    f"after {page} page(s)."
+                )
+                break
+            seen_tokens.add(next_token)
+            request_params["page_token"] = next_token
+            page += 1
+
+        logger.info(f"Found {total} item(s) for {description} across {page} page(s)")
+
+    def _list_schemas_via_onelake_api(
+        self,
+        workspace_id: str,
+        item_id: str,
+        item_label: str = "lakehouse",
+        missing_ok: bool = False,
+    ) -> Iterator[str]:
+        """List schemas in a lakehouse or warehouse using OneLake Delta Table APIs.
+
+        Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+            item_label: Used in log messages
+            missing_ok: When True, a 404 yields nothing instead of failing
+
+        Yields:
+            Schema names
+        """
+        url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{item_id}/api/2.1/unity-catalog/schemas"
+        params = {"catalog_name": item_id}
+
+        logger.debug(
+            f"Listing schemas via OneLake Table API for {item_label} {item_id}"
+        )
+        try:
+            for schema_data in self._paginate_unity_catalog(
+                url,
+                params,
+                items_key="schemas",
+                description=f"schemas in {item_label} {item_id}",
+            ):
                 schema_name = schema_data.get("name", "")
                 if schema_name:
                     logger.debug(f"Found schema: {schema_name}")
                     yield schema_name
 
         except requests.exceptions.HTTPError as e:
+            if missing_ok and e.response is not None and e.response.status_code == 404:
+                logger.warning(
+                    f"{item_label.capitalize()} {item_id} has no OneLake schema catalog "
+                    "(404). Tables will not be listed for this item."
+                )
+                return
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing schemas for lakehouse {lakehouse_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}: {e.response.text}"
             )
             raise
         except Exception as e:
             self.report.report_error()
-            logger.error(f"Failed to list schemas for lakehouse {lakehouse_id}: {e}")
+            logger.error(f"Failed to list schemas for {item_label} {item_id}: {e}")
             raise
 
     def _list_tables_per_schema_via_onelake_api(
-        self, workspace_id: str, lakehouse_id: str, schema_name: str
+        self,
+        workspace_id: str,
+        item_id: str,
+        schema_name: str,
+        item_label: str = "lakehouse",
     ) -> Iterator[FabricTable]:
         """List tables in a specific schema using OneLake Delta Table APIs.
 
@@ -260,47 +313,33 @@ class OneLakeClient(BaseFabricClient):
 
         Args:
             workspace_id: Workspace GUID
-            lakehouse_id: Lakehouse GUID
+            item_id: Lakehouse or Warehouse GUID
             schema_name: Schema name
+            item_label: Used in log messages
 
         Yields:
             FabricTable objects
         """
-        url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{lakehouse_id}/api/2.1/unity-catalog/tables"
-        params = {"catalog_name": lakehouse_id, "schema_name": schema_name}
-        headers = {}
-        try:
-            # Use Storage audience for OneLake Table APIs
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
+        url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{item_id}/api/2.1/unity-catalog/tables"
+        params = {"catalog_name": item_id, "schema_name": schema_name}
 
         logger.debug(
-            f"Listing tables in schema {schema_name} via OneLake Table API for lakehouse {lakehouse_id}"
+            f"Listing tables in schema {schema_name} via OneLake Table API for {item_label} {item_id}"
         )
         try:
-            response = self._session.get(
-                url, headers=headers, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            tables = data.get("tables", [])
-            logger.info(
-                f"Found {len(tables)} table(s) in schema {schema_name} of lakehouse {lakehouse_id}"
-            )
-
-            for table_data in tables:
+            for table_data in self._paginate_unity_catalog(
+                url,
+                params,
+                items_key="tables",
+                description=f"tables in schema {schema_name} of {item_label} {item_id}",
+            ):
                 table_name = table_data.get("name", "")
                 if table_name:
                     logger.debug(f"Processing table: {schema_name}.{table_name}")
                     yield FabricTable(
                         name=table_name,
                         schema_name=schema_name,
-                        item_id=lakehouse_id,
+                        item_id=item_id,
                         workspace_id=workspace_id,
                         description=table_data.get(
                             "comment"
@@ -310,13 +349,13 @@ class OneLakeClient(BaseFabricClient):
         except requests.exceptions.HTTPError as e:
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for lakehouse {lakehouse_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}: {e.response.text}"
             )
             raise
         except Exception as e:
             self.report.report_error()
             logger.error(
-                f"Failed to list tables in schema {schema_name} for lakehouse {lakehouse_id}: {e}"
+                f"Failed to list tables in schema {schema_name} for {item_label} {item_id}: {e}"
             )
             raise
 
@@ -457,12 +496,18 @@ class OneLakeClient(BaseFabricClient):
     def list_warehouse_tables(
         self, workspace_id: str, warehouse_id: str
     ) -> Iterator[FabricTable]:
-        """List all tables in a warehouse.
+        """List all tables in a warehouse via the OneLake Delta Table APIs.
 
-        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/tables/list
+        The Fabric REST `warehouses/{id}/tables` endpoint returns 404 for many
+        warehouses, which previously dropped every table that had not shown up
+        in query history. Warehouses are schema-enabled, so the same Unity
+        Catalog list used for schemas-enabled lakehouses applies here.
 
-        Some warehouse types (e.g. staging warehouses for Dataflows) may return 404
-        for the tables endpoint; we treat that as empty and log a warning.
+        System schemas (`sys`, `INFORMATION_SCHEMA`, `queryinsights`) are
+        skipped. A 404 means the item has no OneLake catalog (for example a
+        staging warehouse) and yields nothing.
+
+        Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 
         Args:
             workspace_id: Workspace GUID
@@ -472,37 +517,25 @@ class OneLakeClient(BaseFabricClient):
             FabricTable objects
         """
         logger.info(f"Listing tables for warehouse {warehouse_id}")
+        system_schemas = {name.lower() for name in FABRIC_SYSTEM_SCHEMAS}
         try:
-            response = self.get(
-                f"workspaces/{workspace_id}/warehouses/{warehouse_id}/tables"
-            )
-            data = response.json()
-
-            tables = data.get("value", [])
-            logger.info(f"Found {len(tables)} table(s) in warehouse {warehouse_id}")
-
-            for table_data in tables:
-                full_name = table_data.get("name", "")
-                schema_name, table_name = _parse_table_name(full_name)
-                logger.debug(f"Processing table: {schema_name}.{table_name}")
-
-                yield FabricTable(
-                    name=table_name,
-                    schema_name=schema_name,
-                    item_id=warehouse_id,
-                    workspace_id=workspace_id,
-                    description=table_data.get("description"),
+            for schema_name in self._list_schemas_via_onelake_api(
+                workspace_id,
+                warehouse_id,
+                item_label="warehouse",
+                missing_ok=True,
+            ):
+                if schema_name.lower() in system_schemas:
+                    logger.debug(
+                        f"Skipping system schema {schema_name} in warehouse {warehouse_id}"
+                    )
+                    continue
+                yield from self._list_tables_per_schema_via_onelake_api(
+                    workspace_id,
+                    warehouse_id,
+                    schema_name,
+                    item_label="warehouse",
                 )
-
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                logger.warning(
-                    f"Warehouse {warehouse_id} tables endpoint returned 404 (Not Found). "
-                    "Some warehouse types (e.g. staging) do not expose tables via API. "
-                )
-                return
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
-            raise
         except Exception as e:
             logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
             raise

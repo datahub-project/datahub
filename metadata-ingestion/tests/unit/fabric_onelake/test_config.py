@@ -6,6 +6,7 @@ Tests configuration validation and default values.
 import pytest
 from pydantic import ValidationError
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.azure.azure_auth import (
     AzureAuthenticationMethod,
     AzureCredentialConfig,
@@ -16,6 +17,7 @@ from datahub.ingestion.source.fabric.onelake.config import (
     FabricUsageConfig,
     SqlEndpointConfig,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 
 
 class TestFabricOneLakeSourceConfig:
@@ -201,6 +203,30 @@ class TestSqlEndpointDependencyValidator:
                 usage=FabricUsageConfig(include_usage_statistics=False),
                 sql_endpoint=SqlEndpointConfig(enabled=False),
             )
+
+    def test_profiling_requires_enabled_sql_endpoint(self) -> None:
+        with pytest.raises(ValidationError, match="profiling.enabled=True"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                extract_views=False,
+                extract_schema=ExtractSchemaConfig(enabled=False),
+                usage=FabricUsageConfig(include_usage_statistics=False),
+                sql_endpoint=SqlEndpointConfig(enabled=False),
+                profiling=ProfilingConfig(enabled=True),
+            )
+
+    def test_profile_pattern_is_passed_to_profiler(self) -> None:
+        pattern = AllowDenyPattern(allow=["dbo.orders"])
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            extract_views=False,
+            extract_schema=ExtractSchemaConfig(enabled=False),
+            usage=FabricUsageConfig(include_usage_statistics=False),
+            profile_pattern=pattern,
+            profiling=ProfilingConfig(enabled=True, include_field_null_count=True),
+        )
+        assert config.profiling._allow_deny_patterns.allow == ["dbo.orders"]
+        assert config.is_profiling_enabled()
 
     def test_usage_requires_enabled_sql_endpoint(self) -> None:
         with pytest.raises(ValidationError, match="usage.include_usage_statistics"):

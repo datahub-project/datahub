@@ -643,9 +643,12 @@ plugins: Dict[str, Set[str]] = {
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
+        # operation_config, imported by the profiling config, requires cachetools
+        # at module import. Without it the source is disabled as a missing extra.
     }
     | sqlglot_lib
-    | usage_common,
+    | usage_common
+    | cachetools_lib,
     "bigid": {"requests>=2.28.0,<3.0"},
     "bigquery": sql_common
     | bigquery_common

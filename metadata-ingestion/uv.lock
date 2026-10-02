@@ -905,6 +905,7 @@ fabric-data-factory = [
 ]
 fabric-onelake = [
     { name = "azure-identity" },
+    { name = "cachetools" },
     { name = "pyodbc" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -1774,6 +1775,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'druid'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'elasticsearch'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'excel'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'fabric-onelake'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'fivetran'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'gcp-secret-manager'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'gcs'", specifier = "<6.0.0" },
