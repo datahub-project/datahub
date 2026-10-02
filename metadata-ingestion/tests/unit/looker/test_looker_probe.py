@@ -22,9 +22,9 @@ from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFail
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_probe import (
     LookerMetadataProbe,
-    _ingestion_can_read,
     sdk_error_status,
 )
+from datahub.ingestion.source.looker.looker_selection import element_has_query
 from datahub.ingestion.source.looker.looker_source import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
     looker_folder_path,
@@ -255,11 +255,9 @@ def test_charts_warn_when_ingestion_drops_their_dashboard() -> None:
 
 
 def test_an_element_whose_look_has_no_query_is_unreadable_to_ingestion() -> None:
-    assert _ingestion_can_read(
-        DashboardElement(id="1", query=Query(model="m", view="v"))
-    )
-    assert not _ingestion_can_read(DashboardElement(id="2", look=LookWithQuery()))
-    assert not _ingestion_can_read(DashboardElement(id="3"))
+    assert element_has_query(DashboardElement(id="1", query=Query(model="m", view="v")))
+    assert not element_has_query(DashboardElement(id="2", look=LookWithQuery()))
+    assert not element_has_query(DashboardElement(id="3"))
 
 
 def test_looks_list_live_and_deleted_with_the_facts_ingestion_skips_on() -> None:

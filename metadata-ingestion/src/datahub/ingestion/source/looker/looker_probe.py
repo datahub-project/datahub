@@ -57,6 +57,11 @@ from datahub.ingestion.source.looker.looker_probe_verdicts import (
     LOOK_KIND,
     MODEL_KIND,
 )
+from datahub.ingestion.source.looker.looker_selection import (
+    element_has_query,
+    is_personal_folder,
+    personal_folder_verdict,
+)
 from datahub.ingestion.source.looker.looker_source import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
     USAGE_INGEST_REQUIRED_PERMISSIONS,
@@ -106,19 +111,6 @@ _NO_FOLDER = _FolderFacts(path=None, personal=False, path_allowed=None)
 _CHART_DASHBOARD_FIELDS = ["id", "deleted", _FOLDER_FIELDS, "dashboard_elements"]
 
 
-def _ingestion_can_read(element: DashboardElement) -> bool:
-    """Whether _get_looker_dashboard_element returns an element, not None.
-
-    It tries element.query, then element.look -- returning None when the look
-    has no query, without trying result_maker -- then element.result_maker.
-    """
-    if element.query is not None:
-        return True
-    if element.look is not None:
-        return element.look.query is not None
-    return element.result_maker is not None
-
-
 def _element_query(element: DashboardElement) -> Optional[Query]:
     """The query ingestion reads the element's explore from, same order."""
     if element.query is not None:
@@ -142,7 +134,7 @@ def _element_record(
         # "" rather than None so the attribute survives --report-to: ingestion
         # emits only type == "vis", and a missing type is not "vis".
         ATTR_TYPE: element.type or "",
-        ATTR_HAS_QUERY: _ingestion_can_read(element),
+        ATTR_HAS_QUERY: element_has_query(element),
         "look_id": element.look_id,
         "model": query.model if query is not None else None,
         "explore": query.view if query is not None else None,
@@ -159,15 +151,12 @@ _LOOK_LIST_FIELDS = ["id", "title", "query_id", _FOLDER_FIELDS]
 
 
 def _look_record(look: Look, deleted: bool) -> Dict[str, object]:
-    folder = look.folder
     return {
         "name": look.id,
         "title": look.title,
         ATTR_DELETED: deleted,
         ATTR_HAS_QUERY: look.query_id is not None,
-        ATTR_FOLDER_PERSONAL: bool(
-            folder is not None and (folder.is_personal or folder.is_personal_descendant)
-        ),
+        ATTR_FOLDER_PERSONAL: is_personal_folder(look.folder),
     }
 
 
@@ -427,7 +416,7 @@ class LookerMetadataProbe:
         cached = self._folder_cache.get(folder.id)
         if cached is not None:
             return cached
-        personal = bool(folder.is_personal or folder.is_personal_descendant)
+        personal = is_personal_folder(folder)
         ancestors = self._ancestor_names(folder.id)
         path = looker_folder_path(ancestors or [], folder.name)
         # Withheld past the flags too: a path under a user root, or a nested
@@ -818,11 +807,9 @@ class LookerMetadataProbe:
         ]
 
     def _skipped_as_personal(self, folder: Optional[FolderBase]) -> bool:
-        return (
-            self._config.skip_personal_folders
-            and folder is not None
-            and bool(folder.is_personal or folder.is_personal_descendant)
-        )
+        return not personal_folder_verdict(
+            self._config, is_personal_folder(folder)
+        ).included
 
     def _trace_dashboard(self, reach: _Reachability, detail: Dashboard) -> None:
         """What process_dashboard records for one dashboard. folder_path_pattern

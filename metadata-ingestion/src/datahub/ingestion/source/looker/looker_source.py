@@ -75,6 +75,18 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_selection import (
+    LOOK_HAS_NO_QUERY,
+    ON_A_KEPT_DASHBOARD,
+    LookFacts,
+    chart_id_verdict,
+    dashboard_id_verdict,
+    element_type_verdict,
+    folder_path_verdict,
+    is_personal_folder,
+    personal_folder_verdict,
+    standalone_look_verdict,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -980,7 +992,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events: List[Chart] = []
         for element in looker_dashboard.dashboard_elements:
-            if element.type == "vis":
+            if element_type_verdict(element.type).included:
                 chart_events.extend(
                     self._make_chart_entities(element, looker_dashboard)
                 )
@@ -1087,8 +1099,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         for element in elements:
             self.reporter.report_charts_scanned()
-            if element.id is not None and not self.source_config.chart_pattern.allowed(
-                element.id
+            if (
+                element.id is not None
+                and not chart_id_verdict(self.source_config, element.id).included
             ):
                 self.reporter.report_charts_dropped(element.id)
                 continue
@@ -1242,13 +1255,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, dashboard_object: LookerAPIDashboard
     ) -> bool:
         """Check if dashboard should be skipped due to being in personal folder."""
-        if not self.source_config.skip_personal_folders:
-            return False
-
-        if dashboard_object.folder is not None and (
-            dashboard_object.folder.is_personal
-            or dashboard_object.folder.is_personal_descendant
-        ):
+        if not personal_folder_verdict(
+            self.source_config, is_personal_folder(dashboard_object.folder)
+        ).included:
             self.reporter.info(
                 title="Dropped Dashboard",
                 message="Dropped due to being a personal folder",
@@ -1263,12 +1272,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, looker_dashboard: LookerDashboard
     ) -> bool:
         """Check if dashboard should be skipped based on folder path pattern."""
-        if (
-            looker_dashboard.folder_path is not None
-            and not self.source_config.folder_path_pattern.allowed(
-                looker_dashboard.folder_path
-            )
-        ):
+        if not folder_path_verdict(
+            self.source_config, looker_dashboard.folder_path
+        ).included:
             logger.debug(
                 f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
             )
@@ -1496,26 +1502,33 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.warning("Encountered Look with no ID, skipping.")
                 continue
 
-            if look.id in self.reachable_look_registry:
+            verdict = standalone_look_verdict(
+                self.source_config,
+                LookFacts(
+                    deleted=None,
+                    on_kept_dashboard=look.id in self.reachable_look_registry,
+                    has_query=look.query_id is not None,
+                    personal=is_personal_folder(look.folder),
+                ),
+            )
+            # extract_independent_looks runs only when that switch is on, so
+            # its exclusion cannot reach here.
+            if verdict.excluded_by == ON_A_KEPT_DASHBOARD:
                 continue
 
-            if look.query_id is None:
+            if verdict.excluded_by == LOOK_HAS_NO_QUERY:
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            # Skip looks in personal folders if configured
-            if self.source_config.skip_personal_folders:
-                if look.folder is not None and (
-                    look.folder.is_personal or look.folder.is_personal_descendant
-                ):
-                    self.reporter.info(
-                        title="Dropped Look",
-                        message="Dropped due to being a personal folder",
-                        context=f"Look ID: {look.id}",
-                    )
+            if verdict.excluded_by == "skip_personal_folders":
+                self.reporter.info(
+                    title="Dropped Look",
+                    message="Dropped due to being a personal folder",
+                    context=f"Look ID: {look.id}",
+                )
 
-                    self.reporter.report_charts_dropped(look.id)
-                    continue
+                self.reporter.report_charts_dropped(look.id)
+                continue
 
             # Fetch the Look's query and filter to allowed fields
             query: Optional[Query] = None
@@ -1591,7 +1604,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for dashboard_id in all_dashboard_ids:
                 if dashboard_id is None:
                     continue
-                if not self.source_config.dashboard_pattern.allowed(dashboard_id):
+                if not dashboard_id_verdict(self.source_config, dashboard_id).included:
                     self.reporter.report_dashboards_dropped(dashboard_id)
                 else:
                     filtered_dashboard_ids.append(dashboard_id)

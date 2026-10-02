@@ -1,18 +1,28 @@
-"""How Looker ingestion decides what it emits, restated for `probe filter`.
+"""How Looker ingestion decides what it emits, judged for `probe filter`.
 
 The provider (looker_probe.py) writes these attribute keys into its listings,
 and LookerDashboardSourceConfig.probe_verdict_override reads them here. One
-module, so the two cannot drift apart on a key name. Every rule cites the
-looker_source.py code it mirrors; change them together.
+module, so the two cannot drift apart on a key name. The rules themselves are
+looker_selection's, which ingestion calls too; this module turns a listing's
+attributes into that module's facts, and warns when a fact is missing.
 """
 
 from typing import TYPE_CHECKING, Mapping, Optional
 
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
     DatasetSubTypes,
+)
+from datahub.ingestion.source.looker.looker_selection import (
+    DashboardFacts,
+    ElementFacts,
+    LookFacts,
+    dashboard_id_verdict,
+    dashboard_verdict,
+    element_verdict,
+    standalone_look_verdict,
 )
 
 if TYPE_CHECKING:
@@ -46,12 +56,9 @@ ATTR_DASHBOARD_FOLDER_PATH_ALLOWED = "dashboard_folder_path_allowed"
 ATTR_USED = "used"
 ATTR_ON_KEPT_DASHBOARD = "on_kept_dashboard"
 
-# excluded_by values that name a rule rather than a config field.
-NOT_A_VIS_ELEMENT = "element_type"
-ELEMENT_HAS_NO_QUERY = "element_has_no_query"
-LOOK_HAS_NO_QUERY = "look_has_no_query"
+# excluded_by values for rules only the probe applies; ingestion's own are in
+# looker_selection.
 MODEL_HAS_NO_EXPLORES = "model_has_no_explores"
-ON_A_KEPT_DASHBOARD = "on_a_kept_dashboard"
 LOOK_QUERY_UNREADABLE = "look_query_unreadable"
 
 _NO_DASHBOARD_FACTS = (
@@ -109,23 +116,34 @@ def _flag(attributes: Mapping[str, str], key: str) -> bool:
     return attributes.get(key) == "true"
 
 
-def _folder_path_allowed(
-    config: "LookerDashboardSourceConfig",
-    attributes: Mapping[str, str],
-    path_key: str = ATTR_FOLDER_PATH,
-    allowed_key: str = ATTR_FOLDER_PATH_ALLOWED,
-) -> bool:
-    """_should_skip_dashboard_by_folder_path, from a listing's facts.
+def _bool_or_none(attributes: Mapping[str, str], key: str) -> Optional[bool]:
+    """A listed bool, or None when the listing did not write it."""
+    value = attributes.get(key)
+    if value is None:
+        return None
+    return value == "true"
 
-    A listed path is re-matched against the recipe being checked. A personal
-    folder's path is withheld (it is named after its user), so the flag the
-    listing computed at run time stands in. No folder at all means ingestion
-    applies no folder rule.
+
+def _dashboard_facts(
+    dashboard_id: str,
+    attributes: Mapping[str, str],
+    deleted_key: str = ATTR_DELETED,
+    path_key: str = ATTR_FOLDER_PATH,
+    personal_key: str = ATTR_FOLDER_PERSONAL,
+    allowed_key: str = ATTR_FOLDER_PATH_ALLOWED,
+) -> DashboardFacts:
+    """A dashboard's facts as a listing wrote them.
+
+    A personal folder's path is withheld (it is named after its user), so the
+    flag the listing computed at run time stands in for re-matching it.
     """
-    path = attributes.get(path_key)
-    if path is not None:
-        return config.folder_path_pattern.allowed(path)
-    return attributes.get(allowed_key) != "false"
+    return DashboardFacts(
+        dashboard_id=dashboard_id,
+        deleted=_flag(attributes, deleted_key),
+        personal=_flag(attributes, personal_key),
+        folder_path=attributes.get(path_key),
+        folder_path_allowed=_bool_or_none(attributes, allowed_key),
+    )
 
 
 def _dashboard(
@@ -135,46 +153,34 @@ def _dashboard(
     if ATTR_DELETED not in attributes:
         ctx.warn(_NO_DASHBOARD_FACTS)
         return None
-    # Listed by ingestion only under include_deleted (get_workunits_internal),
-    # so this comes before dashboard_pattern.
-    if _flag(attributes, ATTR_DELETED) and not config.include_deleted:
-        return Verdict(False, "include_deleted")
-    by_id = pattern_verdict(config, ctx.pattern_field, ctx.target)
-    if not by_id.included:
-        return by_id
-    if config.skip_personal_folders and _flag(attributes, ATTR_FOLDER_PERSONAL):
-        return Verdict(False, "skip_personal_folders")
-    if not _folder_path_allowed(config, attributes):
-        return Verdict(False, "folder_path_pattern")
-    return Verdict.include()
+    return dashboard_verdict(config, _dashboard_facts(ctx.target, attributes))
 
 
 def _parent_dashboard(
     config: "LookerDashboardSourceConfig", ctx: VerdictContext
 ) -> Optional[Verdict]:
-    """process_dashboard's rules for the chart's own dashboard, in _dashboard's
-    order, from the facts `charts` stamped on the chart. None: it is kept."""
+    """dashboard_verdict for the chart's own dashboard, from the facts `charts`
+    stamped on the chart. None: it is kept."""
     attributes = ctx.attributes
-    if _flag(attributes, ATTR_DASHBOARD_DELETED) and not config.include_deleted:
-        return Verdict(False, "include_deleted")
-    by_dashboard = pattern_verdict(config, "dashboard_pattern", ctx.parent_path[-1])
-    if not by_dashboard.included:
-        return by_dashboard
+    dashboard_id = ctx.parent_path[-1]
     if ATTR_DASHBOARD_DELETED not in attributes:
+        by_id = dashboard_id_verdict(config, dashboard_id)
+        if not by_id.included:
+            return by_id
         ctx.warn(_NO_ELEMENT_FACTS)
         return None
-    if config.skip_personal_folders and _flag(
-        attributes, ATTR_DASHBOARD_FOLDER_PERSONAL
-    ):
-        return Verdict(False, "skip_personal_folders")
-    if not _folder_path_allowed(
+    verdict = dashboard_verdict(
         config,
-        attributes,
-        ATTR_DASHBOARD_FOLDER_PATH,
-        ATTR_DASHBOARD_FOLDER_PATH_ALLOWED,
-    ):
-        return Verdict(False, "folder_path_pattern")
-    return None
+        _dashboard_facts(
+            dashboard_id,
+            attributes,
+            ATTR_DASHBOARD_DELETED,
+            ATTR_DASHBOARD_FOLDER_PATH,
+            ATTR_DASHBOARD_FOLDER_PERSONAL,
+            ATTR_DASHBOARD_FOLDER_PATH_ALLOWED,
+        ),
+    )
+    return None if verdict.included else verdict
 
 
 def _dashboard_element(
@@ -183,51 +189,50 @@ def _dashboard_element(
     dropped_with_dashboard = _parent_dashboard(config, ctx)
     if dropped_with_dashboard is not None:
         return dropped_with_dashboard
-    by_id = pattern_verdict(config, ctx.pattern_field, ctx.target)
-    if not by_id.included:
-        return by_id
     attributes = ctx.attributes
-    if ATTR_TYPE not in attributes:
+    verdict = element_verdict(
+        config,
+        ElementFacts(
+            element_id=ctx.target,
+            element_type=attributes.get(ATTR_TYPE),
+            has_query=_bool_or_none(attributes, ATTR_HAS_QUERY),
+        ),
+    )
+    if verdict.included and ATTR_TYPE not in attributes:
         ctx.warn(_NO_ELEMENT_FACTS)
         return None
-    # _get_looker_dashboard_element returns None, then
-    # _make_dashboard_and_chart_entities keeps only type == "vis".
-    if attributes.get(ATTR_HAS_QUERY) == "false":
-        return Verdict(False, ELEMENT_HAS_NO_QUERY)
-    if attributes[ATTR_TYPE] != "vis":
-        return Verdict(False, NOT_A_VIS_ELEMENT)
-    return Verdict.include()
+    return verdict
 
 
 def _standalone_look(
     config: "LookerDashboardSourceConfig", ctx: VerdictContext
 ) -> Verdict:
-    if not config.extract_independent_looks:
-        return Verdict(False, "extract_independent_looks")
-    ctx.warn(_CHART_PATTERN_NOT_APPLIED)
     attributes = ctx.attributes
+    verdict = standalone_look_verdict(
+        config,
+        LookFacts(
+            deleted=_bool_or_none(attributes, ATTR_DELETED),
+            on_kept_dashboard=_bool_or_none(attributes, ATTR_ON_KEPT_DASHBOARD),
+            has_query=_bool_or_none(attributes, ATTR_HAS_QUERY),
+            personal=_flag(attributes, ATTR_FOLDER_PERSONAL),
+        ),
+    )
+    if not config.extract_independent_looks:
+        return verdict
+    ctx.warn(_CHART_PATTERN_NOT_APPLIED)
     if ATTR_ON_KEPT_DASHBOARD not in attributes:
         ctx.warn(_ON_A_DASHBOARD_NOT_JUDGED)
     if ATTR_DELETED not in attributes:
         ctx.warn(_NO_LOOK_FACTS)
         return Verdict.include()
-    # extract_independent_looks: all_looks(soft_deleted=include_deleted),
-    # then reachable_look_registry, then query_id is None, then the
-    # personal-folder skip.
-    if _flag(attributes, ATTR_DELETED) and not config.include_deleted:
-        return Verdict(False, "include_deleted")
-    if _flag(attributes, ATTR_ON_KEPT_DASHBOARD):
-        return Verdict(False, ON_A_KEPT_DASHBOARD)
-    if attributes.get(ATTR_HAS_QUERY) == "false":
-        return Verdict(False, LOOK_HAS_NO_QUERY)
-    if config.skip_personal_folders and _flag(attributes, ATTR_FOLDER_PERSONAL):
-        return Verdict(False, "skip_personal_folders")
+    if not verdict.included:
+        return verdict
     # `looks` writes has_query null (dropped from the attributes) when its
     # get_look read-back failed; ingestion's own get_look then `continue`s.
     if ATTR_HAS_QUERY not in attributes:
         ctx.warn(_LOOK_QUERY_UNREAD)
-        return Verdict(False, LOOK_QUERY_UNREADABLE)
-    return Verdict.include()
+        return Verdict.exclude(LOOK_QUERY_UNREADABLE)
+    return verdict
 
 
 def _used_explores_rule(
