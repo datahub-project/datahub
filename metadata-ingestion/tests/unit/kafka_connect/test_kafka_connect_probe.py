@@ -16,7 +16,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import _iter_specs, run_probe_method
 from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
-from datahub.ingestion.agent.verdicts import ProbeReadFailed
+from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
@@ -229,8 +229,9 @@ def test_an_auth_failure_raises_instead_of_listing_nothing() -> None:
             json={"error_code": 401, "message": "Unauthorized"},
         )
         with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
-            with pytest.raises(requests.HTTPError):
+            with pytest.raises(ProbeConnectionError) as raised:
                 probe.connectors()
+    assert "HTTP 401" in str(raised.value)
 
 
 URI_CRED = "mk-3b8e-planted-uri-userinfo"
@@ -264,12 +265,32 @@ def test_an_http_error_does_not_echo_userinfo_from_connect_uri(
     with requests_mock.Mocker() as m:
         m.get(re.compile(r".*/connectors$"), json=["orders-sink"])
         m.get(re.compile(f".*{re.escape(failing_path)}$"), status_code=500, json={})
-        with pytest.raises(requests.HTTPError) as raised:
+        with pytest.raises(ProbeConnectionError) as raised:
             run_probe_method("kafka-connect", {"connect_uri": authed}, command, kwargs)
     message = str(raised.value)
     assert URI_CRED not in message
     assert "connect-user" not in message
-    assert "connect.example:8083" in message
+    assert "HTTP 500" in message
+
+
+def test_a_connection_failure_quoting_connect_uri_is_reported_by_class_only() -> None:
+    # requests' ConnectionError text carries the URL, userinfo included. The
+    # probe does not scrub it: the framework withholds a foreign exception's
+    # text and reports its class.
+    authed = f"http://connect-user:{URI_CRED}@connect.example:8083"
+    with requests_mock.Mocker() as m:
+        m.get(
+            re.compile(r".*/connectors$"),
+            exc=requests.exceptions.ConnectionError(
+                f"cannot reach {authed}/connectors"
+            ),
+        )
+        with pytest.raises(ProbeConnectionError) as raised:
+            run_probe_method("kafka-connect", {"connect_uri": authed}, "connectors", {})
+    message = str(raised.value)
+    assert URI_CRED not in message
+    assert "connect-user" not in message
+    assert "ConnectionError" in message
 
 
 NO_DB_CRED = "mk-41c7-planted-no-db-url"
