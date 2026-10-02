@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -2214,6 +2215,93 @@ class TestConfigFingerprintInHash:
             # Should only return notion document (confluence filtered out)
             assert len(documents) == 1
             assert documents[0]["urn"] == "urn:li:document:notion1"
+
+
+_SERVER_SEMANTIC_SEARCH_OFF = ServerSemanticSearchConfig(
+    enabled=False, enabled_entities=["document"], embedding_config=None
+)
+_SERVER_BEDROCK_COHERE_V3 = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="bedrock",
+        model_id="cohere.embed-english-v3",
+        aws_region="us-west-2",
+        model_embedding_key="cohere_embed_v3",
+    ),
+)
+_SERVER_BEDROCK_TITAN_V2 = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="bedrock",
+        model_id="amazon.titan-embed-text-v2:0",
+        aws_region="us-west-2",
+        model_embedding_key="titan_embed_text_v2",
+    ),
+)
+
+
+class TestFingerprintFollowsServerEmbeddingConfig:
+    """The managed recipe has no local embedding block: provider and model come
+    from the server. The skip hash must follow them, or documents hashed under
+    one server config are skipped as unchanged under the next one forever."""
+
+    URN = "urn:li:document:analytics-knowledge"
+    TEXT = "Analytics Knowledge -- how revenue is defined"
+
+    def _run_source(
+        self, tmp_path: Path, server_config: ServerSemanticSearchConfig
+    ) -> DataHubDocumentsSource:
+        config = DataHubDocumentsSourceConfig(
+            datahub={"server": "http://test-server:8080"},
+            incremental={"state_file_path": str(tmp_path / "state.json")},
+            stateful_ingestion={"enabled": False},
+        )
+        ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+        with (
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ),
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config",
+                return_value=server_config,
+            ),
+        ):
+            return DataHubDocumentsSource(ctx, config)
+
+    def _record_processed(self, source: DataHubDocumentsSource) -> None:
+        source._update_document_state(self.URN, self.TEXT)
+        source._save_state()
+
+    @pytest.mark.parametrize(
+        "earlier, later",
+        [
+            pytest.param(
+                _SERVER_SEMANTIC_SEARCH_OFF,
+                _SERVER_BEDROCK_COHERE_V3,
+                id="semantic-search-turned-on",
+            ),
+            pytest.param(
+                _SERVER_BEDROCK_COHERE_V3,
+                _SERVER_BEDROCK_TITAN_V2,
+                id="server-model-changed",
+            ),
+        ],
+    )
+    def test_reprocesses_document_when_server_embedding_config_changes(
+        self, tmp_path, earlier, later
+    ):
+        self._record_processed(self._run_source(tmp_path, earlier))
+
+        assert self._run_source(tmp_path, later)._should_process(self.URN, self.TEXT)
+
+    def test_skips_unchanged_document_under_same_server_config(self, tmp_path):
+        self._record_processed(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))
+
+        assert not self._run_source(
+            tmp_path, _SERVER_BEDROCK_COHERE_V3
+        )._should_process(self.URN, self.TEXT)
 
 
 class TestPartialEntityHandling:
