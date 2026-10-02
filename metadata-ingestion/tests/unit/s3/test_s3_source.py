@@ -29,7 +29,6 @@ from datahub.ingestion.source.s3.source import (
     Folder,
     S3Source,
     TableData,
-    _resolve_format_extension,
     partitioned_folder_comparator,
 )
 from datahub.metadata.schema_classes import ContainerPropertiesClass
@@ -1114,9 +1113,17 @@ def test_data_lake_s3_calls(seeded_local_system_bucket, calls_test_tuple):
         # Plain supported extension is kept as-is.
         pytest.param("s3://b/data.json", True, None, ".json", id="plain_json"),
         pytest.param("s3://b/data.parquet", True, None, ".parquet", id="plain_parquet"),
+        pytest.param("s3://b/data.jsonl", True, None, ".jsonl", id="plain_jsonl"),
         # Compression with a supported inner extension is unwrapped.
         pytest.param("s3://b/data.json.gz", True, None, ".json", id="json_gz"),
         pytest.param("s3://b/data.parquet.gz", True, None, ".parquet", id="parquet_gz"),
+        pytest.param("s3://b/data.jsonl.gz", True, None, ".jsonl", id="jsonl_gz"),
+        pytest.param("s3://b/data.json.bz2", True, None, ".json", id="json_bz2"),
+        # Uppercase extensions are normalised to lowercase.
+        pytest.param("s3://b/data.JSON", True, None, ".json", id="uppercase_json"),
+        pytest.param(
+            "s3://b/data.PARQUET.GZ", True, None, ".parquet", id="uppercase_parquet_gz"
+        ),
         # Compression-only files fall through to default_extension.
         pytest.param(
             "s3://b/data.gz", True, "json", ".json", id="gz_only_with_default"
@@ -1162,11 +1169,57 @@ def test_resolve_format_extension(
     default_extension: Optional[str],
     expected: str,
 ) -> None:
-    assert (
-        _resolve_format_extension(
-            full_path,
-            enable_compression=enable_compression,
-            default_extension=default_extension,
-        )
-        == expected
+    path_spec = PathSpec(
+        include="s3://b/{table}/*",
+        enable_compression=enable_compression,
+        default_extension=default_extension,
     )
+    assert path_spec.resolve_format_extension(full_path) == expected
+
+
+@pytest.mark.parametrize(
+    "path,default_extension,file_types,expected",
+    [
+        # Recognised format in file_types -> allowed.
+        pytest.param("s3://b/t/data.json", None, None, True, id="known_format_allowed"),
+        pytest.param(
+            "s3://b/t/data.json.gz", None, None, True, id="known_format_compressed"
+        ),
+        # Recognised format excluded by file_types -> skipped.
+        pytest.param(
+            "s3://b/t/data.json", None, ["csv"], False, id="known_format_not_wanted"
+        ),
+        # Fake extension from a dotted stem: without a default it is skipped, with a
+        # default it is allowed (this is the motivating case for the fix).
+        pytest.param(
+            "s3://b/t/foo.bar.baz-abc.gz",
+            None,
+            None,
+            False,
+            id="dotted_stem_no_default_skipped",
+        ),
+        pytest.param(
+            "s3://b/t/foo.bar.baz-abc.gz",
+            "json",
+            None,
+            True,
+            id="dotted_stem_with_default_allowed",
+        ),
+        # No extension behaves the same as a fake one.
+        pytest.param("s3://b/t/data", None, None, False, id="no_ext_no_default"),
+        pytest.param("s3://b/t/data", "json", None, True, id="no_ext_with_default"),
+    ],
+)
+def test_allowed_resolves_format_extension(
+    path: str,
+    default_extension: Optional[str],
+    file_types: Optional[List[str]],
+    expected: bool,
+) -> None:
+    kwargs: dict = {"include": "s3://b/{table}/*"}
+    if default_extension is not None:
+        kwargs["default_extension"] = default_extension
+    if file_types is not None:
+        kwargs["file_types"] = file_types
+    path_spec = PathSpec(**kwargs)
+    assert path_spec.allowed(path) is expected

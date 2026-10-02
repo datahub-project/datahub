@@ -256,7 +256,7 @@ We are working on using iterator-based JSON parsers to avoid reading in the enti
 
 ##### File type detection
 
-The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types listed above. For files compressed with `.gz` or `.bz2`, the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON).
+The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types listed above. For files compressed with `.gz`, `.gzip`, or `.bz2`, the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON).
 
 This means file names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. Such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise.
 
@@ -266,6 +266,17 @@ If your files have no real format extension (or have only a compression extensio
 path_specs:
   - include: s3://my-bucket/{table}/
     default_extension: json
+```
+
+With `default_extension` set, any file whose format cannot be inferred from its name is parsed as that format. This includes stray files that happen to sit under the path — for example `.crc` checksum files or `.txt` manifests — which will be read as the default format and may produce a "could not infer schema" warning. Use the path_spec `exclude` patterns to filter such files out:
+
+```yaml
+path_specs:
+  - include: s3://my-bucket/{table}/
+    default_extension: json
+    exclude:
+      - "**/*.crc"
+      - "**/*.txt"
 ```
 
 #### S3-specific mapping details

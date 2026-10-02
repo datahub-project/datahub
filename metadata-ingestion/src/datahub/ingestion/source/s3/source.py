@@ -2,7 +2,6 @@ import dataclasses
 import functools
 import logging
 import os
-import pathlib
 import posixpath
 import re
 import time
@@ -105,52 +104,6 @@ profiling_flags_to_report = [
 ]
 
 URI_SCHEME_REGEX = re.compile(r"^[a-z0-9]+://")
-
-
-def _resolve_format_extension(
-    full_path: str,
-    enable_compression: bool,
-    default_extension: Optional[str],
-) -> str:
-    """Resolve the format extension (e.g. ``.json``) for a file.
-
-    ``pathlib.Path(...).suffix`` is purely lexical (everything after the last dot),
-    so file names whose stem contains dots (e.g. ``foo.bar.baz-<hash>.gz``) produce
-    a fake extension that is not a real file format. We only keep an extension if
-    it matches one of the supported file types, otherwise we fall back to
-    ``default_extension`` so the inferrer can still be selected correctly.
-
-    Behaviour preserved from the previous implementation:
-
-    * ``data.json``        -> ``.json``
-    * ``data.json.gz``     -> ``.json`` (compression stripped, inner extension kept)
-    * ``data.gz``          -> ``default_extension`` if set, else ``""``
-    * ``data.parquet.gz``  -> ``.parquet``
-
-    New behaviour:
-
-    * ``foo.bar.baz-<hash>.gz`` -> ``default_extension`` (was ``.baz-<hash>``)
-    * ``foo.bar.baz-<hash>``    -> ``default_extension`` (was ``.baz-<hash>``)
-    """
-    # Local import to avoid a circular import at module load time.
-    from datahub.ingestion.source.data_lake_common.path_spec import (
-        SUPPORTED_COMPRESSIONS,
-        SUPPORTED_FILE_TYPES,
-    )
-
-    extension = pathlib.Path(full_path).suffix
-    if enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
-        inner_extension = pathlib.Path(full_path).with_suffix("").suffix
-        extension = (
-            inner_extension if inner_extension[1:] in SUPPORTED_FILE_TYPES else ""
-        )
-    elif extension[1:] not in SUPPORTED_FILE_TYPES:
-        extension = ""
-
-    if extension == "" and default_extension:
-        extension = f".{default_extension}"
-
-    return extension
 
 
 def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
@@ -368,11 +321,7 @@ class S3Source(StatefulIngestionSourceBase):
             # capabilities of smart_open.
             file = smart_open(table_data.full_path, "rb")
 
-        extension = _resolve_format_extension(
-            table_data.full_path,
-            enable_compression=path_spec.enable_compression,
-            default_extension=path_spec.default_extension,
-        )
+        extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
         inferrer = self._get_inferrer(extension, table_data.content_type)

@@ -201,19 +201,68 @@ class PathSpec(ConfigModel):
         if not self.tables_filter_pattern.allowed(table_name):
             return False
 
-        ext = os.path.splitext(path)[1].strip(".")
-
         if not ignore_ext:
-            if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
-                ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".")
+            ext = self._lexical_extension(path)
 
-            if ext == "":
+            # A glob like ``*`` with no explicit extension matches any file type.
+            if ext == "*":
+                return True
+
+            # Strip a compression suffix to find the format-bearing extension, e.g.
+            # ``.json.gz`` -> ``json``.
+            if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+                ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+
+            if ext in SUPPORTED_FILE_TYPES:
+                # A recognised format: keep it only if this path_spec wants it.
+                if ext not in self.file_types:
+                    return False
+            else:
+                # No real format extension (empty, or a fake one from a dotted stem
+                # like ``foo.bar.baz-<hash>``). Fall back to default_extension; skip
+                # the file when none is configured.
                 if self.default_extension is None:
                     return False
-            elif ext != "*" and ext not in self.file_types:
-                return False
 
         return True
+
+    def _lexical_extension(self, path: str) -> str:
+        """Return the raw suffix after the last dot (without the dot), lowercased."""
+        return os.path.splitext(path)[1].strip(".").lower()
+
+    def resolve_format_extension(self, path: str) -> str:
+        """Resolve the format extension (e.g. ``.json``) for a file name.
+
+        ``os.path.splitext`` / ``pathlib.suffix`` are purely lexical (everything
+        after the last dot), so file names whose stem contains dots (e.g.
+        ``foo.bar.baz-<hash>.gz``) produce a fake extension that is not a real file
+        format. We only keep an extension if it matches one of the supported file
+        types; otherwise we fall back to ``default_extension`` so an inferrer can
+        still be selected. Shared by ``allowed()`` and the S3/ABS schema readers so
+        file selection and schema inference agree on the format.
+
+        Behaviour:
+
+        * ``data.json``            -> ``.json``
+        * ``data.json.gz``         -> ``.json`` (compression stripped, inner kept)
+        * ``data.parquet.gz``      -> ``.parquet``
+        * ``data.gz``              -> ``default_extension`` if set, else ``""``
+        * ``data`` (no extension)  -> ``default_extension`` if set, else ``""``
+        * ``foo.bar.baz-<hash>.gz`` -> ``default_extension`` (was ``.baz-<hash>``)
+        * ``foo.bar.baz-<hash>``    -> ``default_extension`` (was ``.baz-<hash>``)
+        """
+        ext = self._lexical_extension(path)
+
+        if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+            inner = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+            ext = inner if inner in SUPPORTED_FILE_TYPES else ""
+        elif ext not in SUPPORTED_FILE_TYPES:
+            ext = ""
+
+        if ext == "" and self.default_extension:
+            ext = self.default_extension.lower()
+
+        return f".{ext}" if ext else ""
 
     def dir_allowed(self, path: str) -> bool:
         if not path.endswith("/"):
