@@ -1,16 +1,20 @@
-from typing import TYPE_CHECKING, Dict, Iterator, Mapping, Set, Tuple
+import re
+from typing import TYPE_CHECKING, Dict, Iterator, List
 
 import boto3
 import pytest
 from moto import mock_aws
 
-from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.filter_input import listing_from_run
-from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
-from datahub.metadata.schema_classes import ContainerPropertiesClass, SubTypesClass
+from datahub.metadata.schema_classes import SubTypesClass
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from tests.test_helpers.probe_parity import (
+    EmittedIndex,
+    FanOut,
+    ParityListing,
+    assert_probe_parity,
+)
 
 if TYPE_CHECKING:
     from mypy_boto3_glue.type_defs import StorageDescriptorTypeDef
@@ -26,8 +30,6 @@ _BASE: Dict[str, object] = {
     "include_view_lineage": False,
     "resolve_resource_link_schema": False,
 }
-
-Emitted = Tuple[Set[str], Set[str], Set[str]]
 
 
 @pytest.fixture
@@ -98,73 +100,76 @@ def catalog() -> Iterator[None]:
         yield
 
 
-def _ingested(recipe: Mapping[str, object]) -> Emitted:
+def _ingest(config: Dict[str, object]) -> EmittedIndex:
     source = GlueSource(
-        config=GlueSourceConfig.model_validate({**_BASE, **recipe}),
+        config=GlueSourceConfig.model_validate(config),
         ctx=PipelineContext(run_id="glue-probe-parity"),
     )
-    databases: Set[str] = set()
-    datasets: Set[str] = set()
-    flows: Set[str] = set()
-    for wu in source.get_workunits():
-        urn = wu.get_urn()
-        properties = wu.get_aspect_of_type(ContainerPropertiesClass)
-        if properties is not None:
-            databases.add(properties.name)
-        elif urn.startswith("urn:li:dataset:") and wu.get_aspect_of_type(SubTypesClass):
-            datasets.add(DatasetUrn.from_string(urn).name)
-        elif urn.startswith("urn:li:dataFlow:"):
-            flows.add(DataFlowUrn.from_string(urn).flow_id)
+    index = EmittedIndex.from_workunits(source.get_workunits())
     assert not source.report.failures
-    return databases, datasets, flows
+    return index
 
 
-def _included(
-    recipe: Dict[str, object], command: str, kwargs: Dict[str, object]
-) -> Set[str]:
-    run = run_probe_method("glue", recipe, command, kwargs)
-    listing = listing_from_run(run.to_dict())
-    assert listing.kind is not None and not listing.truncated
-    verdicts = check_filters(
-        source_type="glue",
-        config_dict=recipe,
-        kind=listing.kind,
-        parent_path=listing.parent_path,
-        names=listing.names,
-        attributes=listing.attributes,
+# Notes glue_probe.py gives on a normal run of a recipe that sets the rule;
+# none is a degraded fetch. `_note_database_rules`, from `tables --database`:
+_RESOURCE_LINK_NOTE = re.compile(
+    r"database '[^']+' is a Lake Formation resource link and "
+    r"ignore_resource_links is true, so ingestion never lists it or any table in it"
+)
+# `jobs`, when extract_transforms is false and when catalog_id is set:
+_NO_TRANSFORMS_NOTE = (
+    "extract_transforms is off, so ingestion emits none of these jobs; they "
+    "are listed for inspection only"
+)
+_JOBS_CATALOG_NOTE = (
+    "catalog_id does not apply to jobs: Glue's job API is not cross-account, "
+    "so these are the calling account's jobs, and ingestion emits them under "
+    "this recipe"
+)
+
+
+def _listings(
+    recipe: Dict[str, object], tables_expected: bool = True
+) -> List[ParityListing]:
+    # Each note is accepted only where the recipe field that triggers it is
+    # set: an accepted entry that matched nothing fails as stale.
+    no_jobs = recipe.get("extract_transforms") is False
+    jobs_accept = ((_NO_TRANSFORMS_NOTE,) if no_jobs else ()) + (
+        (_JOBS_CATALOG_NOTE,) if recipe.get("catalog_id") else ()
     )
-    return {r.name for r in verdicts.results if r.included}
+    return [
+        ParityListing("databases", "databases", lambda i: i.container_names()),
+        ParityListing(
+            "tables",
+            "tables",
+            lambda i: {
+                DatasetUrn.from_string(u).name
+                for u in i.urns("dataset", with_aspect=SubTypesClass)
+            },
+            # Under every listed database, kept or not, so a table excluded
+            # only through its database is part of the comparison.
+            fan_out=FanOut("databases", "database"),
+            identity=lambda r: f"{r.parent_path[-1]}.{r.name}",
+            expect_empty=not tables_expected,
+            accept_warnings=(
+                (_RESOURCE_LINK_NOTE,) if recipe.get("ignore_resource_links") else ()
+            ),
+        ),
+        ParityListing(
+            "jobs",
+            "jobs",
+            lambda i: {DataFlowUrn.from_string(u).flow_id for u in i.urns("dataFlow")},
+            expect_empty=no_jobs,
+            accept_warnings=jobs_accept,
+        ),
+    ]
 
 
-def _probed(recipe: Mapping[str, object]) -> Emitted:
-    config = {**_BASE, **recipe}
-    listed = run_probe_method("glue", config, "databases", {}).result
-    assert isinstance(listed, list)
-    every_database = [r["name"] for r in listed]
-    databases = _included(config, "databases", {})
-    # Every listed database, kept or not, so a table excluded only through its
-    # database is part of the comparison.
-    datasets = {
-        f"{database}.{table}"
-        for database in every_database
-        for table in _included(config, "tables", {"database": database})
-    }
-    flows = _included(config, "jobs", {})
-    return databases, datasets, flows
-
-
+# patterns and ignored resource links: test_each_rule_is_exercised_and_named.
 @pytest.mark.parametrize(
     "recipe",
     [
         pytest.param({}, id="defaults"),
-        pytest.param(
-            {
-                "database_pattern": {"deny": ["^scratch$"]},
-                "table_pattern": {"deny": [r".*_tmp$"]},
-                "ignore_resource_links": True,
-            },
-            id="patterns-and-ignored-links",
-        ),
         pytest.param(
             {
                 "table_pattern": {"allow": [r"^sales\.orders$", r"^ops\..*"]},
@@ -172,26 +177,45 @@ def _probed(recipe: Mapping[str, object]) -> Emitted:
             },
             id="qualified-allow-and-no-jobs",
         ),
-        pytest.param({"table_pattern": {"allow": ["^orders$"]}}, id="bare-name-allow"),
         pytest.param({"catalog_id": "123456789012"}, id="pinned-own-catalog"),
     ],
 )
 def test_probe_filter_agrees_with_ingestion(
     catalog: None, recipe: Dict[str, object]
 ) -> None:
-    assert _probed(recipe) == _ingested(recipe)
+    assert_probe_parity("glue", {**_BASE, **recipe}, _ingest, _listings(recipe))
 
 
-def test_the_fixture_exercises_every_rule(catalog: None) -> None:
-    """Guard against a parity test that agrees about nothing."""
-    databases, datasets, flows = _ingested(
-        {
-            "database_pattern": {"deny": ["^scratch$"]},
-            "table_pattern": {"deny": [r".*_tmp$"]},
-            "ignore_resource_links": True,
-        }
+def test_each_rule_is_exercised_and_named(catalog: None) -> None:
+    recipe: Dict[str, object] = {
+        "database_pattern": {"deny": ["^scratch$"]},
+        "table_pattern": {"deny": [r".*_tmp$"]},
+        "ignore_resource_links": True,
+    }
+    report = assert_probe_parity(
+        "glue", {**_BASE, **recipe}, _ingest, _listings(recipe)
     )
+    assert report.kinds["tables"].accepted_warnings == (
+        "database 'shared_link' is a Lake Formation resource link and "
+        "ignore_resource_links is true, so ingestion never lists it or any table in it",
+    )
+    assert report.excluded_by("databases") == {
+        "scratch": "database_pattern",
+        "shared_link": "ignore_resource_links",
+    }
+    assert report.excluded_by("tables") == {
+        "sales.orders_tmp": "table_pattern",
+        "sales.shared_orders": "ignore_resource_links",
+        "scratch.t1": "database_pattern",
+        "shared_link.linked_t": "ignore_resource_links",
+    }
 
-    assert databases == {"sales", "ops"}
-    assert datasets == {"sales.orders", "sales.orders_view", "ops.runs"}
-    assert flows == {"nightly_load", "hourly_sync"}
+
+def test_a_bare_table_name_allow_drops_every_table(catalog: None) -> None:
+    # table_pattern is matched on "database.table", so "^orders$" matches
+    # nothing and ingestion emits no table at all.
+    recipe: Dict[str, object] = {"table_pattern": {"allow": ["^orders$"]}}
+    report = assert_probe_parity(
+        "glue", {**_BASE, **recipe}, _ingest, _listings(recipe, tables_expected=False)
+    )
+    assert set(report.excluded_by("tables").values()) == {"table_pattern"}
