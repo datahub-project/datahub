@@ -280,7 +280,15 @@ class ABSSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
+        if schema_will_be_inferred:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_abs_prefix(table_data.table_path)
             if self.is_abs_platform()
@@ -322,6 +330,7 @@ class ABSSource(StatefulIngestionSourceBase):
             azure_config=self.source_config.azure_config,
             use_abs_container_properties=self.source_config.use_abs_container_properties,
             use_abs_blob_properties=self.source_config.use_abs_blob_properties,
+            set_schema_inferred_from=schema_will_be_inferred,
         )
 
         dataset_properties = DatasetPropertiesClass(
@@ -330,7 +339,12 @@ class ABSSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.enable_schema_inference:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because enable_schema_inference is set to False"
+            )
+        elif schema_will_be_inferred:
             try:
                 fields = self.get_fields(table_data, path_spec)
                 schema_metadata = SchemaMetadata(
