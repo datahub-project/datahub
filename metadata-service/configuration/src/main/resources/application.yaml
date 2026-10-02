@@ -1177,6 +1177,8 @@ elasticsearch:
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
       sliceFutureDrainTimeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_SLICE_FUTURE_DRAIN_TIMEOUT_SECONDS:2} # seconds (single allOf wait) after canceling slice futures before PIT/scroll cleanup
+      deleteByQueryUrnBatchSize: ${ELASTICSEARCH_SEARCH_GRAPH_DELETE_BY_QUERY_URN_BATCH_SIZE:1} # max source urns per graph edge delete_by_query (e.g. fine-grained lineage fields of one aspect); 1 = one request per urn
+      deleteByQueryRefresh: ${ELASTICSEARCH_SEARCH_GRAPH_DELETE_BY_QUERY_REFRESH:true} # refresh graph index after each delete_by_query; false skips the per-request refresh and uses conflicts=proceed
     validation:
       enabled: ${SEARCH_VALIDATION_ENABLED:true}
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}

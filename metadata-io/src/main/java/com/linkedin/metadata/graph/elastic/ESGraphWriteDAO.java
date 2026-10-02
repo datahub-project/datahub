@@ -101,12 +101,19 @@ public class ESGraphWriteDAO {
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
 
-    return bulkProcessor
-        .deleteByQuery(
-            opContext,
-            finalQuery,
-            indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME))
-        .orElse(null);
+    final String indexName =
+        indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME);
+    if (graphQueryConfiguration.isDeleteByQueryRefresh()) {
+      return bulkProcessor.deleteByQuery(opContext, finalQuery, indexName).orElse(null);
+    }
+    // Without a refresh, a later delete_by_query can still see edges this one already deleted
+    // (or re-added with a new seq_no); skip those conflicts rather than abort the remaining
+    // batches.
+    return bulkProcessor.deleteByQuery(opContext, finalQuery, false, true, indexName).orElse(null);
+  }
+
+  public int getDeleteByQueryUrnBatchSize() {
+    return graphQueryConfiguration.getDeleteByQueryUrnBatchSize();
   }
 
   @Nullable
