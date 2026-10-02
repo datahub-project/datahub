@@ -541,6 +541,10 @@ class BigQueryV2Config(
         default=True,
         description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
     )
+    capture_job_labels_as_query_properties: bool = Field(
+        default=False,
+        description="If enabled, capture BigQuery job labels (for example the `airflow-dag` and `airflow-task` labels set by Airflow's `BigQueryInsertJobOperator`) as custom properties on Query entities. When the same query runs with different labels, the most recently observed labels are kept. Only applicable if `use_queries_v2` is enabled.",
+    )
 
     @property
     def have_table_data_read_permission(self) -> bool:
