@@ -24,11 +24,14 @@ from datahub.sdk._shared import (
     HasSubtype,
     HasTags,
     HasTerms,
+    HasUpstreamMetrics,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
     TagsInputType,
     TermsInputType,
+    UpstreamMetricsInputType,
+    _reject_metric_as_dataset_input,
 )
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
@@ -45,6 +48,7 @@ class Chart(
     HasTags,
     HasTerms,
     HasDomain,
+    HasUpstreamMetrics,
     Entity,
 ):
     """Represents a chart in DataHub."""
@@ -82,6 +86,7 @@ class Chart(
         chart_type: Optional[Union[str, models.ChartTypeClass]] = None,
         access: Optional[str] = None,
         input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
+        upstream_metrics: Optional[UpstreamMetricsInputType] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -120,6 +125,8 @@ class Chart(
             access,
             input_datasets,
         )
+        if upstream_metrics is not None:
+            self.set_upstream_metrics(upstream_metrics)
         self._init_standard_aspects(
             parent_container, subtype, owners, links, tags, terms, domain
         )
@@ -350,10 +357,13 @@ class Chart(
     def set_input_datasets(
         self, input_datasets: Sequence[Union[DatasetUrnOrStr, Dataset]]
     ) -> None:
-        """Set the input datasets of the chart."""
-        # Convert all inputs to strings
+        """Set the input datasets of the chart.
+
+        Metric URNs are rejected. Declare them with ``set_upstream_metrics``.
+        """
         inputs = []
         for input_dataset in input_datasets:
+            _reject_metric_as_dataset_input(input_dataset)
             if isinstance(input_dataset, Dataset):
                 inputs.append(str(input_dataset.urn))
             else:
@@ -361,7 +371,11 @@ class Chart(
         self._ensure_chart_props().inputs = inputs
 
     def add_input_dataset(self, input_dataset: Union[DatasetUrnOrStr, Dataset]) -> None:
-        """Add an input to the chart."""
+        """Add an input to the chart.
+
+        Metric URNs are rejected. Declare them with ``set_upstream_metrics``.
+        """
+        _reject_metric_as_dataset_input(input_dataset)
         if isinstance(input_dataset, Dataset):
             input_dataset_urn = input_dataset.urn
         elif isinstance(input_dataset, str):

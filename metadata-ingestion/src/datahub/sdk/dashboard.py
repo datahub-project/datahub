@@ -25,11 +25,13 @@ from datahub.sdk._shared import (
     HasSubtype,
     HasTags,
     HasTerms,
+    HasUpstreamMetrics,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
     TagsInputType,
     TermsInputType,
+    UpstreamMetricsInputType,
 )
 from datahub.sdk.chart import Chart
 from datahub.sdk.dataset import Dataset
@@ -47,6 +49,7 @@ class Dashboard(
     HasTags,
     HasTerms,
     HasDomain,
+    HasUpstreamMetrics,
     Entity,
 ):
     """Represents a dashboard in DataHub."""
@@ -84,6 +87,7 @@ class Dashboard(
         input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
         charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]] = None,
         dashboards: Optional[Sequence[Union[DashboardUrnOrStr, Dashboard]]] = None,
+        upstream_metrics: Optional[UpstreamMetricsInputType] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -123,6 +127,8 @@ class Dashboard(
             charts,
             dashboards,
         )
+        if upstream_metrics is not None:
+            self.set_upstream_metrics(upstream_metrics)
         self._init_standard_aspects(
             parent_container, subtype, owners, links, tags, terms, domain
         )
