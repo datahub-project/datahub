@@ -1,7 +1,8 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Callable, Iterator, Optional, TypeVar
+import time
+from typing import Callable, Dict, Iterator, Optional, Tuple, TypeVar
 
 import requests
 
@@ -17,6 +18,7 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricWarehouse,
 )
+from datahub.ingestion.source.fabric.onelake.notebooks import FabricNotebook
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientReport
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,12 @@ ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 # The service may return fewer and caps large values; paging continues until
 # no `next_page_token` is returned.
 ONELAKE_CATALOG_PAGE_SIZE = 1000
+
+# getDefinition is a long-running operation: 202 plus a status poll. Cap each
+# sleep so a large Retry-After cannot stall the run indefinitely, and allow
+# the operation longer than a single HTTP timeout.
+_LRO_POLL_SLEEP_CAP_SEC = 15
+_LRO_MIN_DEADLINE_SEC = 120
 
 
 class OneLakeClient(BaseFabricClient):
@@ -152,6 +160,94 @@ class OneLakeClient(BaseFabricClient):
             endpoint_suffix="warehouses",
             factory=FabricWarehouse,
         )
+
+    def list_notebooks(self, workspace_id: str) -> Iterator[FabricNotebook]:
+        """List notebooks in a workspace.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/notebook/items/list-notebooks
+
+        Args:
+            workspace_id: Workspace GUID
+
+        Yields:
+            FabricNotebook objects
+        """
+        logger.info(f"Listing notebooks for workspace {workspace_id}")
+        for item in self._paginate(f"workspaces/{workspace_id}/notebooks"):
+            yield FabricNotebook(
+                id=item.get("id", ""),
+                display_name=item.get("displayName", ""),
+                workspace_id=workspace_id,
+                description=item.get("description"),
+                folder_id=item.get("folderId"),
+            )
+
+    def list_folders(self, workspace_id: str) -> Dict[str, Tuple[str, Optional[str]]]:
+        """List workspace folders as id -> (display name, parent folder id).
+
+        Used to build the notebook path that ``notebook_pattern`` matches.
+        """
+        folders: Dict[str, Tuple[str, Optional[str]]] = {}
+        for item in self._paginate(f"workspaces/{workspace_id}/folders"):
+            folder_id = item.get("id")
+            if not folder_id:
+                continue
+            folders[folder_id] = (
+                item.get("displayName") or "",
+                item.get("parentFolderId"),
+            )
+        return folders
+
+    def get_notebook_definition(self, workspace_id: str, notebook_id: str) -> dict:
+        """Fetch a notebook definition in fabricGitSource format.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/notebook/items/get-notebook-definition
+
+        The API is POST and may return 202. The definition is then read from
+        the long-running operation result.
+        """
+        response = self.post(
+            f"workspaces/{workspace_id}/notebooks/{notebook_id}/getDefinition",
+            params={"format": "fabricGitSource"},
+        )
+        if response.status_code == 202:
+            return self._await_operation_result(response)
+        return response.json()
+
+    def _await_operation_result(self, response: requests.Response) -> dict:
+        """Poll a Fabric long-running operation until its result is available."""
+        operation_id = response.headers.get("x-ms-operation-id")
+        if not operation_id:
+            location = response.headers.get("Location", "")
+            operation_id = location.rstrip("/").split("/")[-1]
+        if not operation_id:
+            raise RuntimeError(
+                "Fabric long-running operation did not return an operation id"
+            )
+
+        deadline = time.monotonic() + max(self.timeout * 4, _LRO_MIN_DEADLINE_SEC)
+        while True:
+            status_response = self.get(f"operations/{operation_id}")
+            body = status_response.json()
+            state = body.get("status")
+            if state == "Succeeded":
+                result = self.get(f"operations/{operation_id}/result")
+                return result.json()
+            if state == "Failed":
+                error = body.get("error") or body
+                raise RuntimeError(f"Notebook definition request failed: {error}")
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Timed out waiting for notebook definition operation {operation_id}"
+                )
+            retry_after = status_response.headers.get(
+                "Retry-After"
+            ) or response.headers.get("Retry-After")
+            try:
+                delay = float(retry_after) if retry_after else 2
+            except ValueError:
+                delay = 2
+            time.sleep(min(delay, _LRO_POLL_SLEEP_CAP_SEC))
 
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str

@@ -65,6 +65,14 @@ source:
     #   enabled: true
     #   include_lineage: false
 
+    # Notebooks are ingested as datasets with subtype Notebook. The pattern
+    # matches the folder path (`/<folder>/.../<name>`). Contents come from
+    # POST .../notebooks/{notebookId}/getDefinition?format=fabricGitSource.
+    # include_notebooks: true
+    # notebook_pattern:
+    #   allow:
+    #     - "^/Shared/.*"
+
     # Optional: API timeout (seconds)
     # api_timeout: 30
     

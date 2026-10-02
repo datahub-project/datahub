@@ -52,6 +52,7 @@ class FabricOneLakeSourceReport(
     tables_scanned: int = 0
     shortcuts_found: int = 0
     views_scanned: int = 0
+    notebooks_scanned: int = 0
     entities_profiled: int = 0
 
     # Filtered entities
@@ -61,6 +62,7 @@ class FabricOneLakeSourceReport(
     filtered_schemas: LossyList[str] = field(default_factory=LossyList)
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
+    filtered_notebooks: LossyList[str] = field(default_factory=LossyList)
     # Tables and columns skipped by profile_pattern or profiler limits.
     filtered: LossyList[str] = field(default_factory=LossyList)
 
@@ -144,6 +146,14 @@ class FabricOneLakeSourceReport(
     def report_view_filtered(self, view_name: str) -> None:
         """Record a filtered view."""
         self.filtered_views.append(view_name)
+
+    def report_notebook_scanned(self) -> None:
+        """Increment notebooks scanned counter."""
+        self.notebooks_scanned += 1
+
+    def report_notebook_filtered(self, notebook_path: str) -> None:
+        """Record a notebook excluded by notebook_pattern."""
+        self.filtered_notebooks.append(notebook_path)
 
     def report_view_missing_definition(self, view_name: str) -> None:
         """Record a view whose SQL definition was unavailable for lineage parsing."""

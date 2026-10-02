@@ -7,6 +7,7 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 - Schemas as Containers
 - Tables as Datasets with schema metadata
 - Views as Datasets with view definition and lineage parsed from the view SQL
+- Notebooks as Datasets with subtype Notebook, including fabricGitSource contents
 """
 
 import logging
@@ -40,9 +41,11 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
+from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace, WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
+    make_notebook_name,
     make_schema_name,
     make_table_name,
     make_warehouse_name,
@@ -59,6 +62,11 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
+)
+from datahub.ingestion.source.fabric.onelake.notebooks import (
+    FabricNotebook,
+    decode_notebook_definition,
+    notebook_path,
 )
 from datahub.ingestion.source.fabric.onelake.profiling import (
     FabricProfileTarget,
@@ -454,6 +462,103 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+
+        yield from self._process_notebooks(workspace)
+
+    def _process_notebooks(self, workspace: FabricWorkspace) -> Iterable[Dataset]:
+        """Ingest workspace notebooks as datasets with subtype Notebook."""
+        if not self.config.include_notebooks:
+            return
+
+        folders: dict[str, tuple[str, Optional[str]]] = {}
+        try:
+            folders = self.client.list_folders(workspace.id)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to List Notebook Folders",
+                message=(
+                    "Unable to resolve notebook folder paths. "
+                    "notebook_pattern will be applied to /<display name>."
+                ),
+                context=f"workspace={workspace.name}",
+                exc=e,
+                log=False,
+            )
+
+        try:
+            notebooks = list(self.client.list_notebooks(workspace.id))
+        except Exception as e:
+            self.report.warning(
+                title="Failed to List Notebooks",
+                message="Unable to retrieve notebooks from workspace.",
+                context=f"workspace={workspace.name}",
+                exc=e,
+                log=False,
+            )
+            return
+
+        for notebook in notebooks:
+            path = notebook_path(notebook.display_name, notebook.folder_id, folders)
+            if not self.config.notebook_pattern.allowed(path):
+                self.report.report_notebook_filtered(path)
+                continue
+
+            content: Optional[str] = None
+            language: Optional[str] = None
+            try:
+                definition = self.client.get_notebook_definition(
+                    workspace.id, notebook.id
+                )
+                content, language = decode_notebook_definition(definition)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to Get Notebook Definition",
+                    message="Notebook metadata will be ingested without contents.",
+                    context=f"workspace={workspace.name}, notebook={path}",
+                    exc=e,
+                    log=False,
+                )
+
+            self.report.report_notebook_scanned()
+            logger.info(f"Processing notebook: {path} ({notebook.id})")
+            yield self._create_notebook_dataset(
+                workspace, notebook, path, content, language
+            )
+
+    def _create_notebook_dataset(
+        self,
+        workspace: FabricWorkspace,
+        notebook: FabricNotebook,
+        path: str,
+        content: Optional[str],
+        language: Optional[str],
+    ) -> Dataset:
+        """Create a notebook dataset, including decoded fabricGitSource contents."""
+        custom_properties = {"path": path}
+        if language:
+            custom_properties["language"] = language
+        if content:
+            custom_properties["content"] = content
+
+        return Dataset(
+            platform=PLATFORM,
+            name=make_notebook_name(workspace.id, notebook.id),
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=notebook.display_name,
+            description=notebook.description,
+            parent_container=WorkspaceKey(
+                instance=self.config.platform_instance,
+                env=self.config.env,
+                workspace_id=workspace.id,
+            ),
+            subtype=DatasetSubTypes.NOTEBOOK,
+            external_url=(
+                f"{FABRIC_APP_BASE_URL}/groups/{workspace.id}"
+                f"/synapsenotebooks/{notebook.id}"
+            ),
+            custom_properties=custom_properties,
+        )
 
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse

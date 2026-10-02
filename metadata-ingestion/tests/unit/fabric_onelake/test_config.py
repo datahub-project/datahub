@@ -157,6 +157,12 @@ class TestFabricOneLakeSourceConfig:
         assert config.extract_warehouses is False
         assert config.extract_schemas is False
 
+    def test_notebook_defaults(self) -> None:
+        """Notebook ingestion is opt-in; the path pattern allows everything."""
+        config = FabricOneLakeSourceConfig(credential=AzureCredentialConfig())
+        assert config.include_notebooks is False
+        assert config.notebook_pattern.allowed("/Shared/analysis") is True
+
     def test_shortcuts_defaults(self) -> None:
         """Shortcut detection is on by default; lineage is opt-in."""
         config = FabricOneLakeSourceConfig(credential=AzureCredentialConfig())

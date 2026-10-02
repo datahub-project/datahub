@@ -269,6 +269,21 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    include_notebooks: bool = Field(
+        default=False,
+        description="Ingest notebooks, represented as DataHub datasets.",
+    )
+
+    notebook_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter notebooks for ingestion. "
+            "Specify regex to match the full notebook path. "
+            "The path is `/<folder>/.../<name>`, or `/<name>` when the notebook "
+            "is in the workspace root. Example: `/Shared/.*`"
+        ),
+    )
+
     extract_schemas: bool = Field(
         default=True,
         description="Whether to extract schema containers. "

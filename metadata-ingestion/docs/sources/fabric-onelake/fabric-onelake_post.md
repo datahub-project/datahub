@@ -361,6 +361,16 @@ Display names are resolved once per workspace and item. If the caller cannot rea
 
 `shortcuts.include_lineage` (off by default) also emits an upstream dataset when the shortcut target is another OneLake table (`Tables/<schema>/<table>` or `Tables/<table>`). When that origin table is ingested in the same run and both tables have schema, each shortcut column is linked to the origin column of the same name. Shortcuts to ADLS, S3, and other external locations keep the tag and origin properties and do not get a dataset upstream. The caller needs `OneLake.Read.All` or `OneLake.ReadWrite.All`.
 
+### Notebooks
+
+Notebook ingestion is off by default. Set `include_notebooks: true` to ingest each workspace notebook as a dataset with subtype Notebook, the same representation the Databricks Unity Catalog source uses.
+
+`notebook_pattern` filters on the notebook path. The path is `/<folder>/.../<name>`, built from the workspace folder listing and the notebook display name. A notebook in the workspace root is `/<name>`. Example: `^/Shared/.*`.
+
+For each notebook that passes the pattern, the connector calls `POST /workspaces/{workspaceId}/notebooks/{notebookId}/getDefinition?format=fabricGitSource`. The decoded source is stored in the `content` custom property, and the language (`python`, `sql`, `scala`, or `r`) is stored in `language` when the content file suffix identifies it. `path` is always set. If the definition request fails, the notebook is still ingested without contents.
+
+The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
+
 ### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
