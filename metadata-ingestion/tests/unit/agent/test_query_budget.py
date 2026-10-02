@@ -39,8 +39,7 @@ _CONFIG_FOR_DIALECT = {
 
 def _config_for(url: str, options: Optional[Dict[str, Any]] = None) -> SQLCommonConfig:
     """The connector config whose recipe connects to `url`. A dialect with no
-    connector of its own goes through the generic source, which declares
-    nothing."""
+    connector of its own goes through the generic source."""
     extra: Dict[str, Any] = {"options": options} if options is not None else {}
     config_cls = _CONFIG_FOR_DIALECT.get(url.split("://", 1)[0].split("+", 1)[0])
     if config_cls is None:

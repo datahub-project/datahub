@@ -65,7 +65,6 @@ from datahub.ingestion.source.sql.postgres.query import (
     POSTGRES_SYSTEM_DATABASES,
     PostgresQuery,
 )
-from datahub.ingestion.source.sql.protocol_probe_settings import libpq_probe_settings
 from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -319,13 +318,13 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
         )
 
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
-        return libpq_probe_settings(self, budget)
-
-    def probe_prepare_engine(self, engine: Any) -> None:
+        settings = super().probe_engine_settings(budget)
         # Without this, an AWS_IAM recipe cannot be probed at all: the password
         # is a token injected per connection, so a bare create_engine() has no
         # credential to connect with.
-        self.install_rds_iam_auth(engine)
+        if self.rds_iam_enabled():
+            return settings.followed_by(self.install_rds_iam_auth)
+        return settings
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:

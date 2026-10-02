@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from pydantic.fields import Field
 
@@ -13,17 +13,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.sql.protocol_probe_settings import (
-    probe_settings_for_url,
-)
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import (
-    ProbeEngineSettings,
-    SQLCommonConfig,
-)
-
-if TYPE_CHECKING:
-    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 try:
     # SQLAlchemy loads pyhive's dialects via entry points at create_engine() time, so
@@ -77,11 +68,6 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 
     def get_sql_alchemy_url(self):
         return self.connect_uri
-
-    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
-        # The recipe's URL names the dialect, so its protocol's ceiling and
-        # label apply here as they do on that dialect's own connector.
-        return probe_settings_for_url(self, budget)
 
 
 @platform_name("SQLAlchemy", id="sqlalchemy")

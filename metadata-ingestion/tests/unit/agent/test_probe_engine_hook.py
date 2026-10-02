@@ -1,4 +1,4 @@
-"""The hook that lets a connector finish the probe's engine.
+"""The hook that sets up the probe's engine: probe_engine_settings.
 
 The probe builds its own engine instead of constructing the connector's Source,
 which fires ingestion telemetry and wants a PipelineContext. That keeps it cheap
@@ -10,7 +10,7 @@ ingestion it exists to predict.
 
 import subprocess
 import sys
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 import sqlalchemy
@@ -35,45 +35,38 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
+from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 from datahub.ingestion.source.sql.tidb import TiDBConfig
 from datahub.ingestion.source.sql.timescaledb import TimescaleDBConfig
 
 
 class _PlainConfig(SQLCommonConfig):
     def get_sql_alchemy_url(self) -> str:
-        return "postgresql://u:p@h/db"
+        return "sqlite://"
 
     @property
     def db(self) -> str:
         return "db"
 
 
-def test_the_default_hook_leaves_the_engine_alone():
-    """Most dialects need nothing, so the base must not require an override."""
-
-    class _Engine:
-        dialect = "untouched"
-
-    engine = _Engine()
-    _PlainConfig().probe_prepare_engine(engine)
-    assert engine.dialect == "untouched"
+_BUDGET = QueryBudget(timeout_seconds=30)
 
 
-def test_for_config_calls_the_hook_on_the_engine_it_built(monkeypatch):
-    """The wiring itself: a connector that overrides the hook must see the
-    provider's own engine, or the override protects nothing."""
+def test_for_config_runs_the_declared_setup_on_the_engine_it_built(monkeypatch):
+    """The wiring itself: a connector's setup step must see the provider's
+    own engine, or it protects nothing."""
 
     prepared: List[object] = []
 
     class _Engine:
-        dialect = type("D", (), {"name": "postgresql"})()
+        dialect = type("D", (), {"name": "sqlite"})()
 
         def dispose(self) -> None:
             pass
 
     class _Config(_PlainConfig):
-        def probe_prepare_engine(self, engine: Any) -> None:
-            prepared.append(engine)
+        def probe_engine_settings(self, budget: QueryBudget) -> ProbeEngineSettings:
+            return super().probe_engine_settings(budget).followed_by(prepared.append)
 
     engine = _Engine()
     # create_engine is imported lazily inside for_config, so it is patched on
@@ -83,7 +76,35 @@ def test_for_config_calls_the_hook_on_the_engine_it_built(monkeypatch):
 
     SqlAlchemyMetadataProbe.for_config(_Config())
 
-    assert prepared == [engine], "the hook did not receive the provider's engine"
+    assert prepared == [engine], "the step did not receive the provider's engine"
+
+
+def test_a_connectors_step_runs_after_its_protocols_own():
+    order: List[str] = []
+    settings = (
+        ProbeEngineSettings(prepare=lambda engine: order.append("protocol"))
+        .followed_by(lambda engine: order.append("connector"))
+        .followed_by(lambda engine: order.append("last"))
+    )
+    assert settings.prepare is not None
+    settings.prepare(sqlalchemy.create_engine("sqlite://"))
+    assert order == ["protocol", "connector", "last"]
+
+
+def _athena_setup() -> Callable[[Any], None]:
+    prepare = (
+        AthenaConfig.parse_obj(
+            {
+                "aws_region": "us-east-1",
+                "query_result_location": "s3://bucket/prefix/",
+                "work_group": "primary",
+            }
+        )
+        .probe_engine_settings(_BUDGET)
+        .prepare
+    )
+    assert prepare is not None
+    return prepare
 
 
 def test_athena_substitutes_the_dialect_its_source_uses():
@@ -95,14 +116,7 @@ def test_athena_substitutes_the_dialect_its_source_uses():
         dialect: Any = "stock"
 
     engine = _Engine()
-    config = AthenaConfig.parse_obj(
-        {
-            "aws_region": "us-east-1",
-            "query_result_location": "s3://bucket/prefix/",
-            "work_group": "primary",
-        }
-    )
-    config.probe_prepare_engine(engine)
+    _athena_setup()(engine)
     assert isinstance(engine.dialect, CustomAthenaRestDialect)
 
 
@@ -121,13 +135,7 @@ def test_an_unreadable_athena_schema_fails_instead_of_looking_empty():
         dialect: Any = "stock"
 
     engine = _Engine()
-    AthenaConfig.parse_obj(
-        {
-            "aws_region": "us-east-1",
-            "query_result_location": "s3://bucket/prefix/",
-            "work_group": "primary",
-        }
-    ).probe_prepare_engine(engine)
+    _athena_setup()(engine)
 
     # Exactly the call the fallback's except-branch makes.
     with pytest.raises(AthenaProbeReadFailed, match="catalog=c"):
@@ -163,9 +171,8 @@ def _capture_engine(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
     return captured
 
 
-def test_a_config_that_declares_nothing_gets_the_recipes_options_alone(monkeypatch):
-    """The default declares no settings, whatever dialect the URL names: what a
-    dialect's driver accepts is that dialect's config's to say, and a wrong
+def test_a_url_with_no_known_protocol_gets_the_recipes_options_alone(monkeypatch):
+    """No protocol here is known to take a ceiling or a label, and a wrong
     connect_arg stops the connection opening. With no ceiling applied, none
     is reported."""
     captured = _capture_engine(monkeypatch)
@@ -179,7 +186,7 @@ def test_a_config_that_declares_nothing_gets_the_recipes_options_alone(monkeypat
 
 
 def test_for_config_applies_the_declared_settings(monkeypatch):
-    """Connect args go over the recipe's own, the dialect's step runs before
+    """Connect args go over the recipe's own, the protocol's step runs before
     the connector's own engine setup, and the reported budget keeps the
     timeout only because the settings say it applies."""
     captured = _capture_engine(monkeypatch)
@@ -193,10 +200,7 @@ def test_for_config_applies_the_declared_settings(monkeypatch):
                 connect_args={"shared": "dialect", "added": 1},
                 prepare=lambda engine: order.append("dialect"),
                 timeout_applies=True,
-            )
-
-        def probe_prepare_engine(self, engine: Any) -> None:
-            order.append("connector")
+            ).followed_by(lambda engine: order.append("connector"))
 
     config = _Config(
         options={"connect_args": {"sslmode": "require", "shared": "recipe"}, "x": 2}
@@ -325,13 +329,57 @@ def test_each_dialect_declares_its_own_engine_settings(
     ],
     ids=["postgres", "mysql", "redshift", "hive-metastore"],
 )
-def test_a_config_pointed_at_another_dialect_declares_nothing(
+def test_a_config_pointed_at_a_url_with_no_known_protocol_declares_nothing(
     make_config: Callable[[], SQLCommonConfig],
 ) -> None:
     """A recipe's sqlalchemy_uri may name a dialect other than the config's
-    own, and that driver may reject the config's settings, which stops the
-    connection opening at all."""
+    own, and that driver may reject the config's own protocol's settings,
+    which stops the connection opening at all."""
     assert _settings(make_config()) == ProbeEngineSettings()
+
+
+@pytest.mark.parametrize(
+    "make_config, connect_arg_keys, prepares, applies",
+    [
+        (
+            lambda: RedshiftConfig(
+                host_port="h:5439", sqlalchemy_uri="postgresql://h:5439/dev"
+            ),
+            ["application_name", "options"],
+            False,
+            True,
+        ),
+        (
+            lambda: StarRocksConfig(
+                host_port="h:9030", sqlalchemy_uri="mysql+pymysql://h:9030/db"
+            ),
+            ["program_name"],
+            True,
+            False,
+        ),
+        (
+            lambda: PostgresConfig(
+                host_port="h:5432", sqlalchemy_uri="mysql+pymysql://h/db"
+            ),
+            ["program_name"],
+            True,
+            False,
+        ),
+    ],
+    ids=["redshift-on-libpq", "starrocks-on-pymysql", "postgres-on-pymysql"],
+)
+def test_a_config_pointed_at_another_protocol_gets_that_protocols_settings(
+    make_config: Callable[[], SQLCommonConfig],
+    connect_arg_keys: List[str],
+    prepares: bool,
+    applies: bool,
+) -> None:
+    """The settings follow the wire protocol the URL names, not the config:
+    a Redshift recipe dialling a libpq URL is bounded as libpq is."""
+    settings = _settings(make_config())
+    assert sorted(settings.connect_args) == connect_arg_keys
+    assert (settings.prepare is not None) == prepares
+    assert settings.timeout_applies == applies
 
 
 def test_no_timeout_means_no_ceiling_and_none_claimed():
@@ -394,3 +442,20 @@ def test_the_generic_source_needs_no_connector_extra_for_its_settings() -> None:
     )
     assert result.returncode == 0, result.stderr[-2000:]
     assert result.stdout.strip().splitlines()[-1] == "[]"
+
+
+def test_a_config_may_declare_the_sqlglot_dialect_its_queries_parse_as(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Undeclared, the engine's dialect name is mapped through the family's
+    table (SQLAlchemy's `postgresql` is sqlglot's `postgres`); declared, the
+    config's name is used as it stands."""
+    _capture_engine(monkeypatch)
+
+    class _Declaring(_PlainConfig):
+        @classmethod
+        def probe_sqlglot_dialect(cls) -> Optional[str]:
+            return "duckdb"
+
+    assert SqlAlchemyMetadataProbe.for_config(_PlainConfig()).sql_dialect == "postgres"
+    assert SqlAlchemyMetadataProbe.for_config(_Declaring()).sql_dialect == "duckdb"

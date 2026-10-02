@@ -5,7 +5,7 @@ gated `sql` command.
 Every caller-supplied schema, table or view is resolved against the server's
 own listing before reflection (sql_identifier_resolver), so reflection only
 receives a string the server produced. The engine is the recipe's own,
-bounded and labelled by the dialect's probe_engine_settings.
+bounded and labelled by the config's probe_engine_settings.
 """
 
 from dataclasses import replace
@@ -45,15 +45,18 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
 from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
     SQLCommonConfig,
 )
 from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
 
-# SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
-# name is passed through so the scope check refuses it rather than guessing a
-# grammar (see sql_gate._resolve_dialect).
+# SQLAlchemy and sqlglot disagree on a handful of dialect names: the family's
+# default spelling for these, under any config that declares none of its own
+# (SQLCommonConfig.probe_sqlglot_dialect). An unmapped name is passed through
+# so the scope check refuses it rather than guessing a grammar (see
+# sql_gate._resolve_dialect).
 _SQLALCHEMY_TO_SQLGLOT_DIALECT: Dict[str, str] = {
     "postgresql": "postgres",
     # Speaks the Postgres dialect.
@@ -174,6 +177,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # _container_normalizer. Identity unless the connector says otherwise.
     container_normalizer: Callable[[str], str] = staticmethod(lambda name: name)
 
+    # The config's probe_sqlglot_dialect, primed in for_config; None derives
+    # it from the engine's dialect.
+    declared_sqlglot_dialect: Optional[str] = None
+
     # Listing caches. Created on first use, not in __init__: tests build this
     # class with __new__ and subclasses may bring their own constructor. One
     # probe instance serves one command, so they never go stale.
@@ -270,19 +277,17 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # lazy: keep sqlalchemy engine construction off the config import path
         from sqlalchemy import create_engine
 
-        # A connector whose probe must dial another URL than
-        # get_sql_alchemy_url() declares probe_sql_alchemy_url.
-        probe_url = getattr(config, "probe_sql_alchemy_url", None)
-        url = probe_url() if callable(probe_url) else config.get_sql_alchemy_url()
         # On the engine, so the Inspector's listings are bounded as well as
-        # `sql`; how is the dialect's to declare.
+        # `sql`; how is the config's to declare.
         settings = config.probe_engine_settings(cls.query_budget)
-        engine = create_engine(url, **probe_engine_options(config, settings))
+        engine = create_engine(
+            probe_url(config), **probe_engine_options(config, settings)
+        )
+        # Before the Inspector is built, so a replaced dialect takes effect.
         if settings.prepare is not None:
             settings.prepare(engine)
-        # Before the Inspector is built, so a replaced dialect takes effect.
-        config.probe_prepare_engine(engine)
         probe = cls(engine)
+        probe.declared_sqlglot_dialect = config.probe_sqlglot_dialect()
         probe.query_budget = enforced_budget(cls.query_budget, settings)
         # Per dialect, so from the config rather than the class.
         probe.catalog_scope = config.probe_catalog_scope()
@@ -310,7 +315,9 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     @property
     def sql_dialect(self) -> str:
-        return sqlglot_dialect_for(self._engine.dialect.name)
+        return self.declared_sqlglot_dialect or sqlglot_dialect_for(
+            self._engine.dialect.name
+        )
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         with self._engine.connect() as conn:

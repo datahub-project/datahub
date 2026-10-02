@@ -51,7 +51,6 @@ from datahub.ingestion.source.aws.aws_common import (
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.profiling.config import ProfilingConfig
-from datahub.ingestion.source.sql.protocol_probe_settings import mysql_probe_settings
 from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
@@ -306,13 +305,13 @@ class MySQLProfilingConfig(ProfilingConfig):
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
-        return mysql_probe_settings(self, budget)
-
-    def probe_prepare_engine(self, engine: Any) -> None:
+        settings = super().probe_engine_settings(budget)
         # Without this, an AWS_IAM recipe cannot be probed at all: the password
         # is a token injected per connection, so a bare create_engine() has no
         # credential to connect with.
-        self.install_rds_iam_auth(engine)
+        if self.rds_iam_enabled():
+            return settings.followed_by(self.install_rds_iam_auth)
+        return settings
 
     profiling: MySQLProfilingConfig = Field(
         default_factory=MySQLProfilingConfig,

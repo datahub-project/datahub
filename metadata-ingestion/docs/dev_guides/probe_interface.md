@@ -365,8 +365,8 @@ Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
 | `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns databases rather than schemas (two-tier)            |
 | `probe_catalog_scope`       | classmethod `() -> CatalogScope`                                                                                 | your catalog is more than `information_schema`                           |
 | `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | the `get_identifier` shim cannot build your table identifier             |
-| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | your driver takes a statement ceiling or a client label                  |
-| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion sets its engine up in a way a bare `create_engine()` misses    |
+| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | ingestion sets its engine up in a way a bare `create_engine()` misses    |
+| `probe_sqlglot_dialect`     | classmethod `() -> Optional[str]`                                                                                | sqlglot spells your dialect differently from SQLAlchemy                  |
 | `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a container differently from what ingestion matches |
 | `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial another URL than `get_sql_alchemy_url()`             |
 
@@ -374,8 +374,8 @@ Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
 `information_schema`. Name relations, not whole schemas: a vendor catalog schema is rarely all
 metadata (query logs carry WHERE-clause literals), and a schema-level allow with exclusions admits
 the next such view by default. List an unqualified relation only where the dialect exposes its
-catalog unqualified. sqlglot must know your dialect (map a differing SQLAlchemy name in
-`sqlalchemy_probe.py`), or `sql` refuses everything. A connector with its own provider sets
+catalog unqualified. sqlglot must know your dialect (declare `probe_sqlglot_dialect` where its name
+differs from SQLAlchemy's), or `sql` refuses everything. A connector with its own provider sets
 `catalog_scope` on that class instead.
 
 **Qualification.** `SQLCommonConfig.probe_match_target` matches tables and views on the connector's
@@ -391,12 +391,13 @@ brings is never read as a declaration.
 
 **Engine settings.** The probe connects with the recipe's own URL and `options`.
 `probe_engine_settings(budget)` returns a `ProbeEngineSettings`: `connect_args` merged over the
-recipe's (compose with `recipe_connect_args(config)` where yours should extend the recipe's, and use
-`probe_label_connect_arg` for the client label), `prepare(engine)` for a statement on each new
-connection, and `timeout_applies`, which is `True` only when every probe statement is bounded.
-Declare only arguments your driver is known to accept, and only when the URL names your dialect: a
-driver refuses a keyword it does not know. The libpq and MySQL-protocol settings are in
-`source/sql/protocol_probe_settings.py`.
+recipe's, `prepare(engine)` run on the built engine before the Inspector exists, and
+`timeout_applies`, which is `True` only when every probe statement is bounded. The default gives
+every config the settings of the wire protocol its URL names (libpq, the MySQL protocol, Redshift's
+driver; `probe_settings_for_url` in `source/sql/protocol_probe_settings.py`), so a config pointed at
+another protocol's dialect gets that one's. Add your own engine setup on top:
+`return super().probe_engine_settings(budget).followed_by(step)` runs `step(engine)` after the
+protocol's.
 
 ## Testing and docs checklist
 

@@ -1,25 +1,23 @@
-"""Probe engine settings for the client protocols several SQL configs share.
+"""Probe engine settings by wire protocol: what the probe's engine gets for the
+dialect its URL names.
 
-libpq and the MySQL protocol are each spoken by more than one connector:
-Postgres and the dialects built on it, MySQL and the servers compatible with
-it, Hive Metastore over either backend, and the generic `sqlalchemy` source
-over any of them. Their settings live here rather than in one connector's
-module, whose imports the other connectors' extras do not carry.
+Each protocol is spoken by several connectors -- libpq by Postgres and the
+dialects built on it, the MySQL protocol by MySQL and the servers compatible
+with it, redshift_connector by Redshift -- and a recipe's sqlalchemy_uri can
+point any SQL config at any of them (the generic `sqlalchemy` source always
+does). So the settings follow the URL rather than the config:
+SQLCommonConfig.probe_engine_settings defaults to probe_settings_for_url. Each
+protocol names only connect arguments its drivers accept, since a driver
+handed one it does not know refuses to connect.
 
-Each applies only when the config's URL names a dialect of its protocol. A
-recipe's sqlalchemy_uri can point a config at another dialect, and a driver
-handed a connect argument it does not know refuses to connect.
+SQL-family knowledge only: no connector module is imported here.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict
 
 from sqlalchemy import event
 
-from datahub.ingestion.source.redshift.probe_settings import (
-    REDSHIFT_DIALECT,
-    redshift_probe_settings,
-)
 from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
     SQLCommonConfig,
@@ -41,11 +39,16 @@ _LIBPQ_DIALECTS = frozenset({"postgresql", "postgres", "cockroachdb"})
 # The one connect_arg libpq packs every `-c setting` into.
 _LIBPQ_OPTIONS = "options"
 
+# redshift_connector, this dialect's driver, is pure Python and rejects
+# libpq's `options` keyword, so its ceiling is a statement instead.
+_REDSHIFT_DIALECT = "redshift"
+
 # MySQL bounds a statement with max_execution_time (milliseconds), MariaDB
 # with max_statement_time (seconds), and each errors on the other's name. One
 # URL reaches both, so which the server has is known only after connecting.
-# Doris speaks this protocol under its own `doris` dialect; these statements
-# are not checked against it, so it gets the driver's label and no ceiling.
+# Doris and StarRocks speak this protocol under dialects of their own; these
+# statements are not checked against them, so they get the driver's label and
+# no ceiling.
 _MYSQL_DIALECTS = frozenset({"mysql", "mariadb"})
 _MYSQL_TIMEOUT_STATEMENTS = (
     "SET SESSION max_execution_time={ms}",
@@ -53,35 +56,31 @@ _MYSQL_TIMEOUT_STATEMENTS = (
 )
 
 
-def _dialect_and_driver(config: SQLCommonConfig) -> Tuple[str, str]:
-    return url_dialect_and_driver(str(config.get_sql_alchemy_url()))
-
-
-def speaks_libpq(config: SQLCommonConfig) -> bool:
-    """Whether this config's URL connects through a libpq driver."""
-    dialect, _ = _dialect_and_driver(config)
-    return dialect in _LIBPQ_DIALECTS
+def probe_url(config: SQLCommonConfig) -> str:
+    """The URL the probe dials: probe_sql_alchemy_url where the connector
+    declares one, else get_sql_alchemy_url()."""
+    declared = getattr(config, "probe_sql_alchemy_url", None)
+    return str(declared() if callable(declared) else config.get_sql_alchemy_url())
 
 
 def probe_settings_for_url(
     config: SQLCommonConfig, budget: "QueryBudget"
 ) -> ProbeEngineSettings:
-    """The settings of whichever protocol the config's URL names, for a
-    config whose dialect is the recipe's choice rather than its own.
+    """The settings of the protocol the config's probe URL names.
 
     Every dialect outside libpq's and Redshift's goes to the MySQL protocol's
     settings, which give a non-MySQL URL nothing unless it names the PyMySQL
     driver: program_name follows that driver whatever the dialect.
     """
-    dialect, _ = _dialect_and_driver(config)
+    dialect, driver = url_dialect_and_driver(probe_url(config))
     if dialect in _LIBPQ_DIALECTS:
-        return libpq_probe_settings(config, budget)
-    if dialect == REDSHIFT_DIALECT:
-        return redshift_probe_settings(config, budget)
-    return mysql_probe_settings(config, budget)
+        return _libpq_settings(config, budget)
+    if dialect == _REDSHIFT_DIALECT:
+        return _redshift_settings(config, budget)
+    return _mysql_protocol_settings(config, budget, dialect=dialect, driver=driver)
 
 
-def libpq_probe_settings(
+def _libpq_settings(
     config: SQLCommonConfig, budget: "QueryBudget"
 ) -> ProbeEngineSettings:
     """The session's application_name, and statement_timeout in libpq's
@@ -94,8 +93,6 @@ def libpq_probe_settings(
     The ceiling rides on the connection itself, so it bounds every statement
     the probe sends, and is reported as applying.
     """
-    if not speaks_libpq(config):
-        return ProbeEngineSettings()
     connect_args: Dict[str, Any] = dict(
         probe_label_connect_arg(config, "application_name")
     )
@@ -109,8 +106,62 @@ def libpq_probe_settings(
     return ProbeEngineSettings(connect_args=connect_args, timeout_applies=bool(seconds))
 
 
-def mysql_probe_settings(
+def set_redshift_statement_timeout(dbapi_connection: Any, seconds: int) -> None:
+    """Bound every later statement on this Redshift connection.
+
+    Raises whatever the driver raises. statement_timeout is Redshift's one
+    spelling, so a server refusing it is an anomaly, and a ceiling that
+    quietly does not apply reads as one that does: the connection fails.
+
+    In autocommit, because a plain SET is transactional here and the rollback
+    SQLAlchemy issues when a connection returns to its pool would undo it.
+    Takes a DB-API connection, so a provider holding a bare redshift_connector
+    connection applies the same ceiling.
+    """
+    prior = dbapi_connection.autocommit
+    dbapi_connection.autocommit = True
+    try:
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute(f"SET statement_timeout = {int(seconds) * 1000}")
+        finally:
+            cursor.close()
+    finally:
+        dbapi_connection.autocommit = prior
+
+
+def _redshift_settings(
     config: SQLCommonConfig, budget: "QueryBudget"
+) -> ProbeEngineSettings:
+    """application_name, and statement_timeout set on each new connection.
+
+    The SET fails the connection when refused (see
+    set_redshift_statement_timeout), so a connection that exists has the
+    ceiling and it is reported as applying. Redshift's pg_stat_activity has no
+    application_name column; the session has it (current_setting), and
+    STL_CONNECTION_LOG records it.
+    """
+    seconds = budget.timeout_seconds
+    return ProbeEngineSettings(
+        connect_args=probe_label_connect_arg(config, "application_name"),
+        prepare=(
+            _on_each_connection(_redshift_statement_timeout(seconds))
+            if seconds
+            else None
+        ),
+        timeout_applies=bool(seconds),
+    )
+
+
+def _redshift_statement_timeout(seconds: int) -> Callable[[Any, Any], None]:
+    def _set_timeout(dbapi_connection: Any, _record: Any) -> None:
+        set_redshift_statement_timeout(dbapi_connection, seconds)
+
+    return _set_timeout
+
+
+def _mysql_protocol_settings(
+    config: SQLCommonConfig, budget: "QueryBudget", *, dialect: str, driver: str
 ) -> ProbeEngineSettings:
     """PyMySQL's program_name, and a best-effort ceiling that is not claimed.
 
@@ -124,7 +175,6 @@ def mysql_probe_settings(
     apply it bounds read-only SELECTs, not the SHOW statements behind the
     Inspector's listings. Understating a protection is the safe direction.
     """
-    dialect, driver = _dialect_and_driver(config)
     seconds = budget.timeout_seconds
     return ProbeEngineSettings(
         connect_args=(
@@ -133,15 +183,16 @@ def mysql_probe_settings(
             else {}
         ),
         prepare=(
-            _mysql_statement_timeout(seconds)
+            _on_each_connection(_mysql_statement_timeout(seconds))
             if seconds and dialect in _MYSQL_DIALECTS
             else None
         ),
     )
 
 
-def _mysql_statement_timeout(seconds: int) -> Callable[["Engine"], None]:
-    """A listener asking a MySQL-or-MariaDB server to bound each statement."""
+def _mysql_statement_timeout(seconds: int) -> Callable[[Any, Any], None]:
+    """A connect listener asking a MySQL-or-MariaDB server to bound each
+    statement."""
 
     def _set_timeout(dbapi_connection: Any, _record: Any) -> None:
         for template in _MYSQL_TIMEOUT_STATEMENTS:
@@ -163,9 +214,17 @@ def _mysql_statement_timeout(seconds: int) -> Callable[["Engine"], None]:
             " nor ".join(t.split("=")[0] for t in _MYSQL_TIMEOUT_STATEMENTS),
         )
 
+    return _set_timeout
+
+
+def _on_each_connection(
+    listener: Callable[[Any, Any], None],
+) -> Callable[["Engine"], None]:
+    """A prepare step running `listener` on each new DB-API connection."""
+
     def install(engine: "Engine") -> None:
         # event.listen rather than the @event.listens_for decorator: the
-        # decorator is untyped, so applying it would make _set_timeout untyped.
-        event.listen(engine, "connect", _set_timeout)
+        # decorator is untyped, so applying it would make the listener untyped.
+        event.listen(engine, "connect", listener)
 
     return install

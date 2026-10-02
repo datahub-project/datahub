@@ -265,11 +265,12 @@ _SQL_FAMILY_HOOKS = frozenset(
         # Read by sqlalchemy_probe._container_normalizer: how a listed
         # container is spelled for ingestion.
         "probe_normalize_container",
-        # Read by sqlalchemy_probe.for_config: the dialect's statement
-        # ceiling and client label, connection-time engine setup, and the URL
-        # the probe dials when it differs from get_sql_alchemy_url().
+        # Read by sqlalchemy_probe.for_config: the statement ceiling, client
+        # label and engine setup, the sqlglot dialect `probe sql` parses as,
+        # and the URL the probe dials when it differs from
+        # get_sql_alchemy_url().
         "probe_engine_settings",
-        "probe_prepare_engine",
+        "probe_sqlglot_dialect",
         "probe_sql_alchemy_url",
         # Read by sqlalchemy_probe.for_config: what `probe sql` may read
         # (CatalogScope), set as the provider's catalog_scope for the gate.

@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Dict, FrozenSet, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -26,20 +26,13 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.redshift.probe_settings import redshift_probe_settings
-from datahub.ingestion.source.sql.sql_config import (
-    BasicSQLAlchemyConfig,
-    ProbeEngineSettings,
-)
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-
-if TYPE_CHECKING:
-    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger = logging.Logger(__name__)
 
@@ -329,9 +322,6 @@ class RedshiftConfig(
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
-
-    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
-        return redshift_probe_settings(self, budget)
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:

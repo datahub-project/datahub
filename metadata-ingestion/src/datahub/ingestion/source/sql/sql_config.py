@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -209,21 +209,37 @@ def sql_structural_verdict(
 
 @dataclass(frozen=True)
 class ProbeEngineSettings:
-    """What a dialect adds to the engine the probe builds from a recipe.
+    """What the probe adds to the engine it builds from a recipe.
 
-    Declared by the dialect's config (SQLCommonConfig.probe_engine_settings):
-    a connect_arg the driver rejects stops the connection opening at all.
+    Declared by SQLCommonConfig.probe_engine_settings: by default the URL's
+    wire protocol's (protocol_probe_settings), plus a connector's own engine
+    setup. A connect_arg the driver rejects stops the connection opening at
+    all.
     """
 
     # Merged over the recipe's connect_args key by key; a setting that defers
     # to or extends the recipe's is composed by the config.
     connect_args: Mapping[str, Any] = field(default_factory=dict)
-    # Run on the built engine, before probe_prepare_engine, for what
-    # connect_args cannot carry: a statement issued on each new connection.
+    # Run on the built engine, before the Inspector exists, for what
+    # connect_args cannot carry: a statement on each new connection, a
+    # credential listener, a replaced dialect.
     prepare: Optional[Callable[["Engine"], None]] = None
     # Whether these bound every probe statement by the budget's timeout. When
     # False the probe reports no time ceiling rather than an unenforced one.
     timeout_applies: bool = False
+
+    def followed_by(self, step: Callable[["Engine"], None]) -> "ProbeEngineSettings":
+        """These settings with `step` run on the engine after their own
+        prepare: how a connector adds its setup to its protocol's."""
+        first = self.prepare
+        if first is None:
+            return replace(self, prepare=step)
+
+        def prepare(engine: "Engine") -> None:
+            first(engine)
+            step(engine)
+
+        return replace(self, prepare=prepare)
 
 
 def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
@@ -439,21 +455,33 @@ class SQLCommonConfig(
         return CatalogScope()
 
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
-        """The statement ceiling and client label this dialect's driver takes.
+        """The statement ceiling, client label and engine setup of the
+        probe's engine.
 
-        Nothing by default: declare only settings the driver is known to
-        accept, since a wrong connect_arg stops the connection opening.
+        By default the settings of the wire protocol the probe URL names
+        (protocol_probe_settings.probe_settings_for_url), so a config whose
+        sqlalchemy_uri names another protocol's dialect gets that one's. The
+        probe builds its own engine rather than the connector's Source, so
+        whatever the Source does to its engine (replacing the dialect, say)
+        is skipped unless added here: return
+        super().probe_engine_settings(budget).followed_by(step), keeping to
+        setup that is safe without a report or a running pipeline.
         """
-        return ProbeEngineSettings()
+        # lazy: protocol_probe_settings imports this module for
+        # ProbeEngineSettings
+        from datahub.ingestion.source.sql.protocol_probe_settings import (
+            probe_settings_for_url,
+        )
 
-    def probe_prepare_engine(self, engine: Any) -> None:
-        """Apply connection-time setup that a bare create_engine() would miss.
+        return probe_settings_for_url(self, budget)
 
-        The probe builds its own engine rather than the connector's Source, so
-        whatever the Source does to its engine (replacing the dialect, say) is
-        skipped unless declared here. Keep it to setup that is safe without a
-        report or a running pipeline.
-        """
+    @classmethod
+    def probe_sqlglot_dialect(cls) -> Optional[str]:
+        """The sqlglot dialect `probe sql` parses this source's queries as,
+        or None (the default) for the engine dialect's own name, mapped where
+        SQLAlchemy and sqlglot spell it differently (sqlalchemy_probe). A
+        dialect that table does not name and sqlglot spells differently
+        declares it here; otherwise `sql` refuses every query."""
         return None
 
     @classmethod
