@@ -801,7 +801,6 @@ class GlueSource(StatefulIngestionSourceBase):
         self.s3_client = config.s3_client
         # Initialize Lake Formation client
         self.lf_client = config.lakeformation_client
-        self.extract_transforms = config.extract_transforms
         self.env = config.env
         self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
         # Tracks which structured property definitions have been emitted this run
