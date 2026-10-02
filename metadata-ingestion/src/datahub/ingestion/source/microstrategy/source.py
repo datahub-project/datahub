@@ -856,8 +856,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         definitions: List[ReportDerivedMetric] = []
         model_error: Optional[Exception] = None
         v2_error: Optional[Exception] = None
+        instance_id = self._report_model_instance(project_id, report_id)
         try:
-            model_payload = self.client.get_model_report(project_id, report_id)
+            model_payload = self.client.get_model_report(
+                project_id, report_id, instance_id=instance_id
+            )
         except MicroStrategyAuthError:
             raise
         except Exception as error:
@@ -889,6 +892,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     )
                 if definitions:
                     self._debug_v2_definition_payload(project_id, report_id, v2_payload)
+
+        if instance_id:
+            self._delete_report_instance(project_id, report_id, instance_id)
 
         if definitions and self.config.extract_metric_expressions:
             self._resolve_embedded_metric_formulas(project_id, definitions)
@@ -938,6 +944,30 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             definition.expression_tokens = enrichment.expression_tokens
             definition.endpoint = MSTR_DEFINITION_ENDPOINT_METRIC_MODEL
             self.report.report_report_derived_metric_model_resolved()
+
+    def _report_model_instance(
+        self,
+        project_id: str,
+        report_id: str,
+    ) -> Optional[str]:
+        """Execute the report so the Modeling definition can be read against a
+        live instance, per Strategy support's guidance that metric expressions
+        resolve only that way. Returns None when the option is off or the
+        instance could not be created - the caller then reads the definition
+        statically, which is the long-standing behaviour."""
+        if not self.config.resolve_report_metrics_via_instance:
+            return None
+        try:
+            instance_id = self.client.create_report_instance(project_id, report_id)
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_report_model_instance_failure(
+                f"{report_id}: {_error_summary(error)}"
+            )
+            return None
+        self.report.report_report_model_instance_created()
+        return instance_id
 
     def _record_model_definition_failure(
         self,
