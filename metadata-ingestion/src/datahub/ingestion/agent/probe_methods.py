@@ -3,6 +3,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Any,
     Callable,
     Dict,
@@ -29,6 +30,7 @@ from datahub.configuration.env_vars import (
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import (
+    PASS_THROUGH,
     classify_foreign,
     foreign_label,
     is_trusted,
@@ -640,7 +642,11 @@ def _report_entries(report: object, kind: str) -> Set[str]:
 
 
 def _raise_call_failure(
-    exc: BaseException, provider: object, provider_cls: type, command: str
+    exc: BaseException,
+    provider: object,
+    provider_cls: type,
+    command: str,
+    own_values: AbstractSet[str],
 ) -> NoReturn:
     """Re-raise a provider call's failure as the CLI reports it (see
     agent.error_policy): untrusted named by label only, trusted kept."""
@@ -648,7 +654,7 @@ def _raise_call_failure(
     if recorded:
         # The recorded failure explains the miss, whatever was raised after it.
         detail = (
-            scrub_text(withhold_foreign_text(exc, provider_cls), set())
+            scrub_text(withhold_foreign_text(exc, provider_cls, own_values), set())
             if is_trusted(exc)
             else foreign_label(exc, provider_cls) + withheld_text(exc)
         )
@@ -657,22 +663,21 @@ def _raise_call_failure(
         ) from None
     if not is_trusted(exc):
         raise classify_foreign(exc, f"'{command}'", provider_cls) from None
-    _reraise_trusted(exc, provider_cls)
+    _reraise_trusted(exc, provider_cls, own_values)
 
 
-def _reraise_trusted(exc: BaseException, provider_cls: type) -> NoReturn:
+def _reraise_trusted(
+    exc: BaseException,
+    provider_cls: type,
+    own_values: AbstractSet[str] = frozenset(),
+) -> NoReturn:
     """Raise a trusted exception, minus any untrusted text it quotes (see
-    agent.error_policy.police_trusted)."""
-    replacement = police_trusted(exc, provider_cls)
+    agent.error_policy.police_trusted). An attribute read has no argument
+    values of its own, so it passes none."""
+    replacement = police_trusted(exc, provider_cls, own_values)
     if replacement is not None:
         raise replacement from None
     raise exc
-
-
-# Never a failure of the source: an interrupt is the user's and GeneratorExit
-# the interpreter's, so both reach the caller unchanged. Every other exception
-# raised inside a provider, SystemExit included, is policed.
-_PASS_THROUGH: Tuple[Type[BaseException], ...] = (KeyboardInterrupt, GeneratorExit)
 
 
 def _provider_attribute(owner: object, name: str, default: object = None) -> object:
@@ -684,7 +689,7 @@ def _provider_attribute(owner: object, name: str, default: object = None) -> obj
     owner_cls = owner if isinstance(owner, type) else type(owner)
     try:
         return getattr(owner, name, default)
-    except _PASS_THROUGH:
+    except PASS_THROUGH:
         raise
     except BaseException as exc:
         if is_trusted(exc):
@@ -713,6 +718,12 @@ class _ProviderCall:
     provider_cls: type
     source_type: str
 
+    @property
+    def own_values(self) -> FrozenSet[str]:
+        """The values the caller passed this call, as strings: a lookup
+        error naming one quotes the caller, not foreign text."""
+        return frozenset(str(v) for v in self.call_kwargs.values() if v is not None)
+
 
 def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoReturn:
     """Re-raise a failure while opening or closing the provider.
@@ -722,7 +733,7 @@ def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoRet
     built, so an untrusted failure here is the source's.
     """
     if is_trusted(exc):
-        _reraise_trusted(exc, call.provider_cls)
+        _reraise_trusted(exc, call.provider_cls, call.own_values)
     raise ProbeConnectionError(
         f"{verb} source '{call.source_type}' failed "
         f"{name_foreign(exc, call.provider_cls)}"
@@ -751,11 +762,11 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
                 body_error = exc
                 raise
     except BaseException as exc:
-        if isinstance(exc, _PASS_THROUGH):
+        if isinstance(exc, PASS_THROUGH):
             raise
         if body_error is None:
             _source_failure(exc, call, "closing")
-        if not is_trusted(body_error) and not isinstance(body_error, _PASS_THROUGH):
+        if not is_trusted(body_error) and not isinstance(body_error, PASS_THROUGH):
             # Raised outside the handlers that police their own (open, call,
             # attribute reads): a gate, or the read-back iterating a provider value.
             raise classify_foreign(
@@ -777,7 +788,7 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     command = call.spec.command
     try:
         provider = stack.enter_context(call.builder(call.config))
-    except _PASS_THROUGH:
+    except PASS_THROUGH:
         raise
     except BaseException as exc:
         _source_failure(exc, call, "opening")
@@ -793,12 +804,12 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
             f"The source was reached fine -- this is a limit of the source, so "
             f"choose another command rather than retrying"
         ) from None
-    except _PASS_THROUGH:
+    except PASS_THROUGH:
         raise
     except BaseException as exc:
         # A getter that recorded a failed fetch and then raised "no such name"
         # is reporting the fetch, not a bad argument.
-        _raise_call_failure(exc, provider, call.provider_cls, command)
+        _raise_call_failure(exc, provider, call.provider_cls, command, call.own_values)
     return _CallOutcome(
         result=result,
         warnings=_read_back(provider, "warnings"),

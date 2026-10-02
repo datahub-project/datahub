@@ -4,7 +4,17 @@ import pathlib
 import re
 import sys
 from contextlib import contextmanager
-from typing import Dict, Iterator, List, NoReturn, Optional, Set, Tuple, Type
+from typing import (
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    NoReturn,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 import click
 import yaml
@@ -13,6 +23,12 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.config_loader import (
     MalformedRecipeEnvelope,
     parse_recipe_envelope,
+)
+from datahub.ingestion.agent.error_policy import (
+    PASS_THROUGH,
+    is_trusted,
+    name_foreign,
+    police_trusted,
 )
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
@@ -40,7 +56,11 @@ from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
 )
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeInternalError
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeInternalError,
+)
 from datahub.masking.secret_registry import SecretRegistry
 
 EXIT_OK = 0
@@ -560,6 +580,43 @@ def recipe_validate(path: str) -> None:
         )
 
 
+def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
+    """What a source's test_connection raising is reported as: by label, never
+    by its text (the source's own connect code wrote it), on the exit code
+    the bare exception had here -- 2 for the input-error types, 3 for any
+    other Exception, 1 for a SystemExit carrying text or another
+    BaseException."""
+    message = f"source '{source_type}' test_connection failed {name_foreign(exc)}"
+    if isinstance(exc, _USER_ERRORS):
+        return ProbeArgumentError(message)
+    if isinstance(exc, Exception):
+        return ProbeConnectionError(message)
+    return ProbeInternalError(message)
+
+
+def _run_test_connection(
+    test: Callable[[Dict[str, object]], object],
+    resolved: Dict[str, object],
+    source_type: str,
+) -> object:
+    try:
+        return test(resolved)
+    except PASS_THROUGH:
+        raise
+    except SystemExit as exc:
+        if exc.code is None or isinstance(exc.code, int):
+            # An exit status alone carries no text.
+            raise
+        raise _test_connection_crash(exc, source_type) from None
+    except BaseException as exc:
+        if not is_trusted(exc):
+            raise _test_connection_crash(exc, source_type) from None
+        replacement = police_trusted(exc)
+        if replacement is not None:
+            raise replacement from None
+        raise
+
+
 @recipe.command(name="test-connection")
 @click.option("--recipe", "recipe_path", required=True)
 def test_connection(recipe_path: str) -> None:
@@ -585,7 +642,9 @@ def test_connection(recipe_path: str) -> None:
                     f"source '{source_type}' does not support test-connection",
                     EXIT_USER,
                 )
-            report = source_cls.test_connection(resolved)
+            report = _run_test_connection(
+                source_cls.test_connection, resolved, source_type
+            )
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).

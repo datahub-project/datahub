@@ -21,7 +21,17 @@ locally.
 
 import copy
 import re
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    AbstractSet,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -40,6 +50,12 @@ TRUSTED_TYPES: Tuple[Type[BaseException], ...] = (
     ProbeConnectionError,
     ProbeInternalError,
 )
+
+# Never a failure of the source: an interrupt is the user's and GeneratorExit
+# the interpreter's, so both reach the caller unchanged, from a provider and
+# from a label reader alike. Everything else raised, SystemExit included, is
+# policed.
+PASS_THROUGH: Tuple[Type[BaseException], ...] = (KeyboardInterrupt, GeneratorExit)
 
 # Python defects: after run_probe_method has coerced the arguments, these mean
 # the code misread something, not that the caller's input was wrong (exit 1).
@@ -81,10 +97,13 @@ def is_trusted(exc: BaseException) -> bool:
 
 
 def _attr(obj: object, name: str) -> object:
-    # A foreign property or __getattr__ may raise with the text it holds.
+    # A foreign property or __getattr__ may raise, or exit, with the text it
+    # holds.
     try:
         return getattr(obj, name, None)
-    except Exception:
+    except PASS_THROUGH:
+        raise
+    except BaseException:
         return None
 
 
@@ -149,7 +168,9 @@ def _provider_code(exc: BaseException, provider_cls: Optional[type]) -> Optional
         return None
     try:
         code = reader(exc)
-    except Exception:
+    except PASS_THROUGH:
+        raise
+    except BaseException:
         return None
     match = _PROVIDER_CODE.fullmatch(code) if isinstance(code, str) else None
     # The matched characters, not `code` itself: a str subclass may render as
@@ -175,7 +196,9 @@ def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> st
         code = _first(links, lambda link: _provider_code(link, provider_cls))
         code = code or _first(links, generic_error_code)
         return f"{name}; {code}" if code else name
-    except Exception:
+    except PASS_THROUGH:
+        raise
+    except BaseException:
         return name
 
 
@@ -186,7 +209,9 @@ def withheld_text(exc: BaseException) -> str:
         return ""
     try:
         return f": {scrub_text(str(exc), set())}"
-    except Exception:
+    except PASS_THROUGH:
+        raise
+    except BaseException:
         return ""
 
 
@@ -229,39 +254,51 @@ def _foreign_in_chain(exc: BaseException) -> List[BaseException]:
     return found
 
 
-def _is_missed_key(exc: BaseException) -> bool:
-    """A lookup error raised with just the key it missed (`KeyError(k)`, str
-    repr(k)): the caller's own argument, not foreign text. One with a message
-    of its own is foreign like any other. Never raises."""
+def _is_own_argument(exc: BaseException, own_values: AbstractSet[str]) -> bool:
+    """A lookup error raised with just a value the caller passed this call
+    (`KeyError(name)` for its own `name`): its str is that argument, not
+    foreign text. Any other lookup error, a KeyError carrying a message
+    included, is foreign like the rest. Never raises."""
     try:
-        return (
-            isinstance(exc, LookupError)
-            and len(exc.args) == 1
-            and str(exc) == repr(exc.args[0])
-        )
-    except Exception:
+        if not isinstance(exc, LookupError) or len(exc.args) != 1:
+            return False
+        key = exc.args[0]
+        # Exactly str or int, whose renderings are the value itself: a
+        # subclass or another type may render as anything.
+        if type(key) not in (str, int) or str(key) not in own_values:
+            return False
+        return str(exc) in (repr(key), str(key))
+    except PASS_THROUGH:
+        raise
+    except BaseException:
         return False
 
 
 def withhold_foreign_text(
-    exc: BaseException, provider_cls: Optional[type] = None
+    exc: BaseException,
+    provider_cls: Optional[type] = None,
+    own_values: AbstractSet[str] = frozenset(),
 ) -> str:
     """`str(exc)` with the text of any untrusted exception in its chain
     replaced by `(label)`: the backstop for `ProbeConnectionError(f"...{exc}")`.
 
-    Only a verbatim str or repr is caught, never text rebuilt from parts. A
-    missed key is matched by its repr only, and renderings shorter than
-    _MIN_RENDERING not at all.
+    Only a verbatim str or repr is caught, never text rebuilt from parts.
+    `own_values` are the call's own argument values, as strings: a lookup
+    error naming one of them is matched by its repr only, so a refusal
+    quoting the caller's missed name keeps it. Renderings shorter than
+    _MIN_RENDERING are not matched at all.
     """
     message = str(exc)
     labels: Dict[str, str] = {}
     for foreign in _foreign_in_chain(exc):
         label = name_foreign(foreign, provider_cls)
-        renders = (repr,) if _is_missed_key(foreign) else (repr, str)
+        renders = (repr,) if _is_own_argument(foreign, own_values) else (repr, str)
         for render in renders:
             try:
                 rendering = render(foreign)
-            except Exception:
+            except PASS_THROUGH:
+                raise
+            except BaseException:
                 # A rendering that raises cannot be in the message either.
                 continue
             if len(rendering) >= _MIN_RENDERING:
@@ -277,13 +314,15 @@ def withhold_foreign_text(
 
 
 def police_trusted(
-    exc: BaseException, provider_cls: Optional[type] = None
+    exc: BaseException,
+    provider_cls: Optional[type] = None,
+    own_values: AbstractSet[str] = frozenset(),
 ) -> Optional[BaseException]:
     """A replacement for a trusted exception whose message quotes an untrusted
     one, or None. It keeps the type, so the exit code does not move; a
     subclass that cannot be rebuilt with a plain message becomes the trusted
-    type it derives from."""
-    message = withhold_foreign_text(exc, provider_cls)
+    type it derives from. `own_values` as for withhold_foreign_text."""
+    message = withhold_foreign_text(exc, provider_cls, own_values)
     if message == str(exc):
         return None
     try:

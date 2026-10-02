@@ -2073,6 +2073,84 @@ def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
     assert "int_parsing" in res.stdout
 
 
+_CRASH_SENTINEL = "PLANTED-crash-text"
+
+
+def _crashing_test_connection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, raised: BaseException
+) -> Result:
+    class _Crashing:
+        @staticmethod
+        def test_connection(config_dict):
+            raise raised
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Crashing,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Crashing, raising=False
+    )
+    return CliRunner().invoke(
+        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
+    )
+
+
+class _ConnectorError(Exception):
+    pass
+
+
+class _ConnectorAbort(BaseException):
+    pass
+
+
+@pytest.mark.parametrize(
+    "raised, exit_code, label",
+    [
+        (
+            _ConnectorError(f"login to db://u:{_CRASH_SENTINEL}@h refused"),
+            3,
+            "_ConnectorError",
+        ),
+        (ValueError(f"bad host {_CRASH_SENTINEL}"), 2, "ValueError"),
+        (KeyError(f"no key {_CRASH_SENTINEL}"), 2, "KeyError"),
+        (SystemExit(f"fatal: {_CRASH_SENTINEL}"), 1, "SystemExit"),
+        (_ConnectorAbort(f"aborted with {_CRASH_SENTINEL}"), 1, "_ConnectorAbort"),
+    ],
+)
+def test_a_crashed_test_connection_is_named_by_label_on_its_own_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    raised: BaseException,
+    exit_code: int,
+    label: str,
+) -> None:
+    """The source's own connect code raised: its text is the source's, and
+    is where a connection string comes from, so it is named by label."""
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+    res = _crashing_test_connection(monkeypatch, tmp_path, raised)
+    assert res.exit_code == exit_code, res.output
+    assert _CRASH_SENTINEL not in res.output
+    assert json.loads(res.stderr)["error"] == (
+        f"source 'postgres' test_connection failed ({label})"
+    )
+
+
+def test_the_verbose_switch_shows_a_crashed_test_connections_scrubbed_text(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
+    res = _crashing_test_connection(
+        monkeypatch, tmp_path, _ConnectorError("login refused; password=hunter2")
+    )
+    assert res.exit_code == 3, res.output
+    assert json.loads(res.stderr)["error"] == (
+        "source 'postgres' test_connection failed (_ConnectorError): "
+        "login refused; password=***"
+    )
+
+
 def test_a_hostile_schema_exits_on_the_bad_argument_code(
     tmp_path: pathlib.Path,
 ) -> None:

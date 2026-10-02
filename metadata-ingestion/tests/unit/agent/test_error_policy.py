@@ -1,16 +1,18 @@
 import json
 import pathlib
-from typing import Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, List, Optional, Set, Type, cast
 
 import pytest
 from click.testing import CliRunner
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent import probe_methods
 from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.error_policy import (
     TRUSTED_TYPES,
+    foreign_label,
     is_trusted,
     police_trusted,
     withhold_foreign_text,
@@ -319,8 +321,6 @@ RunFn = Callable[..., ProbeMethodResult]
 
 @pytest.fixture
 def run(monkeypatch: pytest.MonkeyPatch) -> RunFn:
-    from datahub.configuration.common import ConfigModel
-
     class _Config(ConfigModel):
         mode: str = ""
 
@@ -748,21 +748,34 @@ def test_a_missed_key_is_not_mistaken_for_foreign_text(
     assert str(info.value) == message
 
 
-def _quoting(raiser: Callable[[], object]) -> str:
+def _quoting(raiser: Callable[[], object], own_values: Set[str]) -> str:
     """The backstop's rendering of a refusal that quotes str() of whatever
-    `raiser` raised."""
+    `raiser` raised, in a call whose own argument values are `own_values`."""
     try:
         try:
             raiser()
         except LookupError as exc:
             raise ProbeArgumentError(f"lookup said {exc}") from exc
     except ProbeArgumentError as wrapper:
-        return withhold_foreign_text(wrapper)
+        return withhold_foreign_text(wrapper, own_values=own_values)
     raise AssertionError("raiser raised nothing")
 
 
 def _missed_key() -> object:
     return {"a": 1}["widget-name"]
+
+
+def _key_with_message() -> object:
+    raise KeyError(f"key {SENTINEL}")
+
+
+class _KeyRenderingElse(KeyError):
+    def __str__(self) -> str:
+        return f"held {SENTINEL}"
+
+
+def _key_rendering_something_else() -> object:
+    raise _KeyRenderingElse("widget-name")
 
 
 def _index_with_text() -> object:
@@ -776,19 +789,182 @@ def _key_subclass_with_message() -> object:
 
 
 @pytest.mark.parametrize(
-    "raiser, expected",
+    "raiser, own_values, expected",
     [
         # str(KeyError(k)) is repr(k): the caller's own argument, kept.
-        (_missed_key, "lookup said 'widget-name'"),
-        # A lookup error carrying a message of its own is foreign text.
-        (_index_with_text, "lookup said (IndexError)"),
-        (_key_subclass_with_message, "lookup said (NoSuchColumnError)"),
+        (_missed_key, {"widget-name"}, "lookup said 'widget-name'"),
+        # The same key when the caller did not pass it: foreign text.
+        (_missed_key, set(), "lookup said (KeyError)"),
+        # A lookup error carrying a message of its own is foreign text, even
+        # in a call that passed other values.
+        (_key_with_message, {"widget-name"}, "lookup said (KeyError)"),
+        (_key_rendering_something_else, {"widget-name"}, "lookup said (KeyError)"),
+        (_index_with_text, set(), "lookup said (IndexError)"),
+        (_key_subclass_with_message, set(), "lookup said (NoSuchColumnError)"),
     ],
 )
-def test_only_a_bare_missed_key_is_exempt_from_the_backstop(
-    raiser: Callable[[], object], expected: str
+def test_only_the_callers_own_missed_key_is_exempt_from_the_backstop(
+    raiser: Callable[[], object], own_values: Set[str], expected: str
 ) -> None:
-    assert _quoting(raiser) == expected
+    rendered = _quoting(raiser, own_values)
+    assert rendered.replace("_KeyRenderingElse", "KeyError") == expected
+    assert SENTINEL not in rendered
+
+
+class _WrapsForeignKeyConfig(ConfigModel):
+    phase: str = ""
+    how: str = ""
+    trusted: str = "connection"
+
+
+_TRUSTED_BY_NAME: Dict[str, Type[BaseException]] = {
+    "argument": ProbeArgumentError,
+    "soft": ProbeSoftError,
+    "read-failed": ProbeReadFailed,
+    "connection": ProbeConnectionError,
+    "internal": ProbeInternalError,
+    "sql-scope": SqlScopeError,
+    "api-scope": ApiScopeError,
+}
+
+
+def _wrap_foreign_key(config: _WrapsForeignKeyConfig) -> None:
+    """A trusted refusal quoting a foreign KeyError that carries text."""
+    trusted = _TRUSTED_BY_NAME[config.trusted]
+    try:
+        _foreign_errors.lookup()
+    except KeyError as exc:
+        if config.how == "from":
+            raise trusted(f"listing failed: {exc}") from exc
+        if config.how == "none":
+            raise trusted(f"listing failed: {exc}") from None
+        raise trusted(f"listing failed: {exc}")  # noqa: B904
+
+
+class _WrapsForeignKey:
+    def __init__(self, config: _WrapsForeignKeyConfig) -> None:
+        self._config = config
+
+    @classmethod
+    def for_config(cls, config: _WrapsForeignKeyConfig) -> "_WrapsForeignKey":
+        if config.phase == "open":
+            _wrap_foreign_key(config)
+        return cls(config)
+
+    def __enter__(self) -> "_WrapsForeignKey":
+        if self._config.phase == "enter":
+            _wrap_foreign_key(self._config)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if self._config.phase == "exit":
+            _wrap_foreign_key(self._config)
+
+    @probe_method(name="things")
+    def things(self, name: str = "") -> List[str]:
+        """List things."""
+        if self._config.phase == "call":
+            _wrap_foreign_key(self._config)
+        return []
+
+
+@pytest.fixture
+def run_wrapping_a_foreign_key(monkeypatch: pytest.MonkeyPatch) -> RunFn:
+    class _Config(_WrapsForeignKeyConfig):
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _WrapsForeignKey
+
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+
+    def _run(**config: object) -> ProbeMethodResult:
+        # The caller passes a name, so the call has argument values of its own.
+        return run_probe_method("fake", dict(config), "things", {"name": "widget"})
+
+    return _run
+
+
+@pytest.mark.parametrize("phase", ["open", "enter", "call", "exit"])
+@pytest.mark.parametrize("how", ["from", "none", "implicit"])
+def test_a_foreign_key_errors_text_is_withheld_in_every_phase(
+    run_wrapping_a_foreign_key: RunFn, phase: str, how: str
+) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run_wrapping_a_foreign_key(phase=phase, how=how)
+    assert str(info.value) == "listing failed: (KeyError)"
+
+
+@pytest.mark.parametrize("trusted", sorted(_TRUSTED_BY_NAME))
+def test_a_foreign_key_errors_text_is_withheld_under_every_trusted_type(
+    run_wrapping_a_foreign_key: RunFn, trusted: str
+) -> None:
+    with pytest.raises(TRUSTED_TYPES) as info:
+        run_wrapping_a_foreign_key(phase="call", how="from", trusted=trusted)
+    assert isinstance(info.value, _TRUSTED_BY_NAME[trusted])
+    assert str(info.value) == "listing failed: (KeyError)"
+
+
+class _ExitingStatus(Exception):
+    """A foreign error whose status property exits with the text it holds."""
+
+    @property
+    def status_code(self) -> int:
+        raise SystemExit(f"status unreadable: {SENTINEL}")
+
+
+def _exiting_code_reader(exc: BaseException) -> Optional[str]:
+    raise SystemExit(f"reader gave up on {SENTINEL}")
+
+
+class _ExitingReader:
+    probe_error_code = staticmethod(_exiting_code_reader)
+
+
+def test_a_label_reader_that_exits_leaves_the_bare_class_name() -> None:
+    assert foreign_label(_ExitingStatus()) == "_ExitingStatus"
+    assert foreign_label(RuntimeError(), _ExitingReader) == "RuntimeError"
+
+
+class _ClosingConfig(ConfigModel):
+    reader: bool = False
+
+
+class _ClosesWithAnExitingLabel:
+    @classmethod
+    def for_config(cls, config: _ClosingConfig) -> "_ClosesWithAnExitingLabel":
+        return _ClosesWithAnExitingCode() if config.reader else cls()
+
+    def __enter__(self) -> "_ClosesWithAnExitingLabel":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        raise _ExitingStatus(f"close failed: {SENTINEL}")
+
+    @probe_method(name="things")
+    def things(self) -> List[str]:
+        """List things."""
+        return []
+
+
+class _ClosesWithAnExitingCode(_ClosesWithAnExitingLabel):
+    probe_error_code = staticmethod(_exiting_code_reader)
+
+
+@pytest.mark.parametrize("reader", [False, True])
+def test_a_label_reader_that_exits_cannot_escape_the_close_path(
+    monkeypatch: pytest.MonkeyPatch, reader: bool
+) -> None:
+    # Open and call failures are policed again by the outermost handler; a
+    # close failure is labelled there, so a reader exiting must not escape.
+    class _Config(_ClosingConfig):
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _ClosesWithAnExitingCode if reader else _ClosesWithAnExitingLabel
+
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+    with pytest.raises(ProbeConnectionError) as info:
+        run_probe_method("fake", {"reader": reader}, "things", {})
+    assert str(info.value) == "closing source 'fake' failed (_ExitingStatus)"
 
 
 def test_a_short_foreign_text_is_not_searched_for() -> None:
