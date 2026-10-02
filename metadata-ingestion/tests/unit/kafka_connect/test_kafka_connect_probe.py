@@ -685,3 +685,53 @@ def test_lineage_without_datahub_says_what_it_could_not_reproduce() -> None:
         with KafkaConnectMetadataProbe.for_config(config) as probe:
             probe.connector_lineage("orders-sink")
             assert any("use_schema_resolver" in w for w in probe.warnings)
+
+
+def test_entering_the_provider_changes_no_logger_level() -> None:
+    # The level was process-global: ingestion running in the same process was
+    # silenced for as long as a probe provider was open.
+    logger = logging.getLogger("datahub.ingestion.source.kafka_connect")
+    before = logger.level
+    with KafkaConnectMetadataProbe.for_config(_recipe()):
+        assert logger.level == before
+
+
+def test_a_reused_steps_warning_is_dropped_not_just_scrubbed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A value read off the cluster with no credential shape: scrubbing would
+    # pass it, so only dropping the record keeps it off stderr.
+    planted = "mk-0d4e-planted-unshaped-value"
+
+    def logging_disclosed_config(config: Dict[str, str]) -> Dict[str, str]:
+        logging.getLogger("datahub.ingestion.source.kafka_connect.common").warning(
+            "unparseable value %s", planted
+        )
+        return {}
+
+    caplog.set_level(logging.DEBUG)
+    with (
+        requests_mock.Mocker() as m,
+        mock.patch(
+            "datahub.ingestion.source.kafka_connect.kafka_connect_probe.disclosed_config",
+            logging_disclosed_config,
+        ),
+    ):
+        _mock_cluster(m, CLUSTER, TOPICS)
+        run_probe_method(
+            "kafka-connect", dict(_RECIPE), "connector", {"connector": "orders-sink"}
+        )
+    assert planted not in caplog.text
+
+
+def test_the_connector_logger_is_audible_again_after_a_probe(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        run_probe_method("kafka-connect", dict(_RECIPE), "connectors", {})
+    logging.getLogger("datahub.ingestion.source.kafka_connect.common").warning(
+        "after the probe"
+    )
+    assert "after the probe" in caplog.text
