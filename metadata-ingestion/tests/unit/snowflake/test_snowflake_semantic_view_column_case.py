@@ -203,9 +203,10 @@ class TestColumnExistenceCheck:
     ) -> SnowflakeSchemaGenerator:
         gen = _make_gen(SnowflakeV2Report(), **overrides)
         assert isinstance(gen.aggregator, MagicMock)
-        gen.aggregator._schema_resolver._resolve_schema_info.return_value = {
-            path: "VARCHAR" for path in field_paths
-        }
+        gen.aggregator.schema_resolver.resolve_urn.side_effect = lambda urn: (
+            urn,
+            {path: "VARCHAR" for path in field_paths},
+        )
         return gen
 
     @pytest.mark.parametrize(
@@ -256,7 +257,7 @@ class TestColumnExistenceCheck:
         # lineage would be worse than naming it the way this run names columns.
         gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
         assert isinstance(gen.aggregator, MagicMock)
-        gen.aggregator._schema_resolver._resolve_schema_info.return_value = {}
+        gen.aggregator.schema_resolver.resolve_urn.side_effect = lambda urn: (urn, None)
 
         assert gen._declared_field_path("DB", "SCHEMA", "TBL", "MixedCol") == "MixedCol"
 
