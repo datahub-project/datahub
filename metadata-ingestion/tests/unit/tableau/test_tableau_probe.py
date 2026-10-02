@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 from unittest import mock
 
@@ -263,3 +264,27 @@ def test_an_insufficient_role_never_reports_the_user_name() -> None:
     assert any("Insufficient Permissions" in w for w in result.warnings)
     assert "probe-user" not in json.dumps(result.result)
     assert not any("probe-user" in w for w in result.warnings)
+
+
+def test_a_forbidden_listing_warning_carries_no_server_text() -> None:
+    # A warning is text the provider builds, which the framework only scrubs
+    # by shape; the server's summary and detail must not be in it at all.
+    server = _server()
+    server.sites.get.side_effect = ServerResponseError(
+        "403069", "PLANTED-summary-text", "PLANTED-detail-text"
+    )
+    probe = _probe(server)
+    assert probe.sites(limit=10) == []
+    assert probe.warnings and "403069" in probe.warnings[0]
+    assert not any("PLANTED" in w for w in probe.warnings)
+
+
+def test_a_failed_sign_out_logs_the_class_only(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    server = _server()
+    server.auth.sign_out.side_effect = RuntimeError("PLANTED-sign-out-text")
+    caplog.set_level(logging.WARNING)
+    _probe(server).__exit__(None, None, None)
+    assert "RuntimeError" in caplog.text
+    assert "PLANTED" not in caplog.text
