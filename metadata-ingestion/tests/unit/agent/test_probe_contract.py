@@ -14,6 +14,7 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
+import difflib
 import re
 from pathlib import Path
 from typing import Annotated, Dict, Iterator, List, Mapping, Optional, Set, Tuple
@@ -23,6 +24,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.probe_methods import (
+    PROVIDER_ATTRIBUTES,
     ProbeMethodSpec,
     ProbeProvider,
     _iter_specs,
@@ -251,8 +253,6 @@ _CONFIG_HOOKS = frozenset(
         # Read by agent.config_validation: the pydantic context a source type
         # validates with (mssql-odbc).
         "probe_validation_context",
-        # What `probe sql` may read (CatalogScope), which the sql gate enforces.
-        "probe_catalog_scope",
         # Read by filter_check._match_target: the string a pattern is matched
         # against, for every kind.
         "probe_match_target",
@@ -290,6 +290,9 @@ _SQL_FAMILY_HOOKS = frozenset(
         "probe_engine_settings",
         "probe_prepare_engine",
         "probe_sql_alchemy_url",
+        # Read by sqlalchemy_probe.for_config: what `probe sql` may read
+        # (CatalogScope), set as the provider's catalog_scope for the gate.
+        "probe_catalog_scope",
         # Read by SQLCommonConfig: whether `containers` lists schemas or
         # databases, which its probe_kind_overrides and ancestor chain follow.
         "probe_container_kind",
@@ -369,6 +372,94 @@ def test_a_sql_family_hook_is_read_only_on_a_sql_config():
         "_Outside": ["probe_match_targets", "probe_normalize_container"]
     }
     assert _unread_probe_hooks(_Inside) == {"_Inside": ["probe_match_targets"]}
+
+
+# How close a name must be to a provider attribute to count as a misspelling
+# of it: `probe_reports`, `sql_dialects`, `silence_loggers` are; `api_session`
+# and `api_headers`, which RestApiPassthrough defines, are not.
+_MISSPELLING_RATIO = 0.85
+
+
+def _unread_provider_attributes(provider_cls: type) -> Dict[str, List[str]]:
+    """class name -> attributes that look like provider attributes the
+    framework reads, but are none of them.
+
+    A probe command is exempt whatever its name (Mode's `probe_data_sources`):
+    the framework finds commands by their declaration, not their name.
+    """
+    unread: Dict[str, List[str]] = {}
+    for klass in provider_cls.__mro__:
+        if klass is object:
+            continue
+        suspects = [
+            name
+            for name, value in vars(klass).items()
+            if name not in PROVIDER_ATTRIBUTES
+            and not isinstance(
+                getattr(value, "__probe_command__", None), ProbeMethodSpec
+            )
+            and (
+                name.startswith("probe_")
+                or difflib.get_close_matches(
+                    name, PROVIDER_ATTRIBUTES, n=1, cutoff=_MISSPELLING_RATIO
+                )
+            )
+        ]
+        if suspects:
+            unread[klass.__name__] = sorted(suspects)
+    return unread
+
+
+def test_no_provider_declares_an_attribute_the_framework_will_never_read():
+    """A misspelled provider attribute is silence, like a misspelled hook.
+
+    The framework reads these by name (`getattr(provider, "probe_report")`),
+    so a provider exposing `probe_reports` reports its ingestion failures to
+    nobody: the read fails, and the probe answers "empty" for what it could
+    not read.
+    """
+    unread: Dict[str, List[str]] = {}
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider_cls = _provider_class(source_type)
+        except Exception:
+            continue  # covered by test_the_scan_actually_reached_providers
+        if provider_cls is not None:
+            unread.update(_unread_provider_attributes(provider_cls))
+    assert unread == {}, (
+        "these look like provider attributes but the framework reads none of "
+        f"them; expected one of {sorted(PROVIDER_ATTRIBUTES)}: {unread}"
+    )
+
+
+def test_the_provider_attribute_check_catches_a_misspelling():
+    class _Typos:
+        sql_dialects = "postgres"
+        silence_loggers = ("vendor.sdk",)
+        api_session = None
+
+        @property
+        def probe_reports(self) -> object:
+            return None
+
+        @probe_method(name="things")
+        def probe_things(self) -> List[str]:
+            """A command: found by its declaration, so its name is free."""
+            return []
+
+    assert _unread_provider_attributes(_Typos) == {
+        "_Typos": ["probe_reports", "silence_loggers", "sql_dialects"]
+    }
+
+
+def test_the_base_declares_every_provider_attribute_the_framework_reads():
+    from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
+
+    missing = sorted(
+        name for name in PROVIDER_ATTRIBUTES if not hasattr(ProbeProviderBase, name)
+    )
+    assert missing == []
+    assert _unread_provider_attributes(ProbeProviderBase) == {}
 
 
 _GUIDE = (
@@ -786,50 +877,49 @@ def test_no_connector_leans_on_the_name_convention():
     assert checked > 20, f"only {checked} probe-capable configs reached"
 
 
-def test_no_config_declares_a_catalog_scope_its_provider_overrides():
-    """Scope can be declared in two places, and the provider's wins.
+def test_no_config_declares_a_catalog_scope_its_provider_never_reads():
+    """The sql gate reads one scope: the provider's catalog_scope.
 
-    That is not drift to be tidied away: SnowflakeSummaryConfig is not a
-    SQLCommonConfig and cannot carry probe_catalog_scope, so the provider
-    attribute is the only place covering both Snowflake sources. Moving the
-    declaration onto the config would narrow snowflake-summary to
-    information_schema without a word.
-
-    What must not happen is *both*. A config that overrides probe_catalog_scope
-    while its provider sets catalog_scope has written dead code that reads as
-    live -- I added exactly that to snowflake_config.py, verified it correct in
-    isolation, and it did nothing; the only reason it surfaced was the CLI
-    reporting a relation count that did not match.
+    The SQLAlchemy provider sets it from the config's probe_catalog_scope,
+    because it serves every SQL-family dialect and the dialect's config is
+    the only thing that knows its catalog. A provider of its own declares
+    catalog_scope on its class (Snowflake's covers snowflake-summary, whose
+    config is not a SQLCommonConfig). A config overriding probe_catalog_scope
+    for any other provider has written a scope nothing reads.
     """
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+    from datahub.ingestion.source.sql.sqlalchemy_probe import (
+        SqlAlchemyMetadataProbe,
+    )
 
-    conflicts = []
+    unread = []
     checked = 0
-    for source_type in sorted(source_registry.mapping):
-        try:
-            provider_cls = _provider_class(source_type)
-        except Exception:
-            continue
-        if provider_cls is None or "catalog_scope" not in vars(provider_cls):
+    for source_type, config_cls in _sql_source_types().items():
+        declaring = next(
+            klass
+            for klass in config_cls.__mro__
+            if "probe_catalog_scope" in vars(klass)
+        )
+        if declaring is SQLCommonConfig:
             continue
         checked += 1
-        config_cls = config_class_for(source_type)
-        own = getattr(config_cls, "probe_catalog_scope", None)
-        base = getattr(SQLCommonConfig, "probe_catalog_scope", None)
-        if own is not None and base is not None and own.__func__ is not base.__func__:
-            conflicts.append(
+        provider_cls = _provider_class(source_type)
+        if provider_cls is None or not issubclass(
+            provider_cls, SqlAlchemyMetadataProbe
+        ):
+            unread.append(
                 f"{source_type}: {config_cls.__name__}.probe_catalog_scope is "
-                f"ignored because {provider_cls.__name__} sets catalog_scope"
+                f"never read by {getattr(provider_cls, '__name__', None)}"
             )
 
-    assert not conflicts, (
+    assert not unread, (
         "these configs declare a catalog scope nothing reads:\n  "
-        + "\n  ".join(conflicts)
-        + "\nDeclare it on the provider, or remove the provider's attribute."
+        + "\n  ".join(unread)
+        + "\nDeclare catalog_scope on the provider instead."
     )
-    assert checked >= 2, (
-        f"only {checked} providers declare catalog_scope; expected at least the "
-        "Snowflake and BigQuery ones, so this test is not scanning nothing"
+    assert checked >= 3, (
+        f"only {checked} SQL configs declare a catalog scope; expected at "
+        "least Postgres, MSSQL and Oracle, so this test is not scanning nothing"
     )
 
 

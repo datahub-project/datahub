@@ -18,7 +18,9 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from types import TracebackType
 from typing import (
+    TYPE_CHECKING,
     Callable,
+    ClassVar,
     Dict,
     Generic,
     Hashable,
@@ -26,6 +28,8 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
+    Tuple,
     Type,
     TypeVar,
     cast,
@@ -40,6 +44,11 @@ from datahub.ingestion.agent.verdicts import (
     ProbeSoftError,
     soft_error_for,
 )
+
+if TYPE_CHECKING:
+    # Only for the annotation: sql_gate imports sqlglot, which a provider that
+    # runs no SQL should not pay for.
+    from datahub.ingestion.agent.sql_gate import CatalogScope
 
 T = TypeVar("T")
 
@@ -315,14 +324,16 @@ class soft_listing:
 
 
 class ProbeProviderBase:
-    """An optional base for probe providers: de-duplicated warnings, lazily
-    built clients, and an __exit__ that closes everything that was opened.
+    """An optional base for probe providers: every attribute the framework
+    reads, declared with its default; de-duplicated warnings; lazily built
+    clients; and an __exit__ that closes everything that was opened.
 
-    Opt-in. The framework never looks it up -- it is not a config hook --
-    and a provider without it is unaffected. It defines no __init__, because
-    every provider has its own and tests build some with __new__; all state
-    here is created on first use. A subclass still declares for_config
-    itself.
+    Opt-in. The framework reads a provider's attributes by name
+    (probe_methods.PROVIDER_ATTRIBUTES) whether or not it inherits this, and
+    each default here reads as an absent attribute would. It defines no
+    __init__, because every provider has its own and tests build some with
+    __new__; all state here is created on first use. A subclass still
+    declares for_config itself.
 
     __exit__ closes last-opened first and runs every closer even when one
     fails; that failure then propagates, and the framework reports it as it
@@ -333,20 +344,55 @@ class ProbeProviderBase:
     calls super().__exit__(*exc) last.
     """
 
+    # Required by a command that declares scoped_sql_param: the name sqlglot
+    # parses the query as.
+    sql_dialect: Optional[str] = None
+    # What `probe sql` may read. None is information_schema only.
+    catalog_scope: Optional["CatalogScope"] = None
+    # Required by a command that declares scoped_path_param. None rather than
+    # (): an unset list is the provider's omission, refused as its defect,
+    # where () would blame every path the caller tries.
+    api_allowlist: Optional[Sequence[str]] = None
+    # The URL a path is joined to, so the gate checks the path the client
+    # will send. Empty: the gate resolves it against a placeholder.
+    api_base_url: str = ""
+    # Reads that could not complete; any entry makes the result incomplete
+    # (exit 3). A tuple, so no instance can append to a shared default:
+    # assign a list per instance.
+    failures: Sequence[str] = ()
+    # Loggers whose records are dropped while the probe runs (see
+    # agent.log_guard.quiet_reused_logs). Read off the class.
+    silenced_loggers: ClassVar[Tuple[str, ...]] = ()
+
     _probe_warnings: Optional[List[str]] = None
     _probe_opened: Optional[Dict[Hashable, object]] = None
     _probe_closers: Optional[ExitStack] = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        # A class-level list replaces the warnings property with one list
-        # shared by every instance, so one probe's warnings would carry into
-        # the next. An annotation alone, or assignment in __init__, is fine.
-        if isinstance(vars(cls).get("warnings"), list):
-            raise TypeError(
-                f"{cls.__name__} sets a class-level `warnings` list; assign "
-                f"it in __init__ or leave it to ProbeProviderBase"
-            )
+        # A class-level list is one list shared by every instance, so one
+        # probe's entries would carry into the next. An annotation alone, or
+        # assignment in __init__, is fine.
+        for name in ("warnings", "failures"):
+            if isinstance(vars(cls).get(name), list):
+                raise TypeError(
+                    f"{cls.__name__} sets a class-level `{name}` list; assign "
+                    f"it in __init__ or leave it to ProbeProviderBase"
+                )
+
+    @property
+    def probe_report(self) -> object:
+        """The SourceReport reused ingestion code writes into, whose warnings
+        and failures are read back after each command; None when there is
+        none. Read-only here, so a subclass overrides it with a property."""
+        return None
+
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The vendor's short code for a foreign exception, or None (see
+        agent.error_policy.foreign_label). Asked on the class, so it also
+        labels a failure to open the provider."""
+        return None
 
     @property
     def warnings(self) -> List[str]:

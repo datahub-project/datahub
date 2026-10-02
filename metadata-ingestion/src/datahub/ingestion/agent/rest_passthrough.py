@@ -35,11 +35,12 @@ class RestApiPassthrough:
     gate reads `api_allowlist` off the instance, so the mixing class's list governs.
     """
 
-    # Deliberately annotated without a default. An unset allowlist must read as
-    # None so _enforce_gates can say the *provider* is incomplete; defaulting to
-    # () would instead refuse every path with "not in this connector's allowlist",
-    # blaming the caller for a list nobody wrote.
-    api_allowlist: Sequence[str]
+    # None until the provider lists its endpoints, so _enforce_gates can say
+    # the *provider* is incomplete; () would instead refuse every path with
+    # "not in this connector's allowlist", blaming the caller for a list
+    # nobody wrote. Typed and defaulted as ProbeProviderBase declares it, so
+    # a provider inheriting both reads the same either way round.
+    api_allowlist: Optional[Sequence[str]] = None
 
     api_base_url: str = ""
     api_timeout_seconds: int = DEFAULT_API_TIMEOUT_SECONDS

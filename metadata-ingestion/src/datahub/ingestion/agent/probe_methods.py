@@ -5,6 +5,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     List,
     NoReturn,
     Optional,
@@ -281,6 +282,32 @@ class ProbeProvider(Protocol):
     def __enter__(self) -> "ProbeProvider": ...
 
     def __exit__(self, *exc: object) -> None: ...
+
+
+# The optional attributes the framework reads off a provider, by name, beyond
+# the ProbeProvider protocol. ProbeProviderBase declares each with its type and
+# a default that reads as absent; a provider without the base is read the same
+# way. test_probe_contract refuses a provider attribute named like one of these
+# but not exactly one, since the framework would never read it.
+PROVIDER_ATTRIBUTES: FrozenSet[str] = frozenset(
+    {
+        # _enforce_gates: the dialect a query is parsed as, the catalog it may
+        # read, and the endpoints and base URL a path is checked against.
+        "sql_dialect",
+        "catalog_scope",
+        "api_allowlist",
+        "api_base_url",
+        # Read back after each command: degraded sub-fetches, reads that
+        # failed, and a SourceReport holding both.
+        "warnings",
+        "failures",
+        "probe_report",
+        # run_probe_method: loggers dropped while the probe runs.
+        "silenced_loggers",
+        # error_policy.foreign_label: the vendor's code for a foreign error.
+        "probe_error_code",
+    }
+)
 
 
 @dataclass

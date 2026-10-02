@@ -428,10 +428,32 @@ def test_warn_appends_to_the_list_a_subclass_assigned() -> None:
     assert provider.warnings == ["x"]
 
 
-def test_the_base_declares_no_command_and_no_hook() -> None:
+def test_the_base_declares_no_command_and_only_provider_attributes() -> None:
     assert probe_methods._iter_specs(ProbeProviderBase) == []
-    assert [n for n in dir(ProbeProviderBase) if n.startswith("probe_")] == []
+    assert {n for n in dir(ProbeProviderBase) if n.startswith("probe_")} <= set(
+        probe_methods.PROVIDER_ATTRIBUTES
+    )
     assert "for_config" not in vars(ProbeProviderBase)
+
+
+def test_the_base_defaults_read_as_absent() -> None:
+    # Each default means what an undeclared attribute means to the
+    # framework, so inheriting the base changes nothing a provider omits.
+    bare = _Clients.__new__(_Clients)
+    assert bare.sql_dialect is None
+    assert bare.catalog_scope is None
+    assert bare.api_allowlist is None
+    assert bare.api_base_url == ""
+    assert list(bare.failures) == []
+    assert bare.probe_report is None
+    assert _Clients.silenced_loggers == ()
+    assert _Clients.probe_error_code(RuntimeError("x")) is None
+
+
+def test_failures_a_subclass_assigns_reach_the_result(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    assert run("record-failure").failures == ["GET /things returned 403"]
 
 
 class _RunProvider(ProbeProviderBase):
@@ -457,6 +479,8 @@ class _RunProvider(ProbeProviderBase):
             resolve_name(name, _foreign_listing(), key=str, kind="thing")
         if self.mode == "warn":
             self._warn("one listing degraded")
+        if self.mode == "record-failure":
+            self.failures = ["GET /things returned 403"]
         if self.mode == "open-c-callable":
             self._open_once("p", functools.partial(open, f"/nonexistent-{SENTINEL}/x"))
         if self.mode == "take-c-iterator":
@@ -591,3 +615,10 @@ def test_a_class_level_warnings_list_is_refused() -> None:
 
         class _Shared(ProbeProviderBase):
             warnings: List[str] = []
+
+
+def test_a_class_level_failures_list_is_refused() -> None:
+    with pytest.raises(TypeError):
+
+        class _Shared(ProbeProviderBase):
+            failures: List[str] = []

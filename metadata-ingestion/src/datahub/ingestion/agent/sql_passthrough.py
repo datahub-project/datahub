@@ -118,20 +118,15 @@ class SqlCatalogPassthrough:
     dispose a connection pool, close a connection, close a client.
     """
 
-    # What `probe sql` may read here. The default is information_schema only; a
-    # dialect whose catalog lives elsewhere declares its own (see CatalogScope).
-    #
-    # Two places can declare it, and **this one wins**. The usual place is the
-    # config's SQLCommonConfig.probe_catalog_scope, which the framework applies
-    # after building the provider; setting it here instead overrides that, and
-    # is what a source whose config is not a SQLCommonConfig has to do --
-    # SnowflakeSummaryConfig is one, so Snowflake declares its ACCOUNT_USAGE
-    # surface here to cover both of its sources at once.
-    #
-    # A config that overrides probe_catalog_scope while its provider sets this
-    # is the trap: the config method is then dead code that reads as live.
-    # test_no_config_declares_a_catalog_scope_its_provider_overrides refuses it.
-    catalog_scope: CatalogScope = CatalogScope()
+    # What `probe sql` may read here; None is information_schema only. A
+    # dialect whose catalog lives elsewhere declares its own (see
+    # CatalogScope). This attribute is the one scope the gate reads: a
+    # connector with its own provider class sets it on that class (Snowflake's
+    # covers snowflake-summary, whose config is not a SQLCommonConfig), and the
+    # SQLAlchemy provider sets it from the config's probe_catalog_scope. Typed
+    # and defaulted as ProbeProviderBase declares it, so a provider inheriting
+    # both reads the same either way round.
+    catalog_scope: Optional[CatalogScope] = None
 
     # What one query here may spend. Applying it is the provider's job, since
     # the mechanism is per-driver; declaring it does not bound a provider that

@@ -103,12 +103,20 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `__enter__` / `__exit__`            | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes                                                                                                                                                                                       |
 | at least one `@probe_method`        | always                                                                                                                                                                                                                                                                           |
 | `sql_dialect: str`                  | if any method declares `scoped_sql_param` — a name sqlglot resolves                                                                                                                                                                                                              |
+| `catalog_scope: CatalogScope`       | if a method declares `scoped_sql_param` and your catalog is more than `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)); the SQL family's provider sets it from `probe_catalog_scope()`                            |
 | `api_allowlist: Sequence[str]`      | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")`                                                                                                                                                                                    |
+| `api_base_url: str`                 | with `api_allowlist` — the URL a path is joined to, so the gate checks the path the client will send                                                                                                                                                                             |
 | `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
+| `failures: List[str]`               | if a read can fail without raising; any entry makes the result incomplete (exit 3)                                                                                                                                                                                               |
 | `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
 | `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Naming framework loggers is a defect; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
 | `probe_error_code(exc)`             | if your vendor's errors carry a code the framework does not read (see [Errors, logs and secrets](#errors-logs-and-secrets)): a staticmethod returning a short code such as `"AccessDenied"`, or `None`                                                                           |
 | `ProbeProviderBase` (optional base) | to get `warnings`/`_warn`, lazily opened clients (`_open_once`) and an `__exit__` that closes them all; see [Shared provider helpers](#shared-provider-helpers)                                                                                                                  |
+
+The framework reads these attributes by name, whether or not you inherit `ProbeProviderBase`, which
+declares them all with defaults that read as absent. `test_probe_contract.py` refuses a provider
+attribute named like one but not exactly one (`probe_reports`, `sql_dialects`): it would never be
+read.
 
 ### Errors, logs and secrets
 
@@ -554,14 +562,15 @@ These hooks are read only by `source/sql/`, so only a `SQLCommonConfig` subclass
 `test_probe_contract.py` checks their names against this table, and `probe_filter_target`'s keyword
 arguments too.
 
-| Hook                        | Signature                                                                                                        | Declare it when                                                                    |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)              |
-| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | your driver takes a statement ceiling or a client label (see below)                |
-| `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | the `get_identifier` shim cannot build your identifier (see below)                 |
-| `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on |
-| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss   |
-| `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                   |
+| Hook                        | Signature                                                                                                        | Declare it when                                                                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `probe_catalog_scope`       | classmethod `() -> CatalogScope`                                                                                 | your dialect's catalog differs from `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)) |
+| `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)                                                                               |
+| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | your driver takes a statement ceiling or a client label (see below)                                                                                 |
+| `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | the `get_identifier` shim cannot build your identifier (see below)                                                                                  |
+| `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on                                                                  |
+| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss                                                                    |
+| `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                                                                                    |
 
 `probe_filter_target` is read by the `get_identifier` shim in `sql_probe.py` that
 `SQLCommonConfig.probe_match_target` routes to. The shim builds your `Source` without `__init__`
@@ -620,18 +629,17 @@ exactly: the framework calls the instance hooks with keyword arguments, and
 `test_probe_contract.py` checks the names against this table and, for the
 hooks listed in its `required_kwargs`, the keyword arguments.
 
-| Hook                        | Signature                                                       | Declare it when                                                                                                                                     |
-| --------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `probe_provider_class`      | classmethod `() -> type`                                        | always: it names the provider class                                                                                                                 |
-| `probe_validation_context`  | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts                                                                 |
-| `probe_catalog_scope`       | classmethod `() -> CatalogScope`                                | your dialect's catalog differs from `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)) |
-| `probe_kind_overrides`      | classmethod `() -> Mapping[str, str]`                           | the config class, not the provider, decides the kind a command reports (command → kind)                                                             |
-| `probe_match_target`        | `(self, ctx: ClassifyContext) -> Optional[str]`                 | the pattern is matched against something other than the bare name, for any kind (step 2)                                                            |
-| `probe_verdict_override`    | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                                                                                              |
-| `probe_kind_switches`       | classmethod `() -> Mapping[str, str]`                           | a bool field switches a whole kind off                                                                                                              |
-| `probe_rule_filtered_kinds` | classmethod `() -> Mapping[str, str]`                           | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)                                                                               |
-| `probe_unfiltered_kinds`    | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                                                                                  |
-| `probe_ancestor_kinds`      | `(self, kind: str) -> Optional[Sequence[str]]`                  | your containers are not the SQL family's `Database` → `Schema` (step 6)                                                                             |
+| Hook                        | Signature                                                       | Declare it when                                                                          |
+| --------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `probe_provider_class`      | classmethod `() -> type`                                        | always: it names the provider class                                                      |
+| `probe_validation_context`  | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts      |
+| `probe_kind_overrides`      | classmethod `() -> Mapping[str, str]`                           | the config class, not the provider, decides the kind a command reports (command → kind)  |
+| `probe_match_target`        | `(self, ctx: ClassifyContext) -> Optional[str]`                 | the pattern is matched against something other than the bare name, for any kind (step 2) |
+| `probe_verdict_override`    | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                                   |
+| `probe_kind_switches`       | classmethod `() -> Mapping[str, str]`                           | a bool field switches a whole kind off                                                   |
+| `probe_rule_filtered_kinds` | classmethod `() -> Mapping[str, str]`                           | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)                    |
+| `probe_unfiltered_kinds`    | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                       |
+| `probe_ancestor_kinds`      | `(self, kind: str) -> Optional[Sequence[str]]`                  | your containers are not the SQL family's `Database` → `Schema` (step 6)                  |
 
 Adding a hook to the framework means adding it to `_CONFIG_HOOKS` and to this
 table in the same change (a SQL-family hook: `_SQL_FAMILY_HOOKS` and that section's table). The

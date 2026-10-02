@@ -458,21 +458,13 @@ class SQLCommonConfig(
         Name relations rather than whole schemas for a vendor catalog: see
         CatalogScope's docstring for why that is not merely stylistic.
 
-        Overridden by a provider that sets `catalog_scope` on itself, which is
-        what a bespoke per-connector provider does: Snowflake and BigQuery each
-        build their own client rather than going through the shared
-        SqlAlchemyMetadataProbe, so there is no generic adapter that needs to
-        read the value back off a config. The shared adapter serves ~15
-        dialects and therefore must, which is why the method exists here at all.
-
-        For Snowflake there is a second reason: SnowflakeSummaryConfig is not a
-        SQLCommonConfig, so it could not carry this method even if it wanted to.
-        That does not apply to BigQuery -- BigQueryV2Config is a SQLCommonConfig
-        -- and an earlier version of this comment wrongly gave it as the reason
-        for both.
-
-        Declaring it in both places means this one is dead; a contract test
-        refuses that rather than leaving it to be discovered.
+        Read only by SqlAlchemyMetadataProbe.for_config, which sets it as the
+        provider's `catalog_scope`, the one scope the sql gate reads: that
+        provider serves every SQL-family dialect, so the dialect's config is
+        what knows its catalog. A connector with a provider of its own
+        (Snowflake, BigQuery) declares `catalog_scope` on that class instead,
+        and an override here would be read by nothing; a contract test
+        refuses one.
         """
         return CatalogScope()
 
