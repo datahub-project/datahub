@@ -137,9 +137,49 @@ class _Provider:
             except Exception as exc:
                 raise ProbeArgumentError(f"no things: {exc}") from exc
 
+    def _raise_after_lookup(self, name: str) -> None:
+        """Trusted refusals raised while handling the provider's own lookup."""
+        known = {"a": 1}
+        rows = {1: "a", 2: "b"}
+        if self.mode == "lookup-from-none":
+            try:
+                known[name]
+            except KeyError:
+                raise ProbeArgumentError(
+                    f"no thing named '{name}'; run `things`"
+                ) from None
+        if self.mode == "lookup-from-exc":
+            try:
+                known[name]
+            except KeyError as exc:
+                raise ProbeArgumentError(
+                    f"no thing named '{name}'; run `things`"
+                ) from exc
+        if self.mode == "lookup-implicit":
+            try:
+                known[name]
+            except KeyError:
+                raise ProbeArgumentError(  # noqa: B904
+                    f"no thing named '{name}'; run `things`"
+                )
+        if self.mode == "lookup-short-key":
+            try:
+                rows[3]
+            except KeyError:
+                raise ProbeArgumentError(  # noqa: B904
+                    "row 3 is not one of the 2 rows listed; rows 1 to 2 exist"
+                )
+        if self.mode == "lookup-foreign-repr":
+            try:
+                _foreign_errors.lookup()
+            except KeyError as exc:
+                raise ProbeConnectionError(f"lookup said {exc!r}") from exc
+
     @probe_method(name="things")
     def things(self, name: str = "") -> List[str]:
         """List things."""
+        if self.mode.startswith("lookup-"):
+            self._raise_after_lookup(name)
         if self.mode == "exit-foreign-after-argument":
             raise ProbeArgumentError(f"no thing named '{name}'")
         if self.mode == "exit-foreign-after-foreign":
@@ -355,6 +395,53 @@ def test_foreign_text_wrapped_in_a_trusted_message_is_withheld(
     assert str(info.value) == message
 
 
+@pytest.mark.parametrize(
+    "mode, expected, message",
+    [
+        (
+            "lookup-from-none",
+            ProbeArgumentError,
+            "no thing named 'widget'; run `things`",
+        ),
+        (
+            "lookup-from-exc",
+            ProbeArgumentError,
+            "no thing named 'widget'; run `things`",
+        ),
+        (
+            "lookup-implicit",
+            ProbeArgumentError,
+            "no thing named 'widget'; run `things`",
+        ),
+        (
+            "lookup-short-key",
+            ProbeArgumentError,
+            "row 3 is not one of the 2 rows listed; rows 1 to 2 exist",
+        ),
+        ("lookup-foreign-repr", ProbeConnectionError, "lookup said (KeyError)"),
+    ],
+)
+def test_a_missed_key_is_not_mistaken_for_foreign_text(
+    run: RunFn, mode: str, expected: type, message: str
+) -> None:
+    # A lookup error's str is the key it missed -- the caller's own argument --
+    # so only its repr counts as its text; and a rendering of a few characters
+    # would match innocently anywhere in the message.
+    with pytest.raises(expected) as info:
+        run(mode, name="widget")
+    assert str(info.value) == message
+
+
+def test_a_short_foreign_text_is_not_searched_for() -> None:
+    try:
+        try:
+            raise RuntimeError("x")
+        except RuntimeError:
+            raise ProbeArgumentError("no thing named 'x'")  # noqa: B904
+    except ProbeArgumentError as wrapper:
+        assert withhold_foreign_text(wrapper) == "no thing named 'x'"
+
+
 def test_the_backstop_reads_the_context_as_well_as_the_cause() -> None:
     try:
         try:
@@ -419,6 +506,8 @@ def test_the_backstop_shows_the_scrubbed_text_under_verbose(
         ("wraps-foreign-rebuild-refusing", 3),
         ("recorded-wraps-foreign", 3),
         ("wraps-foreign-unprintable", 3),
+        ("lookup-from-none", 2),
+        ("lookup-foreign-repr", 3),
     ],
 )
 def test_the_cli_never_prints_foreign_text_from_the_exception_chain(

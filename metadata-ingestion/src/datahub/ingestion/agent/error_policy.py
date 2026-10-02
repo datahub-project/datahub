@@ -64,6 +64,9 @@ _MAX_ERRNO = 999_999
 # cause/context links the backstop walks.
 _MAX_CODE_LINKS = 8
 _MAX_CHAIN_LINKS = 32
+# Shorter renderings carry too little to leak and would match innocently
+# inside the message (a one-letter name, a row number).
+_MIN_RENDERING = 6
 
 
 def is_trusted(exc: BaseException) -> bool:
@@ -232,19 +235,23 @@ def withhold_foreign_text(
     the driver's text out. Only text that appears verbatim can be caught (the
     str or repr of the foreign exception); a message built from parts of it
     cannot, which is why the guide says never to interpolate an exception you
-    did not raise.
+    did not raise. A lookup error is matched by its repr only, and a rendering
+    under _MIN_RENDERING characters not at all (see there).
     """
     message = str(exc)
     labels: Dict[str, str] = {}
     for foreign in _foreign_in_chain(exc):
         label = f"({foreign_label(foreign, provider_cls)})"
-        for render in (repr, str):
+        # A lookup error's str is the key it missed, which is the caller's own
+        # argument quoted back to them, not the failure's text.
+        renders = (repr,) if isinstance(foreign, LookupError) else (repr, str)
+        for render in renders:
             try:
                 rendering = render(foreign)
             except Exception:
                 # A rendering that raises cannot be in the message either.
                 continue
-            if rendering:
+            if len(rendering) >= _MIN_RENDERING:
                 labels.setdefault(rendering, label)
     if not labels:
         return message
