@@ -15,24 +15,35 @@ Because types and fields come from the server, enabling a new entity type for se
 
 Stateful ingestion, enabled by default, stores a hash of each entity's text and embedding configuration, so only new or changed entities are embedded again. `max_entities_per_run` and `time_budget_seconds` bound a run; the next run continues where it stopped. Entities that fail are retried on the next run.
 
-#### Limitations
-
-- An entity that is later excluded, by entity type or by `platform_pattern`, keeps its last embeddings.
-- Entity types in operational search groups (`timeseries`, `query`, `schemaField`, `default`) are skipped unless they are added to `search_groups`.
-
 ### Prerequisites
 
 #### 1. DataHub Server Configuration
 
 Semantic search must be enabled on the server, with an embedding provider configured and the entity types to embed listed in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES`. See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md).
 
-#### 2. Privileges
+#### 2. The `semanticContent` Aspect
+
+Embeddings are stored in the `semanticContent` aspect. The base entity registry declares it only for `document` and a few AI-related entity types, so other types need it added with an [entity registry plugin](https://docs.datahub.com/docs/metadata-models-custom), loaded by GMS and the consumers:
+
+```yaml
+# plugins/models/semantic-search/1.0.0/entity-registry.yaml
+id: semantic-search
+entities:
+  - name: dataset
+    aspects:
+      - semanticContent
+  - name: glossaryTerm
+    aspects:
+      - semanticContent
+```
+
+#### 3. Privileges
 
 The token used by the source needs:
 
 - **Manage System Operations**, to read the entity registry (`/openapi/v1/registry/models/entity/specifications`).
 - Read access to the entities to embed, and permission to write their `semanticContent` aspect.
 
-#### 3. Embedding Provider Credentials
+#### 4. Embedding Provider Credentials
 
 The same credentials as the `datahub-documents` source, for example AWS credentials with `bedrock:InvokeModel` when using AWS Bedrock.
