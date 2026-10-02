@@ -29,8 +29,6 @@ const LINE_LIMIT = 5;
 /* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
 const SUMMARY_TAB = 'Summary';
 /* eslint-enable i18next/no-literal-string */
-// Stable, locale-independent tab id used for routing (see issue #19658). Must match the tab's `id`.
-const DOCUMENTATION_TAB = DOCUMENTATION_TAB_ID;
 
 interface Properties {
     hideLinksButton?: boolean;
@@ -99,7 +97,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                                 tabParams: { editingDescription: true },
                                             });
                                         } else {
-                                            routeToTab({ tabName: DOCUMENTATION_TAB, tabParams: { editing: true } });
+                                            routeToTab({ tabName: DOCUMENTATION_TAB_ID, tabParams: { editing: true } });
                                         }
                                     } else {
                                         const url = getEntityPath(
@@ -108,7 +106,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                             entityRegistry,
                                             isLineageMode,
                                             isHideSiblingMode,
-                                            DOCUMENTATION_TAB,
+                                            DOCUMENTATION_TAB_ID,
                                             {
                                                 editing: true,
                                             },
