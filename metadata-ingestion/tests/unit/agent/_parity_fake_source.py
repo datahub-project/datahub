@@ -35,6 +35,13 @@ DROP_ITEM_A = "drop_item_a"
 # Probe-only behaviours; ingestion never reads `probe_drift`.
 LIST_NOTHING = "list_nothing"
 SOFT_DEGRADE = "soft_degrade"
+# A warning the source gives on every normal run, which a listing can accept.
+BENIGN_NOTE = "benign_note"
+GROUP_NOTE = "group descriptions are never listed"
+
+
+def item_note(group: str) -> str:
+    return f"archived items of {group} are never listed"
 
 
 class ItemsConfig(ConfigModel):
@@ -80,6 +87,8 @@ class ItemsProbe:
     @probe_method(kind=GROUP_KIND, row_limit_param="limit")
     def groups(self, limit: int = 100) -> List[Dict[str, str]]:
         """Every group, including ones the recipe drops."""
+        if self.config.probe_drift == BENIGN_NOTE:
+            self.warnings.append(GROUP_NOTE)
         return [{"name": group} for group in GROUPS][:limit]
 
     @probe_method(kind=ITEM_KIND, parent_params=("group",))
@@ -89,6 +98,8 @@ class ItemsProbe:
             return []
         if self.config.probe_drift == SOFT_DEGRADE:
             self.warnings.append(f"could not read every item of {group}")
+        if self.config.probe_drift == BENIGN_NOTE:
+            self.warnings.append(item_note(group))
         return [{"name": item} for item in GROUPS[group]]
 
 

@@ -962,7 +962,11 @@ the docs site does not publish it.
   way `probe filter --from-run` does, and asserts both directions per kind. Use a
   `ParityListing` per kind, with `FanOut` for a child kind (every parent, kept or not) and
   `identity` where a listing's name is not the emitted id. Parametrize over recipes that
-  exercise each rule, and pin the reasons with `report.excluded_by(label)`.
+  exercise each rule, and pin the reasons with `report.excluded_by(label)`. A listing that
+  warned is refused as possibly partial; when the source warns on every normal run (a note,
+  not a degraded fetch), name that warning in `accept_warnings`, exactly or as a fullmatch
+  regex. It never waives truncation, failures or redaction, an entry that matched nothing
+  fails, and `report.kinds[label].accepted_warnings` lets the test pin what it let through.
 - **The degrade path.** A 404 on one sub-listing produces an empty result **and** a warning; auth
   failures and 5xx raise.
 - **The connector's existing suites must pass unedited.** A probe adds to a connector; it does

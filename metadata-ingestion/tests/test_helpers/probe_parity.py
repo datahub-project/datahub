@@ -12,6 +12,7 @@ The harness patches nothing. Wrap the call in the connector's own mocks so
 that ingestion and the probe read the same content.
 """
 
+import dataclasses
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,6 +24,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Pattern,
     Sequence,
     Set,
     Tuple,
@@ -33,7 +35,7 @@ from typing import (
 from datahub._codegen.aspect import _Aspect
 from datahub.cli.recipe_cli import (
     listing_warnings,
-    probe_run_envelope as cli_probe_run_envelope,
+    probe_run_envelope,
     report_to_text,
     resolve_probe_recipe,
 )
@@ -218,6 +220,12 @@ class ParityListing:
     # list something: an empty listing fails even so, because a kind the
     # recipe switches off is still listed, and judged excluded, by the probe.
     expect_empty: bool = False
+    # Warnings the source gives on every normal run of this listing, which do
+    # not make it partial: a str matches a warning exactly, a Pattern by
+    # fullmatch. Applied to every listing taken for this kind, fan-out parents
+    # included. It never waives truncation, failures or redaction, and an
+    # entry that matched nothing in the run fails, so the list cannot go stale.
+    accept_warnings: Tuple[Union[str, Pattern[str]], ...] = ()
 
     def identity_of(self, record: JudgedRecord) -> str:
         if self.identity is not None:
@@ -233,6 +241,41 @@ class KindParity:
     included: FrozenSet[str]
     excluded_by: Mapping[str, Optional[str]]
     warnings: Tuple[str, ...]
+    # The run warnings accept_warnings let through, in the order first seen.
+    accepted_warnings: Tuple[str, ...] = ()
+
+
+@dataclass
+class _Acceptance:
+    """Which of a ParityListing's accept_warnings matched, across its run."""
+
+    accept: Tuple[Union[str, Pattern[str]], ...]
+    used: Set[int] = field(default_factory=set)
+    accepted: List[str] = field(default_factory=list)
+
+    def take(self, warning: str) -> bool:
+        hits = {
+            i
+            for i, entry in enumerate(self.accept)
+            if (
+                warning == entry
+                if isinstance(entry, str)
+                else entry.fullmatch(warning) is not None
+            )
+        }
+        if not hits:
+            return False
+        self.used |= hits
+        if warning not in self.accepted:
+            self.accepted.append(warning)
+        return True
+
+    def unused(self) -> List[str]:
+        return [
+            entry if isinstance(entry, str) else entry.pattern
+            for i, entry in enumerate(self.accept)
+            if i not in self.used
+        ]
 
 
 @dataclass(frozen=True)
@@ -260,12 +303,12 @@ def _envelope(
     kwargs: Mapping[str, object],
 ) -> Dict[str, object]:
     run = run_probe_method(source_type, dict(resolved), command, dict(kwargs))
-    envelope = json.loads(report_to_text(cli_probe_run_envelope(run, secrets)))
+    envelope = json.loads(report_to_text(probe_run_envelope(run, secrets)))
     assert isinstance(envelope, dict), f"`probe run {command}` wrote no envelope"
     return envelope
 
 
-def probe_run_envelope(
+def report_envelope(
     source_type: str,
     recipe: Mapping[str, object],
     command: str,
@@ -283,6 +326,7 @@ def _listing(
     secrets: Set[str],
     command: str,
     kwargs: Mapping[str, object],
+    acceptance: _Acceptance,
 ) -> RunListing:
     envelope = _envelope(source_type, resolved, secrets, command, kwargs)
     listing = listing_from_run(envelope)
@@ -302,6 +346,11 @@ def _listing(
             f"{where} had values redacted because a fixture secret equals an "
             f"identifier; change the fixture's secret"
         )
+    # Filtered raw, before listing_warnings words each one as "may be partial".
+    listing = dataclasses.replace(
+        listing,
+        run_warnings=[w for w in listing.run_warnings if not acceptance.take(w)],
+    )
     # Whatever else `probe filter --from-run` would warn about this listing,
     # chiefly a soft-degraded sub-fetch: the listing may be partial with no
     # failure recorded, and a partial listing proves nothing.
@@ -317,8 +366,9 @@ def _judge(
     secrets: Set[str],
     command: str,
     kwargs: Mapping[str, object],
+    acceptance: _Acceptance,
 ) -> Tuple[List[JudgedRecord], List[str]]:
-    listing = _listing(source_type, resolved, secrets, command, kwargs)
+    listing = _listing(source_type, resolved, secrets, command, kwargs, acceptance)
     kind = listing.kind
     if kind is None:
         raise AssertionError(
@@ -350,12 +400,25 @@ def _judged(
     resolved: Dict[str, object],
     secrets: Set[str],
     listing: ParityListing,
+    acceptance: _Acceptance,
 ) -> Tuple[List[JudgedRecord], List[str]]:
     if listing.fan_out is None:
-        return _judge(source_type, resolved, secrets, listing.command, listing.kwargs)
+        return _judge(
+            source_type,
+            resolved,
+            secrets,
+            listing.command,
+            listing.kwargs,
+            acceptance,
+        )
     fan_out = listing.fan_out
     parents = _listing(
-        source_type, resolved, secrets, fan_out.parent_command, fan_out.parent_kwargs
+        source_type,
+        resolved,
+        secrets,
+        fan_out.parent_command,
+        fan_out.parent_kwargs,
+        acceptance,
     ).names
     records: List[JudgedRecord] = []
     warnings: List[str] = []
@@ -366,6 +429,7 @@ def _judged(
             secrets,
             listing.command,
             {**listing.kwargs, fan_out.param: parent},
+            acceptance,
         )
         records.extend(found)
         warnings.extend(w for w in said if w not in warnings)
@@ -376,10 +440,16 @@ def _compare(
     listing: ParityListing,
     records: List[JudgedRecord],
     warnings: List[str],
+    acceptance: _Acceptance,
     emitted: Set[str],
     problems: List[str],
 ) -> KindParity:
     label = listing.label
+    for entry in acceptance.unused():
+        problems.append(
+            f"{label}: accept_warnings entry {entry!r} matched nothing in this "
+            f"run; drop it, or the allow-list outlives the warning it named"
+        )
     # Every record under each identity. Two distinct records merged into one
     # identity hide a drift even when their verdicts agree: ingestion dropping
     # one of them still emits the identity the other stands for.
@@ -431,6 +501,7 @@ def _compare(
         included=frozenset(included),
         excluded_by=excluded_by,
         warnings=tuple(warnings),
+        accepted_warnings=tuple(acceptance.accepted),
     )
 
 
@@ -455,9 +526,10 @@ def assert_probe_parity(
     problems: List[str] = []
     kinds: Dict[str, KindParity] = {}
     for listing in listings:
-        records, warnings = _judged(source_type, resolved, secrets, listing)
+        acceptance = _Acceptance(listing.accept_warnings)
+        records, warnings = _judged(source_type, resolved, secrets, listing, acceptance)
         kinds[listing.label] = _compare(
-            listing, records, warnings, listing.emitted(emitted), problems
+            listing, records, warnings, acceptance, listing.emitted(emitted), problems
         )
     if problems:
         raise AssertionError(

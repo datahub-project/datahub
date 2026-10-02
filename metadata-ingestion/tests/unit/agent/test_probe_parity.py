@@ -1,6 +1,7 @@
 import json
+import re
 from pathlib import Path
-from typing import List, Set
+from typing import List, Pattern, Set, Union
 
 import pytest
 import yaml
@@ -25,15 +26,18 @@ from tests.test_helpers.probe_parity import (
     assert_probe_parity,
     by_name,
     pipeline_ingestion,
-    probe_run_envelope,
+    report_envelope,
 )
 from tests.unit.agent._parity_fake_source import (
+    BENIGN_NOTE,
     DROP_ITEM_A,
     GROUP_KIND,
+    GROUP_NOTE,
     IGNORE_ITEM_PATTERN,
     LIST_NOTHING,
     SOFT_DEGRADE,
     SOURCE_TYPE,
+    item_note,
 )
 
 
@@ -193,7 +197,7 @@ def test_the_harness_reads_the_file_probe_run_writes(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == 0, result.output
-    assert json.loads(report.read_text()) == probe_run_envelope(
+    assert json.loads(report.read_text()) == report_envelope(
         SOURCE_TYPE, config, "items", {"group": "g1"}
     )
 
@@ -281,6 +285,91 @@ def test_a_listing_the_run_warned_may_be_partial_is_refused(tmp_path: Path) -> N
             {"probe_drift": SOFT_DEGRADE},
             pipeline_ingestion(SOURCE_TYPE, tmp_path),
             [_ITEMS],
+        )
+
+
+def _accepting(*accept: Union[str, Pattern[str]]) -> ParityListing:
+    return ParityListing(
+        "items",
+        "items",
+        emitted=_item_names,
+        fan_out=FanOut("groups", "group"),
+        accept_warnings=accept,
+    )
+
+
+def test_an_accepted_exact_warning_passes_and_is_reported(tmp_path: Path) -> None:
+    listing = _accepting(GROUP_NOTE, item_note("g1"), item_note("g2"))
+    report = assert_probe_parity(
+        SOURCE_TYPE,
+        {"probe_drift": BENIGN_NOTE},
+        pipeline_ingestion(SOURCE_TYPE, tmp_path),
+        [listing],
+    )
+    # The fan-out parent's warning is accepted too, before any listing of it.
+    assert report.kinds["items"].accepted_warnings == (
+        GROUP_NOTE,
+        item_note("g1"),
+        item_note("g2"),
+    )
+
+
+def test_an_accepted_pattern_must_match_the_whole_warning(tmp_path: Path) -> None:
+    listing = _accepting(
+        GROUP_NOTE, re.compile(r"archived items of \w+ are never listed")
+    )
+    report = assert_probe_parity(
+        SOURCE_TYPE,
+        {"probe_drift": BENIGN_NOTE},
+        pipeline_ingestion(SOURCE_TYPE, tmp_path),
+        [listing],
+    )
+    assert item_note("g2") in report.kinds["items"].accepted_warnings
+    # A pattern matching only a prefix accepts nothing.
+    with pytest.raises(AssertionError, match="may be partial"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"probe_drift": BENIGN_NOTE},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_accepting(GROUP_NOTE, re.compile("archived items"))],
+        )
+
+
+def test_a_warning_no_entry_accepts_is_still_refused(tmp_path: Path) -> None:
+    with pytest.raises(AssertionError, match="may be partial: archived items"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"probe_drift": BENIGN_NOTE},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_accepting(GROUP_NOTE)],
+        )
+
+
+def test_an_accepted_entry_that_matched_nothing_fails(tmp_path: Path) -> None:
+    listing = _accepting(GROUP_NOTE, re.compile("archived .*"), "a note never given")
+    with pytest.raises(AssertionError, match="'a note never given' matched nothing"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"probe_drift": BENIGN_NOTE},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [listing],
+        )
+
+
+def test_accept_warnings_cannot_waive_a_truncated_listing(tmp_path: Path) -> None:
+    capped = ParityListing(
+        "groups",
+        "groups",
+        emitted=lambda index: index.container_names(GROUP_KIND),
+        kwargs={"limit": 1},
+        accept_warnings=(re.compile(".*"),),
+    )
+    with pytest.raises(AssertionError, match="stopped at its limit"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"probe_drift": BENIGN_NOTE},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [capped],
         )
 
 
