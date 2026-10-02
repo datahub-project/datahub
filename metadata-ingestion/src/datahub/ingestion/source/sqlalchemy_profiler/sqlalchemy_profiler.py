@@ -2,6 +2,7 @@
 
 import collections
 import concurrent.futures
+import contextlib
 import dataclasses
 import json
 import logging
@@ -934,6 +935,44 @@ class SQLAlchemyProfiler:
             **request.batch_kwargs,
         )
 
+    def _apply_query_timeout(
+        self,
+        conn: Connection,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> Optional[str]:
+        """
+        Put a per-statement time limit on the profiling connection.
+
+        Returns the statement that clears it again, or None when no limit was
+        applied — either unconfigured or unsupported by the platform.
+        """
+        seconds = self.config.query_timeout_seconds
+        if seconds is None:
+            return None
+        statements = adapter.get_query_timeout_statements(seconds)
+        if statements is None:
+            return None
+        apply, clear = statements
+        try:
+            conn.execute(sa.text(apply))
+        except Exception as e:
+            self.report.warning(
+                title="Profiling: query timeout unavailable",
+                message=(
+                    "The database did not accept the requested statement "
+                    "timeout. Profiling will run without one, so a single "
+                    "aggregate over a large table can hold a read view for as "
+                    "long as it takes."
+                ),
+                context=f"Asset: {pretty_name}; query_timeout_seconds={seconds}",
+                exc=e,
+            )
+            if not self.config.catch_exceptions:
+                raise
+            return None
+        return clear
+
     def _uses_row_count_estimate(self, adapter: PlatformAdapter) -> bool:
         return (
             self.config.profile_table_row_count_estimate_only
@@ -1504,7 +1543,8 @@ class SQLAlchemyProfiler:
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
-                with self.base_engine.connect() as conn:
+                with contextlib.ExitStack() as stack:
+                    conn = stack.enter_context(self.base_engine.connect())
                     isolation_level = self._profiling_isolation_level
                     if isolation_level is not None:
                         # Must be the first operation on this connection — the
@@ -1548,6 +1588,16 @@ class SQLAlchemyProfiler:
                             self._isolation_level_warning_logged = True
                             if not self.config.catch_exceptions:
                                 raise
+
+                    clear_timeout = self._apply_query_timeout(
+                        conn, adapter, pretty_name
+                    )
+                    if clear_timeout is not None:
+                        # Cleared on the way out: the connection goes back to a
+                        # pool shared with metadata extraction, which must not
+                        # inherit a profiling limit.
+                        stack.callback(conn.execute, sa.text(clear_timeout))
+
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     # Takes the real Connection: setup does DDL and reflection

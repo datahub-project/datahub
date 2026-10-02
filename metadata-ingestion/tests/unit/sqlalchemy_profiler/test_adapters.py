@@ -299,6 +299,10 @@ class TestGenericAdapter:
         """Create generic adapter for testing."""
         return GenericAdapter(config, report, mock_generic_engine)
 
+    def test_no_query_timeout_by_default(self, adapter):
+        """A platform without a session timeout must ignore the option, not guess."""
+        assert adapter.get_query_timeout_statements(30) is None
+
     @pytest.mark.parametrize(
         "non_null_count,expected",
         [(1, None), (5, 0.0), (0, None), (None, None)],
@@ -413,6 +417,12 @@ class TestMySQLAdapter:
     def adapter(self, config, report, mock_mysql_engine):
         """Create MySQL adapter for testing."""
         return MySQLAdapter(config, report, mock_mysql_engine)
+
+    def test_query_timeout_statements_are_millisecond_pairs(self, adapter):
+        """max_execution_time is milliseconds, and must be clearable."""
+        apply, clear = adapter.get_query_timeout_statements(30)
+        assert apply == "SET SESSION max_execution_time = 30000"
+        assert clear == "SET SESSION max_execution_time = DEFAULT"
 
     def test_get_approx_unique_count_expr(self, adapter, mock_mysql_engine):
         """Test MySQL uses COUNT(DISTINCT) for approximate unique count."""
@@ -546,6 +556,12 @@ class TestPostgresAdapter:
     def adapter(self, config, report, mock_postgres_engine):
         """Create PostgreSQL adapter for testing."""
         return PostgresAdapter(config, report, mock_postgres_engine)
+
+    def test_query_timeout_statements_are_millisecond_pairs(self, adapter):
+        """statement_timeout is milliseconds, and must be clearable."""
+        apply, clear = adapter.get_query_timeout_statements(30)
+        assert apply == "SET statement_timeout = 30000"
+        assert clear == "SET statement_timeout = DEFAULT"
 
     def test_get_approx_unique_count_expr(self, adapter, mock_postgres_engine):
         """Test PostgreSQL uses COUNT(DISTINCT)."""

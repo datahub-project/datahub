@@ -253,6 +253,24 @@ class ProfilingConfig(ProfilingBaseConfig):
         ),
     )
 
+    query_timeout_seconds: Annotated[
+        Optional[pydantic.PositiveInt], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Server-side time limit for each profiling statement, in seconds. "
+            "Defaults to unset, so a statement runs as long as it takes. A single "
+            "aggregate over a very large table holds a read view for its whole "
+            "duration, growing the InnoDB undo log on MySQL and blocking VACUUM on "
+            "Postgres, which a limit here bounds. A statement that exceeds it fails, "
+            "and that table is reported and left unprofiled. The limit is set on the "
+            "profiling connection and cleared again when the table is done. Note that "
+            "a failed combined statement is retried one query at a time, so a table "
+            "that times out can spend up to `max_queries_to_combine` times this limit "
+            "before it is given up on."
+        ),
+    )
+
     @field_validator("profiling_isolation_level", mode="before")
     @classmethod
     def _normalize_profiling_isolation_level(cls, value: Any) -> Any:

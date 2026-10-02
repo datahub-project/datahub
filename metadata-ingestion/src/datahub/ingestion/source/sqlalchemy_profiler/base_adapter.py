@@ -487,6 +487,15 @@ class PlatformAdapter(ABC):
 
         return result
 
+    def get_query_timeout_statements(self, seconds: int) -> Optional[Tuple[str, str]]:
+        """
+        SQL to set a per-statement time limit on the session, and to clear it.
+
+        None means the platform has no session-level equivalent, in which case
+        the timeout option is ignored for it.
+        """
+        return None
+
     def get_stdev_expr(self, column: str) -> ColumnElement[Any]:
         """
         Sample-stddev expression. Some dialects' bare `stddev()` is population

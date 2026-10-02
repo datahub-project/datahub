@@ -1,7 +1,7 @@
 """PostgreSQL-specific profiling adapter."""
 
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
@@ -112,6 +112,13 @@ class PostgresAdapter(PlatformAdapter):
     # =========================================================================
     # Row Count Estimation
     # =========================================================================
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[Tuple[str, str]]:
+        # statement_timeout is in milliseconds.
+        return (
+            f"SET statement_timeout = {seconds * 1000}",
+            "SET statement_timeout = DEFAULT",
+        )
 
     def supports_row_count_estimation(self) -> bool:
         """
