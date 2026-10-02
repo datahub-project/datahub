@@ -934,38 +934,38 @@ class SQLAlchemyProfiler:
             **request.batch_kwargs,
         )
 
-    def _profile_row_count(
+    def _uses_row_count_estimate(self, adapter: PlatformAdapter) -> bool:
+        return (
+            self.config.profile_table_row_count_estimate_only
+            and adapter.supports_row_count_estimation()
+        )
+
+    def _schedule_row_count(
         self,
-        runner: QueryCombinerRunner,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> FutureResult[int]:
+        use_estimation = self._uses_row_count_estimate(adapter)
+        logger.debug(
+            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
+        )
+        return batch.get_row_count(sql_table, use_estimation=use_estimation)
+
+    def _extract_row_count(
+        self,
+        row_count_future: FutureResult[int],
         profile: DatasetProfileClass,
         context: ProfilingContext,
         pretty_name: str,
-        adapter: PlatformAdapter,
     ) -> Optional[int]:
         """
-        Stage 1: Profile row count.
-
-        Schedules, flushes, and extracts row count. Updates partition spec if sampling was applied.
+        Extract the row count and update the partition spec if sampling was applied.
 
         Returns:
             Row count (or None if unavailable)
         """
-        use_estimation = (
-            self.config.profile_table_row_count_estimate_only
-            and adapter.supports_row_count_estimation()
-        )
-        logger.debug(
-            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
-        )
-
-        # Stage 1: row count. Executes on exit from the batch block.
-        logger.debug(f"profiling {pretty_name}: flushing stage 1 (row count)")
-        with runner.batch() as batch:
-            row_count_future = batch.get_row_count(
-                sql_table, use_estimation=use_estimation
-            )
-
         # Extract row count result with exception handling
         try:
             profile.rowCount = row_count_future.result()
@@ -1637,45 +1637,6 @@ class SQLAlchemyProfiler:
                     # ================================================================
 
                     # ----------------------------------------------------------------
-                    # STAGE 1: Row Count
-                    # ----------------------------------------------------------------
-                    row_count = self._profile_row_count(
-                        runner=runner,
-                        sql_table=sql_table,
-                        profile=profile,
-                        context=context,
-                        pretty_name=pretty_name,
-                        adapter=adapter,
-                    )
-
-                    # Skip column profiling when row_count tells us there's no data to profile:
-                    # - row_count is None: row count query failed (permission error etc.)
-                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
-                    #
-                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
-                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
-                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
-                    # recently-modified tables that actually have data — never analyzed yet, or
-                    # stats not refreshed. Treating that 0 as "skip column profiling" would
-                    # silently drop fieldProfiles for non-empty tables, so we still
-                    # proceed to column-level queries when using estimation.
-                    use_estimation = (
-                        self.config.profile_table_row_count_estimate_only
-                        and adapter.supports_row_count_estimation()
-                    )
-                    if row_count is None or (row_count == 0 and not use_estimation):
-                        reason = (
-                            "empty table (rowCount=0)"
-                            if row_count == 0
-                            else "row count unavailable (permission error or query failure)"
-                        )
-                        logger.info(
-                            f"Skipping column profiling for {pretty_name}: {reason}"
-                        )
-                        # Return profile with basic table-level metadata but no field profiles
-                        return profile
-
-                    # ----------------------------------------------------------------
                     # SETUP: Get columns to profile and sampling configuration
                     # ----------------------------------------------------------------
                     columns_to_profile = self._get_columns_to_profile(
@@ -1706,13 +1667,19 @@ class SQLAlchemyProfiler:
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 2: Column Cardinality + Numeric Stats
+                    # STAGE 1: Row Count + Column Cardinality + Numeric Stats
                     # ----------------------------------------------------------------
                     column_types = self._resolve_column_types(
                         sql_table, columns_to_profile_set, platform
                     )
 
                     with runner.batch() as batch:
+                        row_count_future = self._schedule_row_count(
+                            batch=batch,
+                            sql_table=sql_table,
+                            adapter=adapter,
+                            pretty_name=pretty_name,
+                        )
                         cardinality_futures = self._schedule_cardinality_queries(
                             batch=batch,
                             sql_table=sql_table,
@@ -1727,6 +1694,38 @@ class SQLAlchemyProfiler:
                             columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
                             pretty_name=pretty_name,
                         )
+
+                    row_count = self._extract_row_count(
+                        row_count_future=row_count_future,
+                        profile=profile,
+                        context=context,
+                        pretty_name=pretty_name,
+                    )
+
+                    # Emit no field profiles when the row count says there is no data:
+                    # - row_count is None: row count query failed (permission error etc.)
+                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
+                    #
+                    # The column queries have already run — over an empty table they scan
+                    # nothing, which is why they are scheduled alongside the row count
+                    # rather than behind it. Their results are simply dropped here.
+                    #
+                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
+                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
+                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
+                    # recently-modified tables that actually have data — never analyzed yet, or
+                    # stats not refreshed. Treating that 0 as "no data" would silently drop
+                    # fieldProfiles for non-empty tables.
+                    if row_count is None or (
+                        row_count == 0 and not self._uses_row_count_estimate(adapter)
+                    ):
+                        reason = (
+                            "empty table (rowCount=0)"
+                            if row_count == 0
+                            else "row count unavailable (permission error or query failure)"
+                        )
+                        logger.info(f"No column profiles for {pretty_name}: {reason}")
+                        return profile
 
                     columns_with_types = self._extract_cardinality_results(
                         sql_table=sql_table,

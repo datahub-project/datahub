@@ -22,6 +22,9 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombiner,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
     format_profile_value,
@@ -34,6 +37,15 @@ from datahub.metadata.schema_classes import (
     PartitionTypeClass,
 )
 from datahub.utilities.stats_collections import float_top_k_dict
+
+
+def _inactive_combiner() -> SQLAlchemyQueryCombiner:
+    """A combiner that runs each query as it is scheduled, for tests with mocks."""
+    return SQLAlchemyQueryCombiner(
+        enabled=False,
+        catch_exceptions=True,
+        serial_execution_fallback_enabled=True,
+    )
 
 
 @pytest.fixture
@@ -254,7 +266,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -325,7 +337,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -395,7 +407,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -431,7 +443,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -699,7 +711,7 @@ class TestSQLAlchemyProfiler:
 
             # Attempt to profile - should return None for failed profiling
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Verify that None is returned (no profile emitted on failure)
@@ -741,9 +753,8 @@ class TestSQLAlchemyProfiler:
         )
 
         # Define side effect that sets profile.rowCount = 0 and returns 0
-        def mock_profile_row_count(*args, **kwargs):
-            # The profile parameter is at index 3 (after self, runner, query_combiner, sql_table)
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -752,7 +763,7 @@ class TestSQLAlchemyProfiler:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -770,7 +781,7 @@ class TestSQLAlchemyProfiler:
 
             # Attempt to profile - should return basic profile
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Verify that a basic profile is returned (not None)
@@ -940,8 +951,8 @@ class TestProfilingIsolationLevelRejection:
         metadata = sa.MetaData()
         sql_table = sa.Table("test_table", metadata, sa.Column("id", sa.Integer))
 
-        def mock_profile_row_count(*args, **kwargs):
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -950,7 +961,7 @@ class TestProfilingIsolationLevelRejection:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -969,7 +980,7 @@ class TestProfilingIsolationLevelRejection:
             mock_get_adapter.return_value = mock_adapter
 
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
         assert result_request == request
@@ -1031,8 +1042,8 @@ class TestProfilingIsolationLevelRejection:
         metadata = sa.MetaData()
         sql_table = sa.Table("test_table", metadata, sa.Column("id", sa.Integer))
 
-        def mock_profile_row_count(*args, **kwargs):
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -1052,7 +1063,7 @@ class TestProfilingIsolationLevelRejection:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -1105,8 +1116,8 @@ class TestProfilingIsolationLevelRejection:
         metadata = sa.MetaData()
         sql_table = sa.Table("test_table", metadata, sa.Column("id", sa.Integer))
 
-        def mock_profile_row_count(*args, **kwargs):
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -1115,7 +1126,7 @@ class TestProfilingIsolationLevelRejection:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -1129,7 +1140,7 @@ class TestProfilingIsolationLevelRejection:
             mock_get_adapter.return_value = mock_adapter
 
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
         assert result_request == request
