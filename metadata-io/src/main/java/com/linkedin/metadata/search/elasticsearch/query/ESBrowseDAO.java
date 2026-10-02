@@ -469,7 +469,8 @@ public class ESBrowseDAO {
       return Collections.emptyList();
     }
     final Map sourceMap = searchHits[0].getSourceAsMap();
-    if (!sourceMap.containsKey(BROWSE_PATH)) {
+    // A removed browsePaths aspect leaves the field null rather than absent
+    if (!(sourceMap.get(BROWSE_PATH) instanceof List)) {
       return Collections.emptyList();
     }
     List<String> browsePaths =
