@@ -284,14 +284,24 @@ class _WarehouseTable(_Shape):
     @model_validator(mode="before")
     @classmethod
     def _no_element(cls, values: Any) -> Any:
-        if isinstance(values, dict) and _ELEMENT_ID in values:
+        # Only a usable one contradicts the kind; a null or blank one is absent.
+        if isinstance(values, dict) and _non_blank_or_none(values.get(_ELEMENT_ID)):
             raise ValueError("a warehouse table names no element")
         return values
 
 
+def _normalised_kind(values: Any) -> Any:
+    if isinstance(values, dict) and isinstance(values.get("kind"), str):
+        return {**values, "kind": _normalised(values["kind"])}
+    return values
+
+
+_AnyDescriptor = Union[_LocalElement, _OtherModelElement, _WarehouseTable]
+# Kinds are matched like every other kind here: stripped and lowercased.
 _Descriptor = Annotated[
-    Union[_LocalElement, _OtherModelElement, _WarehouseTable],
+    _AnyDescriptor,
     Field(discriminator="kind"),
+    BeforeValidator(_normalised_kind),
 ]
 
 
@@ -347,6 +357,8 @@ class _UnionSource(_Shape):
 
 
 class _Element(_Shape):
+    # Must never fail validation: it is validated unwrapped, so every field
+    # turns bad input into None and one bad element cannot fail the parse.
     id: _NonBlankOrNone = None
     kind: _NormalisedOrNone = None
     controlId: _NonBlankOrNone = None
@@ -359,11 +371,8 @@ class _SourceKind(_Shape):
 _T = TypeVar("_T")
 _S = TypeVar("_S", bound=_Shape)
 
-_DESCRIPTOR: TypeAdapter[Union[_LocalElement, _OtherModelElement, _WarehouseTable]] = (
-    TypeAdapter(_Descriptor)
-)
-# An empty slot is a branch contributing nothing.
-_UNION_SLOT: TypeAdapter[Optional[StrictStr]] = TypeAdapter(Optional[StrictStr])
+_DESCRIPTOR: TypeAdapter[_AnyDescriptor] = TypeAdapter(_Descriptor)
+_FORMULA: TypeAdapter[str] = TypeAdapter(StrictStr)
 _SCHEMA_VERSION: TypeAdapter[StrictInt] = TypeAdapter(StrictInt)
 _NON_BLANK: TypeAdapter[str] = TypeAdapter(_NonBlank)
 
@@ -435,7 +444,7 @@ def _iter_spec_elements(spec: Dict[str, Any]) -> _Elements:
 
 
 def _owner(
-    descriptor: Union[_LocalElement, _OtherModelElement, _WarehouseTable],
+    descriptor: _AnyDescriptor,
     own_data_model_id: Optional[str],
 ) -> _Owner:
     if isinstance(descriptor, _WarehouseTable):
@@ -596,7 +605,7 @@ def _read_union(
                 continue
             if raw_formula is None or raw_formula == "":
                 continue
-            formula = _valid(_UNION_SLOT, raw_formula)
+            formula = _valid(_FORMULA, raw_formula)
             if formula is None:
                 readable = False
                 continue
@@ -638,15 +647,12 @@ def _read_join_element(
     element_id: str,
     parameters: AbstractSet[str],
     own_data_model_id: Optional[str],
-    index: DataModelSpecIndex,
-) -> None:
+) -> _JoinRead:
     source = _model(_JoinSource, raw)
     if source is None:
-        index.unreadable_join_element_ids.append(element_id)
-        return
+        return _JoinRead(predicates=[], readable=False)
     # Judged per join: one readable join must not hide a broken one.
-    readable = True
-    multi_segment_refs = False
+    element = _JoinRead(predicates=[], readable=True)
     for join in source.joins:
         read = _read_join(
             join,
@@ -654,13 +660,12 @@ def _read_join_element(
             parameters=parameters,
             own_data_model_id=own_data_model_id,
         )
-        index.pairs.extend(read.predicates)
-        readable = readable and read.readable
-        multi_segment_refs = multi_segment_refs or read.multi_segment_refs
-    if multi_segment_refs:
-        index.multi_segment_ref_element_ids.append(element_id)
-    if not readable:
-        index.unreadable_join_element_ids.append(element_id)
+        element.predicates.extend(read.predicates)
+        element.readable = element.readable and read.readable
+        element.multi_segment_refs = (
+            element.multi_segment_refs or read.multi_segment_refs
+        )
+    return element
 
 
 def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
@@ -721,13 +726,17 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
             if not union.readable:
                 index.unreadable_union_element_ids.append(element_id)
         elif kind == _JOIN_KIND:
-            _read_join_element(
+            joins = _read_join_element(
                 source,
                 element_id=element_id,
                 parameters=parameters,
                 own_data_model_id=own_data_model_id,
-                index=index,
             )
+            index.pairs.extend(joins.predicates)
+            if joins.multi_segment_refs:
+                index.multi_segment_ref_element_ids.append(element_id)
+            if not joins.readable:
+                index.unreadable_join_element_ids.append(element_id)
         elif kind in _UNMAPPED_KINDS:
             index.unmapped_element_ids.setdefault(kind, []).append(element_id)
         elif kind not in _SINGLE_SOURCE_KINDS:

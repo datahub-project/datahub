@@ -30,7 +30,14 @@ def _plain_table(element_id: str) -> Dict[str, Any]:
 
 def _other_model(element_id: str, data_model_id: Any) -> Dict[str, Any]:
     """An element of a Data Model as Sigma stores it on a join side or union
-    branch: probed, a `dataModelId` on a `table` side is dropped on store."""
+    branch.
+
+    Probed on a test tenant by posting a Data Model whose join names another
+    model's element: `{"kind": "data-model", "dataModelId", "elementId"}` is
+    stored as posted, while `{"kind": "table", "elementId", "dataModelId"}` is
+    accepted and stored with `dataModelId` dropped. Sigma's published examples
+    have no cross-model join to check this against.
+    """
     return {"dataModelId": data_model_id, "elementId": element_id, "kind": "data-model"}
 
 
@@ -450,6 +457,30 @@ def test_a_multi_segment_side_is_recorded_beside_a_clean_join(first: bool) -> No
     index = _parse_join(*([through, clean] if first else [clean, through]))
     assert len(index.pairs) == 1
     assert index.multi_segment_ref_element_ids == ["el-x"]
+
+
+@pytest.mark.parametrize("kind", [" Table ", "TABLE"], ids=["padded", "upper"])
+def test_a_side_kind_is_matched_like_every_other_kind(kind: str) -> None:
+    """Element kind, source kind, joinType and op are stripped and lowercased."""
+    side = {**_ELEMENT_SIDE_L, "kind": kind}
+    index = _parse_join(
+        _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}], left=side)
+    )
+    assert index.pairs[0].left.element_id == "el-left"
+    assert index.unreadable_join_element_ids == []
+
+
+@pytest.mark.parametrize("element_id", [None, "", "  "], ids=["null", "empty", "blank"])
+def test_an_unusable_element_id_does_not_contradict_a_warehouse_side(
+    element_id: Any,
+) -> None:
+    """Only a usable elementId names an element; an unusable one is absent."""
+    side = {**_WAREHOUSE_SIDE, "elementId": element_id}
+    index = _parse_join(
+        _one_join([{"left": "[SOME_COL]", "right": _RIGHT_EXPR}], left=side)
+    )
+    assert index.pairs[0].left.connection_id == "conn-1"
+    assert index.unreadable_join_element_ids == []
 
 
 def test_a_warehouse_side_is_a_pair_the_consumer_can_map() -> None:
