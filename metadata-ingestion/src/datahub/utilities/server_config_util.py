@@ -39,9 +39,6 @@ class ServiceFeature(Enum):
     # entityTypes). Version-gated on managed servers; OSS is recipe-driven, so no
     # "core" requirement is defined (supports_feature returns False for core).
     SEMANTIC_MODEL_ENTITIES = "semantic_model_entities"
-    # Server excludes showInGlobalContext=false documents from search unless the
-    # includeNonGlobalContextDocuments search flag is set (managed servers only).
-    NON_GLOBAL_CONTEXT_DOCUMENTS = "non_global_context_documents"
     # Add more features as needed
 
 
@@ -52,10 +49,6 @@ _REQUIRED_VERSION_OPENAPI_TRACING = {
 
 _REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES = {
     "cloud": (2, 1, 0, 0),
-}
-
-_REQUIRED_VERSION_NON_GLOBAL_CONTEXT_DOCUMENTS = {
-    "cloud": (2, 3, 0, 0),
 }
 
 
@@ -265,7 +258,6 @@ class RestServiceConfig:
             ServiceFeature.OPEN_API_SDK: _REQUIRED_VERSION_OPENAPI_TRACING,
             ServiceFeature.API_TRACING: _REQUIRED_VERSION_OPENAPI_TRACING,
             ServiceFeature.SEMANTIC_MODEL_ENTITIES: _REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES,
-            ServiceFeature.NON_GLOBAL_CONTEXT_DOCUMENTS: _REQUIRED_VERSION_NON_GLOBAL_CONTEXT_DOCUMENTS,
             # Additional features can be defined here
         }
 

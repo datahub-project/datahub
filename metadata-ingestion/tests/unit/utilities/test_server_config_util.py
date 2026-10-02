@@ -323,25 +323,6 @@ def test_supports_feature_semantic_model_entities_versions(sample_config):
         mock_version_check.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "server_env,version,expected",
-    [("cloud", "v2.3.0", True), ("cloud", "v2.2.1", False), ("core", "v1.7.0", False)],
-)
-def test_supports_feature_non_global_context_documents(
-    sample_config, server_env, version, expected
-):
-    """Only managed servers from 2.3.0 accept the includeNonGlobalContextDocuments flag."""
-    config_dict = {
-        **sample_config,
-        "versions": {"acryldata/datahub": {"version": version}},
-        "datahub": {"serverEnv": server_env},
-    }
-    config = RestServiceConfig(raw_config=config_dict)
-    assert (
-        config.supports_feature(ServiceFeature.NON_GLOBAL_CONTEXT_DOCUMENTS) is expected
-    )
-
-
 def test_datahub_cloud_feature(sample_config):
     """Test the DATAHUB_CLOUD feature detection."""
     # Test with cloud environment

@@ -43,7 +43,6 @@ from datahub.ingestion.source.unstructured.chunking_source import (
     compute_source_text_sha256,
 )
 from datahub.metadata.schema_classes import SemanticContentClass
-from datahub.utilities.server_config_util import ServiceFeature
 
 
 def _mock_fetch(source, entities, urns=None):
@@ -3332,16 +3331,16 @@ class TestFetchDocumentsPagination:
             assert not source.report.failures
 
     @pytest.mark.parametrize(
-        "supports_feature_kwargs,expect_flag",
+        "schema_check_kwargs,expect_flag",
         [
             ({"return_value": True}, True),
             ({"return_value": False}, False),
-            # Unparseable server version: fail closed, but surface it in the report.
-            ({"side_effect": ValueError("Invalid version format")}, False),
+            # Schema check failed: fail closed, but surface it in the report.
+            ({"side_effect": GraphError("introspection failed")}, False),
         ],
     )
     def test_search_flags_reach_hidden_documents(
-        self, ctx, config, mock_graph, supports_feature_kwargs, expect_flag
+        self, ctx, config, mock_graph, schema_check_kwargs, expect_flag
     ):
         """Hidden-lifecycle docs are always requested; non-global-context docs only when
         the server supports the flag, since older servers reject unknown search flags."""
@@ -3352,24 +3351,24 @@ class TestFetchDocumentsPagination:
 
             with (
                 patch.object(
-                    source.graph.server_config,
-                    "supports_feature",
-                    **supports_feature_kwargs,
-                ) as mock_supports,
+                    source.graph,
+                    "_graphql_input_type_has_field",
+                    **schema_check_kwargs,
+                ) as mock_schema_check,
                 patch.object(
                     source.graph, "execute_graphql", return_value=response
                 ) as mock_execute,
             ):
                 list(source._scroll_document_urns())
 
-            mock_supports.assert_called_once_with(
-                ServiceFeature.NON_GLOBAL_CONTEXT_DOCUMENTS
+            mock_schema_check.assert_called_once_with(
+                "SearchFlags", "includeNonGlobalContextDocuments"
             )
             flags = mock_execute.call_args[0][1]["searchFlags"]
             assert flags["includeHiddenLifecycleStages"] is True
             assert ("includeNonGlobalContextDocuments" in flags) is expect_flag
             assert bool(source.report.warnings) is (
-                "side_effect" in supports_feature_kwargs
+                "side_effect" in schema_check_kwargs
             )
 
     def test_empty_result_set(self, ctx, config, mock_graph):

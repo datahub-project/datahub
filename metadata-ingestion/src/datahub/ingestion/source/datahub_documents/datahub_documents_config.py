@@ -155,7 +155,7 @@ class DataHubDocumentsSourceConfig(
         description="Index EXTERNAL documents (sourceType=EXTERNAL), not just NATIVE ones. "
         "When platform_filter is set, EXTERNAL documents are still restricted to those "
         "platforms; when platform_filter is empty, all EXTERNAL documents are included. "
-        "Set to False to restore NATIVE-only behavior.",
+        "Set to False to process only DataHub-owned (NATIVE and SYSTEM) documents.",
     )
 
     # Optional URN filtering

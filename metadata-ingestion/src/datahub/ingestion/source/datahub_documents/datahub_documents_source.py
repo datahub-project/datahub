@@ -59,7 +59,6 @@ from datahub.ingestion.source.unstructured.chunking_source import (
     compute_source_text_sha256,
 )
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
-from datahub.utilities.server_config_util import ServiceFeature
 
 logger = logging.getLogger(__name__)
 
@@ -1067,24 +1066,24 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
 
     def _supports_non_global_context_documents(self) -> bool:
-        server_config = self.graph.server_config
+        # Ask the live schema rather than infer from the server version: a server
+        # that doesn't define this flag rejects the whole query when it is sent.
         try:
-            supported = server_config.supports_feature(
-                ServiceFeature.NON_GLOBAL_CONTEXT_DOCUMENTS
+            supported = self.graph._graphql_input_type_has_field(
+                "SearchFlags", "includeNonGlobalContextDocuments"
             )
-        except ValueError as e:
-            # Unparseable server version: fail closed, an unknown flag fails the query.
+        except GraphError as e:
             self.report.warning(
                 title="Documents outside the global context were not enumerated",
-                message="Could not parse the DataHub server version, so documents hidden "
-                "from global search are not embedded in this run.",
-                context=f"server_version={server_config.service_version!r}",
+                message="Could not check whether the server supports "
+                "includeNonGlobalContextDocuments, so documents hidden from global "
+                "search are not embedded in this run.",
                 exc=e,
             )
             return False
         logger.info(
             f"includeNonGlobalContextDocuments {'enabled' if supported else 'disabled'} "
-            f"for document enumeration (server_version={server_config.service_version!r})"
+            "for document enumeration"
         )
         return supported
 
