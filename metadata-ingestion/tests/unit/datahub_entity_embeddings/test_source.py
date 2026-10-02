@@ -220,6 +220,18 @@ class TestResolveEntityTypes:
         )
         assert source.report.entity_types_embedded == ["dataProcessInstance", "dataset"]
 
+    def test_types_without_a_search_group_are_eligible(self):
+        # The base registry assigns no search groups since search V3.
+        assert parse_registry(REGISTRY)["dataset"].search_group is None
+        source = self.resolve(
+            ["dataset", "dataProcessInstance"], search_groups=["timeseries"]
+        )
+        assert source.report.entity_types_embedded == ["dataProcessInstance", "dataset"]
+
+    def test_empty_entity_types_are_rejected(self):
+        with pytest.raises(ValueError, match="entity_types"):
+            DataHubEntityEmbeddingsSourceConfig.model_validate({"entity_types": []})
+
     def test_explicit_types_must_be_enabled_on_server(self):
         source = self.resolve(["dataset"], entity_types=["dataset", "chart", "unknown"])
         assert source.report.entity_types_embedded == ["dataset"]
@@ -279,6 +291,19 @@ class TestRun:
             incremental={"force_reprocess": True},
         )
         assert len(second.run()) == 1
+
+    def test_failed_forced_reembed_is_retried_next_run(self):
+        first = Harness({"dataset": [[dataset("a")]]})
+        first.run()
+        urn = dataset("a")["urn"]
+        second = Harness(
+            {"dataset": [[dataset("a")]]},
+            state=first.recorded,
+            incremental={"force_reprocess": True},
+        )
+        second.chunking.process_elements_inline.side_effect = RuntimeError("down")
+        assert second.run() == []
+        assert urn not in second.current_state.document_state
 
     def test_prunes_state_of_entities_no_longer_present(self):
         gone = "urn:li:dataset:(urn:li:dataPlatform:bigquery,gone,PROD)"
@@ -342,6 +367,21 @@ class TestRun:
         harness.chunking.process_elements_inline.side_effect = RuntimeError("down")
         assert harness.run() == []
         assert harness.source.report.num_entities_failed == {"dataset": 2}
+        assert harness.source.report.failures
+
+    def test_skip_markers_do_not_hide_a_failing_provider(self):
+        # Skip markers never call the provider, so they don't reset the count.
+        def empty(name: str) -> Dict[str, Any]:
+            return {"urn": f"urn:li:dataset:(urn:li:dataPlatform:bigquery,{name},PROD)"}
+
+        harness = Harness(
+            {"dataset": [[dataset("a"), empty("e1"), dataset("b"), empty("e2")]]},
+            max_consecutive_failures=2,
+        )
+        harness.chunking.process_elements_inline.side_effect = RuntimeError("down")
+        harness.run()
+        assert harness.source.report.num_entities_failed == {"dataset": 2}
+        assert harness.source.report.num_entities_empty == {"dataset": 1}
         assert harness.source.report.failures
 
     def test_passes_the_source_text_hash(self):

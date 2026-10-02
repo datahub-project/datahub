@@ -24,6 +24,8 @@ from typing import (
 )
 
 from datahub.ingestion.source.datahub_entity_embeddings.config import EntityTextConfig
+from datahub.metadata.urns import Urn
+from datahub.utilities.urns.error import InvalidUrnError
 
 TEXT_FIELD_TYPES = frozenset({"TEXT", "TEXT_PARTIAL", "WORD_GRAM"})
 URN_FIELD_TYPES = frozenset({"URN", "URN_PARTIAL"})
@@ -195,16 +197,25 @@ def humanize(name: str) -> str:
     return text[0].upper() + text[1:]
 
 
-def urn_entity_type(urn: str) -> Optional[str]:
-    parts = urn.split(":", 3)
-    if len(parts) < 4 or parts[0] != "urn" or parts[1] != "li":
+def _parse_urn(urn: str) -> Optional[Urn]:
+    # URN values come from aspects written by any source; a malformed one is skipped.
+    try:
+        return Urn.from_string(urn)
+    except InvalidUrnError:
         return None
-    return parts[2]
+
+
+def urn_entity_type(urn: str) -> Optional[str]:
+    parsed = _parse_urn(urn)
+    return parsed.entity_type if parsed else None
 
 
 def urn_id(urn: str) -> str:
-    parts = urn.split(":", 3)
-    return parts[3] if len(parts) == 4 else urn
+    """The entity id of a single-id URN (e.g. a tag's name), else the URN itself."""
+    parsed = _parse_urn(urn)
+    if parsed is None or len(parsed.entity_ids) != 1:
+        return urn
+    return parsed.entity_ids[0]
 
 
 def clean_field_path(path: str) -> str:
@@ -309,7 +320,8 @@ class EntityTextBuilder:
             if not self.config.include_custom_properties or not isinstance(raw, dict):
                 return []
             rendered = []
-            for key, val in raw.items():
+            # Map order is not stable across responses; it must not change the hash.
+            for key, val in sorted(raw.items()):
                 normalized = self._normalize(val)
                 if normalized:
                     rendered.append(f"{key}: {normalized}")
@@ -489,7 +501,8 @@ class EntityTextBuilder:
             lines += self._render_group(group)
 
         text = "\n".join(lines).strip() + "\n"
-        if len(text) > self.config.max_text_chars:
-            cut = text.rfind("\n", 0, self.config.max_text_chars)
-            text = text[: cut if cut > 0 else self.config.max_text_chars] + "\n"
+        limit = self.config.max_text_chars
+        if len(text) > limit:
+            cut = text.rfind("\n", 0, limit)
+            text = text[: cut + 1] if cut > 0 else text[:limit]
         return text

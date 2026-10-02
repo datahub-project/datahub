@@ -140,6 +140,36 @@ class TestBuild:
         text = self.build(specs, EntityTextConfig(include_custom_properties=True))
         assert "is_partitioned: true" in text
 
+    def test_custom_properties_order_does_not_change_the_text(self, specs):
+        config = EntityTextConfig(include_custom_properties=True)
+        texts = []
+        for properties in ({"b": "2", "a": "1"}, {"a": "1", "b": "2"}):
+            aspects = dataset_aspects()
+            aspects["datasetProperties"]["customProperties"] = properties
+            texts.append(
+                EntityTextBuilder(config).build(
+                    specs["dataset"], DATASET_URN, aspects, resolve
+                )
+            )
+        assert texts[0] == texts[1]
+        assert "a: 1, b: 2" in texts[0]
+
+    def test_field_descriptions_are_sanitized_rich_text(self, specs):
+        aspects = dataset_aspects()
+        aspects["schemaMetadata"]["fields"][0]["description"] = "<p>Customer id</p>"
+        text = EntityTextBuilder(EntityTextConfig()).build(
+            specs["dataset"], DATASET_URN, aspects, resolve
+        )
+        assert "- customer.id: Customer id; Tags: pii" in text
+
+    def test_malformed_reference_urns_are_skipped(self, specs):
+        aspects = dataset_aspects()
+        aspects["globalTags"]["tags"].append({"tag": "not-an-urn"})
+        text = EntityTextBuilder(EntityTextConfig()).build(
+            specs["dataset"], DATASET_URN, aspects, resolve
+        )
+        assert "not-an-urn" not in text
+
     def test_output_is_deterministic(self, specs):
         assert self.build(specs) == self.build(specs)
 
@@ -182,8 +212,16 @@ class TestBuild:
         text = EntityTextBuilder(config).build(
             specs["dataset"], DATASET_URN, aspects, resolve
         )
-        assert len(text) <= 401
+        assert len(text) <= 400
+        assert text.endswith("\n")
         assert "col_10" not in text
+
+    def test_text_without_line_breaks_is_cut_at_the_cap(self, specs):
+        config = EntityTextConfig(max_text_chars=10)
+        text = EntityTextBuilder(config).build(
+            specs["tag"], "urn:li:tag:pii", {"tagKey": {"name": "pii"}}, resolve
+        )
+        assert text == "# Tag: pii"
 
     def test_name_only_entity_uses_urn_id(self, specs):
         text = EntityTextBuilder(EntityTextConfig()).build(

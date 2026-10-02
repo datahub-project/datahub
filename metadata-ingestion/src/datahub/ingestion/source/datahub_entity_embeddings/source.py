@@ -1,7 +1,8 @@
 """DataHub Entity Embeddings source.
 
-Generates ``semanticContent`` embeddings for every entity type the server has
-enabled for semantic search, except documents (owned by ``datahub-documents``):
+Generates ``semanticContent`` embeddings for the entity types the server has
+enabled for semantic search, except documents (owned by ``datahub-documents``) and
+types in search groups outside ``search_groups``:
 
 1. Discovers the enabled entity types from the server (appConfig) and their
    searchable fields from the server's entity registry.
@@ -337,7 +338,12 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
                     "type (add it with a registry plugin)",
                     False,
                 )
-            elif spec.search_group not in self.config.search_groups:
+            # Registries without search groups (the base one since search V3) put
+            # each type in its own index; being enabled on the server is the opt-in.
+            elif (
+                spec.search_group is not None
+                and spec.search_group not in self.config.search_groups
+            ):
                 reason = (
                     f"search group '{spec.search_group}' is not in search_groups "
                     "(operational types are opt-in)"
@@ -490,6 +496,9 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
             if not workunits:
                 raise ValueError("No semanticContent was produced for the entity")
         except Exception as e:
+            # Its previous hash may still match (e.g. a failed forced re-embed);
+            # forgetting it makes the next run retry the entity.
+            self._forget(urn)
             self.report.count(self.report.num_entities_failed, entity_type)
             self._consecutive_failures += 1
             self.report.warning(
@@ -547,6 +556,15 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
             self.state_handler.update_document_state(
                 urn, content_hash, datetime.now(timezone.utc).isoformat()
             )
+
+    def _forget(self, urn: str) -> None:
+        if (
+            self.state_handler is not None
+            and self.state_handler.is_checkpointing_enabled()
+        ):
+            state = self.state_handler.get_current_state()
+            if state is not None:
+                state.document_state.pop(urn, None)
 
     def _prune_state(self, seen: Set[str]) -> None:
         """Forget entities that no longer exist or are no longer embedded by this source."""

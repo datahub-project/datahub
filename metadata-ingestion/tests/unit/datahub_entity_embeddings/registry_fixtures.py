@@ -43,7 +43,7 @@ def entity(
     key_aspect: Dict[str, Any],
     aspects: List[Dict[str, Any]],
     field_types: Dict[str, List[str]],
-    search_group: str = "primary",
+    search_group: Optional[str] = None,
 ) -> Dict[str, Any]:
     return {
         "name": name,
@@ -83,7 +83,7 @@ DATASET = entity(
         aspect(
             "schemaMetadata",
             searchable("/fields/*/fieldPath", "fieldPaths"),
-            searchable("/fields/*/description", "fieldDescriptions"),
+            searchable("/fields/*/description", "fieldDescriptions", rich_text=True),
             searchable("/fields/*/globalTags/tags/*/tag", "fieldTags"),
         ),
         aspect(
@@ -95,7 +95,10 @@ DATASET = entity(
         aspect("globalTags", searchable("/tags/*/tag", "tags")),
         aspect("domains", searchable("/domains/*", "domains")),
         aspect("container", searchable("/container", "container")),
-        aspect("ownership", searchable("/owners/*/owner", "owners")),
+        aspect(
+            "ownership",
+            searchable("/owners/*/owner", "owners", query_by_default=False),
+        ),
         aspect(
             "siblings", searchable("/siblings/*", "siblings", query_by_default=False)
         ),

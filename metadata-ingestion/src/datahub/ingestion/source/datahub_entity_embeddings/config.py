@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
@@ -166,9 +166,11 @@ class DataHubEntityEmbeddingsSourceConfig(
     )
     search_groups: List[str] = Field(
         default=["primary"],
-        description="Registry search groups eligible for embedding. 'primary' covers "
-        "the catalog's user-facing assets; operational groups ('timeseries', 'query', "
-        "'schemaField', 'default') can hold millions of entities and must be opted into.",
+        description="Registry search groups eligible for embedding, for registries that "
+        "assign entity types to search groups. 'primary' covers the catalog's "
+        "user-facing assets; operational groups ('timeseries', 'query', 'schemaField', "
+        "'default') can hold millions of entities and must be opted into. Entity types "
+        "without a search group are not filtered by this setting.",
     )
     platform_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -222,3 +224,13 @@ class DataHubEntityEmbeddingsSourceConfig(
         description="Stateful ingestion keeps the text hash of every embedded entity "
         "so unchanged entities are not re-embedded.",
     )
+
+    @field_validator("entity_types")
+    @classmethod
+    def _entity_types_not_empty(cls, v: List[str]) -> List[str]:
+        if not any(t.strip() for t in v):
+            raise ValueError(
+                f"entity_types must list '{AUTO_ENTITY_TYPES}' or at least one entity "
+                "type; an empty list would embed nothing."
+            )
+        return v
