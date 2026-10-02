@@ -109,17 +109,11 @@ class GenericProfiler:
             request = profiler_request
             profile.sizeInBytes = request.table.size_in_bytes
 
-            # A non-FULL_TABLE partition spec means the profiler measured only part
-            # of the dataset -- one partition, or a TABLESAMPLE materialized into a
-            # temp table. Column statistics necessarily describe just that subset,
-            # but DatasetProfile.rowCount is "the total number of rows" of the
-            # dataset, so it comes from the source metadata rather than from the
-            # subset that was scanned. Deliberate since #8902; see
-            # docs/dev_guides/sql_profiles.md.
-            #
-            # Assigning None when the metadata has no count is intentional: the
-            # field is optional precisely so "unknown" can be expressed, and the
-            # subset's own size is not an answer to the question it asks.
+            # A non-FULL_TABLE spec means only part of the dataset was scanned --
+            # one partition, or a sample. rowCount is the dataset's total, so it
+            # comes from source metadata, not from the subset. None when metadata
+            # has no count: the field is optional so "unknown" can be stated.
+            # Deliberate since #8902; see docs/dev_guides/sql_profiles.md.
             if (
                 profile.partitionSpec
                 and profile.partitionSpec.type != PartitionType.FULL_TABLE
