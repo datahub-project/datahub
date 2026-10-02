@@ -1,9 +1,11 @@
+import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 from unittest import mock
 
 import pytest
 
+from datahub.metadata.urns import DashboardUrn
 from tests.integration.powerbi.test_powerbi import (
     default_source_config,
     mock_msal_cca,
@@ -11,6 +13,8 @@ from tests.integration.powerbi.test_powerbi import (
     register_mock_api,
 )
 from tests.test_helpers.probe_parity import (
+    EmittedIndex,
+    FanOut,
     ParityListing,
     assert_probe_parity,
     pipeline_ingestion,
@@ -35,6 +39,23 @@ _WORKSPACES = ParityListing(
 # The default mock answers a scan for these two only, so every case drops the
 # third workspace, "Workspace 2".
 _SECOND = "64ED5CAD-7C22-4684-8180-826122881108"
+_WORKSPACE_2 = "64ED5CAD-7322-4684-8180-826122881108"
+_DASHBOARD_PREFIX = "dashboards."
+
+
+def _dashboard_ids(index: EmittedIndex) -> Set[str]:
+    # Reports are emitted as dashboard entities too, under "reports.<id>".
+    ids = (DashboardUrn.from_string(u).dashboard_id for u in index.urns("dashboard"))
+    return {i[len(_DASHBOARD_PREFIX) :] for i in ids if i.startswith(_DASHBOARD_PREFIX)}
+
+
+# powerbi_probe.py, `_workspace_or_raise`: `dashboards --workspace` warns on
+# every run under a workspace workspace_id_pattern drops. A note on the
+# parent's verdict, not a degraded fetch.
+_ID_DENIED_PARENT = re.compile(
+    r"workspace '[^']+' \(id [0-9A-Fa-f-]+\) is excluded by workspace_id_pattern, "
+    r"so ingestion reads nothing in it"
+)
 
 
 def _recipe(**overrides: Any) -> Dict[str, Any]:
@@ -43,42 +64,66 @@ def _recipe(**overrides: Any) -> Dict[str, Any]:
     return {**config, "extract_workspaces_to_containers": True, **overrides}
 
 
-@pytest.mark.parametrize(
-    "overrides, excluded",
-    [
-        (
-            {"workspace_name_pattern": {"deny": ["^Workspace 2$"]}},
-            {"Workspace 2": "workspace_name_pattern"},
-        ),
-        (
-            {
-                "workspace_name_pattern": {"deny": ["^Workspace 2$"]},
-                "workspace_id_pattern": {"deny": [f"^{_SECOND}$"]},
-            },
-            {
-                "Workspace 2": "workspace_name_pattern",
-                "second-demo-workspace": "workspace_id_pattern",
-            },
-        ),
-    ],
-)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_workspace_verdicts_match_ingestion(
+def test_workspace_name_verdicts_match_ingestion(
     mock_msal: mock.MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: Path,
     requests_mock: Any,
-    overrides: Dict[str, Any],
-    excluded: Dict[str, str],
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
     report = assert_probe_parity(
         "powerbi",
-        _recipe(**overrides),
+        _recipe(workspace_name_pattern={"deny": ["^Workspace 2$"]}),
         pipeline_ingestion("powerbi", tmp_path),
         [_WORKSPACES],
     )
-    assert report.excluded_by("workspaces") == excluded
+    assert report.excluded_by("workspaces") == {"Workspace 2": "workspace_name_pattern"}
+
+
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_workspace_and_dashboard_id_verdicts_match_ingestion(
+    mock_msal: mock.MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+    requests_mock: Any,
+) -> None:
+    register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
+    # The fan-out lists dashboards under every workspace, kept or not; the
+    # shared mock has no dashboards listing for the one ingestion never reads.
+    requests_mock.get(
+        f"https://api.powerbi.com/v1.0/myorg/groups/{_WORKSPACE_2}/dashboards",
+        json={"value": []},
+    )
+    dashboards = ParityListing(
+        "dashboards",
+        "dashboards",
+        _dashboard_ids,
+        identity=lambda r: r.attributes["id"],
+        fan_out=FanOut("workspaces", "workspace"),
+        accept_warnings=(_ID_DENIED_PARENT,),
+    )
+    report = assert_probe_parity(
+        "powerbi",
+        _recipe(
+            workspace_name_pattern={"deny": ["^Workspace 2$"]},
+            workspace_id_pattern={"deny": [f"^{_SECOND}$"]},
+        ),
+        pipeline_ingestion("powerbi", tmp_path),
+        [_WORKSPACES, dashboards],
+    )
+    assert report.excluded_by("workspaces") == {
+        "Workspace 2": "workspace_name_pattern",
+        "second-demo-workspace": "workspace_id_pattern",
+    }
+    # test_dashboard2, in the id-denied workspace.
+    assert report.excluded_by("dashboards") == {
+        "7D668CAD-8FFC-4505-9215-655BCA5BEBAE": "workspace_id_pattern"
+    }
+    assert report.kinds["dashboards"].accepted_warnings == (
+        f"workspace 'second-demo-workspace' (id {_SECOND}) is excluded by "
+        f"workspace_id_pattern, so ingestion reads nothing in it",
+    )
 
 
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)

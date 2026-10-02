@@ -420,8 +420,20 @@ def test_reports_are_listed_by_workspace_name_without_app_duplicates(
         "powerbi", dict(_RECIPE), "reports", {"workspace": "Sales"}
     )
     assert result.result == [
-        {"name": "Weekly", "id": "r-1", "type": "Report"},
-        {"name": "Invoice", "id": "r-2", "type": "PaginatedReport"},
+        {
+            "name": "Weekly",
+            "id": "r-1",
+            "type": "Report",
+            "workspace_id": "ws-1",
+            "workspace_type": "Workspace",
+        },
+        {
+            "name": "Invoice",
+            "id": "r-2",
+            "type": "PaginatedReport",
+            "workspace_id": "ws-1",
+            "workspace_type": "Workspace",
+        },
     ]
     assert result.parent_path == ["Sales"]
     assert result.warnings == []
@@ -441,7 +453,14 @@ def test_dashboards_are_listed_by_display_name_without_app_duplicates(
         },
     )
     with _probe() as probe:
-        assert probe.dashboards("Sales") == [{"name": "Overview", "id": "d-1"}]
+        assert probe.dashboards("Sales") == [
+            {
+                "name": "Overview",
+                "id": "d-1",
+                "workspace_id": "ws-1",
+                "workspace_type": "Workspace",
+            }
+        ]
 
 
 def test_a_workspace_scoped_command_lists_workspaces_exactly_once(
@@ -687,3 +706,35 @@ def test_a_saved_run_of_a_workspace_with_no_type_leaves_the_type_unjudged(
         "Untyped": None,
     }
     assert any("no workspace type for 'Untyped'" in w for w in result.warnings)
+
+
+def test_a_saved_report_inherits_its_workspaces_id_and_type_verdicts() -> None:
+    # The facts `reports` stamps on each record; the parent alone is judged
+    # on its name and would read as included.
+    _, verdicts = _judge(
+        "Report",
+        ["Weekly", "Mine"],
+        ["Sales"],
+        attributes=[
+            {"workspace_id": "ws-1", "workspace_type": "Workspace"},
+            {"workspace_id": "ws-1", "workspace_type": "PersonalGroup"},
+        ],
+        workspace_id_pattern={"deny": ["^ws-1$"]},
+    )
+    assert verdicts == {
+        "Weekly": (False, "workspace_id_pattern"),
+        "Mine": (False, "workspace_id_pattern"),
+    }
+    _, verdicts = _judge(
+        "Report",
+        ["Weekly", "Mine"],
+        ["Sales"],
+        attributes=[
+            {"workspace_id": "ws-1", "workspace_type": "Workspace"},
+            {"workspace_id": "ws-1", "workspace_type": "PersonalGroup"},
+        ],
+    )
+    assert verdicts == {
+        "Weekly": (True, None),
+        "Mine": (False, "workspace_type_filter"),
+    }
