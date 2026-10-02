@@ -4,6 +4,8 @@ import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
 import com.datahub.util.exception.ESQueryException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -66,8 +68,10 @@ import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.lucene.search.Explanation;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.text.Text;
@@ -288,6 +292,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
+    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     searchSourceBuilder.from(from);
@@ -314,6 +319,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
+    }
+
+    // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
+    if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
+      searchSourceBuilder.explain(true);
     }
 
     searchRequest.source(searchSourceBuilder);
@@ -347,6 +357,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull List<String> facets) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
+    applySearchType(searchRequest, opContext);
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
@@ -372,11 +383,33 @@ public class SearchRequestHandler extends BaseRequestHandler {
       searchSourceBuilder.highlighter(highlightBuilder);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+
+    // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
+    if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
+      searchSourceBuilder.explain(true);
+    }
+
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: {}", searchRequest);
     searchRequest.indicesOptions(null);
 
     return searchRequest;
+  }
+
+  /**
+   * Applies search type from SearchFlags to the SearchRequest.
+   *
+   * @param searchRequest the search request to configure
+   * @param opContext operation context holding the search flags
+   */
+  private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    String searchType = searchFlags.getSearchType();
+    if (SearchType.DFS_QUERY_THEN_FETCH.name().equalsIgnoreCase(searchType)) {
+      searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
+    } else {
+      searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
+    }
   }
 
   /**
@@ -745,7 +778,58 @@ public class SearchRequestHandler extends BaseRequestHandler {
           SearchResultUtils.toExtraFields(
               opContext.getObjectMapper(), hit.getSourceAsMap(), flags.getFetchExtraFields()));
     }
+    // Extract and serialize explanation if available
+    if (hit.getExplanation() != null) {
+      try {
+        String explanationJson =
+            serializeExplanation(opContext.getObjectMapper(), hit.getExplanation());
+        StringMap extraFields = entity.hasExtraFields() ? entity.getExtraFields() : new StringMap();
+        extraFields.put("_explain", explanationJson);
+        entity.setExtraFields(extraFields);
+      } catch (Exception e) {
+        log.warn("Failed to serialize explanation for document: {}", hit.getId(), e);
+        // Continue without explanation rather than failing the search
+      }
+    }
     return entity;
+  }
+
+  /**
+   * Serializes Elasticsearch Explanation to JSON string.
+   *
+   * @param objectMapper Jackson ObjectMapper for JSON serialization
+   * @param explanation Elasticsearch Explanation object
+   * @return JSON string representation of the explanation
+   */
+  private String serializeExplanation(
+      @Nonnull ObjectMapper objectMapper, @Nonnull Explanation explanation)
+      throws JsonProcessingException {
+    Map<String, Object> explanationMap = explanationToMap(explanation);
+    return objectMapper.writeValueAsString(explanationMap);
+  }
+
+  /**
+   * Recursively converts Explanation to Map for JSON serialization.
+   *
+   * @param explanation Elasticsearch Explanation object
+   * @return Map representation suitable for JSON serialization
+   */
+  private Map<String, Object> explanationToMap(@Nonnull Explanation explanation) {
+    Map<String, Object> map = new HashMap<>();
+    map.put("value", explanation.getValue().floatValue());
+    map.put("description", explanation.getDescription());
+    map.put("match", explanation.isMatch());
+
+    Explanation[] details = explanation.getDetails();
+    if (details != null && details.length > 0) {
+      List<Map<String, Object>> detailsList = new ArrayList<>();
+      for (Explanation detail : details) {
+        detailsList.add(explanationToMap(detail));
+      }
+      map.put("details", detailsList);
+    }
+
+    return map;
   }
 
   /**
