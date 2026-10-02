@@ -141,6 +141,10 @@ class SchemaExtractionClient(Protocol):
         """
         ...
 
+    def get_engine(self, workspace_id: str, item_id: str) -> Engine:
+        """Return the SQLAlchemy engine for this item's SQL Analytics Endpoint."""
+        ...
+
 
 def create_schema_extraction_client(
     method: Literal["sql_analytics_endpoint"],
@@ -619,6 +623,18 @@ class SqlAnalyticsEndpointClient:
                 exc_info=True,
             )
             raise
+
+    def get_engine(self, workspace_id: str, item_id: str) -> Engine:
+        """Return the cached SQLAlchemy engine for this item.
+
+        The engine uses `mssql+pyodbc` with the Microsoft ODBC Driver for SQL
+        Server, the same driver the `mssql-odbc` source profiles with.
+        """
+        if not self.endpoint_url:
+            raise ValueError(
+                f"SQL Analytics Endpoint URL is required for item {item_id}."
+            )
+        return self._get_engine(workspace_id, item_id, self.endpoint_url)
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
         """Get or create SQLAlchemy engine for a workspace/item combination.
