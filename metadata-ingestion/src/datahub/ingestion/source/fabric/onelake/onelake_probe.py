@@ -7,12 +7,17 @@ reads in DataHub carry GUIDs.
 """
 
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Set
 
 import requests
 from azure.core.exceptions import ClientAuthenticationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    resolve_name,
+    take,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -73,7 +78,15 @@ def _scrubbed(operation: str, exc: BaseException) -> str:
     return f"{operation} failed ({type(exc).__name__})"
 
 
-class FabricOneLakeMetadataProbe:
+def _close_if_closable(client: SchemaExtractionClient) -> None:
+    # close() is on SqlAnalyticsEndpointClient, not on the
+    # SchemaExtractionClient protocol it is handed out as.
+    close = getattr(client, "close", None)
+    if callable(close):
+        close()
+
+
+class FabricOneLakeMetadataProbe(ProbeProviderBase):
     def __init__(
         self,
         client: OneLakeClient,
@@ -83,9 +96,10 @@ class FabricOneLakeMetadataProbe:
         self._client = client
         self._config = config
         self._schema_client_factory = schema_client_factory
-        self._schema_clients: Dict[Tuple[str, str], SchemaExtractionClient] = {}
-        self.warnings: List[str] = []
         self.failures: List[str] = []
+        # Registered first, so it closes last and still closes when a SQL
+        # client's close raises.
+        self._on_exit(client.close)
 
     @classmethod
     def for_config(
@@ -102,25 +116,6 @@ class FabricOneLakeMetadataProbe:
             ),
             config,
         )
-
-    def __enter__(self) -> "FabricOneLakeMetadataProbe":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        # The REST session closes even when disposing a SQL engine raises.
-        try:
-            for schema_client in self._schema_clients.values():
-                # close() is on SqlAnalyticsEndpointClient, not on the
-                # SchemaExtractionClient protocol it is handed out as.
-                close = getattr(schema_client, "close", None)
-                if callable(close):
-                    close()
-        finally:
-            self._client.close()
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     @contextmanager
     def _reading(self, operation: str) -> Iterator[None]:
@@ -146,12 +141,11 @@ class FabricOneLakeMetadataProbe:
         """Workspaces this credential can see, including ones workspace_pattern
         would exclude -- a denied workspace is reported, not hidden. `name` is
         what workspace_pattern matches; `id` is the GUID in emitted URNs."""
-        out: List[Dict[str, str]] = []
         with self._reading("listing workspaces"):
-            for ws in self._client.list_workspaces():
-                out.append({"name": ws.name, "id": ws.id})
-                if len(out) >= limit:
-                    break
+            out = [
+                {"name": ws.name, "id": ws.id}
+                for ws in take(self._client.list_workspaces(), limit)
+            ]
         return out
 
     @probe_method(
@@ -295,14 +289,12 @@ class FabricOneLakeMetadataProbe:
     def _open_schema_client(
         self, ws: FabricWorkspace, item: FabricItem
     ) -> SchemaExtractionClient:
-        key = (ws.id, item.id)
-        cached = self._schema_clients.get(key)
-        if cached is not None:
-            return cached
         factory = self._schema_client_factory or self._default_schema_client
-        client = factory(ws, item)
-        self._schema_clients[key] = client
-        return client
+        return self._open_once(
+            ("schema-client", ws.id, item.id),
+            lambda: factory(ws, item),
+            close=_close_if_closable,
+        )
 
     def _schema_client(
         self, ws: FabricWorkspace, item: FabricItem
@@ -503,26 +495,24 @@ class FabricOneLakeMetadataProbe:
         self, workspace: str, *, in_parent_path: bool = True
     ) -> FabricWorkspace:
         with self._reading("listing workspaces"):
-            matches = [
-                ws
-                for ws in self._client.list_workspaces()
-                if workspace in (ws.name, ws.id)
-            ]
-        if not matches:
-            raise ValueError(
-                f"no workspace named or with id '{workspace}' is visible to this "
-                f"credential"
-            )
-        if len(matches) > 1:
-            raise ValueError(
-                f"'{workspace}' matches {len(matches)} workspaces; pass the "
-                f"workspace GUID instead"
-            )
-        if in_parent_path:
+            listed = list(self._client.list_workspaces())
+        # Resolved outside _reading, so a refusal stays the caller's error
+        # (exit 2) and is not recorded as a failure.
+        resolved = resolve_name(
+            workspace,
+            listed,
+            key=lambda ws: ws.name,
+            id_key=lambda ws: ws.id,
+            kind="workspace",
+            where="visible to this credential",
+            list_command="probe run workspaces",
+            on_ambiguous="pass the workspace GUID instead",
+        )
+        if in_parent_path and resolved.by_id:
             self._warn_if_resolved_by_id(
-                workspace, "workspace", "workspace", matches[0].name, matches[0].id
+                workspace, "workspace", "workspace", resolved.name, resolved.record.id
             )
-        return matches[0]
+        return resolved.record
 
     def _item(
         self,
@@ -541,7 +531,7 @@ class FabricOneLakeMetadataProbe:
             "Lakehouse": self._client.list_lakehouses,
             "Warehouse": self._client.list_warehouses,
         }
-        matches: List[FabricItem] = []
+        listed: List[FabricItem] = []
         # Each type is listed on its own: a 403 on lakehouses must not hide a
         # warehouse the caller can read. A failure only fails the call when
         # nothing was found, since then the item may be in the unread listing.
@@ -549,33 +539,39 @@ class FabricOneLakeMetadataProbe:
         for type_name in (item_type,) if item_type else _ITEM_TYPES:
             operation = f"listing {type_name.lower()}s in workspace '{ws.name}'"
             try:
-                matches += [
-                    i for i in listers[type_name](ws.id) if item in (i.name, i.id)
-                ]
+                listed += list(listers[type_name](ws.id))
             except Exception as exc:
                 failed.append(_scrubbed(operation, exc))
-        if failed and not matches:
-            self.failures.extend(failed)
-            raise FabricReadError("; ".join(failed))
+
+        def unread() -> None:
+            # The item may be in the listing that could not be read.
+            if failed:
+                self.failures.extend(failed)
+                raise FabricReadError("; ".join(failed))
+
+        resolved = resolve_name(
+            item,
+            listed,
+            key=lambda i: i.name,
+            id_key=lambda i: i.id,
+            distinguish=lambda i: i.type,
+            kind="lakehouse or warehouse",
+            where=f"in workspace '{ws.name}'",
+            list_command="probe run lakehouses / probe run warehouses",
+            on_ambiguous=(
+                "pass --item-type Lakehouse or --item-type Warehouse, or the "
+                "item's GUID"
+            ),
+            on_miss=unread,
+        )
         for message in failed:
             self._warn(
-                f"{message}; '{item}' was resolved to {matches[0].type} "
-                f"'{matches[0].name}', and an item of the other type with the "
+                f"{message}; '{item}' was resolved to {resolved.record.type} "
+                f"'{resolved.name}', and an item of the other type with the "
                 f"same name could not be ruled out"
             )
-        if not matches:
-            raise ValueError(
-                f"no lakehouse or warehouse '{item}' in workspace '{ws.name}'"
-            )
-        if len(matches) > 1:
-            raise ValueError(
-                f"'{item}' names more than one item "
-                f"({', '.join(m.type for m in matches)}) in workspace "
-                f"'{ws.name}'; pass --item-type Lakehouse or "
-                f"--item-type Warehouse, or the item's GUID"
-            )
-        if in_parent_path:
+        if in_parent_path and resolved.by_id:
             self._warn_if_resolved_by_id(
-                item, "item", matches[0].type, matches[0].name, matches[0].id
+                item, "item", resolved.record.type, resolved.name, resolved.record.id
             )
-        return matches[0]
+        return resolved.record
