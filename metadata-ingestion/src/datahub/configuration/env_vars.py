@@ -456,16 +456,16 @@ def get_probe_disabled() -> bool:
 
 
 def get_probe_verbose_logs() -> bool:
-    """The local-debugging switch for probes: reused code's logs at their own
-    level, and the withheld text of its errors.
+    """The local-debugging switch for probes: reused code's logs as logged,
+    and the withheld text of its errors.
 
-    Off by default: during a probe, the loggers of ingestion sources and the
-    SDKs they call are held to scrubbed WARNING records with no traceback
-    (see agent.log_guard), and an error the framework does not trust is named
-    by class and code only (see agent.error_policy), because both quote
-    connection strings and request URLs. When on, logs pass through and each
-    withheld error text is appended to its label, still scrubbed. For a
-    person debugging a connector, not for an agent.
+    Off by default: during a probe, every log record the framework did not
+    write is scrubbed and loses its traceback, and a provider's silenced
+    loggers are dropped (see agent.log_guard); an error the framework does
+    not trust is named by class and code only (see agent.error_policy),
+    because both quote connection strings and request URLs. When on, logs
+    pass through and each withheld error text is appended to its label,
+    still scrubbed. For a person debugging a connector, not for an agent.
     """
     return os.getenv("DATAHUB_PROBE_VERBOSE_LOGS", "").lower() in ("true", "1")
 

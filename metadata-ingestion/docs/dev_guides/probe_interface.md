@@ -106,7 +106,7 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `api_allowlist: Sequence[str]`      | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")`                                                                                                                                                                                    |
 | `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
 | `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
-| `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Framework loggers cannot be silenced; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
+| `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Naming framework loggers is a defect; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
 | `probe_error_code(exc)`             | if your vendor's errors carry a code the framework does not read (see [Errors, logs and secrets](#errors-logs-and-secrets)): a staticmethod returning a short code such as `"ORA-00942"`, or `None`                                                                              |
 | `ProbeProviderBase` (optional base) | to get `warnings`/`_warn`, lazily opened clients (`_open_once`) and an `__exit__` that closes them all; see [Shared provider helpers](#shared-provider-helpers)                                                                                                                  |
 
@@ -176,18 +176,18 @@ every call site:
   inline secrets (ADC, IAM roles) are covered too. This applies to `probe` output and to `test-connection`.
 - **Every log line not written by the framework is scrubbed** while a probe or
   `test-connection` runs, with its traceback dropped, including under `datahub --debug`.
-  That includes loggers and handlers a library creates mid-probe, and `warnings.warn`
-  text: warning capture is on while the guard runs. `test-connection`'s guard also
-  covers importing the source. Two cases bypass it: a `Logger` subclass that overrides
-  `callHandlers`, and code that calls a handler directly instead of logging. Only the framework's own loggers
+  The guard rewrites each record as logging creates it, so that includes loggers and
+  handlers a library creates mid-probe, and `warnings.warn` text: warning capture is on
+  while the guard runs. `test-connection`'s guard also covers importing the source. Two
+  cases bypass it: a `Logger` subclass that overrides `makeRecord`, and code that builds
+  a `LogRecord` itself and hands it to a handler. Only the framework's own loggers
   (`datahub.ingestion.agent`, `datahub.cli`, `datahub.masking`, `datahub.entrypoints`,
-  `datahub.telemetry`) pass as logged. The known-noisy reused loggers (sources under
-  `datahub.ingestion.source`, cloud SDKs, HTTP and database clients; see
-  `REUSED_LOGGERS`) are also capped at `WARNING`. That cap covers your provider's own
-  `logger.debug` when it logs under `datahub.ingestion.source`. Scrubbing works by
-  shape, so if your reused code logs values that have none (a cluster's connector
-  config, a response body), list its loggers in the provider's `silenced_loggers` and
-  their records are dropped instead. Never call `setLevel` on them yourself: that is
+  `datahub.telemetry`) pass as logged. The guard scrubs but does not change levels: how
+  much shows is the host's logging config (the CLI shows other libraries at `WARNING`,
+  `INFO` under `--debug`), and your provider's own `logger.debug` shows under `--debug`,
+  scrubbed. Scrubbing works by shape, so if your reused code logs values that have none
+  (a cluster's connector config, a response body), list its loggers in the provider's
+  `silenced_loggers` and their records are dropped instead. Never call `setLevel` on them yourself: that is
   process-global and outlives a failed `__exit__`. Set
   `DATAHUB_PROBE_VERBOSE_LOGS=1` to see those logs unscrubbed when debugging a
   connector locally.
@@ -1046,7 +1046,7 @@ Every item has cost a review round on at least one connector.
       not raise; name the operation and the class instead. Providers need no
       scrubbers of their own: let foreign errors propagate (see
       [Errors, logs and secrets](#errors-logs-and-secrets)).
-- [ ] **Reused-code logs.** They are scrubbed and capped while a probe runs, so
+- [ ] **Reused-code logs.** They are scrubbed while a probe runs, so
       don't log responses, URLs or exception text from the provider, and don't add scrubbers
       or `setLevel` calls of your own; declare `silenced_loggers` for code that logs unshaped
       source values. Use `DATAHUB_PROBE_VERBOSE_LOGS=1` to read them locally.

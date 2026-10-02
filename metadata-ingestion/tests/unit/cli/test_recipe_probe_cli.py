@@ -1885,6 +1885,136 @@ def test_test_connection_scrubs_logs_from_resolving_the_source(
     assert _LOG_SENTINEL not in res.output
 
 
+def _log_like_reused_code(side: io.StringIO) -> None:
+    """Every way reused code reaches a log, each carrying a credential-shaped
+    or a registered shape-free secret: its own DEBUG and WARNING,
+    logger.exception, a handler and a non-propagating logger it sets up
+    mid-call, logging.lastResort, and warnings.warn."""
+    import logging
+    import warnings
+
+    source_log = logging.getLogger("datahub.ingestion.source.leaky_cli.fetcher")
+    source_log.debug("debug fetch with %s", _REGISTERED_SENTINEL)
+    try:
+        raise ConnectionError(f"GET http://connect/?token={_LOG_SENTINEL}")
+    except ConnectionError:
+        source_log.exception("fetch failed")
+    own = logging.getLogger("some_sdk.cli_own_handler")
+    handler = logging.StreamHandler(side)
+    own.addHandler(handler)
+    own.propagate = False
+    lonely = logging.getLogger("some_sdk.cli_last_resort")
+    lonely.propagate = False
+    try:
+        own.warning("own handler login password=%s", _LOG_SENTINEL)
+        lonely.warning("last resort with %s", _REGISTERED_SENTINEL)
+    finally:
+        own.removeHandler(handler)
+        own.propagate = True
+        lonely.propagate = True
+    with warnings.catch_warnings():
+        warnings.simplefilter("always")
+        warnings.warn(f"sdk warning token={_LOG_SENTINEL}", UserWarning, stacklevel=1)
+
+
+@pytest.fixture
+def _fresh_warning_capture():
+    """Capture off, so the `recipe` group's masking bootstrap turns it on over
+    pytest's own warning recorder rather than finding it on from an earlier
+    test (when pytest's recorder would take the warning instead)."""
+    import logging
+
+    was_capturing = getattr(logging, "_warnings_showwarning", None) is not None
+    logging.captureWarnings(False)
+    yield
+    logging.captureWarnings(False)
+    logging.captureWarnings(was_capturing)
+
+
+def _assert_scrubbed_everywhere(res: Result, side: io.StringIO, debug: bool) -> None:
+    assert res.exit_code == 0, res.output
+    for text in (res.output, res.stderr, side.getvalue()):
+        assert _LOG_SENTINEL not in text
+        assert _REGISTERED_SENTINEL not in text
+    assert "Traceback" not in res.stderr
+    assert "fetch failed" in res.stderr
+    assert "own handler login" in side.getvalue()
+    assert "last resort with" in res.stderr
+    assert "sdk warning" in res.stderr
+    assert ("debug fetch with" in res.stderr) is debug
+
+
+@pytest.mark.usefixtures("_fresh_warning_capture")
+@pytest.mark.parametrize("debug", [False, True])
+def test_probe_run_scrubs_every_reused_log_channel(
+    monkeypatch, tmp_path, _real_cli_logging, debug
+):
+    import datahub.ingestion.agent.probe_methods as pm
+
+    side = io.StringIO()
+
+    class _Provider(_DebugLeakingProvider):
+        @probe_method()
+        def tables(self) -> list:
+            "Tables."
+            _log_like_reused_code(side)
+            return [{"name": "t"}]
+
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda r: ("leaky", {}, {_REGISTERED_SENTINEL})
+    )
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Provider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _DebugLeakingConfig)
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    if not debug:
+        # tests/conftest.py turns DATAHUB_DEBUG on for the whole run.
+        monkeypatch.delenv("DATAHUB_DEBUG", raising=False)
+    args = ["--debug"] if debug else []
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        [*args, "recipe", "probe", "run", "tables", "--recipe"]
+        + [_recipe_file(tmp_path)],
+    )
+    _assert_scrubbed_everywhere(res, side, debug)
+
+
+@pytest.mark.usefixtures("_fresh_warning_capture")
+@pytest.mark.parametrize("debug", [False, True])
+def test_test_connection_scrubs_every_reused_log_channel(
+    monkeypatch, tmp_path, _real_cli_logging, debug
+):
+    from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+
+    side = io.StringIO()
+
+    class _Source:
+        @staticmethod
+        def test_connection(config_dict):
+            _log_like_reused_code(side)
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True)
+            )
+
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda r: ("postgres", {}, {_REGISTERED_SENTINEL})
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Source,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Source, raising=False
+    )
+    if not debug:
+        monkeypatch.delenv("DATAHUB_DEBUG", raising=False)
+    args = ["--debug"] if debug else []
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        [*args, "recipe", "test-connection", "--recipe", _recipe_file(tmp_path)],
+    )
+    _assert_scrubbed_everywhere(res, side, debug)
+
+
 def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
     """A source's own test_connection parses its config itself and reports
     str(ValidationError); under DATAHUB_DEBUG that quotes input_value, and a
