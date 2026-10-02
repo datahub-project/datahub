@@ -202,44 +202,47 @@ class PathSpec(ConfigModel):
             return False
 
         if not ignore_ext:
-            ext = self._lexical_extension(path)
-
             # A glob like ``*`` with no explicit extension matches any file type.
-            if ext == "*":
+            if os.path.splitext(path)[1].strip(".").lower() == "*":
                 return True
 
-            # Strip a compression suffix to find the format-bearing extension, e.g.
-            # ``.json.gz`` -> ``json``.
-            if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
-                ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
-
-            if ext in SUPPORTED_FILE_TYPES:
+            fmt = self._recognised_format(path)
+            if fmt is not None:
                 # A recognised format: keep it only if this path_spec wants it.
-                if ext not in self.file_types:
+                if fmt not in self.file_types:
                     return False
-            else:
+            elif self.default_extension is None:
                 # No real format extension (empty, or a fake one from a dotted stem
-                # like ``foo.bar.baz-<hash>``). Fall back to default_extension; skip
-                # the file when none is configured.
-                if self.default_extension is None:
-                    return False
+                # like ``foo.bar.baz-<hash>``) and no default to fall back on.
+                return False
 
         return True
 
-    def _lexical_extension(self, path: str) -> str:
-        """Return the raw suffix after the last dot (without the dot), lowercased."""
-        return os.path.splitext(path)[1].strip(".").lower()
-
-    def resolve_format_extension(self, path: str) -> str:
-        """Resolve the format extension (e.g. ``.json``) for a file name.
+    def _recognised_format(self, path: str) -> Optional[str]:
+        """Return the file's format from its name (compression stripped), or None.
 
         ``os.path.splitext`` / ``pathlib.suffix`` are purely lexical (everything
         after the last dot), so file names whose stem contains dots (e.g.
         ``foo.bar.baz-<hash>.gz``) produce a fake extension that is not a real file
-        format. We only keep an extension if it matches one of the supported file
-        types; otherwise we fall back to ``default_extension`` so an inferrer can
-        still be selected. Shared by ``allowed()`` and the S3/ABS schema readers so
-        file selection and schema inference agree on the format.
+        format. We only return an extension if it matches one of the supported file
+        types; a compression suffix (e.g. ``.gz``) is stripped first so the inner
+        format is checked. This is the single rule shared by ``allowed()`` (file
+        selection) and ``resolve_format_extension()`` (parser selection), so the two
+        cannot drift.
+        """
+        ext = os.path.splitext(path)[1].strip(".").lower()
+        if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+            ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+        return ext if ext in SUPPORTED_FILE_TYPES else None
+
+    def resolve_format_extension(self, path: str) -> str:
+        """Resolve the format extension (e.g. ``.json``) for a file name.
+
+        Returns the recognised format from the file name, falling back to
+        ``default_extension`` when the name has no recognised format, and ``""``
+        when neither is available so no inferrer is selected. Shared with
+        ``allowed()`` via ``_recognised_format`` so file selection and schema
+        inference agree on the format.
 
         Behaviour:
 
@@ -251,18 +254,8 @@ class PathSpec(ConfigModel):
         * ``foo.bar.baz-<hash>.gz`` -> ``default_extension`` (was ``.baz-<hash>``)
         * ``foo.bar.baz-<hash>``    -> ``default_extension`` (was ``.baz-<hash>``)
         """
-        ext = self._lexical_extension(path)
-
-        if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
-            inner = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
-            ext = inner if inner in SUPPORTED_FILE_TYPES else ""
-        elif ext not in SUPPORTED_FILE_TYPES:
-            ext = ""
-
-        if ext == "" and self.default_extension:
-            ext = self.default_extension.lower()
-
-        return f".{ext}" if ext else ""
+        fmt = self._recognised_format(path) or self.default_extension
+        return f".{fmt.lower()}" if fmt else ""
 
     def dir_allowed(self, path: str) -> bool:
         if not path.endswith("/"):
