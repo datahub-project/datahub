@@ -1418,7 +1418,6 @@ public class UpdateIndicesV3StrategyTest {
     when(first.getPreviousRecordTemplate()).thenReturn(before);
     when(second.getPreviousRecordTemplate()).thenReturn(firstRecord);
     stubTransform(before, Map.of("name", "a", "description", "kept by the first event"));
-    stubTransform(firstRecord, Map.of("name", "b", "description", "kept by the first event"));
     stubTransform(secondRecord, Map.of("name", "c"));
 
     strategy.processBatch(
