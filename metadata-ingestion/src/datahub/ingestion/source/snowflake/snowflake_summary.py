@@ -4,6 +4,7 @@ from typing import Dict, Iterable, List, Optional
 
 from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.source import Source, SourceReport
@@ -23,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
+from datahub.ingestion.source.sql.sql_config import sql_structural_verdict
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyList
 
@@ -33,7 +35,11 @@ class SnowflakeSummaryConfig(
     BaseTimeWindowConfig,
     LowerCaseDatasetUrnConfigMixin,
 ):
-    pass
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # Not a SQLCommonConfig, but it has a probe provider and filters
+        # schemas through the same match_fully_qualified_names rule as the
+        # snowflake source, so `probe filter` judges them the same way.
+        return sql_structural_verdict(self, ctx)
 
 
 @dataclasses.dataclass

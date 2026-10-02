@@ -25,6 +25,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sql.sql_config import sql_structural_verdict
 
 
 def _register(monkeypatch: pytest.MonkeyPatch, config_cls: Type[ConfigModel]) -> None:
@@ -228,7 +229,7 @@ class _Pinned(ConfigModel):
             if ctx.name.lower() == self.database.lower():
                 return Verdict(True)
             return Verdict(False, "database")
-        return None
+        return sql_structural_verdict(self, ctx)
 
 
 def test_an_override_can_overrule_the_structural_verdict(

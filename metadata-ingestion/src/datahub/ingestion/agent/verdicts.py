@@ -54,19 +54,6 @@ class Verdict:
         return cls(False, excluded_by, matched_target)
 
 
-@dataclass(frozen=True)
-class SchemaMatch:
-    """A connector's own verdict for a container node, and the string it matched.
-
-    Returned by probe_schema_verdict_override. Both facts travel together because
-    only the override knows them: it runs the connector's own predicate (Redshift's
-    is_schema_allowed over "database.schema"), so nothing else can say what decided.
-    """
-
-    included: bool
-    target: str
-
-
 _INCLUDED = Verdict.include()
 
 # A level the source offers no filter for (e.g. Mode's datasets and queries).
@@ -114,10 +101,9 @@ class VerdictContext:
     # The field that filters this kind, possibly a dotted path. None when the
     # kind is unfiltered or unresolved.
     pattern_field: Optional[str]
-    # The framework's built-in verdict -- a kind switch, a default database,
-    # a qualified schema match -- or None when none applied. Passed so an
-    # override can keep it or overrule it: a pinned SQL Server database is
-    # read even when it is `master`.
+    # The exclusion a kind switch (probe_kind_switches) makes, or None when
+    # no switch is off for this kind. Passed so an override can keep it or
+    # overrule it.
     structural: Optional[Verdict]
     # Per-name facts the caller supplied with the name, such as the id a
     # workspace pattern matches (see `probe filter --from-run`). Empty when

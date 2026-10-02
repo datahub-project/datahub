@@ -4,10 +4,8 @@ from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set
 from pydantic import BaseModel, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.introspect import (
-    declared_qualifier,
     declared_rule_filtered_kinds,
     pattern_field_for_config,
 )
@@ -23,7 +21,6 @@ from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
     ProbeInternalError,
-    SchemaMatch,
     Verdict,
     VerdictContext,
 )
@@ -32,10 +29,9 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 
-# The kinds this module compares by identity -- the structural rules read
-# them straight off the enums. They are the reason --kind has to be
-# canonicalised before anything reads it (see _canonical_kind).
-_STRUCTURAL_KINDS = frozenset(
+# _match_target branches on these four by identity, so --kind has to reach it
+# in this spelling (see _canonical_kind).
+_MATCH_TARGET_KINDS = frozenset(
     {
         str(DatasetSubTypes.TABLE),
         str(DatasetSubTypes.VIEW),
@@ -44,29 +40,18 @@ _STRUCTURAL_KINDS = frozenset(
     }
 )
 
-# The SQL family's switches, applied to any config that has the field.
-# Only these two: the other include_* flags on these configs
-# (include_view_lineage, include_usage_stats, include_table_location_lineage)
-# govern what ELSE is emitted about an object, not whether the object itself
-# is -- a verdict about a name has nothing to say about them. A source with
-# switches of its own declares probe_kind_switches.
-_DEFAULT_KIND_SWITCHES = {
-    str(DatasetSubTypes.TABLE): "include_tables",
-    str(DatasetSubTypes.VIEW): "include_views",
-}
-
 
 def _kind_switches(config: object) -> Dict[str, str]:
-    """kind -> the bool field that, when False, stops ingestion emitting it.
+    """kind -> the bool field that, when False, stops ingestion emitting it,
+    as the config's probe_kind_switches declares.
 
     When one is off ingestion emits nothing of that kind, whatever the pattern
     says, so a pattern verdict for it is a verdict ingestion does not make.
     """
-    switches = dict(_DEFAULT_KIND_SWITCHES)
     declared = getattr(config, "probe_kind_switches", None)
-    if callable(declared):
-        switches.update({str(kind): field for kind, field in declared().items()})
-    return switches
+    if not callable(declared):
+        return {}
+    return {str(kind): field for kind, field in declared().items()}
 
 
 @dataclass
@@ -150,10 +135,9 @@ def _match_target(config: object, kind: str, ctx: ClassifyContext) -> str:
 
     if kind in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
         # The SQL shim resolves a *table's* identifier (db.schema.table); asked
-        # about a container it would build "analytics..public". The hierarchy
-        # attached it to Table/View levels only, and containers matched on the
-        # bare name -- with Redshift's fully-qualified rule handled by the
-        # schema override in _structural_verdict, not here.
+        # about a container it would build "analytics..public". Containers
+        # match on the bare name here; a qualified schema match is the
+        # config's probe_verdict_override, which reports its own target.
         return ctx.name
 
     resolver = getattr(config, "probe_match_target", None)
@@ -213,168 +197,14 @@ def _match_target(config: object, kind: str, ctx: ClassifyContext) -> str:
     return target
 
 
-def _needs_parent_for_qualified_match(
-    config: object, kind: str, parent_path: Sequence[str]
-) -> bool:
-    """Whether this verdict was reached on a bare name that should be qualified.
-
-    Asked of the config directly rather than through a hook. The previous
-    version read `probe_schema_needs_parent`, which no config implemented any
-    more -- the implementations were added with this warning, removed,
-    restored, and removed again over the life of this PR, and the reader
-    outlived them. So it always returned False and the warning below could
-    never fire, leaving the inverted verdict it exists to explain silent:
-    Snowflake with match_fully_qualified_names, and BigQuery by default, judge
-    `PUBLIC` against `^MYDB\.PUBLIC$` and report excluded where ingestion
-    includes.
-
-    The two conditions are exactly the ones _qualified_schema_match gives up
-    on, so they are read from the same place rather than restated by a
-    connector.
-    """
-    if kind != DatasetContainerSubTypes.SCHEMA:
-        # Schema only. Database was included here originally and should not
-        # have been: database_pattern is matched on the bare database name
-        # whatever match_fully_qualified_names says, so the verdict is already
-        # the one ingestion makes -- and there is no container above a
-        # database to name, so "pass --parent" pointed at nothing. The warning
-        # reported correct verdicts as degraded.
-        return False
-    if not getattr(config, "match_fully_qualified_names", False):
-        # The bare name is what ingestion matches too, so nothing is lost.
-        return False
-    return _qualified_container(config, parent_path) is None
-
-
-def _structural_verdict(
-    config: object,
-    kind: str,
-    name: str,
-    pattern_field: Optional[str],
-    parent_path: Sequence[str] = (),
-) -> Optional[Verdict]:
-    """Exclusions the source applies before the user's pattern is consulted.
-
-    Kept from the hierarchy's schema classifier rather than dropped with it: a
-    system catalog is skipped whatever schema_pattern says, and Redshift's
-    match_fully_qualified_names makes ingestion judge "database.schema" instead
-    of the bare name. Reporting a plain pattern verdict for either would be a
-    verdict ingestion does not make. None means "no structural rule applies --
-    fall through to the pattern".
-    """
+def _switch_verdict(config: object, kind: str) -> Optional[Verdict]:
+    """The exclusion a switched-off kind makes, or None."""
     flag = _kind_switches(config).get(kind)
     # getattr, not a hard read: a config without the field never switches the
-    # kind off, and a kind it never emits falls through to the pattern.
+    # kind off.
     if flag is not None and getattr(config, flag, True) is False:
         return Verdict(False, flag)
-
-    if kind == DatasetContainerSubTypes.DATABASE:
-        default_databases = getattr(config, "default_databases", None)
-        if callable(default_databases) and name.lower() in {
-            d.lower() for d in default_databases()
-        }:
-            # Postgres templates, SQL Server's system databases: dropped
-            # whatever database_pattern says.
-            return Verdict(False, "default_database")
-        return None
-
-    if kind != DatasetContainerSubTypes.SCHEMA:
-        # Structural rules below are schema-level; a table named like a system
-        # schema must not inherit them.
-        return None
-
-    default_schemas = getattr(config, "default_schemas", None)
-    if callable(default_schemas) and name.lower() in {
-        s.lower() for s in default_schemas()
-    }:
-        return Verdict(False, "default_schema")
-
-    # The connector's own statement first, the shared convention second.
-    # Running the convention first meant a connector that declared an override
-    # AND enabled match_fully_qualified_names never had its override called --
-    # the convention always had an answer, so the explicit declaration was
-    # dead. That inverts the hook's own docstring ("checked before the generic
-    # check") and the layering this module uses everywhere else:
-    # _hinted_pattern_field wins over the name convention "because it is exact
-    # by construction". Inert today, since only the base class defines the
-    # hook and it returns None -- which is the right time to get the order
-    # right, before a connector depends on it.
-    override = getattr(config, "probe_schema_verdict_override", None)
-    match = (
-        override(schema=name, parent_path=tuple(parent_path))
-        if callable(override)
-        else None
-    )
-    if match is None:
-        match = _qualified_schema_match(config, name, pattern_field, parent_path)
-    if match is not None:
-        # The override did the matching itself, so it is the only thing that knows
-        # which string decided -- carry it out rather than reporting the bare name.
-        return Verdict(
-            included=match.included,
-            excluded_by=None if match.included else pattern_field,
-            matched_target=match.target,
-        )
     return None
-
-
-def _qualified_container(config: object, parent_path: Sequence[str]) -> Optional[str]:
-    """The container a qualified schema name is built from.
-
-    The caller's wins: a recipe may span several databases or projects, and
-    only the caller knows which one it is asking about. Falling back to a
-    single configured container keeps `probe filter` answerable without a
-    --parent for the common single-database recipe -- and a connector that
-    implies none (Snowflake selects databases by pattern) gets None, which
-    leaves the bare-name verdict plus a warning rather than a guess.
-    """
-    declared, authoritative = declared_qualifier(config)
-    if authoritative and declared:
-        # Redshift: one database per recipe, so honouring a different
-        # --parent would answer about a database it does not read.
-        return declared
-    if parent_path:
-        return parent_path[-1]
-    return declared
-
-
-def _qualified_schema_match(
-    config: object,
-    name: str,
-    pattern_field: Optional[str],
-    parent_path: Sequence[str],
-) -> Optional[SchemaMatch]:
-    """The verdict for a source that matches schemas on `container.schema`.
-
-    Snowflake, BigQuery and Redshift each declared this as their own
-    probe_schema_verdict_override -- 108 lines of three near-identical
-    implementations, one of which (Snowflake's) was simply missing for a
-    while and gave inverted verdicts nobody noticed.
-
-    Nothing in it was per-connector. `match_fully_qualified_names` is an
-    existing *ingestion* field on all three, so the override was restating
-    something the config already said; `pattern_field` is resolved above and
-    already knows dataset_pattern from schema_pattern; and is_schema_allowed
-    is the shared predicate all three were calling anyway. The one genuine
-    difference -- which container to assume when the caller names none -- is
-    now a one-line probe_default_container, and Snowflake needs none at all.
-    """
-    if pattern_field is None:
-        return None
-    if not getattr(config, "match_fully_qualified_names", False):
-        # The bare name is what ingestion matches, so the generic classifier
-        # above is already right.
-        return None
-    container = _qualified_container(config, parent_path)
-    if container is None:
-        return None
-    pattern = pattern_at(config, pattern_field)
-    if pattern is None:
-        return None
-    return SchemaMatch(
-        included=is_schema_allowed(pattern, name, container, True),
-        target=f"{container}.{name}",
-    )
 
 
 def _parent_exclusion(
@@ -391,7 +221,7 @@ def _parent_exclusion(
     under a denied schema is not ingested whatever table_pattern says, and
     judging the table's own pattern alone reported it included. The parent is
     judged by check_filters itself, so its own parent is judged in turn and
-    every structural rule (qualified schema names, default databases) applies.
+    every rule the config declares for that kind applies to it.
     """
     if not parent_path:
         return None
@@ -438,26 +268,17 @@ def _parent_exclusion(
 def _canonical_kind(source_type: str, config: object, kind: str) -> str:
     """The declared spelling of a kind the caller may have cased differently.
 
-    `--kind` was compared two ways at once. The `<kind>_pattern` name
-    convention lowercases (introspect._pattern_field_candidates), so
-    `--kind table` resolved table_pattern happily -- while every structural
-    rule here compares against a StrEnum value and so matched only `Table`.
-    The result was two opposite verdicts for the same question, with nothing
-    reporting an unrecognised kind because pattern resolution had succeeded:
-
-        --kind Table  (include_tables: false) -> excluded_by include_tables
-        --kind table  (include_tables: false) -> included
-        --kind Schema (redshift, qualified)   -> target dev.public, included
-        --kind schema (redshift, qualified)   -> target public, excluded
-
-    Canonicalised once, here, so everything downstream reads one spelling. A
-    kind nothing declares is returned untouched, which is what keeps the
-    "declares no kind" warning below able to fire.
+    The `<kind>_pattern` name convention lowercases, while kind switches,
+    _match_target and the config's hooks compare kinds by identity, so
+    `--kind table` and `--kind Table` must reach them as one spelling or they
+    answer differently. Canonicalised once, here, so everything downstream
+    reads one spelling. A kind nothing declares is returned untouched, which
+    keeps the "declares no kind" warning below able to fire.
     """
-    if kind in _STRUCTURAL_KINDS:
+    if kind in _MATCH_TARGET_KINDS:
         return kind
     lowered = kind.lower()
-    for declared in sorted(_declared_kinds(source_type, config) | _STRUCTURAL_KINDS):
+    for declared in sorted(_declared_kinds(source_type, config) | _MATCH_TARGET_KINDS):
         if declared.lower() == lowered:
             return declared
     return kind
@@ -621,15 +442,12 @@ def _pattern_to_judge(
     requested_allow = list(pattern.allow)
     requested_deny = list(pattern.deny)
     if pattern_field is not None:
-        # The hypothetical has to reach the STRUCTURAL rules too, not just
-        # the pattern comparison below. Redshift's and BigQuery's
-        # probe_schema_verdict_override read the pattern off the config
-        # themselves (they call is_schema_allowed with it), and the
-        # verdict they return short-circuits the pattern branch -- so
-        # --try-allow was silently ignored for every source that declares
-        # one, which on BigQuery is every schema query, since
-        # match_fully_qualified_names defaults True. `tried` still echoed
-        # the hypothetical, so the result claimed to have applied it.
+        # The hypothetical has to reach the config's probe_verdict_override
+        # too, not just the pattern comparison below: an override that reads
+        # the pattern off the config (the SQL family's qualified schema match
+        # does) and returns a verdict short-circuits the pattern branch, and
+        # would otherwise judge the recipe's pattern while `tried` echoes the
+        # hypothetical.
         #
         # A shallow copy on purpose: model_copy(deep=True) would clone the
         # cached RDS IAM token manager along with its minted token.
@@ -784,34 +602,14 @@ def check_filters(
             parent_path=tuple(parent_path),
             warn=warn,
         )
-        structural = _structural_verdict(config, kind, name, pattern_field, parent_path)
-        if structural is None and _needs_parent_for_qualified_match(
-            config, kind, parent_path
-        ):
-            # The connector has a qualified rule for this level but could not
-            # apply it: it needs to know which container, and none was given.
-            # Without this the caller sees every name excluded -- the bare name
-            # judged against a qualified pattern -- and nothing saying why.
-            # Deduped by message, so this reports once rather than per name.
-            warn(
-                "this source matches containers on a qualified name and could "
-                "not tell which one you mean, so these were judged on their "
-                "bare names and will mostly read as excluded; pass --parent to "
-                "get the verdict ingestion actually makes"
-            )
-        # A structural verdict that matched on its own string reports that string;
-        # otherwise the target is resolved the usual way and the pattern decides.
-        target = (
-            name
-            if filtering == "by_rule"
-            else structural.matched_target
-            if (structural and structural.matched_target)
-            else _match_target(config, kind, ctx)
-        )
-        # The connector's word on what no single pattern states -- Tableau's
-        # project re-admission, a view that must also pass table_pattern, a
-        # pinned SQL Server database. Told the structural verdict so it can
-        # keep or overrule it; None leaves the built-in rules in charge.
+        structural = _switch_verdict(config, kind)
+        target = name if filtering == "by_rule" else _match_target(config, kind, ctx)
+        # The connector's word on what no single pattern states -- the SQL
+        # family's system catalogs and qualified schema names, a view that
+        # must also pass table_pattern, a pinned SQL Server database. Told the
+        # switch verdict so it can keep or overrule it; None leaves the switch,
+        # then the pattern, in charge. A verdict that matched on its own
+        # string reports that string as the target.
         override = _override_verdict(
             config,
             VerdictContext(

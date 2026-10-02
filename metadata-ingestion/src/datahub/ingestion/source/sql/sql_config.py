@@ -1,22 +1,25 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Callable, Dict, FrozenSet, Optional, Sequence
+from typing import Any, Callable, Dict, FrozenSet, Mapping, Optional, Sequence
 
 import pydantic
 from pydantic import Field, model_validator
 from typing_extensions import Annotated
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.sql_gate import CatalogScope
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
-    SchemaMatch,
+    Verdict,
+    VerdictContext,
     ancestors_in,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -75,14 +78,96 @@ class SQLFilterConfig(ConfigModel):
         return values
 
 
-# A `_NO_PARENT_WARNING` template lived here, shared by the
-# probe_filter_target overrides that each warned about an unnamed container --
-# "one string, because three near-identical ones is how they drift". It is
-# gone because the drift is now prevented a better way: no override emits that
-# warning any more, filter_check does, once, at the point that discovers the
-# container is missing. A single emitter cannot disagree with itself, and the
-# template had already fallen out of use while two variants grew in
-# filter_check -- an anti-drift device that had itself drifted.
+_NEEDS_PARENT_WARNING = (
+    "this source matches containers on a qualified name and could not tell "
+    "which one you mean, so these were judged on their bare names and will "
+    "mostly read as excluded; pass --parent to get the verdict ingestion "
+    "actually makes"
+)
+
+
+def _in_defaults(config: ConfigModel, hook: str, name: str) -> bool:
+    # Read by name: default_databases is declared only by the sources that
+    # drop databases (Postgres, SQL Server), and callers outside
+    # SQLCommonConfig pass their own configs.
+    defaults = getattr(config, hook, None)
+    return callable(defaults) and name.lower() in {d.lower() for d in defaults()}
+
+
+def _qualifying_container(
+    config: ConfigModel, parent_path: Sequence[str]
+) -> Optional[str]:
+    """The container a schema name is qualified with, or None.
+
+    A Qualifier(authoritative=True) field wins: Redshift reads one database
+    per recipe, so a --parent naming another is not what ingestion reads.
+    Otherwise the caller's --parent, since a recipe may span several
+    databases or projects; then a field pinning a single one.
+    """
+    # lazy: agent.introspect is only needed once a probe runs
+    from datahub.ingestion.agent.introspect import declared_qualifier
+
+    declared, authoritative = declared_qualifier(config)
+    if authoritative and declared:
+        return declared
+    if parent_path:
+        return parent_path[-1]
+    return declared
+
+
+def _qualified_schema_verdict(
+    config: ConfigModel, ctx: VerdictContext
+) -> Optional[Verdict]:
+    """The verdict on `container.schema`, which is what ingestion matches
+    schema_pattern against once match_fully_qualified_names is on."""
+    if not getattr(config, "match_fully_qualified_names", False):
+        return None
+    container = _qualifying_container(config, ctx.parent_path)
+    if container is None:
+        # The bare name is judged instead, against a pattern written for
+        # qualified names, so most names read as excluded. Not naming the
+        # object: ctx.warn dedupes by message, so this is reported once.
+        ctx.warn(_NEEDS_PARENT_WARNING)
+        return None
+    if ctx.pattern_field is None:
+        return None
+    pattern = pattern_at(config, ctx.pattern_field)
+    if pattern is None:
+        return None
+    included = is_schema_allowed(pattern, ctx.name, container, True)
+    return Verdict(
+        included=included,
+        excluded_by=None if included else ctx.pattern_field,
+        matched_target=f"{container}.{ctx.name}",
+    )
+
+
+def sql_structural_verdict(
+    config: ConfigModel, ctx: VerdictContext
+) -> Optional[Verdict]:
+    """The SQL family's verdicts that no single allow/deny pattern states.
+
+    A database in default_databases() or a schema in default_schemas() is
+    dropped whatever the pattern says: ingestion never lists those system
+    catalogs. A schema on a source with match_fully_qualified_names on is
+    judged as `container.schema`, and the verdict reports that string as its
+    target. None leaves the pattern to decide.
+
+    SQLCommonConfig's probe_verdict_override; a config with rules of its own
+    returns this for the names those rules leave alone. A kind-switch
+    exclusion already in ctx.structural stands, so this returns None for it.
+    """
+    if ctx.structural is not None:
+        return None
+    if ctx.kind == DatasetContainerSubTypes.DATABASE:
+        if _in_defaults(config, "default_databases", ctx.name):
+            return Verdict(False, "default_database")
+        return None
+    if ctx.kind != DatasetContainerSubTypes.SCHEMA:
+        return None
+    if _in_defaults(config, "default_schemas", ctx.name):
+        return Verdict(False, "default_schema")
+    return _qualified_schema_verdict(config, ctx)
 
 
 class SQLCommonConfig(
@@ -217,24 +302,24 @@ class SQLCommonConfig(
         """
         return None
 
-    def probe_schema_verdict_override(
-        self, schema: str, parent_path: Sequence[str] = ()
-    ) -> Optional["SchemaMatch"]:
-        """Override point for a connector whose schema-level container
-        classification isn't just "does schema_pattern allow the bare
-        `schema` name" -- e.g. Redshift's match_fully_qualified_names flag
-        makes ingestion check `database.schema` instead once enabled (see
-        is_schema_allowed, datahub.configuration.pattern_utils). Return None
-        (the default) to keep sql_probe.py's generic bare-name check; a
-        SchemaMatch reports both the verdict and the string it matched, so the
-        result can say what actually decided rather than the bare name.
-        Checked before the generic check on every SQL Schema-level node, so a
-        connector that declares one is not second-guessed by the shared
-        match_fully_qualified_names convention. No connector overrides it
-        today -- the hook stays because that convention is a convention, not a
-        guarantee.
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        """Tables and views are emitted only while these are on.
+
+        Only these two: the other include_* flags (include_view_lineage,
+        include_table_location_lineage, ...) decide what else is emitted
+        about an object, not whether the object is. A subclass with a switch
+        of its own adds it to super().probe_kind_switches().
         """
-        return None
+        return {
+            str(DatasetSubTypes.TABLE): "include_tables",
+            str(DatasetSubTypes.VIEW): "include_views",
+        }
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """See sql_structural_verdict, which an override of this one calls
+        for the names its own rules leave alone."""
+        return sql_structural_verdict(self, ctx)
 
     @classmethod
     def probe_container_kind(cls) -> str:

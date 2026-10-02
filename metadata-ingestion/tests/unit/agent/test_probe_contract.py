@@ -255,7 +255,6 @@ _CONFIG_HOOKS = frozenset(
         "probe_container_kind",
         "probe_match_target",
         "probe_filter_target",
-        "probe_schema_verdict_override",
         # Read by filter_check._override_verdict: the connector's verdict for
         # one name when no single pattern states it. Replaces the per-plan
         # entity/database overrides; see VerdictContext.
@@ -775,7 +774,6 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     # every one of these -- by name, since every call site uses keywords.
     required_kwargs = {
         "probe_validation_context": {"source_type"},
-        "probe_schema_verdict_override": {"schema", "parent_path"},
         "probe_verdict_override": {"ctx"},
         # Widened with `database` when Snowflake and BigQuery turned out to
         # be judging tables on `schema.entity` while ingestion matched three

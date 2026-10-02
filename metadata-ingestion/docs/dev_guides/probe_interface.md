@@ -278,7 +278,7 @@ connectors, so implement a hook only when the default gives the wrong answer.
 | ---- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`), which may be nested | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field; for non-pattern rules, `probe_rule_filtered_kinds()`                               |
 | 2    | decide the string the pattern is matched against                                                                        | `probe_match_target(self, ctx: ClassifyContext) -> str`; for a container, `probe_container_match_target(self, kind, name, parent_path, warn) -> Optional[str]` |
-| 3    | the framework's built-in exclusions: kind switches, default databases and schemas, qualified schema matches             | `probe_kind_switches()`, `default_databases()` / `default_schemas()`, `probe_schema_verdict_override(self, schema, parent_path)`                               |
+| 3    | kind switches: a bool field that turns a whole kind off                                                                 | `probe_kind_switches()`                                                                                                                                        |
 | 4    | the connector's own verdict, for anything no single pattern states; told step 3's verdict                               | `probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]`                                                                                       |
 | 5    | match the pattern against the target, if steps 3–4 gave no verdict                                                      | —                                                                                                                                                              |
 | 6    | judge the immediate `--parent` container the same way, recursively                                                      | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]`                                                                                             |
@@ -340,17 +340,15 @@ with a warning because there is no pattern to replace. One nested block type reu
 under two sibling fields that both declare `Filters` for the same kind is refused
 ("more than one field"), since the framework cannot tell which of the two decides.
 
-Be aware how narrow the rest is. Step 3's kind switches (`probe_kind_switches()`) apply to every
-kind, but the rest of it — `default_databases()`, `default_schemas()` and
-`probe_schema_verdict_override` — runs only for `Database` and `Schema` kinds, so a source with
-neither (Mode's Space/Report/Query, Kafka's Topic) never reaches those. And step 2's hook has
+The SQL family declares steps 3 and 4 on `SQLCommonConfig`: `include_tables` / `include_views`
+switch `Table` / `View` off, and its `probe_verdict_override` is `sql_structural_verdict(self, ctx)`
+— a database in `default_databases()` or a schema in `default_schemas()` is excluded, and with
+`match_fully_qualified_names` on a schema is judged as `<container>.<schema>`. A SQL config with
+rules of its own adds its switches to `super().probe_kind_switches()` and returns
+`sql_structural_verdict(self, ctx)` for the names its own override leaves alone. Step 2's hook has
 exactly one implementor in the tree — `SQLCommonConfig` — because the SQL family is where display
 identity and addressing identity come apart. Implement it if your source filters on a qualified
 identifier; otherwise the default, the bare name, is already right.
-
-Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `override(schema=name)`,
-so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
-not at import.
 
 **Where the container comes from when the caller names none: `Qualifier`.** A qualified name is
 `<container>.<schema>[.<entity>]`, and the container normally comes from the caller, because a
@@ -588,24 +586,23 @@ framework calls the instance hooks with keyword arguments, and
 `test_probe_contract.py` checks the names against this table and, for the
 hooks listed in its `required_kwargs`, the keyword arguments.
 
-| Hook                            | Signature                                                                                                        | Declare it when                                                                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `probe_provider_class`          | classmethod `() -> type`                                                                                         | always: it names the provider class                                                                                                                 |
-| `probe_validation_context`      | classmethod `(source_type: str) -> Optional[Dict[str, object]]`                                                  | registered names share a config class but validate with different pydantic contexts                                                                 |
-| `probe_catalog_scope`           | classmethod `() -> CatalogScope`                                                                                 | your dialect's catalog differs from `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)) |
-| `probe_container_kind`          | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)                                                                               |
-| `probe_prepare_engine`          | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss                                                                    |
-| `probe_sql_alchemy_url`         | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                                                                                    |
-| `probe_normalize_container`     | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on                                                                  |
-| `probe_match_target`            | `(self, ctx: ClassifyContext) -> str`                                                                            | the pattern is matched against something other than the bare name (step 2)                                                                          |
-| `probe_filter_target`           | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | a SQL source whose real Source is not a `SQLAlchemySource`, so the `get_identifier` shim cannot run                                                 |
-| `probe_container_match_target`  | `(self, kind: str, name: str, parent_path: Sequence[str], warn: Callable[[str], None]) -> Optional[str]`         | a container is matched on an id other than its bare name                                                                                            |
-| `probe_schema_verdict_override` | `(self, schema: str, parent_path: Sequence[str] = ()) -> Optional[SchemaMatch]`                                  | ingestion judges schemas its own way, such as on `database.schema` (step 3)                                                                         |
-| `probe_verdict_override`        | `(self, ctx: VerdictContext) -> Optional[Verdict]`                                                               | no single pattern states ingestion's decision (step 4)                                                                                              |
-| `probe_kind_switches`           | classmethod `() -> Mapping[str, str]`                                                                            | a bool field switches a whole kind off                                                                                                              |
-| `probe_rule_filtered_kinds`     | classmethod `() -> Mapping[str, str]`                                                                            | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)                                                                               |
-| `probe_unfiltered_kinds`        | classmethod `() -> Set[str]`                                                                                     | nothing filters a kind, on purpose                                                                                                                  |
-| `probe_ancestor_kinds`          | `(self, kind: str) -> Optional[Sequence[str]]`                                                                   | your containers are not the SQL family's `Database` → `Schema` (step 6)                                                                             |
+| Hook                           | Signature                                                                                                        | Declare it when                                                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `probe_provider_class`         | classmethod `() -> type`                                                                                         | always: it names the provider class                                                                                                                 |
+| `probe_validation_context`     | classmethod `(source_type: str) -> Optional[Dict[str, object]]`                                                  | registered names share a config class but validate with different pydantic contexts                                                                 |
+| `probe_catalog_scope`          | classmethod `() -> CatalogScope`                                                                                 | your dialect's catalog differs from `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)) |
+| `probe_container_kind`         | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)                                                                               |
+| `probe_prepare_engine`         | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss                                                                    |
+| `probe_sql_alchemy_url`        | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                                                                                    |
+| `probe_normalize_container`    | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on                                                                  |
+| `probe_match_target`           | `(self, ctx: ClassifyContext) -> str`                                                                            | the pattern is matched against something other than the bare name (step 2)                                                                          |
+| `probe_filter_target`          | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | a SQL source whose real Source is not a `SQLAlchemySource`, so the `get_identifier` shim cannot run                                                 |
+| `probe_container_match_target` | `(self, kind: str, name: str, parent_path: Sequence[str], warn: Callable[[str], None]) -> Optional[str]`         | a container is matched on an id other than its bare name                                                                                            |
+| `probe_verdict_override`       | `(self, ctx: VerdictContext) -> Optional[Verdict]`                                                               | no single pattern states ingestion's decision (step 4)                                                                                              |
+| `probe_kind_switches`          | classmethod `() -> Mapping[str, str]`                                                                            | a bool field switches a whole kind off                                                                                                              |
+| `probe_rule_filtered_kinds`    | classmethod `() -> Mapping[str, str]`                                                                            | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)                                                                               |
+| `probe_unfiltered_kinds`       | classmethod `() -> Set[str]`                                                                                     | nothing filters a kind, on purpose                                                                                                                  |
+| `probe_ancestor_kinds`         | `(self, kind: str) -> Optional[Sequence[str]]`                                                                   | your containers are not the SQL family's `Database` → `Schema` (step 6)                                                                             |
 
 Adding a hook to the framework means adding it to `_CONFIG_HOOKS` and to this
 table in the same change. The contract test fails until both agree.
@@ -843,10 +840,9 @@ bare name; asking the shim about a schema would build `analytics..public`.
 
 **Structural exclusions the user's patterns don't express.** `default_schemas()` and
 `default_databases()` drop system catalogs whatever the pattern says, and
-`probe_schema_verdict_override` lets a connector answer "is this schema allowed" its own way
-(Redshift's `match_fully_qualified_names` makes ingestion judge `database.schema`). These run
-before the pattern, so a system catalog reports `default_schema` rather than a verdict
-ingestion never makes.
+`match_fully_qualified_names` makes ingestion judge `database.schema` (Redshift, Snowflake,
+BigQuery). `SQLCommonConfig.probe_verdict_override` applies both before the pattern, so a system
+catalog reports `default_schema` rather than a verdict ingestion never makes.
 
 ### One predicate for ingestion and the probe
 
