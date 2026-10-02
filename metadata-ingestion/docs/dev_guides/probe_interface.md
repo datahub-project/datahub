@@ -172,8 +172,10 @@ every call site:
   keys, AWS key ids, SAS signatures, pydantic's `input_value=`), so recipes with no
   inline secrets (ADC, IAM roles) are covered too. This applies to `probe` output and to `test-connection`.
 - **Every log line not written by the framework is scrubbed** while a probe or
-  `test-connection` runs, with its traceback dropped, including under `datahub --debug`
-  and for captured Python warnings. Only the framework's own loggers
+  `test-connection` runs, with its traceback dropped, including under `datahub --debug`.
+  That includes loggers and handlers a library creates mid-probe, and `warnings.warn`
+  text: warning capture is on while the guard runs. `test-connection`'s guard also
+  covers importing the source. Only the framework's own loggers
   (`datahub.ingestion.agent`, `datahub.cli`, `datahub.masking`, `datahub.entrypoints`,
   `datahub.telemetry`) pass as logged. The known-noisy reused loggers (sources under
   `datahub.ingestion.source`, cloud SDKs, HTTP and database clients; see

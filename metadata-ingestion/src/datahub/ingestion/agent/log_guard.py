@@ -1,7 +1,7 @@
 import logging
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Iterator, List, Sequence, Set, Tuple
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -42,8 +42,8 @@ REUSED_LOGGERS: Tuple[str, ...] = (
     "oauthlib",
     "msal",
     "httpx",
-    # logging.captureWarnings, which the recipe CLI's masking bootstrap turns
-    # on: a library's warnings.warn() text arrives here, at WARNING.
+    # logging.captureWarnings, which the guard turns on for its duration: a
+    # library's warnings.warn() text arrives here, at WARNING.
     "py.warnings",
 )
 
@@ -59,11 +59,9 @@ def _is_reused(name: str) -> bool:
 class _ScrubFilter(logging.Filter):
     """Scrubs every record not logged by the framework, dropping its traceback,
     holds the noisy reused loggers to WARNING or above, and drops a provider's
-    silenced loggers outright.
-
-    Installed on handlers as well as loggers, so it sees records from every
-    logger that reaches those handlers; only the framework's own pass
-    untouched.
+    silenced loggers outright. Applied in Logger.callHandlers (see
+    quiet_reused_logs), so it sees every record on its way to any handler;
+    only the framework's own pass untouched.
     """
 
     def __init__(self, secret_values: Set[str], silenced: Tuple[str, ...] = ()) -> None:
@@ -114,23 +112,17 @@ def _guarded_loggers() -> List[logging.Logger]:
     return [logging.getLogger(name) for name in sorted(names)]
 
 
-def _reachable_handlers(loggers: List[logging.Logger]) -> List[logging.Handler]:
-    """Every handler a record from `loggers` can propagate to.
+_CallHandlers = Callable[[logging.Logger, logging.LogRecord], None]
 
-    Not just the root's: `datahub --debug` gives the `datahub` logger its own
-    handlers and stops propagation there, so a DEBUG record from a source never
-    reaches the root at all.
-    """
-    found: Dict[int, logging.Handler] = {}
-    for logger in [*loggers, logging.getLogger()]:
-        current: Optional[logging.Logger] = logger
-        while current is not None:
-            for handler in current.handlers:
-                found.setdefault(id(handler), handler)
-            if not current.propagate:
-                break
-            current = current.parent
-    return list(found.values())
+
+def _guarded_call_handlers(
+    guard: logging.Filter, inner: _CallHandlers
+) -> _CallHandlers:
+    def call_handlers(logger: logging.Logger, record: logging.LogRecord) -> None:
+        if guard.filter(record):
+            inner(logger, record)
+
+    return call_handlers
 
 
 @contextmanager
@@ -139,8 +131,8 @@ def quiet_reused_logs(
 ) -> Iterator[None]:
     """Keep reused code's logs scrubbed, without tracebacks, while a probe runs.
 
-    Every record not from FRAMEWORK_LOGGERS that reaches a handler is scrubbed
-    and loses its traceback; REUSED_LOGGERS are also floored at WARNING.
+    Every record not from FRAMEWORK_LOGGERS is scrubbed and loses its
+    traceback; REUSED_LOGGERS are also floored at WARNING.
     datahub's shared modules a provider calls into (datahub.utilities,
     datahub.ingestion.api) are scrubbed but not floored: they also serve the
     framework and the CLI, and flooring them would hide the probe's own
@@ -151,10 +143,21 @@ def quiet_reused_logs(
     (connector configs, response bodies) that have no credential shape for
     scrub_text to find. A framework logger cannot be silenced.
 
+    The scrub runs in logging.Logger.callHandlers, which every record passes
+    before any handler sees it. So it covers loggers and handlers created
+    inside the guard (a library imported mid-probe that configures its own),
+    handlers on loggers that stop propagation, and logging.lastResort. Not
+    covered: a Logger subclass that overrides callHandlers, and code that
+    calls a handler directly instead of logging through a logger. Warning
+    capture is on for the guard's duration, so a library's warnings.warn is
+    logged as `py.warnings` and scrubbed too, with or without the masking
+    bootstrap.
+
     Every change is undone in reverse order on exit, exception or not, so a
     nested guard (or two probes in one process) leaves logging exactly as it
-    found it. Not safe against two guards on different threads exiting out of
-    order: each restores the levels it saw on entry.
+    found it; a nested guard's scrub runs before the outer one's. Not safe
+    against two guards on different threads exiting out of order: each
+    restores what it saw on entry.
     """
     if get_probe_verbose_logs():
         yield
@@ -162,31 +165,20 @@ def quiet_reused_logs(
     undo: List[Callable[[], None]] = []
     try:
         guard = _ScrubFilter(secret_values, tuple(silenced))
-        loggers = _guarded_loggers()
-        for logger in loggers:
+        for logger in _guarded_loggers():
             if logger.getEffectiveLevel() < logging.WARNING:
                 undo.append(partial(logger.setLevel, logger.level))
                 logger.setLevel(logging.WARNING)
-            logger.addFilter(guard)
-            undo.append(partial(logger.removeFilter, guard))
-        # A logger created inside the guard (a lazy import) has no filter of
-        # its own; the handlers its records reach do. Every existing logger's
-        # chain, not just the guarded ones': a library that attached its own
-        # handler and stopped propagation is reused code too.
-        existing = [
-            obj
-            for obj in list(logging.Logger.manager.loggerDict.values())
-            if isinstance(obj, logging.Logger)
-        ]
-        handlers = _reachable_handlers([*loggers, *existing])
-        # Written to when a record finds no handler on its chain at all: a
-        # logger created inside the guard with propagate off, say. Not covered:
-        # a handler added inside the guard to such a logger.
-        if logging.lastResort is not None and logging.lastResort not in handlers:
-            handlers.append(logging.lastResort)
-        for handler in handlers:
-            handler.addFilter(guard)
-            undo.append(partial(handler.removeFilter, guard))
+        # vars(), not getattr: the exact attribute the class held, so the
+        # restore leaves it as it was, an outer guard's wrapper included.
+        saved: _CallHandlers = vars(logging.Logger)["callHandlers"]
+        setattr(  # noqa: B010
+            logging.Logger, "callHandlers", _guarded_call_handlers(guard, saved)
+        )
+        undo.append(partial(setattr, logging.Logger, "callHandlers", saved))
+        if getattr(logging, "_warnings_showwarning", None) is None:
+            logging.captureWarnings(True)
+            undo.append(partial(logging.captureWarnings, False))
         yield
     finally:
         for step in reversed(undo):

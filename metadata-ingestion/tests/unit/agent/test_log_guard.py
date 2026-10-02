@@ -1,6 +1,8 @@
+import io
 import logging
+import warnings
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 
 import pytest
 import yaml
@@ -22,7 +24,8 @@ _USERINFO_URL = "http://u:" + "%s@host"
 
 def _logger_state() -> Dict[str, Tuple[int, List[object]]]:
     """Level and filters of every guarded logger and every handler that could
-    receive their records -- the whole surface the guard may touch."""
+    receive their records. The guard scrubs in Logger.callHandlers and must
+    leave all of this as it found it."""
     names = [
         name
         for name in list(logging.Logger.manager.loggerDict)
@@ -502,3 +505,83 @@ def test_a_misdeclared_silenced_loggers_is_a_defect(
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     with pytest.raises(ProbeInternalError):
         pm.run_probe_method("x", {}, "tables", {})
+
+
+def test_a_handler_added_inside_the_guard_is_scrubbed() -> None:
+    """A library imported inside the probe may attach its own handler at
+    import time, after the guard was entered."""
+    stream = io.StringIO()
+    lib = logging.getLogger("some_sdk_configured_inside_the_guard")
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    try:
+        with quiet_reused_logs(set()):
+            lib.addHandler(handler)
+            lib.propagate = False
+            try:
+                raise ConnectionError(SENTINEL)
+            except ConnectionError:
+                lib.warning("token request password=%s", SENTINEL, exc_info=True)
+        assert "token request" in stream.getvalue()
+        assert SENTINEL not in stream.getvalue()
+        assert "Traceback" not in stream.getvalue()
+    finally:
+        lib.removeHandler(handler)
+        lib.propagate = True
+
+
+def _capturing_warnings() -> bool:
+    return getattr(logging, "_warnings_showwarning", None) is not None
+
+
+@pytest.fixture
+def warnings_not_captured() -> Iterator[None]:
+    """The state a process is in without the masking bootstrap, which is what
+    turns logging.captureWarnings on for the CLI."""
+    was_capturing = _capturing_warnings()
+    logging.captureWarnings(False)
+    try:
+        yield
+    finally:
+        logging.captureWarnings(was_capturing)
+
+
+@pytest.mark.usefixtures("warnings_not_captured")
+def test_warnings_warn_is_scrubbed_without_the_masking_bootstrap(
+    caplog: pytest.LogCaptureFixture, capsys: pytest.CaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    showwarning_before = warnings.showwarning
+    with warnings.catch_warnings(record=True) as shown:
+        warnings.simplefilter("always")
+        with quiet_reused_logs(set()):
+            warnings.warn(f"retrying password={SENTINEL}", UserWarning, stacklevel=1)
+    # Logged, as py.warnings, and scrubbed -- not printed by warnings itself.
+    assert shown == []
+    assert "retrying" in caplog.text
+    assert SENTINEL not in caplog.text
+    assert SENTINEL not in capsys.readouterr().err
+    assert warnings.showwarning is showwarning_before
+    assert not _capturing_warnings()
+
+
+def test_warning_capture_already_on_is_left_on() -> None:
+    was_capturing = _capturing_warnings()
+    logging.captureWarnings(True)
+    try:
+        showwarning_before = warnings.showwarning
+        with quiet_reused_logs(set()):
+            pass
+        assert _capturing_warnings()
+        assert warnings.showwarning is showwarning_before
+    finally:
+        logging.captureWarnings(was_capturing)
+
+
+def test_logging_is_unpatched_after_nested_guards_and_an_exception() -> None:
+    call_handlers = vars(logging.Logger)["callHandlers"]
+    with pytest.raises(RuntimeError), quiet_reused_logs(set()):
+        with quiet_reused_logs(set()):
+            pass
+        raise RuntimeError("boom")
+    assert vars(logging.Logger)["callHandlers"] is call_handlers

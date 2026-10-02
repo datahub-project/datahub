@@ -569,17 +569,22 @@ def test_connection(recipe_path: str) -> None:
     with _exit_codes(secret_values, fallback=EXIT_CONNECTION):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
-        # Lazy import: keeps TestableSource / source_registry out of this
-        # module's import-time surface until test-connection is actually invoked.
-        from datahub.ingestion.api.source import TestableSource
-        from datahub.ingestion.source.source_registry import source_registry
-
-        source_cls = source_registry.get(source_type)
-        if not issubclass(source_cls, TestableSource):
-            _fail(f"source '{source_type}' does not support test-connection", EXIT_USER)
         # SECURITY: test_connection runs the source's own connect code, which
         # logs connection strings and request URLs like any reused fetcher.
+        # The guard also covers looking the source up, which imports its
+        # module, as `probe run`'s does.
         with quiet_reused_logs(secret_values):
+            # Lazy import: keeps TestableSource / source_registry out of this
+            # module's import-time surface until test-connection is invoked.
+            from datahub.ingestion.api.source import TestableSource
+            from datahub.ingestion.source.source_registry import source_registry
+
+            source_cls = source_registry.get(source_type)
+            if not issubclass(source_cls, TestableSource):
+                _fail(
+                    f"source '{source_type}' does not support test-connection",
+                    EXIT_USER,
+                )
             report = source_cls.test_connection(resolved)
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret

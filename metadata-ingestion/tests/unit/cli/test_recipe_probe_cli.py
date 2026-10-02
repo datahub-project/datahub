@@ -1852,6 +1852,38 @@ def test_test_connection_keeps_reused_logs_scrubbed(
     assert _LOG_SENTINEL not in res.output
 
 
+def test_test_connection_scrubs_logs_from_resolving_the_source(
+    monkeypatch, tmp_path, _real_cli_logging
+):
+    """Looking the source up imports its module, and a module can log at
+    import time; `probe run`'s guard covers that step too."""
+    import logging
+
+    def _importing_get(source_type):
+        logging.getLogger("some_driver.imported_by_the_source").warning(
+            "imported with password=%s", _LOG_SENTINEL
+        )
+        return _LoggingTestableSource
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        _importing_get,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource",
+        _LoggingTestableSource,
+        raising=False,
+    )
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        ["recipe", "test-connection", "--recipe", _recipe_file(tmp_path)],
+    )
+    assert res.exit_code == 0, res.output
+    assert "imported with" in res.stderr
+    assert _LOG_SENTINEL not in res.output
+
+
 def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
     """A source's own test_connection parses its config itself and reports
     str(ValidationError); under DATAHUB_DEBUG that quotes input_value, and a
