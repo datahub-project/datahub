@@ -831,7 +831,9 @@ public class ESIndexBuilder {
       if (opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
           && replacesRootAlias(indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
-        // engine rejects writes to an alias, so this index stops taking V3 writes.
+        // engine rejects writes to an alias, so this index stops taking V3 writes. Other unapplied
+        // changes keep only the warning above: Elasticsearch 8 can report spurious mapping drift on
+        // every upgrade, so an error for each of them would also fire on healthy indices.
         log.error(
             "Search V3 index {} keeps its previous mapping, so V3 writes to it can be rejected and"
                 + " V3 reads can miss fields. Rebuild it: run system-update with"

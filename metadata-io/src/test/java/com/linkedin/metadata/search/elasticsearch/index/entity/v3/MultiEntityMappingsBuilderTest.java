@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -42,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.opensearch.common.settings.Settings;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -163,6 +167,39 @@ public class MultiEntityMappingsBuilderTest {
     }
   }
 
+  /**
+   * system-update compares the generated mapping with the one the engine returns as JSON, so every
+   * V3 index has to compare equal to its own JSON form, or each upgrade reports a mapping change.
+   */
+  @Test
+  public void testRegistryMappingsCompareEqualToTheirJsonForm() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    Collection<IndexMapping> mappings =
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext);
+
+    assertFalse(mappings.isEmpty());
+    for (IndexMapping mapping : mappings) {
+      Map<String, Object> jsonForm =
+          objectMapper.readValue(
+              objectMapper.writeValueAsString(mapping.getMappings()),
+              new TypeReference<Map<String, Object>>() {});
+      ReindexConfig reindexConfig =
+          ReindexConfig.builder()
+              .name(mapping.getIndexName())
+              .exists(true)
+              .currentSettings(Settings.EMPTY)
+              .targetSettings(new HashMap<>())
+              .currentMappings(jsonForm)
+              .targetMappings(mapping.getMappings())
+              .enableIndexMappingsReindex(true)
+              .build();
+      assertFalse(reindexConfig.requiresApplyMappings(), mapping.getIndexName());
+    }
+  }
+
   /** Full-text search reads the root fields, so no V3 index analyzes the copies under _aspects. */
   @Test
   public void testRegistryMappingsKeepAspectCopiesUnanalyzed() throws IOException {
@@ -188,7 +225,8 @@ public class MultiEntityMappingsBuilderTest {
   /**
    * The base configuration types the _search fields system metadata copies into, and fields built
    * from search labels keep their own mapping. Reference fields are mapped at the root, where V2
-   * queries and filters read them.
+   * queries and filters read them, and under their aspect in _aspects, where the projector writes
+   * the aspect copy.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -227,6 +265,19 @@ public class MultiEntityMappingsBuilderTest {
         (Map<String, Object>)
             ((Map<String, Object>) businessAttributeRef.get("properties")).get("name");
     assertFalse(referencedName.containsKey("copy_to"), referencedName.toString());
+    Map<String, Object> schemaFieldAspects =
+        (Map<String, Object>)
+            ((Map<String, Object>) propertiesByIndex.get("schemafieldindex_v3").get("_aspects"))
+                .get("properties");
+    assertFalse(schemaFieldAspects.containsKey("businessAttributeRef"));
+    Map<String, Object> aspectBusinessAttributeRef =
+        getAspectFieldMapping(
+            propertiesByIndex.get("schemafieldindex_v3"),
+            "businessAttributes",
+            "businessAttributeRef");
+    assertEquals(
+        ((Map<String, Object>) aspectBusinessAttributeRef.get("properties")).get("urn"),
+        Map.of("type", "keyword", "ignore_above", 255));
   }
 
   /** The engine rejects a mapping whose alias points at a field it does not map. */

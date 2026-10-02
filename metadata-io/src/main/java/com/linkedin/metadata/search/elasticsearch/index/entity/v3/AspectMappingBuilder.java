@@ -12,6 +12,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -226,19 +227,19 @@ public class AspectMappingBuilder {
     // lastObserved field
     Map<String, Object> lastObserved = new HashMap<>();
     lastObserved.put(TYPE, "date");
-    lastObserved.put("copy_to", new String[] {"_search._system_lastObserved"});
+    lastObserved.put("copy_to", List.of("_search._system_lastObserved"));
     properties.put("lastObserved", lastObserved);
 
     // runId field
     Map<String, Object> runId = new HashMap<>();
     runId.put(TYPE, "keyword");
-    runId.put("copy_to", new String[] {"_search._system_runId"});
+    runId.put("copy_to", List.of("_search._system_runId"));
     properties.put("runId", runId);
 
     // lastRunId field
     Map<String, Object> lastRunId = new HashMap<>();
     lastRunId.put(TYPE, "keyword");
-    lastRunId.put("copy_to", new String[] {"_search._system_lastRunId"});
+    lastRunId.put("copy_to", List.of("_search._system_lastRunId"));
     properties.put("lastRunId", lastRunId);
 
     // aspectCreated field
@@ -248,12 +249,12 @@ public class AspectMappingBuilder {
 
     Map<String, Object> aspectCreatedTime = new HashMap<>();
     aspectCreatedTime.put(TYPE, "date");
-    aspectCreatedTime.put("copy_to", new String[] {"_search._system_aspectCreated_time"});
+    aspectCreatedTime.put("copy_to", List.of("_search._system_aspectCreated_time"));
     aspectCreatedProperties.put("time", aspectCreatedTime);
 
     Map<String, Object> aspectCreatedActor = new HashMap<>();
     aspectCreatedActor.put(TYPE, "keyword");
-    aspectCreatedActor.put("copy_to", new String[] {"_search._system_aspectCreated_actor"});
+    aspectCreatedActor.put("copy_to", List.of("_search._system_aspectCreated_actor"));
     aspectCreatedProperties.put("actor", aspectCreatedActor);
 
     Map<String, Object> aspectCreatedImpersonator = new HashMap<>();
@@ -270,12 +271,12 @@ public class AspectMappingBuilder {
 
     Map<String, Object> aspectModifiedTime = new HashMap<>();
     aspectModifiedTime.put(TYPE, "date");
-    aspectModifiedTime.put("copy_to", new String[] {"_search._system_aspectModified_time"});
+    aspectModifiedTime.put("copy_to", List.of("_search._system_aspectModified_time"));
     aspectModifiedProperties.put("time", aspectModifiedTime);
 
     Map<String, Object> aspectModifiedActor = new HashMap<>();
     aspectModifiedActor.put(TYPE, "keyword");
-    aspectModifiedActor.put("copy_to", new String[] {"_search._system_aspectModified_actor"});
+    aspectModifiedActor.put("copy_to", List.of("_search._system_aspectModified_actor"));
     aspectModifiedProperties.put("actor", aspectModifiedActor);
 
     Map<String, Object> aspectModifiedImpersonator = new HashMap<>();
