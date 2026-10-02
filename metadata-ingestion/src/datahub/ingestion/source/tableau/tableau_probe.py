@@ -39,9 +39,10 @@ def _soft_on_tsc(context: str) -> Iterator[None]:
         yield
     except ServerResponseError as exc:
         if str(exc.code)[:3] in _SOFT_STATUSES:
+            # The code only: summary and detail are the server's text, and a
+            # warning is built here, where the framework cannot withhold it.
             raise ProbeSoftError(
-                f"{context} returned Tableau error {exc.code} ({exc.summary}); "
-                f"treating it as empty."
+                f"{context} returned Tableau error {exc.code}; treating it as empty."
             ) from exc
         raise
 
@@ -96,7 +97,9 @@ class TableauMetadataProbe:
         try:
             self._site.server.auth.sign_out()
         except Exception as ex:
-            logger.warning("Tableau probe sign-out failed (%s); continuing", ex)
+            logger.warning(
+                "Tableau probe sign-out failed (%s); continuing", type(ex).__name__
+            )
 
     @property
     def probe_report(self) -> object:
