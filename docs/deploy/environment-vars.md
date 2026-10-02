@@ -821,7 +821,7 @@ Rate limiting is **off by default**. Enable one or both limiter types — there 
 
 ### Process profiles
 
-`SPRING_PROFILES_ACTIVE` selects the standalone process configuration. GMS leaves it unset and uses shared `application.yaml`. Each profile defaults the entity graph cache off and repeats the shared defaults for the search cache (`caffeine`) and endpoint/scoped rate limits (`false`). Property env vars still override those defaults.
+`SPRING_PROFILES_ACTIVE` selects the standalone process configuration. The MAE, MCE, and datahub-upgrade images set it to `mae`, `mce`, and `upgrade`. GMS leaves it unset and uses shared `application.yaml`. Each profile defaults the entity graph cache off and repeats the shared defaults for the search cache (`caffeine`) and endpoint/scoped rate limits (`false`). Setting `SPRING_PROFILES_ACTIVE` in the environment overrides the image default. Property env vars still override keys inside the profile.
 
 | `SPRING_PROFILES_ACTIVE` | Process         |
 | ------------------------ | --------------- |
