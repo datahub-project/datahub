@@ -993,8 +993,13 @@ class SigmaAPI:
         queue: "Deque[str]",
         element: Element,
         workbook: Workbook,
-    ) -> None:
-        """Dispatch one BFS node into upstream_sources or re-enqueue it (join)."""
+    ) -> bool:
+        """Dispatch one BFS node into upstream_sources or re-enqueue it (join).
+
+        Returns False when the node is not in upstream_sources -- dropped, or
+        a customSQL source handled elsewhere -- so the caller can tell the
+        element's upstreams are incomplete.
+        """
         source_type = source_node.get(Constant.TYPE)
         if source_type == "dataset":
             try:
@@ -1008,6 +1013,7 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+                return False
         elif source_type == "sheet":
             element_id = source_node.get(Constant.ELEMENTID)
             if element_id is None:
@@ -1016,7 +1022,7 @@ class SigmaAPI:
                     message="Sheet upstream node missing elementId",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                 )
-                return
+                return False
             try:
                 upstream_sources[source_node_id] = SheetUpstream(
                     name=source_node.get(Constant.NAME),
@@ -1029,6 +1035,7 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+                return False
         elif source_type == "data-model":
             # Node id shape is "<dataModelUrlId>/<opaque_suffix>"; we carry
             # the prefix and the DM-side ``name`` for name-based matching
@@ -1047,7 +1054,7 @@ class SigmaAPI:
                         f"workbook={workbook.name}"
                     ),
                 )
-                return
+                return False
             try:
                 # Uses the API-reported DM-side name. The edge-only
                 # synthesis path below uses the workbook element's own
@@ -1064,6 +1071,7 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+                return False
         elif source_type == "join":
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
@@ -1080,7 +1088,7 @@ class SigmaAPI:
                     element.name,
                     workbook.name,
                 )
-                return
+                return False
             url_id = source_node_id[len("inode-") :]
             name = source_node.get(Constant.NAME)
             if not url_id or not isinstance(name, str) or not name:
@@ -1093,13 +1101,17 @@ class SigmaAPI:
                     element.name,
                     workbook.name,
                 )
-                return
+                return False
             upstream_sources[source_node_id] = WarehouseTableUpstream(
                 url_id=url_id,
                 name=name,
             )
         elif source_type == "customSQL":
-            pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
+            # Handled by _build_workbook_customsql_registry via the
+            # workbook-level lineage endpoint, so it is absent from
+            # upstream_sources: that list is not the chart's full lineage,
+            # whether or not the SQL registers.
+            return False
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
@@ -1114,6 +1126,8 @@ class SigmaAPI:
                         f"this type will be suppressed)"
                     ),
                 )
+            return False
+        return True
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
@@ -1164,12 +1178,16 @@ class SigmaAPI:
             # Reverse adjacency (target nodeId -> source nodeIds). A
             # malformed edge skips itself; others still populate.
             edges_by_target: Dict[str, List[str]] = {}
+            # False once any edge or node is dropped: a partial source list
+            # must not read as the chart's full lineage.
+            complete = True
             for edge in response_dict[Constant.EDGES]:
                 try:
                     edges_by_target.setdefault(edge[Constant.TARGET], []).append(
                         edge[Constant.SOURCE]
                     )
                 except (KeyError, TypeError) as e:
+                    complete = False
                     self.report.warning(
                         message="Skipping malformed Sigma lineage edge",
                         context=f"edge={edge!r}, element={element.name}, workbook={workbook.name}",
@@ -1230,6 +1248,7 @@ class SigmaAPI:
                                 )
                                 self.report.element_dm_edge.synthesized_from_edge_only += 1
                             except ValidationError as e:
+                                complete = False
                                 self.report.warning(
                                     title="Sigma DM upstream synthesis from edge-only node failed",
                                     message="Failed to synthesize Sigma DM upstream from edges-only node",
@@ -1247,6 +1266,7 @@ class SigmaAPI:
                     try:
                         source_node = dependencies[source_node_id]
                     except (KeyError, AttributeError, TypeError) as e:
+                        complete = False
                         self.report.warning(
                             title="Sigma lineage node parse failed",
                             message="Failed to parse Sigma lineage node",
@@ -1256,15 +1276,17 @@ class SigmaAPI:
                         continue
 
                     try:
-                        self._process_lineage_node(
+                        if not self._process_lineage_node(
                             source_node_id,
                             source_node,
                             upstream_sources,
                             queue,
                             element,
                             workbook,
-                        )
+                        ):
+                            complete = False
                     except (KeyError, AttributeError, TypeError, ValidationError) as e:
+                        complete = False
                         # Defence-in-depth; the helper already handles
                         # ValidationError internally.
                         self.report.warning(
@@ -1284,6 +1306,7 @@ class SigmaAPI:
             )
             return {}
 
+        element.upstream_sources_complete = complete
         return upstream_sources
 
     def _get_element_sql_query(
