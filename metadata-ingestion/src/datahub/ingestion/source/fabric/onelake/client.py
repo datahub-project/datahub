@@ -493,6 +493,58 @@ class OneLakeClient(BaseFabricClient):
                 logger.error(f"Failed to list tables for lakehouse {lakehouse_id}: {e}")
                 raise
 
+    def list_shortcuts(self, workspace_id: str, item_id: str) -> Iterator[dict]:
+        """List shortcuts on a lakehouse.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/list-shortcuts
+
+        The Fabric REST API pages with `continuationToken`. Only shortcuts whose
+        path is under `Tables` are lakehouse tables; callers filter the rest.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse GUID
+
+        Yields:
+            Shortcut payload dictionaries
+        """
+        logger.info(f"Listing shortcuts for lakehouse {item_id}")
+        yield from self._paginate(
+            f"workspaces/{workspace_id}/items/{item_id}/shortcuts"
+        )
+
+    def get_workspace_display_name(self, workspace_id: str) -> Optional[str]:
+        """Return a workspace's display name.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/workspaces/get-workspace
+
+        Used to resolve shortcut targets, which only carry GUIDs. Returns None
+        when the workspace cannot be read (not found or no access).
+        """
+        try:
+            data = self.get(f"workspaces/{workspace_id}").json()
+        except Exception as e:
+            logger.warning(f"Failed to resolve workspace {workspace_id}: {e}")
+            return None
+        return data.get("displayName") or None
+
+    def get_item_display_name(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Return an item's display name.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/items/get-item
+
+        Used to resolve shortcut targets, which only carry GUIDs. Returns None
+        when the item cannot be read (not found or no access).
+        """
+        try:
+            data = self.get(f"workspaces/{workspace_id}/items/{item_id}").json()
+        except Exception as e:
+            logger.warning(
+                f"Failed to resolve item {item_id} in workspace {workspace_id}: {e}"
+            )
+            return None
+        return data.get("displayName") or None
+
     def list_warehouse_tables(
         self, workspace_id: str, warehouse_id: str
     ) -> Iterator[FabricTable]:

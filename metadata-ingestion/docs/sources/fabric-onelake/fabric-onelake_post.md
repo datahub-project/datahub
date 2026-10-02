@@ -344,6 +344,23 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
+### Shortcuts
+
+Shortcut detection is enabled by default (`shortcuts.enabled`). Each lakehouse is checked against the [OneLake Shortcuts API](https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/list-shortcuts). Shortcuts whose path is under `Tables` are matched to ingested tables. Those tables are tagged `shortcut` and receive these custom properties:
+
+| Property                         | Value                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `shortcut_origin_name`           | Original table name at the target                                                       |
+| `shortcut_origin_path`           | Target path (`Tables/<schema>/<table>` for OneLake; location plus subpath for external) |
+| `shortcut_origin_workspace_id`   | Target workspace GUID (OneLake targets only)                                            |
+| `shortcut_origin_workspace_name` | Target workspace display name, resolved via `GET /workspaces/{id}`                      |
+| `shortcut_origin_item_id`        | Target lakehouse/item GUID (OneLake targets only)                                       |
+| `shortcut_origin_item_name`      | Target item display name, resolved via `GET /workspaces/{id}/items/{id}`                |
+
+Display names are resolved once per workspace and item. If the caller cannot read the target workspace or item, the `_name` properties are omitted and the GUIDs remain.
+
+`shortcuts.include_lineage` (off by default) also emits an upstream dataset when the shortcut target is another OneLake table (`Tables/<schema>/<table>` or `Tables/<table>`). When that origin table is ingested in the same run and both tables have schema, each shortcut column is linked to the origin column of the same name. Shortcuts to ADLS, S3, and other external locations keep the tag and origin properties and do not get a dataset upstream. The caller needs `OneLake.Read.All` or `OneLake.ReadWrite.All`.
+
 ### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
@@ -366,6 +383,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
 - **Profiling Requires SQL Endpoint**: Table and column profiling queries the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `profiling.enabled=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, profiling for that item is skipped.
+- **Shortcuts Are Lakehouse Tables**: Shortcut detection lists `Tables` shortcuts on lakehouses. File shortcuts and warehouse items are not tagged. If the shortcuts API fails for a lakehouse, that lakehouse is ingested without shortcut tags.
 
 ### Troubleshooting
 
