@@ -199,14 +199,16 @@ class DataHubEntityEmbeddingsSourceConfig(
     max_entities_per_run: int = Field(
         default=0,
         ge=-1,
-        description="Stop cleanly after embedding this many entities; later runs "
-        "continue where this one stopped. 0 or -1 disables the limit.",
+        description="Stop cleanly after embedding this many entities; with stateful "
+        "ingestion, later runs continue where this one stopped. 0 or -1 disables the "
+        "limit.",
     )
     time_budget_seconds: Optional[int] = Field(
         default=None,
         gt=0,
         description="Stop cleanly once this much time has passed so the incremental "
-        "state is committed before the job's deadline; later runs continue.",
+        "state is committed before the job's deadline; with stateful ingestion, "
+        "later runs continue.",
     )
     max_consecutive_failures: int = Field(
         default=25,

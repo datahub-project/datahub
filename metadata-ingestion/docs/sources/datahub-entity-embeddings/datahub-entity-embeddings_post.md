@@ -3,7 +3,7 @@
 - **Entity types from the server.** By default (`entity_types: [auto]`) the source embeds every type in the server's `semanticSearchConfig.enabledEntities`, except `document`. A type is skipped, and the reason is recorded in the report, when it is not in the entity registry, has no `semanticContent` aspect, has no searchable text fields, or belongs to a search group outside `search_groups`.
 - **Platform filtering.** `platform_pattern` matches the platform from the `dataPlatformInstance` aspect, or else the platform in the entity's URN. Entities without a platform, such as tags, domains and glossary terms, are not filtered.
 - **Incremental runs.** Only new or changed entities are embedded again. Changing the embedding model or the chunking settings re-embeds everything.
-- **Bounded runs.** `max_entities_per_run` caps the entities embedded per run, and `time_budget_seconds` caps the run time; both stop a run cleanly with its state committed. `max_consecutive_failures` aborts a run when the embedding provider keeps failing. `index_delay_seconds` spaces out writes to GMS.
+- **Bounded runs.** `max_entities_per_run` caps the entities embedded per run, and `time_budget_seconds` caps the run time; both stop a run cleanly. With stateful ingestion (the default) the state is committed and the next run continues where it stopped; without it, the next run starts over. `max_consecutive_failures` aborts a run when the embedding provider keeps failing. `index_delay_seconds` spaces out writes to GMS.
 
 #### How it works
 
