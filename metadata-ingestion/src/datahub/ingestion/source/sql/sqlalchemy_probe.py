@@ -15,6 +15,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import echoed
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -225,7 +226,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             name,
             candidates,
             what="table, view or materialized view" if what == "table" else what,
-            where=f"in {self._container_label()} {on_schema!r}",
+            where=f"in {self._container_label()} {echoed(on_schema)}",
             list_command=(
                 f"tables --schema {on_schema!r}` or `views --schema {on_schema!r}"
             ),

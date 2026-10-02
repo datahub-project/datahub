@@ -25,6 +25,7 @@ from datahub.ingestion.agent.provider_helpers import (
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
+    ProbeInternalError,
     ProbeReadFailed,
     ProbeSoftError,
 )
@@ -332,7 +333,7 @@ def test_a_soft_error_quoting_foreign_text_is_recorded_without_it() -> None:
 
 def test_codes_without_a_context_is_a_programming_error() -> None:
     sink: List[str] = []
-    with pytest.raises(TypeError):
+    with pytest.raises(ProbeInternalError):
         soft_listing(sink.append, 403)
 
 
@@ -460,6 +461,13 @@ class _RunProvider(ProbeProviderBase):
             self._open_once("p", functools.partial(open, f"/nonexistent-{SENTINEL}/x"))
         if self.mode == "take-c-iterator":
             take(map(int, [f"x-{SENTINEL}"]), 5)
+        if self.mode == "soft-listing-no-context":
+            with soft_listing(self._warn, 404):
+                return []
+        if self.mode == "resolve-stop-at-first-by-id":
+            resolve_name(
+                name, ["a"], key=str, kind="thing", id_key=str, stop_at_first=True
+            )
         return []
 
 
@@ -554,6 +562,26 @@ def test_a_c_iterator_failing_inside_take_is_reported_by_class_only(
         run("take-c-iterator")
     assert SENTINEL not in str(info.value)
     assert "ValueError" in str(info.value)
+
+
+# A helper misused by its caller is a defect in the provider: exit 1, with the
+# helper's own text kept so the author can see which rule was broken.
+
+
+def test_soft_listing_without_a_context_reports_why(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    with pytest.raises(ProbeInternalError, match="context"):
+        run("soft-listing-no-context")
+
+
+def test_stop_at_first_with_an_id_key_is_refused(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    # The first record whose name matches would win over a later record whose
+    # id matches, which is the precedence resolve_name promises the other way.
+    with pytest.raises(ProbeInternalError, match="stop_at_first"):
+        run("resolve-stop-at-first-by-id", name="a")
 
 
 def test_a_class_level_warnings_list_is_refused() -> None:

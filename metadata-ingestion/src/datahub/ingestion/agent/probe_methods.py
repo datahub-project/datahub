@@ -398,8 +398,8 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
         isinstance(name, str) and name for name in declared
     ):
         raise ProbeInternalError(
-            f"{provider_cls.__name__}.silenced_loggers must be a tuple of "
-            f"logger names, got {type(declared).__name__}; this is a defect in "
+            f"{provider_cls.__name__}.silenced_loggers must be a tuple or list "
+            f"of logger names, got {type(declared).__name__}; this is a defect in "
             f"the probe provider"
         )
     return tuple(declared)

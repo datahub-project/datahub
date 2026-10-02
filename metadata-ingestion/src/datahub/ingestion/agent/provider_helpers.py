@@ -6,11 +6,14 @@ listing that stops paging at the limit, a lazily built client closed on exit,
 a 403 that degrades to a warning -- and the copies drifted in wording, in the
 errors they raised, and in whether they closed what they opened.
 
-Everything here is framework-authored: error_policy.is_authored vouches for
-this package by file path. So the rules are stricter than a provider's own: a
-caller-facing refusal is a ProbeArgumentError (exit 2) or a ProbeSoftError,
-and no message is ever built from the text of an exception this module did
-not raise.
+Everything here is framework-authored, but error_policy.is_authored does not
+vouch for this module by file path: it calls provider callables that may be C
+code, whose failures would surface with this module's frame innermost. So
+what it raises on purpose is a framework type, trusted by type: a
+caller-facing refusal is a ProbeArgumentError (exit 2) or a ProbeSoftError, a
+helper misused by the provider is a ProbeInternalError (exit 1), and no
+message is ever built from the text of an exception this module did not
+raise.
 """
 
 import itertools
@@ -36,6 +39,7 @@ from typing_extensions import Self
 from datahub.ingestion.agent.error_policy import withhold_foreign_text
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
+    ProbeInternalError,
     ProbeSoftError,
     soft_error_for,
 )
@@ -106,7 +110,8 @@ def resolve_name(
     by class name). With stop_at_first, it is consumed only up to the first
     match -- for listings whose names are unique, and so that a caller can
     chain listings and pay for later ones only on a miss -- and ambiguity is
-    not checked.
+    not checked. It cannot be combined with id_key: the first name match
+    would win over a later id match, the reverse of the precedence above.
 
     `on_miss` runs before the refusal: to note why a record may be missing
     (Power BI's withheld count), or to raise a read failure instead when an
@@ -115,6 +120,12 @@ def resolve_name(
     tells the caller how to pick one. `where` follows the kind ("in
     workspace 'x'"); it must not carry exception text.
     """
+    if stop_at_first and id_key is not None:
+        # ProbeInternalError, not TypeError: this module is not vouched for,
+        # so a TypeError's text would be withheld from the provider's author.
+        raise ProbeInternalError(
+            "resolve_name cannot take stop_at_first with an id_key"
+        )
     by_id: List[T] = []
     by_name: List[T] = []
     others: List[str] = []
@@ -268,13 +279,20 @@ class soft_listing:
 
     The recorded text has any foreign exception's text withheld (class name
     instead) -- a backstop for a connector translator that quoted one.
+    Do not interpolate parts of a foreign exception (an attribute such as
+    `e.doc`) into a ProbeSoftError's message: the backstop withholds only
+    the foreign exception's whole text, so a quoted part reaches the warning.
     """
 
     def __init__(
         self, warn: Callable[[str], None], *codes: int, context: Optional[str] = None
     ) -> None:
         if codes and context is None:
-            raise TypeError("soft_listing needs a context to map HTTP statuses")
+            # ProbeInternalError, not TypeError: this module is not vouched
+            # for, so a TypeError's text would be withheld from the author.
+            raise ProbeInternalError(
+                "soft_listing needs a context to map HTTP statuses"
+            )
         self._warn = warn
         self._codes = codes
         self._context = context or ""

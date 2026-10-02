@@ -209,11 +209,11 @@ class MyProbe(ProbeProviderBase):
             list_command="probe run workspaces",
         ).record
 
-    @probe_method(kind="Report", parent_params=("workspace",))
-    def reports(self, workspace: str) -> List[str]:
+    @probe_method(kind="Report", parent_params=("workspace",), row_limit_param="limit")
+    def reports(self, workspace: str, limit: int = 100) -> List[str]:
         ws = self._workspace(workspace)
-        with soft_listing(self._warn, 403, 404, context=f"reports in '{workspace}'"):
-            return take((r.name for r in self._api().reports(ws.id)), None)
+        with soft_listing(self._warn, 403, 404, context=f"reports in {echoed(ws.name)}"):
+            return take((r.name for r in self._api().reports(ws.id)), limit)
         return []
 ```
 
@@ -831,7 +831,8 @@ ingestion never makes.
 
 A rule that `probe_verdict_override` restates will drift from ingestion; every connector in
 the first rollout had at least one. Instead, put the connector's selection decisions in a pure
-module, `<package>/<connector>_selection.py` (`tableau/tableau_selection.py` is the model).
+module, `<package>/<connector>_selection.py`, with no I/O and no client, which both the
+source and the probe import (the Tableau connector follows this shape once its probe lands).
 Each function takes the recipe and facts about one object and returns a `Verdict`:
 
 ```python
