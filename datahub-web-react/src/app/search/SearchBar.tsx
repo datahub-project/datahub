@@ -70,12 +70,7 @@ const StyledSearchBar = styled(Input)`
     }
 `;
 
-const ClearIcon = styled(XCircle).attrs({ weight: 'fill' })`
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
+const ClearIcon = styled(XCircle).attrs({ weight: 'fill', size: 15 })``;
 
 const ViewSelectContainer = styled.div`
     &&& {
