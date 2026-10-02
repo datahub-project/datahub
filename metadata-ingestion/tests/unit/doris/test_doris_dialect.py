@@ -668,9 +668,9 @@ class TestDorisComments:
 
         assert table_comment == {"text": "Parsed"}
 
-    def test_external_catalog_queries_the_bare_database_name(self, mock_text):
-        """An external-catalog connection's URL database is `catalog.database`, but
-        information_schema rows carry only the database name."""
+    def test_external_catalog_matches_bare_and_qualified_database_name(self, mock_text):
+        """An external catalog's information_schema rows carry the bare database
+        name, or `catalog.database` when show_full_dbname_in_info_schema_db is on."""
         dialect = DorisDialect()
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_catalog.my_db"
@@ -686,7 +686,9 @@ class TestDorisComments:
             for call in mock_connection.execute.call_args_list
             if "information_schema" in call.args[0]
         ]
-        assert [call.args[1] for call in comment_calls] == [{"schema": "my_db"}]
+        assert [call.args[1] for call in comment_calls] == [
+            {"database": "my_db", "qualified_database": "my_catalog.my_db"}
+        ]
 
     def test_failed_lookup_keeps_columns_and_is_recorded_once(self, mock_text):
         """A missing information_schema grant costs descriptions, not tables, and

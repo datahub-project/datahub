@@ -2,6 +2,10 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Table and Column Descriptions
+
+Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database, and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
+
 #### Migration from MySQL Connector
 
 If you were previously ingesting Doris using the MySQL connector, switch to the dedicated Doris connector for better support:
@@ -41,7 +45,7 @@ This is expected on any instance that has async materialized views, and needs no
 
 #### "Table reflected without keys after an unexpected error"
 
-The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table, or a connection dropped mid-reflection. The table is still ingested from `DESCRIBE`, so columns and comments are complete, but keys and foreign keys are missing.
+The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table, or a connection dropped mid-reflection. The table is still ingested from `DESCRIBE`, so its columns are complete, but keys and foreign keys are missing.
 
 Check that the ingestion account can run `SHOW CREATE TABLE` on the tables named in the warning context. Unlike the warning above, this one is worth acting on.
 
@@ -53,6 +57,6 @@ Confirm the ingestion account can run `DESCRIBE` on the tables named in the warn
 
 #### "Doris table and column comments unavailable"
 
-The `information_schema` comment lookup failed for the database named in the warning context, so its tables and columns were ingested without descriptions. Everything else about those tables is unaffected.
+The `information_schema` comment lookup failed for the database named in the warning context, so some or all of its table and column descriptions are missing. Everything else about those tables is unaffected.
 
 Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`.
