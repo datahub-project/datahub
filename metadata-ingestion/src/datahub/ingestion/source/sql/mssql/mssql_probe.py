@@ -6,6 +6,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import quoted_name
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import echoed
 from datahub.ingestion.agent.sql_passthrough import CatalogRows
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.common.subtypes import (
@@ -16,7 +17,6 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-from datahub.ingestion.source.sql.sql_identifier_resolver import _echoed
 from datahub.ingestion.source.sql.sqlalchemy_probe import (
     SqlAlchemyMetadataProbe,
     build_probe_engine,
@@ -51,11 +51,11 @@ def _server_spelling(name: str, known: List[str], what: str, hint: str) -> str:
         return candidates[0]
     if candidates:
         raise ProbeArgumentError(
-            f"{_echoed(name)} matches {what}s "
-            f"{', '.join(_echoed(c) for c in sorted(candidates))} only by "
+            f"{echoed(name)} matches {what}s "
+            f"{', '.join(echoed(c) for c in sorted(candidates))} only by "
             f"case, and this server tells them apart; pass one exactly"
         )
-    raise ProbeArgumentError(f"no {what} {_echoed(name)} here; {hint}")
+    raise ProbeArgumentError(f"no {what} {echoed(name)} here; {hint}")
 
 
 class _Located(NamedTuple):
@@ -199,8 +199,8 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
                 f"ingestion reads only the login's default one; omit --database"
             )
         raise ProbeArgumentError(
-            f"this recipe reads only database {_echoed(pinned)} (set by {source}); "
-            f"ingestion never opens {_echoed(database)}"
+            f"this recipe reads only database {echoed(pinned)} (set by {source}); "
+            f"ingestion never opens {echoed(database)}"
         )
 
     def _schema_arg(self, schema: str) -> Union[str, quoted_name]:
