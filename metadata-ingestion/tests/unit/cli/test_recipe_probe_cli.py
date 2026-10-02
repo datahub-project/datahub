@@ -2222,5 +2222,5 @@ def test_the_verbose_switch_shows_untrusted_text_scrubbed(
     monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
     res = _invoke_trust(monkeypatch, tmp_path, "foreign")
     assert res.exit_code == rc.EXIT_CONNECTION, res.output
-    assert "'foreign' failed (RuntimeError: fetcher gave up on https://" in res.stderr
+    assert "'foreign' failed (RuntimeError): fetcher gave up on https://" in res.stderr
     assert _TRUST_SENTINEL not in res.output

@@ -171,6 +171,22 @@ def sqlalchemy_wrapping_mysql() -> NoReturn:
     )
 
 
+def sqlalchemy_wrapping_sqlstate() -> NoReturn:
+    raise sqlalchemy.exc.ProgrammingError(
+        f"SELECT * FROM {SENTINEL}",
+        {"p": SENTINEL},
+        SnowflakeProgrammingError(f"Object '{SENTINEL}' does not exist", None, "42S02"),
+    )
+
+
+def sqlalchemy_wrapping_status() -> NoReturn:
+    raise sqlalchemy.exc.OperationalError(
+        f"SELECT * FROM {SENTINEL}",
+        {"p": SENTINEL},
+        HttpResponseError(f"gateway {SENTINEL} unavailable", 503),
+    )
+
+
 def http(status: int = 403) -> NoReturn:
     response = requests.Response()
     response.status_code = status
@@ -203,7 +219,9 @@ def fake_google() -> NoReturn:
     raise FakeGoogleError(f"caller {SENTINEL} lacks bigquery.tables.list")
 
 
-def vendor(vendor_code: object = "ORA-00942", status_code: object = None) -> NoReturn:
+def vendor(
+    vendor_code: object = "AccessDenied", status_code: object = None
+) -> NoReturn:
     raise VendorError(f"table {SENTINEL} does not exist", vendor_code, status_code)
 
 

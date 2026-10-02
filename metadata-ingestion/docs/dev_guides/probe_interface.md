@@ -107,7 +107,7 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
 | `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
 | `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Naming framework loggers is a defect; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
-| `probe_error_code(exc)`             | if your vendor's errors carry a code the framework does not read (see [Errors, logs and secrets](#errors-logs-and-secrets)): a staticmethod returning a short code such as `"ORA-00942"`, or `None`                                                                              |
+| `probe_error_code(exc)`             | if your vendor's errors carry a code the framework does not read (see [Errors, logs and secrets](#errors-logs-and-secrets)): a staticmethod returning a short code such as `"AccessDenied"`, or `None`                                                                           |
 | `ProbeProviderBase` (optional base) | to get `warnings`/`_warn`, lazily opened clients (`_open_once`) and an `__exit__` that closes them all; see [Shared provider helpers](#shared-provider-helpers)                                                                                                                  |
 
 ### Errors, logs and secrets
@@ -150,16 +150,17 @@ every call site:
   `probe_error_code(exc) -> Optional[str]` as a staticmethod or classmethod (it is
   also asked while the provider is being built, when there is no instance). It is
   asked first, for every link of the cause chain, and its answer is shown only if it
-  is a name with at most one short token (`ORA-00942`, `SQLSTATE 42P01`); anything
+  is a name with at most one dot, optionally followed by one short token holding a
+  digit (`AccessDenied`, `InvalidInstanceID.NotFound`, `SQLSTATE 42P01`); anything
   else is dropped. The SQLAlchemy family reads psycopg2's `pgcode`, pyodbc's
-  SQLSTATE and PyMySQL's and mysqlclient's errno, through SQLAlchemy's `.orig`;
-  BigQuery reads google-api-core's `.code`. An exception raised while handling
+  SQLSTATE and PyMySQL's and mysqlclient's errno, and the generic codes, on the
+  driver error SQLAlchemy keeps as `.orig`; BigQuery reads google-api-core's `.code`. An exception raised while handling
   another is never read for that other's code, and a code never changes the exit
   code.
 
   When debugging a connector locally, set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see the
   withheld text after the label, scrubbed:
-  `'tables' failed (RuntimeError: fetcher gave up on https://***@host/api)`.
+  `'tables' failed (RuntimeError): fetcher gave up on https://***@host/api`.
 
 - **Never interpolate `{exc}` from an exception you did not raise; name the
   operation and the class.** `ProbeConnectionError(f"login failed: {exc}")` around a

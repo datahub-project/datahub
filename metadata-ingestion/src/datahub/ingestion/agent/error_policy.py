@@ -14,8 +14,9 @@ an errno). A provider that knows its vendor's error shape declares
 read with plain getattr under try/except: the threat is accidental leakage,
 and a strict pattern on every value is what keeps a code from carrying text.
 
-`DATAHUB_PROBE_VERBOSE_LOGS=1` appends each foreign exception's scrubbed text
-to its label, for a person debugging a connector locally.
+`DATAHUB_PROBE_VERBOSE_LOGS=1` puts each foreign exception's scrubbed text
+after its label (see name_foreign), for a person debugging a connector
+locally.
 """
 
 import copy
@@ -54,9 +55,14 @@ DEFECT_TYPES: Tuple[Type[BaseException], ...] = (
 # What the CLI reads as "your input was wrong" (exit 2) when raised bare.
 _ARGUMENT_TYPES: Tuple[Type[BaseException], ...] = (ValueError, re.error)
 
-# The shape every provider-read code must match in full: a name and at most
-# one short token, so a reader that returns a message by mistake shows nothing.
-_PROVIDER_CODE = re.compile(r"[A-Za-z][A-Za-z0-9_.-]{0,47}( [A-Za-z0-9_.-]{1,32})?")
+# The shape every provider-read code must match in full: a name with at most
+# one dot (`AccessDenied`, `InvalidInstanceID.NotFound`), then at most one
+# short token holding a digit (`SQLSTATE 42P01`, `errno 1146`). A reader that
+# returns a message, a hostname or a phrase by mistake shows nothing.
+_PROVIDER_CODE = re.compile(
+    r"[A-Za-z][A-Za-z0-9_]{0,31}(?:\.[A-Za-z0-9_]{1,31})?"
+    r"(?: (?=[A-Za-z_]*[0-9])[A-Za-z0-9_]{1,16})?"
+)
 _SQLSTATE = re.compile(r"[0-9A-Z]{5}")
 _MAX_ERRNO = 999_999
 
@@ -127,7 +133,9 @@ def errno_code(value: object) -> Optional[str]:
     return f"errno {number}" if 0 <= number <= _MAX_ERRNO else None
 
 
-def _generic_code(exc: BaseException) -> Optional[str]:
+def generic_error_code(exc: BaseException) -> Optional[str]:
+    """The code `exc` itself carries by a cross-library convention: an HTTP
+    status, else a SQLSTATE, else an errno."""
     for status in (
         _attr(_attr(exc, "response"), "status_code"),
         _attr(exc, "status_code"),
@@ -173,13 +181,32 @@ def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> st
     try:
         links = _cause_links(exc)
         code = _first(links, lambda link: _provider_code(link, provider_cls))
-        code = code or _first(links, _generic_code)
-        label = f"{name}; {code}" if code else name
-        if get_probe_verbose_logs():
-            return f"{label}: {scrub_text(str(exc), set())}"
-        return label
+        code = code or _first(links, generic_error_code)
+        return f"{name}; {code}" if code else name
     except Exception:
         return name
+
+
+def withheld_text(exc: BaseException) -> str:
+    """`: <scrubbed text>` under DATAHUB_PROBE_VERBOSE_LOGS, else empty. Never
+    raises."""
+    if not get_probe_verbose_logs():
+        return ""
+    try:
+        return f": {scrub_text(str(exc), set())}"
+    except Exception:
+        return ""
+
+
+def name_foreign(exc: BaseException, provider_cls: Optional[type] = None) -> str:
+    """`(label)`, how an untrusted exception appears in a message, with its
+    withheld text after the parenthesis under the verbose switch.
+
+    After, not inside: the CLI scrubs the whole message again, and a masked
+    value runs to the next space or separator, so it would take a closing
+    parenthesis that followed it.
+    """
+    return f"({foreign_label(exc, provider_cls)}){withheld_text(exc)}"
 
 
 def classify_foreign(
@@ -193,7 +220,7 @@ def classify_foreign(
     the ValueError family 2, and everything else (drivers, SDKs, HTTP and
     permission errors) 3.
     """
-    message = f"{context} failed ({foreign_label(exc, provider_cls)})"
+    message = f"{context} failed {name_foreign(exc, provider_cls)}"
     if isinstance(exc, DEFECT_TYPES):
         return ProbeInternalError(message)
     if isinstance(exc, _ARGUMENT_TYPES):
@@ -236,7 +263,7 @@ def withhold_foreign_text(
     message = str(exc)
     labels: Dict[str, str] = {}
     for foreign in _foreign_in_chain(exc):
-        label = f"({foreign_label(foreign, provider_cls)})"
+        label = name_foreign(foreign, provider_cls)
         # A lookup error's str is the key it missed, which is the caller's own
         # argument quoted back to them, not the failure's text.
         renders = (repr,) if isinstance(foreign, LookupError) else (repr, str)

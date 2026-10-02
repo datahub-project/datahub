@@ -1,5 +1,6 @@
+import json
 import pathlib
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, cast
 
 import pytest
 from click.testing import CliRunner
@@ -49,13 +50,26 @@ def test_the_gate_refusals_are_trusted_argument_errors() -> None:
         assert is_trusted(trusted("x"))
 
 
+def _raise_here() -> None:
+    raise ValueError(f"no thing named '{SENTINEL}'")
+
+
 @pytest.mark.parametrize(
-    "exc", [ValueError("x"), RuntimeError("x"), TypeError("x"), KeyError("x")]
+    "raiser",
+    [
+        _raise_here,
+        _foreign_errors.fetch,
+        _foreign_errors.lookup,
+        # A plain ValueError from inside the framework package.
+        lambda: probe_methods.clamp_item_limit(cast(int, "many")),
+    ],
 )
-def test_any_other_type_is_not_trusted_wherever_it_was_raised(
-    exc: BaseException,
+def test_an_untrusted_type_is_untrusted_wherever_it_was_raised(
+    raiser: Callable[[], object],
 ) -> None:
-    assert not is_trusted(exc)
+    with pytest.raises(Exception) as info:
+        raiser()
+    assert not is_trusted(info.value)
 
 
 class _RebuildRefusing(ProbeConnectionError):
@@ -244,6 +258,8 @@ class _Provider:
             raise ValueError(f"no thing named '{name}'")
         if self.mode == "plain-runtime":
             raise RuntimeError(f"gave up on {name}")
+        if self.mode == "plain-login":
+            raise RuntimeError(f"login refused; password={SENTINEL}")
         foreign = _FOREIGN_CALLS.get(self.mode)
         if foreign is not None:
             foreign()
@@ -606,8 +622,28 @@ def test_the_backstop_shows_the_scrubbed_text_under_verbose(
             raise ProbeConnectionError(f"fetch said {exc}") from exc
     except ProbeConnectionError as wrapper:
         message = withhold_foreign_text(wrapper)
-    assert message.startswith("fetch said (RuntimeError: fetcher gave up on https://")
+    assert message.startswith("fetch said (RuntimeError): fetcher gave up on https://")
     assert SENTINEL not in message
+
+
+def test_the_verbose_text_follows_the_label_so_the_cli_scrub_keeps_it_closed(
+    run: RunFn, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    # The CLI scrubs the message again, and a masked value runs to the next
+    # space or separator: inside the parenthesis it would take the `)`.
+    monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda _r: ("fake", {"mode": "plain-login"}, set())
+    )
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "things", "--recipe", str(recipe_file)]
+    )
+    assert res.exit_code == 3, res.output
+    assert json.loads(res.stderr)["error"] == (
+        "'things' failed (RuntimeError): login refused; password=***"
+    )
 
 
 @pytest.mark.parametrize(

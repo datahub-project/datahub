@@ -29,7 +29,9 @@ from datahub.ingestion.agent.error_policy import (
     classify_foreign,
     foreign_label,
     is_trusted,
+    name_foreign,
     police_trusted,
+    withheld_text,
     withhold_foreign_text,
 )
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
@@ -770,7 +772,7 @@ def _raise_call_failure(
         detail = (
             scrub_text(withhold_foreign_text(exc, provider_cls), set())
             if is_trusted(exc)
-            else foreign_label(exc, provider_cls)
+            else foreign_label(exc, provider_cls) + withheld_text(exc)
         )
         raise ProbeReadFailed(
             f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))
@@ -818,7 +820,7 @@ def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoRet
         _reraise_trusted(exc, call.provider_cls)
     raise ProbeConnectionError(
         f"{verb} source '{call.source_type}' failed "
-        f"({foreign_label(exc, call.provider_cls)})"
+        f"{name_foreign(exc, call.provider_cls)}"
     ) from None
 
 

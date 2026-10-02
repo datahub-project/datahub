@@ -9,7 +9,11 @@ from google.api_core import exceptions as google_exceptions
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
 from datahub.ingestion.agent import probe_methods
-from datahub.ingestion.agent.error_policy import classify_foreign, foreign_label
+from datahub.ingestion.agent.error_policy import (
+    classify_foreign,
+    foreign_label,
+    name_foreign,
+)
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodResult,
     probe_method,
@@ -171,17 +175,17 @@ class _ArbitraryReader:
 
 
 class _NotCallableReader:
-    probe_error_code = "ORA-00942"
+    probe_error_code = "AccessDenied"
 
 
 def test_the_providers_reader_is_consulted_first() -> None:
     exc = _caught(lambda: coded.vendor(status_code=500))
-    assert foreign_label(exc, _VendorProvider) == "VendorError; ORA-00942"
+    assert foreign_label(exc, _VendorProvider) == "VendorError; AccessDenied"
 
 
 def test_the_providers_reader_sees_each_cause() -> None:
     exc = _caught(coded.chained_from_vendor)
-    assert foreign_label(exc, _VendorProvider) == "RuntimeError; ORA-00942"
+    assert foreign_label(exc, _VendorProvider) == "RuntimeError; AccessDenied"
 
 
 @pytest.mark.parametrize(
@@ -189,11 +193,16 @@ def test_the_providers_reader_sees_each_cause() -> None:
     [
         f"relation {SENTINEL} does not exist",
         "ORA-00942; user=x",
+        "ORA-00942",
+        "db-01.corp.example.com",
+        "permission denied",
+        "Invalid.Instance.ID",
+        "SQLSTATE " + "1" * 17,
         "code=42",
         "",
         " ORA",
         "9ORA",
-        "A" * 49,
+        "A" * 33,
         "SQLSTATE " + "1" * 33,
         42,
         b"ORA-00942",
@@ -207,12 +216,43 @@ def test_a_provider_code_that_is_not_a_bare_code_falls_back_to_the_generic_one(
     assert foreign_label(exc, _ArbitraryReader) == "VendorError; HTTP 503"
 
 
+@pytest.mark.parametrize(
+    "planted",
+    [
+        "SQLSTATE 42P01",
+        "errno 1146",
+        "HTTP 403",
+        "AccessDenied",
+        "InvalidInstanceID.NotFound",
+        "A" * 32,
+    ],
+)
+def test_a_bare_provider_code_is_shown(
+    monkeypatch: pytest.MonkeyPatch, planted: str
+) -> None:
+    monkeypatch.setattr(_ArbitraryReader, "planted", planted)
+    exc = _caught(lambda: coded.vendor(status_code=503))
+    assert foreign_label(exc, _ArbitraryReader) == f"VendorError; {planted}"
+
+
+def test_every_link_is_asked_of_the_provider_before_any_of_the_generic_reader() -> None:
+    outer = _caught(lambda: coded.azure(status_code=500))
+    outer.__cause__ = _caught(coded.vendor)
+    assert foreign_label(outer, _VendorProvider) == "HttpResponseError; AccessDenied"
+
+
+def test_an_http_status_is_read_before_a_sqlstate() -> None:
+    exc = _caught(lambda: coded.azure(status_code=503))
+    setattr(exc, "sqlstate", "42S02")  # noqa: B010
+    assert foreign_label(exc) == "HttpResponseError; HTTP 503"
+
+
 def test_a_provider_code_is_shown_as_its_characters(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(_ArbitraryReader, "planted", coded.SneakyStr("ORA-00942"))
+    monkeypatch.setattr(_ArbitraryReader, "planted", coded.SneakyStr("AccessDenied"))
     label = foreign_label(_caught(coded.vendor), _ArbitraryReader)
-    assert label == "VendorError; ORA-00942"
+    assert label == "VendorError; AccessDenied"
 
 
 @pytest.mark.parametrize("provider_cls", [_RaisingReader, _NotCallableReader, object])
@@ -232,6 +272,10 @@ def test_a_reader_that_fails_or_is_absent_leaves_the_generic_code(
         (coded.mysql, "errno 1146"),
         (coded.mysqldb, "errno 1146"),
         (coded.sqlalchemy_wrapping_mysql, "errno 1146"),
+        # A wrapper raised without `from` hides the driver error from the
+        # framework's cause walk, so the generic codes are read on it here.
+        (coded.sqlalchemy_wrapping_sqlstate, "SQLSTATE 42S02"),
+        (coded.sqlalchemy_wrapping_status, "HTTP 503"),
     ],
 )
 def test_the_sqlalchemy_family_reads_its_drivers_codes(
@@ -287,15 +331,16 @@ def test_the_verbose_switch_appends_the_scrubbed_text(
     exc = RuntimeError(
         f"fetcher gave up on https://user:{SENTINEL}@host/api password={SENTINEL}"
     )
-    label = foreign_label(exc)
-    assert label.startswith("RuntimeError: fetcher gave up on https://")
-    assert SENTINEL not in label
+    assert foreign_label(exc) == "RuntimeError"
+    named = name_foreign(exc)
+    assert named.startswith("(RuntimeError): fetcher gave up on https://")
+    assert SENTINEL not in named
 
 
 def test_the_verbose_switch_keeps_the_code(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
-    label = foreign_label(_caught(coded.azure))
-    assert label.startswith("HttpResponseError; HTTP 404: container ")
+    named = name_foreign(_caught(coded.azure))
+    assert named.startswith("(HttpResponseError; HTTP 404): container ")
 
 
 def test_an_unrenderable_exception_is_named_by_class_under_verbose(
@@ -306,7 +351,7 @@ def test_an_unrenderable_exception_is_named_by_class_under_verbose(
             raise RuntimeError(f"cannot render {SENTINEL}")
 
     monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
-    assert foreign_label(Unprintable()) == "Unprintable"
+    assert name_foreign(Unprintable()) == "(Unprintable)"
 
 
 def test_the_code_does_not_move_the_exit_family() -> None:
@@ -322,7 +367,7 @@ def test_the_code_does_not_move_the_exit_family() -> None:
 def test_classify_foreign_reads_the_providers_code() -> None:
     exc = _caught(coded.vendor)
     assert str(classify_foreign(exc, "'tables'", _VendorProvider)) == (
-        "'tables' failed (VendorError; ORA-00942)"
+        "'tables' failed (VendorError; AccessDenied)"
     )
 
 
@@ -399,11 +444,11 @@ def run(monkeypatch: pytest.MonkeyPatch) -> RunFn:
 @pytest.mark.parametrize(
     "mode, message",
     [
-        ("call", "'things' failed (VendorError; ORA-00942)"),
+        ("call", "'things' failed (VendorError; AccessDenied)"),
         ("generic", "'things' failed (HttpResponseError; HTTP 404)"),
-        ("open", "opening source 'fake' failed (VendorError; ORA-00942)"),
-        ("close", "closing source 'fake' failed (VendorError; ORA-00942)"),
-        ("wrapped", "listing failed: (VendorError; ORA-00942)"),
+        ("open", "opening source 'fake' failed (VendorError; AccessDenied)"),
+        ("close", "closing source 'fake' failed (VendorError; AccessDenied)"),
+        ("wrapped", "listing failed: (VendorError; AccessDenied)"),
     ],
 )
 def test_every_foreign_failure_path_reads_the_providers_code(
@@ -418,7 +463,7 @@ def test_a_recorded_failure_reads_the_providers_code(run: RunFn) -> None:
     with pytest.raises(ProbeReadFailed) as info:
         run("recorded")
     assert str(info.value) == (
-        "VendorError; ORA-00942; the connector recorded: GET /things returned 401"
+        "VendorError; AccessDenied; the connector recorded: GET /things returned 401"
     )
 
 
@@ -438,10 +483,10 @@ def _invoke(
 @pytest.mark.parametrize(
     "mode, label",
     [
-        ("call", "'things' failed (VendorError; ORA-00942)"),
-        ("open", "opening source 'fake' failed (VendorError; ORA-00942)"),
-        ("close", "closing source 'fake' failed (VendorError; ORA-00942)"),
-        ("wrapped", "listing failed: (VendorError; ORA-00942)"),
+        ("call", "'things' failed (VendorError; AccessDenied)"),
+        ("open", "opening source 'fake' failed (VendorError; AccessDenied)"),
+        ("close", "closing source 'fake' failed (VendorError; AccessDenied)"),
+        ("wrapped", "listing failed: (VendorError; AccessDenied)"),
         ("cause-property", "'things' failed (_CauseProperty)"),
         ("hostile-getattribute", "'things' failed (_HostileGetattribute)"),
         ("wraps-cause-property", "listing failed"),

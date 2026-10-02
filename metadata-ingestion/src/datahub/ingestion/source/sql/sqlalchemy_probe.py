@@ -14,7 +14,11 @@ from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 
-from datahub.ingestion.agent.error_policy import errno_code, sqlstate_code
+from datahub.ingestion.agent.error_policy import (
+    errno_code,
+    generic_error_code,
+    sqlstate_code,
+)
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import echoed
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
@@ -316,13 +320,16 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     def probe_error_code(exc: BaseException) -> Optional[str]:
         """The driver's code for a failure in this family: "SQLSTATE 42P01"
         from psycopg2's pgcode or pyodbc, "errno 1146" from PyMySQL or
-        mysqlclient. SQLAlchemy keeps the driver's error as `.orig`, so that
-        is read when the exception is SQLAlchemy's wrapper. The framework
-        reads `.sqlstate` and `.errno` itself."""
+        mysqlclient.
+
+        SQLAlchemy keeps the driver's error as `.orig`. It is usually the
+        cause too, which the framework walks, but not for a wrapper raised
+        without `from`; so the generic codes (`.sqlstate`, `.errno`, an HTTP
+        status) are read on `.orig` here as well as the drivers' own."""
         code = _driver_code(exc)
         orig = getattr(exc, "orig", None)
         if code is None and isinstance(orig, BaseException):
-            code = _driver_code(orig)
+            code = _driver_code(orig) or generic_error_code(orig)
         return code
 
     @property
