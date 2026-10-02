@@ -464,9 +464,7 @@ def _documented_config_hooks(markdown: str) -> Set[str]:
 
 
 def test_the_guide_documents_exactly_the_hooks_the_framework_reads():
-    """probe_interface.md went stale three times while _CONFIG_HOOKS moved on.
-
-    A hook missing from the guide is one a connector author cannot find. A
+    """A hook missing from the guide is one a connector author cannot find. A
     name the guide lists that the framework does not read is one they
     implement for nothing.
     """
@@ -480,7 +478,7 @@ def test_the_guide_documents_exactly_the_hooks_the_framework_reads():
     )
 
 
-_SQL_FAMILY_HEADING = "### If your source IS in the SQL family"
+_SQL_FAMILY_HEADING = "### SQL-family hooks"
 
 
 def _documented_sql_family_hooks(markdown: str) -> Set[str]:

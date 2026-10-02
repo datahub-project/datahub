@@ -1,960 +1,295 @@
 # Adding probe support to a source
 
-The probe interface lets someone — a person at a terminal, or an AI coding assistant — ask a
-live source _"what is in you, and what would my recipe actually pick up?"_ before running an
-ingestion. This guide explains how it works and how to add it to a connector.
+`datahub recipe probe` lets a person or an AI coding assistant ask a live source _"what is in you,
+and what would my recipe pick up?"_ before running an ingestion. This guide covers what a connector
+author writes to support it, and the rules that keep it safe.
 
-## Why it exists
+## Purpose and shape
 
-Writing a recipe is guesswork until you run it. You choose a source type, guess at the config
-fields, guess at the `AllowDenyPattern`s, run an ingestion and read the report to find out what
-you got. The probe answers those questions up front, and it answers them **the way ingestion
-will** — which is the part that makes it useful rather than merely convenient.
+A probe answers two questions, kept apart on purpose:
 
-Everything prints JSON and every failure has a distinct exit code, so a caller can tell "your
-input was wrong" (2) from "I could not reach the source" (3).
+|                                | command        | connects? |
+| ------------------------------ | -------------- | --------- |
+| **fetch**: what is in here     | `probe run`    | yes       |
+| **judge**: what gets picked up | `probe filter` | **no**    |
 
-## The shape of it
+`probe run <command>` calls one of the connector's probe methods. `probe filter` judges names the
+caller already has against the recipe's filters, the way ingestion would, so a caller can try many
+patterns (`--try-allow`, `--try-deny`) against one listing without touching the source again.
+`probe filter --from-run r.json` judges a listing that `probe run --report-to r.json` wrote, and hands
+the connector each record's scalar fields as `ctx.attributes` (for a source that filters on an id).
+`probe methods` lists the commands, connection-free: a method's parameters are its CLI flags and its
+docstring is its help text. `recipe describe`, `recipe scaffold` and `recipe validate` need no
+connection either.
 
-Two things a caller needs, kept deliberately separate:
+Every command prints JSON, and the exit code says who has to act: **2** the caller's input is wrong,
+**3** the source could not be reached or read, **1** a defect in DataHub or the connector.
 
-|                                 | command        | connection? |
-| ------------------------------- | -------------- | ----------- |
-| **fetch** — what is in here     | `probe run`    | yes         |
-| **judge** — what gets picked up | `probe filter` | **no**      |
+## The minimal provider
 
-Splitting them is what keeps both simple. Fetching stops needing to know about filters, and
-filtering becomes a pure function over names the caller already has — so a caller can try a
-dozen candidate patterns against one listing without touching the source again.
+**A SQLAlchemy-family source needs nothing.** `SQLCommonConfig` supplies the whole contract; see
+[The SQL family](#the-sql-family). Check with `datahub recipe probe methods --recipe r.yml`.
 
-**Some sources filter on more than the name** — a Power BI workspace id, a Fivetran
-connector id. `probe filter --from-run r.json` judges the listing a
-`probe run ... --report-to r.json` wrote, and hands the connector each record's scalar
-fields as `ctx.attributes`. Judging stays connection-free: the ids came from the
-fetch. A connector reading an attribute must warn and degrade when it is absent,
-since a caller may still pass bare `--name`s. Parent containers are always judged
-without attributes, even with `--from-run`: the listing's records describe the
-children, not the `--parent` above them. A parent-level override that needs an id
-therefore warns on every `--from-run` call that names a parent.
-
-`probe methods` lists what a connector offers, connection-free. It is the discovery surface:
-a command's parameters imply the nesting (`columns(schema, table)` sits under `tables(schema)`),
-and its docstring is the help text. Nothing is declared twice.
-
-## What you implement
-
-**If your source is in the SQLAlchemy family, nothing.** `SQLCommonConfig` already supplies the
-whole contract, so a connector inheriting it gets ten probe commands the moment it registers:
-the listings `containers`, `tables`, `views`; the per-object `columns`, `foreign_keys`, `indexes`,
-`primary_key`, `table_comment`, `view_definition`; and `sql`. Check with `datahub recipe probe methods --recipe r.yml` before writing anything. The
-rest of this section is for a source that is not SQLAlchemy-backed, or one whose verdicts come out
-wrong.
-
-The hooks are resolved by name, not declared on a base class, so a method with the right name and
-signature is picked up and a misspelled one is simply never called. That matters differently in the
-two halves below: get the **required** hook wrong and the source reports "no probe methods", which
-you will notice immediately; get a **verdict** hook wrong and the probe silently falls back to a
-default and reports a verdict your ingestion does not make. `test_probe_contract.py` catches a
-misspelled `probe_*` hook for you; it cannot catch a misspelled `default_schemas`.
-
-### Required: one hook, one provider class
+Anything else needs one config hook and one provider class:
 
 ```python
 class MySourceConfig(ConfigModel):
-    # The config's ONLY statement about its provider. `probe methods` describes
-    # this class and `probe run` builds it, so the two cannot disagree.
+    host: str
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+        default=AllowDenyPattern.allow_all(), description="Tables to ingest."
+    )
+
     @classmethod
     def probe_provider_class(cls) -> type:
-        from datahub.ingestion.source.mysource.probe import MyMetadataProbe
+        # Imported lazily, so ingestion never loads the probe module.
+        from datahub.ingestion.source.mysource.mysource_probe import MyMetadataProbe
 
         return MyMetadataProbe
 
 
-class MyMetadataProbe:
-    def __init__(self, client: MyClient) -> None:
-        self._client = client
+class MyMetadataProbe(ProbeProviderBase):
+    def __init__(self, config: MySourceConfig) -> None:
+        self._config = config
 
-    # How the framework builds you. Owning construction here is what keeps the
-    # config down to one hook.
     @classmethod
     def for_config(cls, config: MySourceConfig) -> "MyMetadataProbe":
-        return cls(config.get_client())
+        return cls(config)
 
-    def __enter__(self) -> "MyMetadataProbe":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self._client.close()
+    def _client(self) -> MyClient:
+        return self._open_once(
+            "client", lambda: MyClient(self._config.host), close=MyClient.close
+        )
 
     @probe_method(kind=DatasetSubTypes.TABLE, row_limit_param="limit")
     def tables(self, limit: int = 200) -> List[str]:
-        """Tables this workspace exposes, including ones table_pattern would
-        exclude -- a denied table is reported, not hidden. Metadata only."""
-        return self._client.list_tables()[:limit]
+        """Tables this source exposes, including ones table_pattern would
+        exclude: a denied table is reported, not hidden. Metadata only."""
+        return take(self._client().iter_tables(), limit)
 ```
 
-That is a working probe, and for a non-SQL source it is usually the whole of it: Kafka's is exactly
-this one hook and one provider class. Everything below is conditional.
+That is a complete probe: `probe methods` lists `tables`, `probe run tables` returns names with
+`kind: Table` and `truncated`, and `probe filter --kind Table` judges them with `table_pattern`.
+Kafka's probe has this shape. Put the provider in its own `<connector>_probe.py` module and delegate
+to the connector's fetchers. Declare commands on the provider, never on the `Source`: a declaration
+error raises at import, which would break ingestion too.
 
-### The provider
+`probe_provider_class()` is the config's only statement about its provider: `probe methods` describes
+that class and `probe run` builds it with `for_config`, so the two cannot disagree. Build clients in a
+command (`_open_once`), not in `for_config`, so a bad credential is that command's failure. Never
+construct the `Source`: its `__init__` opens connections and emits telemetry. A provider that needs
+connector methods builds an uninitialised instance with `__new__` and primes only what they touch.
 
-| Member                              | When you need it                                                                                                                                                                                                                                                                 |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `__enter__` / `__exit__`            | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes                                                                                                                                                                                       |
-| at least one `@probe_method`        | always                                                                                                                                                                                                                                                                           |
-| `sql_dialect: str`                  | if any method declares `scoped_sql_param` — a name sqlglot resolves                                                                                                                                                                                                              |
-| `catalog_scope: CatalogScope`       | if a method declares `scoped_sql_param` and your catalog is more than `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)); the SQL family's provider sets it from `probe_catalog_scope()`                            |
-| `api_allowlist: Sequence[str]`      | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")`                                                                                                                                                                                    |
-| `api_base_url: str`                 | with `api_allowlist` — the URL a path is joined to, so the gate checks the path the client will send                                                                                                                                                                             |
-| `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
-| `failures: List[str]`               | if a read can fail without raising; any entry makes the result incomplete (exit 3)                                                                                                                                                                                               |
-| `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
-| `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Naming framework loggers is a defect; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
-| `probe_error_code(exc)`             | if your vendor's errors carry a code the framework does not read (see [Errors, logs and secrets](#errors-logs-and-secrets)): a staticmethod returning a short code such as `"AccessDenied"`, or `None`                                                                           |
-| `ProbeProviderBase` (optional base) | to get `warnings`/`_warn`, lazily opened clients (`_open_once`) and an `__exit__` that closes them all; see [Shared provider helpers](#shared-provider-helpers)                                                                                                                  |
+`@probe_method` options:
 
-The framework reads these attributes by name, whether or not you inherit `ProbeProviderBase`, which
-declares them all with defaults that read as absent. `test_probe_contract.py` refuses a provider
-attribute named like one but not exactly one (`probe_reports`, `sql_dialects`): it would never be
-read. An attribute that raises when read is reported as the provider's defect (exit 1), by class and
-attribute only; a property that has to reach the source raises a framework type to say what failed.
+| Option              | Effect                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| `name`              | the command name; defaults to the method name                                                       |
+| `kind`              | the DataHub subtype of the returned names, so `probe filter` picks the right field; omit for `sql`  |
+| `row_limit_param`   | the parameter bounding the result: clamped to `1..MAX_PROBE_ITEMS`, and truncation is reported      |
+| `parent_params`     | the parameters naming the container; echoed as `parent_path`, so the caller needs no `--parent`     |
+| `scoped_sql_param`  | the parameter carrying SQL, scope-checked first (see [Gated commands](#gated-commands-sql-and-api)) |
+| `scoped_path_param` | the parameter carrying an API path, allowlist-checked first                                         |
+| `shapes_own_result` | the method returns its own envelope and truncation flag (`sql`)                                     |
 
-### Errors, logs and secrets
+Parameters are `str`, `int` or `bool` (or `Optional` of those), and the docstring is required. A
+declaration naming a parameter that does not exist raises at decoration time.
 
-The framework owns what reaches the caller, so a provider does not have to scrub
-every call site:
+The framework reads these provider attributes by name. `ProbeProviderBase` declares each with a
+default that reads as absent, and `test_probe_contract.py` refuses a near-miss name (`probe_reports`):
 
-- **Raise `ProbeArgumentError` to show a message.** Exception text is shown by
-  type only. `ProbeArgumentError` (the caller's argument is wrong, exit 2),
-  `ProbeSoftError`, `ProbeConnectionError`, `ProbeReadFailed`, `ProbeInternalError`
-  and the SQL and API gates' refusals keep their message wherever they are raised.
-  Any other exception, a plain `ValueError` from your own provider included, is
-  reported by class name only. Around a stdlib or SDK call that validates a caller's
-  argument, catch its error and raise `ProbeArgumentError` from it.
+| Attribute                       | Declare it when                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| `warnings`                      | a listing degrades rather than fails (`ProbeProviderBase` provides it, with `_warn`)  |
+| `failures`                      | a read can fail without raising; any entry makes the result incomplete (exit 3)       |
+| `probe_report`                  | you reuse ingestion fetchers: their `SourceReport` warnings and failures are read off |
+| `silenced_loggers`              | reused code logs source values that carry no credential shape (see the rules)         |
+| `probe_error_code(exc)`         | your vendor's errors carry a code the generic readers miss (see the rules)            |
+| `sql_dialect`, `catalog_scope`  | a method declares `scoped_sql_param`                                                  |
+| `api_allowlist`, `api_base_url` | a method declares `scoped_path_param`                                                 |
 
-- **Everything else is reported by class name only.** It keeps its exit code but
-  loses its text:
+An attribute that raises when read is reported as the provider's defect (exit 1), by class and name.
 
-  - while the provider is being built or closed (its `__exit__`):
-    `ProbeConnectionError` (exit 3), whatever its type. A failure while closing never
-    replaces the command's own failure;
-  - during a command: Python defects (`TypeError`, `KeyError`, `AttributeError`,
-    `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
-    exits 2, and everything else (HTTP, cloud SDK, database, Kafka errors) exits 3.
+## The rules
 
-  That text is where JDBC URLs, YAML node arguments and token-endpoint bodies leak
-  from. If a command already recorded read failures, it reports `ProbeReadFailed`
-  (exit 3) instead.
+1. **Metadata only.** Names, types, constraints, DDL, counts. Never rows, cell values or payloads.
+2. **Raise `ProbeArgumentError` to show a message.** Exception text is shown by type only:
+   `ProbeArgumentError` and `ProbeSoftError` (exit 2), `ProbeConnectionError` and `ProbeReadFailed`
+   (exit 3), `ProbeInternalError` (exit 1), and the gates' refusals. Anything else, your own plain
+   `ValueError` included, keeps its exit code but is reported as a label: its class and at most one
+   short code, such as `'tables' failed (ProgrammingError; SQLSTATE 42P01)`. While opening or closing
+   the provider that is exit 3; during a command, Python defects (`TypeError`, `KeyError`,
+   `AttributeError`, `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
+   exits 2, everything else exits 3. After recorded failures it is `ProbeReadFailed` (exit 3), and
+   `NotImplementedError` reads as "does not support this command" (exit 2).
+3. **Never interpolate an exception you did not raise.**
+   `ProbeConnectionError(f"login failed: {exc}")` would carry a driver's text out under a trusted
+   type. Name the operation and the class.
+   As a backstop, a foreign exception's verbatim `str` or `repr` in your message is replaced by its
+   label; text rebuilt from parts of it (`e.doc`) is not caught.
+4. **Codes, not text.** The framework reads an HTTP status (`.response.status_code`, `.status_code`,
+   `.status`), a SQLSTATE (`.sqlstate`) and an errno (`.errno`) along the `raise ... from` chain. For a
+   vendor shape, declare a staticmethod `probe_error_code(exc) -> Optional[str]` on the provider. It is
+   asked first, also while the provider is being built, and its answer is shown only if it is a name
+   with at most one dot plus an optional short token holding a digit (`AccessDenied`,
+   `SQLSTATE 42P01`).
+5. **Degrade with `soft_listing`, and say so.** A 403 or 404 on one sub-listing becomes a warning and
+   your fallback; auth failures and 5xx still fail the command. An empty result must never stand in
+   for "could not look": record unreadable reads in `failures` (exit 3).
+6. **Withhold personal records.** Owner names, emails and personal workspaces that ingestion would
+   not emit are left out with a count (`PersonalWithholding`), or masked (`mask_identity_columns`).
+7. **Logs are scrubbed, so leave them alone.** While a probe or `test-connection` runs, every log
+   record not from the framework's own loggers is scrubbed of secrets and credential shapes, its
+   traceback dropped, including `warnings.warn` and loggers created mid-probe (mechanics and limits:
+   `agent/log_guard.py`). Scrubbing works by shape, so list loggers that print shape-free source
+   values (a connector config, a response body) in `silenced_loggers`: they are dropped while the
+   probe runs. Never call `setLevel` yourself, and never log responses, URLs or exception text.
+8. **`DATAHUB_PROBE_VERBOSE_LOGS=1` is for local debugging only.** It turns the log guard off and puts
+   each withheld exception's scrubbed text after its label:
+   `'tables' failed (RuntimeError; HTTP 403): 401 for https://***@host/api`.
+9. **Exit codes are a contract.** 2 for the caller's input, 3 for the source, 1 for a defect. Test
+   every code your provider can produce.
 
-  The class name carries one short machine code when the exception, or one in its
-  `raise ... from` cause chain, has one: `'tables' failed (ProgrammingError; SQLSTATE 42P01)`,
-  `(HTTPError; HTTP 403)`. The framework reads cross-library conventions only:
+## Helpers
 
-  - an HTTP status: `response.status_code`, `status_code` or `status`, an int from
-    100 to 599;
-  - a SQLSTATE: `sqlstate`, five capitals or digits including a digit;
-  - an errno: `errno`, up to six digits.
+`datahub.ingestion.agent.provider_helpers` and its neighbours hold what providers would otherwise
+copy. None is a hook: the framework never looks them up.
 
-  A vendor's own error shape is read by its provider: declare
-  `probe_error_code(exc) -> Optional[str]` as a staticmethod or classmethod (it is
-  also asked while the provider is being built, when there is no instance). It is
-  asked first, for every link of the cause chain, and its answer is shown only if it
-  is a name with at most one dot, optionally followed by one short token holding a
-  digit (`AccessDenied`, `InvalidInstanceID.NotFound`, `SQLSTATE 42P01`); anything
-  else is dropped. The SQLAlchemy family reads psycopg2's `pgcode`, pyodbc's
-  SQLSTATE and PyMySQL's and mysqlclient's errno, and the generic codes, on the
-  driver error SQLAlchemy keeps as `.orig`; BigQuery reads google-api-core's `.code`. An exception raised while handling
-  another is never read for that other's code, and a code never changes the exit
-  code.
-
-  When debugging a connector locally, set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see the
-  withheld text after the label, scrubbed:
-  `'tables' failed (RuntimeError): fetcher gave up on https://***@host/api`.
-
-- **Never interpolate `{exc}` from an exception you did not raise; name the
-  operation and the class.** `ProbeConnectionError(f"login failed: {exc}")` around a
-  driver error would carry the driver's text out under a type the framework trusts.
-  As a backstop, an untrusted exception's text found verbatim in your message is
-  replaced by its class name and code, as above, and the exception keeps its type
-  and exit code. Text you rebuilt from parts of it is not caught.
-
-- **All free text is scrubbed.** The recipe's own secret values are masked first,
-  then credential shapes (`user:pass@` in URLs, `password=` / `client_secret=` /
-  `token:` pairs including quoted keys and ODBC `PWD={...}` values, bearer, basic
-  and `Authorization: Token` headers, JWTs, GitHub and Slack tokens, PEM private
-  keys, AWS key ids, SAS signatures, pydantic's `input_value=`), so recipes with no
-  inline secrets (ADC, IAM roles) are covered too. This applies to `probe` output and to `test-connection`.
-- **Every log line not written by the framework is scrubbed** while a probe or
-  `test-connection` runs, with its traceback dropped, including under `datahub --debug`.
-  The guard rewrites each record as logging creates it, so that includes loggers and
-  handlers a library creates mid-probe, and `warnings.warn` text: warnings are routed to
-  logging while the guard runs. `test-connection`'s guard also covers importing the
-  source. Not covered: a `Logger` subclass that overrides `makeRecord`, code that builds a
-  `LogRecord` itself and hands it to a handler, and `extra=` fields, which only a
-  formatter that names them prints. Only the framework's own loggers
-  (`datahub.ingestion.agent`, `datahub.cli`, `datahub.masking`, `datahub.entrypoints`,
-  `datahub.telemetry`) pass as logged. Other than for `silenced_loggers` (below), the
-  guard scrubs without changing levels: how much shows is the host's logging config (the
-  CLI shows other libraries at `WARNING`, `INFO` under `--debug`), and your provider's own
-  `logger.debug` shows under `--debug`, scrubbed. Scrubbing works by shape, so if your
-  reused code logs values that have none (a cluster's connector config, a response body),
-  list its loggers in the provider's `silenced_loggers` and their records are dropped
-  instead. Never call `setLevel` on them yourself: that is process-global and outlives a
-  failed `__exit__`. Set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see those logs unscrubbed when
-  debugging a connector locally.
-
-**A source type that validates differently from its config class.** Some registered
-names share one config class and differ only in the pydantic context their `create()`
-passes (`mssql-odbc` vs `mssql`). Declare
-`probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]` and
-every probe command validates the recipe with the same context ingestion uses.
-
-### Shared provider helpers
-
-`datahub.ingestion.agent.provider_helpers` holds what every provider used to
-write for itself. Use these instead of a local copy. None of them is a hook:
-the framework never looks them up, so the [hook reference](#hook-reference) does
-not list them.
-
-| Helper                                                   | Use it for                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `echoed(value)`                                          | Putting a caller's argument or a listed name into a refusal: clipped and repr-quoted, so control characters cannot reach a terminal or a log.                                                                                                                                                                                                                                                                                                                                           |
-| `resolve_name(arg, records, *, key, kind, ...)`          | Turning a caller's name (or id, with `id_key`) into the listed record, returned as `Resolved(record, name, by_id)`. Exact match; a case-only miss is refused with the listed spelling as a hint; a shared name is refused with `distinguish` labels and your `on_ambiguous` remedy. Raises `ProbeArgumentError` (exit 2). `on_miss` runs first, so it can raise a read failure instead when an unread listing could hold the name. `stop_at_first=True` for listings with unique names. |
-| `take(items, limit, *, keep=None)`                       | Any listing with a limit (`None` for no limit). Stops paging at the limit and closes the source.                                                                                                                                                                                                                                                                                                                                                                                        |
-| `PersonalWithholding(is_personal=..., would_ingest=...)` | Leaving out records that name people and that ingestion would not emit. Pass `.keep` to `take`, then warn with `.count_text(stopped_early=...)`. `is_personal` must fail closed.                                                                                                                                                                                                                                                                                                        |
-| `soft_listing(self._warn, 403, 404, context=...)`        | One sub-listing that may degrade. Write `return fetch()` inside the block and your fallback (`return []`) after it. `context` is required when you pass status codes.                                                                                                                                                                                                                                                                                                                   |
-| `ProbeProviderBase`                                      | `warnings` / `_warn`, `_open_once(key, opener, close=...)`, `_on_exit(close)`, and an `__exit__` that closes everything, last first.                                                                                                                                                                                                                                                                                                                                                    |
+| Helper                                                   | Use it for                                                                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `ProbeProviderBase`                                      | `warnings`/`_warn`, `_open_once(key, opener, close=...)`, `_on_exit(close)`, and an `__exit__` closing all, last first       |
+| `resolve_name(arg, records, *, key, kind, ...)`          | a caller's name (or id, with `id_key`) to the listed record; exact, case-only misses hinted, ambiguity refused (exit 2)      |
+| `take(items, limit, *, keep=None)`                       | any listing with a limit: stops paging at the limit and closes the source                                                    |
+| `PersonalWithholding(is_personal=..., would_ingest=...)` | leaving out personal records: pass `.keep` to `take`, warn with `.count_text(stopped_early=...)`; `is_personal` fails closed |
+| `soft_listing(self._warn, 403, 404, context=...)`        | one sub-listing that may degrade: `return fetch()` inside the block, the fallback after it                                   |
+| `echoed(value)`                                          | a caller's argument or a listed name in a refusal: clipped and repr-quoted                                                   |
+| `soft_on_status(*codes, context=...)`                    | turning HTTP statuses into a `ProbeSoftError` you catch yourself                                                             |
+| `mask_identity_columns(columns, rows)`                   | masking identity columns (`user_name`, `email`, grantees) in a result you admit                                              |
+| `pattern_verdict(config, field, target)`                 | the standard allow/deny check, for a `probe_verdict_override` that defers to a pattern                                       |
+| `Verdict.include()` / `Verdict.exclude(field)`           | a verdict, naming the field or rule that excluded it                                                                         |
+| `parent_required(ctx)`                                   | a `probe_match_target` that needs the container: warns and returns `True` when there is no `--parent`                        |
+| `ancestors_in(chain, kind, leaves)`                      | implementing `probe_ancestor_kinds` from a container chain                                                                   |
 
 ```python
-class MyProbe(ProbeProviderBase):
-    def _api(self) -> MyClient:
-        return self._open_once("api", lambda: MyClient(self._config), close=MyClient.close)
-
-    def _workspace(self, name: str) -> Workspace:
-        return resolve_name(
-            name,
-            self._api().list_workspaces(),
-            key=lambda ws: ws.name,
-            kind="workspace",
-            list_command="probe run workspaces",
-        ).record
-
-    @probe_method(kind="Report", parent_params=("workspace",), row_limit_param="limit")
-    def reports(self, workspace: str, limit: int = 100) -> List[str]:
-        ws = self._workspace(workspace)
-        with soft_listing(self._warn, 403, 404, context=f"reports in {echoed(ws.name)}"):
-            return take((r.name for r in self._api().reports(ws.id)), limit)
-        return []
+@probe_method(kind="Report", parent_params=("workspace",), row_limit_param="limit")
+def reports(self, workspace: str, limit: int = 100) -> List[str]:
+    """Reports in one workspace, by name. Metadata only."""
+    ws = resolve_name(
+        workspace,
+        self._client().list_workspaces(),
+        key=lambda w: w["name"],
+        kind="workspace",
+        list_command="probe run workspaces",
+    ).record
+    with soft_listing(self._warn, 403, 404, context=f"reports in {echoed(ws['name'])}"):
+        return take((r["name"] for r in self._client().reports(ws["id"])), limit)
+    return []
 ```
 
-Pass `resolve_name` the records **after** withholding: its hint and its
-ambiguity list print listed names. Do not wrap a `resolve_name` call in your own
-error translator. Materialise the listing inside the translator, and resolve
-outside it, so a refusal stays exit 2.
-
-Two cautions:
-
-- **Do not give `warnings` a class-level list default** in a subclass
-  (`warnings: List[str] = []`). It would replace the base's per-instance
-  property, and every provider instance would share one list.
-- **A warning built inside `soft_listing` must not interpolate parts of a
-  foreign exception** (for example `{e.doc}`). Warnings get no framework
-  backstop beyond the withholding of a foreign exception's whole text. Name the
-  operation and the exception class instead, as in
-  [Errors, logs and secrets](#errors-logs-and-secrets).
-
-### `@probe_method` options
-
-| Option              | Effect                                                                                                                                                                                                                                                                                             |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`              | command name; defaults to the method name                                                                                                                                                                                                                                                          |
-| `kind`              | the DataHub subtype the returned names are, so `probe filter` picks the right `*_pattern` without the caller guessing a string. Omit only when the caller chooses what comes back (`sql`)                                                                                                          |
-| `scoped_sql_param`  | names the parameter carrying raw SQL; the framework scope-checks it first                                                                                                                                                                                                                          |
-| `scoped_path_param` | names the parameter carrying an API path; allowlist-checked first                                                                                                                                                                                                                                  |
-| `row_limit_param`   | names the parameter bounding the result; clamped to `1..MAX_PROBE_ITEMS` before the fetch                                                                                                                                                                                                          |
-| `parent_params`     | names the parameters identifying the container these names live under; the result reports their values, so a caller need not restate them as `--parent`                                                                                                                                            |
-| `shapes_own_result` | set when the method returns its own envelope and does its own truncation accounting, rather than a bare list. Stops the framework fetching one past the limit as well, which would hand the caller one item too many and compute `truncated` against the wrong number. `sql` is the only one today |
-
-Parameters must be annotated `str`, `int` or `bool` (or `Optional` of those) and the docstring is
-required — it is the help text the agent reads.
-
-### Optional: making verdicts match ingestion
-
-`probe filter` resolves a verdict in this order. Every step has a default that is right for most
-connectors, so implement a hook only when the default gives the wrong answer.
-
-| Step | What it does                                                                                                            | Hook to override it                                                                                                              |
-| ---- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`), which may be nested | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field; for non-pattern rules, `probe_rule_filtered_kinds()` |
-| 2    | decide the string the pattern is matched against                                                                        | `probe_match_target(self, ctx: ClassifyContext) -> Optional[str]`, for every kind (`ctx.kind`); `None` keeps the bare name       |
-| 3    | kind switches: a bool field that turns a whole kind off                                                                 | `probe_kind_switches()`                                                                                                          |
-| 4    | the connector's own verdict, for anything no single pattern states; told step 3's verdict                               | `probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]`                                                         |
-| 5    | match the pattern against the target, if steps 3–4 gave no verdict                                                      | —                                                                                                                                |
-| 6    | judge the immediate `--parent` container the same way, recursively                                                      | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]`                                                               |
-
-An object inside an excluded container is reported excluded, with `excluded_by` naming
-the container's field rather than its own: ingestion never reaches anything inside it.
-
-**Step 4 is the escape hatch, and there is exactly one.** Use it when ingestion's
-decision is not one pattern's answer: a view must pass `table_pattern` as well as
-`view_pattern`; a child project is re-admitted under a selected parent; a pinned
-database is read whatever `database_pattern` says. `ctx.structural` is step 3's
-verdict (or `None`) — return it, overrule it, or return `None` to let steps 3 and 5
-decide. To re-check a pattern, call `pattern_verdict(self, field, ctx.target)` rather
-than `self.field.allowed(...)` directly, so `--try-allow` reaches it when `field` is
-`ctx.pattern_field`. A returned `Verdict` is final for this level, and its
-`matched_target`, when set, is the reported `target`. Step 6 still runs afterwards;
-a connector whose children do not follow their parent returns `()` from
-`probe_ancestor_kinds` for that kind.
-
-**When no pattern decides a kind at all.** A source whose inclusion is decided by
-rules that are not an `AllowDenyPattern` — `path_specs` on the object-store
-sources — declares `probe_rule_filtered_kinds()` (classmethod: kind → the rule
-field) and judges each name in `probe_verdict_override`, which must return a
-`Verdict` for those kinds. `probe filter` reports `filtering: "by_rule"` with
-`pattern_field` naming the rule field; put the exact sub-rule in `excluded_by`
-(`path_specs[0].exclude`). Return a `Verdict` for a rule kind even when
-`ctx.attributes` is empty: a parent container is judged by name alone when the
-level below it is checked, so an override that needs a per-name fact must
-degrade to its best verdict and say so with `ctx.warn` rather than return `None`
-(which is a connector defect for a rule kind). `--try-allow`/`--try-deny` are ignored, with a warning
-(exit 0), since there is no list to replace. Declaring such a kind unfiltered instead would
-report everything included — the contract test refuses both at once.
-
-**A recipe switch that turns a whole kind off** (`extract_lakehouses: false`,
-`include_notebooks: false`) is declared with `probe_kind_switches()`, a classmethod
-mapping the kind to the bool field. `probe filter` then reports that kind
-`excluded_by` the switch, as ingestion never lists it. A contract test checks every
-field you name is a real bool field.
-
-**Step 6 needs the kinds above each kind**, outermost first, because `--parent` carries names
-only. The SQL family declares `Database` → `Schema` (or `Database` alone on a two-tier source);
-BigQuery, Unity Catalog and Mode declare their own. A source that declares none gets a warning
-that the parents were not judged, rather than a verdict that silently ignores them.
-
-**Step 1 is the one you are most likely to need**, and for many connectors the only one: declare
-`Filters` whenever your config field follows the source's own vocabulary (`collection_pattern`,
-`object_pattern`) rather than DataHub's subtype name. A connector whose display name **is** its
-filter target — Kafka topics, Mode spaces — needs nothing here at all.
-
-**A filter inside a nested block is declared where it lives.** Some configs group
-their filters (`filter_config.entries.pattern`). Put `Filters(...)` on the nested
-field itself; the framework finds it by walking nested `ConfigModel` fields and
-reports it as `pattern_field: "filter_config.entries.pattern"`, and `describe` lists
-it under that dotted name. `--try-allow`/`--try-deny` replace the nested pattern and
-rerun the validators of the block that owns it — not of its parents, so normalize a
-nested pattern in its own block. An `Optional` block the recipe leaves unset filters
-nothing: every name is reported included, with a warning, and `--try-*` is skipped
-with a warning because there is no pattern to replace. One nested block type reused
-under two sibling fields that both declare `Filters` for the same kind is refused
-("more than one field"), since the framework cannot tell which of the two decides.
-
-The SQL family declares steps 3 and 4 on `SQLCommonConfig`: `include_tables` / `include_views`
-switch `Table` / `View` off, and its `probe_verdict_override` is `sql_structural_verdict(self, ctx)`
-— a database in `default_databases()` or a schema in `default_schemas()` is excluded, and with
-`match_fully_qualified_names` on a schema is judged as `<container>.<schema>`. A SQL config with
-rules of its own adds its switches to `super().probe_kind_switches()` and returns
-`sql_structural_verdict(self, ctx)` for the names its own override leaves alone. Step 2's hook is
-`SQLCommonConfig`'s — tables and views match on the connector's own identifier, containers on the
-bare name — and Unity Catalog's, whose catalogs and schemas match on a composed id. Implement it if
-your source filters on a qualified identifier, branching on `ctx.kind`; return `None` for a kind
-the bare name already suits. A hook that needs the containing container calls
-`parent_required(ctx)` (in `agent.verdicts`), which warns and returns `True` when the caller passed
-no `--parent`.
-
-**Where the container comes from when the caller names none: `Qualifier`.** A qualified name is
-`<container>.<schema>[.<entity>]`, and the container normally comes from the caller, because a
-recipe may span several databases or projects and only the caller knows which it is asking about.
-Mark the config field to fall back to, and the common single-container recipe stays answerable
-without a `--parent`:
-
-```python
-project_ids: Annotated[List[str], Qualifier()] = Field(...)
-```
-
-A list field qualifies only when it pins exactly one value — several have no single answer, and
-guessing produces a confident verdict about a different object. `Qualifier(authoritative=True)`
-inverts the precedence so the config beats the caller: Redshift connects to exactly one database,
-so honouring a different `--parent` would answer about a database the recipe does not read.
-
-**Levels you deliberately do not filter: `probe_unfiltered_kinds`.** Return the kinds your source
-reports whole:
-
-```python
-@classmethod
-def probe_unfiltered_kinds(cls) -> Set[str]:
-    return {"Dataset", "Query"}      # Mode filters above these, not at them
-```
-
-Worth declaring even though the verdict is the same either way. "Nothing filters this level" and
-"the filter for this level lost its annotation" both report everything included, and without this
-they are indistinguishable — which is how Teradata's `database_pattern` went unnoticed. Declaring
-it makes `probe filter` say `filtering: "unfiltered"` rather than `"unresolved"`. A source that
-declares a kind unfiltered _and_ has a field the name convention would find is contradicting
-itself, and a contract test refuses that rather than resolving it silently.
-
-### The SQL family's listings come from the Inspector, not from a query
-
-`containers()`, `tables(schema)` and `views(schema)` on `SqlAlchemyMetadataProbe` go
-through SQLAlchemy's Inspector -- `get_schema_names`, `get_table_names`,
-`get_view_names` -- which is what ingestion itself enumerates through. That matters
-beyond convenience:
-
-- **`tables` and `views` are separate, as the two patterns are.** A catalog query
-  against `information_schema.tables` returns both kinds in one result set, so judging
-  that listing as tables hands a view a verdict from `table_pattern` when ingestion
-  would have used `view_pattern`.
-- **The parent travels with the result.** `tables(schema)` declares
-  `parent_params=("schema",)`, so the result reports `parent_path=["analytics"]` and
-  `probe filter` needs no `--parent` from the caller. Threading it by hand is how it
-  goes missing, and for a SQL source a missing container flips the verdict.
-- **They work where `sql` cannot.** sqlglot has no dialect for DB2 or Vertica, so the
-  gate refuses every query on them; before these listings existed, those two probes
-  could enumerate nothing at all.
-- **Every name a caller passes is resolved against these listings first.** The `schema`,
-  `table` or `view` argument of `tables`, `views`, `columns`, `foreign_keys`, `indexes`,
-  `primary_key`, `table_comment` and `view_definition` is looked up in `get_schema_names` /
-  `get_table_names` / `get_view_names` (and `get_materialized_view_names` where the dialect has
-  it), and reflection receives the catalog's own string, never the caller's. An unlisted name is
-  refused with exit 2 before any reflection runs; if the listing itself fails, that is a
-  connection error (exit 3). This is a security boundary: several dialects
-  (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid, and Databricks, whose
-  unity-catalog dialect formats `` `{catalog}`.`{schema}` `` into SHOW TABLES/VIEWS) format these arguments straight
-  into their reflection SQL, which the `sql` gate never sees. Matching is exact. A name that
-  differs only in case is refused with the listed spelling as a hint, because ingestion reflects
-  and pattern-matches the listed spelling. Names the server lists still go into each dialect's own
-  SQL: a hostile name created by someone with DDL rights can break that dialect's reflection,
-  which is outside this protection (it guards caller input). The rule for a provider is that
-  only a catalog-listed string may reach reflection: resolve every schema, table and view
-  through `resolve_listed_name` in `sql/sql_identifier_resolver.py`, or an equivalent that only
-  returns a listed string, then add the source to `_RESOLVES_ITS_OWN` in
-  `test_sql_identifier_hostile_input.py` after review. That test fails for a provider that
-  overrides one of these commands without doing so.
-
-`containers` declares no `kind`, because the same Inspector call means different things
-per tier: three-tier sources return schemas filtered by `schema_pattern`, two-tier ones
-return databases filtered by `database_pattern`. The config class states which with
-`probe_kind_overrides()`, which the SQL family derives from `probe_container_kind()`, so
-`probe methods` reports it without a recipe and the result carries it.
-
-### Declaring what your dialect's catalog is
-
-`probe sql` permits only reads of catalog metadata, and **which relations those are is your
-connector's declaration, not the framework's guess.** Override `probe_catalog_scope()` on your
-config:
-
-```python
-@classmethod
-def probe_catalog_scope(cls) -> CatalogScope:
-    return CatalogScope(
-        relations=frozenset({"sys.tables", "sys.columns", "sys.objects"}),
-    )
-```
-
-The default is `information_schema` and nothing else — right for the standard dialects, and safe
-for the rest. It used to be a table inside `sql_gate`, and that table was wrong: Oracle and Teradata
-have no `information_schema` at all (their catalogs are `DBA_*`/`ALL_*` and `DBC.*`), so both
-advertised a `sql` command whose every legitimate query was refused.
-
-**Name relations, not whole schemas** — for anything other than `information_schema`. A vendor
-catalog schema is almost never wholly metadata, and our own ingestion code is the proof: it reads
-`system.query_log` on ClickHouse, `DBC.QryLogV` on Teradata and `sys.dm_exec_cached_plans` on
-MSSQL. Those carry executed SQL with WHERE-clause literals in it. Allowing the schema and listing
-exclusions makes that a denylist, so the next text-bearing view somebody adds is permitted by
-default; naming relations keeps the default deny. `excluded_relations` exists for the one case
-where a schema really is metadata apart from a known few, which is `pg_catalog`.
-
-Two things to know before writing one:
-
-- **Some dialects have no `information_schema` and address their catalog unqualified.** Oracle's
-  dictionary views are public synonyms, so `FROM dba_tables` is idiomatic. List those without a
-  schema; the gate permits an unqualified name only when the scope names it.
-- **sqlglot must have your dialect, or `sql` cannot work at all.** It has none for DB2 or Vertica,
-  so the gate refuses at dialect resolution — before any scope is read. `db2.py` therefore declares
-  no scope and says why. The typed commands still work; only `sql` is affected.
-
-A test asserts no declaration opens a schema where user tables live (`public`, `dbo`, `system`, …).
-That is the exposure this design creates, and it is the same one `api_allowlist` has: pushing policy
-to connectors means a careless declaration can widen it.
-
-### If your source speaks SQL but is not SQLAlchemy-backed
-
-Inherit `SqlCatalogPassthrough` (`agent/sql_passthrough.py`) and implement one method:
-
-```python
-class BigQueryMetadataProbe(SqlCatalogPassthrough):
-    sql_dialect = "bigquery"          # the gate parses against this; required
-
-    def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
-        iterator = self._client.query(query).result(max_results=limit)
-        columns = [field.name for field in iterator.schema]
-        return CatalogRows(columns=columns, rows=[...])
-
-    def __exit__(self, *exc: object) -> None:   # yours: what closing means differs
-        self._client.close()
-```
-
-Snowflake, BigQuery and the SQLAlchemy family each had their own `sql`, differing only
-in how the driver yields columns and rows — a DictCursor, a `RowIterator` with a schema, a
-`CursorResult`. `rows_from_mappings` handles the dict-per-row shape for you.
-
-**The base owns the fetch-one-past-the-limit convention, and that is the reason it exists.**
-`truncated` is computed by comparing rows returned against the limit, so an adapter that fetches
-exactly `limit` reports `truncated: false` for a result set that was cut short — and an agent then
-concludes it has seen every table in the catalog. Your `execute_catalog_query` is handed
-`limit + 1` already; return everything asked for, do not re-clamp, and do not fetch the whole
-result set to slice it afterwards, because on a paged API the discarded pages are real requests.
-
-### If your source has a REST API
-
-Inherit `RestApiPassthrough` (`agent/rest_passthrough.py`) rather than writing an `api` method.
-The gate validates the _input_ either way — that comes from `scoped_path_param` — but the _call_ is
-where every connector was getting something slightly different: a bare `requests.get` instead of
-the connector's own session (which on Hex means escaping the rate limiter installed in
-`HexApi.__init__`), a missing timeout, a missing `raise_for_status` so a 403 body reaches the agent
-as though it were a listing, or the wrong base URL.
-
-```python
-class HexMetadataProbe(RestApiPassthrough):
-    api_allowlist = ("GET /projects", "GET /projects/{id}/runs")
-
-    def __init__(self, api: HexApi) -> None:
-        self.api_session = api.session
-        self.api_base_url = api.base_url
-
-    def api_headers(self) -> Dict[str, str]:
-        return api._auth_header()      # the connector's scheme, not a restated one
-```
-
-Override `api_fetch_json(url)` where the connector's own fetcher does more than `requests` does —
-Mode's logs a curl equivalent and counts rate-limit retries, and a probe that bypassed it would
-behave differently from ingestion on the same call.
-
-**Writing the allowlist is the part nothing can do for you.** Two rules earned the hard way:
-
-- **A relation being in a metadata API does not make it metadata.** Hex's `/cells` returns
-  `SqlCell.sql_source` — the raw SQL of a notebook cell, so a `WHERE` literal is a row value
-  arriving by another route. It is excluded for exactly the reason `sql_gate` excludes
-  `pg_stat_statements`. `/projects/export` embeds the same SQL.
-- **A `{placeholder}` matches any single segment, literal siblings included.** `GET /projects/{id}`
-  also permits `GET /projects/export`. Where a sibling route exists that you do not want reachable,
-  do not allowlist the `{id}` shape above it — Hex omits that entry for this reason, and loses
-  nothing, because its typed commands already return project metadata.
-
-**Query parameters are part of the request, so they are part of the allowlist.** An entry may
-name the parameters permitted on that endpoint, after a `?` and separated by `&`:
-
-```python
-api_allowlist = ("GET /projects?include&limit", "GET /projects/{id}/runs")
-```
-
-`GET /projects/{id}/runs` names none, so a request carrying any query parameter is refused. Names
-only, deliberately — a value is opaque to the gate, so `?include` permits `include=anything`.
-Naming the parameter is you asserting the endpoint is safe with it, the same judgement the path
-allowlist already rests on. Parameters bind to the endpoint that declared them rather than to the
-allowlist as a whole, so one listed on a harmless endpoint cannot widen a different one.
-
-Leaving an allowlist unset is not a way to allow everything: it permits nothing, and the refusal
-says the _provider_ is incomplete rather than blaming the caller's path.
-
-### If your source IS in the SQL family
-
-These hooks are read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them.
-`test_probe_contract.py` checks their names against this table, and `probe_filter_target`'s keyword
-arguments too.
-
-| Hook                        | Signature                                                                                                        | Declare it when                                                                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `probe_catalog_scope`       | classmethod `() -> CatalogScope`                                                                                 | your dialect's catalog differs from `information_schema` (see [Declaring what your dialect's catalog is](#declaring-what-your-dialects-catalog-is)) |
-| `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)                                                                               |
-| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | your driver takes a statement ceiling or a client label (see below)                                                                                 |
-| `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | the `get_identifier` shim cannot build your identifier (see below)                                                                                  |
-| `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on                                                                  |
-| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss                                                                    |
-| `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                                                                                    |
-
-`probe_filter_target` is read by the `get_identifier` shim in `sql_probe.py` that
-`SQLCommonConfig.probe_match_target` routes to. The shim builds your `Source` without `__init__`
-and gives it the config and nothing else. Override this hook when that cannot produce your
-identifier: your real `Source` is not a `SQLAlchemySource` (`UnityCatalogSourceConfig`), or your
-`get_identifier` reads state ingestion sets while it walks (`SQLServerConfig` supplies the database
-being read). State that `__init__` sets belongs in a class-level default on the `Source` instead.
-Where the container is pinned by a config field, `Qualifier` says so declaratively and the shim
-resolves the rest. Where only the caller can name it, return
-`qualified_table_target(database, schema, entity, warn)` from `sql_config`, which builds
-`container.schema.entity` or warns that none was given (`SnowflakeV2Config`). Which provider a
-connector brings is never read as a declaration. The hook:
-
-```python
-def probe_filter_target(
-    self,
-    schema: str,
-    entity: str,
-    warn: Callable[[str], None],
-    database: Optional[str] = None,
-) -> Optional[str]:
-    """The exact string ingestion filters table_pattern/view_pattern against,
-    or None to let the shim keep resolving it."""
-```
-
-Take `database` even if you ignore it. It is passed by keyword on every call — it is the
-container above the schema when the caller supplied one — so a three-argument override raises
-`TypeError` at probe time rather than at import.
-
-Call `warn` if you fall back to something less precise than your real ingestion identifier; it
-feeds the same warnings list, deduplicated by message so one connector-wide reason is reported once.
-
-`probe_engine_settings` says how your driver bounds a probe statement and labels the connection, so
-probe traffic is told apart from ingestion's in the server's logs. It returns a
-`ProbeEngineSettings`:
-
-- `connect_args`, merged over the recipe's own. A value there replaces the recipe's, so compose with
-  the recipe's where yours should defer to it (a label) or extend it (libpq's `options` string).
-- `prepare(engine)`, for what connect arguments cannot carry, such as a statement on each new
-  connection. It runs before `probe_prepare_engine`.
-- `timeout_applies`: whether these bound every probe statement by the budget's timeout. When false
-  the probe reports no time ceiling.
-
-The default declares nothing. Declare only arguments your driver is known to accept, and only when
-the config's URL names your own dialect: a recipe's `sqlalchemy_uri` can name another one, and a
-driver handed a keyword it does not know refuses to connect. The libpq and MySQL-protocol settings
-that several configs share are in `protocol_probe_settings.py`, with `probe_settings_for_url` for a
-config whose dialect is the recipe's choice (the generic `sqlalchemy` source).
-
-Before opening the PR, go through the
-[connector-author checklist](#connector-author-checklist) at the end of this guide.
+Pass `resolve_name` the records after withholding: its hint and ambiguity list print listed names.
+Resolve outside your own error translator, so a refusal stays exit 2. Do not give `warnings` a
+class-level list default in a subclass; `ProbeProviderBase` refuses one, since every instance would
+share it.
+
+## Gated commands: `sql` and `api`
+
+A method taking SQL or an API path declares which parameter carries it, and the framework checks it
+before the method runs, so a connector cannot forget a check it does not perform:
+
+| Declaration         | What the framework does first                                                       |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `scoped_sql_param`  | `sql_gate`: one SELECT over the provider's `catalog_scope`, nothing else            |
+| `scoped_path_param` | `api_gate`: GET only, a path on the connector's own host, listed in `api_allowlist` |
+| `row_limit_param`   | clamps the value into `1..MAX_PROBE_ITEMS`                                          |
+
+A provider missing `sql_dialect` or `api_allowlist` is refused as its defect (exit 1). A method that
+takes a `query`, `path` or `limit` and declares nothing runs unchecked, so `test_probe_contract.py`
+scans every registered connector for such parameters. The rules each gate enforces are in the module
+docstrings of `agent/sql_gate.py` and `agent/api_gate.py`.
+
+- **Not SQLAlchemy-backed but speaks SQL:** inherit `SqlCatalogPassthrough`, set `sql_dialect`, and
+  implement `execute_catalog_query(query, limit) -> CatalogRows`. `limit` already includes the one
+  extra row that detects truncation: return what was asked for, and never fetch everything to slice.
+  `rows_from_mappings` shapes a dict-per-row driver.
+- **Has a REST API:** inherit `RestApiPassthrough`, set `api_base_url` and `api_allowlist`, and set
+  `api_session` (the connector's own, with its rate limiter and auth) or override `api_fetch_json`.
+- **Writing the allowlist** is your judgement, and the gate enforces it as written. An endpoint in a
+  metadata API can still return user data (a notebook cell's SQL), so leave it out. A `{placeholder}`
+  matches any one segment, literal siblings included. Query parameters are listed per endpoint
+  (`"GET /projects?include&limit"`), names only; an entry listing none refuses any.
+- **The gates bound requests; the credential bounds data.** A query escaping `sql_gate` or a path
+  escaping `api_gate` is a security bug. Give the probe a least-privilege, read-only credential.
+
+`DATAHUB_PROBE_DISABLE_RAW_ACCESS=true` refuses every gated command (typed listings keep working), and
+`DATAHUB_PROBE_DISABLED=true` refuses every `probe run` (`recipe test-connection` is not covered).
+Both are environment variables, set where the probe runs, because the agent writes the recipe.
 
 ## Hook reference
 
 Every hook the framework reads off a config, by name. All are optional except
-`probe_provider_class`; the SQL family's own hooks are listed in
-[If your source IS in the SQL family](#if-your-source-is-in-the-sql-family). Copy the signature
-exactly: the framework calls the instance hooks with keyword arguments, and
-`test_probe_contract.py` checks the names against this table and, for the
-hooks listed in its `required_kwargs`, the keyword arguments.
+`probe_provider_class`. Copy the signature exactly: instance hooks are called with keyword
+arguments. `test_probe_contract.py` checks the names in this table against `_CONFIG_HOOKS`, refuses
+a `probe_*` method the framework does not read, and checks the keyword arguments.
 
-| Hook                        | Signature                                                       | Declare it when                                                                          |
-| --------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `probe_provider_class`      | classmethod `() -> type`                                        | always: it names the provider class                                                      |
-| `probe_validation_context`  | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts      |
-| `probe_kind_overrides`      | classmethod `() -> Mapping[str, str]`                           | the config class, not the provider, decides the kind a command reports (command → kind)  |
-| `probe_match_target`        | `(self, ctx: ClassifyContext) -> Optional[str]`                 | the pattern is matched against something other than the bare name, for any kind (step 2) |
-| `probe_verdict_override`    | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                                   |
-| `probe_kind_switches`       | classmethod `() -> Mapping[str, str]`                           | a bool field switches a whole kind off                                                   |
-| `probe_rule_filtered_kinds` | classmethod `() -> Mapping[str, str]`                           | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)                    |
-| `probe_unfiltered_kinds`    | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                       |
-| `probe_ancestor_kinds`      | `(self, kind: str) -> Optional[Sequence[str]]`                  | your containers are not the SQL family's `Database` → `Schema` (step 6)                  |
+| Hook                        | Signature                                                       | Declare it when                                                                     |
+| --------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `probe_provider_class`      | classmethod `() -> type`                                        | always: it names the provider class                                                 |
+| `probe_validation_context`  | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts |
+| `probe_kind_overrides`      | classmethod `() -> Mapping[str, str]`                           | the config, not the provider, decides a command's kind (command → kind)             |
+| `probe_match_target`        | `(self, ctx: ClassifyContext) -> Optional[str]`                 | a pattern matches something other than the bare name (step 2)                       |
+| `probe_kind_switches`       | classmethod `() -> Mapping[str, str]`                           | a bool field switches a whole kind off (step 3)                                     |
+| `probe_verdict_override`    | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                              |
+| `probe_rule_filtered_kinds` | classmethod `() -> Mapping[str, str]`                           | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)               |
+| `probe_unfiltered_kinds`    | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                  |
+| `probe_ancestor_kinds`      | `(self, kind: str) -> Optional[Sequence[str]]`                  | containers sit above a kind (step 6)                                                |
 
-Adding a hook to the framework means adding it to `_CONFIG_HOOKS` and to this
-table in the same change (a SQL-family hook: `_SQL_FAMILY_HOOKS` and that section's table). The
-contract test fails until both agree.
-
-## Everything a connector exposes is a probe method
-
-There is one execution command. A connector adds capability by annotating a
-method; `probe run <command>` invokes it and `probe methods` describes it.
-
-```python
-class MyProbeSource(MySource):
-    @probe_method(name="data_sources")
-    def probe_data_sources(self) -> Dict[int, dict]:
-        """Warehouse connections this workspace can query. Returns the raw API records."""
-        return self._get_data_sources()
-```
-
-Parameters become CLI flags (`str`/`int`/`bool`, or `Optional` of those) and the **docstring
-becomes the help text**, so a caller discovers capability at runtime. Declare the method on the
-provider class, in its own `*_probe.py` module, and delegate to the connector's fetcher: a
-declaration error raises at import, and on the `Source` itself that would break ingestion, not
-just the probe.
-
-### Methods that take something dangerous
-
-A catalog query and an API path are still ordinary methods. What makes them safe is that the
-method **declares which parameter carries the dangerous value**, and the framework checks it
-before invoking:
-
-```python
-@probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
-def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
-    """Run a read-only catalog query."""
-    ...                     # `query` scope-checked, `limit` already clamped
-
-@probe_method(name="api", scoped_path_param="path")
-def api(self, path: str) -> object:
-    """Fetch one listed read endpoint."""
-    ...                     # `path` has already been allowlist-checked
-```
-
-There are three such declarations, and every one of them exists so the framework can act before
-the method runs:
-
-| Declaration         | What the framework does first                               |
-| ------------------- | ----------------------------------------------------------- |
-| `scoped_sql_param`  | scope-checks the query (`sql_gate`), refusing anything else |
-| `scoped_path_param` | allowlist-checks the path (`api_gate`), GET only            |
-| `row_limit_param`   | clamps the value into `1..MAX_PROBE_ITEMS`                  |
-
-Enforcement lives in `probe_methods._enforce_gates` and `_bounded_kwargs`, never in the method — a
-connector cannot forget a check it does not perform. Same split as `Filters(...)` on a config
-field: declare the fact, let the framework act on it. A declaration naming a parameter that does
-not exist raises at decoration time, because a typo would otherwise gate nothing silently.
-
-**Declare `row_limit_param` on anything that takes a `limit`,** not just on `sql`. The getter
-fetches `limit + 1` items, so an unclamped limit is a fetch the connector really performs and
-trimming the output afterwards is too late — and `limit=-1` slices to `items[:-1]`, quietly
-dropping the last item and then reporting the result as truncated.
-
-**The declaration is the only thing the framework can see.** A method that takes a query and
-declares nothing runs completely unchecked, and `probe methods` still advertises it. Nothing at
-decoration time can tell that parameter apart from a harmless one, so
-`tests/unit/agent/test_probe_contract.py` scans every registered connector for parameters that
-look dangerous (`query`, `sql`, `path`, `url`, `limit`, …) and fails on any that no declaration
-covers. It is a tripwire, not a boundary — renaming a parameter defeats it — which is why it lives
-in a test where it is greppable and arguable rather than as a hard import-time failure.
-
-An earlier design gave these their own CLI commands so that `probe run` had no path to a query
-surface at all. That was a stronger _kind_ of guarantee — structural rather than enforced — but it
-bought it with two parallel execution paths, and it left `probe methods` an incomplete picture of
-what a connector could do. The guarantee is now "the channel is gated by a declaration the
-framework enforces," which is worth knowing when reviewing a new `scoped_*` declaration.
-
-A provider supplies what each gate needs: `sql_dialect` (a name sqlglot resolves) for queries, and
-`api_allowlist` for paths. Either one missing refuses the call as a provider defect
-(`ProbeInternalError`, exit 1) — rather than guessing a grammar, or reporting an unlistable path as
-though the caller had chosen a bad one. If your connector's dialect name differs from SQLAlchemy's (`postgresql` vs
-`postgres`), add it to the map in `sqlalchemy_probe.py`.
-
-### Turning the passthroughs off
-
-`DATAHUB_PROBE_DISABLE_RAW_ACCESS=true` refuses every command that takes a caller-supplied query or
-path, for an operator who does not want an agent issuing its own SQL against a source at all. Typed
-listings keep working, so recipe diagnosis still functions. It is an environment variable rather
-than a recipe field because the agent authors the recipe — a field there would let it grant itself
-the access. Set it where the probe runs (the ingestion executor).
-
-### The scope gate
-
-`agent/sql_gate.py` parses with sqlglot and permits only a single `SELECT` whose every table
-reference resolves into the dialect's catalog schemas. Two of its rules are not obvious:
-
-- **A relation in a catalog schema is not automatically metadata.** `pg_stat_statements` and
-  `pg_stat_activity` carry the literal text of user queries, values in `WHERE` clauses included, so
-  they are excluded by name even though `pg_catalog` is permitted. Query history reaches the same
-  place three ways per dialect and each is stopped by a different rule — worth knowing when adding
-  a schema to the allowlist, because only the first of these travels with it:
-
-  | Surface                                          | Refused by                                                                  |
-  | ------------------------------------------------ | --------------------------------------------------------------------------- |
-  | `pg_catalog.pg_stat_statements`                  | the query-text exclusion list, by name                                      |
-  | `snowflake.account_usage.query_history`          | the schema allowlist (`ACCOUNT_USAGE` is not a permitted schema)            |
-  | `information_schema.query_history()` (Snowflake) | the vendor-function rule — it is a table function inside a permitted schema |
-
-- **Vendor-specific functions are refused wholesale.** sqlglot models standard SQL functions as
-  their own node types and leaves unmodelled ones as `exp.Anonymous` — and every known way to
-  reach data without naming a table (`pg_read_file`, `pg_ls_dir`, `dblink`, `load_file`,
-  `SYSTEM$…`, `EXTERNAL_QUERY`) is unmodelled. Refusing the class is fail-closed where a
-  denylist of names could never be complete.
-
-`agent/api_gate.py` refuses every method but GET, anything that is not a path on the connector's
-own host (absolute URLs, protocol-relative `//host`, `..`, percent-encoded `%2e%2e`), and any path
-outside the allowlist. It is **weaker in kind** than the SQL gate and the docs should not imply
-parity: there is no parser, so it can only match an allowlist, and whether a listed endpoint
-returns metadata or user data is the judgement of whoever listed it.
-
-**Two boundaries, and they bound different things.** The gates decide what the probe may
-**request**; the credential's own grants decide what it may **see**. Both are enforcement, at
-different layers, and neither substitutes for the other:
-
-- **The gates are a boundary on requests, and a bypass in one is a bug.** A query that escapes the
-  scope check reaches a relation the source never admitted, and a path that escapes the allowlist
-  reaches an endpoint nobody listed — with the recipe's credential, whatever that credential is
-  permitted to do. `SELECT ... INTO OUTFILE` and `COPY INTO 's3://…'` were fixed here for that
-  reason: each turned a read the gate had cleared into a write to somewhere it never examined.
-  Report a hole in either gate as a security bug, not a missing feature.
-- **The grants are the boundary on data, and the gates cannot replace them.** The gate reasons
-  about which relations a query names, not about what those relations contain for this caller. A
-  schema admitted whole still yields only the rows the credential may read. So give the probe a
-  least-privilege, read-only role scoped to catalog metadata: it is what bounds the blast radius
-  of any gate bug, including the next one.
-
-The practical rule for a connector author is that admitting a relation is a decision the gate then
-enforces — it does not second-guess it. `information_schema` illustrates both edges: it is catalog
-metadata by definition, and it also holds `processlist` and `*_privileges`, where MySQL shows other
-sessions' in-flight SQL to a credential holding `PROCESS`. The gate admits what you listed; the
-credential decides what that shows.
-
-**A passthrough does not replace typed methods.** A raw record leaves the caller to guess which
-field a pattern is matched against; for a Mode Space that is the raw `name` with no token
-fallback. Fetch generalises; naming and judging do not.
-
-### Providers that must not run `__init__`
-
-If the provider needs connector methods but must not run `__init__` (which typically opens a
-connection and emits telemetry), build an uninitialized instance with `__new__` and prime only
-the attributes those methods touch. `ModeSource.for_probe()` is the worked example.
-
-A provider that degrades rather than fails exposes a `warnings: List[str]`; `run_probe_method`
-reads it back, so an empty result carries its reason.
-
-### When the display name is not the address
-
-Mode addresses objects by opaque token while the probe addresses them by the display name a
-pattern is matched against, so each space-scoped command spends one spaces listing resolving the
-name. Any BI source that shows a name while addressing by an internal ID lands here — Tableau's
-LUIDs, Sigma, Qlik.
-
-Resolve once per command and no more. The cost is inherent — each `probe run` is a fresh process
-holding only what the caller typed — but it multiplies if one command fans out to sub-fetches that
-each resolve independently: when a single command listed a Space's reports _and_ datasets, it
-listed every space in the workspace twice. One command per listing is what fixed that, and
-`test_a_space_scoped_command_lists_spaces_exactly_once` pins it. Do not add a convenience wrapper
-that revives the fan-out.
-
-### One hook names the provider, and it used to be two
-
-`probe_provider_class()` is the whole answer: `probe methods` describes that class and `probe run`
-builds it through the provider's own `for_config`. It was two hooks — a `build_probe_provider()` on
-the config as well — and the pair could disagree. For Snowflake and BigQuery it did: both inherited
-the SQLAlchemy answer for discovery while executing against their own client, so each advertised six
-typed getters its provider does not have, every one of which failed at invocation with
-`no probe method bound for command 'columns'` after the recipe had validated and a connection
-had opened.
-
-Worth knowing because it is the argument against adding a second naming site back for convenience.
-A test can catch two hooks disagreeing; one hook cannot disagree with itself.
-
-**Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
-column values, or message payloads. Mostly convention, enforced by review and by the docstring rule
-on `@probe_method`: nothing checks that a return value holds only metadata.
-
-Two things in `agent/redact.py` do act on results, and neither is a general net:
-
-- `redact` and `scrub_text` mask credentials drawn from the recipe, and credential-shaped text, wherever they
-  appear in output (see [Errors, logs and secrets](#errors-logs-and-secrets)).
-- `mask_identity_columns` masks values under the column names in `WITHHELD_COLUMN_NAMES`
-  (`user_name`, `login_name`, `email` and the like). It exists for the relations that are catalog metadata
-  by definition but carry identity in particular columns — Snowflake's `access_history` is the
-  case it was written for. Apply it in your provider when you admit such a relation; nothing
-  applies it for you.
-
-  Query TEXT is a different mechanism, and not this one: a relation carrying it is kept out of
-  the scope entirely rather than admitted and masked, which is why Snowflake lists
-  `access_history` and not `query_history`. Masking a column withholds a value; excluding a
-  relation withholds the relation.
-
-So a relation you admit is your judgement, not the framework's. If it has columns like those,
-mask them.
+Two field annotations complete it: `Filters(kind)` on the pattern field that filters a kind, and
+`Qualifier()` on a field naming the container a qualified name starts with. A new hook goes into
+`_CONFIG_HOOKS` and this table in the same change (a SQL-family hook: `_SQL_FAMILY_HOOKS` and
+[its table](#sql-family-hooks)).
 
 ## Making verdicts match ingestion
 
-`probe filter` resolves three things per connector. Two have defaults that are usually right.
+`probe filter` resolves a verdict in this order. Each step's default is right for most connectors,
+so implement a hook only where the default answers differently from ingestion.
 
-**Which field filters this kind.** Resolved by convention from the level's subtype (`Table` →
-`table_pattern`). Where the config follows the source's own vocabulary instead, declare it:
+| Step | What it does                                                                     | Change it with                                                         |
+| ---- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1    | find the field that filters the kind                                             | `Filters(kind)`; `probe_rule_filtered_kinds`, `probe_unfiltered_kinds` |
+| 2    | build the string the pattern is matched against                                  | `probe_match_target`; `None` keeps the bare name                       |
+| 3    | a bool switch that turns the whole kind off                                      | `probe_kind_switches`                                                  |
+| 4    | the connector's own verdict, told step 3's                                       | `probe_verdict_override`                                               |
+| 5    | match the pattern against the target, if steps 3 and 4 gave no verdict           | none                                                                   |
+| 6    | judge the immediate `--parent` the same way; inside an excluded container is out | `probe_ancestor_kinds`                                                 |
 
-```python
-collection_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(...)
-```
+**Step 1.** Declare `Filters(kind)` on every pattern field, nested ones included
+(`filter_config.entries.pattern` is reported under its dotted name, and `--try-*` reruns only its
+own block's validators). The `<kind>_pattern` name convention is a fallback for out-of-tree
+connectors, and the contract test refuses it in-tree. A kind nothing filters on purpose goes in
+`probe_unfiltered_kinds`, so `probe filter` reports `filtering: "unfiltered"` rather than
+`"unresolved"`, which is what a dropped annotation looks like. A kind decided by rules
+(`path_specs`) goes in `probe_rule_filtered_kinds`, and `probe_verdict_override` must return a
+`Verdict` for every name of it, with `excluded_by` naming the sub-rule (`path_specs[0].exclude`).
 
-Some levels have no filter at all — Mode's datasets and queries are reachable but nothing
-narrows them. `probe filter` answers those normally, reporting every name as included with
-`pattern_field: null`; the question is whether these would be ingested, and where nothing
-filters them the answer is yes. A kind the source never declares is answered the same way but
-carries a warning naming the kinds that do exist, since a misspelling is likelier than a level
-without a filter and a silent "all included" would be a wrong answer stated confidently.
+**Step 2.** The target decides the verdict: where ingestion matches `schema.table`, judging the
+bare name gives `^orders$` an answer ingestion never gives. Return the string ingestion matches,
+built by ingestion's own code; never re-derive it. A target that needs the container calls
+`parent_required(ctx)` first.
 
-**What string the pattern is matched against.** This is the one that bites. `AllowDenyPattern`
-uses a start-anchored `re.match`, and ingestion rarely matches the bare name — MySQL matches
-`schema.table`, Postgres `db.schema.table`, Druid the bare name. Get it wrong and `^orders$`
-silently matches nothing ([Patterns match from the start](#patterns-match-from-the-start-rematch)
-has the table).
+**Step 4.** The escape hatch, for decisions no single pattern states: a view that must pass
+`table_pattern` too, a pinned database, an id the pattern matches. `ctx.structural` is step 3's
+verdict: return it, overrule it, or return `None` to let steps 3 and 5 decide. Re-check a pattern
+with `pattern_verdict(self, field, ctx.target)`; under `--try-allow` the config the override is called
+on carries the trial pattern. A returned `Verdict` is final for this level, and its `matched_target`,
+when set, is reported as the target. A fact read from `ctx.attributes` may be absent (bare `--name`s,
+or a parent judged by name): degrade with `ctx.warn`. An included verdict names no `excluded_by` and
+an excluded one must name it.
 
-Never re-derive it. The SQL family routes through `SQLCommonConfig.probe_match_target`, which
-calls the connector's own `get_identifier` via the shim in `sql_probe.py`; a connector whose
-real Source isn't a `SQLAlchemySource` overrides `probe_filter_target` instead (see
-`UnityCatalogSourceConfig`), or declares `Qualifier` on the field that pins the container (see
-`RedshiftConfig`). A connector whose display name **is** its filter
-target — Kafka topics, Mode spaces — needs no hook at all.
+**Step 6.** Return the kinds above `kind`, outermost first, or `()` for a kind whose children do not
+follow it. A source that declares none gets a warning, when a `--parent` is given, that the
+parents were not judged.
 
-Note the shim resolves a _table's_ identifier. Container kinds (Schema, Database) match on the
-bare name; asking the shim about a schema would build `analytics..public`.
-
-**Structural exclusions the user's patterns don't express.** `default_schemas()` and
-`default_databases()` drop system catalogs whatever the pattern says, and
-`match_fully_qualified_names` makes ingestion judge `database.schema` (Redshift, Snowflake,
-BigQuery). `SQLCommonConfig.probe_verdict_override` applies both before the pattern, so a system
-catalog reports `default_schema` rather than a verdict ingestion never makes.
-
-### One predicate for ingestion and the probe
-
-A rule that `probe_verdict_override` restates will drift from ingestion; every connector in
-the first rollout had at least one. Instead, put the connector's selection decisions in a pure
-module, `<package>/<connector>_selection.py`, with no I/O and no client, which both the
-source and the probe import (the Tableau connector follows this shape once its probe lands).
-Each function takes the recipe and facts about one object and returns a `Verdict`:
-
-```python
-def workspace_verdict(config: WorkspaceFilterConfig, facts: WorkspaceFacts) -> Verdict:
-    if not config.workspace_name_pattern.allowed(facts.name):
-        return Verdict.exclude("workspace_name_pattern")
-    ...
-    return Verdict.include()
-```
-
-Ingestion calls it where it used to test the pattern, and maps `excluded_by` back onto the
-report call that branch already made. The override builds the facts from `ctx.attributes`,
-warns when a fact it needs is missing, and calls the same function.
-
-- Type the config as a `Protocol` with read-only properties. The config module imports the
-  selection module, so the selection module must not import the config.
-- Read patterns straight off the config. `probe filter --try-allow` hands the override a
-  copy with the trial pattern in place, so the selection function sees it too.
-- A fact the probe may not have is `Optional`, and `None` skips that rule. Ingestion always
-  passes it.
-- Where ingestion makes a decision by choosing what to list, rather than by filtering a
-  listing (Looker lists deleted dashboards only under `include_deleted`), the function
-  serves only the probe. The parity test is what keeps it honest.
-
-## The rules that matter
-
-These have each cost a review round.
-
-**Reuse the connector's fetch; never its policy.** Ingestion degrades on error to salvage
-partial metadata; a diagnostic must not, because distinguishing _"nothing here"_ from _"I could
-not look"_ is its entire job. When a connector method looks like the right thing to delegate to
-but filters internally or swallows errors, reach for the layer beneath it.
-
-**Beware the function whose name matches your intent.** `_get_definitions_map()` sounds like a
-definitions fetcher; it is a lossy `{name: source}` cache for template expansion.
-`_get_space_name_and_tokens()` sounds like a space lister; it applies `space_pattern` itself, so
-delegating to it would make a _denied_ space vanish instead of being reported as excluded. Read
-the target before delegating.
-
-**Never construct a `Source`.** `__init__` typically opens connections and emits telemetry. Use
-a client, or an uninitialized instance.
-
-This is where the probe departs from `test_connection`, and it is worth knowing why. Most
-connectors implement `test_connection` the way a probe wants — Snowflake builds a connection
-config and asks it for a connection; Kafka and Unity Catalog delegate to a purpose-built
-connection test. The SQLAlchemy family is the exception: `SQLAlchemySource.test_connection`
-(`sql/sql_common.py`) calls `cls.create(config_dict, PipelineContext(...))` to borrow one
-method, and the cost is visible in the lines above it, which force
-`stateful_ingestion.enabled = False` so that merely constructing the object doesn't demand a
-second connection to DataHub.
-That patches one `__init__` side effect; the constructor also emits telemetry and builds a
-`ClassificationHandler`, a `DomainRegistry` and a `SqlParsingAggregator`. Don't copy that branch.
-
-**Report degradation, don't hide it.** A 404/403 on one sub-listing should degrade to empty and
-say so; auth failures and 5xx should raise. `soft_on_status(403, 404, context=…)` gives you the
-split. An empty result **with** warnings means "part of this could not be read" — never "this is
-empty".
-
-### Patterns match from the start (`re.match`)
-
-`AllowDenyPattern` runs `re.match` on each entry. A match is anchored at the
-start of the string but not at the end, and case is ignored unless the recipe
-sets `ignoreCase: false`. The same applies to `deny`:
+Patterns match from the start, are not anchored at the end, and ignore case unless the recipe sets
+`ignoreCase: false`; `deny` is the same:
 
 | Entry      | Target             | Matches                     |
 | ---------- | ------------------ | --------------------------- |
@@ -962,161 +297,137 @@ sets `ignoreCase: false`. The same applies to `deny`:
 | `^prod$`   | `production`       | no                          |
 | `orders`   | `analytics.orders` | no: the match starts at `a` |
 | `.*orders` | `analytics.orders` | yes                         |
-| deny `tmp` | `stg_tmp`          | no: the deny does not match |
 
-Two consequences for a probe:
+Never re-implement matching with `re.search`, `re.fullmatch` or `in`. To ask whether a pattern
+filters anything, use `pattern.is_allow_all()` and read `False` as "unknown"; do not compare with
+`AllowDenyPattern.allow_all()`, whose equality includes a regex cache.
 
-- **The target decides the verdict.** When ingestion matches `schema.table`, a
-  bare-name target turns `^orders$` into a silent no-match, so resolve the
-  target through the hooks in [Making verdicts match ingestion](#making-verdicts-match-ingestion).
-- **Never re-implement matching.** A `probe_verdict_override` that uses
-  `re.search`, `re.fullmatch` or `in` disagrees with ingestion on exactly these
-  rows. Call `pattern_verdict(self, field, target)`; use `pattern.allowed(target)`
-  only for a pattern that is never `ctx.pattern_field` (otherwise `--try-allow`
-  and `--try-deny` are silently ignored; see step 4 of
-  [Making verdicts match ingestion](#making-verdicts-match-ingestion)).
-  To ask whether a pattern filters anything at all, call `pattern.is_allow_all()`.
-  It is true only for a literal `.*` allow entry with an empty deny list, so
-  treat `False` as "unknown", not "restricted". Don't compare with
-  `AllowDenyPattern.allow_all()`: `__eq__` compares the compiled-regex cache
-  too, so a pattern that has judged one name stops equalling a fresh default.
+### One predicate for ingestion and the probe
 
-### Connector docs allow only `Capabilities` / `Limitations` / `Troubleshooting` H3 headings
-
-A connector's `docs/sources/<platform>/<plugin>_post.md` must have exactly the
-H3 headings `Capabilities`, `Limitations` and `Troubleshooting`, once each and in
-that order, and no H1 or H2. `<plugin>_pre.md` has the same rule with
-`Overview` and `Prerequisites`. Put probe documentation under `### Capabilities`
-as an H4 (`#### Probe support`). A new `### Probe support` breaks the build.
-
-`validate_source_doc_headings` in `metadata-ingestion/scripts/docgen.py`
-enforces this when `:metadata-ingestion:docGen` runs. In CI that is the
-docs-website build, so `tests/unit/test_source_doc_headings.py` runs the same
-function over every file in seconds:
-
-```bash
-cd metadata-ingestion && venv/bin/python -m pytest tests/unit/test_source_doc_headings.py -q
-```
-
-The full per-file rules are in `metadata-ingestion/docs/sources/AGENTS.md`
-("Heading-level rules by file type"). It is named as a path, not linked, because
-the docs site does not publish it.
-
-## Testing expectations
-
-- **The gate, adversarially.** Anything touching `sql_gate` needs attack cases, not happy paths:
-  a user table hidden in a CTE, a subquery, a `UNION` branch, a join; an unqualified name; two
-  statements; a vendor function in projection position (which names no table at all, so a
-  table-based check never sees it). Also test the false-positive side — a legitimate catalog
-  query with a trailing semicolon, a recursive CTE, standard aggregates — because a gate that
-  refuses real queries is also broken.
-- **The contract scan is registry-wide, so a new connector is covered the moment it registers.**
-  You do not add a case to `test_probe_contract.py`; you either declare the gate it asks for or
-  argue in review why the parameter is safe. If you add a rule there, prove it fires — the file
-  keeps a deliberately-bad provider per rule for exactly that reason.
-- **Filter targets.** If the connector has a `get_identifier` equivalent, assert the probe's
-  target equals what ingestion computes for the same inputs. `test_sql_filter_target.py` covers
-  the SQLAlchemy family, including the Redshift schema override.
-- **Parity with ingestion.** `assert_probe_parity` (`tests/test_helpers/probe_parity.py`)
-  runs ingestion and the probe on one recipe under the same mocks, judges each listing the
-  way `probe filter --from-run` does, and asserts both directions per kind. Use a
-  `ParityListing` per kind, with `FanOut` for a child kind (every parent, kept or not) and
-  `identity` where a listing's name is not the emitted id. Parametrize over recipes that
-  exercise each rule, and pin the reasons with `report.excluded_by(label)`. A listing that
-  warned is refused as possibly partial; when the source warns on every normal run (a note,
-  not a degraded fetch), name that warning in `accept_warnings`, exactly or as a fullmatch
-  regex. It never waives truncation, failures or redaction, an entry that matched nothing
-  fails, and `report.kinds[label].accepted_warnings` lets the test pin what it let through.
-- **The degrade path.** A 404 on one sub-listing produces an empty result **and** a warning; auth
-  failures and 5xx raise.
-- **The connector's existing suites must pass unedited.** A probe adds to a connector; it does
-  not change it.
-
-### Testing configs: patch the class, not the instance
-
-Configs are pydantic v2 models, so setting anything that is
-not a field on an instance raises `ValueError: "MyConfig" object has no field ...`.
-That includes a hook method, and it includes `monkeypatch.setattr(config, ...)`.
-`object.__setattr__` gets past the check silently, which makes it worse: the
-test then exercises an object pydantic never validated.
+An override that restates ingestion's rules drifts from them. Put the connector's selection
+decisions in a pure module, `<connector>_selection.py`, with no I/O and no client, which the source
+and the override both call. Each function takes the recipe and facts about one object and returns a
+`Verdict`:
 
 ```python
-def test_a_switched_off_kind_is_reported_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
-    # A hook: patch it on the class. monkeypatch restores it after the test.
-    monkeypatch.setattr(
-        MySourceConfig,
-        "probe_kind_switches",
-        classmethod(lambda cls: {"Notebook": "include_notebooks"}),
-    )
-    config = MySourceConfig.model_validate(RECIPE)
-    ...
-
-
-def test_a_hypothetical_pattern() -> None:
-    # A field: build a new config. model_validate runs the validators;
-    # model_copy(update=...) does not, which matters when a validator
-    # normalizes the field you are changing.
-    narrowed = MySourceConfig.model_validate(
-        {**RECIPE, "table_pattern": {"allow": ["^orders$"]}}
-    )
-    ...
+def workspace_verdict(config: WorkspaceFilterConfig, facts: WorkspaceFacts) -> Verdict:
+    if not config.workspace_name_pattern.allowed(facts.name):
+        return Verdict.exclude("workspace_name_pattern")
+    return Verdict.include()
 ```
 
-Patching the class affects every instance and subclass until the test ends, so
-when the class is shared with other connectors, define a small subclass in the
-test that overrides the hook instead.
+Type the config as a `Protocol` with read-only properties (the config module imports the selection
+module, not the reverse). Read patterns off the config, so `--try-allow` reaches them. A fact the
+probe may lack is `Optional`, and `None` skips that rule; ingestion always passes it.
 
-## Connector-author checklist
+Prove the two agree with `assert_probe_parity` (`tests/test_helpers/probe_parity.py`). It runs
+ingestion (`pipeline_ingestion`) and the probe on one recipe under your mocks, judges each listing
+as `probe filter --from-run` would, and asserts both directions per kind. Give one `ParityListing`
+per kind: `FanOut` for a child kind listed under every parent, kept or not, and `identity` where a
+listing's name is not the emitted id. A listing that warned is refused as partial; name a warning
+the source gives on every normal run in `accept_warnings`. Parametrize over recipes that exercise
+each rule, and pin the reasons with `report.excluded_by(label)`.
 
-Every item has cost a review round on at least one connector.
+## The SQL family
 
-- [ ] **The hooks.** `probe_provider_class()` on the config, `for_config(config)`
-      on the provider, and any optional hook copied from the
-      [hook reference](#hook-reference) with its exact signature.
-- [ ] **The methods.** `@probe_method` on each listing, with `kind=` and
-      `row_limit_param=` where they apply. `sql_dialect` / `api_allowlist` are
-      present if any method declares a scoped parameter. `Filters(...)` is on
-      any pattern field whose name does not follow the subtype.
-- [ ] **Metadata only.** Listings return names and structure, never row data.
-      Degradation is a warning, not an empty result.
-- [ ] **Caller errors.** A caller's bad argument raises `ProbeArgumentError`
-      (exit 2); a plain `ValueError` is reported by class name only. See
-      [Errors, logs and secrets](#errors-logs-and-secrets).
-- [ ] **No foreign `{exc}`.** Never interpolate the text of an exception you did
-      not raise; name the operation and the class instead. Providers need no
-      scrubbers of their own: let foreign errors propagate (see
-      [Errors, logs and secrets](#errors-logs-and-secrets)).
-- [ ] **Reused-code logs.** They are scrubbed while a probe runs, so
-      don't log responses, URLs or exception text from the provider, and don't add scrubbers
-      or `setLevel` calls of your own; declare `silenced_loggers` for code that logs unshaped
-      source values. Use `DATAHUB_PROBE_VERBOSE_LOGS=1` to read them locally.
-- [ ] **Identifiers.** Every caller-supplied schema, table, view or other catalog
-      identifier reaches a driver, reflection call or SQL builder only as a
-      catalog-listed string, via `resolve_listed_name`
-      (`source/sql/sql_identifier_resolver.py`) or an equivalent that only
-      returns a listed string. A `SqlAlchemyMetadataProbe` subclass that
-      overrides an inherited identifier command joins `_RESOLVES_ITS_OWN`
-      after review; a subclass's NEW identifier-taking `@probe_method` is not
-      auto-checked (see
-      [the SQL family](#the-sql-familys-listings-come-from-the-inspector-not-from-a-query)).
-- [ ] **Shared helpers, not copies.** Name lookups, limits, personal-record
-      withholding, lazy clients and soft sub-listings use
-      [the shared helpers](#shared-provider-helpers).
-- [ ] **PII withheld.** Owner names, emails and personal workspaces are left out
-      with a warning, or masked with `mask_identity_columns` (whose mask marker
-      says the value was withheld).
-- [ ] **Exit codes.** 2 = the caller's input is wrong, 3 = the source could not
-      be reached or read, 1 = a defect. A test covers each code your provider
-      can produce.
-- [ ] **Verdicts match ingestion.** Selection rules live in `<connector>_selection.py`,
-      called by ingestion and by `probe_verdict_override` alike, and a test runs both
-      through `assert_probe_parity`. `tests/unit/agent/test_sql_filter_target.py` is the
-      SQL family's target-equivalence test. Patterns match from the start (see above).
-- [ ] **A real-instance test.** Where the connector has a docker-backed
-      integration suite, add a probe test against that instance next to it
-      (see `tests/integration/agent/test_probe_methods_sqlalchemy.py`).
-- [ ] **The contract scan.** `pytest tests/unit/agent/test_probe_contract.py`
-      passes. The registry-wide scan covers a new connector automatically.
-- [ ] **Docs headings.** Probe docs sit under `### Capabilities` as an H4, and
-      `pytest tests/unit/test_source_doc_headings.py` passes.
-- [ ] **Existing suites untouched.** The connector's own tests pass unedited.
+A connector whose config inherits `SQLCommonConfig`, and names no provider of its own, gets
+`SqlAlchemyMetadataProbe` and ten commands:
+the listings `containers`, `tables` and `views`; `columns`, `foreign_keys`, `indexes`,
+`primary_key`, `table_comment` and `view_definition`; and `sql`. The listings come from the
+SQLAlchemy Inspector, which is what ingestion enumerates through. `tables` and `views` are separate
+because `table_pattern` and `view_pattern` are, and both carry their schema as `parent_path`.
+`containers` lists schemas on a three-tier source and databases on a two-tier one, as
+`probe_container_kind` declares.
+
+**Every caller-supplied identifier reaches reflection only as a catalog-listed string.** Several
+dialects format schema and table names into their reflection SQL, which the `sql` gate never sees.
+The inherited commands resolve each name with `resolve_listed_name`
+(`source/sql/sql_identifier_resolver.py`): an unlisted name is refused with exit 2, a case-only miss
+with the listed spelling as a hint, and a failing listing is exit 3. A subclass overriding one of
+these commands resolves the same way and joins `_RESOLVES_ITS_OWN` in
+`test_sql_identifier_hostile_input.py` after review. A new identifier-taking command is not
+auto-checked.
+
+`SQLCommonConfig` also declares the verdict hooks: `include_tables`/`include_views` are its kind
+switches, and its `probe_verdict_override` is `sql_structural_verdict(self, ctx)`, which excludes a
+database in `default_databases()` or a schema in `default_schemas()` and, with
+`match_fully_qualified_names`, judges a schema as `<container>.<schema>`. A subclass with rules of
+its own merges `super().probe_kind_switches()` and returns `sql_structural_verdict(self, ctx)` for
+the names its rules leave alone.
+
+### SQL-family hooks
+
+Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
+`test_probe_contract.py` checks them against `_SQL_FAMILY_HOOKS`.
+
+| Hook                        | Signature                                                                                                        | Declare it when                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns databases rather than schemas (two-tier)            |
+| `probe_catalog_scope`       | classmethod `() -> CatalogScope`                                                                                 | your catalog is more than `information_schema`                           |
+| `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | the `get_identifier` shim cannot build your table identifier             |
+| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | your driver takes a statement ceiling or a client label                  |
+| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion sets its engine up in a way a bare `create_engine()` misses    |
+| `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a container differently from what ingestion matches |
+| `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial another URL than `get_sql_alchemy_url()`             |
+
+**Catalog scope.** `probe sql` reads only what `probe_catalog_scope()` names; the default is
+`information_schema`. Name relations, not whole schemas: a vendor catalog schema is rarely all
+metadata (query logs carry WHERE-clause literals), and a schema-level allow with exclusions admits
+the next such view by default. List an unqualified relation only where the dialect exposes its
+catalog unqualified. sqlglot must know your dialect (map a differing SQLAlchemy name in
+`sqlalchemy_probe.py`), or `sql` refuses everything. A connector with its own provider sets
+`catalog_scope` on that class instead.
+
+**Qualification.** `SQLCommonConfig.probe_match_target` matches tables and views on the connector's
+own `get_identifier`, called on an uninitialised `Source` (see `source/sql/sql_probe.py`), and
+containers on their bare name. Where tables match `container.schema.entity`, declare it: mark the
+config field that pins the container with `Qualifier()` (a list field qualifies only when it pins
+one value; `Qualifier(authoritative=True)` makes it beat `--parent`), or, where only the caller knows
+the container, return `qualified_table_target(database, schema, entity, warn)` from
+`probe_filter_target`. Override `probe_filter_target` too when your `Source` is not a
+`SQLAlchemySource` or its `get_identifier` reads state ingestion sets while walking. It is called by
+keyword, `database` included, and `warn` reports a less precise fallback. Which provider a connector
+brings is never read as a declaration.
+
+**Engine settings.** The probe connects with the recipe's own URL and `options`.
+`probe_engine_settings(budget)` returns a `ProbeEngineSettings`: `connect_args` merged over the
+recipe's (compose with `recipe_connect_args(config)` where yours should extend the recipe's, and use
+`probe_label_connect_arg` for the client label), `prepare(engine)` for a statement on each new
+connection, and `timeout_applies`, which is `True` only when every probe statement is bounded.
+Declare only arguments your driver is known to accept, and only when the URL names your dialect: a
+driver refuses a keyword it does not know. The libpq and MySQL-protocol settings are in
+`source/sql/protocol_probe_settings.py`.
+
+## Testing and docs checklist
+
+- [ ] **Hooks and methods.** `probe_provider_class()` on the config, `for_config` on the provider,
+      optional hooks copied from the [hook reference](#hook-reference). `kind=` and
+      `row_limit_param=` on each listing, `Filters(...)` on each pattern field.
+- [ ] **The contract scan passes.** `pytest tests/unit/agent/test_probe_contract.py` covers a new
+      connector the moment it registers. If you add a rule there, add a deliberately bad provider
+      that proves it fires.
+- [ ] **Exit codes.** A test per code the provider can produce, through the CLI where the message
+      matters.
+- [ ] **Errors and logs.** Caller mistakes raise `ProbeArgumentError`; no foreign `{exc}` in a
+      message or warning; no scrubbers or `setLevel` calls of your own; `silenced_loggers` where
+      reused code logs shape-free values.
+- [ ] **Degrade path.** A 403 or 404 on one sub-listing gives an empty result and a warning; auth
+      failures and 5xx raise.
+- [ ] **Personal data.** Personal records withheld with a count, identity columns masked.
+- [ ] **Verdicts match ingestion.** Selection rules in `<connector>_selection.py`, a parity test
+      through `assert_probe_parity`, and for SQL sources `tests/unit/agent/test_sql_filter_target.py`.
+- [ ] **Gated commands.** Anything touching `sql_gate` has attack cases (a user table in a CTE,
+      subquery, `UNION` branch or join; two statements; a vendor function in the projection) and
+      false-positive cases (a trailing semicolon, a recursive CTE).
+- [ ] **A real instance.** Where the connector has a docker-backed integration suite, add a probe
+      test next to it (see `tests/integration/agent/test_probe_methods_sqlalchemy.py`).
+- [ ] **Existing suites pass unedited.** A probe adds to a connector; it does not change it.
+- [ ] **Docs headings.** Probe docs go in `docs/sources/<platform>/<plugin>_post.md` under
+      `### Capabilities` as `#### Probe support`: a new H3 breaks the docs build.
+      `pytest tests/unit/test_source_doc_headings.py` checks it.
+
+Configs are pydantic models, so a test cannot set a hook on an instance (`ValueError`, and
+`object.__setattr__` silently tests an unvalidated object). Patch the hook on the class with
+`monkeypatch.setattr(MySourceConfig, "probe_kind_switches", classmethod(...))`, or on a small
+subclass when the class is shared. Build a new config with `model_validate` to change a field:
+`model_copy(update=...)` skips the validators that normalize patterns.
