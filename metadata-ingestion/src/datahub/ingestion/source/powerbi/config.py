@@ -36,6 +36,7 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
 )
 from datahub.ingestion.source.powerbi.powerbi_selection import (
+    UNKNOWN,
     WORKSPACE_ID_PATTERN,
     WORKSPACE_NAME_PATTERN,
     WorkspaceFacts,
@@ -906,14 +907,17 @@ class PowerBiDashboardSourceConfig(
             or ctx.structural is not None
         ):
             return None
+        # A saved run drops a null field, so a missing attribute is unknown.
         facts = WorkspaceFacts(
-            ctx.target, ctx.attributes.get("id"), ctx.attributes.get("type")
+            ctx.target,
+            ctx.attributes.get("id", UNKNOWN),
+            ctx.attributes.get("type", UNKNOWN),
         )
         verdict = workspace_verdict(self, facts)
         if verdict.excluded_by == WORKSPACE_NAME_PATTERN:
             # Ingestion drops it on the name; that stays the reported reason.
             return verdict
-        if facts.workspace_id is None:
+        if facts.workspace_id is UNKNOWN:
             ctx.warn(
                 f"no workspace id for '{ctx.name}', so workspace_id_pattern was "
                 "not judged; save `probe run workspaces --report-to` and pass it "
@@ -921,7 +925,7 @@ class PowerBiDashboardSourceConfig(
             )
         if verdict.excluded_by == WORKSPACE_ID_PATTERN:
             return verdict
-        if facts.workspace_type is None:
+        if facts.workspace_type is UNKNOWN:
             ctx.warn(
                 f"no workspace type for '{ctx.name}', so workspace_type_filter "
                 "was not judged; save `probe run workspaces --report-to` and pass "

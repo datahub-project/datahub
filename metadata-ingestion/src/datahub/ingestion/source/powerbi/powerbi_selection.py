@@ -7,7 +7,8 @@ missing-state semantics, so it stays where it is.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Protocol, Sequence
+from enum import Enum
+from typing import Literal, Optional, Protocol, Sequence, Union
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.verdicts import Verdict
@@ -30,12 +31,21 @@ class WorkspaceFilterConfig(Protocol):
     def workspace_type_filter(self) -> Sequence[str]: ...
 
 
+class _Unknown(Enum):
+    UNKNOWN = "unknown"
+
+
+# A fact `probe filter` was not given (a bare --name): that rule is skipped.
+# Not None, because None is a value ingestion can read: a workspace whose
+# type is null fails workspace_type_filter, as it always has.
+UNKNOWN: Literal[_Unknown.UNKNOWN] = _Unknown.UNKNOWN
+
+
 @dataclass(frozen=True)
 class WorkspaceFacts:
     name: str
-    # None: not known to `probe filter` (a bare --name); that rule is skipped.
-    workspace_id: Optional[str] = None
-    workspace_type: Optional[str] = None
+    workspace_id: Union[str, _Unknown] = UNKNOWN
+    workspace_type: Union[Optional[str], _Unknown] = UNKNOWN
 
 
 def workspace_verdict(config: WorkspaceFilterConfig, facts: WorkspaceFacts) -> Verdict:
@@ -44,12 +54,12 @@ def workspace_verdict(config: WorkspaceFilterConfig, facts: WorkspaceFacts) -> V
     pointed at the name first, since it can see the name."""
     if not config.workspace_name_pattern.allowed(facts.name):
         return Verdict.exclude(WORKSPACE_NAME_PATTERN)
-    if facts.workspace_id is not None and not config.workspace_id_pattern.allowed(
+    if facts.workspace_id is not UNKNOWN and not config.workspace_id_pattern.allowed(
         facts.workspace_id
     ):
         return Verdict.exclude(WORKSPACE_ID_PATTERN)
     if (
-        facts.workspace_type is not None
+        facts.workspace_type is not UNKNOWN
         and facts.workspace_type not in config.workspace_type_filter
     ):
         return Verdict.exclude(WORKSPACE_TYPE_FILTER)
