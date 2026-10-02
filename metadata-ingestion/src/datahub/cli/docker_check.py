@@ -11,7 +11,10 @@ import docker.models.containers
 import yaml
 
 from datahub.configuration.common import ExceptionWithProps
-from datahub.configuration.env_vars import get_compose_project_name
+from datahub.configuration.env_vars import (
+    get_compose_project_name,
+    get_skip_quickstart_memory_check,
+)
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 4.3  # GB
@@ -101,13 +104,14 @@ def memory_in_gb(mem_bytes: int) -> float:
 
 def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
     # Check total memory.
-    # TODO: add option to skip this check.
-    total_mem_configured = int(client.info()["MemTotal"])
-    if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
-        raise DockerLowMemoryError(
-            f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB. "
-            "You can increase the memory allocated to Docker in the Docker settings."
-        )
+    if not get_skip_quickstart_memory_check():
+        total_mem_configured = int(client.info()["MemTotal"])
+        if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
+            raise DockerLowMemoryError(
+                f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB. "
+                "You can increase the memory allocated to Docker in the Docker settings, "
+                "or set DATAHUB_QUICKSTART_SKIP_MEMORY_CHECK=true to bypass this check at your own risk."
+            )
 
     result = client.containers.run(
         "alpine:latest",
