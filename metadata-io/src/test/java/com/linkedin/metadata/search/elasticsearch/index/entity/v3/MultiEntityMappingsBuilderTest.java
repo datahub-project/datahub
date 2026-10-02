@@ -200,6 +200,65 @@ public class MultiEntityMappingsBuilderTest {
     }
   }
 
+  /**
+   * The projector writes each aspect's fields at the root and under _aspects.<aspect>, and the root
+   * mapping is not dynamic, so every field it writes has to be mapped where it lands.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRegistryMappingsMapEveryProjectedField() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Map<String, Map<String, Object>> propertiesByIndex = new HashMap<>();
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      propertiesByIndex.put(mapping.getIndexName(), getProperties(mapping.getMappings()));
+    }
+
+    for (EntitySpec entitySpec : registryContext.getEntityRegistry().getEntitySpecs().values()) {
+      Map<String, Object> root =
+          propertiesByIndex.get(entitySpec.getName().toLowerCase() + "index_v3");
+      if (root == null) {
+        continue;
+      }
+      Map<String, Object> aspects =
+          (Map<String, Object>) ((Map<String, Object>) root.get("_aspects")).get("properties");
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+          continue;
+        }
+        Map<String, Object> aspectFields =
+            (Map<String, Object>)
+                ((Map<String, Object>) aspects.get(aspectSpec.getName())).get("properties");
+        String where = entitySpec.getName() + "." + aspectSpec.getName() + ".";
+        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+          String fieldName =
+              "/$key".equals(annotation.getFieldName())
+                  ? com.linkedin.metadata.models.FieldSpecUtils.getSchemaFieldName(
+                      fieldSpec.getPath())
+                  : annotation.getFieldName();
+          assertTrue(aspectFields.containsKey(fieldName), where + fieldName);
+          annotation
+              .getHasValuesFieldName()
+              .ifPresent(name -> assertTrue(aspectFields.containsKey(name), where + name));
+          annotation
+              .getNumValuesFieldName()
+              .ifPresent(name -> assertTrue(aspectFields.containsKey(name), where + name));
+          if (!SearchableAnnotation.OBJECT_FIELD_TYPES.contains(annotation.getFieldType())) {
+            assertTrue(root.containsKey(fieldName), entitySpec.getName() + " root " + fieldName);
+          }
+        }
+        for (SearchableRefFieldSpec refSpec : aspectSpec.getSearchableRefFieldSpecs()) {
+          String refName = refSpec.getSearchableRefAnnotation().getFieldName();
+          assertTrue(aspectFields.containsKey(refName), where + refName);
+          assertTrue(root.containsKey(refName), entitySpec.getName() + " root " + refName);
+        }
+      }
+    }
+  }
+
   /** Full-text search reads the root fields, so no V3 index analyzes the copies under _aspects. */
   @Test
   public void testRegistryMappingsKeepAspectCopiesUnanalyzed() throws IOException {
