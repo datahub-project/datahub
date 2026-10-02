@@ -111,7 +111,7 @@ export function SelectedViewButton({ selectedViewName, onClear, onClick }: Props
                         onClick={() => onClick?.()}
                         data-testid="views-button"
                     >
-                        {t('viewSelect.buttonLabel')}
+                        <span data-testid="views-icon">{t('viewSelect.buttonLabel')}</span>
                     </Button>
                 )}
             </Tooltip>
