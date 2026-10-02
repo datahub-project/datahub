@@ -356,7 +356,7 @@ def _verdicts(payload):
 
 
 def test_a_multi_project_recipe_is_answerable_with_a_parent():
-    """The reason probe_schema_verdict_override receives the parent at all.
+    """Why probe_verdict_override is told the parent.
 
     BigQuery matches dataset_pattern against "project.dataset", and a recipe may
     name several projects. Without knowing which one the caller means, the
@@ -431,12 +431,9 @@ def test_the_warning_is_absent_when_the_override_could_answer():
 def test_redshift_ignores_the_parent_and_uses_its_own_database():
     """A Redshift recipe connects to one database, so `database` is the only
     qualifier ingestion ever uses. Honouring a different parent would answer
-    about a database this recipe does not read.
-
-    This used to call RedshiftConfig.probe_schema_verdict_override directly.
-    That override is gone -- the convention it implemented now lives in
-    filter_check._qualified_schema_match -- but the behaviour it protected is
-    per-connector and survives, so the test drives the whole path instead.
+    about a database this recipe does not read. Its `database` field is an
+    authoritative Qualifier, which sql_structural_verdict reads; driven
+    through check_filters, the whole path.
     """
     result = check_filters(
         source_type="redshift",
@@ -458,13 +455,11 @@ def test_redshift_ignores_the_parent_and_uses_its_own_database():
 
 @pytest.mark.parametrize("source_type", ["postgres", "mssql"])
 def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_type):
-    """The two connectors overriding probe_schema_verdict_override were the only
-    ones any Schema-kind test touched, so widening the hook's signature broke
-    every source that inherits the base and nothing noticed.
-
-    It surfaced as exit 2 -- TypeError is in recipe_cli._USER_ERRORS -- telling
-    the caller their input was wrong about a framework bug, which is the exact
-    misdirection the exit-code contract exists to prevent.
+    """Schema verdicts on sources that inherit SQLCommonConfig's
+    probe_verdict_override rather than overriding it. A hook signature that
+    drifts on the base breaks every such source, and a TypeError there exits
+    2 (it is in recipe_cli._USER_ERRORS), telling the caller their input was
+    wrong about a framework bug.
     """
     configs: Dict[str, Dict[str, object]] = {
         "postgres": {
@@ -604,12 +599,10 @@ def test_the_flag_defaults_to_on_so_ordinary_recipes_are_unaffected():
 
 
 def test_try_allow_reaches_a_source_that_decides_structurally():
-    """`structural or (...)` short-circuited the pattern branch, and the
-    structural rule reads the pattern off the config itself -- so --try-allow
-    was ignored by every source declaring probe_schema_verdict_override.
-    On BigQuery that is every schema query, since match_fully_qualified_names
-    defaults True. `tried` still echoed the hypothetical, so the result
-    claimed to have applied what it ignored."""
+    """A structural rule reads the pattern off the config itself, so the
+    --try-allow hypothetical must be on the config the rule is given, or
+    `tried` would echo a pattern the verdict never applied. On BigQuery that
+    is every schema query, since match_fully_qualified_names defaults True."""
     config = {
         "host_port": "h:5439",
         "database": "dev",

@@ -847,13 +847,10 @@ def test_no_config_declares_a_catalog_scope_its_provider_never_reads():
 
 
 def test_every_config_hook_matches_the_signature_the_framework_calls():
-    """Hooks are resolved by getattr, so mypy cannot see a signature drift.
-
-    That is not hypothetical: widening probe_schema_verdict_override with a
-    parent_path kwarg updated two implementations and left SQLCommonConfig's
-    base behind, breaking `probe filter --kind Schema` on every other SQL
-    source. The name-only check above passed throughout, because the name was
-    never the problem.
+    """Hooks are resolved by getattr, so mypy cannot see a signature drift:
+    widening a hook updates its overrides and can leave SQLCommonConfig's
+    base behind, breaking `probe filter` on every other SQL source while the
+    name-only check above passes.
     """
     import inspect
 
@@ -909,10 +906,9 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
 
     assert not problems, "\n  ".join(problems)
 
-    # Per hook, not a sum. `checked` totalled 3 across the two hooks -- one
-    # for probe_schema_verdict_override and two for probe_filter_target -- so
-    # `checked >= 3` was already satisfied without either hook having an
-    # override to check the base against, which is the case worth catching.
+    # Per hook, not a sum: a total is satisfied by one hook's implementers
+    # while another has no override to compare the base against, which is the
+    # case worth catching.
     for hook, found in implementers_by_hook.items():
         assert SQLCommonConfig in found, f"{hook}: the base was not checked"
     assert len(implementers_by_hook["probe_filter_target"]) >= 2, (

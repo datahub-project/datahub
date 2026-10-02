@@ -134,10 +134,9 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
     # than stdout does.
     if report_to:
         try:
-            # Serialized BEFORE the file is opened: json.dump truncates on
-            # open, so a value it cannot serialize used to raise partway
-            # through and leave a half-written report that reads as valid
-            # output.
+            # Serialized BEFORE the file is opened: opening truncates, so a
+            # value that cannot be serialized would otherwise leave a
+            # half-written report that reads as valid output.
             text = report_to_text(payload)
 
             # SECURITY: masked against the registry, the same as stdout.
@@ -152,8 +151,7 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             # Per-command redaction is not a substitute and does not cover
             # this: `probe methods` passes its payload with no
             # _redacted_payload at all, and the other two redact only what
-            # they collected. An earlier version of this comment claimed
-            # every caller pre-redacts. It does not.
+            # they collected.
             #
             # Masked as a structure, before serializing: JSON escaping changes
             # how a secret renders, so masking the serialized text can miss it.
@@ -168,21 +166,16 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             raise ValueError(f"cannot write report to '{report_to}': {exc}") from exc
 
 
-# Exceptions that mean "your input was wrong" (EXIT_USER), in one place.
+# Exceptions that mean "your input was wrong" (EXIT_USER), in one place: every
+# command classifies through _exit_codes, so a clause added here applies to
+# all of them.
 #
-# There were seven copies of this ladder and they had drifted apart: `validate`
-# omitted KeyError, and five of the seven had no catch-all at all, so anything
-# unexpected escaped as an unredacted traceback. verdicts.py's own comment
-# predicted it -- "the CLI has four such ladders, and adding a clause to three
-# of four is how this landed on the wrong code to begin with" -- and there were
-# seven, not four. Classifying once is the fix; adding an eighth clause is not.
-#
-# The last two are the ones that were escaping. Neither is a ValueError:
+# The last two are not ValueErrors:
 #   ConfigurationError is MetaError, raised by source_registry.get() when a
 #     plugin extra is not installed -- the most likely first-contact failure,
 #     and its message already carries the `pip install 'acryl-datahub[x]'` hint.
 #   re.error comes from an AllowDenyPattern compiling lazily inside .allowed(),
-#     so a malformed --try-allow crashed the very command meant to diagnose it.
+#     so a malformed --try-allow is the caller's input, not a crash.
 _USER_ERRORS: Tuple[Type[BaseException], ...] = (
     ValueError,  # SqlScopeError, ApiScopeError, ProbeSoftError all subclass it
     TypeError,
@@ -251,12 +244,10 @@ def _fail(message: str, code: int) -> NoReturn:
 # resolve step happens well after loading, and threading an extra argument
 # through every probe subcommand to carry it would be noise.
 #
-# Reset per invocation by the `recipe` group callback, NOT merely updated.
-# An earlier version of this comment justified the global with "a value that
-# is set at most once per process", which holds for the one-shot CLI and for
-# nothing else that dispatches the group -- and the failure is not just a
-# stale read: a later recipe resolving ${REF} would get the EARLIER caller's
-# credential and register it for masking as though it had been handed it.
+# Reset per invocation by the `recipe` group callback, NOT merely updated:
+# anything that dispatches the group more than once per process would
+# otherwise hand a later recipe resolving ${REF} the EARLIER caller's
+# credential, registered for masking as though it had been handed it.
 _stdin_secrets: Dict[str, str] = {}
 
 
@@ -281,12 +272,10 @@ def _recipe_from_stdin() -> Dict[str, object]:
     if not raw.strip():
         raise ValueError("no recipe received on stdin")
 
-    # One parser for this format, shared with load_config_file. There were
-    # two and they had drifted: only one validated `__recipe_yaml__`, so the
-    # same malformed envelope produced a named error here and a TypeError
-    # from StringIO on the `ingest -c -` path. The strings-only secret
-    # filter and the reasoning for keeping an empty string now live there
-    # too, beside the check.
+    # One parser for this format, shared with load_config_file, so a
+    # malformed envelope fails the same way here and on `ingest -c -`. The
+    # strings-only secret filter and the reasoning for keeping an empty
+    # string live there, beside the check.
     try:
         envelope = parse_recipe_envelope(raw)
     except MalformedRecipeEnvelope as exc:

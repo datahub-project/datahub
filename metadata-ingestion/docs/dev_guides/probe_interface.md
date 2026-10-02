@@ -33,6 +33,16 @@ Every command prints JSON, and the exit code says who has to act: **2** the call
 Anything else needs one config hook and one provider class:
 
 ```python
+# mysource/config.py
+from typing import Annotated, List
+
+from pydantic import Field
+
+# Not datahub.api.entities.forms.forms.Filters, which is another class.
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+
+
 class MySourceConfig(ConfigModel):
     host: str
     table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
@@ -45,6 +55,11 @@ class MySourceConfig(ConfigModel):
         from datahub.ingestion.source.mysource.mysource_probe import MyMetadataProbe
 
         return MyMetadataProbe
+
+
+# mysource/mysource_probe.py
+from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
 
 
 class MyMetadataProbe(ProbeProviderBase):
@@ -69,9 +84,9 @@ class MyMetadataProbe(ProbeProviderBase):
 
 That is a complete probe: `probe methods` lists `tables`, `probe run tables` returns names with
 `kind: Table` and `truncated`, and `probe filter --kind Table` judges them with `table_pattern`.
-Kafka's probe has this shape. Put the provider in its own `<connector>_probe.py` module and delegate
-to the connector's fetchers. Declare commands on the provider, never on the `Source`: a declaration
-error raises at import, which would break ingestion too.
+`MyClient` stands for the connector's own client. Put the provider in its own `<connector>_probe.py`
+module and delegate to the connector's fetchers. Declare commands on the provider, never on the
+`Source`: a declaration error raises at import, which would break ingestion too.
 
 `probe_provider_class()` is the config's only statement about its provider: `probe methods` describes
 that class and `probe run` builds it with `for_config`, so the two cannot disagree. Build clients in a
@@ -93,6 +108,16 @@ connector methods builds an uninitialised instance with `__new__` and primes onl
 
 Parameters are `str`, `int` or `bool` (or `Optional` of those), and the docstring is required. A
 declaration naming a parameter that does not exist raises at decoration time.
+
+**Kind strings.** `kind=` is the subtype ingestion gives those entities: a `DatasetSubTypes` constant
+for datasets, a `DatasetContainerSubTypes` or `BIContainerSubTypes` constant for containers
+(`datahub.ingestion.source.common.subtypes`), or the literal ingestion uses where none exists
+(Mode's `"Space"`). `Filters(kind)` on the pattern field must be the same string, since it is
+compared exactly; only the caller's `--kind` may differ in case.
+
+**Limits.** A method declaring `row_limit_param` receives one more than the caller's limit, so
+truncation shows. Return up to what it receives (`take(items, limit)` does); the framework drops
+the extra item and reports `truncated`.
 
 The framework reads these provider attributes by name. `ProbeProviderBase` declares each with a
 default that reads as absent, and `test_probe_contract.py` refuses a near-miss name (`probe_reports`):
@@ -125,7 +150,9 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    `ProbeConnectionError(f"login failed: {exc}")` would carry a driver's text out under a trusted
    type. Name the operation and the class.
    As a backstop, a foreign exception's verbatim `str` or `repr` in your message is replaced by its
-   label; text rebuilt from parts of it (`e.doc`) is not caught.
+   label; text rebuilt from parts of it (`e.doc`) is not caught. A lookup error naming a value the
+   caller passed this call is the caller's own text, so
+   `except KeyError: raise ProbeArgumentError(f"no thing named '{name}'")` keeps the name.
 4. **Codes, not text.** The framework reads an HTTP status (`.response.status_code`, `.status_code`,
    `.status`), a SQLSTATE (`.sqlstate`) and an errno (`.errno`) along the `raise ... from` chain. For a
    vendor shape, declare a staticmethod `probe_error_code(exc) -> Optional[str]` on the provider. It is
@@ -141,18 +168,27 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    record not from the framework's own loggers is scrubbed of secrets and credential shapes, its
    traceback dropped, including `warnings.warn` and loggers created mid-probe (mechanics and limits:
    `agent/log_guard.py`). Scrubbing works by shape, so list loggers that print shape-free source
-   values (a connector config, a response body) in `silenced_loggers`: they are dropped while the
-   probe runs. Never call `setLevel` yourself, and never log responses, URLs or exception text.
+   values (a connector config, a response body) in `silenced_loggers`, a tuple or list of logger
+   names: they, and children inheriting their level, are dropped while `probe run` runs
+   (`test-connection` builds no provider, so there they are only scrubbed). A framework logger
+   (`datahub.ingestion.agent`, `datahub.cli` and the others in `log_guard.FRAMEWORK_LOGGERS`), a
+   logger under one, an ancestor of one, or root is refused as the provider's defect (exit 1). Never
+   call `setLevel` yourself, and never log responses, URLs or exception text.
 8. **`DATAHUB_PROBE_VERBOSE_LOGS=1` is for local debugging only.** It turns the log guard off and puts
-   each withheld exception's scrubbed text after its label:
-   `'tables' failed (RuntimeError; HTTP 403): 401 for https://***@host/api`.
+   each withheld exception's text after its label, scrubbed of credential shapes (the CLI masks the
+   recipe's secrets on top), for `probe run` and for a crashed `test-connection` alike:
+   `'tables' failed (HTTPError; HTTP 403): 403 Client Error: Forbidden for url: https://***@host/api`.
 9. **Exit codes are a contract.** 2 for the caller's input, 3 for the source, 1 for a defect. Test
    every code your provider can produce.
 
 ## Helpers
 
-`datahub.ingestion.agent.provider_helpers` and its neighbours hold what providers would otherwise
-copy. None is a hook: the framework never looks them up.
+These hold what providers would otherwise copy. None is a hook: the framework never looks them up.
+`ProbeProviderBase`, `resolve_name`, `take`, `PersonalWithholding`, `soft_listing` and `echoed` are
+in `datahub.ingestion.agent.provider_helpers`; `mask_identity_columns` in
+`datahub.ingestion.agent.redact`; `pattern_verdict`, `Verdict`, `parent_required`, `ancestors_in`
+and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filters` and
+`Qualifier` in `datahub.configuration.common`.
 
 | Helper                                                   | Use it for                                                                                                                   |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -204,6 +240,9 @@ A provider missing `sql_dialect` or `api_allowlist` is refused as its defect (ex
 takes a `query`, `path` or `limit` and declares nothing runs unchecked, so `test_probe_contract.py`
 scans every registered connector for such parameters. The rules each gate enforces are in the module
 docstrings of `agent/sql_gate.py` and `agent/api_gate.py`.
+
+Both passthroughs below are `ProbeProviderBase` subclasses, so a provider inherits one of them
+instead of `ProbeProviderBase` and keeps `_warn`, `_open_once` and the closing `__exit__`.
 
 - **Not SQLAlchemy-backed but speaks SQL:** inherit `SqlCatalogPassthrough`, set `sql_dialect`, and
   implement `execute_catalog_query(query, limit) -> CatalogRows`. `limit` already includes the one
@@ -284,9 +323,11 @@ when set, is reported as the target. A fact read from `ctx.attributes` may be ab
 or a parent judged by name): degrade with `ctx.warn`. An included verdict names no `excluded_by` and
 an excluded one must name it.
 
-**Step 6.** Return the kinds above `kind`, outermost first, or `()` for a kind whose children do not
-follow it. A source that declares none gets a warning, when a `--parent` is given, that the
-parents were not judged.
+**Step 6.** `probe_ancestor_kinds(kind=...)` returns the container kinds above `kind`, outermost
+first; `()` for a top-level kind, which nothing contains; or `None` when it cannot say. Given a
+`--parent`, `None` (or no hook at all) is a warning that the parents were not judged.
+`ancestors_in(chain, kind, leaves)` builds the answer from the container chain, with `leaves` the
+kinds that sit under the whole chain (`()` if there are none).
 
 Patterns match from the start, are not anchored at the end, and ignore case unless the recipe sets
 `ignoreCase: false`; `deny` is the same:
@@ -358,7 +399,9 @@ the names its rules leave alone.
 ### SQL-family hooks
 
 Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
-`test_probe_contract.py` checks them against `SQL_FAMILY_HOOKS`.
+`test_probe_contract.py` checks the `probe_*` rows against `SQL_FAMILY_HOOKS`. The two `default_*`
+classmethods are read by name too, but have a base on `SQLCommonConfig` (or none at all), so a
+misspelling is not caught: test them against ingestion.
 
 | Hook                        | Signature                                                                                                        | Declare it when                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -369,6 +412,8 @@ Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
 | `probe_sqlglot_dialect`     | classmethod `() -> Optional[str]`                                                                                | sqlglot spells your dialect differently from SQLAlchemy                  |
 | `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a container differently from what ingestion matches |
 | `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial another URL than `get_sql_alchemy_url()`             |
+| `default_schemas`           | classmethod `() -> FrozenSet[str]`                                                                               | ingestion drops system schemas whatever `schema_pattern` says            |
+| `default_databases`         | classmethod `() -> FrozenSet[str]`                                                                               | ingestion drops system databases whatever `database_pattern` says        |
 
 **Catalog scope.** `probe sql` reads only what `probe_catalog_scope()` names; the default is
 `information_schema`. Name relations, not whole schemas: a vendor catalog schema is rarely all
@@ -397,7 +442,17 @@ every config the settings of the wire protocol its URL names (libpq, the MySQL p
 driver; `probe_settings_for_url` in `source/sql/protocol_probe_settings.py`), so a config pointed at
 another protocol's dialect gets that one's. Add your own engine setup on top:
 `return super().probe_engine_settings(budget).followed_by(step)` runs `step(engine)` after the
-protocol's.
+protocol's. A new protocol's settings go in that module, named for the URL's dialect, which
+`url_dialect_and_driver(url)` (`source/sql/sqlalchemy_uri.py`) splits out: declare only arguments
+its drivers are known to accept. A ceiling set by a statement in `prepare` may claim
+`timeout_applies` only if a refused statement fails the connection (Redshift's does; MySQL's is
+best effort and claims nothing).
+
+`ProbeEngineSettings`, `recipe_connect_args(config)` (to extend the recipe's own connect_args) and
+`probe_label_connect_arg(config, kwarg)` (the client label, unless the recipe names its connection
+itself) are in `source/sql/sql_config.py`. `QueryBudget` is in `agent/sql_passthrough.py`:
+`timeout_seconds` (30 by default) and `max_bytes_billed` (none by default), where `None` means no
+ceiling.
 
 ## Testing and docs checklist
 
@@ -408,7 +463,9 @@ protocol's.
       connector the moment it registers. If you add a rule there, add a deliberately bad provider
       that proves it fires.
 - [ ] **Exit codes.** A test per code the provider can produce, through the CLI where the message
-      matters.
+      matters: `tests/unit/cli/test_recipe_probe_cli.py` drives the `recipe` group with
+      `CliRunner` and a patched `_resolve_for_probe`; `tests/unit/agent/test_error_policy.py` calls
+      `run_probe_method` in-process.
 - [ ] **Errors and logs.** Caller mistakes raise `ProbeArgumentError`; no foreign `{exc}` in a
       message or warning; no scrubbers or `setLevel` calls of your own; `silenced_loggers` where
       reused code logs shape-free values.

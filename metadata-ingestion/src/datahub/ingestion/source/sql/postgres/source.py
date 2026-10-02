@@ -328,11 +328,10 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
-        # pg_catalog is named relation by relation, NOT allowed at schema level.
-        # It was a schema-level allow with three exclusions, and the comment
-        # beside it conceded the risk in as many words -- "the exclusions have to
-        # be complete, and nothing tells you when they are not". They were not,
-        # and the gap was worse than query text:
+        # pg_catalog is named relation by relation, NOT allowed at schema level:
+        # a schema-level allow needs a complete list of exclusions, nothing
+        # tells you when it is not, and what it would admit is worse than
+        # query text:
         #
         #   pg_stats, pg_statistic  -- most_common_vals and histogram_bounds are
         #     literal sampled values out of user columns. Not a WHERE-clause

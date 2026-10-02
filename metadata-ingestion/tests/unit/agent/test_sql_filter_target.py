@@ -523,8 +523,8 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
     """redshift.py gates schema iteration through is_schema_allowed(...,
     match_fully_qualified_names) -- so once that flag is on, ingestion checks
     "database.schema" against schema_pattern, not the bare schema name.
-    RedshiftConfig.probe_schema_verdict_override carries that, and
-    filter_check consults it before applying the pattern generically."""
+    SQLCommonConfig's probe_verdict_override (sql_structural_verdict) carries
+    that, and filter_check consults it before applying the pattern."""
     bare_name_deny = _schema_verdict(
         {
             **_REDSHIFT,
