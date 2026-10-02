@@ -27,10 +27,10 @@ from datahub.ingestion.source.fivetran.data_classes import (
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 from datahub.ingestion.source.fivetran.fivetran_selection import (
-    CONNECTOR_PATTERNS,
     ConnectorFacts,
     ConnectorFilters,
-    connector_verdict,
+    connector_pattern_verdict,
+    destination_verdict,
 )
 from datahub.ingestion.source.unity.connection import (
     create_workspace_client,
@@ -492,20 +492,21 @@ class FivetranLogDbReader:
             for connector in connector_list:
                 connector_id = connector[Constant.CONNECTOR_ID]
                 connector_name = connector[Constant.CONNECTOR_NAME]
-                destination_id = connector[Constant.DESTINATION_ID]
                 # DB mode matches `connector_patterns` against the name only;
-                # see connector_pattern_verdict for why.
-                verdict = connector_verdict(
-                    filters,
-                    ConnectorFacts(connector_name, connector_id, destination_id),
-                    rest=False,
-                )
-                if verdict.excluded_by == CONNECTOR_PATTERNS:
+                # see connector_pattern_verdict for why. The two rules run in
+                # connector_verdict's DB order, but one by one: the
+                # destination check takes the row's value as it is, so a
+                # NULL destination_id fails here as it always has instead of
+                # skipping the rule as an unknown fact.
+                if not connector_pattern_verdict(
+                    filters, ConnectorFacts(connector_name, connector_id), rest=False
+                ).included:
                     self._report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
-                if not verdict.included:
+                destination_id = connector[Constant.DESTINATION_ID]
+                if not destination_verdict(filters, destination_id).included:
                     self._report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )
