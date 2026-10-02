@@ -2,9 +2,13 @@
     "actorsSearch.placeholder": "Rechercher des utilisateurs ou des groupes",
     "domainSelector.label": "Domaines",
     "domainSelector.placeholder": "Sélectionner des domaines",
+    "domainSelector.singleLabel": "Domaine",
+    "domainSelector.singlePlaceholder": "Sélectionner un domaine",
     "domainSelector.searchPlaceholder": "Rechercher dans tous les domaines...",
     "entitySearch.noEntitiesFound": "Aucune entité trouvée",
     "entitySearch.placeholder": "Rechercher des entités...",
+    "customOwnershipType": "Ownership Type personnalisé",
+    "ingestionSource": "Source d'ingestion",
     "groupBy.displayValue": "Grouper par {{label}}",
     "groupBy.group": "Grouper"
 }

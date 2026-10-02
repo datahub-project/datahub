@@ -1,6 +1,9 @@
 {
     "appearance.subTitle": "Gestisci le impostazioni relative all'aspetto.",
     "appearance.title": "Aspetto",
+    "darkMode.beta": "Beta",
+    "darkMode.description": "Utilizza un tema scuro in tutta l'interfaccia di DataHub.",
+    "darkMode.title": "Modalità scura",
     "language.description": "Scegli la lingua di visualizzazione preferita",
     "language.title": "Lingua dell'interfaccia utente",
     "noSettings": "Nessuna impostazione relativa all'aspetto trovata.",

@@ -149,6 +149,7 @@
     "searchBar.sections.bestMatches": "最佳符合結果",
     "searchBar.sections.recentlySearched": "你最近搜尋過",
     "searchBar.sections.recentlyViewed": "你最近檢視過",
+    "searchBar.viewAll": "檢視全部 →",
     "searchBar.viewAllResults": "檢視 <bold>{{query}}</bold> 的所有結果",
     "searchHeader.discover": "探索",
     "sidebar.loadingError": "側欄載入失敗。",
