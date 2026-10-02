@@ -2644,3 +2644,78 @@ def test_no_ai_context_emitted_when_synonyms_absent():
     assert not _aspects_for(workunits, orders_urn, AiContextClass)
     # And no datasetProperties MCP is emitted when there are no table synonyms.
     assert not _aspects_for(workunits, orders_urn, DatasetPropertiesClass)
+
+
+def test_no_upstream_metrics_emitted_for_semantic_view() -> None:
+    # The logical dataset is the metric's upstream via metricUpstreams.datasetUpstreams.
+    # UpstreamMetricsValidator rejects a dataset that lists a metric which already
+    # lists that dataset, and Snowflake semantic-view metadata does not name a
+    # consumer, so this connector emits no upstreamMetrics aspect.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "AMOUNT": [
+                _col(
+                    "amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.FACT,
+                    table_name="ORDERS",
+                )
+            ],
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(ORDERS.AMOUNT)",
+                )
+            ],
+            "REVENUE_X2": [
+                _col(
+                    "revenue_x2",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="ORDERS.TOTAL_REVENUE * 2",
+                )
+            ],
+        },
+    )
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    revenue_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue",
+        semantic_view.name,
+        _SCHEMA,
+        _DB,
+        logical_table="ORDERS",
+    )
+    upstreams = _aspects_for(workunits, revenue_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert upstreams[0].datasetUpstreams is not None
+    assert [edge.destinationUrn for edge in upstreams[0].datasetUpstreams] == [
+        orders_urn
+    ]
+
+    consumers = {
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "upstreamMetrics"
+    }
+    assert consumers == set()
+
+    lineage = _aspects_for(workunits, orders_urn, UpstreamLineageClass)
+    assert len(lineage) == 1
+    base_table_urn = mapper.identifiers.gen_dataset_urn(
+        mapper.identifiers.get_dataset_identifier("ORDERS", _SCHEMA, _DB)
+    )
+    assert [upstream.dataset for upstream in lineage[0].upstreams] == [base_table_urn]

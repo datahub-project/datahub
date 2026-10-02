@@ -42,6 +42,11 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk._upstream_metrics import (
+    HasUpstreamMetrics,
+    UpstreamMetricsInputType,
+    _reject_metric_as_dataset_input,
+)
 from datahub.sdk._utils import add_list_unique, remove_list_unique
 from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Unset, unset
@@ -88,11 +93,13 @@ ViewDefinitionInputType: TypeAlias = Union[
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
 ) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
-    if isinstance(
-        upstream_input, (models.UpstreamClass, models.FineGrainedLineageClass)
-    ):
+    if isinstance(upstream_input, models.UpstreamClass):
+        _reject_metric_as_dataset_input(upstream_input)
+        return upstream_input
+    elif isinstance(upstream_input, models.FineGrainedLineageClass):
         return upstream_input
     elif isinstance(upstream_input, (str, DatasetUrn)):
+        _reject_metric_as_dataset_input(upstream_input)
         return models.UpstreamClass(
             dataset=str(upstream_input),
             type=models.DatasetLineageTypeClass.TRANSFORMED,
@@ -127,6 +134,8 @@ def _parse_upstream_lineage_input(
     upstream_input: UpstreamLineageInputType, downstream_urn: DatasetUrn
 ) -> models.UpstreamLineageClass:
     if isinstance(upstream_input, models.UpstreamLineageClass):
+        for upstream in upstream_input.upstreams or []:
+            _parse_upstream_input(upstream)
         return upstream_input
     elif isinstance(upstream_input, list):
         upstreams = [_parse_upstream_input(upstream) for upstream in upstream_input]
@@ -149,6 +158,7 @@ def _parse_upstream_lineage_input(
         tll = []
         cll = []
         for dataset_urn, column_lineage in upstream_input.items():
+            _reject_metric_as_dataset_input(dataset_urn)
             tll.append(
                 models.UpstreamClass(
                     dataset=str(dataset_urn),
@@ -443,6 +453,7 @@ class Dataset(
     HasTerms,
     HasDomain,
     HasStructuredProperties,
+    HasUpstreamMetrics,
     Entity,
 ):
     """Represents a dataset in DataHub.
@@ -535,6 +546,7 @@ class Dataset(
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[UpstreamLineageInputType] = None,
+        upstream_metrics: Optional[UpstreamMetricsInputType] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
         # View lineage parsing option.
@@ -565,6 +577,8 @@ class Dataset(
             extra_aspects: Optional list of additional aspects.
             schema: Optional schema definition for the dataset.
             upstreams: Optional upstream lineage information.
+            upstream_metrics: Optional metrics this dataset reads. ``[]`` clears
+                stored edges; omit to leave them unchanged.
             parse_view_lineage: Whether to auto-parse lineage from view_definition SQL.
                 None (default): auto-parse in SDK mode, skip in ingestion framework.
                 True: force parsing (even in ingestion framework).
@@ -583,8 +597,7 @@ class Dataset(
 
         if schema is not None:
             self._set_schema(schema)
-        if upstreams is not None:
-            self.set_upstreams(upstreams)
+        self._init_lineage(upstreams, upstream_metrics)
 
         if description is not None:
             self.set_description(description)
@@ -1083,6 +1096,16 @@ class Dataset(
     @property
     def upstreams(self) -> Optional[models.UpstreamLineageClass]:
         return self._get_aspect(models.UpstreamLineageClass)
+
+    def _init_lineage(
+        self,
+        upstreams: Optional[UpstreamLineageInputType],
+        upstream_metrics: Optional[UpstreamMetricsInputType],
+    ) -> None:
+        if upstreams is not None:
+            self.set_upstreams(upstreams)
+        if upstream_metrics is not None:
+            self.set_upstream_metrics(upstream_metrics)
 
     def set_upstreams(self, upstreams: UpstreamLineageInputType) -> None:
         self._set_aspect(_parse_upstream_lineage_input(upstreams, self.urn))
