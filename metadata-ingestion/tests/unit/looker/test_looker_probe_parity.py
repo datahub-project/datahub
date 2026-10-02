@@ -164,7 +164,10 @@ def test_standalone_looks_match_ingestion(
         graph.return_value = mock_datahub_graph
         report = assert_probe_parity("looker", config, ingest, [_LOOKS])
         # Untraced, the look on a dashboard is the one name it cannot judge.
-        with pytest.raises(AssertionError, match="probe filter includes '105'"):
+        with pytest.raises(
+            AssertionError,
+            match=r"disagree:\n  looks: probe filter includes '105', but ingestion did not emit it\Z",
+        ):
             assert_probe_parity(
                 "looker", config, ingest, [dataclasses.replace(_LOOKS, kwargs={})]
             )

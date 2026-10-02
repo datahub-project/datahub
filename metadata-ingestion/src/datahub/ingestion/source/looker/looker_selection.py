@@ -18,6 +18,7 @@ NOT_A_VIS_ELEMENT = "element_type"
 ELEMENT_HAS_NO_QUERY = "element_has_no_query"
 LOOK_HAS_NO_QUERY = "look_has_no_query"
 ON_A_KEPT_DASHBOARD = "on_a_kept_dashboard"
+SKIP_PERSONAL_FOLDERS = "skip_personal_folders"
 
 
 class LookerSelectionConfig(Protocol):
@@ -81,7 +82,7 @@ def dashboard_id_verdict(config: LookerSelectionConfig, dashboard_id: str) -> Ve
 
 def personal_folder_verdict(config: LookerSelectionConfig, personal: bool) -> Verdict:
     if config.skip_personal_folders and personal:
-        return Verdict.exclude("skip_personal_folders")
+        return Verdict.exclude(SKIP_PERSONAL_FOLDERS)
     return Verdict.include()
 
 
