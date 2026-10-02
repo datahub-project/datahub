@@ -1,8 +1,21 @@
 import logging
+import sys
 import threading
+import warnings
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import (
+    Callable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    TextIO,
+    Tuple,
+    Type,
+    Union,
+)
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -43,8 +56,9 @@ REUSED_LOGGERS: Tuple[str, ...] = (
     "oauthlib",
     "msal",
     "httpx",
-    # logging.captureWarnings, which the guard turns on for its duration: a
-    # library's warnings.warn() text arrives here, at WARNING.
+    # Warning capture, which the guard turns on for its duration (and the
+    # masking bootstrap for the CLI): a library's warnings.warn() text
+    # arrives here, at WARNING.
     "py.warnings",
 )
 
@@ -136,10 +150,14 @@ class _ActiveGuards:
         # is anywhere in the chain, which is also how a second install on
         # top of a patch that sits over it -- a loop -- is avoided.
         self.below: Optional[_CallHandlers] = None
+        # warnings.showwarning as it was before the guard's own went in,
+        # kept for as long as _guard_showwarning may be in the chain.
+        self.saved_showwarning: Optional[Callable[..., None]] = None
 
     def open(self, guard: logging.Filter) -> None:
         with self._lock:
             self.guards = (*self.guards, guard)
+            self._capture_warnings()
             if self.below is None:
                 self.below = vars(logging.Logger)["callHandlers"]
                 setattr(logging.Logger, "callHandlers", _scrubbing_call_handlers)  # noqa: B010
@@ -161,9 +179,64 @@ class _ActiveGuards:
             ):
                 setattr(logging.Logger, "callHandlers", self.below)  # noqa: B010
                 self.below = None
+            if not self.guards and warnings.showwarning is _guard_showwarning:
+                warnings.showwarning = self.saved_showwarning or _print_warning
+                self.saved_showwarning = None
+
+    def _capture_warnings(self) -> None:
+        """Route warnings.warn into logging, as py.warnings, so the scrub
+        sees it -- unless logging.captureWarnings already does.
+
+        The guard's own showwarning rather than captureWarnings(True), so the
+        exit can tell its capture from one turned on inside the guard (the
+        masking bootstrap running mid-probe), which it must leave on. Like
+        the callHandlers wrapper, it comes out only if it is still in place.
+        """
+        if getattr(logging, "_warnings_showwarning", None) is not None:
+            return
+        if warnings.showwarning is _guard_showwarning:
+            return
+        self.saved_showwarning = warnings.showwarning
+        warnings.showwarning = _guard_showwarning
 
 
 _ACTIVE = _ActiveGuards()
+
+
+def _print_warning(
+    message: Union[Warning, str],
+    category: Type[Warning],
+    filename: str,
+    lineno: int,
+    file: Optional[TextIO] = None,
+    line: Optional[str] = None,
+) -> None:
+    text = warnings.formatwarning(message, category, filename, lineno, line)
+    try:
+        (file or sys.stderr).write(text)
+    except OSError:
+        pass
+
+
+def _guard_showwarning(
+    message: Union[Warning, str],
+    category: Type[Warning],
+    filename: str,
+    lineno: int,
+    file: Optional[TextIO] = None,
+    line: Optional[str] = None,
+) -> None:
+    # As logging.captureWarnings does it: to the py.warnings logger, unless
+    # the caller named a file to write to.
+    if _ACTIVE.guards and file is None:
+        text = warnings.formatwarning(message, category, filename, lineno, line)
+        logging.getLogger("py.warnings").warning("%s", text)
+        return
+    # No guard open: left in a chain someone built on top of it, so behave
+    # as what it replaced.
+    (_ACTIVE.saved_showwarning or _print_warning)(
+        message, category, filename, lineno, file, line
+    )
 
 
 def _scrubbing_call_handlers(logger: logging.Logger, record: logging.LogRecord) -> None:
@@ -223,9 +296,6 @@ def quiet_reused_logs(
                 logger.setLevel(logging.WARNING)
         _ACTIVE.open(guard)
         undo.append(partial(_ACTIVE.close, guard))
-        if getattr(logging, "_warnings_showwarning", None) is None:
-            logging.captureWarnings(True)
-            undo.append(partial(logging.captureWarnings, False))
         yield
     finally:
         for step in reversed(undo):

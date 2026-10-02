@@ -107,6 +107,10 @@ _AWS_CODE = re.compile(r"[A-Za-z][A-Za-z0-9.]{1,63}")
 _SQLSTATE_ARG_MODULES = ("pyodbc",)
 _ERRNO_ARG_MODULES = ("pymysql", "MySQLdb")
 
+# `response["Error"]["Code"]` is botocore's error shape; another library's
+# dict there could hold any token.
+_AWS_MODULES = ("botocore", "aiobotocore", "boto3")
+
 # `.code` is an HTTP status only on these SDKs' exceptions (google-api-core,
 # googleapiclient, urllib's HTTPError); elsewhere it is anything.
 _HTTP_CODE_MODULES = ("google", "googleapiclient", "urllib")
@@ -141,6 +145,20 @@ def _plain_attr(obj: object, name: str) -> object:
     except Exception:
         return None
     return raw
+
+
+def _code_links(exc: BaseException) -> List[BaseException]:
+    """Where a code for `exc` may come from, in the order looked at: the
+    driver error SQLAlchemy wraps, then the cause (`raise ... from`).
+
+    Never the context. An exception raised while handling another is not
+    that other failure: a 429 handled before an unrelated ConnectionError
+    would label it as rate limiting, and a caller would back off from a
+    limit it did not hit. A wrapper that means its context as the cause but
+    omits `from` loses the code, which only costs a hint.
+    """
+    links = (_exception_attr(exc, "orig"), _exception_attr(exc, "__cause__"))
+    return [link for link in links if link is not None]
 
 
 def _exception_attr(obj: object, name: str) -> Optional[BaseException]:
@@ -224,7 +242,7 @@ def _codes_of(exc: BaseException) -> List[str]:
         codes.append(errno)
     if codes:
         return codes
-    aws = _aws_code(_plain_attr(exc, "response"))
+    aws = _aws_code(_plain_attr(exc, "response")) if root in _AWS_MODULES else None
     if aws:
         return [aws]
     response = _plain_attr(exc, "response")
@@ -239,7 +257,7 @@ def _codes_of(exc: BaseException) -> List[str]:
 
 def foreign_label(exc: BaseException) -> str:
     """How a foreign exception is named in place of its text: its class name,
-    plus a short machine code when it or its chain carries one.
+    plus a short machine code when it or its cause chain carries one.
 
     `ProgrammingError; SQLSTATE 42P01`, `HTTPError; HTTP 403`,
     `ClientError; AccessDenied`. A code tells the caller what kind of
@@ -247,7 +265,7 @@ def foreign_label(exc: BaseException) -> str:
     message, which is where the URL or the query text is. Read duck-typed:
     the SDKs are optional, and none is imported here. SQLAlchemy's
     DBAPIError keeps the driver's error as `.orig`, so that is looked at
-    right after the exception itself, before its cause and context.
+    right after the exception itself, before its cause (see _code_links).
     """
     # type.__name__ through type's own descriptor: a foreign metaclass may
     # override the attribute.
@@ -272,8 +290,7 @@ def _first_codes(exc: BaseException) -> List[str]:
         codes = _codes_of(current)
         if codes:
             return codes
-        orig = _exception_attr(current, "orig")
-        pending.extend([*([orig] if orig is not None else []), *_links(current)])
+        pending.extend(_code_links(current))
     return []
 
 

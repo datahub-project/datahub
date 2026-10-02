@@ -148,15 +148,22 @@ every call site:
   The class name carries a short machine code when the exception, the driver error
   SQLAlchemy wraps as `.orig`, or an exception in its cause chain has one:
   `'tables' failed (ProgrammingError; SQLSTATE 42P01)`, `(ProgrammingError; errno 1146)`,
-  `(HTTPError; HTTP 403)`, `(ClientError; AccessDenied)`. It reads a SQLSTATE
-  (`pgcode`, `sqlstate`, pyodbc's first argument), an errno (`errno`, PyMySQL's first
-  argument), an HTTP status (`response.status_code`, `status_code`, `status`, and
-  `code` on Google and urllib errors), or botocore's `response["Error"]["Code"]`. A code
-  is shown only if it matches a strict pattern: five capitals or digits including a
-  digit, up to six digits, a status from 100 to 599, or an AWS-style error name.
-  Anything else is left out without notice. The attributes are read without running
-  the library's code, so a property or `__getattr__` that raises cannot leak through.
-  The code never changes the exit code.
+  `(HTTPError; HTTP 403)`, `(ClientError; AccessDenied)`. It reads:
+
+  - a SQLSTATE: `pgcode`, `sqlstate`, or pyodbc's first argument;
+  - an errno: `errno`, or the first argument of PyMySQL's and mysqlclient's
+    (`MySQLdb`) errors;
+  - an HTTP status: `response.status_code`, `status_code`, `status`, and `code` on
+    Google and urllib errors;
+  - an AWS error code: `response["Error"]["Code"]` on botocore and boto3 errors.
+
+  Codes come from the `raise ... from` cause chain, never from an exception the error
+  was raised while handling. A code is shown only if it matches a strict pattern: five
+  capitals or digits including a digit, up to six digits, a status from 100 to 599, or
+  an AWS-style error name. Anything else is left out without notice. The attributes
+  are read without running the library's code, so a property, `__getattr__` or
+  `__getattribute__` that raises cannot leak through. The code never changes the exit
+  code.
 
 - **Never interpolate `{exc}` from an exception you did not raise; name the
   operation and the class.** `ProbeConnectionError(f"login failed: {exc}")` around a
@@ -175,7 +182,8 @@ every call site:
   `test-connection` runs, with its traceback dropped, including under `datahub --debug`.
   That includes loggers and handlers a library creates mid-probe, and `warnings.warn`
   text: warning capture is on while the guard runs. `test-connection`'s guard also
-  covers importing the source. Only the framework's own loggers
+  covers importing the source. Two cases bypass it: a `Logger` subclass that overrides
+  `callHandlers`, and code that calls a handler directly instead of logging. Only the framework's own loggers
   (`datahub.ingestion.agent`, `datahub.cli`, `datahub.masking`, `datahub.entrypoints`,
   `datahub.telemetry`) pass as logged. The known-noisy reused loggers (sources under
   `datahub.ingestion.source`, cloud SDKs, HTTP and database clients; see

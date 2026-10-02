@@ -61,6 +61,9 @@ class ClientError(Exception):
         self.response = response
 
 
+ClientError.__module__ = "botocore.exceptions"
+
+
 class _RaisingCode(Exception):
     """A code attribute whose getter raises, quoting what it held."""
 
@@ -178,3 +181,32 @@ def cause_property() -> NoReturn:
 
 def hostile_getattribute() -> NoReturn:
     raise _HostileGetattribute(SENTINEL)
+
+
+class _NotAws(Exception):
+    """Any library's error that happens to keep a botocore-shaped dict."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.response = {"Error": {"Code": "PLANTEDtokenABC"}}
+
+
+def not_aws() -> NoReturn:
+    raise _NotAws(SENTINEL)
+
+
+def connection_error_while_handling_429() -> NoReturn:
+    """A 429 handled, then an unrelated failure in the handler: the 429 is
+    context, not the cause, and labelling the ConnectionError with it would
+    send the caller to back off from a rate limit it did not hit."""
+    try:
+        azure(status_code=429)
+    except HttpResponseError:
+        raise ConnectionError(SENTINEL)  # noqa: B904
+
+
+def suppressed_429() -> NoReturn:
+    try:
+        azure(status_code=429)
+    except HttpResponseError:
+        raise ConnectionError(SENTINEL) from None

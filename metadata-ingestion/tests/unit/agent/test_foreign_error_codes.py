@@ -64,6 +64,11 @@ def test_a_foreign_error_is_labelled_with_its_code(
         lambda: coded.aws(code=SENTINEL * 10),
         coded.raising_code,
         coded.broken_getattr,
+        # Only botocore's errors are read for an AWS code: elsewhere an
+        # alphanumeric token in that shape could be anything.
+        coded.not_aws,
+        coded.connection_error_while_handling_429,
+        coded.suppressed_429,
     ],
 )
 def test_a_code_that_is_not_a_bare_code_is_dropped(

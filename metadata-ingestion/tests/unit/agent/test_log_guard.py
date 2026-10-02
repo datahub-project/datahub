@@ -679,3 +679,14 @@ def test_guards_on_two_threads_both_scrub_and_restore() -> None:
     threads[1].join(5)
     assert results == {0: True, 1: True}
     assert vars(logging.Logger)["callHandlers"] is original
+
+
+@pytest.mark.usefixtures("warnings_not_captured")
+def test_capture_turned_on_inside_the_guard_survives_its_exit() -> None:
+    """The masking bootstrap may run mid-probe, inside the guard; turning
+    capture off on exit would undo it."""
+    with quiet_reused_logs(set()):
+        logging.captureWarnings(True)
+        enabled = warnings.showwarning
+    assert _capturing_warnings()
+    assert warnings.showwarning is enabled
