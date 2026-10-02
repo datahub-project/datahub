@@ -11,6 +11,8 @@ export function getInitialLinkFormDataFromInstitutionMemory(
     const url = institutionalMemoryMetadata?.url;
     const label = institutionalMemoryMetadata?.label || institutionalMemoryMetadata?.description;
     const showInAssetPreview = !!institutionalMemoryMetadata?.settings?.showInAssetPreview;
+    const linkType = institutionalMemoryMetadata?.linkType ?? undefined;
+    const linkDescription = institutionalMemoryMetadata?.linkDescription ?? undefined;
 
     // Institutional memory has a link to an uploaded file
     if (isDocumentationFileUploadV1Enabled && url && isFileUrl(url)) {
@@ -19,6 +21,8 @@ export function getInitialLinkFormDataFromInstitutionMemory(
 
             fileUrl: url,
             label,
+            linkType,
+            linkDescription,
 
             showInAssetPreview,
         };
@@ -30,6 +34,8 @@ export function getInitialLinkFormDataFromInstitutionMemory(
 
         url,
         label,
+        linkType,
+        linkDescription,
 
         showInAssetPreview,
     };
@@ -40,6 +46,8 @@ export function getGeneralizedLinkFormDataFromFormData(data: LinkFormData): Gene
         return {
             url: data.fileUrl,
             label: data.label,
+            linkType: data.linkType,
+            linkDescription: data.linkDescription,
             showInAssetPreview: data.showInAssetPreview,
         };
     }
@@ -47,6 +55,8 @@ export function getGeneralizedLinkFormDataFromFormData(data: LinkFormData): Gene
     return {
         url: data.url,
         label: data.label,
+        linkType: data.linkType,
+        linkDescription: data.linkDescription,
         showInAssetPreview: data.showInAssetPreview,
     };
 }

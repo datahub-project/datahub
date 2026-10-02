@@ -29,4 +29,15 @@ record InstitutionalMemoryMetadata {
    * Settings for this record
    */
   settings: optional InstitutionalMemoryMetadataSettings
+
+  /**
+   * Optional free-form type of the linked resource, e.g. "Runbook", "Design doc" or "Dashboard".
+   */
+  linkType: optional string
+
+  /**
+   * Optional longer description of the linked resource. The `description` field holds the
+   * link's display label.
+   */
+  linkDescription: optional string
 }

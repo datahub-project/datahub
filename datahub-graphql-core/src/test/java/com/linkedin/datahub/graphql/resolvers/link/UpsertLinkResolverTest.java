@@ -50,7 +50,9 @@ public class UpsertLinkResolverTest {
                 "https://original-url.com",
                 "Original label",
                 ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                null,
+                null));
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
@@ -77,7 +79,12 @@ public class UpsertLinkResolverTest {
     DataFetchingEnvironment mockEnv =
         initMockEnv(
             new UpsertLinkInput(
-                "https://original-url.com", "New label", ASSET_URN, new LinkSettingsInput(false)));
+                "https://original-url.com",
+                "New label",
+                ASSET_URN,
+                new LinkSettingsInput(false),
+                null,
+                null));
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
@@ -104,7 +111,12 @@ public class UpsertLinkResolverTest {
     DataFetchingEnvironment mockEnv =
         initMockEnv(
             new UpsertLinkInput(
-                "https://new-url.com", "Original label", ASSET_URN, new LinkSettingsInput(false)));
+                "https://new-url.com",
+                "Original label",
+                ASSET_URN,
+                new LinkSettingsInput(false),
+                null,
+                null));
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
@@ -134,7 +146,9 @@ public class UpsertLinkResolverTest {
                 "https://original-url.com",
                 "Original label",
                 ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                null,
+                null));
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
@@ -152,7 +166,9 @@ public class UpsertLinkResolverTest {
                 "https://original-url.com",
                 "Original label",
                 ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                null,
+                null));
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
@@ -173,7 +189,9 @@ public class UpsertLinkResolverTest {
                 "https://original-url.com",
                 "Original label",
                 ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                null,
+                null));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
@@ -209,7 +227,9 @@ public class UpsertLinkResolverTest {
                 "https://original-url.com",
                 "Original label",
                 ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                null,
+                null));
     UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
 
     assertThrows(

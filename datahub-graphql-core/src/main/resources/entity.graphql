@@ -3601,6 +3601,16 @@ type InstitutionalMemoryMetadata {
   Settings for this record of institutional memory
   """
   settings: InstitutionalMemoryMetadataSettings
+
+  """
+  Optional free-form type of the linked resource, e.g. "Runbook", "Design doc" or "Dashboard"
+  """
+  linkType: String
+
+  """
+  Optional longer description of the linked resource
+  """
+  linkDescription: String
 }
 
 """
@@ -9684,6 +9694,16 @@ input AddLinkInput {
   Optional settings input for this link
   """
   settings: LinkSettingsInput
+
+  """
+  Optional free-form type of the linked resource, e.g. "Runbook", "Design doc" or "Dashboard"
+  """
+  linkType: String
+
+  """
+  Optional longer description of the linked resource
+  """
+  linkDescription: String
 }
 
 input LinkSettingsInput {
@@ -9726,6 +9746,18 @@ input UpdateLinkInput {
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!
+
+  """
+  Optional free-form type of the linked resource, e.g. "Runbook", "Design doc" or "Dashboard".
+  When updating an existing link, null keeps the current value and an empty string clears it.
+  """
+  linkType: String
+
+  """
+  Optional longer description of the linked resource.
+  When updating an existing link, null keeps the current value and an empty string clears it.
+  """
+  linkDescription: String
 }
 
 """
@@ -9751,6 +9783,18 @@ input UpsertLinkInput {
   Optional settings input for this link
   """
   settings: LinkSettingsInput
+
+  """
+  Optional free-form type of the linked resource, e.g. "Runbook", "Design doc" or "Dashboard".
+  When updating an existing link, null keeps the current value and an empty string clears it.
+  """
+  linkType: String
+
+  """
+  Optional longer description of the linked resource.
+  When updating an existing link, null keeps the current value and an empty string clears it.
+  """
+  linkDescription: String
 }
 
 """
