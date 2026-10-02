@@ -262,6 +262,7 @@ describe('SidebarLineageSection', () => {
             searchResultLineageLoading: true,
         });
 
+        expect(screen.queryByText('Lineage')).not.toBeInTheDocument();
         expect(screen.queryByText('UPSTREAM')).not.toBeInTheDocument();
         expect(screen.queryByText('DOWNSTREAM')).not.toBeInTheDocument();
         expect(lineageOperations(operations)).toEqual([]);
@@ -278,6 +279,23 @@ describe('SidebarLineageSection', () => {
         expect(await screen.findByText(textContent('Depends on 2 assets'))).toBeInTheDocument();
         expect(screen.getByText(textContent('Used by 3 assets'))).toBeInTheDocument();
         expect(lineageOperations(operations)).toEqual([]);
+    });
+
+    it('stays hidden when the settled counts are zero', async () => {
+        const operations: string[] = [];
+        renderSection({
+            contextType: TabContextType.SEARCH_SIDEBAR,
+            operations,
+            searchResultLineage: {
+                urn: URN,
+                upstream: { filtered: 0, total: 0 },
+                downstream: { filtered: 0, total: 0 },
+            },
+        });
+
+        await waitFor(() => expect(lineageOperations(operations)).toEqual([]));
+        expect(screen.queryByText('Lineage')).not.toBeInTheDocument();
+        expect(screen.queryByText('UPSTREAM')).not.toBeInTheDocument();
     });
 
     it('renders nothing for combined sibling entities', async () => {
