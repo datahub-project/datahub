@@ -389,6 +389,43 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class));
   }
 
+  /** A V3 index whose root alias is now a field cannot take V3 writes until it is rebuilt. */
+  @Test
+  void testApplyMappings_ReportsV3IndexThatNeedsRebuild() throws IOException {
+    Map<String, Object> rootAlias =
+        Map.of("type", "alias", "path", "_aspects.datasetProperties.name");
+    assertEquals(rebuildErrors("datasetindex_v3", rootAlias, Map.of("type", "keyword")), 1);
+    // Other changes put-mapping cannot apply only warn, as for every index
+    assertEquals(
+        rebuildErrors("datasetindex_v3", Map.of("type", "keyword"), Map.of("type", "text")), 0);
+    assertEquals(rebuildErrors("datasetindex_v2", rootAlias, Map.of("type", "keyword")), 0);
+  }
+
+  private long rebuildErrors(String index, Object currentName, Object targetName)
+      throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(index);
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", targetName)));
+    ch.qos.logback.classic.Logger builderLogger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ESIndexBuilder.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    logAppender.start();
+    builderLogger.addAppender(logAppender);
+    try {
+      indexBuilder.applyMappings(opContext, indexState, true);
+    } finally {
+      builderLogger.detachAppender(logAppender);
+    }
+    return logAppender.list.stream()
+        .filter(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+        .filter(event -> event.getFormattedMessage().contains(index))
+        .count();
+  }
+
   @Test
   void testGetCount() throws IOException {
     CountResponse countResponse = mock(CountResponse.class);

@@ -256,7 +256,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testBrowseV2OnV3UsesAspectDepthAndTierFields() throws Exception {
+  public void testBrowseV2OnV3UsesV2Fields() throws Exception {
     SearchResponse mockGroupsResponse = mock(SearchResponse.class);
     SearchHits mockGroupsHits = mock(SearchHits.class);
     when(mockGroupsResponse.getHits()).thenReturn(mockGroupsHits);
@@ -279,10 +279,10 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     verify(mockClient)
         .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
     String query = requestCaptor.getValue().source().query().toString();
-    // The root browsePathV2 alias cannot reach the length subfield on V3
-    assertTrue(query.contains("_aspects.browsePathsV2.browsePathV2.length"), query);
-    assertTrue(query.contains("_search.tier_1.full"), query);
-    assertFalse(query.contains("query_urn_component"), query);
+    // V3 root fields carry the V2 subfields, so browse depth and the input query match V2
+    assertTrue(query.contains("\"browsePathV2.length\""), query);
+    assertFalse(query.contains("_aspects."), query);
+    assertTrue(query.contains("query_urn_component"), query);
   }
 
   @Test
