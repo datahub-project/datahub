@@ -3,7 +3,7 @@ import inspect
 import os
 import re
 import types
-from typing import AbstractSet, List, Optional, Set, Tuple
+from typing import AbstractSet, Dict, List, Optional, Set, Tuple, cast
 
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -75,10 +75,13 @@ def is_authored(exc: BaseException, provider_files: AbstractSet[str]) -> bool:
     provider's frame (int("..."), a C YAML loader) reports that frame and so
     counts as authored. Its text still goes through scrub_text.
     """
-    if isinstance(exc, _FRAMEWORK_TYPES):
+    # By type, and the traceback through its slot: this also judges links in
+    # a foreign exception's chain, whose class may override __getattribute__
+    # (see _plain_attr).
+    if issubclass(type(exc), _FRAMEWORK_TYPES):
         return True
-    tb = exc.__traceback__
-    if tb is None:
+    tb = _plain_attr(exc, "__traceback__")
+    if not isinstance(tb, types.TracebackType):
         # Never raised, so there is no frame to vouch for it: fail closed.
         return False
     while tb.tb_next is not None:
@@ -122,20 +125,32 @@ def _plain_attr(obj: object, name: str) -> object:
 
     A property, a __getattr__ or any other Python descriptor is code that
     may raise with the text it holds, so it is not read at all. A value
-    stored on the instance or class, or a C-level slot, is.
+    stored on the instance or class, or a C-level slot, is. The slot is read
+    through its own descriptor, never through getattr: that would go through
+    the class's __getattribute__, which a foreign class may override.
     """
     try:
         raw = inspect.getattr_static(obj, name)
     except Exception:
         return None
-    if isinstance(raw, _C_DESCRIPTORS):
-        try:
-            return getattr(obj, name)
-        except Exception:
+    try:
+        if type(raw) in _C_DESCRIPTORS:
+            return raw.__get__(obj, type(obj))
+        if hasattr(type(raw), "__get__"):
             return None
-    if hasattr(type(raw), "__get__"):
+    except Exception:
         return None
     return raw
+
+
+def _exception_attr(obj: object, name: str) -> Optional[BaseException]:
+    """_plain_attr, when the value is an exception."""
+    value = _plain_attr(obj, name)
+    # By type, not isinstance: a failed isinstance falls back to reading
+    # value.__class__, which is the foreign object's own code.
+    if issubclass(type(value), BaseException):
+        return cast(BaseException, value)
+    return None
 
 
 def _module_root(exc: BaseException) -> str:
@@ -145,16 +160,16 @@ def _module_root(exc: BaseException) -> str:
 
 def _as_str(value: object) -> Optional[str]:
     # str.__str__ rather than str(): a str subclass may render anything.
-    return str.__str__(value) if isinstance(value, str) else None
+    return str.__str__(cast(str, value)) if issubclass(type(value), str) else None
 
 
 def _as_int(value: object) -> Optional[int]:
     # bool is an int, and True is not an error number. int.__int__ for the
     # same reason as str.__str__: http.HTTPStatus is an int subclass, and
     # another subclass may override __int__ or __format__.
-    if isinstance(value, bool) or not isinstance(value, int):
+    if issubclass(type(value), bool) or not issubclass(type(value), int):
         return None
-    return int.__int__(value)
+    return int.__int__(cast(int, value))
 
 
 def _sqlstate(value: object) -> Optional[str]:
@@ -180,12 +195,12 @@ def _http(value: object) -> Optional[str]:
 
 def _aws_code(response: object) -> Optional[str]:
     # dict.get, not response.get: a dict subclass may override it.
-    if not isinstance(response, dict):
+    if not issubclass(type(response), dict):
         return None
-    error = dict.get(response, "Error")
-    if not isinstance(error, dict):
+    error = dict.get(cast(Dict[str, object], response), "Error")
+    if not issubclass(type(error), dict):
         return None
-    text = _as_str(dict.get(error, "Code"))
+    text = _as_str(dict.get(cast(Dict[str, object], error), "Code"))
     return text if text is not None and _AWS_CODE.fullmatch(text) else None
 
 
@@ -234,7 +249,19 @@ def foreign_label(exc: BaseException) -> str:
     DBAPIError keeps the driver's error as `.orig`, so that is looked at
     right after the exception itself, before its cause and context.
     """
-    name = type(exc).__name__
+    # type.__name__ through type's own descriptor: a foreign metaclass may
+    # override the attribute.
+    name: str = type.__dict__["__name__"].__get__(type(exc))
+    try:
+        codes = _first_codes(exc)
+    except Exception:
+        # Never let reading a foreign exception raise: its text would reach
+        # the CLI's catch-all instead of the class name.
+        codes = []
+    return "; ".join([name, *codes])
+
+
+def _first_codes(exc: BaseException) -> List[str]:
     seen: Set[int] = set()
     pending: List[BaseException] = [exc]
     while pending and len(seen) < _MAX_CHAIN:
@@ -244,15 +271,10 @@ def foreign_label(exc: BaseException) -> str:
         seen.add(id(current))
         codes = _codes_of(current)
         if codes:
-            return "; ".join([name, *codes])
-        for link in (
-            _plain_attr(current, "orig"),
-            current.__cause__,
-            current.__context__,
-        ):
-            if isinstance(link, BaseException):
-                pending.append(link)
-    return name
+            return codes
+        orig = _exception_attr(current, "orig")
+        pending.extend([*([orig] if orig is not None else []), *_links(current)])
+    return []
 
 
 def classify_foreign(exc: BaseException, context: str) -> Exception:
@@ -278,16 +300,29 @@ def _foreign_in_chain(
     """Every foreign exception in `exc`'s cause and context chain."""
     found: List[BaseException] = []
     seen: Set[int] = {id(exc)}
-    pending = [exc.__cause__, exc.__context__]
+    pending = _links(exc)
     while pending:
         link = pending.pop()
-        if link is None or id(link) in seen:
+        if id(link) in seen:
             continue
         seen.add(id(link))
         if not is_authored(link, provider_files):
             found.append(link)
-        pending.extend([link.__cause__, link.__context__])
+        pending.extend(_links(link))
     return found
+
+
+def _links(exc: BaseException) -> List[BaseException]:
+    """`exc.__cause__` and `exc.__context__`, read without running the
+    class's own code."""
+    return [
+        link
+        for link in (
+            _exception_attr(exc, "__cause__"),
+            _exception_attr(exc, "__context__"),
+        )
+        if link is not None
+    ]
 
 
 def withhold_foreign_text(exc: BaseException, provider_files: AbstractSet[str]) -> str:

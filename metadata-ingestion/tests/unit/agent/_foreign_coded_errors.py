@@ -147,3 +147,34 @@ def broken_getattr() -> NoReturn:
 
 def sneaky_str() -> NoReturn:
     raise PgError(SENTINEL, _SneakyStr("42P01"))
+
+
+class _CauseProperty(Exception):
+    """An exception whose chain link is a property that raises its text."""
+
+
+def _raising_cause(self: BaseException) -> BaseException:
+    raise RuntimeError(f"cause {SENTINEL}")
+
+
+# Assigned after the class body: a property over BaseException's writable
+# __cause__ is what the test needs, and what a class body cannot declare
+# without mypy refusing the override.
+setattr(_CauseProperty, "__cause__", property(_raising_cause))  # noqa: B010
+
+
+class _HostileGetattribute(Exception):
+    """Every chain and code attribute read through __getattribute__ raises."""
+
+    def __getattribute__(self, name: str) -> object:
+        if name in ("__cause__", "__context__", "args", "errno", "orig"):
+            raise RuntimeError(f"no {name} in {SENTINEL}")
+        return super().__getattribute__(name)
+
+
+def cause_property() -> NoReturn:
+    raise _CauseProperty(SENTINEL)
+
+
+def hostile_getattribute() -> NoReturn:
+    raise _HostileGetattribute(SENTINEL)

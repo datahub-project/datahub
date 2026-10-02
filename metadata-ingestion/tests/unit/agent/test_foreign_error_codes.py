@@ -120,6 +120,15 @@ class _Provider:
         """List things."""
         if self.mode == "call":
             coded.sqlalchemy_wrapping_pg()
+        if self.mode == "cause-property":
+            coded.cause_property()
+        if self.mode == "hostile-getattribute":
+            coded.hostile_getattribute()
+        if self.mode == "wraps-cause-property":
+            try:
+                coded.cause_property()
+            except Exception as exc:
+                raise ProbeConnectionError("listing failed") from exc
         if self.mode == "wrapped":
             try:
                 coded.http()
@@ -194,4 +203,37 @@ def test_the_cli_shows_the_code_and_keeps_exit_3(
     )
     assert res.exit_code == 3, res.output
     assert code in res.stderr
+    assert SENTINEL not in res.output
+
+
+@pytest.mark.parametrize(
+    "mode, label",
+    [
+        ("cause-property", "'things' failed (_CauseProperty)"),
+        ("hostile-getattribute", "'things' failed (_HostileGetattribute)"),
+        # Authored, so the backstop walks the chain looking for foreign text.
+        ("wraps-cause-property", "listing failed"),
+    ],
+)
+def test_reading_the_chain_runs_no_foreign_code(
+    run: RunFn,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    mode: str,
+    label: str,
+) -> None:
+    """A chain link or code attribute read through a property or an
+    overridden __getattribute__ is foreign code, and its exception text
+    would reach stderr through the CLI's catch-all."""
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda _r: ("fake", {"mode": mode}, set())
+    )
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "things", "--recipe", str(recipe_file)]
+    )
+    assert res.exit_code == 3, res.output
+    assert label in res.stderr
     assert SENTINEL not in res.output
