@@ -78,6 +78,7 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.looker_selection import (
     LOOK_HAS_NO_QUERY,
     ON_A_KEPT_DASHBOARD,
+    SKIP_PERSONAL_FOLDERS,
     LookFacts,
     chart_id_verdict,
     dashboard_id_verdict,
@@ -1511,8 +1512,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     personal=is_personal_folder(look.folder),
                 ),
             )
-            # extract_independent_looks runs only when that switch is on, so
-            # its exclusion cannot reach here.
             if verdict.excluded_by == ON_A_KEPT_DASHBOARD:
                 continue
 
@@ -1520,13 +1519,19 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            if verdict.excluded_by == "skip_personal_folders":
+            if verdict.excluded_by == SKIP_PERSONAL_FOLDERS:
                 self.reporter.info(
                     title="Dropped Look",
                     message="Dropped due to being a personal folder",
                     context=f"Look ID: {look.id}",
                 )
 
+                self.reporter.report_charts_dropped(look.id)
+                continue
+
+            # Unreachable today (the switch is on here and deleted is not
+            # judged); a rule added to standalone_look_verdict still drops.
+            if not verdict.included:
                 self.reporter.report_charts_dropped(look.id)
                 continue
 
