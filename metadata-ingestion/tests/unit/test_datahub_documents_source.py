@@ -1564,7 +1564,7 @@ class TestSourceTypeFiltering:
             )
             assert should_process_external is True
 
-            # SYSTEM (platform-managed, e.g. embedded product docs) is DataHub-owned
+            # SYSTEM (platform-managed) documents are DataHub-owned, like NATIVE
             entity_system: dict[str, Any] = {
                 "urn": "urn:li:document:system1",
                 "info": {"source": {"sourceType": "SYSTEM"}},

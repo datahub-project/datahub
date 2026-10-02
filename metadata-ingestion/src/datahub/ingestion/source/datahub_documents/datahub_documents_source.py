@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
 EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
 
 # Source types whose documents DataHub owns and embeds itself. SYSTEM marks
-# platform-managed documents such as the embedded product docs.
+# documents managed by the platform rather than created by users.
 DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
 
 
@@ -1077,7 +1077,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Documents outside the global context were not enumerated",
                 message="Could not parse the DataHub server version, so documents hidden "
-                "from global search (e.g. product docs) are not embedded in this run.",
+                "from global search are not embedded in this run.",
                 context=f"server_version={server_config.service_version!r}",
                 exc=e,
             )
