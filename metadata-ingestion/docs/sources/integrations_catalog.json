@@ -1094,6 +1094,13 @@
     "description": "DataHub utility for ingesting and managing documentation assets, runbooks, and tribal-knowledge documents stored in DataHub.",
     "img_path": "img/datahub-logo-color-mark.svg"
   },
+  "datahub-entity-embeddings": {
+    "platform_type": "Internal",
+    "connection_type": "Pull",
+    "title": "DataHub Entity Embeddings",
+    "description": "DataHub utility that generates semantic search embeddings for catalog entities such as datasets, dashboards, and glossary terms.",
+    "img_path": "img/datahub-logo-color-mark.svg"
+  },
   "datahubgc": {
     "platform_type": "Internal",
     "connection_type": "Pull",

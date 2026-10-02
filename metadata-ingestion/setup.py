@@ -774,6 +774,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
+    "datahub-entity-embeddings": unstructured_lib,
     # Optional add-on: embed documents in-process with ONNX instead of a cloud
     # provider, matching the GMS built-in query-side provider. Install alongside
     # datahub-documents (e.g. acryl-datahub[datahub-documents,onnx-embeddings]).
@@ -962,10 +963,12 @@ all_exclude_plugins: Set[str] = {
     "onnx-embeddings",
     # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
     # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
-    # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
-    # or [unstructured]. Managed ingestion still maps source type to those extras.
+    # Install explicitly: acryl-datahub[datahub-documents], [datahub-entity-embeddings],
+    # [notion], [confluence], or [unstructured]. Managed ingestion still maps source
+    # type to those extras.
     # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
     "datahub-documents",
+    "datahub-entity-embeddings",
     "unstructured",
     "notion",
     "confluence",
@@ -1255,6 +1258,7 @@ entry_points = {
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
         "datahub-documents = datahub.ingestion.source.datahub_documents.datahub_documents_source:DataHubDocumentsSource",
+        "datahub-entity-embeddings = datahub.ingestion.source.datahub_entity_embeddings.source:DataHubEntityEmbeddingsSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
