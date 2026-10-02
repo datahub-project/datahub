@@ -322,6 +322,11 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         self.manifest_constants: Dict[str, "LookerConstant"] = {}
 
+    @property
+    def _is_model_scoped_view_naming(self) -> bool:
+        """Whether view URNs embed the model name, making them distinct per model."""
+        return "{model}" in self.source_config.view_naming_pattern.pattern
+
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
 
@@ -700,9 +705,10 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
 
         # This map is used to keep track of which views files have already been processed
-        # for a connection in order to prevent creating duplicate events.
-        # Key: connection name, Value: view file paths
-        processed_view_map: Dict[str, Set[str]] = {}
+        # in order to prevent creating duplicate events.
+        # Key: (connection name, model name if the naming pattern is model-scoped else None)
+        # Value: view file paths
+        processed_view_map: Dict[Tuple[str, Optional[str]], Set[str]] = {}
 
         # This map is used to keep track of the connection that a view is processed with.
         # Key: view unique identifier - determined by variables present in config `view_naming_pattern`
@@ -814,8 +820,17 @@ class LookMLSource(StatefulIngestionSourceBase):
                     )
                     logger.debug("Failed to process explore", exc_info=e)
 
+            # A view file included by several models yields a distinct URN per model
+            # when view_naming_pattern contains {model}, so dedup has to be scoped to
+            # the model as well. Otherwise the first model to claim the file wins and
+            # the remaining models never emit their copy.
+            # See https://github.com/datahub-project/datahub/issues/12043
             processed_view_files = processed_view_map.setdefault(
-                model.connection, set()
+                (
+                    model.connection,
+                    model_name if self._is_model_scoped_view_naming else None,
+                ),
+                set(),
             )
 
             view_to_explore_map = {}
@@ -1014,7 +1029,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def report_skipped_unreachable_views(
         self,
         viewfile_loader: LookerViewFileLoader,
-        processed_view_map: Optional[Dict[str, Set[str]]] = None,
+        processed_view_map: Optional[Dict[Tuple[str, Optional[str]], Set[str]]] = None,
     ) -> None:
         processed_view_map = processed_view_map or {}
         view_files: Dict[str, List[pathlib.Path]] = {}
