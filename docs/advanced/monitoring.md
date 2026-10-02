@@ -1034,6 +1034,18 @@ raising the consumer's head-sampling ratio; and `datahub.bulk.batch_id`
 is unique per flush, fine on a span and never to be used as a metric label. Off by default; when
 off, nothing is recorded and no header is sent.
 
+**Cost, measured.** `BulkTelemetryPerfSmokeTest` (in `metadata-io`) drives the real calls, flags
+off and on, on one thread of a laptop; the figures are medians and move by a factor of about two
+between runs, so read them as orders of magnitude. Off, the per-action hook is a null check:
+about 3 to 6 ns per action and under 1 µs per flush at any batch size, with no allocation. On,
+with span and header, adding costs about 13 to 18 ns per action, and the flush, which is where the
+batch span, its links and the index list are built, costs about 30 to 60 µs for a 1,000-action
+batch and 1.5 to 2.1 ms for a 20,000-action batch, that is 40 to 80 ns and 95 to 135 ns per
+action all in, allocating about 30 to 45 bytes per action. For comparison, a 5,000-action flush
+through the real bulk processor against a mocked store (serialization and parsing only, no network)
+takes about 6.8 ms off and 7.2 ms on. The flush cost is linear in the batch size and is paid on the
+bulk processor's thread, not the request thread.
+
 ## Micrometer
 
 DataHub is transitioning to Micrometer as its primary metrics framework, representing a significant upgrade in observability
