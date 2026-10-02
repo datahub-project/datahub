@@ -119,6 +119,18 @@ const SidebarLineageSection = ({ contexType }: Props) => {
 
     const hasLineage = directUpstreamCount > 0 || directDownstreamCount > 0;
 
+    // While page-level counts are in flight, keep the section shell so later sections
+    // do not jump when the skeleton is replaced by upstream/downstream summaries.
+    if (!hasLineage && loading) {
+        return (
+            <SidebarSection
+                title={t('sidebar.lineage.sectionTitle')}
+                key="Lineage"
+                content={<SidebarLineageLoadingSection />}
+            />
+        );
+    }
+
     if (!hasLineage) {
         return null;
     }
