@@ -33,6 +33,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_API_SEARCHES,
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
+    MSTR_MS_INSTANCE_HEADER,
     MSTR_OBJECT_TYPE_DASHBOARD,
     MSTR_OBJECT_TYPE_METRIC,
     MSTR_OBJECT_TYPE_REPORT,
@@ -382,14 +383,27 @@ class MicroStrategyClient:
             project_id=project_id,
         )
 
-    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, object]:
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, object]:
         """GET /api/model/reports/{id} (Modeling service, 2021 Update 7+): the
         report's full definition including its report-level derived metrics
-        with expressions; parsed by models.extract_embedded_metric_definitions."""
+        with expressions; parsed by models.extract_embedded_metric_definitions.
+
+        The spec documents this endpoint's X-MSTR-MS-Instance header as the
+        report instance id. Without it the definition is read statically, and
+        on at least one Strategy Cloud tenant that returns metric elements
+        carrying no expression. Passing an executed instance is the vendor's
+        suggested route to resolved expressions; it is opt-in because creating
+        the instance makes the server run the report."""
         return self._get_json(
             f"/api/model/reports/{report_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
+            headers=({MSTR_MS_INSTANCE_HEADER: instance_id} if instance_id else None),
         )
 
     def get_model_document(
@@ -821,6 +835,7 @@ class MicroStrategyClient:
         json: Optional[Dict[str, Any]] = None,
         timeout_seconds: Optional[int] = None,
         max_attempts: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         response = self._request(
             method,
@@ -830,6 +845,7 @@ class MicroStrategyClient:
             json=json,
             timeout_seconds=timeout_seconds,
             max_attempts=max_attempts,
+            headers=dict(headers) if headers else {},
         )
         if not response.content:
             return {}

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import patch
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -189,6 +189,7 @@ def _model_report(
     _client: MicroStrategyClient,
     project_id: str,
     report_id: str,
+    instance_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     # GET /api/model/reports/{id}: only the report-backed dataset (ds-2) is
     # consulted; ds-1 is a cube and cubes cannot define derived metrics. The

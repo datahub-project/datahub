@@ -61,6 +61,13 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Report-level derived metrics whose formula the report definition did not
     # carry but GET /api/model/metrics/{id} did.
     report_derived_metric_models_resolved: int = 0
+    # Reports executed so their Modeling definition could be read against a
+    # live instance (resolve_report_metrics_via_instance).
+    report_model_instances_created: int = 0
+    report_model_instance_failures: int = 0
+    report_model_instance_failure_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     metric_formula_lineage_edges: int = 0
     metric_formula_refs_unresolved: int = 0
     metric_formula_unresolved_ref_samples: LossyList[str] = field(
@@ -206,6 +213,13 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_report_derived_metric_model_resolved(self) -> None:
         self.report_derived_metric_models_resolved += 1
+
+    def report_report_model_instance_created(self) -> None:
+        self.report_model_instances_created += 1
+
+    def report_report_model_instance_failure(self, context: str) -> None:
+        self.report_model_instance_failures += 1
+        self.report_model_instance_failure_samples.append(context)
 
     def report_metric_formula_lineage_edges(self, count: int) -> None:
         self.metric_formula_lineage_edges += count

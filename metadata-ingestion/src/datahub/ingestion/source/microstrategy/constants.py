@@ -6,6 +6,11 @@ MICROSTRATEGY_PLATFORM = "microstrategy"
 # REST endpoint paths that are referenced in more than one place -- the request
 # plus its response-shape/error check, or the re-auth guard -- are centralized
 # so the two uses cannot drift apart. Single-use paths stay inline.
+# Modeling-service header documented as the report instance id. Sending an
+# executed instance is the vendor's suggested route to metric expressions that
+# the static definition omits.
+MSTR_MS_INSTANCE_HEADER = "X-MSTR-MS-Instance"
+
 MSTR_API_AUTH_PREFIX = "/api/auth/"
 MSTR_API_AUTH_LOGIN = "/api/auth/login"
 MSTR_API_AUTH_LOGOUT = "/api/auth/logout"

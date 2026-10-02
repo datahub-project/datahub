@@ -2,7 +2,7 @@ import builtins
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 
 import pytest
@@ -1375,7 +1375,12 @@ class _ReportDerivedClient(_DatasetLookupClient):
             }
         )
 
-    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         if self.model_fails:
             raise MicroStrategyAPIError("404")
@@ -1510,7 +1515,12 @@ class _TwoReportClient(_ReportDerivedClient):
         definition["definition"]["datasets"][0]["id"] = f"ds-{dossier_id}"
         return definition
 
-    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         raise MicroStrategyAPIError(
             "MicroStrategy API request failed: GET /api/model/reports/x: 403",
@@ -1549,7 +1559,12 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
     """The Modeling endpoint answers and flags the derived metric, but its
     formula sits under a key the walker does not read."""
 
-    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
             "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
@@ -1619,7 +1634,12 @@ class _ModelEmptyClient(_ReportDerivedClient):
     walker recognises no derived metric at all (the live-run shape), so the
     v2 definition ends up supplying the names."""
 
-    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
             "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
@@ -1688,7 +1708,12 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
         self.metric_model_fails = metric_model_fails
         self.metric_model_calls: List[str] = []
 
-    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
             "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
@@ -2305,3 +2330,95 @@ def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
     urns = {workunit.get_urn() for workunit in workunits}
     assert source.mapper.report_urn("project-1", "REPORT-SHARED") in urns
     assert source.mapper.report_urn("project-1", "REPORT-PERSONAL") not in urns
+
+
+class _InstanceModelClient(_ModelEmbeddedClient):
+    """Records the instance lifecycle around the Modeling definition read."""
+
+    def __init__(self, instance_fails: bool = False) -> None:
+        super().__init__()
+        self.instance_fails = instance_fails
+        self.created: List[str] = []
+        self.deleted: List[str] = []
+        self.instance_ids_seen: List[Optional[str]] = []
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        if self.instance_fails:
+            raise MicroStrategyAPIError("500 report execution failed")
+        self.created.append(report_id)
+        return f"inst-{report_id}"
+
+    def delete_report_instance(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> bool:
+        self.deleted.append(instance_id)
+        return True
+
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        self.instance_ids_seen.append(instance_id)
+        return super().get_model_report(project_id, report_id, instance_id)
+
+
+def test_report_metrics_read_statically_unless_instance_option_is_on() -> None:
+    # Default behaviour: no report is executed and the Modeling definition is
+    # read without an instance header.
+    source = _embedded_metric_source()
+    client = _InstanceModelClient()
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.created == []
+    assert client.deleted == []
+    assert client.instance_ids_seen == [None]
+    assert source.report.report_model_instances_created == 0
+
+
+def test_instance_option_executes_report_and_releases_the_instance() -> None:
+    source = _embedded_metric_source()
+    source.config.resolve_report_metrics_via_instance = True
+    client = _InstanceModelClient()
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # Executed once, handed to the Modeling read, and cleaned up afterwards so
+    # a long run does not leave instances alive on the server.
+    assert client.created == ["ds-shared"]
+    assert client.instance_ids_seen == ["inst-ds-shared"]
+    assert client.deleted == ["inst-ds-shared"]
+    assert source.report.report_model_instances_created == 1
+
+
+def test_instance_failure_falls_back_to_the_static_definition() -> None:
+    # Executing a report can fail or time out; that must degrade to the
+    # long-standing static read rather than losing the definition entirely.
+    source = _embedded_metric_source()
+    source.config.resolve_report_metrics_via_instance = True
+    client = _InstanceModelClient(instance_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.created == []
+    assert client.deleted == []
+    assert client.instance_ids_seen == [None]
+    assert source.report.report_model_instance_failures == 1
+    assert source.report.report_model_instances_created == 0

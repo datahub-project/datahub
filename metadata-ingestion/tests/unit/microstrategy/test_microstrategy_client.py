@@ -895,3 +895,41 @@ def test_instance_creation_without_instance_id_raises(
 
     with pytest.raises(MicroStrategyAPIError):
         getattr(client, method_name)("project-1", "object-1")
+
+
+def test_model_report_sends_instance_header_only_when_given(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # The Modeling endpoint's X-MSTR-MS-Instance header is documented as the
+    # report instance id. Reading the definition statically must stay the
+    # default, so the header is absent unless an instance is supplied.
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    calls: list[Dict[str, Any]] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        method: str = "GET",
+        json: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        calls.append({"path": path, "headers": headers})
+        return {}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_model_report("project-1", "report-1")
+    client.get_model_report("project-1", "report-1", instance_id="instance-9")
+
+    assert calls[0]["headers"] is None
+    assert calls[1]["headers"] == {"X-MSTR-MS-Instance": "instance-9"}
+    assert [call["path"] for call in calls] == [
+        "/api/model/reports/report-1",
+        "/api/model/reports/report-1",
+    ]
