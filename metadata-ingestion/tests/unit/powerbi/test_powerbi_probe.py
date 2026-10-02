@@ -7,6 +7,7 @@ import requests_mock as rm
 
 from datahub.ingestion.agent.api_gate import ApiScopeError, check_api_request
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.powerbi.config import (
@@ -658,3 +659,31 @@ def test_a_case_only_workspace_miss_names_the_listed_spelling(
     _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
     with pytest.raises(ValueError, match="did you mean 'Sales'"), _probe() as probe:
         probe.reports("sales")
+
+
+def test_a_saved_run_of_a_workspace_with_no_type_leaves_the_type_unjudged(
+    requests_mock: rm.Mocker,
+) -> None:
+    # A null type is dropped from the saved record's attributes, so the
+    # override cannot tell it from a bare --name: it warns and does not judge
+    # the type, as it always has. Ingestion excludes such a workspace.
+    _paged(
+        requests_mock,
+        f"{_ORG}/groups",
+        [_GROUPS[0], {"id": "ws-9", "name": "Untyped", "type": None}],
+    )
+    run = run_probe_method("powerbi", dict(_RECIPE), "workspaces", {})
+    listing = listing_from_run(run.to_dict())
+    result = check_filters(
+        source_type="powerbi",
+        config_dict=dict(_RECIPE),
+        kind=str(listing.kind),
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    assert {v.name: v.excluded_by for v in result.results} == {
+        "Sales": None,
+        "Untyped": None,
+    }
+    assert any("no workspace type for 'Untyped'" in w for w in result.warnings)
