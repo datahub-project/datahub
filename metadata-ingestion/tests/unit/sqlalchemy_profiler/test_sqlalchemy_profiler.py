@@ -1560,4 +1560,5 @@ class TestSampledPartitionSpec:
             PartitionSpecClass(type=PartitionTypeClass.PARTITION, partition="20230906"),
         )
 
+        assert spec.type == PartitionTypeClass.PARTITION
         assert spec.partition == "20230906 SAMPLE"
