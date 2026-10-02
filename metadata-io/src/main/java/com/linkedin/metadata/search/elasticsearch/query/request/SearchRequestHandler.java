@@ -138,11 +138,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .collect(Collectors.toList());
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     highlights = getDefaultHighlights(opContext);
-    searchQueryBuilder =
-        new SearchQueryBuilder(
-            configs.getSearch(),
-            customSearchConfiguration,
-            EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex()));
+    searchQueryBuilder = new SearchQueryBuilder(configs.getSearch(), customSearchConfiguration);
     aggregationQueryBuilder =
         new AggregationQueryBuilder(
             configs.getSearch(),
@@ -258,7 +254,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
         ESUtils.buildFilterQuery(
             readV3 ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
             false,
-            readV3,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain);
@@ -459,18 +454,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
 
-    final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
-            .field(
-                ESUtils.toKeywordField(
-                    opContext,
-                    readV3 ? ESUtils.toV3EntityField(field) : field,
-                    readV3,
-                    opContext.getAspectRetriever()))
+            .field(ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever()))
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 
