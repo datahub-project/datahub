@@ -143,7 +143,7 @@ class DataHubDocumentsSourceConfig(
     platform_filter: Optional[list[str]] = Field(
         default=None,
         description="Filter documents by platforms. "
-        "Default (None): Process all NATIVE documents (sourceType=NATIVE) regardless of platform. "
+        "Default (None): Process all NATIVE and SYSTEM documents regardless of platform. "
         "EXTERNAL documents are also processed by default (see include_external_documents); "
         "set platform_filter to restrict EXTERNAL documents to specific platforms (e.g., ['notion', 'confluence']). "
         "Use ['*'] or ['ALL'] to process all documents regardless of source type or platform.",
@@ -277,7 +277,7 @@ class DataHubDocumentsSourceConfig(
     def validate_platform_filter(cls, v: list[str]) -> list[str]:
         """Validate platform_filter.
 
-        Empty list is allowed (default - processes all NATIVE documents).
+        Empty list is allowed (default - processes all NATIVE and SYSTEM documents).
         Non-empty list must contain at least one platform or wildcard.
         """
         # Empty list is valid (default behavior)

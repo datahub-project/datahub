@@ -59,6 +59,7 @@ from datahub.ingestion.source.unstructured.chunking_source import (
     compute_source_text_sha256,
 )
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
+from datahub.utilities.server_config_util import ServiceFeature
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,10 @@ logger = logging.getLogger(__name__)
 # carries the curated override. Passed to DocumentEventConsumer AND checked in
 # _process_single_event — keep the two filters in lockstep via this constant.
 EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
+
+# Source types whose documents DataHub owns and embeds itself. SYSTEM marks
+# platform-managed documents such as the embedded product docs.
+DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
 
 
 class DocumentEnumerationError(Exception):
@@ -853,12 +858,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Determine if document should be processed in event mode based on source type and platform filter.
 
         Logic:
-        - NATIVE documents: Always process if platform_filter is empty, or if platform matches
+        - NATIVE/SYSTEM documents: Always process if platform_filter is empty, or if platform matches
         - EXTERNAL documents: Processed when include_external_documents is True (default).
           If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
         Args:
-            source_type: Document source type ("NATIVE" or "EXTERNAL")
+            source_type: Document source type ("NATIVE", "SYSTEM" or "EXTERNAL")
             aspect_dict: Parsed documentInfo aspect dictionary
             entity_urn: Document URN for logging and fetching platform
 
@@ -871,8 +876,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         ):
             return True
 
-        # NATIVE documents: Process if platform_filter is empty (all native) or matches platform
-        if source_type == "NATIVE":
+        # NATIVE/SYSTEM documents: Process if platform_filter is empty (all native) or matches platform
+        if source_type in DATAHUB_OWNED_SOURCE_TYPES:
             # Empty platform_filter means "all native documents"
             if not self.config.platform_filter:
                 return True
@@ -918,7 +923,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Determine if document should be processed in batch mode based on source type and platform filter.
 
         Logic:
-        - NATIVE documents: Always process if platform_filter is empty, or if platform matches
+        - NATIVE/SYSTEM documents: Always process if platform_filter is empty, or if platform matches
         - EXTERNAL documents: Processed when include_external_documents is True (default).
           If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
@@ -942,8 +947,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if source_type is None:
             source_type = "NATIVE"
 
-        # NATIVE documents: Process if platform_filter is empty (all native) or matches platform
-        if source_type == "NATIVE":
+        # NATIVE/SYSTEM documents: Process if platform_filter is empty (all native) or matches platform
+        if source_type in DATAHUB_OWNED_SOURCE_TYPES:
             # Empty platform_filter means "all native documents"
             if not self.config.platform_filter:
                 return True
@@ -1061,6 +1066,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
         )
 
+    def _supports_non_global_context_documents(self) -> bool:
+        server_config = self.graph.server_config
+        try:
+            supported = server_config.supports_feature(
+                ServiceFeature.NON_GLOBAL_CONTEXT_DOCUMENTS
+            )
+        except ValueError as e:
+            # Unparseable server version: fail closed, an unknown flag fails the query.
+            self.report.warning(
+                title="Documents outside the global context were not enumerated",
+                message="Could not parse the DataHub server version, so documents hidden "
+                "from global search (e.g. product docs) are not embedded in this run.",
+                context=f"server_version={server_config.service_version!r}",
+                exc=e,
+            )
+            return False
+        logger.info(
+            f"includeNonGlobalContextDocuments {'enabled' if supported else 'disabled'} "
+            f"for document enumeration (server_version={server_config.service_version!r})"
+        )
+        return supported
+
     def _scroll_document_urns(self) -> Iterable[str]:
         """Enumerate Document URNs via scrollAcrossEntities.
 
@@ -1080,7 +1107,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         query scrollDocumentUrns(
             $scrollId: String,
             $batchSize: Int!,
-            $orFilters: [AndFilterInput!]
+            $orFilters: [AndFilterInput!],
+            $searchFlags: SearchFlags
         ) {
           scrollAcrossEntities(input: {
             types: [DOCUMENT],
@@ -1088,11 +1116,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             count: $batchSize,
             scrollId: $scrollId,
             orFilters: $orFilters,
-            searchFlags: {
-              skipHighlighting: true,
-              skipAggregates: true
-              includeHiddenLifecycleStages: true
-            }
+            searchFlags: $searchFlags
           }) {
             nextScrollId
             searchResults {
@@ -1124,6 +1148,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 }
             ]
 
+        search_flags: dict[str, bool] = {
+            "skipHighlighting": True,
+            "skipAggregates": True,
+            "includeHiddenLifecycleStages": True,
+        }
+        # Servers that place documents outside the global context (e.g. embedded product
+        # docs) hide them from search unless asked; older servers reject the unknown flag.
+        if self._supports_non_global_context_documents():
+            search_flags["includeNonGlobalContextDocuments"] = True
+
         scroll_id: Optional[str] = None
         first_iter = True
         while first_iter or scroll_id:
@@ -1140,6 +1174,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "batchSize": self.config.scroll_batch_size,
                 "scrollId": scroll_id,
                 "orFilters": or_filters,
+                "searchFlags": search_flags,
             }
             response = self.graph.execute_graphql(query, variables)
             scroll_data = response.get("scrollAcrossEntities")
