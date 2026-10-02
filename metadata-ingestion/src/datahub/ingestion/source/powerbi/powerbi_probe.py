@@ -1,4 +1,5 @@
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterator,
@@ -7,7 +8,6 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
-    cast,
 )
 from urllib.parse import urlparse
 
@@ -15,8 +15,14 @@ import requests
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import (
+    PersonalWithholding,
+    ProbeProviderBase,
+    resolve_name,
+    soft_listing,
+    take,
+)
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
-from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
@@ -41,7 +47,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
 _R = TypeVar("_R", bound=DataResolverBase)
 
 
-class PowerBiMetadataProbe(RestApiPassthrough):
+class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
     """Metadata-only probe over the PowerBI REST API.
 
     Goes through the connector's own resolvers rather than PowerBiAPI:
@@ -50,8 +56,6 @@ class PowerBiMetadataProbe(RestApiPassthrough):
     resolvers carry the same pager, retry adapter and timeout ingestion uses.
     Never touches the async admin scanner (getInfo / scanStatus / scanResult).
     """
-
-    warnings: List[str]
 
     # Regular-API listings only. What is deliberately absent, and why:
     #   /admin/groups (any form) -- the whole tenant's personal workspaces,
@@ -73,24 +77,13 @@ class PowerBiMetadataProbe(RestApiPassthrough):
 
     def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
         self._config = config
-        # Built lazily: DataResolverBase.__init__ fetches an MSAL token, and a
-        # command is where a bad credential should surface, not construction.
-        self._resolvers: Dict[type, DataResolverBase] = {}
-        self._withheld_personal = 0
-        self.warnings = []
+        self._withholding: PersonalWithholding[Workspace] = self._new_withholding()
         self.api_base_url = DataResolverBase.my_org_url_for(config.environment)
         self._groups_path = urlparse(self.api_base_url).path.rstrip("/") + "/groups"
 
     @classmethod
     def for_config(cls, config: PowerBiDashboardSourceConfig) -> "PowerBiMetadataProbe":
         return cls(config)
-
-    def __enter__(self) -> "PowerBiMetadataProbe":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        for resolver in self._resolvers.values():
-            resolver.request_session.close()
 
     def api_fetch_json(self, url: str) -> object:
         # The connector's retrying, timed session and its token refresh, so a
@@ -105,12 +98,19 @@ class PowerBiMetadataProbe(RestApiPassthrough):
             return self._without_withheld_groups(body)
         return body
 
-    def _withholds(self, workspace_type: Optional[str]) -> bool:
-        """A personal workspace the recipe does not ingest: named after its
-        owner, and never emitted by ingestion."""
-        return (
-            workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES
-            and workspace_type not in self._config.workspace_type_filter
+    def _is_personal_type(self, workspace_type: Optional[str]) -> bool:
+        # Named after its owner.
+        return workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES
+
+    def _ingests_type(self, workspace_type: Optional[str]) -> bool:
+        return workspace_type in self._config.workspace_type_filter
+
+    def _new_withholding(self) -> PersonalWithholding[Workspace]:
+        """Withholds a personal workspace the recipe does not ingest: named
+        after its owner, and never emitted by ingestion."""
+        return PersonalWithholding[Workspace](
+            is_personal=lambda ws: self._is_personal_type(ws.type),
+            would_ingest=lambda ws: self._ingests_type(ws.type),
         )
 
     def _without_withheld_groups(self, body: object) -> object:
@@ -118,30 +118,32 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         # `api` route would hand back the owner names that command keeps out.
         if not isinstance(body, dict) or not isinstance(body.get("value"), list):
             return body
-        kept: List[object] = []
-        self._withheld_personal = 0
-        for group in body["value"]:
-            if isinstance(group, dict) and self._withholds(group.get("type")):
-                self._withheld_personal += 1
-            else:
-                kept.append(group)
-        self._note_withheld()
+        withholding = PersonalWithholding[object](
+            is_personal=lambda g: (
+                isinstance(g, dict) and self._is_personal_type(g.get("type"))
+            ),
+            would_ingest=lambda g: (
+                isinstance(g, dict) and self._ingests_type(g.get("type"))
+            ),
+        )
+        kept = [group for group in body["value"] if withholding.keep(group)]
+        self._note_withheld(withholding)
         return {**body, "value": kept}
 
     def _resolver(self, resolver_cls: Type[_R]) -> _R:
-        if resolver_cls not in self._resolvers:
-            self._resolvers[resolver_cls] = make_resolver(self._config, resolver_cls)
-        return cast(_R, self._resolvers[resolver_cls])
+        # Built lazily: DataResolverBase.__init__ fetches an MSAL token, and a
+        # command is where a bad credential should surface, not construction.
+        return self._open_once(
+            resolver_cls,
+            lambda: make_resolver(self._config, resolver_cls),
+            close=lambda resolver: resolver.request_session.close(),
+        )
 
     def _listing_resolver(self) -> DataResolverBase:
         # The same choice as PowerBiAPI._get_resolver.
         if self._config.admin_apis_only:
             return self._resolver(AdminAPIResolver)
         return self._resolver(RegularAPIResolver)
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     def _modified_filter(self) -> Dict[str, str]:
         """The $filter PowerBiAPI.get_workspaces builds from modified_since."""
@@ -192,7 +194,7 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         it and so does this.
         """
         resolver = self._listing_resolver()
-        self._withheld_personal = 0
+        self._withholding = self._new_withholding()
         pages = resolver.itr_pages(
             endpoint=resolver.get_groups_endpoint(),
             parameter_override=self._modified_filter(),
@@ -200,16 +202,21 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         for page in pages:
             for group in page:
                 workspace = workspace_from_group(group, self._config.environment)
-                if self._withholds(workspace.type):
-                    self._withheld_personal += 1
+                if not self._withholding.keep(workspace):
                     continue
                 yield workspace, group.get(Constant.STATE)
 
-    def _note_withheld(self) -> None:
-        if self._withheld_personal:
+    def _note_withheld(
+        self,
+        withholding: Optional[PersonalWithholding[Any]] = None,
+        *,
+        stopped_early: bool = False,
+    ) -> None:
+        w = withholding or self._withholding
+        if w.withheld:
             self._warn(
-                f"{self._withheld_personal} personal workspace(s) seen and not "
-                f"listed: their type is not in workspace_type_filter, so "
+                f"{w.count_text(stopped_early=stopped_early)} personal "
+                f"workspace(s) seen and not listed: their type is not in workspace_type_filter, so "
                 f"ingestion skips them, and a personal workspace is named after "
                 f"its owner"
             )
@@ -229,40 +236,41 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         modified_since exactly as ingestion narrows it. Personal workspaces
         the recipe does not ingest are counted in a warning, not listed.
         Metadata only."""
-        rows: List[Dict[str, object]] = []
-        for workspace, state in self._visible_workspaces():
-            rows.append(
-                {
-                    "name": workspace.name,
-                    "id": workspace.id,
-                    "type": workspace.type,
-                    "type_allowed": workspace.type
-                    in self._config.workspace_type_filter,
-                    "state": state,
-                }
-            )
-            # The framework asks for limit+1; stopping here is what keeps the
-            # remaining $top=1000 pages from being requested at all.
-            if len(rows) >= limit:
-                break
-        self._note_withheld()
+        # The framework asks for limit+1; take stopping there is what keeps
+        # the remaining $top=1000 pages from being requested at all.
+        visible = take(self._visible_workspaces(), limit)
+        rows: List[Dict[str, object]] = [
+            {
+                "name": workspace.name,
+                "id": workspace.id,
+                "type": workspace.type,
+                "type_allowed": workspace.type in self._config.workspace_type_filter,
+                "state": state,
+            }
+            for workspace, state in visible
+        ]
+        self._note_withheld(stopped_early=len(visible) >= limit)
         return rows
 
     def _workspace_or_raise(self, name: str) -> Workspace:
         """Resolve a workspace name with one groups sweep. Names, not ids,
         because the name is what workspace_name_pattern and --parent carry."""
-        matches = [ws for ws, _ in self._visible_workspaces() if ws.name == name]
-        if not matches:
+        # The records are the withheld-filtered sweep, so a "did you mean"
+        # hint can never print a personal workspace's (owner's) name.
+        workspace = resolve_name(
+            name,
+            (ws for ws, _ in self._visible_workspaces()),
+            key=lambda ws: ws.name,
+            distinguish=lambda ws: ws.id,
+            kind="workspace",
+            where="listed for this recipe",
+            list_command="probe run workspaces",
+            on_ambiguous=(
+                "the probe addresses workspaces by name, so rename one to probe it"
+            ),
             # Only here: a withheld personal workspace may be the one named.
-            self._note_withheld()
-            raise ValueError(f"no workspace named '{name}' is listed for this recipe")
-        if len(matches) > 1:
-            raise ValueError(
-                f"{len(matches)} workspaces are named '{name}' "
-                f"(ids: {', '.join(ws.id for ws in matches)}); the probe "
-                f"addresses workspaces by name, so rename one to probe it"
-            )
-        workspace = matches[0]
+            on_miss=self._note_withheld,
+        ).record
         # probe filter judges --parent on workspace_name_pattern only, since
         # --parent carries no id or type; get_allowed_workspaces also requires
         # these two, so say when either drops the workspace.
@@ -282,12 +290,9 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         self, fetch: Callable[[], List[Dict[str, object]]], context: str
     ) -> List[Dict[str, object]]:
         # 403/404 on one workspace's listing degrades; auth and 5xx raise.
-        try:
-            with soft_on_status(403, 404, context=context):
-                return fetch()
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
-            return []
+        with soft_listing(self._warn, 403, 404, context=context):
+            return fetch()
+        return []
 
     @probe_method(kind=BIAssetSubTypes.REPORT, parent_params=("workspace",))
     def reports(self, workspace: str) -> List[Dict[str, object]]:

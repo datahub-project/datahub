@@ -696,3 +696,21 @@ def test_the_paginated_report_kind_is_the_subtype_ingestion_emits() -> None:
     assert kind in config_cls.probe_unfiltered_kinds()
     assert config_cls.probe_kind_switches()[kind] == "extract_reports"
     assert config_cls.probe_ancestor_kinds(kind) == ("Workspace",)
+
+
+def test_a_case_hint_never_names_a_withheld_personal_workspace(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with pytest.raises(ValueError) as excinfo, _probe() as probe:
+        probe.reports("personalworkspace some person")
+    assert "Some Person" not in str(excinfo.value)
+    assert "did you mean" not in str(excinfo.value)
+
+
+def test_a_case_only_workspace_miss_names_the_listed_spelling(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with pytest.raises(ValueError, match="did you mean 'Sales'"), _probe() as probe:
+        probe.reports("sales")
