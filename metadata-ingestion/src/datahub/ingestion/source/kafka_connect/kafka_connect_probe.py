@@ -8,10 +8,9 @@ value unless its key is on DISCLOSED_CONFIG_KEYS. That is also why there is no
 return configs, and /status returns stack traces.
 """
 
-import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, FrozenSet, Iterator, List, Optional, Tuple
 from urllib.parse import urlsplit
 
 import requests
@@ -243,6 +242,13 @@ class KafkaConnectMetadataProbe:
     per-connector steps -- minus connector_patterns, which `probe filter` judges.
     """
 
+    # Dropped, not scrubbed, while a probe runs (agent.log_guard): the reused
+    # steps log connector config values -- JDBC URLs, CSV lists, parse errors
+    # quoting either -- and a value read off the cluster has no recipe secret
+    # to mask and often no credential shape to scrub. Every degraded read still
+    # reaches the result through probe_report.
+    silenced_loggers: ClassVar[Tuple[str, ...]] = (_CONNECTOR_LOGGER,)
+
     def __init__(
         self, source: KafkaConnectSource, recipe_problem: Optional[str] = None
     ) -> None:
@@ -251,7 +257,6 @@ class KafkaConnectMetadataProbe:
         # never logged; see _UnloggedStructuredLogs.
         self._source.report = _ProbeReport()
         self.warnings: List[str] = []
-        self._saved_log_level: Optional[int] = None
         # Judged here, without a request, but raised from the first command:
         # an error while the provider is built is reported as "could not open
         # source" (exit 3), and these are the caller's to fix (exit 2).
@@ -288,21 +293,9 @@ class KafkaConnectMetadataProbe:
         )
 
     def __enter__(self) -> "KafkaConnectMetadataProbe":
-        # The reused steps also log connector details directly (logger.info /
-        # .warning with config values interpolated), and the CLI's masking cannot
-        # recognise a credential it was never told about. Silenced for the
-        # probe's lifetime only; the result's warnings and failures still carry
-        # every degraded read via probe_report. Process-global while the probe is
-        # open: fine for the CLI, wrong for ingestion running in the same process.
-        connector_logger = logging.getLogger(_CONNECTOR_LOGGER)
-        self._saved_log_level = connector_logger.level
-        connector_logger.setLevel(logging.CRITICAL + 1)
         return self
 
     def __exit__(self, *exc: object) -> None:
-        if self._saved_log_level is not None:
-            logging.getLogger(_CONNECTOR_LOGGER).setLevel(self._saved_log_level)
-            self._saved_log_level = None
         # Not self._source.close(): that runs StatefulIngestionSourceBase.close()
         # on a shim that never ran its __init__.
         self._source.session.close()
