@@ -134,25 +134,34 @@ def _lineage_response(payload: dict) -> MagicMock:
 
 class TestGetElementUpstreamSources:
     @pytest.mark.parametrize(
-        ("dropped_node", "edge"),
+        ("node_id", "dropped_node", "edge"),
         [
-            ({"type": "formula", "name": "Future"}, None),
-            ({"type": "table", "nodeId": "not-an-inode", "name": "T"}, None),
-            ({"type": "sheet", "name": "No Id"}, None),
-            (None, {"target": "tgt_node"}),
+            ("bad_node", {"type": "formula", "name": "Future"}, None),
+            (
+                "bad_node",
+                {"type": "table", "nodeId": "not-an-inode", "name": "T"},
+                None,
+            ),
+            ("bad_node", {"type": "sheet", "name": "No Id"}, None),
+            ("/suffix", {"type": "data-model", "name": "No Url Id"}, None),
+            ("bad_node", None, {"target": "tgt_node"}),
+            # An edge from a node that `dependencies` does not describe.
+            ("bad_node", None, {"source": "ghost", "target": "tgt_node"}),
             # Registered or not, a customSQL source is not in the list.
-            ({"type": "customSQL", "name": "Query"}, None),
+            ("bad_node", {"type": "customSQL", "name": "Query"}, None),
         ],
         ids=[
             "unknown-type",
             "bad-table-node",
             "sheet-without-id",
+            "dm-node-without-url-id",
             "malformed-edge",
+            "node-missing-from-dependencies",
             "customsql-source",
         ],
     )
     def test_a_dropped_node_marks_the_upstreams_incomplete(
-        self, dropped_node: Optional[dict], edge: Optional[dict]
+        self, node_id: str, dropped_node: Optional[dict], edge: Optional[dict]
     ) -> None:
         """The good source is kept, but a partial list must not read as the
         chart's full lineage."""
@@ -164,8 +173,8 @@ class TestGetElementUpstreamSources:
         }
         edges = [{"source": "ds_node", "target": "tgt_node"}]
         if dropped_node is not None:
-            dependencies["bad_node"] = dropped_node
-            edges.append({"source": "bad_node", "target": "tgt_node"})
+            dependencies[node_id] = dropped_node
+            edges.append({"source": node_id, "target": "tgt_node"})
         if edge is not None:
             edges.append(edge)
         response = _lineage_response({"dependencies": dependencies, "edges": edges})

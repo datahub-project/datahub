@@ -1484,31 +1484,44 @@ class TestChartRefStrategies:
             f"urn:li:schemaField:({_OWNER_URN},Sku)"
         ]
 
-    def test_a_loaded_data_model_resolution_is_an_entity_input(self) -> None:
-        """A column edge to a DM element the chart does not list as an input
-        would be invisible to dataset-level lineage and impact analysis."""
-        chart = _make_element_with_formula(
-            "chart-1", "Chart", {"Sku": "[Owner El/Sku]"}
-        )
-        chart.upstream_sources = {
-            "dm1/y": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
-        }
+    def _chart_info_inputs(
+        self, chart: Element, entity_inputs: Dict[str, List[str]]
+    ) -> List[Optional[List[str]]]:
         loader = _make_element("loader", "Loader")
         loader.upstream_sources = {
             "dm1/x": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
         }
         self.src.dataset_upstream_urn_mapping = {}
         self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
-            return_value=({}, [])
+            return_value=(dict(entity_inputs), [])
         )
         workbook = _make_workbook_with_elements([[chart, loader]])
-        inputs = [
+        return [
             aspect.inputs
             for wu in self.src._gen_pages_workunit(workbook, paths=[])
             if (aspect := wu.get_aspect_of_type(ChartInfoClass)) is not None
             and "chart-1" in wu.get_urn()
         ]
-        assert inputs == [[_OWNER_URN]]
+
+    def _chart_reading_join_el(self, formula: str) -> Element:
+        chart = _make_element_with_formula("chart-1", "Chart", {"Sku": formula})
+        chart.upstream_sources = {
+            "dm1/y": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
+        }
+        return chart
+
+    def test_a_loaded_data_model_resolution_is_an_entity_input(self) -> None:
+        """A column edge to a DM element the chart does not list as an input
+        would be invisible to dataset-level lineage and impact analysis."""
+        chart = self._chart_reading_join_el("[Owner El/Sku]")
+        assert self._chart_info_inputs(chart, {}) == [[_OWNER_URN]]
+
+    def test_a_join_chain_resolution_stays_column_level(self) -> None:
+        """The join element is already an entity input and the owner is its
+        upstream, so dataset-level lineage reaches the owner through it."""
+        chart = self._chart_reading_join_el("[Join El/Owner El/Sku]")
+        assert self._chart_info_inputs(chart, {_JOIN_URN: []}) == [[_JOIN_URN]]
+        assert self.src.reporter.chart_input_fields_join_chain_resolved == 1
 
     @pytest.mark.parametrize(
         "lineage", ["none", "unnamed-dataset", "customsql", "dropped-source"]

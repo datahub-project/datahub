@@ -3801,7 +3801,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           5. No page element named ref.source, and not one of the chart's own
              non-DM sources (chart_source_names, lowercased; None when the
              chart's lineage is unknown or incomplete, which skips this step)
-             -> _resolve_in_loaded_data_models.
+             -> _resolve_in_loaded_data_models. A 3+ segment ref never gets
+             here: it needs a schema, so it returns before step 4.
           6. else -> None.
         """
         schema_required = len(ref.segments) > 2
