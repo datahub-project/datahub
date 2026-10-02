@@ -22,6 +22,7 @@ def get_abs_properties(
     azure_config: Optional[AzureConnectionConfig],
     use_abs_container_properties: Optional[bool] = False,
     use_abs_blob_properties: Optional[bool] = False,
+    enable_schema_inference: bool = True,
 ) -> Dict[str, str]:
     if azure_config is None:
         raise ValueError(
@@ -33,7 +34,11 @@ def get_abs_properties(
         container=container_name
     )
 
-    custom_properties = {"schema_inferred_from": full_path}
+    custom_properties: Dict[str, str] = {}
+    if enable_schema_inference:
+        # Only name a source file when inference actually runs, otherwise the
+        # property would point at a file whose schema was never emitted.
+        custom_properties["schema_inferred_from"] = full_path
     if not sample_files:
         custom_properties.update(
             {

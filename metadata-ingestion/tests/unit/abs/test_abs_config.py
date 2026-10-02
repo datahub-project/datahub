@@ -142,7 +142,7 @@ def test_abs_config_rejects_empty_path_specs():
         DataLakeSourceConfig.model_validate(config_dict)
 
 
-def test_abs_infer_schema_defaults_to_true():
+def test_abs_enable_schema_inference_defaults_to_true():
     config = DataLakeSourceConfig.model_validate(
         {
             "path_specs": [
@@ -153,10 +153,10 @@ def test_abs_infer_schema_defaults_to_true():
             ]
         }
     )
-    assert config.infer_schema is True
+    assert config.enable_schema_inference is True
 
 
-def test_abs_infer_schema_can_be_disabled():
+def test_abs_enable_schema_inference_can_be_disabled():
     config = DataLakeSourceConfig.model_validate(
         {
             "path_specs": [
@@ -165,7 +165,7 @@ def test_abs_infer_schema_can_be_disabled():
                     "file_types": ["parquet"],
                 }
             ],
-            "infer_schema": False,
+            "enable_schema_inference": False,
         }
     )
-    assert config.infer_schema is False
+    assert config.enable_schema_inference is False

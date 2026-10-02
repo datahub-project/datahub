@@ -138,7 +138,9 @@ class TestS3SlimNoPySpark:
         workunits = list(source.get_workunits())
         assert len(workunits) > 0
 
-    def test_infer_schema_true_emits_schema_metadata(self, tmp_path: Path) -> None:
+    def test_schema_inference_enabled_emits_schema_metadata(
+        self, tmp_path: Path
+    ) -> None:
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.source.s3.source import S3Source
 
@@ -157,7 +159,9 @@ class TestS3SlimNoPySpark:
         aspect_names = _collect_aspect_names(source.get_workunits())
         assert "schemaMetadata" in aspect_names
 
-    def test_infer_schema_false_skips_schema_metadata(self, tmp_path: Path) -> None:
+    def test_schema_inference_disabled_skips_schema_metadata(
+        self, tmp_path: Path
+    ) -> None:
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.source.s3.source import S3Source
 
@@ -169,7 +173,7 @@ class TestS3SlimNoPySpark:
             {
                 "path_specs": [{"include": f"{tmp_path}/*.csv"}],
                 "profiling": {"enabled": False},
-                "infer_schema": False,
+                "enable_schema_inference": False,
             },
             ctx,
         )

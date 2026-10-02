@@ -457,8 +457,6 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
-
         # remove protocol and any leading or trailing slashes
         browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
@@ -483,7 +481,12 @@ class S3Source(StatefulIngestionSourceBase):
             )
             aspects.append(data_platform_instance)
 
-        customProperties = {"schema_inferred_from": str(table_data.full_path)}
+        customProperties: Dict[str, str] = {}
+        if self.source_config.enable_schema_inference:
+            # Only name a source file when inference actually runs, otherwise the
+            # property would point at a file whose schema was never emitted.
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
+            customProperties["schema_inferred_from"] = str(table_data.full_path)
 
         min_partition: Optional[Folder] = None
         max_partition: Optional[Folder] = None
@@ -525,10 +528,10 @@ class S3Source(StatefulIngestionSourceBase):
             externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
-        if not self.source_config.infer_schema:
+        if not self.source_config.enable_schema_inference:
             logger.debug(
                 f"Skipping schema inference for {table_data.display_name} "
-                "because infer_schema is set to False"
+                "because enable_schema_inference is set to False"
             )
         elif table_data.size_in_bytes > 0:
             try:

@@ -280,7 +280,8 @@ class ABSSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
+        if self.source_config.enable_schema_inference:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_abs_prefix(table_data.table_path)
             if self.is_abs_platform()
@@ -322,6 +323,7 @@ class ABSSource(StatefulIngestionSourceBase):
             azure_config=self.source_config.azure_config,
             use_abs_container_properties=self.source_config.use_abs_container_properties,
             use_abs_blob_properties=self.source_config.use_abs_blob_properties,
+            enable_schema_inference=self.source_config.enable_schema_inference,
         )
 
         dataset_properties = DatasetPropertiesClass(
@@ -330,10 +332,10 @@ class ABSSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         aspects.append(dataset_properties)
-        if not self.source_config.infer_schema:
+        if not self.source_config.enable_schema_inference:
             logger.debug(
                 f"Skipping schema inference for {table_data.display_name} "
-                "because infer_schema is set to False"
+                "because enable_schema_inference is set to False"
             )
         elif table_data.size_in_bytes > 0:
             try:

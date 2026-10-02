@@ -167,14 +167,16 @@ class GCSSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
-    infer_schema: bool = Field(
+    enable_schema_inference: bool = Field(
         default=True,
         description=(
-            "Whether to infer schema from sampled files and emit a `schemaMetadata` aspect. "
-            "When set to `False`, the source will skip schema inference entirely and not emit "
-            "a `schemaMetadata` aspect for any dataset, leaving any existing schema (e.g. "
-            "written by a separate, schema-aware pipeline) untouched. All other aspects "
-            "(properties, partitions, containers, lineage, profiling, tags) are still emitted."
+            "Whether to infer the schema from sampled files and emit a "
+            "`schemaMetadata` aspect. Set to `False` when another pipeline owns the "
+            "schema: no `schemaMetadata` is emitted for any dataset in this recipe, "
+            "and no files are opened for inference. Schemas already in DataHub are "
+            "left as they are and stop updating; new datasets get no schema unless "
+            "another pipeline writes one. Properties, partitions, containers, tags "
+            "and profiling are still emitted, and profiling still reads files."
         ),
     )
 
@@ -316,7 +318,7 @@ class GCSSource(StatefulIngestionSourceBase):
             convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
-            infer_schema=self.config.infer_schema,
+            enable_schema_inference=self.config.enable_schema_inference,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
             profile_patterns=self.config.profile_patterns,
