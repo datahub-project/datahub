@@ -268,7 +268,9 @@ source:
 
 #### Usage Statistics
 
-The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Each captured query is parsed by the SQL parsing aggregator and emitted as:
+The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Usage and lineage are attached only to datasets this run ingested. Tables that appear only inside query text, including the connector's own schema and profiling SQL, are not created as assets. Warehouse tables are listed from the OneLake catalog, not from query history.
+
+Each captured query is parsed by the SQL parsing aggregator and emitted as:
 
 - `datasetUsageStatistics` aspects — query counts, distinct user counts, top users, top fields, and (when enabled) top SQL queries, bucketed by the configured window.
 - `operation` aspects — per-query operation events (insert, update, delete, etc.) when `usage.include_operational_stats` is enabled.
