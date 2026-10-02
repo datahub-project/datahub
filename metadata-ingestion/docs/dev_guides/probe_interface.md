@@ -605,7 +605,8 @@ probe traffic is told apart from ingestion's in the server's logs. It returns a
 The default declares nothing. Declare only arguments your driver is known to accept, and only when
 the config's URL names your own dialect: a recipe's `sqlalchemy_uri` can name another one, and a
 driver handed a keyword it does not know refuses to connect. The libpq and MySQL-protocol settings
-that several configs share are in `protocol_probe_settings.py`.
+that several configs share are in `protocol_probe_settings.py`, with `probe_settings_for_url` for a
+config whose dialect is the recipe's choice (the generic `sqlalchemy` source).
 
 Before opening the PR, go through the
 [connector-author checklist](#connector-author-checklist) at the end of this guide.

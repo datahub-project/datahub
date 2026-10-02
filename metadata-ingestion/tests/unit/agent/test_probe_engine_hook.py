@@ -8,6 +8,8 @@ dialect outright, so on the stock one the probe would answer differently from th
 ingestion it exists to predict.
 """
 
+import subprocess
+import sys
 from typing import Any, Callable, Dict, List
 
 import pytest
@@ -31,6 +33,7 @@ from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
     SQLCommonConfig,
 )
+from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 from datahub.ingestion.source.sql.tidb import TiDBConfig
 from datahub.ingestion.source.sql.timescaledb import TimescaleDBConfig
@@ -344,3 +347,50 @@ def test_no_timeout_means_no_ceiling_and_none_claimed():
         assert not settings.timeout_applies, type(config).__name__
         assert "options" not in settings.connect_args, type(config).__name__
         assert settings.connect_args, type(config).__name__
+
+
+@pytest.mark.parametrize(
+    "url, connect_arg_keys, prepares, applies",
+    [
+        ("postgresql://h/db", ["application_name", "options"], False, True),
+        ("cockroachdb+psycopg2://h/db", ["application_name", "options"], False, True),
+        ("redshift+redshift_connector://h/db", ["application_name"], True, True),
+        ("mysql+pymysql://h/db", ["program_name"], True, False),
+        ("mysql+mysqlconnector://h/db", [], True, False),
+        ("mariadb+pymysql://h/db", ["program_name"], True, False),
+        ("doris+pymysql://h/db", ["program_name"], False, False),
+        ("sqlite://", [], False, False),
+    ],
+)
+def test_the_generic_source_takes_the_settings_of_the_dialect_its_url_names(
+    url: str, connect_arg_keys: List[str], prepares: bool, applies: bool
+) -> None:
+    """The generic source connects to whatever dialect its recipe names, so
+    it has that dialect's ceiling and label, not none."""
+    settings = _settings(SQLAlchemyGenericConfig(platform="p", connect_uri=url))
+    assert sorted(settings.connect_args) == connect_arg_keys
+    assert (settings.prepare is not None) == prepares
+    assert settings.timeout_applies == applies
+
+
+def test_the_generic_source_needs_no_connector_extra_for_its_settings() -> None:
+    """The generic source's extra carries none of Redshift's config stack
+    (path specs need `parse` and `wcmatch`), so reaching Redshift's ceiling
+    must not import it. Checked in a fresh interpreter: this one has already
+    imported everything."""
+    code = (
+        "import sys\n"
+        "from datahub.ingestion.agent.sql_passthrough import QueryBudget\n"
+        "from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig\n"
+        "config = SQLAlchemyGenericConfig(\n"
+        "    platform='redshift', connect_uri='redshift+redshift_connector://h/db'\n"
+        ")\n"
+        "assert config.probe_engine_settings(QueryBudget()).prepare is not None\n"
+        "print(sorted(m for m in ('parse', 'wcmatch', "
+        "'datahub.ingestion.source.redshift.config') if m in sys.modules))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert result.stdout.strip().splitlines()[-1] == "[]"

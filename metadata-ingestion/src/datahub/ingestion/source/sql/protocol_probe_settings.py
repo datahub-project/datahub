@@ -2,9 +2,9 @@
 
 libpq and the MySQL protocol are each spoken by more than one connector:
 Postgres and the dialects built on it, MySQL and the servers compatible with
-it, and Hive Metastore over either backend. Their settings live here rather
-than in one connector's module, whose imports the other connectors' extras
-do not carry.
+it, Hive Metastore over either backend, and the generic `sqlalchemy` source
+over any of them. Their settings live here rather than in one connector's
+module, whose imports the other connectors' extras do not carry.
 
 Each applies only when the config's URL names a dialect of its protocol. A
 recipe's sqlalchemy_uri can point a config at another dialect, and a driver
@@ -16,6 +16,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple
 
 from sqlalchemy import event
 
+from datahub.ingestion.source.redshift.probe_settings import (
+    REDSHIFT_DIALECT,
+    redshift_probe_settings,
+)
 from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
     SQLCommonConfig,
@@ -57,6 +61,24 @@ def speaks_libpq(config: SQLCommonConfig) -> bool:
     """Whether this config's URL connects through a libpq driver."""
     dialect, _ = _dialect_and_driver(config)
     return dialect in _LIBPQ_DIALECTS
+
+
+def probe_settings_for_url(
+    config: SQLCommonConfig, budget: "QueryBudget"
+) -> ProbeEngineSettings:
+    """The settings of whichever protocol the config's URL names, for a
+    config whose dialect is the recipe's choice rather than its own.
+
+    Every dialect outside libpq's and Redshift's goes to the MySQL protocol's
+    settings, which give a non-MySQL URL nothing unless it names the PyMySQL
+    driver: program_name follows that driver whatever the dialect.
+    """
+    dialect, _ = _dialect_and_driver(config)
+    if dialect in _LIBPQ_DIALECTS:
+        return libpq_probe_settings(config, budget)
+    if dialect == REDSHIFT_DIALECT:
+        return redshift_probe_settings(config, budget)
+    return mysql_probe_settings(config, budget)
 
 
 def libpq_probe_settings(
