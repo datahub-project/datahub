@@ -1134,7 +1134,7 @@
         },
         {
           "capability": "DESCRIPTIONS",
-          "description": "Enabled by default",
+          "description": "Table and column comments, read from information_schema",
           "subtype_modifier": null,
           "supported": true
         },
