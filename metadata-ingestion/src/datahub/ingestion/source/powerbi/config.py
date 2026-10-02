@@ -27,13 +27,19 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+)
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    WORKSPACE_ID_PATTERN,
+    WORKSPACE_NAME_PATTERN,
+    WorkspaceFacts,
+    workspace_verdict,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -895,38 +901,40 @@ class PowerBiDashboardSourceConfig(
         judged from the per-name attributes the probe's `workspaces` listing
         emits; a missing id or type is warned about rather than passed
         silently."""
-        if ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE:
+        if (
+            ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE
+            or ctx.structural is not None
+        ):
             return None
-        if ctx.structural is not None:
-            return None
-        by_name = pattern_verdict(self, ctx.pattern_field, ctx.target)
-        if not by_name.included:
+        facts = WorkspaceFacts(
+            ctx.target, ctx.attributes.get("id"), ctx.attributes.get("type")
+        )
+        verdict = workspace_verdict(self, facts)
+        if verdict.excluded_by == WORKSPACE_NAME_PATTERN:
             # Ingestion drops it on the name; that stays the reported reason.
-            return by_name
-        workspace_id = ctx.attributes.get("id")
-        if workspace_id is None:
+            return verdict
+        if facts.workspace_id is None:
             ctx.warn(
                 f"no workspace id for '{ctx.name}', so workspace_id_pattern was "
                 "not judged; save `probe run workspaces --report-to` and pass it "
                 "with `probe filter --from-run` to judge it"
             )
-        elif not self.workspace_id_pattern.allowed(workspace_id):
-            return Verdict(False, "workspace_id_pattern")
-        workspace_type = ctx.attributes.get("type")
-        if workspace_type is None:
+        if verdict.excluded_by == WORKSPACE_ID_PATTERN:
+            return verdict
+        if facts.workspace_type is None:
             ctx.warn(
                 f"no workspace type for '{ctx.name}', so workspace_type_filter "
                 "was not judged; save `probe run workspaces --report-to` and pass "
                 "it with `probe filter --from-run` to judge it"
             )
-        elif workspace_type not in self.workspace_type_filter:
-            return Verdict(False, "workspace_type_filter")
+        if not verdict.included:
+            return verdict
         # Only the admin API reports a state, so its absence says nothing.
         # The scan drops every workspace that is not Active
         # (PowerBiAPI.fill_metadata_from_scan_result).
         state = ctx.attributes.get("state")
         if state is not None and state != Constant.ACTIVE:
-            return Verdict(False, "workspace_state")
+            return Verdict.exclude("workspace_state")
         return Verdict.include()
 
     @model_validator(mode="after")
