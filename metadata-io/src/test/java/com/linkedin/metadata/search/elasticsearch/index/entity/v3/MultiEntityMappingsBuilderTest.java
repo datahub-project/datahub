@@ -219,9 +219,8 @@ public class MultiEntityMappingsBuilderTest {
     for (EntitySpec entitySpec : registryContext.getEntityRegistry().getEntitySpecs().values()) {
       Map<String, Object> root =
           propertiesByIndex.get(entitySpec.getName().toLowerCase() + "index_v3");
-      if (root == null) {
-        continue;
-      }
+      assertNotNull(
+          root, entitySpec.getName() + " has no V3 index among " + propertiesByIndex.keySet());
       Map<String, Object> aspects =
           (Map<String, Object>) ((Map<String, Object>) root.get("_aspects")).get("properties");
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
@@ -1255,6 +1254,10 @@ public class MultiEntityMappingsBuilderTest {
                   collectFieldTypes(child, types);
                 }
               });
+    } else if (value instanceof Iterable) {
+      for (Object child : (Iterable<?>) value) {
+        collectFieldTypes(child, types);
+      }
     }
   }
 
