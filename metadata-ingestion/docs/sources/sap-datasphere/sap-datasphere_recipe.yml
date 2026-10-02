@@ -128,6 +128,10 @@ source:
 
     expose_for_consumption_only: false
 
+    # Also discover Views / Analytic Models absent from the consumption catalog
+    # via dwaas-core (default true). Set false for catalog-only discovery.
+    # discover_unexposed_views: false
+
     # HTTP behavior
     request_timeout_sec: 30
     max_retries: 3

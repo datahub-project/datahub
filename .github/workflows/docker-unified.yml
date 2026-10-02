@@ -54,7 +54,7 @@ jobs:
   notify_release_build_start:
     name: Notify Release Channel of Build Start
     if: github.event_name == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out release scripts
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -294,21 +294,21 @@ jobs:
               echo "use_depot_cache=true"
             } >> "$GITHUB_OUTPUT"
           else
-            echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "build_runner_type=ubuntu-24.04" >> "$GITHUB_OUTPUT"
             if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
               {
                 echo "test_runner_type=depot-ubuntu-24.04-4"
               } >> "$GITHUB_OUTPUT"
             else
-              # Fork PRs on ubuntu-latest build Docker images locally during the job
+              # Fork PRs on ubuntu-24.04 build Docker images locally during the job
               # (no Depot cache available), which easily exceeds the 20-minute budget.
               # Give these runs extra headroom.
               {
-                echo "test_runner_type=ubuntu-latest"
+                echo "test_runner_type=ubuntu-24.04"
               } >> "$GITHUB_OUTPUT"
             fi
             {
-              echo "test_runner_type_small=ubuntu-latest"
+              echo "test_runner_type_small=ubuntu-24.04"
               echo "use_depot_cache=false"
             } >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
@@ -512,7 +512,7 @@ jobs:
 
   comment_pr_images:
     name: Comment PR image tags
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup, base_build]
     if: ${{ github.event_name == 'pull_request' && needs.setup.outputs.pr-publish == 'true' }}
     permissions:
@@ -1473,7 +1473,7 @@ jobs:
 
   publish_images:
     name: Update quickstart tag after tests pass on master
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-24.04' }}
     needs:
       [
         setup,
@@ -1533,7 +1533,7 @@ jobs:
 
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       [
         setup,

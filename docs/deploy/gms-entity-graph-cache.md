@@ -371,6 +371,10 @@ When `SearchFlags.skipCache=true`, `EntityGraphCacheClients` uses **`ReadMode.EP
 
 When `entityGraphCache.enabled=true`, GMS **automatically bootstraps** the shared `HazelcastInstance` — you do **not** need `searchService.cacheImplementation=hazelcast` or `SEARCH_SERVICE_ENABLE_CACHE`. GMS joins the cluster via `searchService.cache.hazelcast.serviceName` (default `hazelcast-service`, env `SEARCH_SERVICE_HAZELCAST_SERVICE_NAME`).
 
+Quickstart and CI, which are not running in Kubernetes, start a single member when the default discovery name `hazelcast-service` does not resolve. The lookup is retried before that choice. A failure inside Kubernetes keeps Kubernetes join so discovery can recover. A name that resolves only to loopback is a single node. A custom name that fails DNS outside Kubernetes also keeps Kubernetes join.
+
+GMS also starts that instance for access-token revocation when the graph cache is off.
+
 | Map                              | Purpose                                                                                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `entityGraphSnapshots.full`      | FULL-scope snapshots — key `{graphId}@{source}`; serialized via `EntityGraphSnapshotSerializer` (format version **1**)                                                                                              |

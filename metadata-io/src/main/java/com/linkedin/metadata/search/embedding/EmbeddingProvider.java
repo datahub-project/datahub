@@ -7,6 +7,16 @@ import javax.annotation.Nullable;
 public interface EmbeddingProvider extends AutoCloseable {
 
   /**
+   * Prepares provider-specific input before hashing, persistence, and embedding. Providers with
+   * input limits should apply deterministic transformations here.
+   */
+  @Nonnull
+  default String prepareInput(
+      @Nonnull String text, @Nullable String model, @Nonnull EmbeddingTaskType taskType) {
+    return text;
+  }
+
+  /**
    * Returns an embedding vector for the given text using the specified model. The dimensionality of
    * the returned vector is determined by the model.
    *

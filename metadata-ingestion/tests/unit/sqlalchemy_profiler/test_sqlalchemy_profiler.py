@@ -10,13 +10,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
+from sqlalchemy.dialects.postgresql import CITEXT
 
 from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
 from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
     ProfilingIsolationLevel,
 )
-from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
+from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
@@ -310,7 +311,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 
@@ -350,7 +351,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 

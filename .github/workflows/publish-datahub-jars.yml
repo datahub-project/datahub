@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   check-secret:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       publish-enabled: ${{ steps.publish-enabled.outputs.publish }}
     steps:
@@ -38,7 +38,7 @@ jobs:
             echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
   setup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -61,7 +61,7 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write
       contents: read
@@ -194,7 +194,7 @@ jobs:
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:custom-plugin-lib:publish
           ./gradlew :metadata-integration:java:custom-plugin-lib:closeAndReleaseRepository --info
   publish-java8:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write
       contents: read
