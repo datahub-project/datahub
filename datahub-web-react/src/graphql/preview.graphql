@@ -66,11 +66,7 @@ fragment entityPreview on Entity {
             displayName
             description
         }
-        memberCount: relationships(
-            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
-        ) {
-            total
-        }
+        ...corpGroupMemberCount
     }
     ... on Dashboard {
         urn
