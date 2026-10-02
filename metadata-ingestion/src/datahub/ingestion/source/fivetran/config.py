@@ -21,11 +21,14 @@ from datahub.ingestion.agent.verdicts import (
     Verdict,
     VerdictContext,
     ancestors_in,
-    pattern_verdict,
 )
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
+)
+from datahub.ingestion.source.fivetran.fivetran_selection import (
+    ConnectorFacts,
+    connector_verdict,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -526,35 +529,24 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         if ctx.kind != FIVETRAN_CONNECTOR_KIND or ctx.structural is not None:
             return None
         rest = self.log_source == "rest_api"
-        by_connector = self._probe_connector_verdict(ctx, rest)
-        by_destination = self._probe_destination_verdict(ctx)
-        if by_destination is None or by_destination.included:
-            return by_connector
-        if not by_connector.included and not rest:
-            return by_connector
-        return by_destination
-
-    def _probe_connector_verdict(self, ctx: VerdictContext, rest: bool) -> Verdict:
-        by_name = pattern_verdict(self, "connector_patterns", ctx.target)
-        if by_name.included or not rest:
-            return by_name
         connector_id = ctx.attributes.get("connector_id")
-        if connector_id is None:
+        if (
+            rest
+            and connector_id is None
+            and not self.connector_patterns.allowed(ctx.target)
+        ):
             ctx.warn(REST_CONNECTOR_MATCH_NOTE)
-            return by_name
-        by_id = pattern_verdict(self, "connector_patterns", connector_id)
-        if by_id.included:
-            # The id decided, so report the id as what was matched.
-            return dataclasses.replace(by_id, matched_target=connector_id)
-        return by_name
+        # With --parent the framework judges the destination itself.
+        destination_id = (
+            None if ctx.parent_path else ctx.attributes.get("destination_id")
+        )
+        if destination_id is None and not ctx.parent_path:
+            self._warn_destination_not_applied(ctx)
+        return connector_verdict(
+            self, ConnectorFacts(ctx.target, connector_id, destination_id), rest=rest
+        )
 
-    def _probe_destination_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
-        if ctx.parent_path:
-            # The framework judges the --parent destination itself.
-            return None
-        destination_id = ctx.attributes.get("destination_id")
-        if destination_id is not None:
-            return pattern_verdict(self, "destination_patterns", destination_id)
+    def _warn_destination_not_applied(self, ctx: VerdictContext) -> None:
         patterns = self.destination_patterns
         if patterns.deny or patterns.allow != [".*"]:
             ctx.warn(
@@ -564,7 +556,6 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
                 "<destination_id>, or judge a `probe run connectors` listing "
                 "with --from-run, which carries each connector's destination_id."
             )
-        return None
 
     @classmethod
     def probe_provider_class(cls) -> type:
