@@ -2,7 +2,7 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
@@ -13,6 +13,7 @@ from pyiceberg.exceptions import (
     NoSuchTableError,
     RESTError,
 )
+from pyiceberg.partitioning import PartitionSpec
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier, Properties
@@ -119,6 +120,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -136,7 +138,9 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
 @capability(
-    SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
+    SourceCapability.PARTITION_SUPPORT,
+    "Source columns of the table's partition spec are marked as partitioning keys; "
+    "the full spec (including transforms) is available in the `partition-spec` table property.",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
@@ -507,7 +511,8 @@ class IcebergSource(StatefulIngestionSourceBase):
         Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) that follows [Appendix-C](https://iceberg.apache.org/spec/?#appendix-c-json-serialization) of the Iceberg specification.
         Extra information has been added to this spec to make the information more user-friendly.
 
-        Since Datahub does not have a place in its model to store this information, it is saved as a JSON string and displayed as a table property.
+        DataHub's schema model only flags which columns are partitioning keys (see `_get_schema_fields_for_schema`); it has no place
+        for partition transforms (e.g. `day`, `bucket[16]`), so the full spec is saved as a JSON string and displayed as a table property.
 
         Here is an example:
         ```json
@@ -622,7 +627,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     def _create_schema_metadata(
         self, dataset_name: str, table: Table
     ) -> SchemaMetadata:
-        schema_fields = self._get_schema_fields_for_schema(table.schema())
+        schema_fields = self._get_schema_fields_for_schema(table.schema(), table.spec())
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
@@ -636,12 +641,41 @@ class IcebergSource(StatefulIngestionSourceBase):
     def _get_schema_fields_for_schema(
         self,
         schema: Schema,
+        partition_spec: Optional[PartitionSpec] = None,
     ) -> List[SchemaField]:
         avro_schema = visit(schema, ToAvroSchemaIcebergVisitor())
         schema_fields = schema_util.avro_schema_to_mce_fields(
             json.dumps(avro_schema), default_nullable=False
         )
+        if partition_spec is not None:
+            self._mark_partition_source_columns(schema_fields, schema, partition_spec)
         return schema_fields
+
+    @staticmethod
+    def _mark_partition_source_columns(
+        schema_fields: List[SchemaField],
+        schema: Schema,
+        partition_spec: PartitionSpec,
+    ) -> None:
+        """Sets `isPartitioningKey` on the schema fields that are the source columns of the partition spec.
+
+        Iceberg partitions by transforms over source columns (e.g. `day(ts)`, `bucket(16, id)`), so the partition
+        field name may differ from the column name; the flag is placed on the source column, which is what a
+        user sees in the schema. Source columns are resolved by field id, so nested struct fields are supported.
+        """
+        partition_source_columns: Set[str] = set()
+        for partition_field in partition_spec.fields:
+            column_name = schema.find_column_name(partition_field.source_id)
+            if column_name:
+                partition_source_columns.add(column_name)
+        if not partition_source_columns:
+            return
+        for schema_field in schema_fields:
+            if (
+                get_simple_field_path_from_v2_field_path(schema_field.fieldPath)
+                in partition_source_columns
+            ):
+                schema_field.isPartitioningKey = True
 
     def get_report(self) -> SourceReport:
         return self.report
