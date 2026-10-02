@@ -634,23 +634,30 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     final Map<String, Object> finalAspectsMappings = aspectMappings;
 
-    // Process searchable ref fields - they will be grouped under _aspects
+    // The projector writes each reference field at the root, where V2 queries and filters read it,
+    // and with the rest of its aspect under _aspects.<aspect>, where it stays unanalyzed
     final Map<String, Object> refFieldMappings = new HashMap<>();
-    final Map<String, Object> aspectRefFieldMappings = new HashMap<>();
-    entitySpec
-        .getSearchableRefFieldSpecs()
-        .forEach(
-            searchableRefFieldSpec -> {
-              final int depth = searchableRefFieldSpec.getSearchableRefAnnotation().getDepth();
-              refFieldMappings.putAll(
-                  getMappingForSearchableRefField(
-                      entityRegistry, searchableRefFieldSpec, depth, partialNgramConfig, false));
-              aspectRefFieldMappings.putAll(
-                  getMappingForSearchableRefField(
-                      entityRegistry, searchableRefFieldSpec, depth, partialNgramConfig, true));
-            });
-    finalAspectsMappings.putAll(aspectRefFieldMappings);
-    // The projector writes reference fields at the root too, where V2 queries and filters read them
+    for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+      for (SearchableRefFieldSpec searchableRefFieldSpec :
+          aspectSpec.getSearchableRefFieldSpecs()) {
+        final int depth = searchableRefFieldSpec.getSearchableRefAnnotation().getDepth();
+        refFieldMappings.putAll(
+            getMappingForSearchableRefField(
+                entityRegistry, searchableRefFieldSpec, depth, partialNgramConfig, false));
+        // structuredProperties has no _aspects entry: the projector writes it at the root only
+        final Object aspectMapping = finalAspectsMappings.get(aspectSpec.getName());
+        if (aspectMapping instanceof Map) {
+          @SuppressWarnings("unchecked")
+          final Map<String, Object> aspectFields =
+              new HashMap<>(
+                  (Map<String, Object>) ((Map<String, Object>) aspectMapping).get(PROPERTIES));
+          aspectFields.putAll(
+              getMappingForSearchableRefField(
+                  entityRegistry, searchableRefFieldSpec, depth, partialNgramConfig, true));
+          finalAspectsMappings.put(aspectSpec.getName(), ImmutableMap.of(PROPERTIES, aspectFields));
+        }
+      }
+    }
     mappings.putAll(refFieldMappings);
 
     // Add _aspects object to root mappings

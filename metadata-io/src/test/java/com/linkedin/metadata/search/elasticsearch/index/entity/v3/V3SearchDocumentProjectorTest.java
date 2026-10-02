@@ -28,6 +28,7 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.mockito.Mock;
@@ -228,7 +229,7 @@ public class V3SearchDocumentProjectorTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> runId = (Map<String, Object>) systemMetadataProperties.get("runId");
 
-    assertEquals(((String[]) runId.get("copy_to"))[0], "_search._system_runId");
+    assertEquals(runId.get("copy_to"), List.of("_search._system_runId"));
     assertEquals(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, "_systemMetadata");
   }
 
