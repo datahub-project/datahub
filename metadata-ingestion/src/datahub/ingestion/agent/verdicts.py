@@ -49,7 +49,7 @@ class Verdict:
         consistency check, so an exclusion without a reason would never be
         caught there.
         """
-        if not excluded_by:
+        if not excluded_by.strip():
             raise ValueError("an excluded verdict must name what excluded it")
         return cls(False, excluded_by, matched_target)
 

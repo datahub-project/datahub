@@ -406,6 +406,7 @@ def test_exclude_names_its_reason_and_keeps_the_matched_target() -> None:
     )
 
 
-def test_exclude_refuses_an_exclusion_without_a_reason() -> None:
+@pytest.mark.parametrize("reason", ["", "   "])
+def test_exclude_refuses_an_exclusion_without_a_reason(reason: str) -> None:
     with pytest.raises(ValueError):
-        Verdict.exclude("")
+        Verdict.exclude(reason)
