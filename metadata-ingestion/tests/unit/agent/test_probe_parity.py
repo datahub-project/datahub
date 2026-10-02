@@ -1,8 +1,12 @@
+import json
 from pathlib import Path
 from typing import List, Set
 
 import pytest
+import yaml
+from click.testing import CliRunner
 
+from datahub.cli.recipe_cli import recipe as recipe_group
 from datahub.emitter.mce_builder import make_container_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -21,6 +25,7 @@ from tests.test_helpers.probe_parity import (
     assert_probe_parity,
     by_name,
     pipeline_ingestion,
+    probe_run_envelope,
 )
 from tests.unit.agent._parity_fake_source import (
     DROP_ITEM_A,
@@ -162,6 +167,35 @@ _ONE_IDENTITY = ParityListing(
     fan_out=FanOut("groups", "group"),
     identity=lambda record: "same",
 )
+
+
+def test_the_harness_reads_the_file_probe_run_writes(tmp_path: Path) -> None:
+    # A secret equal to item "a" makes redaction part of the envelope: the
+    # masked name and the notice the CLI appends must both reach the harness.
+    config = {"password": "a"}
+    recipe_path = tmp_path / "recipe.yml"
+    recipe_path.write_text(
+        yaml.safe_dump({"source": {"type": SOURCE_TYPE, "config": config}})
+    )
+    report = tmp_path / "run.json"
+    result = CliRunner().invoke(
+        recipe_group,
+        [
+            "probe",
+            "run",
+            "items",
+            "--recipe",
+            str(recipe_path),
+            "--group",
+            "g1",
+            "--report-to",
+            str(report),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(report.read_text()) == probe_run_envelope(
+        SOURCE_TYPE, config, "items", {"group": "g1"}
+    )
 
 
 def test_conflicting_verdicts_for_one_identity_fail(tmp_path: Path) -> None:

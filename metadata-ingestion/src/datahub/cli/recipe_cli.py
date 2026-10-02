@@ -21,6 +21,7 @@ from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
+    ProbeMethodResult,
     list_probe_methods,
     run_probe_method,
 )
@@ -101,6 +102,12 @@ def _json_default(o: object) -> object:
     return str(o)
 
 
+def report_to_text(payload: object) -> str:
+    """The text `--report-to` writes for `payload`: masked against the
+    registry as a structure, then serialized. See _write_report for why."""
+    return json.dumps(_masked(payload), default=_json_default)
+
+
 def _write_report(report_to: Optional[str], payload: object) -> None:
     # Redacted payload only -- this file is written for a caller that captures
     # a structured report instead of parsing stdout, and it must carry no more
@@ -111,7 +118,7 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             # open, so a value it cannot serialize used to raise partway
             # through and leave a half-written report that reads as valid
             # output.
-            text = json.dumps(_masked(payload), default=_json_default)
+            text = report_to_text(payload)
 
             # SECURITY: masked against the registry, the same as stdout.
             #
@@ -364,6 +371,15 @@ def _resolve_for_probe(
     return source_type, resolved.config, secret_values
 
 
+def resolve_probe_recipe(
+    recipe: Dict[str, object],
+) -> Tuple[str, Dict[str, object], Set[str]]:
+    """The source type, resolved config and secret values the probe commands
+    work from, for a recipe document already loaded. For a caller outside the
+    CLI that must reproduce exactly what `probe run` and `probe filter` see."""
+    return _resolve_for_probe(recipe)
+
+
 def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     """Every secret this recipe resolves to, best-effort, never raising.
 
@@ -498,6 +514,16 @@ def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
         [*warnings, _MASKED_NOTICE] if isinstance(warnings, list) else [_MASKED_NOTICE]
     )
     return redacted
+
+
+def probe_run_envelope(result: ProbeMethodResult, secret_values: Set[str]) -> object:
+    """The payload `probe run` emits and writes to --report-to, before the
+    registry masking both of those apply on output (see report_to_text)."""
+    # SECURITY: normalize to pure JSON types before redacting, so a raw
+    # exception/driver object nested in the result cannot smuggle a secret
+    # past the redactor (which only inspects str/dict/list values).
+    safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
+    return _redacted_payload(safe, secret_values)
 
 
 @recipe.command()
@@ -679,7 +705,7 @@ def _read_run_file(path: str) -> object:
     return json.loads(text)
 
 
-def _listing_warnings(listing: RunListing) -> List[str]:
+def listing_warnings(listing: RunListing) -> List[str]:
     """What the caller must know about a listing judged as it stands.
 
     Each is a warning, not a refusal: the names that are there still get a
@@ -788,7 +814,7 @@ def probe_filter_cmd(
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
         attributes = None
-        listing_warnings: List[str] = []
+        from_run_warnings: List[str] = []
         if from_run is not None:
             if names:
                 raise ValueError(
@@ -819,7 +845,7 @@ def probe_filter_cmd(
             parents = parents or tuple(listing.parent_path)
             names = tuple(listing.names)
             attributes = listing.attributes
-            listing_warnings = _listing_warnings(listing)
+            from_run_warnings = listing_warnings(listing)
         elif not names:
             raise ValueError(
                 "nothing to judge: pass --name, or --from-run with a `probe run` output"
@@ -838,7 +864,7 @@ def probe_filter_cmd(
             attributes=attributes,
         )
         # Before redaction, so these pass through it like every other warning.
-        result.warnings.extend(listing_warnings)
+        result.warnings.extend(from_run_warnings)
         payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)
@@ -885,11 +911,7 @@ def probe_run_cmd(
         # secret values, which have no credential shape for scrub_text to find.
         with quiet_reused_logs(secret_values):
             result = run_probe_method(source_type, resolved, command, call_kwargs)
-        # SECURITY: normalize to pure JSON types before redacting, so a raw
-        # exception/driver object nested in the result cannot smuggle a secret
-        # past the redactor (which only inspects str/dict/list values).
-        safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
-        payload = _redacted_payload(safe, secret_values)
+        payload = probe_run_envelope(result, secret_values)
         _write_report(report_to, payload)
         _emit(payload)
         # A failure means the result is not a complete answer, so the command

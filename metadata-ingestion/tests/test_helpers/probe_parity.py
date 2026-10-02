@@ -1,7 +1,8 @@
 """One assertion for "the probe's verdicts are ingestion's".
 
 Runs ingestion, lists the same fixture with the probe, judges every listing
-the way `probe run --report-to` then `probe filter --from-run` would, and
+the way `probe run --report-to` then `probe filter --from-run` would (through
+the CLI's own envelope, redaction and listing-warning code), and
 compares per kind in both directions. Every connector's hand-written parity
 test re-implemented these steps: the redacted JSON round trip, the fan-out
 under every parent (kept or not), the identity a listing record shares with
@@ -30,12 +31,16 @@ from typing import (
 )
 
 from datahub._codegen.aspect import _Aspect
-from datahub.cli.recipe_cli import _json_default, _secrets_in_recipe
+from datahub.cli.recipe_cli import (
+    listing_warnings,
+    probe_run_envelope as cli_probe_run_envelope,
+    report_to_text,
+    resolve_probe_recipe,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
 from datahub.ingestion.agent.probe_methods import run_probe_method
-from datahub.ingestion.agent.redact import redact
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
@@ -238,19 +243,49 @@ class ParityReport:
         return self.kinds[label].excluded_by
 
 
-def _listing(
+def _resolve(
+    source_type: str, recipe: Mapping[str, object]
+) -> Tuple[Dict[str, object], Set[str]]:
+    _type, resolved, secrets = resolve_probe_recipe(
+        {"source": {"type": source_type, "config": dict(recipe)}}
+    )
+    return resolved, secrets
+
+
+def _envelope(
+    source_type: str,
+    resolved: Dict[str, object],
+    secrets: Set[str],
+    command: str,
+    kwargs: Mapping[str, object],
+) -> Dict[str, object]:
+    run = run_probe_method(source_type, dict(resolved), command, dict(kwargs))
+    envelope = json.loads(report_to_text(cli_probe_run_envelope(run, secrets)))
+    assert isinstance(envelope, dict), f"`probe run {command}` wrote no envelope"
+    return envelope
+
+
+def probe_run_envelope(
     source_type: str,
     recipe: Mapping[str, object],
+    command: str,
+    kwargs: Mapping[str, object],
+) -> Dict[str, object]:
+    """The JSON `probe run <command> --report-to` writes for this recipe, as
+    the harness reads it."""
+    resolved, secrets = _resolve(source_type, recipe)
+    return _envelope(source_type, resolved, secrets, command, kwargs)
+
+
+def _listing(
+    source_type: str,
+    resolved: Dict[str, object],
     secrets: Set[str],
     command: str,
     kwargs: Mapping[str, object],
 ) -> RunListing:
-    run = run_probe_method(source_type, dict(recipe), command, dict(kwargs))
-    # What --report-to writes and --from-run reads: the CLI normalizes the
-    # envelope to JSON types, redacts it with the recipe's secrets, then
-    # serializes it.
-    safe = json.loads(json.dumps(run.to_dict(), default=_json_default))
-    listing = listing_from_run(json.loads(json.dumps(redact(safe, secrets))))
+    envelope = _envelope(source_type, resolved, secrets, command, kwargs)
+    listing = listing_from_run(envelope)
     where = f"`probe run {command}` with {dict(kwargs)}"
     if listing.truncated:
         raise AssertionError(
@@ -260,30 +295,30 @@ def _listing(
     if listing.incomplete:
         raise AssertionError(
             f"{where} recorded failures, so part of the fixture was never "
-            f"listed: {run.failures}"
+            f"listed: {envelope.get('failures')}"
         )
     if listing.skipped or listing.masked_attributes or listing.parent_redacted:
         raise AssertionError(
             f"{where} had values redacted because a fixture secret equals an "
             f"identifier; change the fixture's secret"
         )
-    if listing.run_warnings:
-        # A soft-degraded sub-fetch: the listing may be partial with no
-        # failure recorded, and a partial listing proves nothing.
-        raise AssertionError(
-            f"{where} warned, so the listing may be partial: {listing.run_warnings}"
-        )
+    # Whatever else `probe filter --from-run` would warn about this listing,
+    # chiefly a soft-degraded sub-fetch: the listing may be partial with no
+    # failure recorded, and a partial listing proves nothing.
+    said = listing_warnings(listing)
+    if said:
+        raise AssertionError(f"{where} cannot be compared: {said}")
     return listing
 
 
 def _judge(
     source_type: str,
-    recipe: Mapping[str, object],
+    resolved: Dict[str, object],
     secrets: Set[str],
     command: str,
     kwargs: Mapping[str, object],
 ) -> Tuple[List[JudgedRecord], List[str]]:
-    listing = _listing(source_type, recipe, secrets, command, kwargs)
+    listing = _listing(source_type, resolved, secrets, command, kwargs)
     kind = listing.kind
     if kind is None:
         raise AssertionError(
@@ -291,7 +326,7 @@ def _judge(
         )
     result = check_filters(
         source_type=source_type,
-        config_dict=dict(recipe),
+        config_dict=dict(resolved),
         kind=kind,
         parent_path=listing.parent_path,
         names=listing.names,
@@ -312,22 +347,22 @@ def _judge(
 
 def _judged(
     source_type: str,
-    recipe: Mapping[str, object],
+    resolved: Dict[str, object],
     secrets: Set[str],
     listing: ParityListing,
 ) -> Tuple[List[JudgedRecord], List[str]]:
     if listing.fan_out is None:
-        return _judge(source_type, recipe, secrets, listing.command, listing.kwargs)
+        return _judge(source_type, resolved, secrets, listing.command, listing.kwargs)
     fan_out = listing.fan_out
     parents = _listing(
-        source_type, recipe, secrets, fan_out.parent_command, fan_out.parent_kwargs
+        source_type, resolved, secrets, fan_out.parent_command, fan_out.parent_kwargs
     ).names
     records: List[JudgedRecord] = []
     warnings: List[str] = []
     for parent in parents:
         found, said = _judge(
             source_type,
-            recipe,
+            resolved,
             secrets,
             listing.command,
             {**listing.kwargs, fan_out.param: parent},
@@ -414,13 +449,13 @@ def assert_probe_parity(
     which rule excluded what.
     """
     emitted = run_ingestion(dict(recipe))
-    secrets = _secrets_in_recipe(
-        {"source": {"type": source_type, "config": dict(recipe)}}
-    )
+    # The config and secrets `probe run` and `probe filter` work from, so the
+    # probe side judges the recipe exactly as the CLI would.
+    resolved, secrets = _resolve(source_type, recipe)
     problems: List[str] = []
     kinds: Dict[str, KindParity] = {}
     for listing in listings:
-        records, warnings = _judged(source_type, recipe, secrets, listing)
+        records, warnings = _judged(source_type, resolved, secrets, listing)
         kinds[listing.label] = _compare(
             listing, records, warnings, listing.emitted(emitted), problems
         )
