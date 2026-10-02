@@ -24,6 +24,11 @@ logger = logging.getLogger(__name__)
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
+# Page size requested from the Unity Catalog list endpoints (`max_results`).
+# The service may return fewer and caps large values; paging continues until
+# no `next_page_token` is returned.
+ONELAKE_CATALOG_PAGE_SIZE = 1000
+
 
 class OneLakeClient(BaseFabricClient):
     """Client for Microsoft Fabric OneLake REST API.
@@ -175,6 +180,71 @@ class OneLakeClient(BaseFabricClient):
             )
             return False
 
+    def _paginate_unity_catalog(
+        self,
+        url: str,
+        params: dict[str, str],
+        items_key: str,
+        description: str,
+    ) -> Iterator[dict]:
+        """Yield every item from a paginated OneLake Unity Catalog list endpoint.
+
+        The list endpoints return at most one page per call and carry the next
+        page in `next_page_token`. The token is sent back as `page_token`.
+        Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
+
+        Args:
+            url: Full endpoint URL
+            params: Initial query parameters
+            items_key: Response key holding the page's items ("schemas" or "tables")
+            description: Used in log messages
+
+        Yields:
+            Item dictionaries from each page
+        """
+        headers = {}
+        try:
+            # Use Storage audience for OneLake Table APIs
+            headers["Authorization"] = self.auth_helper.get_authorization_header(
+                scope=ONELAKE_STORAGE_SCOPE
+            )
+        except Exception as e:
+            logger.error(f"Failed to get authorization header: {e}")
+            raise
+
+        request_params = dict(params)
+        request_params["max_results"] = str(ONELAKE_CATALOG_PAGE_SIZE)
+        page = 1
+        total = 0
+        seen_tokens: set[str] = set()
+        while True:
+            response = self._session.get(
+                url, headers=headers, params=request_params, timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            items = data.get(items_key, []) or []
+            total += len(items)
+            logger.debug(f"Page {page}: got {len(items)} item(s) for {description}")
+            yield from items
+
+            next_token = data.get("next_page_token")
+            if not next_token:
+                break
+            if next_token in seen_tokens:
+                # Guard against an endpoint that keeps returning the same token.
+                logger.warning(
+                    f"Repeated page token while listing {description}; stopping "
+                    f"after {page} page(s)."
+                )
+                break
+            seen_tokens.add(next_token)
+            request_params["page_token"] = next_token
+            page += 1
+
+        logger.info(f"Found {total} item(s) for {description} across {page} page(s)")
+
     def _list_schemas_via_onelake_api(
         self,
         workspace_id: str,
@@ -197,30 +267,17 @@ class OneLakeClient(BaseFabricClient):
         """
         url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{item_id}/api/2.1/unity-catalog/schemas"
         params = {"catalog_name": item_id}
-        headers = {}
-        try:
-            # Use Storage audience for OneLake Table APIs
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
 
         logger.debug(
             f"Listing schemas via OneLake Table API for {item_label} {item_id}"
         )
         try:
-            response = self._session.get(
-                url, headers=headers, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            schemas = data.get("schemas", [])
-            logger.info(f"Found {len(schemas)} schema(s) in {item_label} {item_id}")
-
-            for schema_data in schemas:
+            for schema_data in self._paginate_unity_catalog(
+                url,
+                params,
+                items_key="schemas",
+                description=f"schemas in {item_label} {item_id}",
+            ):
                 schema_name = schema_data.get("name", "")
                 if schema_name:
                     logger.debug(f"Found schema: {schema_name}")
@@ -265,32 +322,17 @@ class OneLakeClient(BaseFabricClient):
         """
         url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{item_id}/api/2.1/unity-catalog/tables"
         params = {"catalog_name": item_id, "schema_name": schema_name}
-        headers = {}
-        try:
-            # Use Storage audience for OneLake Table APIs
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
 
         logger.debug(
             f"Listing tables in schema {schema_name} via OneLake Table API for {item_label} {item_id}"
         )
         try:
-            response = self._session.get(
-                url, headers=headers, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            tables = data.get("tables", [])
-            logger.info(
-                f"Found {len(tables)} table(s) in schema {schema_name} of {item_label} {item_id}"
-            )
-
-            for table_data in tables:
+            for table_data in self._paginate_unity_catalog(
+                url,
+                params,
+                items_key="tables",
+                description=f"tables in schema {schema_name} of {item_label} {item_id}",
+            ):
                 table_name = table_data.get("name", "")
                 if table_name:
                     logger.debug(f"Processing table: {schema_name}.{table_name}")

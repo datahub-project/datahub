@@ -64,6 +64,67 @@ def test_list_warehouse_tables_uses_onelake_and_skips_system_schemas() -> None:
     assert table_calls[0].kwargs["params"]["schema_name"] == "dbo"
 
 
+def _page(payload: dict) -> MagicMock:
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    resp.json.return_value = payload
+    return resp
+
+
+def test_unity_catalog_listing_follows_next_page_token() -> None:
+    client = _client()
+
+    schema_pages = [
+        _page({"schemas": [{"name": "dbo"}], "next_page_token": "s2"}),
+        _page({"schemas": [{"name": "sales"}]}),
+    ]
+    table_pages = {
+        "dbo": [
+            _page({"tables": [{"name": "t1"}], "next_page_token": "p2"}),
+            _page({"tables": [{"name": "t2"}], "next_page_token": "p3"}),
+            _page({"tables": [{"name": "t3"}]}),
+        ],
+        "sales": [_page({"tables": [{"name": "t4"}]})],
+    }
+    requests_seen: list[dict] = []
+
+    def get(url: str, headers=None, params=None, timeout=None):
+        requests_seen.append(dict(params))
+        if url.endswith("/schemas"):
+            return schema_pages.pop(0)
+        return table_pages[params["schema_name"]].pop(0)
+
+    client._session.get.side_effect = get
+
+    tables = list(client.list_warehouse_tables("ws-1", "wh-1"))
+
+    assert [(t.schema_name, t.name) for t in tables] == [
+        ("dbo", "t1"),
+        ("dbo", "t2"),
+        ("dbo", "t3"),
+        ("sales", "t4"),
+    ]
+    schema_requests = [p for p in requests_seen if "schema_name" not in p]
+    assert [p.get("page_token") for p in schema_requests] == [None, "s2"]
+    dbo_requests = [p for p in requests_seen if p.get("schema_name") == "dbo"]
+    assert [p.get("page_token") for p in dbo_requests] == [None, "p2", "p3"]
+    assert all("max_results" in p for p in requests_seen)
+
+
+def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
+    client = _client()
+    client._session.get.return_value = _page(
+        {"schemas": [{"name": "dbo"}], "next_page_token": "same"}
+    )
+
+    schemas = list(
+        client._list_schemas_via_onelake_api("ws-1", "lh-1", item_label="lakehouse")
+    )
+
+    assert schemas == ["dbo", "dbo"]
+    assert client._session.get.call_count == 2
+
+
 def test_list_warehouse_tables_404_yields_nothing() -> None:
     client = _client()
     response = MagicMock()
