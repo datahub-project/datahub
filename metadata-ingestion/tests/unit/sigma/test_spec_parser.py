@@ -28,6 +28,12 @@ def _plain_table(element_id: str) -> Dict[str, Any]:
     return {"id": element_id, "kind": "table", "source": dict(_WAREHOUSE_SIDE)}
 
 
+def _other_model(element_id: str, data_model_id: Any) -> Dict[str, Any]:
+    """An element of a Data Model as Sigma stores it on a join side or union
+    branch: probed, a `dataModelId` on a `table` side is dropped on store."""
+    return {"dataModelId": data_model_id, "elementId": element_id, "kind": "data-model"}
+
+
 def _spec(source: Dict[str, Any], element_id: str = "el-x") -> Dict[str, Any]:
     elements = [
         _plain_table("el-left"),
@@ -396,11 +402,20 @@ def test_an_incomplete_warehouse_side_is_drift(side: Dict[str, Any]) -> None:
         {"elementId": "el-left", "kind": "warehouse-table"},
         {**_WAREHOUSE_SIDE, "elementId": "el-left"},
         {**_WAREHOUSE_SIDE, "kind": "table"},
+        # Sigma stores another model's element as `data-model`.
+        {**_ELEMENT_SIDE_L, "dataModelId": "dm-2"},
+        {"elementId": "el-left", "kind": "data-model"},
+        {"elementId": "el-left"},
+        {"elementId": "el-left", "kind": "sql"},
     ],
     ids=[
         "warehouse-kind-element-keys",
         "warehouse-kind-both-keys",
         "table-kind-warehouse-keys",
+        "table-kind-with-model-id",
+        "data-model-kind-without-model-id",
+        "no-kind",
+        "kind-that-is-not-a-side",
     ],
 )
 def test_a_side_whose_kind_contradicts_its_keys_is_drift(side: Dict[str, Any]) -> None:
@@ -463,7 +478,7 @@ def test_two_warehouse_tables_on_one_column_are_not_a_self_join() -> None:
 
 def test_the_models_own_data_model_id_names_a_local_element() -> None:
     """Otherwise a self-join would look cross-model and be emitted."""
-    own = {**_ELEMENT_SIDE_L, "dataModelId": "dm-self"}
+    own = _other_model("el-left", "dm-self")
     spec = _spec(_join_source(_one_join([{"left": "[K]", "right": "[K]"}], right=own)))
     spec["dataModelId"] = "dm-self"
     index = parse_data_model_spec(spec)
@@ -522,7 +537,7 @@ def test_a_self_join_on_one_column_is_not_an_edge() -> None:
 
 def test_the_same_element_id_in_another_model_is_not_a_self_join() -> None:
     """Element ids are not unique across Data Models."""
-    foreign_same_id = {**_ELEMENT_SIDE_L, "dataModelId": "dm-2"}
+    foreign_same_id = _other_model("el-left", "dm-2")
     index = _parse_join(
         _one_join([{"left": "[K]", "right": "[K]"}], right=foreign_same_id)
     )
@@ -530,7 +545,7 @@ def test_the_same_element_id_in_another_model_is_not_a_self_join() -> None:
 
 
 def test_a_cross_model_side_keeps_its_data_model_id() -> None:
-    foreign = {"dataModelId": "dm-2", "elementId": "el-far", "kind": "table"}
+    foreign = _other_model("el-far", "dm-2")
     index = _parse_join(
         _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}], right=foreign)
     )
@@ -684,7 +699,7 @@ def test_an_unusable_data_model_id_is_drift_not_a_local_element(
 ) -> None:
     """Element ids repeat across models, so falling back to this one would
     attach the key to whatever local element shares the id."""
-    side = {**_ELEMENT_SIDE_R, "dataModelId": data_model_id}
+    side = _other_model("el-right", data_model_id)
     join_index = _parse_join(
         _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}], right=side)
     )
@@ -853,7 +868,7 @@ def test_union_branches_are_formulas_paired_by_position() -> None:
 
 
 def test_a_cross_model_union_branch_keeps_its_data_model_id() -> None:
-    foreign = {"dataModelId": "dm-2", "elementId": "el-far", "kind": "table"}
+    foreign = _other_model("el-far", "dm-2")
     index = _parse_union(_union([_el("el-a"), foreign], ["[c-a]", "[c-far]"]))
     assert [b.data_model_id for b in index.unions[0].branches] == [None, "dm-2"]
 
@@ -892,6 +907,26 @@ def test_a_constant_branch_is_not_drift() -> None:
     index = _parse_union(_union([_el("el-a"), _el("el-b")], ['"n/a"', "[C]"]))
     assert _branches(index.unions[0]) == [("el-b", "C")]
     assert index.unreadable_union_element_ids == []
+
+
+def test_a_broken_union_match_does_not_hide_the_others() -> None:
+    source = _union([_el("el-a"), _el("el-b")], ["[c-a]", "[c-b]"])
+    source["matches"].insert(0, {"sourceColumns": ["[x]", "[y]"]})
+    index = _parse_union(source)
+    assert [u.output_column for u in index.unions] == ["OUT"]
+    assert index.unreadable_union_element_ids == ["el-union"]
+
+
+def test_a_malformed_element_field_is_read_alone() -> None:
+    """One bad field must not fail the whole element, let alone the parse."""
+    spec = _spec(_join_source(_one_join([{"left": "[Region]", "right": "[B]"}])))
+    elements = spec["pages"][0]["elements"]
+    # Still a control, and still not a source of lineage.
+    elements.append({"id": 7, "kind": "control", "controlId": 7, "source": {}})
+    elements.append({"id": "", "kind": "table", "source": {"kind": "table"}})
+    index = parse_data_model_spec(_with_control(spec, "Region"))
+    assert index.pairs == []
+    assert index.unrecognised_element_count == 1
 
 
 def _with_control(spec: Dict[str, Any], control_id: str) -> Dict[str, Any]:
