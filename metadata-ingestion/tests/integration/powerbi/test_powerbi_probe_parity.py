@@ -120,6 +120,8 @@ def test_workspace_and_dashboard_id_verdicts_match_ingestion(
     assert report.excluded_by("dashboards") == {
         "7D668CAD-8FFC-4505-9215-655BCA5BEBAE": "workspace_id_pattern"
     }
+    # Every workspace record carries its id and type, so nothing went unjudged.
+    assert report.kinds["workspaces"].warnings == ()
     assert report.kinds["dashboards"].accepted_warnings == (
         f"workspace 'second-demo-workspace' (id {_SECOND}) is excluded by "
         f"workspace_id_pattern, so ingestion reads nothing in it",
@@ -148,3 +150,4 @@ def test_workspace_type_filter_matches_ingestion(
         [_WORKSPACES],
     )
     assert set(report.excluded_by("workspaces").values()) == {"workspace_type_filter"}
+    assert report.kinds["workspaces"].warnings == ()

@@ -738,3 +738,33 @@ def test_a_saved_report_inherits_its_workspaces_id_and_type_verdicts() -> None:
         "Weekly": (True, None),
         "Mine": (False, "workspace_type_filter"),
     }
+
+
+@pytest.mark.parametrize("kind", ["Report", "Dashboard"])
+def test_a_fact_stamped_child_is_not_told_its_workspace_rules_went_unjudged(
+    kind: str,
+) -> None:
+    # The framework judges the --parent workspace on its name alone, and the
+    # Workspace override's notes about the missing id and type reach the
+    # child; they must not contradict the child's own verdict on those facts.
+    stamped = [{"workspace_id": "ws-1", "workspace_type": "Workspace"}]
+    result, verdicts = _judge(
+        kind,
+        ["Weekly"],
+        ["Sales"],
+        attributes=stamped,
+        workspace_id_pattern={"deny": ["^ws-1$"]},
+    )
+    assert verdicts == {"Weekly": (False, "workspace_id_pattern")}
+    assert not any("not judged" in w for w in result.warnings)
+    result, verdicts = _judge(kind, ["Weekly"], ["Sales"], attributes=stamped)
+    assert verdicts == {"Weekly": (True, None)}
+    assert not any("not judged" in w for w in result.warnings)
+
+
+def test_a_workspace_judged_with_its_id_and_type_gives_no_warning() -> None:
+    result, verdicts = _judge(
+        "Workspace", ["Sales"], [], attributes=[{"id": "ws-1", "type": "Workspace"}]
+    )
+    assert verdicts == {"Sales": (True, None)}
+    assert result.warnings == []
