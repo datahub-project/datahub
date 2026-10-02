@@ -6,7 +6,7 @@ The DataHub Entity Embeddings source makes catalog entities findable through sem
 
 1. Reads the entity types enabled for semantic search from the server, and the searchable fields of each type from the server's entity registry.
 2. Scrolls each type, fetching only the aspects that hold searchable fields. `platform_pattern` filters entities by platform.
-3. Renders those fields as markdown: names, descriptions, tags, glossary terms, owners, domains, schema fields, custom properties and so on. Referenced entities are resolved to their names.
+3. Renders those fields as markdown: names, descriptions, tags, glossary terms, domains, schema fields, custom properties and so on. Referenced tags, terms, domains and similar entities are resolved to their names; owners and lineage are left out.
 4. Embeds the text with the server's embedding configuration, the same one `datahub-documents` uses, and emits `semanticContent` through the pipeline's sink. An entity without indexable text gets a skip marker instead.
 
 Because types and fields come from the server, enabling a new entity type for semantic search needs no change to this source.
