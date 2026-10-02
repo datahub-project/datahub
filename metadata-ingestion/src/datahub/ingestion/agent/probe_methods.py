@@ -754,7 +754,7 @@ def _report_entries(report: object, kind: str) -> Set[str]:
 
 
 def _raise_call_failure(
-    exc: Exception, provider: object, provider_cls: type, command: str
+    exc: BaseException, provider: object, provider_cls: type, command: str
 ) -> NoReturn:
     """Re-raise a provider call's failure in the shape the CLI reports.
 
@@ -787,6 +787,12 @@ def _reraise_trusted(exc: BaseException, provider_cls: type) -> NoReturn:
     if replacement is not None:
         raise replacement from None
     raise exc
+
+
+# Never a failure of the source: an interrupt is the user's and GeneratorExit
+# the interpreter's, so both reach the caller unchanged. Every other exception
+# raised inside a provider, SystemExit included, is policed.
+_PASS_THROUGH: Tuple[Type[BaseException], ...] = (KeyboardInterrupt, GeneratorExit)
 
 
 @dataclass(frozen=True)
@@ -842,14 +848,22 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
             except BaseException as exc:
                 body_error = exc
                 raise
-    except Exception as exc:
-        if body_error is not None:
-            if exc is body_error:
-                raise
-            # The command's failure was already policed; keep it, with the
-            # close failure out of the displayed chain.
-            raise body_error from body_error.__cause__
-        _source_failure(exc, call, "closing")
+    except BaseException as exc:
+        if isinstance(exc, _PASS_THROUGH):
+            raise
+        if body_error is None:
+            _source_failure(exc, call, "closing")
+        if not is_trusted(body_error) and not isinstance(body_error, _PASS_THROUGH):
+            # Raised outside the open and call handlers: a provider attribute
+            # the gates read, or one read back after the call.
+            raise classify_foreign(
+                body_error, f"'{call.spec.command}'", call.provider_cls
+            ) from None
+        if exc is body_error:
+            raise
+        # Keep the command's failure, with the close failure out of the
+        # displayed chain.
+        raise body_error from body_error.__cause__
     # Reached only when the provider's __exit__ returned true and so swallowed
     # the command's own failure: there is no result to report.
     raise ProbeInternalError(
@@ -863,7 +877,9 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     command = call.spec.command
     try:
         provider = stack.enter_context(call.builder(call.config))
-    except Exception as exc:
+    except _PASS_THROUGH:
+        raise
+    except BaseException as exc:
         _source_failure(exc, call, "opening")
     _enforce_gates(call.spec, provider, call.call_kwargs)
     method = _bound_method(provider, command)
@@ -887,7 +903,9 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
             f"fine -- this is a limit of the engine, so choose another command "
             f"rather than retrying"
         ) from exc
-    except Exception as exc:
+    except _PASS_THROUGH:
+        raise
+    except BaseException as exc:
         # Recorded failures are read here as on the success path, in both
         # shapes: a getter that recorded a failed fetch and then raised
         # "no such name" is reporting the fetch, not a bad argument.

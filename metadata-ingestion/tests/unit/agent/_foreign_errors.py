@@ -58,3 +58,16 @@ class Unprintable(Exception):
 
 def unprintable() -> None:
     raise Unprintable()
+
+
+def exit_process() -> None:
+    """A library that gives up by exiting the process with its reason."""
+    raise SystemExit(f"fatal: cannot reach https://user:{SENTINEL}@host")
+
+
+class Abort(BaseException):
+    """A library's own control-flow exception, outside the Exception tree."""
+
+
+def abort() -> None:
+    raise Abort(f"aborted while holding {SENTINEL}")

@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable, List
+from typing import Callable, Dict, List
 
 import pytest
 from click.testing import CliRunner
@@ -71,6 +71,21 @@ class _RebuildRefusing(ProbeConnectionError):
         return f"{self.code}: {self.detail}"
 
 
+# Call modes that only run one foreign raiser.
+_FOREIGN_CALLS: Dict[str, Callable[[], None]] = {
+    "foreign-value": lambda: _foreign_errors.parse_url(
+        f"jdbc:mysql://db?password={SENTINEL}"
+    ),
+    "foreign-transport": _foreign_errors.connect,
+    "foreign-runtime": _foreign_errors.fetch,
+    "foreign-permission": _foreign_errors.read_file,
+    "foreign-programming": _foreign_errors.query,
+    "foreign-key": _foreign_errors.lookup,
+    "call-exit": _foreign_errors.exit_process,
+    "call-abort": _foreign_errors.abort,
+}
+
+
 class _Provider:
     def __init__(self, mode: str) -> None:
         self.mode = mode
@@ -94,7 +109,31 @@ class _Provider:
                 _foreign_errors.connect()
             except Exception as exc:
                 raise ProbeConnectionError(f"login failed: {exc}") from exc
+        if mode == "open-exit":
+            _foreign_errors.exit_process()
+        if mode == "open-abort":
+            _foreign_errors.abort()
+        if mode == "open-interrupt":
+            raise KeyboardInterrupt
         return cls(mode)
+
+    @property
+    def sql_dialect(self) -> str:
+        # Read by the SQL gate after the provider is built, before the call.
+        if self.mode == "dialect-foreign":
+            _foreign_errors.fetch()
+        if self.mode == "dialect-key":
+            _foreign_errors.lookup()
+        if self.mode == "dialect-exit":
+            _foreign_errors.exit_process()
+        return "postgres"
+
+    @property
+    def warnings(self) -> List[str]:
+        # Read back after the call returns.
+        if self.mode == "warnings-foreign":
+            _foreign_errors.fetch()
+        return []
 
     def __enter__(self) -> "_Provider":
         return self
@@ -110,6 +149,10 @@ class _Provider:
             raise KeyError(f"no session {SENTINEL}")
         if self.mode == "exit-plain-value":
             raise ValueError(f"session {SENTINEL} was already closed")
+        if self.mode == "exit-exit":
+            _foreign_errors.exit_process()
+        if self.mode == "exit-abort":
+            _foreign_errors.abort()
         return None
 
     def _raise_wrapped(self, name: str) -> None:
@@ -201,18 +244,9 @@ class _Provider:
             raise ValueError(f"no thing named '{name}'")
         if self.mode == "plain-runtime":
             raise RuntimeError(f"gave up on {name}")
-        if self.mode == "foreign-value":
-            _foreign_errors.parse_url(f"jdbc:mysql://db?password={SENTINEL}")
-        if self.mode == "foreign-transport":
-            _foreign_errors.connect()
-        if self.mode == "foreign-runtime":
-            _foreign_errors.fetch()
-        if self.mode == "foreign-permission":
-            _foreign_errors.read_file()
-        if self.mode == "foreign-programming":
-            _foreign_errors.query()
-        if self.mode == "foreign-key":
-            _foreign_errors.lookup()
+        foreign = _FOREIGN_CALLS.get(self.mode)
+        if foreign is not None:
+            foreign()
         if self.mode == "recorded-foreign":
             self.failures = ["GET /things returned 401"]
             _foreign_errors.parse_url(f"jdbc:mysql://db?password={SENTINEL}")
@@ -222,6 +256,14 @@ class _Provider:
             raise ProbeSoftError(f"thing '{name}' was deleted mid-listing")
         if self.mode == "not-implemented":
             raise NotImplementedError(f"dialect quoted {SENTINEL}")
+        if self.mode == "recorded-exit":
+            self.failures = ["GET /things returned 401"]
+            _foreign_errors.exit_process()
+        return []
+
+    @probe_method(name="sql", scoped_sql_param="query")
+    def sql(self, query: str) -> List[str]:
+        """Run a catalog query."""
         return []
 
 
@@ -351,6 +393,69 @@ def test_a_trusted_failure_closing_the_source_keeps_its_message(run: RunFn) -> N
     with pytest.raises(ProbeConnectionError) as info:
         run("exit-trusted")
     assert str(info.value) == "closing the session timed out"
+
+
+@pytest.mark.parametrize(
+    "mode, expected, message",
+    [
+        ("dialect-foreign", ProbeConnectionError, "'sql' failed (RuntimeError)"),
+        ("dialect-key", ProbeInternalError, "'sql' failed (KeyError)"),
+        ("dialect-exit", ProbeConnectionError, "'sql' failed (SystemExit)"),
+    ],
+)
+def test_a_failure_reading_the_provider_before_the_call_is_policed(
+    run: RunFn, mode: str, expected: type, message: str
+) -> None:
+    # The gate reads provider attributes between opening and calling; what
+    # they raise is the command's failure, named by class like any other.
+    with pytest.raises(expected) as info:
+        run_probe_method("fake", {"mode": mode}, "sql", {"query": "SELECT 1"})
+    assert str(info.value) == message
+
+
+def test_a_failure_reading_the_result_back_is_policed(run: RunFn) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("warnings-foreign")
+    assert str(info.value) == "'things' failed (RuntimeError)"
+
+
+@pytest.mark.parametrize(
+    "mode, expected, message",
+    [
+        (
+            "open-exit",
+            ProbeConnectionError,
+            "opening source 'fake' failed (SystemExit)",
+        ),
+        ("open-abort", ProbeConnectionError, "opening source 'fake' failed (Abort)"),
+        ("call-exit", ProbeConnectionError, "'things' failed (SystemExit)"),
+        ("call-abort", ProbeConnectionError, "'things' failed (Abort)"),
+        (
+            "recorded-exit",
+            ProbeReadFailed,
+            "SystemExit; the connector recorded: GET /things returned 401",
+        ),
+        (
+            "exit-exit",
+            ProbeConnectionError,
+            "closing source 'fake' failed (SystemExit)",
+        ),
+        ("exit-abort", ProbeConnectionError, "closing source 'fake' failed (Abort)"),
+    ],
+)
+def test_a_foreign_exit_is_named_by_class_not_printed(
+    run: RunFn, mode: str, expected: type, message: str
+) -> None:
+    # A library calling sys.exit(reason), or raising its own BaseException,
+    # would otherwise escape every handler and print its text.
+    with pytest.raises(expected) as info:
+        run(mode)
+    assert str(info.value) == message
+
+
+def test_an_interrupt_passes_through(run: RunFn) -> None:
+    with pytest.raises(KeyboardInterrupt):
+        run("open-interrupt")
 
 
 def test_a_close_failure_does_not_mask_the_commands_own_failure(run: RunFn) -> None:
@@ -506,6 +611,30 @@ def test_the_backstop_shows_the_scrubbed_text_under_verbose(
 
 
 @pytest.mark.parametrize(
+    "mode, exit_code", [("dialect-foreign", 3), ("dialect-key", 1), ("dialect-exit", 3)]
+)
+def test_the_cli_polices_a_provider_attribute_the_gate_reads(
+    run: RunFn,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    mode: str,
+    exit_code: int,
+) -> None:
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda _r: ("fake", {"mode": mode}, set())
+    )
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    res = CliRunner().invoke(
+        recipe,
+        ["probe", "run", "sql", "--recipe", str(recipe_file), "--query", "SELECT 1"],
+    )
+    assert res.exit_code == exit_code, res.output
+    assert SENTINEL not in res.output
+    assert "Traceback" not in res.output
+
+
+@pytest.mark.parametrize(
     "mode, exit_code",
     [
         ("foreign-value", 2),
@@ -541,6 +670,13 @@ def test_the_backstop_shows_the_scrubbed_text_under_verbose(
         ("wraps-foreign-unprintable", 3),
         ("lookup-from-none", 2),
         ("lookup-foreign-repr", 3),
+        ("warnings-foreign", 3),
+        ("open-exit", 3),
+        ("open-abort", 3),
+        ("call-exit", 3),
+        ("call-abort", 3),
+        ("exit-exit", 3),
+        ("exit-abort", 3),
     ],
 )
 def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
