@@ -481,10 +481,15 @@ class S3Source(StatefulIngestionSourceBase):
             )
             aspects.append(data_platform_instance)
 
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
         customProperties: Dict[str, str] = {}
-        if self.source_config.enable_schema_inference:
-            # Only name a source file when inference actually runs, otherwise the
-            # property would point at a file whose schema was never emitted.
+        if schema_will_be_inferred:
             logger.info(f"Extracting table schema from file: {table_data.full_path}")
             customProperties["schema_inferred_from"] = str(table_data.full_path)
 
@@ -533,7 +538,7 @@ class S3Source(StatefulIngestionSourceBase):
                 f"Skipping schema inference for {table_data.display_name} "
                 "because enable_schema_inference is set to False"
             )
-        elif table_data.size_in_bytes > 0:
+        elif schema_will_be_inferred:
             try:
                 with PerfTimer() as schema_timer:
                     fields = self.get_fields(table_data, path_spec)
