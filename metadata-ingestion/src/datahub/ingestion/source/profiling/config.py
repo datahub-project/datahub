@@ -199,6 +199,17 @@ class ProfilingConfig(ProfilingBaseConfig):
         description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
+    # Duplicated from MAX_QUERIES_TO_COMBINE_AT_ONCE for the same reason as
+    # max_distinct_per_statement below.
+    max_queries_to_combine: pydantic.PositiveInt = Field(
+        default=40,
+        description="Only used when `query_combiner_enabled` is on. Maximum number of "
+        "profiling queries merged into one statement. A wide table needs one statement "
+        "per group of this many columns, so raising it cuts scans; but a statement that "
+        "fails is retried one query at a time, so a larger value also widens what a "
+        "single failure has to re-run.",
+    )
+
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
     # because kafka / cassandra / excel configs import this module without
     # sqlalchemy. A drift test keeps the two in lockstep.

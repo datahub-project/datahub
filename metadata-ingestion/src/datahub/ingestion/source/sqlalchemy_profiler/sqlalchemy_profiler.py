@@ -865,6 +865,7 @@ class SQLAlchemyProfiler:
                 serial_execution_fallback_enabled=True,
                 flatten_enabled=self.config.query_combiner_flatten_enabled,
                 max_distinct_per_statement=self.config.max_distinct_per_statement,
+                max_queries_to_combine=self.config.max_queries_to_combine,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.

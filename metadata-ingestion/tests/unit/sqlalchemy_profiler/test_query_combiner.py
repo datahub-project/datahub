@@ -191,6 +191,21 @@ class TestBatchingAndPartitioning:
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == n
 
+    def test_max_queries_to_combine_knob_splits_the_batch(self, engine, test_table):
+        # 4 queries with a cap of 2 take two statements; the module default of
+        # 40 would take one.
+        queries = [
+            sa.select(sa.func.count().label(f"rowcount_{i}")).select_from(test_table)
+            for i in range(4)
+        ]
+        combiner = _make_combiner(max_queries_to_combine=2)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.result.scalar() == 3 for c in caps)
+        assert combiner.report.combined_queries_issued == 2
+
     def test_lone_query_is_not_cte_wrapped(self, engine, test_table):
         # A one-member CTE buys nothing and makes the server materialize it.
         statements = []
