@@ -156,8 +156,16 @@ class TestS3SlimNoPySpark:
             ctx,
         )
 
-        aspect_names = _collect_aspect_names(source.get_workunits())
+        workunits = list(source.get_workunits())
+        aspect_names = _collect_aspect_names(workunits)
         assert "schemaMetadata" in aspect_names
+
+        dataset_props = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if getattr(wu.metadata, "aspectName", None) == "datasetProperties"
+        )
+        assert "schema_inferred_from" in dataset_props.customProperties
 
     def test_schema_inference_disabled_skips_schema_metadata(
         self, tmp_path: Path
@@ -182,6 +190,40 @@ class TestS3SlimNoPySpark:
         # Schema must not be emitted, but the rest of the dataset metadata still is.
         assert "schemaMetadata" not in aspect_names
         assert "datasetProperties" in aspect_names
+
+    def test_schema_inference_enabled_empty_file_skips_schema_metadata(
+        self, tmp_path: Path
+    ) -> None:
+        """An empty file never reaches schema inference (the schema block is
+        guarded by size_in_bytes > 0), so even with inference enabled no
+        schemaMetadata is emitted and schema_inferred_from is not set."""
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.s3.source import S3Source
+
+        empty_file = tmp_path / "empty.csv"
+        empty_file.write_text("")
+
+        ctx = PipelineContext(run_id="test-s3-infer-schema-empty")
+        source = S3Source.create(
+            {
+                "path_specs": [{"include": f"{tmp_path}/*.csv"}],
+                "profiling": {"enabled": False},
+                "enable_schema_inference": True,
+            },
+            ctx,
+        )
+
+        workunits = list(source.get_workunits())
+        aspect_names = _collect_aspect_names(workunits)
+        assert "schemaMetadata" not in aspect_names
+        assert "datasetProperties" in aspect_names
+
+        dataset_props = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if getattr(wu.metadata, "aspectName", None) == "datasetProperties"
+        )
+        assert "schema_inferred_from" not in dataset_props.customProperties
 
 
 @pytest.mark.integration
