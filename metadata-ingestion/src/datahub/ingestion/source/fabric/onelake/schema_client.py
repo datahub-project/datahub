@@ -27,6 +27,7 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
+from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricQueryInsightsRow,
@@ -49,18 +50,6 @@ SQL_COPT_SS_ACCESS_TOKEN = 1256
 _FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
     r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
 )
-
-# Schemas excluded from table and view discovery:
-# - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.
-# - queryinsights: Fabric Warehouse's Microsoft-managed Query Insights views
-#   (exec_requests_history, long_running_queries, etc.) — not user metadata.
-#   See https://learn.microsoft.com/fabric/data-warehouse/query-insights
-_FABRIC_SYSTEM_SCHEMAS: Tuple[str, ...] = (
-    "INFORMATION_SCHEMA",
-    "sys",
-    "queryinsights",
-)
-
 
 def _extract_endpoint_host_from_connection_string(conn_str: str) -> Optional[str]:
     """Extract Fabric SQL Analytics Endpoint hostname from a connection string.
@@ -455,7 +444,7 @@ class SqlAnalyticsEndpointClient:
 
             with engine.connect() as connection:
                 result = connection.execute(
-                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
                 )
                 columns_by_table: Dict[Tuple[str, str], List[FabricColumn]] = {}
                 for row in result:
@@ -526,7 +515,7 @@ class SqlAnalyticsEndpointClient:
 
             with engine.connect() as connection:
                 result = connection.execute(
-                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
                 )
                 views: List[FabricView] = []
                 for row in result:

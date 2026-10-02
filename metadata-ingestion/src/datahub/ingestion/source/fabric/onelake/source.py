@@ -207,7 +207,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             and config.usage.include_operational_stats,
             usage_config=config.usage if usage_enabled else None,
             eager_graph_load=False,
+            # Query history includes the connector's own SQL (schema discovery,
+            # profiling reflection). Only attach usage and lineage to datasets
+            # this run actually ingested, so system objects and parser aliases
+            # are not created as assets.
+            is_allowed_table=self._is_usage_table_allowed,
         )
+        self._ingested_dataset_names: set[str] = set()
         self.report.sql_aggregator = self.aggregator.report
 
         # Stateful skip-handler for the usage time window. None when stateful
@@ -237,6 +243,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FabricOneLakeSource":
         config = FabricOneLakeSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def _register_ingested_dataset(self, dataset_name: str) -> None:
+        # sqlglot's T-SQL dialect lowercases identifiers. Compare case-insensitively
+        # so usage still attaches when convert_urns_to_lowercase is off.
+        self._ingested_dataset_names.add(dataset_name.lower())
+
+    def _is_usage_table_allowed(self, name: str) -> bool:
+        return name.lower() in self._ingested_dataset_names
 
     def _norm(self, name: str) -> str:
         # Lowercase identifiers used in URNs and schema field paths so they match
@@ -756,6 +770,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         table_name = make_table_name(
             workspace.id, item_id, self._norm(schema_name), self._norm(table.name)
         )
+        self._register_ingested_dataset(table_name)
 
         # Build schema fields if available
         # Dataset SDK will automatically convert SQL Server types to DataHub types
@@ -1026,6 +1041,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         view_name = make_table_name(
             workspace.id, item_id, self._norm(schema_name), self._norm(view.name)
         )
+        self._register_ingested_dataset(view_name)
 
         schema_fields = None
         if columns:
