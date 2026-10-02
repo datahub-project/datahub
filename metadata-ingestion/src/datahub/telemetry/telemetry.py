@@ -480,14 +480,43 @@ class Telemetry:
             }
 
 
-telemetry_instance = Telemetry()
+_telemetry_instance: Optional["Telemetry"] = None
+
+
+def get_telemetry_instance() -> "Telemetry":
+    """The process-wide Telemetry singleton, constructed on first use.
+
+    Not built at module import: ``Telemetry.__init__`` calls ``sentry_sdk.init()``
+    when SENTRY_DSN is set, and sentry's init imports every auto-enabling
+    integration module. At module scope that runs third-party imports inside
+    whatever import first reached this module (usually
+    ``datahub.ingestion.graph.client``, via rest_emitter -> server_config_util),
+    so any of them importing back into ``datahub`` hits a partially initialized
+    module. Building on first use avoids that.
+    """
+    global _telemetry_instance
+    if _telemetry_instance is None:
+        _telemetry_instance = Telemetry()
+    return _telemetry_instance
+
+
+def __getattr__(name: str) -> Any:
+    # PEP 562: keeps `telemetry.telemetry_instance.ping(...)` and
+    # `from datahub.telemetry.telemetry import telemetry_instance` working
+    # unchanged for external callers, while the construction stays lazy.
+    # Note this fires only for module *attribute* access — code inside this
+    # module must call get_telemetry_instance() directly.
+    if name == "telemetry_instance":
+        return get_telemetry_instance()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def suppress_telemetry() -> None:
     """disables telemetry for this invocation, doesn't affect persistent client settings"""
-    if telemetry_instance.enabled:
+    instance = get_telemetry_instance()
+    if instance.enabled:
         logger.debug("Disabling telemetry locally due to server config")
-    telemetry_instance.enabled = False
+    instance.enabled = False
 
 
 def get_full_class_name(obj):
@@ -538,15 +567,16 @@ def with_telemetry(
 
         @wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
-            telemetry_instance.init_tracking()
-            telemetry_instance.init_capture_exception()
+            instance = get_telemetry_instance()
+            instance.init_tracking()
+            instance.init_capture_exception()
 
             call_props: Dict[str, Any] = {"function": function}
             call_props.update(_get_cli_context())
             for kwarg in kwargs_to_track:
                 call_props[f"arg_{kwarg}"] = kwargs.get(kwarg)
 
-            telemetry_instance.ping(
+            instance.ping(
                 "function-call",
                 {**call_props, "status": "start"},
             )
@@ -557,7 +587,7 @@ def with_telemetry(
                 finally:
                     call_props["duration"] = timer.elapsed_seconds()
 
-                telemetry_instance.ping(
+                instance.ping(
                     "function-call",
                     {**call_props, "status": "completed"},
                 )
@@ -568,13 +598,13 @@ def with_telemetry(
                 # Forward successful exits
                 # 0 or None imply success
                 if not e.code:
-                    telemetry_instance.ping(
+                    instance.ping(
                         "function-call",
                         {**call_props, "status": "completed"},
                     )
                 # Report failed exits
                 else:
-                    telemetry_instance.ping(
+                    instance.ping(
                         "function-call",
                         {
                             **call_props,
@@ -583,20 +613,20 @@ def with_telemetry(
                             "code": e.code,
                         },
                     )
-                telemetry_instance.capture_exception(e)
+                instance.capture_exception(e)
                 raise e
             # Catch SIGINTs
             except KeyboardInterrupt as e:
-                telemetry_instance.ping(
+                instance.ping(
                     "function-call",
                     {**call_props, "status": "cancelled"},
                 )
-                telemetry_instance.capture_exception(e)
+                instance.capture_exception(e)
                 raise e
 
             # Catch general exceptions
             except BaseException as e:
-                telemetry_instance.ping(
+                instance.ping(
                     "function-call",
                     {
                         **call_props,
@@ -604,7 +634,7 @@ def with_telemetry(
                         **_error_props(e),
                     },
                 )
-                telemetry_instance.capture_exception(e)
+                instance.capture_exception(e)
                 raise e
 
         return wrapper
