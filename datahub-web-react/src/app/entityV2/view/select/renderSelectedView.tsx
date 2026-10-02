@@ -1,4 +1,5 @@
 import { Button, Tooltip } from '@components';
+import { radius } from '@components/theme';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
@@ -12,6 +13,20 @@ const SelectButtonContainer = styled.div`
     max-width: 160px;
 `;
 
+const SelectedViewGroup = styled.div`
+    display: inline-flex;
+    align-items: center;
+    max-width: 160px;
+    border-radius: ${radius.sm};
+    background-color: ${({ theme }) => theme.colors.bgSurfaceBrand};
+    color: ${({ theme }) => theme.colors.textBrand};
+
+    &:hover {
+        background-color: ${({ theme }) =>
+            theme.colors.buttonSurfaceSecondaryHover ?? theme.colors.bgSurfaceBrandHover};
+    }
+`;
+
 const SelectedLabel = styled.span`
     max-width: 100px;
     overflow: hidden;
@@ -19,15 +34,30 @@ const SelectedLabel = styled.span`
     white-space: nowrap;
 `;
 
-const ClearIconButton = styled.span`
-    display: inline-flex;
-    align-items: center;
-    margin-left: 2px;
-    line-height: 0;
-    cursor: pointer;
+const NameButton = styled(Button)`
+    && {
+        background: transparent;
+        color: inherit;
+        padding-right: 4px;
 
-    svg {
-        display: block;
+        &:hover {
+            background: transparent;
+            box-shadow: none;
+        }
+    }
+`;
+
+const ClearButton = styled(Button)`
+    && {
+        background: transparent;
+        color: inherit;
+        padding: 0 8px 0 2px;
+        min-width: auto;
+
+        &:hover {
+            background: transparent;
+            box-shadow: none;
+        }
     }
 `;
 
@@ -45,35 +75,31 @@ export function SelectedViewButton({ selectedViewName, onClear, onClick }: Props
         <SelectButtonContainer data-testid="views-button-container">
             <Tooltip showArrow={false} title={selectedViewName || t('viewSelect.buttonLabel')} placement="bottom">
                 {isSelected ? (
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        color="primary"
-                        size="sm"
-                        onClick={() => onClick?.()}
-                        data-testid="views-button"
-                    >
-                        <SelectedLabel data-testid="views-icon">{selectedViewName}</SelectedLabel>
-                        <ClearIconButton
-                            role="button"
-                            tabIndex={0}
+                    <SelectedViewGroup>
+                        <NameButton
+                            type="button"
+                            variant="secondary"
+                            color="primary"
+                            size="sm"
+                            onClick={() => onClick?.()}
+                            data-testid="views-button"
+                        >
+                            <SelectedLabel data-testid="views-icon">{selectedViewName}</SelectedLabel>
+                        </NameButton>
+                        <ClearButton
+                            type="button"
+                            variant="text"
+                            color="primary"
+                            size="sm"
+                            icon={{ icon: X, size: 'md', weight: 'bold' }}
                             aria-label={t('viewSelect.clearView')}
                             data-testid="views-clear-button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onClear();
                             }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onClear();
-                                }
-                            }}
-                        >
-                            <X size={12} weight="bold" />
-                        </ClearIconButton>
-                    </Button>
+                        />
+                    </SelectedViewGroup>
                 ) : (
                     <Button
                         type="button"
