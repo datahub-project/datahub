@@ -1,35 +1,49 @@
 from dataclasses import dataclass, field
-from typing import AbstractSet, Any, Dict, List, Optional, Set, Tuple
+from typing import (
+    AbstractSet,
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
+
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StrictStr,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 
-_PAGES = "pages"
-_SCHEMA_VERSION = "schemaVersion"
 # The `schemaVersion` this parser was written against. A consumer should
 # distrust a read whose `schema_version` differs.
 SUPPORTED_SCHEMA_VERSION = 1
 # A control's `source` binds its value to a column; it carries no lineage. Its
 # `controlId` is the name a formula uses to read the control as a parameter.
 _CONTROL_ELEMENT_KIND = "control"
-_CONTROL_ID = "controlId"
 # Sigma's schema requires `source` on a table element; other elements, such as
 # a text box or a control's display, may have none.
 _TABLE_ELEMENT_KIND = "table"
-_ELEMENTS = "elements"
-_COLUMNS = "columns"
 _SOURCE = "source"
-_JOINS = "joins"
-_KIND = "kind"
-_ID = "id"
-_LEFT = "left"
-_RIGHT = "right"
-_ELEMENT_ID = "elementId"
 _DATA_MODEL_ID = "dataModelId"
-_CONNECTION_ID = "connectionId"
-_PATH = "path"
+_ELEMENT_ID = "elementId"
 _JOIN_KIND = "join"
 _UNION_KIND = "union"
-_WAREHOUSE_TABLE_KIND = "warehouse-table"
 # Every source kind in Sigma's create-spec schema and published examples is one
 # of these. Single-source kinds are ones /columns formulas already reach; a
 # `data-model` source is an element of another Data Model. A transpose is valid
@@ -39,12 +53,6 @@ _SINGLE_SOURCE_KINDS = frozenset(
     {"warehouse-table", "table", "sql", "csv-table", "data-model"}
 )
 _UNMAPPED_KINDS = frozenset({"transpose"})
-_MATCHES = "matches"
-_SOURCES = "sources"
-_OUTPUT_COLUMN_NAME = "outputColumnName"
-_SOURCE_COLUMNS = "sourceColumns"
-_JOIN_TYPE = "joinType"
-_JOIN_OP = "op"
 _INNER_JOIN_TYPE = "inner"
 # The join types Sigma's write API accepts. `lookup` is normalised to
 # `left-outer` on store, and is kept in case a spec carries it anyway. A stored
@@ -59,7 +67,8 @@ _KNOWN_JOIN_TYPES = _OUTER_JOIN_TYPES | {_INNER_JOIN_TYPE}
 # itself is rejected. An operator outside the set is reported, so a wrong entry
 # fails closed. A missing `op` is equality: Sigma's published join example
 # omits it.
-_EQUALITY_OPS = frozenset({"=", "is-not-distinct-from"})
+_EQUALITY_OP = "="
+_EQUALITY_OPS = frozenset({_EQUALITY_OP, "is-not-distinct-from"})
 _KNOWN_OPS = _EQUALITY_OPS | {
     "!=",
     "is-distinct-from",
@@ -204,6 +213,187 @@ class DataModelSpecIndex:
         )
 
 
+# --- Shape: what a /spec document must look like -----------------------------
+#
+# Unknown keys are ignored: Sigma adds fields (`groupingId`, `name`) that carry
+# no lineage. Lists whose entries are judged one by one are typed `List[Any]`
+# and validated entry by entry, so one broken entry does not hide the others.
+
+
+def _not_blank(value: str) -> str:
+    if not value.strip():
+        raise ValueError("blank")
+    return value
+
+
+def _normalised(value: str) -> str:
+    return value.strip().lower()
+
+
+def _non_blank_or_none(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _normalised_or_none(value: Any) -> Optional[str]:
+    return _normalised(value) if isinstance(value, str) else None
+
+
+_NonBlank = Annotated[StrictStr, AfterValidator(_not_blank)]
+_Normalised = Annotated[StrictStr, AfterValidator(_normalised)]
+# An element's own fields are read one by one: a bad id must not lose its kind.
+_NonBlankOrNone = Annotated[Optional[str], BeforeValidator(_non_blank_or_none)]
+_NormalisedOrNone = Annotated[Optional[str], BeforeValidator(_normalised_or_none)]
+
+
+class _Shape(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class _LocalElement(_Shape):
+    """An element of this Data Model."""
+
+    kind: Literal["table"]
+    elementId: _NonBlank
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_model_id(cls, values: Any) -> Any:
+        # Sigma stores another model's element as `data-model`, and strips a
+        # `dataModelId` posted on a `table` side, so carrying one is drift.
+        if isinstance(values, dict) and _DATA_MODEL_ID in values:
+            raise ValueError("a table side names no Data Model")
+        return values
+
+
+class _OtherModelElement(_Shape):
+    """An element of a Data Model, possibly this one."""
+
+    kind: Literal["data-model"]
+    dataModelId: _NonBlank
+    elementId: _NonBlank
+
+
+class _WarehouseTable(_Shape):
+    # The consumer builds the table's URN from both.
+    kind: Literal["warehouse-table"]
+    connectionId: _NonBlank
+    path: Annotated[
+        List[Annotated[StrictStr, Field(min_length=1)]], Field(min_length=1)
+    ]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_element(cls, values: Any) -> Any:
+        # Only a usable one contradicts the kind; a null or blank one is absent.
+        if isinstance(values, dict) and _non_blank_or_none(values.get(_ELEMENT_ID)):
+            raise ValueError("a warehouse table names no element")
+        return values
+
+
+def _normalised_kind(values: Any) -> Any:
+    if isinstance(values, dict) and isinstance(values.get("kind"), str):
+        return {**values, "kind": _normalised(values["kind"])}
+    return values
+
+
+_AnyDescriptor = Union[_LocalElement, _OtherModelElement, _WarehouseTable]
+# Kinds are matched like every other kind here: stripped and lowercased.
+_Descriptor = Annotated[
+    _AnyDescriptor,
+    Field(discriminator="kind"),
+    BeforeValidator(_normalised_kind),
+]
+
+
+class _JoinEntry(_Shape):
+    """One ON-clause predicate. A side is a required formula."""
+
+    left: _NonBlank
+    right: _NonBlank
+    # Sigma's published join example omits it.
+    op: _Normalised = _EQUALITY_OP
+
+    @field_validator("op", mode="before")
+    @classmethod
+    def _missing_op_is_equality(cls, op: Any) -> Any:
+        return _EQUALITY_OP if op is None else op
+
+    @field_validator("op")
+    @classmethod
+    def _known_op(cls, op: str) -> str:
+        if op not in _KNOWN_OPS:
+            raise ValueError("unknown operator")
+        return op
+
+
+class _Join(_Shape):
+    joinType: _Normalised
+    left: _Descriptor
+    right: _Descriptor
+    # A join with no predicates says nothing about what it matches on.
+    columns: Annotated[List[Any], Field(min_length=1)]
+
+    @field_validator("joinType")
+    @classmethod
+    def _known_join_type(cls, join_type: str) -> str:
+        if join_type not in _KNOWN_JOIN_TYPES:
+            raise ValueError("unknown join type")
+        return join_type
+
+
+class _JoinSource(_Shape):
+    joins: List[Any]
+
+
+class _UnionMatch(_Shape):
+    outputColumnName: Annotated[StrictStr, Field(min_length=1)]
+    # `sourceColumns[i]` is the formula branch `sources[i]` contributes.
+    sourceColumns: List[Any]
+
+
+class _UnionSource(_Shape):
+    sources: List[Any]
+    matches: List[Any]
+
+
+class _Element(_Shape):
+    # Must never fail validation: it is validated unwrapped, so every field
+    # turns bad input into None and one bad element cannot fail the parse.
+    id: _NonBlankOrNone = None
+    kind: _NormalisedOrNone = None
+    controlId: _NonBlankOrNone = None
+
+
+class _SourceKind(_Shape):
+    kind: _Normalised
+
+
+_T = TypeVar("_T")
+_S = TypeVar("_S", bound=_Shape)
+
+_DESCRIPTOR: TypeAdapter[_AnyDescriptor] = TypeAdapter(_Descriptor)
+_FORMULA: TypeAdapter[str] = TypeAdapter(StrictStr)
+_SCHEMA_VERSION: TypeAdapter[StrictInt] = TypeAdapter(StrictInt)
+_NON_BLANK: TypeAdapter[str] = TypeAdapter(_NonBlank)
+
+
+def _valid(adapter: TypeAdapter[_T], value: Any) -> Optional[_T]:
+    try:
+        return adapter.validate_python(value)
+    except ValidationError:
+        return None
+
+
+def _model(cls: Type[_S], value: Any) -> Optional[_S]:
+    try:
+        return cls.model_validate(value)
+    except ValidationError:
+        return None
+
+
+# --- Meaning: this parser's rules, over checked shapes -------------------------
+
+
 @dataclass(frozen=True)
 class _Owner:
     """Whose column a join side or union branch names."""
@@ -235,13 +425,13 @@ class _Elements:
 
 
 def _iter_spec_elements(spec: Dict[str, Any]) -> _Elements:
-    pages = spec.get(_PAGES)
+    pages = spec.get("pages")
     if not isinstance(pages, list):
         return _Elements(elements=[], readable=False)
     elements: List[Dict[str, Any]] = []
     readable = True
     for page in pages:
-        page_elements = page.get(_ELEMENTS) if isinstance(page, dict) else None
+        page_elements = page.get("elements") if isinstance(page, dict) else None
         if not isinstance(page_elements, list):
             readable = False
             continue
@@ -253,17 +443,24 @@ def _iter_spec_elements(spec: Dict[str, Any]) -> _Elements:
     return _Elements(elements=elements, readable=readable)
 
 
-def _str_or_none(value: Any) -> Optional[str]:
-    return value if isinstance(value, str) and value.strip() else None
-
-
-def _element_kind(element: Dict[str, Any]) -> str:
-    kind = element.get(_KIND)
-    return kind.strip().lower() if isinstance(kind, str) else ""
-
-
-def _is_control(element: Dict[str, Any]) -> bool:
-    return _element_kind(element) == _CONTROL_ELEMENT_KIND
+def _owner(
+    descriptor: _AnyDescriptor,
+    own_data_model_id: Optional[str],
+) -> _Owner:
+    if isinstance(descriptor, _WarehouseTable):
+        return _Owner(
+            element_id=None,
+            connection_id=descriptor.connectionId,
+            path=tuple(descriptor.path),
+        )
+    if isinstance(descriptor, _OtherModelElement):
+        # This model's own id names a local element.
+        if descriptor.dataModelId != own_data_model_id:
+            return _Owner(
+                element_id=descriptor.elementId,
+                data_model_id=descriptor.dataModelId,
+            )
+    return _Owner(element_id=descriptor.elementId)
 
 
 def _join_side_columns(
@@ -289,49 +486,6 @@ def _one_column(names: Optional[Set[str]]) -> Optional[str]:
     return next(iter(names)) if names is not None and len(names) == 1 else None
 
 
-def _owner(descriptor: Any, own_data_model_id: Optional[str]) -> Optional[_Owner]:
-    """The owner a join side or union branch descriptor names, or None.
-
-    Shapes: ``{elementId, ...}`` in this Data Model, ``{dataModelId, elementId,
-    ...}`` in another, ``{connectionId, path, ...}`` for a warehouse table. A
-    missing elementId is not evidence of a warehouse table: if Sigma renamed
-    the key, that reading would hide the change instead of reporting it.
-    """
-    if not isinstance(descriptor, dict):
-        return None
-    # A `kind` that contradicts the keys is drift, not a tiebreak. An absent
-    # kind falls back to the keys.
-    kind = descriptor.get(_KIND)
-    warehouse_kind = kind == _WAREHOUSE_TABLE_KIND
-    element_id = _str_or_none(descriptor.get(_ELEMENT_ID))
-    if element_id:
-        if warehouse_kind:
-            return None
-        data_model_id = _str_or_none(descriptor.get(_DATA_MODEL_ID))
-        # Present but unusable is drift: falling back to this model would attach
-        # the key to whatever local element shares the id.
-        if _DATA_MODEL_ID in descriptor and data_model_id is None:
-            return None
-        # This model's own id names a local element.
-        if data_model_id == own_data_model_id:
-            data_model_id = None
-        return _Owner(element_id=element_id, data_model_id=data_model_id)
-    if kind is not None and not warehouse_kind:
-        return None
-    # A warehouse table needs both: the consumer builds its URN from them, so a
-    # side with only one, or a malformed path, is drift.
-    connection_id = _str_or_none(descriptor.get(_CONNECTION_ID))
-    path = descriptor.get(_PATH)
-    if (
-        connection_id is None
-        or not isinstance(path, list)
-        or not path
-        or not all(isinstance(p, str) and p for p in path)
-    ):
-        return None
-    return _Owner(element_id=None, connection_id=connection_id, path=tuple(path))
-
-
 def _column_ref(
     owner: _Owner,
     formula: str,
@@ -351,7 +505,7 @@ def _column_ref(
 
 
 def _read_join(
-    join: Any,
+    raw: Any,
     *,
     join_element_id: str,
     parameters: AbstractSet[str],
@@ -360,54 +514,28 @@ def _read_join(
     """One entry of a join element's ``joins``.
 
     Readability is decided on SHAPE, before any formula is resolved: a literal
-    or composite side is a well-formed predicate that is simply not a key. A
-    join with no predicates is unreadable, since nothing says what it matches
-    on; an element with no joins at all has nothing to misread.
+    or composite side is a well-formed predicate that is simply not a key.
     """
-    if not isinstance(join, dict):
+    join = _model(_Join, raw)
+    if join is None:
         return _JoinRead(predicates=[], readable=False)
-    raw_type = join.get(_JOIN_TYPE)
-    join_type = raw_type.strip().lower() if isinstance(raw_type, str) else ""
-    left_owner = _owner(join.get(_LEFT), own_data_model_id)
-    right_owner = _owner(join.get(_RIGHT), own_data_model_id)
-    entries = join.get(_COLUMNS)
-    if (
-        join_type not in _KNOWN_JOIN_TYPES
-        or left_owner is None
-        or right_owner is None
-        or not isinstance(entries, list)
-        or not entries
-    ):
-        return _JoinRead(predicates=[], readable=False)
+    left_owner = _owner(join.left, own_data_model_id)
+    right_owner = _owner(join.right, own_data_model_id)
 
     predicates: List[JoinPredicate] = []
     readable = True
     multi_segment_refs = False
-    for entry in entries:
-        # A side is a required formula, so an empty one is not a literal.
-        if (
-            not isinstance(entry, dict)
-            or _str_or_none(entry.get(_LEFT)) is None
-            or _str_or_none(entry.get(_RIGHT)) is None
-        ):
+    for raw_entry in join.columns:
+        entry = _model(_JoinEntry, raw_entry)
+        if entry is None:
             readable = False
             continue
-        raw_op = entry.get(_JOIN_OP)
-        if raw_op is None:
-            op = "="
-        elif isinstance(raw_op, str):
-            op = raw_op.strip().lower()
-        else:
-            op = ""
-        if op not in _KNOWN_OPS:
-            readable = False
-            continue
-        if op not in _EQUALITY_OPS:
+        if entry.op not in _EQUALITY_OPS:
             continue
         # A literal or composite side is a well-formed predicate, not a key; a
         # multi-segment one is also recorded, since it may be a key we cannot map.
-        left_names = _join_side_columns(entry[_LEFT], parameters)
-        right_names = _join_side_columns(entry[_RIGHT], parameters)
+        left_names = _join_side_columns(entry.left, parameters)
+        right_names = _join_side_columns(entry.right, parameters)
         if left_names is None or right_names is None:
             multi_segment_refs = True
         left_column = _one_column(left_names)
@@ -417,14 +545,12 @@ def _read_join(
         # A self-join on one column is not an edge.
         if (left_owner, left_column) == (right_owner, right_column):
             continue
-        left = _column_ref(left_owner, entry[_LEFT], left_column)
-        right = _column_ref(right_owner, entry[_RIGHT], right_column)
         predicates.append(
             JoinPredicate(
                 join_element_id=join_element_id,
-                left=left,
-                right=right,
-                join_type=join_type,
+                left=_column_ref(left_owner, entry.left, left_column),
+                right=_column_ref(right_owner, entry.right, right_column),
+                join_type=join.joinType,
             )
         )
     return _JoinRead(
@@ -435,7 +561,7 @@ def _read_join(
 
 
 def _read_union(
-    source: Dict[str, Any],
+    raw: Dict[str, Any],
     *,
     union_element_id: str,
     parameters: AbstractSet[str],
@@ -449,40 +575,38 @@ def _read_union(
     an empty slot is a branch contributing nothing. A branch may be a
     warehouse table.
     """
-    sources = source.get(_SOURCES)
-    matches = source.get(_MATCHES)
-    if not isinstance(sources, list) or not isinstance(matches, list):
+    union = _model(_UnionSource, raw)
+    if union is None:
         return _UnionRead(columns=[], readable=False)
-    owners = [_owner(branch, own_data_model_id) for branch in sources]
+    descriptors = [_valid(_DESCRIPTOR, branch) for branch in union.sources]
+    owners = [
+        _owner(descriptor, own_data_model_id) if descriptor is not None else None
+        for descriptor in descriptors
+    ]
     # A union with sources but no output columns says nothing about what it
     # produces, like a join with no predicates.
     readable = all(owner is not None for owner in owners) and bool(
-        matches or not sources
+        union.matches or not union.sources
     )
     multi_segment_refs = False
 
     columns: List[UnionOutputColumn] = []
-    for match in matches:
-        output_column = (
-            match.get(_OUTPUT_COLUMN_NAME) if isinstance(match, dict) else None
-        )
-        source_columns = match.get(_SOURCE_COLUMNS) if isinstance(match, dict) else None
-        if not isinstance(output_column, str) or not output_column:
-            readable = False
-            continue
-        if not isinstance(source_columns, list):
+    for raw_match in union.matches:
+        match = _model(_UnionMatch, raw_match)
+        if match is None:
             readable = False
             continue
         branches: List[SpecColumnRef] = []
-        for position, formula in enumerate(source_columns):
+        for position, raw_formula in enumerate(match.sourceColumns):
             # Positional alignment is inferred, not stated, so a slot with no
             # branch is reported rather than paired with another branch.
             if position >= len(owners):
                 readable = False
                 continue
-            if formula is None or formula == "":
+            if raw_formula is None or raw_formula == "":
                 continue
-            if not isinstance(formula, str):
+            formula = _valid(_FORMULA, raw_formula)
+            if formula is None:
                 readable = False
                 continue
             # A branch is a data flow, not a key: every column it names feeds
@@ -508,13 +632,40 @@ def _read_union(
             columns.append(
                 UnionOutputColumn(
                     union_element_id=union_element_id,
-                    output_column=output_column,
+                    output_column=match.outputColumnName,
                     branches=tuple(branches),
                 )
             )
     return _UnionRead(
         columns=columns, readable=readable, multi_segment_refs=multi_segment_refs
     )
+
+
+def _read_join_element(
+    raw: Dict[str, Any],
+    *,
+    element_id: str,
+    parameters: AbstractSet[str],
+    own_data_model_id: Optional[str],
+) -> _JoinRead:
+    source = _model(_JoinSource, raw)
+    if source is None:
+        return _JoinRead(predicates=[], readable=False)
+    # Judged per join: one readable join must not hide a broken one.
+    element = _JoinRead(predicates=[], readable=True)
+    for join in source.joins:
+        read = _read_join(
+            join,
+            join_element_id=element_id,
+            parameters=parameters,
+            own_data_model_id=own_data_model_id,
+        )
+        element.predicates.extend(read.predicates)
+        element.readable = element.readable and read.readable
+        element.multi_segment_refs = (
+            element.multi_segment_refs or read.multi_segment_refs
+        )
+    return element
 
 
 def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
@@ -533,43 +684,35 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
     index = DataModelSpecIndex()
     if not isinstance(spec, dict):
         return index
-    version = spec.get(_SCHEMA_VERSION)
-    if isinstance(version, int) and not isinstance(version, bool):
-        index.schema_version = version
-    own_data_model_id = _str_or_none(spec.get(_DATA_MODEL_ID))
+    index.schema_version = _valid(_SCHEMA_VERSION, spec.get("schemaVersion"))
+    own_data_model_id = _valid(_NON_BLANK, spec.get(_DATA_MODEL_ID))
     walked = _iter_spec_elements(spec)
     index.structure_readable = walked.readable
-    elements = walked.elements
+    elements = [(raw, _Element.model_validate(raw)) for raw in walked.elements]
     parameters = frozenset(
-        control_id
-        for element in elements
-        if _is_control(element)
-        for control_id in [_str_or_none(element.get(_CONTROL_ID))]
-        if control_id
+        element.controlId
+        for _, element in elements
+        if element.kind == _CONTROL_ELEMENT_KIND and element.controlId
     )
 
-    for element in elements:
+    for raw, element in elements:
         index.element_count += 1
-        # An element with no source (a text box) has no lineage, nor does a
-        # control, whose source only binds its value to a column.
-        if _is_control(element):
+        # A control's source only binds its value to a column.
+        if element.kind == _CONTROL_ELEMENT_KIND:
             continue
-        if _SOURCE not in element:
+        if _SOURCE not in raw:
             # A text box has no source; a table element always does.
-            if _element_kind(element) == _TABLE_ELEMENT_KIND:
+            if element.kind == _TABLE_ELEMENT_KIND:
                 index.unrecognised_element_count += 1
             continue
         index.sourced_element_count += 1
-        source = element.get(_SOURCE)
-        if not isinstance(source, dict):
+        source = raw[_SOURCE]
+        source_kind = _model(_SourceKind, source)
+        if element.id is None or source_kind is None or not source_kind.kind:
             index.unrecognised_element_count += 1
             continue
-        element_id = _str_or_none(element.get(_ID))
-        raw_kind = source.get(_KIND)
-        kind = raw_kind.strip().lower() if isinstance(raw_kind, str) else ""
-        if element_id is None or not kind:
-            index.unrecognised_element_count += 1
-            continue
+        element_id = element.id
+        kind = source_kind.kind
         if kind == _UNION_KIND:
             union = _read_union(
                 source,
@@ -583,26 +726,16 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
             if not union.readable:
                 index.unreadable_union_element_ids.append(element_id)
         elif kind == _JOIN_KIND:
-            joins = source.get(_JOINS)
-            if not isinstance(joins, list):
-                index.unreadable_join_element_ids.append(element_id)
-                continue
-            # Judged per join: one readable join must not hide a broken one.
-            readable = True
-            multi_segment_refs = False
-            for join in joins:
-                read = _read_join(
-                    join,
-                    join_element_id=element_id,
-                    parameters=parameters,
-                    own_data_model_id=own_data_model_id,
-                )
-                index.pairs.extend(read.predicates)
-                readable = readable and read.readable
-                multi_segment_refs = multi_segment_refs or read.multi_segment_refs
-            if multi_segment_refs:
+            joins = _read_join_element(
+                source,
+                element_id=element_id,
+                parameters=parameters,
+                own_data_model_id=own_data_model_id,
+            )
+            index.pairs.extend(joins.predicates)
+            if joins.multi_segment_refs:
                 index.multi_segment_ref_element_ids.append(element_id)
-            if not readable:
+            if not joins.readable:
                 index.unreadable_join_element_ids.append(element_id)
         elif kind in _UNMAPPED_KINDS:
             index.unmapped_element_ids.setdefault(kind, []).append(element_id)
