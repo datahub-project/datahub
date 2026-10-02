@@ -1,7 +1,6 @@
-import itertools
 import re
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, TypeVar
+from typing import Callable, Dict, Iterator, List, Optional
 
 import requests
 from databricks.sdk import WorkspaceClient
@@ -16,6 +15,11 @@ from databricks.sql import connect
 from databricks.sql.exc import Error as SqlConnectorError, ServerOperationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import (
+    PersonalWithholding,
+    ProbeProviderBase,
+    take,
+)
 from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
     QueryBudget,
@@ -88,27 +92,6 @@ _HIVE_NOT_PROBED = (
 )
 
 
-_T = TypeVar("_T")
-
-
-def _take(
-    source: Iterable[_T], limit: int, keep: Callable[[_T], bool] = lambda _: True
-) -> List[_T]:
-    """The first `limit` items `keep` admits, stopping the SDK's paging there.
-
-    Closes the source explicitly rather than leaving an abandoned generator to
-    the garbage collector: proxy.tables patches the SDK's TableInfo class for
-    as long as its loop is suspended.
-    """
-    iterator = iter(source)
-    try:
-        return list(itertools.islice(filter(keep, iterator), limit))
-    finally:
-        close = getattr(iterator, "close", None)
-        if callable(close):
-            close()
-
-
 def _describe_failure(exc: BaseException) -> str:
     """What failed, without the SDK's message.
 
@@ -149,7 +132,7 @@ class _Degraded(Exception):
     raised it, after the reason was recorded as a warning; never propagated."""
 
 
-class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
+class UnityCatalogMetadataProbe(ProbeProviderBase, SqlCatalogPassthrough):
     """Metadata-only probe for Databricks Unity Catalog.
 
     Enumerates through UnityCatalogApiProxy -- the REST fetchers ingestion
@@ -161,7 +144,6 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
 
     sql_dialect = "databricks"
     query_budget = QueryBudget(timeout_seconds=30)
-    warnings: List[str]
 
     def __init__(
         self, workspace_client: WorkspaceClient, config: UnityCatalogSourceConfig
@@ -177,8 +159,6 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             hive_metastore_proxy=None,
             databricks_api_page_size=config.databricks_api_page_size,
         )
-        self._sql_connection: Optional[Any] = None
-        self.warnings = []
 
     @classmethod
     def for_config(
@@ -201,16 +181,6 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
     @property
     def probe_report(self) -> UnityCatalogReport:
         return self._report
-
-    def __exit__(self, *exc: object) -> None:
-        # WorkspaceClient holds nothing closable; only `sql` opens a connection.
-        if self._sql_connection is not None:
-            connection, self._sql_connection = self._sql_connection, None
-            connection.close()
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     @contextmanager
     def _calling(self, operation: str, missing: Optional[str] = None) -> Iterator[None]:
@@ -284,8 +254,10 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
 
         try:
             with self._calling("listing catalogs"):
-                listed = _take(
-                    self._proxy.catalogs(metastore=None), limit - len(names), unseen
+                listed = take(
+                    self._proxy.catalogs(metastore=None),
+                    limit - len(names),
+                    keep=unseen,
                 )
                 names.extend(catalog.name for catalog in listed)
         except _Degraded:
@@ -378,7 +350,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         try:
             catalog_obj = self._catalog(catalog)
             with self._calling(f"listing schemas of catalog '{catalog}'"):
-                return [s.name for s in _take(self._proxy.schemas(catalog_obj), limit)]
+                return [s.name for s in take(self._proxy.schemas(catalog_obj), limit)]
         except _Degraded:
             return []
 
@@ -403,7 +375,8 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 missing=f"schema '{catalog}.{schema}'",
             ):
                 return [
-                    t.name for t in _take(self._proxy.tables(schema_obj), limit, keep)
+                    t.name
+                    for t in take(self._proxy.tables(schema_obj), limit, keep=keep)
                 ]
         except _Degraded:
             return []
@@ -487,31 +460,31 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         warnings, because those paths name people. Paths only, never notebook
         source. Walks the workspace tree, so a large workspace is slow; the
         walk stops at `limit`."""
-        withheld = 0
-
-        def shown(notebook: Notebook) -> bool:
-            nonlocal withheld
-            if _is_shared_path(notebook.path) or self._ingests_notebook(notebook.path):
-                return True
-            withheld += 1
-            return False
-
+        withholding = PersonalWithholding[Notebook](
+            # Fail-closed: anything not provably under /Shared/ counts as
+            # personal.
+            is_personal=lambda n: not _is_shared_path(n.path),
+            would_ingest=lambda n: self._ingests_notebook(n.path),
+        )
         try:
             with self._calling("listing workspace notebooks"):
                 paths = [
                     n.path
-                    for n in _take(self._proxy.workspace_notebooks(), limit, shown)
+                    for n in take(
+                        self._proxy.workspace_notebooks(),
+                        limit,
+                        keep=withholding.keep,
+                    )
                 ]
         except _Degraded:
             return []
-        if withheld:
-            # A walk that filled the limit stopped early, so more may follow.
-            count = f"at least {withheld}" if len(paths) >= limit else str(withheld)
+        if withholding.withheld:
+            count = withholding.count_text(stopped_early=len(paths) >= limit)
             self._warn(
-                f"{count} notebook{'' if withheld == 1 else 's'} outside /Shared/ "
-                f"withheld: ingestion would not read them with this recipe, and "
-                f"paths outside the shared folder (user folders, personal repos) "
-                f"name people"
+                f"{count} notebook{'' if withholding.withheld == 1 else 's'} "
+                f"outside /Shared/ withheld: ingestion would not read them with "
+                f"this recipe, and paths outside the shared folder (user "
+                f"folders, personal repos) name people"
             )
         return paths
 
@@ -548,19 +521,22 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 "the recipe to use it (the other probe commands do not need one)"
             )
         try:
-            if self._sql_connection is None:
-                # The params ingestion's own SQL reads use
-                # (proxy._execute_sql_query), so auth and user-agent match.
-                # STATEMENT_TIMEOUT is Databricks SQL's server-side ceiling in
-                # seconds: abandoning the cursor client-side would leave the
-                # warehouse running -- and billing -- the statement.
-                self._sql_connection = connect(
+            # The params ingestion's own SQL reads use
+            # (proxy._execute_sql_query), so auth and user-agent match.
+            # STATEMENT_TIMEOUT is Databricks SQL's server-side ceiling in
+            # seconds: abandoning the cursor client-side would leave the
+            # warehouse running -- and billing -- the statement.
+            connection = self._open_once(
+                "sql-warehouse",
+                lambda: connect(
                     **get_sql_connection_params(self._client),
                     session_configuration={
                         "STATEMENT_TIMEOUT": str(self.query_budget.timeout_seconds)
                     },
-                )
-            with self._sql_connection.cursor() as cursor:
+                ),
+                close=lambda c: c.close(),
+            )
+            with connection.cursor() as cursor:
                 cursor.execute(query)
                 rows = cursor.fetchmany(limit)
                 columns = [d[0] for d in cursor.description or []]
