@@ -57,6 +57,12 @@ def report_redshift_failure(
                 message="Failed to extract metadata due to insufficient permissions.",
                 exc=e,
             )
+    elif "could not open relation with oid" in error_message:
+        report.warning(
+            title="Transient catalog error",
+            message="Failed to extract some metadata because a referenced relation was concurrently dropped or recreated on the Redshift cluster (e.g. by a CTAS-and-swap ETL job). This is usually a transient catalog-race condition and may resolve on the next scheduled run.",
+            exc=e,
+        )
     else:
         report.failure(
             title="Failed to extract some metadata",
