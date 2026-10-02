@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Callable, Dict, List, cast
+from typing import Callable, Dict, List, Optional, cast
 
 import pytest
 from click.testing import CliRunner
@@ -16,7 +16,9 @@ from datahub.ingestion.agent.error_policy import (
     withhold_foreign_text,
 )
 from datahub.ingestion.agent.probe_methods import (
+    BARE_FLAG,
     ProbeMethodResult,
+    ProbeParam,
     probe_method,
     run_probe_method,
 )
@@ -360,7 +362,66 @@ def test_an_unsupported_command_is_a_trusted_argument_error(run: RunFn) -> None:
     with pytest.raises(ProbeArgumentError) as info:
         run("not-implemented")
     assert "does not support the 'things' command" in str(info.value)
+    # Any source can lack a command; the wording names no kind of source.
+    assert "SQL" not in str(info.value)
     assert SENTINEL not in str(info.value)
+    assert info.value.__cause__ is None
+
+
+@pytest.mark.parametrize(
+    "command, kwargs, env",
+    [
+        ("things", {}, {"DATAHUB_PROBE_DISABLED": "true"}),
+        ("nosuch", {}, {}),
+        ("things", {"bogus": "1"}, {}),
+        ("sql", {}, {}),
+        ("sql", {"query": "SELECT 1"}, {"DATAHUB_PROBE_DISABLE_RAW_ACCESS": "true"}),
+    ],
+)
+def test_the_frameworks_own_refusals_are_trusted_argument_errors(
+    run: RunFn,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    kwargs: Dict[str, object],
+    env: Dict[str, str],
+) -> None:
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    with pytest.raises(ProbeArgumentError):
+        run_probe_method("fake", {"mode": ""}, command, kwargs)
+
+
+class _Unbuildable:
+    @probe_method(name="things")
+    def things(self) -> List[str]:
+        """List things."""
+        return []
+
+
+@pytest.mark.parametrize("provider_cls", [None, _Unbuildable])
+def test_a_source_the_probe_cannot_build_is_refused_as_an_argument_error(
+    run: RunFn, monkeypatch: pytest.MonkeyPatch, provider_cls: Optional[type]
+) -> None:
+    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: provider_cls)
+    with pytest.raises(ProbeArgumentError):
+        run_probe_method("fake", {"mode": ""}, "things", {})
+
+
+@pytest.mark.parametrize(
+    "param, value",
+    [
+        (ProbeParam("name", "str", True), BARE_FLAG),
+        (ProbeParam("limit", "int", True), "many"),
+        (ProbeParam("limit", "int", True), ["1"]),
+        (ProbeParam("deep", "bool", True), "maybe"),
+    ],
+)
+def test_a_value_its_parameter_cannot_take_is_a_trusted_argument_error(
+    param: ProbeParam, value: object
+) -> None:
+    with pytest.raises(ProbeArgumentError) as info:
+        probe_methods._coerce(param, value)
+    assert param.name in str(info.value)
 
 
 @pytest.mark.parametrize(

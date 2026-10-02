@@ -511,7 +511,7 @@ BARE_FLAG = _BareFlag()
 def _coerce(param: ProbeParam, value: object) -> object:
     if value is BARE_FLAG:
         if param.type != "bool":
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"'--{param.name}' expects a {param.type} value but was given none"
             )
         return True
@@ -524,11 +524,16 @@ def _coerce(param: ProbeParam, value: object) -> object:
         # it the value reaches int() and the message degrades to whatever
         # TypeError says, which names neither the parameter nor the command.
         if not isinstance(value, (int, float, str)):
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"parameter '{param.name}' expects an int-coercible value, got "
                 f"{type(value).__name__}"
             )
-        return int(value)
+        try:
+            return int(value)
+        except ValueError:
+            raise ProbeArgumentError(
+                f"parameter '{param.name}' expects an int; got {value!r}"
+            ) from None
     if param.type == "bool":
         # Both directions named, and anything else refused. Reading an
         # unrecognised value as False silently narrowed the answer -- `--flag
@@ -540,7 +545,7 @@ def _coerce(param: ProbeParam, value: object) -> object:
             return True
         if text in ("0", "false", "no", "off"):
             return False
-        raise ValueError(
+        raise ProbeArgumentError(
             f"parameter '{param.name}' expects a boolean "
             f"(true/false, yes/no, on/off, 1/0); got {value!r}"
         )
@@ -551,13 +556,13 @@ def _coerce_kwargs(spec: ProbeMethodSpec, raw: Dict[str, object]) -> Dict[str, o
     by_name = {p.name: p for p in spec.params}
     unknown = set(raw) - set(by_name)
     if unknown:
-        raise ValueError(f"unknown parameter(s): {', '.join(sorted(unknown))}")
+        raise ProbeArgumentError(f"unknown parameter(s): {', '.join(sorted(unknown))}")
     out: Dict[str, object] = {}
     for p in spec.params:
         if p.name in raw:
             out[p.name] = _coerce(p, raw[p.name])
         elif p.required:
-            raise ValueError(f"missing required parameter '--{p.name}'")
+            raise ProbeArgumentError(f"missing required parameter '--{p.name}'")
     return out
 
 
@@ -659,7 +664,7 @@ def _refuse_withheld_passthrough(spec: ProbeMethodSpec, source_type: str) -> Non
         else f"'{source_type}' declares no other probe command, so its probe is "
         f"fully withheld here"
     )
-    raise ValueError(
+    raise ProbeArgumentError(
         f"probe command '{spec.command}' takes a caller-supplied query or "
         f"path, and raw probe access is switched off here "
         f"(DATAHUB_PROBE_DISABLE_RAW_ACCESS); {remaining}"
@@ -887,11 +892,11 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     method = _bound_method(provider, command)
     try:
         result = method(**call.call_kwargs)
-    except NotImplementedError as exc:
-        # A dialect that does not implement a reflection method raises this.
-        # Exit 3 would tell the caller the source was unreachable and send it
-        # to retry; the connection was fine and the engine has no such
-        # concept, so this is exit 2: the command was the wrong one to ask for.
+    except NotImplementedError:
+        # A source that lacks the concept raises this (a SQL dialect without
+        # a reflection method, say). Exit 3 would tell the caller the source
+        # was unreachable and send it to retry; the connection was fine, so
+        # this is exit 2: the command was the wrong one to ask for.
         #
         # Deliberately NOT backed by a per-dialect capability table. Everything
         # else about an unsupported command is already derivable by the caller:
@@ -900,11 +905,10 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
         # {"name": "partition", ...} because it reflects partition keys, which an
         # agent that knows Trino reads for what it is.
         raise ProbeArgumentError(
-            f"source '{source_type}' does not support the '{command}' command: "
-            f"its SQL dialect does not implement it. The source was reached "
-            f"fine -- this is a limit of the engine, so choose another command "
-            f"rather than retrying"
-        ) from exc
+            f"source '{source_type}' does not support the '{command}' command. "
+            f"The source was reached fine -- this is a limit of the source, so "
+            f"choose another command rather than retrying"
+        ) from None
     except _PASS_THROUGH:
         raise
     except BaseException as exc:
@@ -960,7 +964,7 @@ def run_probe_method(
     # and resolving the command first would make the refusal depend on
     # getting the name right.
     if get_probe_disabled():
-        raise ValueError(
+        raise ProbeArgumentError(
             "the probe is switched off here (DATAHUB_PROBE_DISABLED), so no "
             "command that connects to the source will run. The commands that "
             "need no connection still work: `recipe describe`, "
@@ -969,10 +973,10 @@ def run_probe_method(
         )
     provider_cls = _provider_class(source_type)
     if provider_cls is None:
-        raise ValueError(f"source '{source_type}' has no probe methods")
+        raise ProbeArgumentError(f"source '{source_type}' has no probe methods")
     specs = dict(_iter_specs(provider_cls))
     if command not in specs:
-        raise ValueError(
+        raise ProbeArgumentError(
             f"unknown probe method '{command}' for source '{source_type}'; "
             f"available: {', '.join(sorted(specs)) or '(none)'}"
         )
@@ -992,7 +996,7 @@ def run_probe_method(
     )
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
-        raise ValueError(
+        raise ProbeArgumentError(
             f"probe provider '{provider_cls.__name__}' for source "
             f"'{source_type}' has no for_config(config) classmethod, so it "
             f"cannot be built from the recipe"

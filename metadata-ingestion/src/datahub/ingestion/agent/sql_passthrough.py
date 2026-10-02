@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Sequence, TypeVar
 from datahub.ingestion.agent.probe_methods import clamp_item_limit, probe_method
 from datahub.ingestion.agent.redact import mask_identity_columns
 from datahub.ingestion.agent.sql_gate import CatalogScope
-from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeInternalError
 
 # `__enter__` must hand back the concrete provider, not this base: a caller writing
 # `with SqlAlchemyMetadataProbe(...) as probe` otherwise sees only the base's members
@@ -167,9 +167,12 @@ class SqlCatalogPassthrough:
         it, and do not fetch the whole result set to slice it afterwards -- on a
         paged API those discarded pages are real requests.
         """
-        raise NotImplementedError(
+        # ProbeInternalError, not NotImplementedError: the framework reads
+        # that as a command the source lacks (exit 2), and this is a provider
+        # that forgot its adapter (exit 1).
+        raise ProbeInternalError(
             f"{type(self).__name__} must implement execute_catalog_query to supply "
-            f"the `sql` probe command"
+            f"the `sql` probe command; this is a defect in the probe provider"
         )
 
     def __enter__(self: _SelfT) -> _SelfT:

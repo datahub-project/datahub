@@ -18,6 +18,7 @@ from datahub.ingestion.agent.sql_passthrough import (
     SqlCatalogPassthrough,
     rows_from_mappings,
 )
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 CATALOG_QUERY = "SELECT table_name FROM information_schema.tables"
 
@@ -91,7 +92,8 @@ def test_a_provider_that_forgets_the_adapter_says_so():
     class Forgetful(SqlCatalogPassthrough):
         sql_dialect = "postgres"
 
-    with pytest.raises(NotImplementedError, match="execute_catalog_query"):
+    # A provider defect (exit 1), not a command the source lacks (exit 2).
+    with pytest.raises(ProbeInternalError, match="execute_catalog_query"):
         Forgetful().sql(CATALOG_QUERY)
 
 
