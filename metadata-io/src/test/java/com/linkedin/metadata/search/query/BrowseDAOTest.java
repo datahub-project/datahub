@@ -139,6 +139,11 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
         .thenReturn(mockSearchResponse);
     List<String> nullBrowsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(nullBrowsePaths.size(), 0);
+
+    // Test the case of a removed browsePaths aspect, which leaves the field null
+    sourceMap.put("browsePaths", null);
+    when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
+    assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
   }
 
   @Test
@@ -295,11 +300,17 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testLegacyBrowseReadsV3WhenKeywordReadEnabled() throws Exception {
-    for (SearchRequest request : legacyBrowseRequests(v3Config(true))) {
+    List<SearchRequest> requests = legacyBrowseRequests(v3Config(true));
+    for (SearchRequest request : requests) {
       assertTrue(request.indices()[0].endsWith("datasetindex_v3"), request.indices()[0]);
       // Scoped to the entity type, as browseV2 is on V3
       assertTrue(request.source().query().toString().contains("_entityType"));
+      // Legacy browse reads the root fields, as on V2, never the _aspects copies
+      assertFalse(request.source().query().toString().contains("_aspects."));
     }
+    assertTrue(
+        requests.stream()
+            .anyMatch(r -> r.source().query().toString().contains("\"browsePaths.length\"")));
   }
 
   @Test
