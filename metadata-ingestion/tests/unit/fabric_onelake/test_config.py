@@ -157,6 +157,19 @@ class TestFabricOneLakeSourceConfig:
         assert config.extract_warehouses is False
         assert config.extract_schemas is False
 
+    def test_shortcuts_defaults(self) -> None:
+        """Shortcut detection is on by default; lineage is opt-in."""
+        config = FabricOneLakeSourceConfig(credential=AzureCredentialConfig())
+        assert config.shortcuts.enabled is True
+        assert config.shortcuts.include_lineage is False
+
+    def test_shortcut_lineage_requires_enabled(self) -> None:
+        with pytest.raises(ValidationError, match="shortcuts.enabled=True"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                shortcuts={"enabled": False, "include_lineage": True},
+            )
+
 
 class TestSqlEndpointDependencyValidator:
     """Tests for `validate_sql_endpoint_dependencies`.
