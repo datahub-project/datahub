@@ -54,7 +54,12 @@ _Metadata = Union[
 
 @dataclass
 class EmittedIndex:
-    """What one ingestion run emitted, as aspects by entity URN."""
+    """What one ingestion run emitted, as aspects by entity URN.
+
+    A PATCH proposal (or any MCPC that does not decode to a whole aspect)
+    records its URN with no aspect, so `urns(with_aspect=...)` and
+    `container_names` miss an aspect the run only ever patched.
+    """
 
     aspects: Dict[str, List[_Aspect]] = field(default_factory=dict)
 
@@ -112,7 +117,13 @@ class EmittedIndex:
     def container_names(self, sub_type: Optional[str] = None) -> Set[str]:
         """The containerProperties name of every emitted container, optionally
         only those whose subTypes include `sub_type`. Container URNs are
-        GUIDs, so the name is the only thing a listing can be compared on."""
+        GUIDs, so the name is the only thing a listing can be compared on.
+
+        Bare names: two same-named containers under different parents
+        collapse into one here. The listing side catches it, since a fanned
+        out listing's records with one bare name under two parents fail the
+        harness's identity check; qualify `emitted` and `identity` alike when
+        the fixture has such a pair."""
         names: Set[str] = set()
         for aspects in self.aspects.values():
             properties = next(
@@ -167,6 +178,11 @@ def by_name(record: JudgedRecord) -> str:
     return record.name
 
 
+def by_qualified_name(record: JudgedRecord) -> str:
+    """`parent_path` and `name` joined with ".", outermost first: "g1.a"."""
+    return ".".join((*record.parent_path, record.name))
+
+
 @dataclass(frozen=True)
 class FanOut:
     """Run the listing once per record of `parent_command`, every one of them
@@ -188,11 +204,22 @@ class ParityListing:
     emitted: Callable[[EmittedIndex], Set[str]]
     kwargs: Mapping[str, object] = field(default_factory=dict)
     fan_out: Optional[FanOut] = None
-    # Maps a judged record to the identity `emitted` returns.
-    identity: Callable[[JudgedRecord], str] = by_name
+    # Maps a judged record to the identity `emitted` returns. Left unset, it
+    # is `by_name`, or `by_qualified_name` when `fan_out` is set, since the
+    # same name under two parents is two objects.
+    identity: Optional[Callable[[JudgedRecord], str]] = None
     # True when the recipe switches this kind off, so ingestion emitting none
-    # is the expected answer rather than a vacuous one.
+    # is the expected answer rather than a vacuous one. The probe must still
+    # list something: an empty listing fails even so, because a kind the
+    # recipe switches off is still listed, and judged excluded, by the probe.
     expect_empty: bool = False
+
+    def identity_of(self, record: JudgedRecord) -> str:
+        if self.identity is not None:
+            return self.identity(record)
+        if self.fan_out is not None:
+            return by_qualified_name(record)
+        return by_name(record)
 
 
 @dataclass(frozen=True)
@@ -240,6 +267,12 @@ def _listing(
             f"{where} had values redacted because a fixture secret equals an "
             f"identifier; change the fixture's secret"
         )
+    if listing.run_warnings:
+        # A soft-degraded sub-fetch: the listing may be partial with no
+        # failure recorded, and a partial listing proves nothing.
+        raise AssertionError(
+            f"{where} warned, so the listing may be partial: {listing.run_warnings}"
+        )
     return listing
 
 
@@ -274,9 +307,7 @@ def _judge(
         )
         for verdict, attributes in zip(result.results, listing.attributes, strict=True)
     ]
-    # The run's own warnings travel with the listing, as `probe filter
-    # --from-run` reports them alongside its verdicts.
-    return records, [*result.warnings, *listing.run_warnings]
+    return records, list(result.warnings)
 
 
 def _judged(
@@ -314,17 +345,29 @@ def _compare(
     problems: List[str],
 ) -> KindParity:
     label = listing.label
-    verdicts: Dict[str, JudgedRecord] = {}
+    # Every record under each identity. Two distinct records merged into one
+    # identity hide a drift even when their verdicts agree: ingestion dropping
+    # one of them still emits the identity the other stands for.
+    grouped: Dict[str, List[JudgedRecord]] = {}
     for record in records:
-        identity = listing.identity(record)
-        first = verdicts.setdefault(identity, record)
-        if first.included != record.included:
+        grouped.setdefault(listing.identity_of(record), []).append(record)
+    for identity, group in sorted(grouped.items()):
+        keys = sorted({(*r.parent_path, r.name) for r in group})
+        if len(keys) > 1:
+            listed = ", ".join("/".join(key) for key in keys)
             problems.append(
-                f"{label}: '{identity}' was listed more than once with different "
-                f"verdicts; its identity function must tell those records apart"
+                f"{label}: '{identity}' names {len(keys)} distinct listing "
+                f"records ({listed}); its identity function must tell them apart"
             )
-    included = {i for i, r in verdicts.items() if r.included}
-    excluded_by = {i: r.excluded_by for i, r in verdicts.items() if not r.included}
+        elif len({r.included for r in group}) > 1:
+            problems.append(
+                f"{label}: '{identity}' was listed more than once with "
+                f"different verdicts"
+            )
+    included = {i for i, group in grouped.items() if group[0].included}
+    excluded_by = {
+        i: group[0].excluded_by for i, group in grouped.items() if not group[0].included
+    }
     if not records:
         problems.append(f"{label}: the probe listed nothing, so nothing was compared")
     elif not emitted and not listing.expect_empty:

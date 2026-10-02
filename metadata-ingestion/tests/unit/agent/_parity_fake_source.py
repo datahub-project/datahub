@@ -2,8 +2,9 @@
 
 Groups hold items; group_pattern and item_pattern filter them. Reachable by
 dotted path, so Pipeline, run_probe_method and check_filters resolve it with
-no monkeypatching. `drift` is read by ingestion only, which is how a test makes
-the two disagree on purpose.
+no monkeypatching. `drift` is read by ingestion only and `probe_drift` by the
+probe only, which is how a test makes the two disagree on purpose. Item "a"
+sits in both groups, so an identity that drops the parent collides.
 """
 
 from typing import Annotated, Dict, Iterable, List, Optional, Sequence
@@ -27,10 +28,13 @@ from datahub.metadata.schema_classes import (
 
 GROUP_KIND = "Group"
 ITEM_KIND = "Item"
-GROUPS: Dict[str, List[str]] = {"g1": ["a", "b"], "g2": ["c"]}
+GROUPS: Dict[str, List[str]] = {"g1": ["a", "b"], "g2": ["a", "c"]}
 # Ingestion-only behaviours; the probe never reads `drift`.
 IGNORE_ITEM_PATTERN = "ignore_item_pattern"
 DROP_ITEM_A = "drop_item_a"
+# Probe-only behaviours; ingestion never reads `probe_drift`.
+LIST_NOTHING = "list_nothing"
+SOFT_DEGRADE = "soft_degrade"
 
 
 class ItemsConfig(ConfigModel):
@@ -41,6 +45,9 @@ class ItemsConfig(ConfigModel):
         default=AllowDenyPattern.allow_all(), description="Items to ingest."
     )
     drift: Optional[str] = Field(default=None, description="Test-only drift.")
+    probe_drift: Optional[str] = Field(
+        default=None, description="Test-only drift in the probe."
+    )
     password: Optional[str] = Field(
         default=None, description="A secret, so a test can collide one with a name."
     )
@@ -55,9 +62,14 @@ class ItemsConfig(ConfigModel):
 
 
 class ItemsProbe:
+    def __init__(self, config: ItemsConfig) -> None:
+        self.config = config
+        # Read by run_probe_method: a degraded sub-fetch, not a failure.
+        self.warnings: List[str] = []
+
     @classmethod
     def for_config(cls, config: ItemsConfig) -> "ItemsProbe":
-        return cls()
+        return cls(config)
 
     def __enter__(self) -> "ItemsProbe":
         return self
@@ -73,6 +85,10 @@ class ItemsProbe:
     @probe_method(kind=ITEM_KIND, parent_params=("group",))
     def items(self, group: str) -> List[Dict[str, str]]:
         """Every item in one group, including ones the recipe drops."""
+        if self.config.probe_drift == LIST_NOTHING:
+            return []
+        if self.config.probe_drift == SOFT_DEGRADE:
+            self.warnings.append(f"could not read every item of {group}")
         return [{"name": item} for item in GROUPS[group]]
 
 

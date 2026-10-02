@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import List, Set
 
 import pytest
 
@@ -19,12 +19,15 @@ from tests.test_helpers.probe_parity import (
     JudgedRecord,
     ParityListing,
     assert_probe_parity,
+    by_name,
     pipeline_ingestion,
 )
 from tests.unit.agent._parity_fake_source import (
     DROP_ITEM_A,
     GROUP_KIND,
     IGNORE_ITEM_PATTERN,
+    LIST_NOTHING,
+    SOFT_DEGRADE,
     SOURCE_TYPE,
 )
 
@@ -56,7 +59,7 @@ def test_agreeing_source_passes_and_reports_each_exclusion(tmp_path: Path) -> No
         pipeline_ingestion(SOURCE_TYPE, tmp_path),
         [_GROUPS, _ITEMS],
     )
-    assert report.kinds["items"].included == {"g1.a", "g2.c"}
+    assert report.kinds["items"].included == {"g1.a", "g2.a", "g2.c"}
     assert report.excluded_by("items") == {"g1.b": "item_pattern"}
     assert report.excluded_by("groups") == {}
 
@@ -69,7 +72,10 @@ def test_children_of_a_dropped_parent_are_judged(tmp_path: Path) -> None:
         [_GROUPS, _ITEMS],
     )
     # Listed under the excluded g2 and excluded through it, not skipped.
-    assert report.excluded_by("items") == {"g2.c": "group_pattern"}
+    assert report.excluded_by("items") == {
+        "g2.a": "group_pattern",
+        "g2.c": "group_pattern",
+    }
 
 
 def test_an_object_ingestion_emits_but_the_probe_excludes_fails(
@@ -97,7 +103,7 @@ def test_an_object_the_probe_includes_but_ingestion_skips_fails(
 
 
 def test_an_empty_kind_fails_unless_expected(tmp_path: Path) -> None:
-    with pytest.raises(AssertionError, match="groups"):
+    with pytest.raises(AssertionError, match="groups: ingestion emitted none"):
         assert_probe_parity(
             SOURCE_TYPE,
             {"group_pattern": {"deny": [".*"]}},
@@ -132,7 +138,7 @@ def test_a_truncated_listing_is_refused(tmp_path: Path) -> None:
         emitted=lambda index: index.container_names(GROUP_KIND),
         kwargs={"limit": 1},
     )
-    with pytest.raises(AssertionError, match="limit"):
+    with pytest.raises(AssertionError, match="stopped at its limit"):
         assert_probe_parity(
             SOURCE_TYPE, {}, pipeline_ingestion(SOURCE_TYPE, tmp_path), [capped]
         )
@@ -149,20 +155,98 @@ def test_a_redacted_name_is_refused(tmp_path: Path) -> None:
         )
 
 
+_ONE_IDENTITY = ParityListing(
+    "items",
+    "items",
+    emitted=lambda index: {"same"} if index.urns("dataset") else set(),
+    fan_out=FanOut("groups", "group"),
+    identity=lambda record: "same",
+)
+
+
 def test_conflicting_verdicts_for_one_identity_fail(tmp_path: Path) -> None:
-    one_identity = ParityListing(
-        "items",
-        "items",
-        emitted=lambda index: {"same"},
-        fan_out=FanOut("groups", "group"),
-        identity=lambda record: "same",
-    )
-    with pytest.raises(AssertionError, match="different verdicts"):
+    with pytest.raises(AssertionError, match="distinct listing records"):
         assert_probe_parity(
             SOURCE_TYPE,
             {"item_pattern": {"deny": ["^b$"]}},
             pipeline_ingestion(SOURCE_TYPE, tmp_path),
-            [one_identity],
+            [_ONE_IDENTITY],
+        )
+
+
+def test_a_collapsing_identity_fails_even_when_the_verdicts_agree(
+    tmp_path: Path,
+) -> None:
+    # Every record includes and ingestion drops g1.a: merged into one
+    # identity, both sides say {"same"} and the drift would pass unseen.
+    with pytest.raises(AssertionError, match="distinct listing records"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"drift": DROP_ITEM_A},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_ONE_IDENTITY],
+        )
+
+
+def test_a_fanned_out_listing_qualifies_its_identity_by_parent(
+    tmp_path: Path,
+) -> None:
+    # No identity given: item "a" under g1 and under g2 stay two identities.
+    default_identity = ParityListing(
+        "items", "items", emitted=_item_names, fan_out=FanOut("groups", "group")
+    )
+    report = assert_probe_parity(
+        SOURCE_TYPE,
+        {"item_pattern": {"deny": ["^b$"]}},
+        pipeline_ingestion(SOURCE_TYPE, tmp_path),
+        [default_identity],
+    )
+    assert report.kinds["items"].included == {"g1.a", "g2.a", "g2.c"}
+
+
+def test_bare_names_under_a_fan_out_fail_on_the_shared_name(tmp_path: Path) -> None:
+    bare = ParityListing(
+        "items",
+        "items",
+        emitted=lambda index: {
+            DatasetUrn.from_string(urn).name.rsplit(".", 1)[-1]
+            for urn in index.urns("dataset")
+        },
+        fan_out=FanOut("groups", "group"),
+        identity=by_name,
+    )
+    with pytest.raises(AssertionError, match="'a' names 2 distinct listing records"):
+        assert_probe_parity(
+            SOURCE_TYPE, {}, pipeline_ingestion(SOURCE_TYPE, tmp_path), [bare]
+        )
+
+
+def test_a_listing_with_no_records_fails_even_when_expected_empty(
+    tmp_path: Path,
+) -> None:
+    switched_off = ParityListing(
+        "items",
+        "items",
+        emitted=_item_names,
+        fan_out=FanOut("groups", "group"),
+        expect_empty=True,
+    )
+    with pytest.raises(AssertionError, match="the probe listed nothing"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"item_pattern": {"deny": [".*"]}, "probe_drift": LIST_NOTHING},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [switched_off],
+        )
+
+
+def test_a_listing_the_run_warned_may_be_partial_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(AssertionError, match="may be partial"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"probe_drift": SOFT_DEGRADE},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_ITEMS],
         )
 
 
@@ -199,11 +283,4 @@ def test_emitted_index_reads_workunits_and_a_file_sink_alike(tmp_path: Path) -> 
         assert index.urns("dataset", with_aspect=SubTypesClass) == {
             make_dataset_urn("fake", "g1.a")
         }
-
-
-def test_emitted_index_by_type_is_keyed_by_urn() -> None:
-    index = EmittedIndex.from_workunits(_workunits())
-    by_type: Dict[str, int] = {
-        entity: len(index.urns(entity)) for entity in ("container", "dataset")
-    }
-    assert by_type == {"container": 1, "dataset": 2}
+        assert index.urns("container") == {make_container_urn("g1")}
