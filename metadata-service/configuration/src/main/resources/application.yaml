@@ -202,13 +202,6 @@ secretService:
   callerGuardMode: "${SECRET_SERVICE_CALLER_GUARD_MODE:ENFORCE}" # ENFORCE (default), AUDIT, or DISABLED (kill-switch)
 
 datahub:
-  # Process role: service | client | upgrade.
-  # GMS rejects any other role at startup, so DATAHUB_RUNTIME_ROLE cannot flip it.
-  # Standalone MCL/MCP force client at startup. Only datahub-upgrade reads DATAHUB_RUNTIME_ROLE.
-  # client and upgrade force the service caches off (entity graph, search cache, rate limits).
-  # Retention buffer and entity write lock stay in effect.
-  runtime:
-    role: service
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   serverEnv: ${DATAHUB_SERVER_ENV:core}
   # The base path for the URL where DataHub will be deployed

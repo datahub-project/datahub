@@ -5,7 +5,6 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
 import com.linkedin.metadata.config.ratelimit.RateLimitEffectiveConfig;
-import com.linkedin.metadata.config.runtime.RuntimeRole;
 import org.springframework.mock.env.MockEnvironment;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -125,51 +124,6 @@ public class HazelcastInstanceBootstrapConditionTest {
     MockEnvironment environment = new MockEnvironment();
     environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine");
     assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
-  }
-
-  @Test
-  public void testClientRoleSkipsServiceFeaturesEvenWhenGmsWouldBootIt() {
-    MockEnvironment environment = serviceFeatureEnvironment();
-    environment.setProperty(RuntimeRole.PROPERTY, "client");
-    assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, true));
-  }
-
-  @Test
-  public void testUpgradeRoleSkipsServiceFeatures() {
-    MockEnvironment environment = serviceFeatureEnvironment();
-    environment.setProperty(RuntimeRole.PROPERTY, "upgrade");
-    assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
-  }
-
-  @Test
-  public void testClientAndUpgradeBootInstanceForRetentionBuffer() {
-    for (String role : new String[] {"client", "upgrade"}) {
-      MockEnvironment environment = new MockEnvironment();
-      environment.setProperty(RuntimeRole.PROPERTY, role);
-      environment.setProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "true");
-      environment.setProperty(HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED, "true");
-      assertTrue(HazelcastInstanceBootstrapCondition.needsInstance(environment, false), role);
-    }
-  }
-
-  @Test
-  public void testClientAndUpgradeBootInstanceForWriteLock() {
-    for (String role : new String[] {"client", "upgrade"}) {
-      MockEnvironment environment = new MockEnvironment();
-      environment.setProperty(RuntimeRole.PROPERTY, role);
-      environment.setProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "hazelcast");
-      environment.setProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "true");
-      environment.setProperty(HazelcastBootstrapProperties.ENTITY_SERVICE_IMPL, "ebean");
-      assertTrue(HazelcastInstanceBootstrapCondition.needsInstance(environment, false), role);
-    }
-  }
-
-  private static MockEnvironment serviceFeatureEnvironment() {
-    MockEnvironment environment = new MockEnvironment();
-    environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "hazelcast");
-    environment.setProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "true");
-    environment.setProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "true");
-    return environment;
   }
 
   private boolean matches(MockEnvironment environment) {

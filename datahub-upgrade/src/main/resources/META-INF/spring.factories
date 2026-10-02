@@ -1,2 +1,0 @@
-org.springframework.boot.EnvironmentPostProcessor=\
-com.linkedin.datahub.upgrade.config.UpgradeRuntimeRolePostProcessor

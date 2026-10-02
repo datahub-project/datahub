@@ -8,7 +8,7 @@ description: Configure the unified entity hierarchy graph cache for View-Based A
 
 This guide explains how to enable, configure, and operate the **GMS entity graph cache** — a distributed cache of pre-built hierarchy snapshots used to expand domain (and other) relationships without repeated primary-storage or search scroll work on every request.
 
-**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on the `service` role via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). Standalone MCL/MCP (`datahub.runtime.role=client`) and datahub-upgrade (`upgrade` or `client`) force **`enabled=false`** at startup, including when `ENTITY_GRAPH_CACHE_ENABLED=true`, so [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
+**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). Standalone MCL (`SPRING_PROFILES_ACTIVE=mae`), MCP (`SPRING_PROFILES_ACTIVE=mce`), and datahub-upgrade (`SPRING_PROFILES_ACTIVE=upgrade`) default **`enabled=false`**. `ENTITY_GRAPH_CACHE_ENABLED` still overrides that default. When the flag is off, [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
 
 ## What this is — and is not
 
