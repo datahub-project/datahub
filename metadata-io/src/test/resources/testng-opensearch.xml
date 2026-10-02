@@ -14,6 +14,8 @@
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim"/>
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.impl"/>
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.builder.*"/>
+            <!-- Container-free in-memory queue store tests. -->
+            <package name="com.linkedin.metadata.queue.inmemory"/>
         </packages>
     </test>
 </suite>

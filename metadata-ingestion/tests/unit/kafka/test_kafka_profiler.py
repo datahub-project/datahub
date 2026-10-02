@@ -257,7 +257,7 @@ def test_profile_topic_recursion_error_handling():
     assert result.fieldProfiles
 
 
-def test_ge_profiling_config_inheritance():
+def test_profiling_config_inheritance():
     config = ProfilerConfig(
         enabled=True,
         turn_off_expensive_profiling_metrics=True,

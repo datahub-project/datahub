@@ -159,7 +159,9 @@ A dataset already catalogued as `Dataset` is reclassified to `Linked Dataset` on
 
 If `link_state` is present and reads anything other than `LINKED`, BigQuery is reporting the link as no longer live, and no lineage is emitted for that dataset. If BigQuery reports no `link_state` at all, lineage is still emitted, since an absent field is not evidence the link is dead. Either way the dataset and its properties are ingested, so the state is visible on the container.
 
-Lineage requires `include_table_lineage`, which is on by default. With it off, linked datasets are still catalogued with their source reference and link state, but no `COPY` edge is emitted.
+Lineage requires `include_table_lineage`, which is on by default. With it off, no `COPY` edge is emitted; the subtype and source properties are still emitted when `include_schema_metadata` is on.
+
+`include_schema_metadata` is not required for the `COPY` edge. When schema and lineage run in separate recipes, set `include_linked_dataset_lineage: true` in both: the lineage recipe (with `include_schema_metadata: false`) emits the `COPY` edge, while the `Linked Dataset` subtype and the source properties come from the schema recipe. The lineage recipe must have a graph configured and use the same `platform_instance` and `env` as the schema recipe; otherwise the consumer schema cannot be resolved and the `COPY` edge is table-level only. The 1:1 column mapping is read back through the graph from the schema recipe's output.
 
 Set `extract_subscriptions_from_analytics_hub: true` to additionally record the listing and subscription state. That reads the BigQuery Sharing API and needs `analyticshub.subscriptions.list`; see Prerequisites.
 
@@ -184,6 +186,7 @@ You can set partition explicitly with `partition.partition_datetime` property if
 #### Caveats
 
 - For materialized views, lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.
+- For materialized views, DataHub can report the number of rows **currently materialized** (and the materialized size) as dataset statistics. This is sourced from BigQuery catalog metadata (`tables.get`) and does not require `profiling.enabled`; it can differ from `SELECT COUNT(*)` on the underlying base tables. The same call also populates the view's last-modified time, so enabling this affects `lastModified` in dataset properties as well as the stats panel. This is **opt-in** (`include_materialized_view_stats`, default `false`); views excluded by `profile_pattern` (or `view_pattern`) are skipped entirely — no metadata call is made for them. Set `include_materialized_view_stats: true` to enable these per-view metadata calls (capped at 1000 materialized views per dataset).
 
 ### Limitations
 

@@ -39,14 +39,6 @@ const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
-const StatusSection = styled.div`
-    padding: 16px 20px 16px 0;
-`;
-
-const IngestedAssetsSection = styled.div`
-    padding: 16px 20px 16px 0;
-`;
-
 export const SummaryTab = ({
     urn,
     status,
@@ -91,18 +83,18 @@ export const SummaryTab = ({
     return (
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
-                <StatusSection>
+                <SectionBase>
                     {!structuredReport && resultSummaryText && (
                         <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     )}
                     {structuredReport && <StructuredReport report={structuredReport} />}
-                </StatusSection>
+                </SectionBase>
             )}
-            <IngestedAssetsSection>
+            <SectionBase>
                 {data?.executionRequest?.id && (
                     <IngestedAssets executionResult={result} id={data?.executionRequest?.id} urn={urn} />
                 )}
-            </IngestedAssetsSection>
+            </SectionBase>
             <SectionBase>
                 <Heading type="h4" size="lg" weight="bold">
                     {t('executions.logsTitle')}

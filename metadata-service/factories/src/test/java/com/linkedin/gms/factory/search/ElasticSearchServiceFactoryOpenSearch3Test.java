@@ -12,7 +12,8 @@ import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.metadata.config.search.DocIdsConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityDocIdConfiguration;
-import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -92,10 +93,12 @@ public class ElasticSearchServiceFactoryOpenSearch3Test {
     schemaField.setHashIdEnabled(hashIdEnabled);
     DocIdsConfiguration docIds = new DocIdsConfiguration();
     docIds.setSchemaField(schemaField);
-    IndexConfiguration index = new IndexConfiguration();
-    index.setDocIds(docIds);
+    EntityIndexVersionConfiguration v2 = new EntityIndexVersionConfiguration();
+    v2.setDocIds(docIds);
+    EntityIndexConfiguration entityIndex = new EntityIndexConfiguration();
+    entityIndex.setV2(v2);
     ElasticSearchConfiguration configuration = new ElasticSearchConfiguration();
-    configuration.setIndex(index);
+    configuration.setEntityIndex(entityIndex);
     return configuration;
   }
 }

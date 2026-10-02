@@ -74,6 +74,7 @@
     "levelFilter.indirectTooltip": "Show indirectly related data assets",
     "manageLineage.changeToHome": "Change to Home",
     "manageLineage.dashboardNoDownstream": "Dashboard entities have no downstream lineage",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "Make this entity your home to make downstream edits.",
     "manageLineage.editDownstream": "Edit Downstream",
     "manageLineage.editUpstream": "Edit Upstream",

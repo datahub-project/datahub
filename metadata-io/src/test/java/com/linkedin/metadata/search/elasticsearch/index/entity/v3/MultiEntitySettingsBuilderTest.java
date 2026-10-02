@@ -6,9 +6,14 @@ import static org.testng.Assert.*;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -389,5 +394,78 @@ public class MultiEntitySettingsBuilderTest {
     // Verify that isV3EntityIndex was called for each index
     verify(indexConvention).isV3EntityIndexType(eq("datasetindex_v3"));
     verify(indexConvention).isV3EntityIndexType(eq("datasetindex_v2"));
+  }
+
+  @Test
+  public void testOpenSearchAddsKnnOnDocumentV3WhenSemanticEnabled() throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("");
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("documentindex_v3")).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType("datasetindex_v3")).thenReturn(true);
+
+    SearchClientShim<?> osShim = mock(SearchClientShim.class);
+    when(osShim.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_2);
+
+    MultiEntitySettingsBuilder builder =
+        new MultiEntitySettingsBuilder(
+            entityIndexConfiguration, indexConvention, osShim, documentSemanticConfig());
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+
+    Map<String, Object> documentSettings =
+        builder.getSettings(indexConfiguration, "documentindex_v3");
+    assertEquals(documentSettings.get("knn"), true);
+
+    Map<String, Object> datasetSettings =
+        builder.getSettings(indexConfiguration, "datasetindex_v3");
+    assertFalse(datasetSettings.containsKey("knn"));
+  }
+
+  @Test
+  public void testElasticsearchOmitsIndexKnnOnDocumentV3() throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("");
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("documentindex_v3")).thenReturn(true);
+
+    for (SearchEngineType engine :
+        new SearchEngineType[] {
+          SearchEngineType.ELASTICSEARCH_8, SearchEngineType.ELASTICSEARCH_9
+        }) {
+      SearchClientShim<?> esShim = mock(SearchClientShim.class);
+      when(esShim.getEngineType()).thenReturn(engine);
+      MultiEntitySettingsBuilder builder =
+          new MultiEntitySettingsBuilder(
+              entityIndexConfiguration, indexConvention, esShim, documentSemanticConfig());
+      Map<String, Object> settings =
+          builder.getSettings(
+              IndexConfiguration.builder().minSearchFilterLength(3).build(), "documentindex_v3");
+      assertFalse(settings.containsKey("knn"), "ES must not set index.knn: " + engine);
+    }
+  }
+
+  @Test
+  public void testOpenSearch3AddsKnnOnDocumentV3() throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("");
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("documentindex_v3")).thenReturn(true);
+    SearchClientShim<?> os3 = mock(SearchClientShim.class);
+    when(os3.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_3);
+    MultiEntitySettingsBuilder builder =
+        new MultiEntitySettingsBuilder(
+            entityIndexConfiguration, indexConvention, os3, documentSemanticConfig());
+    Map<String, Object> settings =
+        builder.getSettings(
+            IndexConfiguration.builder().minSearchFilterLength(3).build(), "documentindex_v3");
+    assertEquals(settings.get("knn"), true);
+  }
+
+  private static SemanticSearchConfiguration documentSemanticConfig() {
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    config.setModels(Map.of("cohere_embed_v3", model));
+    return config;
   }
 }

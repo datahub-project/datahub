@@ -95,6 +95,9 @@ fragment dataProductSearchFields on DataProduct {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
     deprecation {
         ...deprecationFields
     }

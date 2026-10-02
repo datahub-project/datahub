@@ -50,7 +50,7 @@ env:
 jobs:
   handle-pr:
     if: github.event_name == 'pull_request_target'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 5
     steps:
@@ -339,7 +339,7 @@ jobs:
 
   handle-issue:
     if: github.event_name == 'issues'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 5
     steps:

@@ -23,6 +23,7 @@ dependencies {
     // stamped on ExecutionRequestInput. The `dataTemplate` configuration exposes the generated
     // Java classes; metadata-models has no dependency on this module, so no cycle.
     implementation project(path: ':metadata-models', configuration: 'dataTemplate')
+    api project(':li-utils')
 
     implementation externalDependency.slf4jApi
 
@@ -67,7 +68,6 @@ tasks.register('productUpdateReleaseSyncCheck', Test) {
     group = 'verification'
     testClassesDirs = sourceSets.productUpdateCiGate.output.classesDirs
     classpath = sourceSets.productUpdateCiGate.runtimeClasspath
-    include '**/productupdate/ProductUpdateReleaseSyncTest.class'
     inputs.files productUpdateInputs
     outputs.file(productUpdateStamp)
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath

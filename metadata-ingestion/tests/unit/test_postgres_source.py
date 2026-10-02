@@ -2,16 +2,13 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import (
     CIDR,
-    DATERANGE,
+    CITEXT,
+    INT4MULTIRANGE,
     INT4RANGE,
-    INT8RANGE,
-    NUMRANGE,
-    TSRANGE,
-    TSTZRANGE,
+    TSTZMULTIRANGE,
     base as pg_base,
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
@@ -25,21 +22,12 @@ from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.postgres.source import (
     BOX,
     CIRCLE,
-    CITEXT,
-    DATEMULTIRANGE,
-    HALFVEC,
-    INT4MULTIRANGE,
-    INT8MULTIRANGE,
     LINE,
     LSEG,
     LTREE,
-    NUMMULTIRANGE,
     PATH,
     POINT,
     POLYGON,
-    SPARSEVEC,
-    TSMULTIRANGE,
-    TSTZMULTIRANGE,
     VECTOR,
     XML,
 )
@@ -72,7 +60,10 @@ def test_initial_database(create_engine_mock):
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_get_inspectors_multiple_databases(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-    execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
+    execute_mock.return_value.mappings.return_value = [
+        {"datname": "db1"},
+        {"datname": "db2"},
+    ]
 
     config = PostgresConfig.model_validate(
         {**_base_config(), "initial_database": "db0"}
@@ -109,6 +100,64 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
     assert create_engine_mock.call_args_list[0][0][0] == "custom_url"
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_engines_default_to_autocommit(create_engine_mock):
+    # On SA 2.0 a failed statement would otherwise abort the autobegun
+    # transaction and fail every later query on the connection (25P02).
+    execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+    execute_mock.return_value.mappings.return_value = [{"datname": "db1"}]
+
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "options": {"pool_size": 3}}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+
+    # Both the initial-database engine and the per-database engine.
+    assert create_engine_mock.call_count == 2
+    for call in create_engine_mock.call_args_list:
+        assert call.kwargs == {"isolation_level": "AUTOCOMMIT", "pool_size": 3}
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_user_isolation_level_overrides_autocommit_default(create_engine_mock):
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "database": "custom_db",
+            "options": {"isolation_level": "REPEATABLE READ"},
+        }
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+
+    assert create_engine_mock.call_args.kwargs == {"isolation_level": "REPEATABLE READ"}
+
+
+def test_view_names_include_materialized_views():
+    # SA 2.0's PG get_view_names() omits materialized views (1.4 included them).
+    source = PostgresSource(
+        PostgresConfig.model_validate(_base_config()), PipelineContext(run_id="test")
+    )
+    inspector = mock.MagicMock()
+    inspector.get_view_names.return_value = ["v1", "mv_shared"]
+    inspector.get_materialized_view_names.return_value = ["mv1", "mv_shared"]
+
+    assert source._get_view_names(inspector, "public") == ["v1", "mv_shared", "mv1"]
+
+
+def test_view_names_survive_materialized_view_listing_failure():
+    source = PostgresSource(
+        PostgresConfig.model_validate(_base_config()), PipelineContext(run_id="test")
+    )
+    inspector = mock.MagicMock()
+    inspector.get_view_names.return_value = ["v1"]
+    inspector.get_materialized_view_names.side_effect = RuntimeError("boom")
+
+    assert source._get_view_names(inspector, "public") == ["v1"]
+    assert source.report.warnings
 
 
 def test_database_in_identifier():
@@ -394,68 +443,49 @@ def test_postgres_special_types_map_to_datahub_types():
     multirange columns must map to real DataHub types instead of NullType
     (#18575).
     """
-    # Reflection resolves these through ischema_names; the placeholders (or a
-    # real implementation such as pgvector's) must be registered there.
-    for ischema_key in (
-        "vector",
-        "halfvec",
-        "sparsevec",
-        "point",
-        "line",
-        "lseg",
-        "box",
-        "path",
-        "polygon",
-        "circle",
-        "xml",
-        "ltree",
-        "citext",
-        "int4multirange",
-        "int8multirange",
-        "nummultirange",
-        "datemultirange",
-        "tsmultirange",
-        "tstzmultirange",
-    ):
-        assert ischema_key in pg_base.ischema_names
-
-    cases = [
-        (Geometry(), BytesTypeClass),
-        (Geography(), BytesTypeClass),
-        (Raster(), BytesTypeClass),
-        (VECTOR(), ArrayTypeClass),
-        (HALFVEC(), ArrayTypeClass),
-        (SPARSEVEC(), ArrayTypeClass),
-        (POINT(), BytesTypeClass),
-        (LINE(), BytesTypeClass),
-        (LSEG(), BytesTypeClass),
-        (BOX(), BytesTypeClass),
-        (PATH(), BytesTypeClass),
-        (POLYGON(), BytesTypeClass),
-        (CIRCLE(), BytesTypeClass),
-        (XML(), StringTypeClass),
-        (LTREE(), StringTypeClass),
-        (CITEXT(), StringTypeClass),
-        (CIDR(), StringTypeClass),
-        (INT4RANGE(), StringTypeClass),
-        (INT8RANGE(), StringTypeClass),
-        (NUMRANGE(), StringTypeClass),
-        (DATERANGE(), StringTypeClass),
-        (TSRANGE(), StringTypeClass),
-        (TSTZRANGE(), StringTypeClass),
-        (INT4MULTIRANGE(), StringTypeClass),
-        (INT8MULTIRANGE(), StringTypeClass),
-        (NUMMULTIRANGE(), StringTypeClass),
-        (DATEMULTIRANGE(), StringTypeClass),
-        (TSMULTIRANGE(), StringTypeClass),
-        (TSTZMULTIRANGE(), StringTypeClass),
-    ]
+    # Resolve through ischema_names, as reflection does, rather than through
+    # DataHub's placeholders: when SQLAlchemy ships a native class for a name
+    # (e.g. the multiranges and CITEXT on 2.0) the placeholder is never used,
+    # and only the native class's mapping matters.
+    expected_by_ischema_name = {
+        "geometry": BytesTypeClass,
+        "geography": BytesTypeClass,
+        "raster": BytesTypeClass,
+        "vector": ArrayTypeClass,
+        "halfvec": ArrayTypeClass,
+        "sparsevec": ArrayTypeClass,
+        "point": BytesTypeClass,
+        "line": BytesTypeClass,
+        "lseg": BytesTypeClass,
+        "box": BytesTypeClass,
+        "path": BytesTypeClass,
+        "polygon": BytesTypeClass,
+        "circle": BytesTypeClass,
+        "xml": StringTypeClass,
+        "ltree": StringTypeClass,
+        "citext": StringTypeClass,
+        "cidr": StringTypeClass,
+        "int4range": StringTypeClass,
+        "int8range": StringTypeClass,
+        "numrange": StringTypeClass,
+        "daterange": StringTypeClass,
+        "tsrange": StringTypeClass,
+        "tstzrange": StringTypeClass,
+        "int4multirange": StringTypeClass,
+        "int8multirange": StringTypeClass,
+        "nummultirange": StringTypeClass,
+        "datemultirange": StringTypeClass,
+        "tsmultirange": StringTypeClass,
+        "tstzmultirange": StringTypeClass,
+    }
 
     report = SQLSourceReport()
-    for column_type, expected_class in cases:
+    for ischema_name, expected_class in expected_by_ischema_name.items():
+        column_type = pg_base.ischema_names[ischema_name]()
         actual = get_column_type(report, "test_dataset", column_type)
         assert isinstance(actual.type, expected_class), (
-            f"{column_type!r} mapped to {actual.type}, expected {expected_class.__name__}"
+            f"{ischema_name} ({column_type!r}) mapped to {actual.type}, "
+            f"expected {expected_class.__name__}"
         )
 
     # None of these should have hit the "Unable to map" fallback.
@@ -480,10 +510,6 @@ def test_postgres_special_types_preserve_native_names():
         LTREE: "LTREE",
         CITEXT: "CITEXT",
         INT4MULTIRANGE: "INT4MULTIRANGE",
-        INT8MULTIRANGE: "INT8MULTIRANGE",
-        NUMMULTIRANGE: "NUMMULTIRANGE",
-        DATEMULTIRANGE: "DATEMULTIRANGE",
-        TSMULTIRANGE: "TSMULTIRANGE",
         TSTZMULTIRANGE: "TSTZMULTIRANGE",
     }
     for column_type_cls, native in expected_native.items():

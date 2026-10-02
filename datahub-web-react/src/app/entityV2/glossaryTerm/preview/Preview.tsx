@@ -1,15 +1,11 @@
 import React, { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import UrlButton from '@app/entityV2/shared/UrlButton';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { Deprecation, Domain, EntityType, GlossaryTerm, Owner, ParentNodesResult } from '@types';
 
@@ -36,7 +32,6 @@ export const Preview = ({
     domain?: Domain | undefined;
     headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
-    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const iconEntity = useMemo(
         () =>
@@ -63,11 +58,6 @@ export const Preview = ({
             deprecation={deprecation}
             parentEntities={parentNodes?.nodes}
             domain={domain}
-            entityTitleSuffix={
-                <UrlButton href={resolveRuntimePath(getRelatedAssetsUrl(entityRegistry, urn))}>
-                    {t('glossaryTerm.viewRelatedAssets')}
-                </UrlButton>
-            }
             headerDropdownItems={headerDropdownItems}
         />
     );

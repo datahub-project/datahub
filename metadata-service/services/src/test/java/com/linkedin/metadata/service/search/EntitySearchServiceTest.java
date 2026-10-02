@@ -35,7 +35,6 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.NotImplementedException;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.action.explain.ExplainResponse;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -360,9 +359,9 @@ public class EntitySearchServiceTest {
 
     @Override
     public boolean validateAndSwapAlias(
-        @NonNull OperationContext opContext,
-        @NonNull String aliasName,
-        @NonNull String newBackingIndex,
+        @Nonnull OperationContext opContext,
+        @Nonnull String aliasName,
+        @Nonnull String newBackingIndex,
         long expectedSourceDocCount)
         throws Exception {
       return false;

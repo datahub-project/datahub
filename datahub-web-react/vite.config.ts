@@ -87,6 +87,7 @@ export default defineConfig(async ({ mode }) => {
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
+    const isCI = process.env.CI === 'true';
 
     let antThemeConfig: any;
     if (process.env.ANT_THEME_CONFIG) {
@@ -209,6 +210,13 @@ export default defineConfig(async ({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            // Emit dist/.vite/manifest.json so the Play server can map entrypoints to
+            // hashed filenames. Distinct from the PWA file at dist/manifest.json.
+            manifest: true,
+            // Emit .map files without a sourceMappingURL comment, so browsers do not
+            // request maps from the public asset host. `vite build --sourcemap`
+            // (-Psourcemap, used by Cloudflare Pages) overrides this to linked maps.
+            sourcemap: 'hidden',
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
@@ -258,6 +266,10 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            testTimeout: 60000, // 60 seconds timeout for individual tests
+            hookTimeout: 30000, // 30 seconds timeout for hooks
+            teardownTimeout: 15000, // 15 seconds timeout for teardown
+            ...(isCI ? {} : { maxWorkers: 2, minWorkers: 1 }),
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
                 // thousands of lines of output and make CI logs unreadable.
@@ -275,7 +287,7 @@ export default defineConfig(async ({ mode }) => {
                 return undefined;
             },
             coverage: {
-                enabled: true,
+                enabled: isCI,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*.ts'],
@@ -286,21 +298,26 @@ export default defineConfig(async ({ mode }) => {
             },
         },
         resolve: {
-            alias: {
+            alias: [
+                {
+                    // Storybook's Vite builder pre-bundles `lodash/<fn>.js`; the optional group
+                    // keeps that from becoming `lodash-es/<fn>.js.js`, which fails dep scanning.
+                    find: /^lodash\/(.+?)(?:\.js)?$/,
+                    replacement: 'lodash-es/$1.js',
+                },
                 // Root Directories
-                '@src': path.resolve(__dirname, '/src'),
-                '@app': path.resolve(__dirname, '/src/app'),
-                '@conf': path.resolve(__dirname, '/src/conf'),
-                '@components': path.resolve(__dirname, 'src/alchemy-components'),
-                '@graphql': path.resolve(__dirname, 'src/graphql'),
-                '@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),
-                '@images': path.resolve(__dirname, 'src/images'),
-                '@providers': path.resolve(__dirname, 'src/providers'),
-                '@utils': path.resolve(__dirname, 'src/utils'),
-
+                { find: '@src', replacement: path.resolve(__dirname, '/src') },
+                { find: '@app', replacement: path.resolve(__dirname, '/src/app') },
+                { find: '@conf', replacement: path.resolve(__dirname, '/src/conf') },
+                { find: '@components', replacement: path.resolve(__dirname, 'src/alchemy-components') },
+                { find: '@graphql', replacement: path.resolve(__dirname, 'src/graphql') },
+                { find: '@graphql-mock', replacement: path.resolve(__dirname, 'src/graphql-mock') },
+                { find: '@images', replacement: path.resolve(__dirname, 'src/images') },
+                { find: '@providers', replacement: path.resolve(__dirname, 'src/providers') },
+                { find: '@utils', replacement: path.resolve(__dirname, 'src/utils') },
                 // Specific Files
-                '@types': path.resolve(__dirname, 'src/types.generated.ts'),
-            },
+                { find: '@types', replacement: path.resolve(__dirname, 'src/types.generated.ts') },
+            ],
         },
     };
 });

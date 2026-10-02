@@ -185,6 +185,8 @@
     "metrics.homeEmptyTitle": "No metrics ingested yet",
     "metrics.homeEmptyDescription": "Once metrics and semantic models are ingested from your data platform, they will appear here.",
     "metrics.homeEmptyAction": "Ingest Metrics",
+    "metrics.homeEmptyLearnMore": "Learn more",
+    "metrics.homeEmptyMigrationHint": "Already ingesting Snowflake Semantic Views? <anchor>See how to migrate them</anchor> to the new model.",
     "marketplace.home": "Data Products Home",
     "marketplace.applicationFilter.placeholder": "Filter applications",
     "marketplace.createTooltip": "Create data product",

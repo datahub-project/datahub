@@ -937,6 +937,87 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testApplyMappings_StripsKnnVectorWhenIndexKnnCannotBeEnabled() throws IOException {
+    Map<String, Object> targetMappings = new HashMap<>();
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", ImmutableMap.of("type", "text"));
+    properties.put("resolvedTextSha256", ImmutableMap.of("type", "keyword"));
+    properties.put(
+        "embeddings",
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                "model_a",
+                ImmutableMap.of(
+                    "properties",
+                    ImmutableMap.of(
+                        "vector",
+                        ImmutableMap.of(
+                            "type",
+                            ReindexConfig.KNN_VECTOR_TYPE,
+                            "dimension",
+                            8,
+                            "method",
+                            ImmutableMap.of("name", "hnsw")))))));
+    targetMappings.put("properties", properties);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(true);
+    when(indexState.cannotApplyKnnVectorMappingInPlace()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(putMappingResponse);
+
+    indexBuilder.applyMappings(opContext, indexState, true);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    String source = captor.getValue().source().utf8ToString();
+    assertFalse(source.contains(ReindexConfig.KNN_VECTOR_TYPE));
+    assertTrue(source.contains("field1"));
+    assertTrue(source.contains("resolvedTextSha256"));
+    assertTrue(
+        targetMappings.toString().contains(ReindexConfig.KNN_VECTOR_TYPE),
+        "targetMappings must still include knn_vector for createIndex/reindex");
+  }
+
+  @Test
+  void testBuildIndex_KnnMismatchWithSettingsReindexEnabledDoesNotPutMapping() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    assertTrue(indexState.requiresReindex());
+
+    try {
+      indexBuilder.buildIndex(opContext, indexState);
+    } catch (RuntimeException ignored) {
+      // reindex() needs more cluster mocks; we only care that put-mapping is not used
+    }
+
+    verify(searchClient, never())
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
   void testApplyMappings_WithInPlaceMappingParameterUpdate() throws IOException {
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.name()).thenReturn(TEST_INDEX_NAME);

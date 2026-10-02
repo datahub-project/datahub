@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 import { useUpdateAssetSettingsMutation } from '@graphql/settings.generated';
 import {
@@ -20,6 +21,7 @@ vi.mock('@graphql/template.generated');
 vi.mock('@graphql/user.generated');
 vi.mock('@graphql/settings.generated');
 vi.mock('@app/entity/shared/EntityContext');
+vi.mock('@app/sharedV2/reloadableContext/hooks/useReloadableContext');
 
 const mockShowToast = vi.fn();
 vi.mock('@app/homeV3/toast/useShowToast', () => ({
@@ -30,6 +32,7 @@ const mockUpsertPageTemplateMutation = vi.fn();
 const mockUpdateUserHomePageSettings = vi.fn();
 const mockDeletePageTemplate = vi.fn();
 const mockUpdateAssetSettings = vi.fn();
+const mockBypassCacheForUrn = vi.fn();
 
 // Mock template data
 const mockTemplate: PageTemplateFragment = {
@@ -79,6 +82,7 @@ describe('useTemplateOperations', () => {
         (useDeletePageTemplateMutation as any).mockReturnValue([mockDeletePageTemplate]);
         (useUpdateAssetSettingsMutation as any).mockReturnValue([mockUpdateAssetSettings]);
         (useEntityContext as any).mockReturnValue({ urn });
+        (useReloadableContext as any).mockReturnValue({ bypassCacheForUrn: mockBypassCacheForUrn });
     });
 
     describe('updateTemplateWithModule', () => {
@@ -886,6 +890,7 @@ describe('useTemplateOperations', () => {
                     },
                 },
             });
+            expect(mockBypassCacheForUrn).toHaveBeenCalledWith(urn);
         });
 
         it('should not update user settings when updating existing personal template', async () => {
@@ -964,6 +969,26 @@ describe('useTemplateOperations', () => {
             mockUpsertPageTemplateMutation.mockRejectedValue(error);
 
             await expect(result.current.upsertTemplate(mockTemplate, true, null)).rejects.toThrow('Mutation failed');
+        });
+
+        it('should call bypassCacheForUrn when updating existing template', async () => {
+            const { result } = renderHook(() =>
+                useTemplateOperations(setPersonalTemplate, null, PageTemplateSurfaceType.HomePage),
+            );
+
+            mockUpsertPageTemplateMutation.mockResolvedValue({
+                data: {
+                    upsertPageTemplate: {
+                        urn: 'urn:li:pageTemplate:existing',
+                    },
+                },
+            });
+
+            await act(async () => {
+                await result.current.upsertTemplate(mockTemplate, false, null);
+            });
+
+            expect(mockBypassCacheForUrn).toHaveBeenCalledWith(urn);
         });
     });
 

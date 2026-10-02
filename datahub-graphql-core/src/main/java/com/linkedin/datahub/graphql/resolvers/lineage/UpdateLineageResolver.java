@@ -85,12 +85,15 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                   final List<Urn> filteredUpstreamUrnsToRemove =
                       filterOutDataJobUrns(upstreamUrnsToRemove);
 
-                  _lineageService.updateDatasetLineage(
-                      context.getOperationContext(),
-                      downstreamUrn,
-                      filteredUpstreamUrnsToAdd,
-                      filteredUpstreamUrnsToRemove,
-                      actor);
+                  if (!filteredUpstreamUrnsToAdd.isEmpty()
+                      || !filteredUpstreamUrnsToRemove.isEmpty()) {
+                    _lineageService.updateDatasetLineage(
+                        context.getOperationContext(),
+                        downstreamUrn,
+                        filteredUpstreamUrnsToAdd,
+                        filteredUpstreamUrnsToRemove,
+                        actor);
+                  }
                   break;
                 case Constants.CHART_ENTITY_NAME:
                   _lineageService.updateChartLineage(
@@ -117,6 +120,10 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       actor);
                   break;
                 default:
+                  throw new IllegalArgumentException(
+                      String.format(
+                          "Unsupported lineage update for entity type %s (urn %s)",
+                          downstreamUrn.getEntityType(), downstreamUrn));
               }
             } catch (Exception e) {
               throw new RuntimeException(

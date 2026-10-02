@@ -1,5 +1,7 @@
 """Unit tests for DocumentChunkingSource embedding failure reporting."""
 
+import json
+import math
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +17,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     EmbeddingConfig,
 )
 from datahub.ingestion.source.unstructured.chunking_source import (
+    MAX_SERIALIZED_ASPECT_BYTES,
     DocumentChunkingSource,
     SkipMarkerReadError,
     compute_source_text_sha256,
@@ -23,6 +26,7 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
 )
 from datahub.metadata.schema_classes import (
+    EmbeddingChunkClass,
     EmbeddingModelDataClass,
     SemanticContentClass,
 )
@@ -1616,3 +1620,399 @@ class TestSkipMarkersAndEmbedAccounting:
             source.build_skip_marker_workunit(
                 "urn:li:document:unreadable", "EMPTY_TEXT"
             )
+
+
+def _per_input_provider(dim: int = 4) -> MagicMock:
+    """Provider returning one deterministic vector per input text.
+
+    Unlike ``_mock_provider`` (fixed return), this yields one vector per element of
+    each batch, so it passes ``_generate_embeddings``'s per-batch length check across
+    multiple batches.
+    """
+    provider = MagicMock()
+    provider.embed.side_effect = lambda batch: EmbeddingResult(
+        embeddings=[[0.1] * dim for _ in batch]
+    )
+    return provider
+
+
+def test_oversized_document_truncated_to_cap(pipeline_context, chunking_config):
+    """A document over the chunk cap keeps the first N chunks, embeds N vectors, emits
+    one aspect, increments the truncation counter, and does not raise."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+
+    cap = source.config.chunking.max_chunks_per_document
+    chunks = [{"text": f"chunk {i}", "type": "NarrativeText"} for i in range(cap + 50)]
+    with patch.object(source, "_chunk_elements", return_value=chunks):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:oversized",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert len(semantic_wus) == 1
+    model_data = _semantic_embeddings(semantic_wus[0])["cohere_embed_v3"]
+    # Kept exactly the first N chunks, in order, one vector each.
+    assert len(model_data.chunks) == cap
+    assert model_data.totalChunks == cap
+    assert model_data.chunks[0].text == "chunk 0"
+    assert model_data.chunks[cap - 1].text == f"chunk {cap - 1}"
+    assert source.report.num_documents_truncated_oversized == 1
+
+
+def test_document_under_cap_not_truncated(pipeline_context, chunking_config):
+    """A document below the cap is emitted whole with no truncation or drop."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+
+    chunks = [{"text": f"chunk {i}", "type": "NarrativeText"} for i in range(3)]
+    with patch.object(source, "_chunk_elements", return_value=chunks):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:small",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert len(semantic_wus) == 1
+    assert len(_semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks) == 3
+    assert source.report.num_documents_truncated_oversized == 0
+    assert source.report.num_documents_dropped_oversized == 0
+
+
+def test_serialized_aspect_at_default_cap_under_ceiling():
+    """A full default-cap aspect (N chunks x 1024-dim vectors + chunk text) serializes
+    to well under the byte ceiling. This is what justifies the default cap value."""
+    cap = ChunkingConfig().max_chunks_per_document
+    dim = 1024  # cohere embed-english-v3 dimension
+    text = "x" * ChunkingConfig().max_characters
+    chunks = [
+        EmbeddingChunkClass(
+            position=i,
+            # Full-precision floats give a realistic serialized length; all-zero
+            # vectors would serialize to "0.0" and badly understate the real size.
+            vector=[math.sin(i * dim + j) for j in range(dim)],
+            characterOffset=i * len(text),
+            characterLength=len(text),
+            tokenCount=None,
+            text=text,
+        )
+        for i in range(cap)
+    ]
+    aspect = SemanticContentClass(
+        embeddings={
+            "cohere_embed_v3": EmbeddingModelDataClass(
+                modelVersion="bedrock/cohere.embed-english-v3",
+                generatedAt=0,
+                sourceTextSha256=None,
+                chunkingStrategy="basic",
+                totalChunks=cap,
+                chunks=chunks,
+            )
+        }
+    )
+    size = len(json.dumps(aspect.to_obj()))
+    assert size < MAX_SERIALIZED_ASPECT_BYTES, (
+        f"aspect for {cap} chunks serialized to {size} bytes, not under the "
+        f"{MAX_SERIALIZED_ASPECT_BYTES}-byte ceiling"
+    )
+
+
+def test_oversized_assembled_aspect_dropped(pipeline_context, chunking_config):
+    """An assembled aspect over the byte ceiling is skipped (not emitted) with a
+    counter, without raising — no poison MCP reaches the sink."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+
+    chunks = [{"text": f"chunk {i}", "type": "NarrativeText"} for i in range(3)]
+    with (
+        patch.object(source, "_chunk_elements", return_value=chunks),
+        patch(
+            "datahub.ingestion.source.unstructured.chunking_source.MAX_SERIALIZED_ASPECT_BYTES",
+            100,
+        ),
+    ):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:huge",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert semantic_wus == []
+    assert source.report.num_documents_dropped_oversized == 1
+
+
+def test_document_at_exact_cap_not_truncated(pipeline_context, chunking_config):
+    """A document with exactly max_chunks_per_document chunks is not truncated (the cap
+    is a <= boundary): all N chunks are embedded and the truncation counter stays zero."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+
+    cap = source.config.chunking.max_chunks_per_document
+    chunks = [{"text": f"chunk {i}", "type": "NarrativeText"} for i in range(cap)]
+    with patch.object(source, "_chunk_elements", return_value=chunks):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:exact",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert len(semantic_wus) == 1
+    assert len(_semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks) == cap
+    assert source.report.num_documents_truncated_oversized == 0
+
+
+def test_standalone_oversized_aspect_dropped_records_processed(
+    pipeline_context, chunking_config
+):
+    """Standalone path: an aspect over the byte ceiling is dropped (nothing emitted,
+    counter incremented) yet _process_single_document returns True, so an unchanged
+    oversized document is a deliberate skip recorded as done, not retried every run."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+
+    chunks = [{"text": f"chunk {i}", "type": "NarrativeText"} for i in range(3)]
+    with (
+        patch.object(
+            source,
+            "_extract_elements",
+            return_value=[{"type": "NarrativeText", "text": "x"}],
+        ),
+        patch.object(source, "_chunk_elements", return_value=chunks),
+        patch(
+            "datahub.ingestion.source.unstructured.chunking_source.MAX_SERIALIZED_ASPECT_BYTES",
+            100,
+        ),
+    ):
+        gen = source._process_single_document({"urn": "urn:li:document:huge"})
+        workunits = []
+        try:
+            while True:
+                workunits.append(next(gen))
+        except StopIteration as stop:
+            returned = stop.value
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert semantic_wus == []
+    assert source.report.num_documents_dropped_oversized == 1
+    # Drop is a deliberate skip: the document is recorded as processed, not retried.
+    assert returned is True
+
+
+def test_oversized_aspect_truncated_to_fit_not_dropped(
+    pipeline_context, chunking_config
+):
+    """An assembled aspect over the byte ceiling is truncated to the largest chunk prefix
+    that fits and still emitted (not dropped whole) — this is what saves high-dimensional
+    models, whose vectors inflate the aspect past the ceiling under the default count cap."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+
+    # 8 chunks < the default count cap, so only the byte backstop can truncate here.
+    # Large per-chunk text makes the assembled aspect exceed a small patched ceiling.
+    chunks = [{"text": "x" * 1000, "type": "NarrativeText"} for _ in range(8)]
+    with (
+        patch.object(source, "_chunk_elements", return_value=chunks),
+        patch(
+            "datahub.ingestion.source.unstructured.chunking_source.MAX_SERIALIZED_ASPECT_BYTES",
+            4000,
+        ),
+    ):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:fit",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert len(semantic_wus) == 1
+    kept = _semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks
+    # Kept a nonempty prefix strictly smaller than the input, and it fits the ceiling.
+    assert 1 <= len(kept) < 8
+    assert len(json.dumps(semantic_wus[0].metadata.aspect.to_obj())) <= 4000  # type: ignore[union-attr]
+    assert source.report.num_documents_truncated_oversized == 1
+    assert source.report.num_documents_dropped_oversized == 0
+
+
+def test_fingerprint_includes_max_chunks_only_when_non_default():
+    """The chunk cap is absent from the staleness fingerprint at its default (so upgrading
+    to a build that adds the knob does not re-embed every document) and present once tuned
+    (so a change re-hashes affected documents)."""
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        ChunkingConfig,
+        EmbeddingConfig,
+        get_processing_config_fingerprint,
+    )
+
+    embedding = EmbeddingConfig(
+        provider="bedrock",
+        model="cohere.embed-english-v3",
+        model_embedding_key="cohere_embed_v3",
+        allow_local_embedding_config=True,
+    )
+    default_fp = get_processing_config_fingerprint(ChunkingConfig(), embedding)
+    assert "chunking_max_chunks_per_document" not in default_fp
+
+    tuned_fp = get_processing_config_fingerprint(
+        ChunkingConfig(max_chunks_per_document=DEFAULT_MAX_CHUNKS_PER_DOCUMENT - 50),
+        embedding,
+    )
+    assert (
+        tuned_fp["chunking_max_chunks_per_document"]
+        == DEFAULT_MAX_CHUNKS_PER_DOCUMENT - 50
+    )
+
+
+def test_leading_blank_chunks_capped_by_embeddable_count(
+    pipeline_context, chunking_config
+):
+    """The cap counts embeddable chunks, so a document whose text begins after a run of
+    blank chunks longer than the cap is still embedded (its later text is kept), not
+    capped to an all-blank prefix and misclassified as non-indexable."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+    source.config.chunking.max_chunks_per_document = 3
+
+    # 4 leading blank chunks (more than the cap), then 5 chunks with text.
+    chunks = [{"text": "", "type": "NarrativeText"} for _ in range(4)] + [
+        {"text": f"body {i}", "type": "NarrativeText"} for i in range(5)
+    ]
+    with patch.object(source, "_chunk_elements", return_value=chunks):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:blanks",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    # Emitted (not skip-markered), keeping the first 3 embeddable chunks in order.
+    assert len(semantic_wus) == 1
+    kept = _semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks
+    assert [chunk.text for chunk in kept] == ["body 0", "body 1", "body 2"]
+    assert source.report.num_documents_truncated_oversized == 1
+
+
+def test_oversized_counted_once_across_both_chokepoints(
+    pipeline_context, chunking_config
+):
+    """A document that trips both the count cap and the byte backstop is reported once,
+    not twice."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+    source.config.chunking.max_chunks_per_document = 3
+
+    chunks = [{"text": "x" * 1000, "type": "NarrativeText"} for _ in range(5)]
+    with (
+        patch.object(source, "_chunk_elements", return_value=chunks),
+        patch(
+            "datahub.ingestion.source.unstructured.chunking_source.MAX_SERIALIZED_ASPECT_BYTES",
+            2500,
+        ),
+    ):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:both",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert len(semantic_wus) == 1
+    kept = _semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks
+    # The count cap kept 3; the byte backstop truncated further, to fewer than 3.
+    assert 1 <= len(kept) < 3
+    # Counted once (by the count cap), not again by the byte truncation.
+    assert source.report.num_documents_truncated_oversized == 1
+    assert source.report.num_documents_dropped_oversized == 0
+
+
+def test_exact_cap_with_trailing_blanks_not_counted_truncated(
+    pipeline_context, chunking_config
+):
+    """Exactly max_chunks embeddable chunks followed by trailing blank chunks is emitted
+    whole and NOT counted/warned as truncated — the dropped tail has no embeddable text,
+    so nothing that would have been embedded is lost."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+    )
+    source._provider = _per_input_provider()
+    source.config.chunking.max_chunks_per_document = 3
+
+    chunks = [{"text": f"body {i}", "type": "NarrativeText"} for i in range(3)] + [
+        {"text": "", "type": "NarrativeText"} for _ in range(2)
+    ]
+    with patch.object(source, "_chunk_elements", return_value=chunks):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:trailing",
+                [{"type": "NarrativeText", "text": "x"}],
+            )
+        )
+
+    semantic_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+    ]
+    assert len(semantic_wus) == 1
+    assert len(_semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks) == 3
+    assert source.report.num_documents_truncated_oversized == 0

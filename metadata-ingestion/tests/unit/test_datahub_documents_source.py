@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import sys
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -15,7 +14,7 @@ from datahub.ingestion.source.unstructured.event_consumer import (
     DocumentEventConsumer,
 )
 
-# Skip entire module if unstructured is not installed (requires Python 3.10+)
+# Skip entire module if unstructured is not installed (requires Python 3.11+)
 pytest.importorskip("unstructured")
 
 from datahub.ingestion.api.common import PipelineContext
@@ -59,10 +58,6 @@ def _mock_fetch(source, entities, urns=None):
 class TestTextPartitioner:
     """Test text partitioner."""
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_simple_markdown(self):
         """Test partitioning simple markdown text."""
         partitioner = TextPartitioner()
@@ -76,10 +71,6 @@ class TestTextPartitioner:
         element_types = {elem.get("type") for elem in elements}
         assert "Title" in element_types or "Header" in element_types
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_empty_text(self):
         """Test partitioning empty text."""
         partitioner = TextPartitioner()
@@ -89,10 +80,6 @@ class TestTextPartitioner:
 
         assert elements == []
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_single_character_falls_back(self):
         """A single-character document yields zero elements from the markdown
         partitioner; the fallback keeps it embeddable instead of silently
@@ -1575,6 +1562,18 @@ class TestSourceTypeFiltering:
                 entity_external, info_external
             )
             assert should_process_external is True
+
+            # SYSTEM (platform-managed) documents are DataHub-owned, like NATIVE
+            entity_system: dict[str, Any] = {
+                "urn": "urn:li:document:system1",
+                "info": {"source": {"sourceType": "SYSTEM"}},
+            }
+            assert source._should_process_by_source_type(
+                entity_system, entity_system["info"]
+            )
+            assert source._should_process_by_source_type_event(
+                "SYSTEM", {}, "urn:li:document:system1"
+            )
 
     def test_external_skipped_when_include_external_disabled(self, ctx, mock_graph):
         """EXTERNAL documents are skipped when include_external_documents is False."""
@@ -3331,20 +3330,46 @@ class TestFetchDocumentsPagination:
             assert mock_execute.call_count == 1
             assert not source.report.failures
 
-    def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
-        """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
+    @pytest.mark.parametrize(
+        "schema_check_kwargs,expect_flag",
+        [
+            ({"return_value": True}, True),
+            ({"return_value": False}, False),
+            # Schema check failed: fail closed, but surface it in the report.
+            ({"side_effect": GraphError("introspection failed")}, False),
+        ],
+    )
+    def test_search_flags_reach_hidden_documents(
+        self, ctx, config, mock_graph, schema_check_kwargs, expect_flag
+    ):
+        """Hidden-lifecycle docs are always requested; non-global-context docs only when
+        the server supports the flag, since older servers reject unknown search flags."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
             response = self._make_scroll_page(0, 0, next_scroll_id=None)
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=response
-            ) as mock_execute:
+            with (
+                patch.object(
+                    source.graph,
+                    "_graphql_input_type_has_field",
+                    **schema_check_kwargs,
+                ) as mock_schema_check,
+                patch.object(
+                    source.graph, "execute_graphql", return_value=response
+                ) as mock_execute,
+            ):
                 list(source._scroll_document_urns())
 
-            query = mock_execute.call_args[0][0]
-            assert "includeHiddenLifecycleStages: true" in query
+            mock_schema_check.assert_called_once_with(
+                "SearchFlags", "includeNonGlobalContextDocuments"
+            )
+            flags = mock_execute.call_args[0][1]["searchFlags"]
+            assert flags["includeHiddenLifecycleStages"] is True
+            assert ("includeNonGlobalContextDocuments" in flags) is expect_flag
+            assert bool(source.report.warnings) is (
+                "side_effect" in schema_check_kwargs
+            )
 
     def test_empty_result_set(self, ctx, config, mock_graph):
         """Zero documents yields no URNs after one call."""
@@ -4615,10 +4640,10 @@ class TestOrphanedDocumentResilience:
             for f in source.report.failures
         )
 
-    def test_all_null_batch_fails_but_does_not_abort(self, ctx, config):
-        # Right length, every slot null. Unlike a length mismatch this is
-        # interpretable, and the rest of the catalog may be healthy — so the run
-        # goes red without one drifted page taking down the whole run.
+    def test_all_null_batch_warns_and_does_not_abort(self, ctx, config):
+        # Right length, every slot null, but a later batch resolves: the live
+        # catalog is being served, so the null batch is orphan drift. Warn, skip
+        # it, and keep the run green.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
         batch1 = {"entities": [None] * 100}
@@ -4627,11 +4652,58 @@ class TestOrphanedDocumentResilience:
 
         hydrated = list(source._hydrate_documents(urns))
 
-        # Second batch still hydrated: the failure did not abort the run.
         assert len(hydrated) == 50
         assert source.report.num_documents_skipped_orphaned == 100
         assert any(
-            "resolved nothing" in (f.title or "").lower()
+            "resolved nothing in a batch" in (w.title or "").lower()
+            for w in source.report.warnings
+        )
+        assert not source.report.failures
+
+    def test_clustered_orphans_spanning_batches_do_not_fail(self, ctx, config):
+        # Enumeration is URN-ordered, so orphans sharing a prefix are contiguous.
+        # 250 of them between live documents fill two whole hydration batches;
+        # that is drift, not a serving problem, and must not fail the run.
+        source = self._make_source(ctx, config)
+        live_before = [f"urn:li:document:a-{i:03d}" for i in range(50)]
+        orphans = [f"urn:li:document:proposed-{i:03d}" for i in range(250)]
+        live_after = [f"urn:li:document:z-{i:03d}" for i in range(100)]
+        urns = live_before + orphans + live_after
+        resolvable = set(live_before + live_after)
+
+        def hydrate(_query, variables):
+            return {
+                "entities": [
+                    self._native_notion_doc(u) if u in resolvable else None
+                    for u in variables["urns"]
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = hydrate
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert len(hydrated) == 150
+        assert source.report.num_documents_skipped_orphaned == 250
+        assert not source.report.failures
+
+    def test_nothing_resolved_in_any_batch_fails(self, ctx, config):
+        # Every batch null across the whole run: nothing in the catalog is being
+        # served, which is a serving problem, not orphans. The run must go red
+        # rather than finish green having embedded nothing.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+        source.graph.execute_graphql.side_effect = [
+            {"entities": [None] * 100},
+            {"entities": [None] * 50},
+        ]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert hydrated == []
+        assert source.report.num_documents_skipped_orphaned == 150
+        assert any(
+            (f.title or "") == "Document hydration resolved nothing"
             for f in source.report.failures
         )
 
@@ -4808,3 +4880,29 @@ class TestTotalProcessingFailure:
             source = self._run(ctx, failed=2, processed=5)
 
         assert not source.report.failures
+
+
+def test_datahub_documents_does_not_embed_when_only_v3_enabled():
+    """V3 on with semantic search off must not start embedding generation."""
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = Mock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": False,
+                "enabledEntities": ["document"],
+                "embeddingConfig": None,
+            },
+            "entityIndexV3": {"enabled": True},
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        EmbeddingConfig(), graph=fake_graph
+    )
+    assert resolved.provider is None
+    query = fake_graph.execute_graphql.call_args.kwargs["query"]
+    assert "entityIndexV3" in query

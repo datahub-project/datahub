@@ -149,6 +149,35 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartOS2': [
+                    profile: 'quickstart-opensearch2',
+                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+            ],
+            'quickstartOS2Debug': [
+                    profile: 'debug-opensearch2',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartOS3': [
+                    profile: 'quickstart-opensearch3',
+                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    // Image-based CI stack still needs /openapi/operations/dev/featureFlags
+                    // (smoke-test/tests/dev_tooling). Compose defaults DEV_TOOLING_ENABLED to false.
+                    additionalEnv: [
+                            DEV_TOOLING_ENABLED: 'true',
+                    ],
+            ],
+            'quickstartOS3Debug': [
+                    profile: 'debug-opensearch3',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartDebugAi': [
                     // Activate both 'debug' (core services) and 'debug-ai' (Ollama) profiles.
                     profiles: ['debug', 'debug-ai'],
@@ -399,15 +428,21 @@ ext {
 
 apply from: 'postgres/quickstart-publish.gradle'
 
-// Resolve the compose profile(s) for a given quickstart_configs key (used by docker-unified CI when a PR has a smoke:<key> label).
-// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=<key> -q  (e.g. quickstartDebug, quickstartPg, quickstartPgConsumers, quickstartPgDebug, …)
+// Resolve the compose profile(s) and image modules for a quickstart_configs key
+// (used by docker-unified CI when a PR has a smoke:<key> label).
+// Prints one line: "<profile>|<space-separated modules>". Profile may be a
+// comma-separated list; modules are the ones that config's buildImages task bakes.
+// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=<key> -q
+// (e.g. quickstartDebug, quickstartPg, quickstartPgConsumers, quickstartPgDebug, …)
 tasks.register("resolveQuickstartProfile") {
     doLast {
         def configKey = project.findProperty('configKey')
         if (!configKey) throw new GradleException("Missing -PconfigKey. Valid keys: ${quickstart_configs.keySet()}")
         def config = quickstart_configs[configKey]
         if (!config) throw new GradleException("Unknown quickstart config key: ${configKey}. Valid keys: ${quickstart_configs.keySet()}")
-        println(config.profile ?: config.profiles?.join(','))
+        def profile = config.profile ?: config.profiles?.join(',')
+        def modules = (config.modules ?: []).join(' ')
+        println("${profile}|${modules}")
     }
 }
 
@@ -450,6 +485,8 @@ dockerCompose {
             environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
+            // Debug bind-mount stacks only. Image quickstarts keep compose's default
+            // (false) unless a task sets DEV_TOOLING_ENABLED via additionalEnv (e.g. CI OS3).
             if (config.isDebug) {
                 environment.put "DEV_TOOLING_ENABLED", "true"
             }
@@ -930,7 +967,7 @@ tasks.register("reloadEnv", Exec) {
         environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
         environment.put "METADATA_TESTS_ENABLED", "true"
-        if (matchingConfig?.isDebug) {
+        if (matchingConfig.isDebug) {
             environment.put "DEV_TOOLING_ENABLED", "true"
         }
         environment.put "DATAHUB_REPO", "${docker_registry}"

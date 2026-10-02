@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Pill, Tooltip } from '@components';
 import { ArrowsInLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsInLineVertical';
 import { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutLineVertical';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
@@ -51,6 +51,8 @@ interface TreeSectionHeaderProps {
     level: number;
     label: string;
     icon?: React.ReactNode;
+    /** Direct child count; shown when collapsed, matching tree-row count pills. */
+    count?: number;
     isExpanded: boolean;
     onToggle: () => void;
     testId?: string;
@@ -66,6 +68,7 @@ export function TreeSectionHeader({
     level,
     label,
     icon,
+    count,
     isExpanded,
     onToggle,
     testId,
@@ -78,6 +81,7 @@ export function TreeSectionHeader({
     const theme = useTheme();
     const Caret = isExpanded ? CaretDown : CaretRight;
     const bulkLabel = isAllExpanded ? collapseAllLabel : expandAllLabel;
+    const showCount = !isExpanded && count != null && count > 0;
     return (
         <SectionHeaderRow $level={level} data-testid={testId}>
             <SectionToggleButton type="button" onClick={onToggle} aria-expanded={isExpanded}>
@@ -86,6 +90,7 @@ export function TreeSectionHeader({
                     {label}
                 </SectionHeaderLabel>
             </SectionToggleButton>
+            {showCount && <Pill label={`${count}`} size="sm" />}
             {onToggleExpandAll && (
                 <Tooltip title={bulkLabel} placement="bottom" showArrow={false}>
                     <TreeRowExpandButton

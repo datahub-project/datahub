@@ -50,11 +50,19 @@ class Workspace(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def update_values(cls, values: Dict) -> Dict:
+    def update_values(cls, values: object) -> object:
+        # A non-dict row must reach pydantic, which reports it as a
+        # ValidationError; `.get` on it would raise AttributeError instead.
+        if not isinstance(values, dict):
+            return values
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
-        # Update name if presonal workspace
-        if values["name"] == "User Folder":
+        # Update name if presonal workspace.
+        # .get, not [...]: a KeyError raised inside a `before` validator is
+        # NOT converted to a ValidationError, so a row missing `name` used to
+        # escape as a bare KeyError and be reported as a malformed response
+        # rather than a malformed row.
+        if values.get("name") == "User Folder":
             values["name"] = "My documents"
         return values
 
@@ -74,6 +82,18 @@ class SigmaDataset(BaseModel):
     def get_urn_part(self):
         # As element lineage api provide this id as source dataset id
         return self.url.split("/")[-1]
+
+
+class ConnectionPath(BaseModel):
+    """A warehouse table's connection and path, from /connections/paths/{inodeId}.
+
+    ``path`` is the catalog path already split into components, normally
+    ``[DB, SCHEMA, TABLE]``, or ``[SCHEMA, TABLE]`` on platforms with no
+    database layer.
+    """
+
+    connection_id: str
+    path: List[str]
 
 
 class DatasetUpstream(BaseModel):
@@ -154,6 +174,8 @@ class Element(BaseModel):
           - Replaces `columns` with a plain list of names (backward-compatible).
           - Populates `column_formulas` with the name->formula mapping.
         """
+        if not isinstance(values, dict):
+            return values
         raw_columns = values.get("columns", [])
         if raw_columns and any(isinstance(col, dict) for col in raw_columns):
             column_names: List[str] = []

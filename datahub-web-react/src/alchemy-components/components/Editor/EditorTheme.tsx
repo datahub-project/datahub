@@ -82,7 +82,13 @@ export const EditorContainer = styled.div<{
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: ${(props) => (props.$compact ? '12px 16px 0 16px' : '16px')};
+        /* Editable editors need inset from the border; read-only viewers (sidebar,
+         * search cards, CompactMarkdownViewer) should sit flush with surrounding text. */
+        padding: ${(props) => {
+            if (props.$compact) return '12px 16px 0 16px';
+            if (props.$readOnly) return '0';
+            return '16px';
+        }};
         position: relative;
         outline: 0;
         line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
@@ -117,6 +123,20 @@ export const EditorContainer = styled.div<{
         hr {
             margin: 2rem 0;
             border-color: ${(props) => props.theme.colors.overlayLight};
+        }
+
+        /*
+         * The prism syntax theme paints its own code block background — a light
+         * grey in light mode, a neutral dark grey in dark mode — neither of which
+         * matches our surface. Only the token colors come from prism; the frame
+         * comes from our tokens.
+         */
+        pre {
+            background: ${(props) => props.theme.colors.bgSurface};
+            border: 1px solid ${(props) => props.theme.colors.border};
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
         }
 
         details {
@@ -167,14 +187,10 @@ export const EditorContainer = styled.div<{
                 }
             }
 
-            /* Code blocks inside an expanded details section */
+            /* Code blocks inside an expanded details section need to be inset
+               from the section's own padding; the rest of the frame is shared. */
             pre {
-                background: ${(props) => props.theme.colors.bgSurface} !important;
-                border: 1px solid ${(props) => props.theme.colors.border} !important;
-                border-radius: 8px !important;
-                margin: 12px 16px 16px !important;
-                padding: 12px !important;
-                overflow-x: auto;
+                margin: 12px 16px 16px;
             }
         }
 

@@ -11,7 +11,12 @@ import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generat
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
 import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
 import { GetDataJobDocument } from '@graphql/dataJob.generated';
-import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
+import {
+    GetDatasetDocument,
+    GetDatasetSchemaDocument,
+    GetDatasetSchemaStructuralDocument,
+    UpdateDatasetDocument,
+} from '@graphql/dataset.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { GetMeDocument } from '@graphql/me.generated';
 import { GetMlModelDocument } from '@graphql/mlModel.generated';
@@ -121,6 +126,7 @@ export const user1 = {
                     },
                 },
                 associatedUrn: 'urn:li:corpuser:1',
+                context: null,
                 attribution: null,
             },
         ],
@@ -142,8 +148,18 @@ const user2 = {
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
-    properties: {
+    info: {
         __typename: 'CorpUserInfo',
+        email: 'john@domain.com',
+        active: true,
+        displayName: 'john',
+        title: 'Eng',
+        firstName: 'John',
+        lastName: 'Joyce',
+        fullName: 'John Joyce',
+    },
+    properties: {
+        __typename: 'CorpUserProperties',
         email: 'john@domain.com',
         active: true,
         displayName: 'john',
@@ -195,6 +211,7 @@ const user2 = {
                     },
                 },
                 associatedUrn: 'urn:li:corpuser:3',
+                context: null,
                 attribution: null,
             },
         ],
@@ -206,7 +223,6 @@ const user2 = {
         homePage: null,
     },
     editableInfo: null,
-    info: null,
 };
 
 export const dataPlatform = {
@@ -331,6 +347,8 @@ export const dataset1 = {
         ],
     },
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     datasetProfiles: [
         {
             timestampMillis: 0,
@@ -353,10 +371,11 @@ export const dataset1 = {
     testResults: null,
     statsSummary: null,
     embed: null,
-    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
     settings: null,
 };
@@ -425,6 +444,8 @@ export const dataset2 = {
         },
     },
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     datasetProfiles: [
         {
             timestampMillis: 0,
@@ -454,10 +475,11 @@ export const dataset2 = {
     testResults: null,
     statsSummary: null,
     embed: null,
-    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
     settings: null,
 };
@@ -578,6 +600,7 @@ export const dataset3 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                context: null,
                 attribution: null,
             },
         ],
@@ -606,6 +629,7 @@ export const dataset3 = {
                 },
                 attribution: null,
                 associatedUrn: 'urn:li:dataset:3',
+                context: null,
                 actor: {
                     __typename: 'CorpUser',
                     urn: 'urn:li:corpuser:admin',
@@ -731,6 +755,8 @@ export const dataset3 = {
 const dataset3WithSchema = {
     dataset: {
         __typename: 'Dataset',
+        // Both schema queries select the urn; the hook only accepts results for the current dataset.
+        urn: 'urn:li:dataset:3',
         schemaMetadata: {
             __typename: 'SchemaMetadata',
             aspectVersion: 0,
@@ -848,6 +874,7 @@ export const container1 = {
         __typename: 'ContainerProperties',
     },
     autoRenderAspects: [],
+    browsePathV2: null,
     __typename: 'Container',
 } as Container;
 
@@ -863,6 +890,7 @@ export const container2 = {
         __typename: 'ContainerProperties',
     },
     autoRenderAspects: [],
+    browsePathV2: null,
     __typename: 'Container',
 } as Container;
 
@@ -1054,6 +1082,7 @@ const glossaryTerm3 = {
     },
     deprecation: null,
     autoRenderAspects: [],
+    parentNodes: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1197,6 +1226,7 @@ const dataFlow1 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataFlow:1',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1283,6 +1313,7 @@ export const dataJob1 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:1',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1310,6 +1341,7 @@ export const dataJob1 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -1373,6 +1405,7 @@ export const dataJob2 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:2',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1385,6 +1418,7 @@ export const dataJob2 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1450,6 +1484,7 @@ export const dataJob3 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:3',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1463,6 +1498,7 @@ export const dataJob3 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 const mlModel = {
@@ -1538,6 +1574,7 @@ const mlModel = {
                     },
                 },
                 associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1630,6 +1667,11 @@ const recommendationModules = [
                 entity: {
                     ...dataset2,
                 },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
             },
         ],
     },
@@ -1669,6 +1711,11 @@ const recommendationModules = [
                     urn: 'urn:li:tag:TestTag',
                     name: 'TestTag',
                 },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
             },
         ],
     },
@@ -1705,6 +1752,22 @@ export const mocks = [
             query: GetDatasetSchemaDocument,
             variables: {
                 urn: 'urn:li:dataset:3',
+            },
+        },
+        result: {
+            data: {
+                ...dataset3WithSchema,
+            },
+        },
+    },
+    {
+        // Phase-1 (structural) query of the two-phase schema load: same payload as the full
+        // schema mock — the structural selection is a subset of it.
+        request: {
+            query: GetDatasetSchemaStructuralDocument,
+            variables: {
+                urn: 'urn:li:dataset:3',
+                skipSiblingsSearch: false,
             },
         },
         result: {
@@ -2912,7 +2975,7 @@ export const mocks = [
                             ],
                         },
                     ],
-                    searchFlags: { getSuggestions: true },
+                    searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
                 },
             },
         },
