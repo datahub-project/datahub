@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import Pills from '@app/previewV2/Pills';
@@ -69,8 +70,13 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
+    const { previewData } = usePreviewData();
     const hideLineage = useHideLineageInSearchCards();
-    const showLineageBadge = !hideLineage && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+    // Missing counts are not the same as zero. Search cards render before the deferred count
+    // query returns; treating that gap as zero paints a "no lineage" icon and then replaces it.
+    const hasLineageCounts = previewData?.upstream != null || previewData?.downstream != null;
+    const showLineageBadge =
+        !hideLineage && hasLineageCounts && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
 
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderRightSection =

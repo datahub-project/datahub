@@ -1,5 +1,5 @@
 import { Pagination } from '@components';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
@@ -9,13 +9,18 @@ import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
-import { SearchEntityWithLineage, getSearchResultLineage } from '@app/searchV2/SearchResults.utils';
+import {
+    SearchEntityWithLineage,
+    applySearchResultLineageCounts,
+    getSearchResultLineage,
+} from '@app/searchV2/SearchResults.utils';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
 import BrowseSidebar from '@app/searchV2/sidebar';
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
 import { SidebarProvider } from '@app/searchV2/sidebar/SidebarContext';
 import SearchQuerySuggester from '@app/searchV2/suggestions/SearchQuerySugggester';
 import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
+import { useSearchResultLineageCounts } from '@app/searchV2/useSearchResultLineageCounts';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
@@ -185,10 +190,15 @@ export const SearchResults = ({
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
+    const { countsByUrn, loading: searchResultLineageLoading } = useSearchResultLineageCounts(searchResultUrns);
+    const searchResultsWithLineage = useMemo(
+        () => applySearchResultLineageCounts(combinedSiblingSearchResults, countsByUrn),
+        [combinedSiblingSearchResults, countsByUrn],
+    );
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const highlightedSearchEntity =
-        highlightedIndex !== null && combinedSiblingSearchResults?.length > highlightedIndex
-            ? (combinedSiblingSearchResults[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
+        highlightedIndex !== null && searchResultsWithLineage.length > highlightedIndex
+            ? (searchResultsWithLineage[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
             : undefined;
 
     const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
@@ -278,7 +288,7 @@ export const SearchResults = ({
                                                 highlightedIndex={highlightedIndex}
                                                 loading={loading}
                                                 query={query}
-                                                searchResults={combinedSiblingSearchResults}
+                                                searchResults={searchResultsWithLineage}
                                                 totalResultCount={totalResults}
                                                 isSelectMode={isSelectMode}
                                                 selectedEntities={selectedEntities}
@@ -315,6 +325,7 @@ export const SearchResults = ({
                                                     : null
                                             }
                                             searchResultLineage={getSearchResultLineage(highlightedSearchEntity)}
+                                            searchResultLineageLoading={searchResultLineageLoading}
                                         />
                                     </SearchResultsContainer>
                                 </SearchResultsScrollContainer>

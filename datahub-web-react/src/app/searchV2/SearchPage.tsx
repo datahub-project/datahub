@@ -78,6 +78,9 @@ export const SearchPage = () => {
                     skipHighlighting: config?.searchFlagsConfig?.defaultSkipHighlighting || false,
                 },
             },
+            // Counts are loaded after the cards render. Resolving them here waits on a lineage
+            // lookup for every result before anything on the page can paint.
+            skipLineage: true,
         },
         fetchPolicy: 'cache-and-network',
     });

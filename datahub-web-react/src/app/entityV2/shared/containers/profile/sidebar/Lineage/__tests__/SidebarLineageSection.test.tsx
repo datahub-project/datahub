@@ -52,6 +52,7 @@ type RenderArgs = {
     contextType: TabContextType;
     operations: string[];
     searchResultLineage?: SearchResultLineageCounts | null;
+    searchResultLineageLoading?: boolean;
     entityData?: GenericEntityProperties;
     cachedTypeBreakdown?: { upstreamTotal: number; downstreamTotal: number; withFacets: boolean };
 };
@@ -60,6 +61,7 @@ function renderSection({
     contextType,
     operations,
     searchResultLineage,
+    searchResultLineageLoading,
     entityData = defaultEntityData,
     cachedTypeBreakdown,
 }: RenderArgs) {
@@ -113,6 +115,7 @@ function renderSection({
                         isClosed: false,
                         setSidebarClosed: vi.fn(),
                         searchResultLineage,
+                        searchResultLineageLoading,
                     }}
                 >
                     <EntityContext.Provider
@@ -233,6 +236,19 @@ describe('SidebarLineageSection', () => {
 
         expect(await screen.findByText(textContent('Depends on 2 assets'))).toBeInTheDocument();
         expect(lineageOperations(operations)).toEqual(['getLineageCounts']);
+    });
+
+    it('waits for page-level lineage counts instead of fetching the highlighted result', async () => {
+        const operations: string[] = [];
+        renderSection({
+            contextType: TabContextType.SEARCH_SIDEBAR,
+            operations,
+            searchResultLineageLoading: true,
+        });
+
+        await waitFor(() => expect(lineageOperations(operations)).toEqual([]));
+        expect(screen.queryByText('UPSTREAM')).not.toBeInTheDocument();
+        expect(screen.queryByText('DOWNSTREAM')).not.toBeInTheDocument();
     });
 
     it('renders nothing for combined sibling entities', async () => {
