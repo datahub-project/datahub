@@ -302,3 +302,90 @@ def test_the_framework_applies_no_sql_rule_a_config_does_not_declare(
     assert _rows(tables) == [("orders", "orders", True, None)]
     assert _rows(schemas) == [("sys", "sys", True, None)]
     assert schemas.warnings == []
+
+
+# --- configs outside SQLCommonConfig declare the rules they share ----------
+
+
+def test_snowflake_queries_matches_schemas_on_the_qualified_name() -> None:
+    config = {
+        "connection": _SF,
+        "match_fully_qualified_names": True,
+        "schema_pattern": {"allow": [r"^MYDB\.PUBLIC$"]},
+    }
+    qualified = check_filters(
+        source_type="snowflake-queries",
+        config_dict=config,
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["MYDB"],
+        names=["PUBLIC", "orders"],
+    )
+    assert _rows(qualified) == [
+        ("PUBLIC", "MYDB.PUBLIC", True, None),
+        ("orders", "MYDB.orders", False, "schema_pattern"),
+    ]
+
+    bare = check_filters(
+        source_type="snowflake-queries",
+        config_dict=config,
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["PUBLIC"],
+    )
+    assert _rows(bare) == [("PUBLIC", "PUBLIC", False, "schema_pattern")]
+    assert bare.warnings == [_NEEDS_PARENT]
+
+
+def test_bigquery_queries_matches_datasets_on_the_qualified_name() -> None:
+    result = check_filters(
+        source_type="bigquery-queries",
+        config_dict={
+            "project_ids": ["p1"],
+            "dataset_pattern": {"allow": [r"^p1\.analytics$"]},
+        },
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["analytics", "orders"],
+    )
+    assert _rows(result) == [
+        ("analytics", "p1.analytics", True, None),
+        ("orders", "p1.orders", False, "dataset_pattern"),
+    ]
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize(
+    ("source_type", "config_dict", "kind", "flag"),
+    [
+        (
+            "cube",
+            {"api_url": "http://h/cubejs-api/v1", "api_token": "t"},
+            DatasetSubTypes.VIEW,
+            "include_views",
+        ),
+        (
+            "informix",
+            {"host_port": "h:1", "server": "s", "database": "db"},
+            DatasetSubTypes.TABLE,
+            "include_tables",
+        ),
+        (
+            "informix",
+            {"host_port": "h:1", "server": "s", "database": "db"},
+            DatasetSubTypes.VIEW,
+            "include_views",
+        ),
+    ],
+)
+def test_a_switch_outside_the_sql_family_still_excludes_its_kind(
+    source_type: str, config_dict: Dict[str, object], kind: str, flag: str
+) -> None:
+    result = check_filters(
+        source_type=source_type,
+        config_dict={**config_dict, flag: False},
+        kind=str(kind),
+        parent_path=[],
+        names=["orders"],
+    )
+    assert _rows(result) == [("orders", "orders", False, flag)]
+    assert result.warnings == []
