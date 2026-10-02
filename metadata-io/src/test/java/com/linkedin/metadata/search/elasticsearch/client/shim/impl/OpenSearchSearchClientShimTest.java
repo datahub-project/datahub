@@ -23,6 +23,8 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -952,6 +954,112 @@ public class OpenSearchSearchClientShimTest {
         collector.spans.get(1).getStatus().getDescription().contains("boom"),
         collector.spans.get(1).getStatus().getDescription());
     assertEquals(shim.getBulkTelemetry().openBatches(), 0);
+  }
+
+  @Test
+  public void syncBulkStoreCallRunsWithTheBatchSpanCurrent() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    List<SpanContext> currentInsideCall = new java.util.ArrayList<>();
+    when(restClient.performRequest(any(Request.class)))
+        .thenAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              return ok;
+            });
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, true, "gms"));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+    assertEquals(currentInsideCall.size(), 1);
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertEquals(span.getName(), "index bulk");
+    assertTrue(currentInsideCall.get(0).isValid(), "the batch span is current around the call");
+    assertEquals(currentInsideCall.get(0).getSpanId(), span.getSpanContext().getSpanId());
+    assertEquals(currentInsideCall.get(0).getTraceId(), span.getSpanContext().getTraceId());
+    assertFalse(Span.current().getSpanContext().isValid(), "and no longer current after the flush");
+  }
+
+  @Test
+  public void asyncBulkStoreCallRunsWithTheBatchSpanCurrent() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    List<SpanContext> currentInsideCall = new java.util.ArrayList<>();
+    doAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              inv.getArgument(1, ResponseListener.class).onSuccess(ok);
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, false, null));
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+    assertEquals(currentInsideCall.size(), 1);
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertNotNull(span.getAttributes().get(BulkTelemetry.BATCH_ID));
+    assertTrue(currentInsideCall.get(0).isValid(), "the batch span is current around the call");
+    assertEquals(currentInsideCall.get(0).getSpanId(), span.getSpanContext().getSpanId());
+    assertEquals(currentInsideCall.get(0).getTraceId(), span.getSpanContext().getTraceId());
+  }
+
+  @Test
+  public void bulkStoreCallsHaveNoCurrentSpanWhenTelemetryIsOff() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    List<SpanContext> currentInsideCall = new java.util.ArrayList<>();
+    when(restClient.performRequest(any(Request.class)))
+        .thenAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              return ok;
+            });
+    doAnswer(
+            inv -> {
+              currentInsideCall.add(Span.current().getSpanContext());
+              inv.getArgument(1, ResponseListener.class).onSuccess(ok);
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    for (boolean async : new boolean[] {false, true}) {
+      OpenSearchSearchClientShim shim = shimWith(restClient);
+      shim.configureBulkProcessorWriteOptions(false, 0);
+      if (async) {
+        shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+      } else {
+        shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+      }
+      try {
+        shim.addBulk(
+            OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+        shim.flushBulkProcessor();
+      } finally {
+        shim.closeBulkProcessor();
+      }
+    }
+    assertEquals(currentInsideCall.size(), 2);
+    for (SpanContext ctx : currentInsideCall) {
+      assertFalse(ctx.isValid(), "telemetry off: no span is made current around the call");
+    }
   }
 
   @Test

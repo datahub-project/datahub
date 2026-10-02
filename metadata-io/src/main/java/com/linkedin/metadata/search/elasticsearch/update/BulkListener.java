@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -101,7 +103,9 @@ public class BulkListener implements BulkProcessor.Listener {
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
     if (telemetry.isEnabled()) {
-      telemetry.afterBulk(request, response.getTook().getMillis(), countFailures(response));
+      // The failed actions' origins are carried until handleItemFailures requeues or forgets them.
+      telemetry.afterBulk(
+          request, response.getTook().getMillis(), failedActions(request, response));
     }
     String ingestTook = "";
     long ingestTookInMillis = response.getIngestTookInMillis();
@@ -150,6 +154,7 @@ public class BulkListener implements BulkProcessor.Listener {
         tracker.recordCompleted(request.numberOfActions());
       }
       clearAttempts(request);
+      forgetAll(request);
       return;
     }
 
@@ -172,6 +177,7 @@ public class BulkListener implements BulkProcessor.Listener {
         if (requeueSupport != null) {
           requeueSupport.clearAttempts(writeRequest);
         }
+        telemetry.forget(writeRequest);
       }
     }
     if (tracker != null) {
@@ -213,6 +219,7 @@ public class BulkListener implements BulkProcessor.Listener {
         if (requeueSupport != null && writeRequest != null) {
           requeueSupport.clearAttempts(writeRequest);
         }
+        telemetry.forget(writeRequest);
         if (tracker != null) {
           tracker.recordCompleted(1);
         }
@@ -228,18 +235,17 @@ public class BulkListener implements BulkProcessor.Listener {
         continue;
       }
 
+      // Giving up on the item: drop its carried origin along with its requeue attempts.
+      if (requeueSupport != null && writeRequest != null) {
+        requeueSupport.clearAttempts(writeRequest);
+      }
+      telemetry.forget(writeRequest);
       if (versionConflict) {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordLwwExhausted(1);
         }
         incrementMetric(METRIC_LWW_EXHAUSTED);
       } else {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordUnrecoveredTransferFailure(1);
         }
@@ -261,6 +267,15 @@ public class BulkListener implements BulkProcessor.Listener {
     }
     for (DocWriteRequest<?> writeRequest : request.requests()) {
       requeueSupport.clearAttempts(writeRequest);
+    }
+  }
+
+  private void forgetAll(@Nonnull BulkRequest request) {
+    if (!telemetry.isEnabled()) {
+      return;
+    }
+    for (DocWriteRequest<?> writeRequest : request.requests()) {
+      telemetry.forget(writeRequest);
     }
   }
 
@@ -290,14 +305,17 @@ public class BulkListener implements BulkProcessor.Listener {
     }
   }
 
-  private static long countFailures(BulkResponse response) {
-    long failures = 0;
-    for (BulkItemResponse item : response.getItems()) {
-      if (item.isFailed()) {
-        failures++;
+  /** The actions whose items failed, by position; only computed when telemetry is on. */
+  private static List<DocWriteRequest<?>> failedActions(
+      BulkRequest request, BulkResponse response) {
+    List<DocWriteRequest<?>> failed = new ArrayList<>();
+    BulkItemResponse[] items = response.getItems();
+    for (int i = 0; i < items.length; i++) {
+      if (items[i].isFailed() && i < request.requests().size()) {
+        failed.add(request.requests().get(i));
       }
     }
-    return failures;
+    return failed;
   }
 
   private static String buildMetricName(DocWriteRequest.OpType opType, String status) {

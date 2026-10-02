@@ -85,7 +85,8 @@ public class Es8BulkListener
       List<Object> objects,
       co.elastic.clients.elasticsearch.core.BulkResponse response) {
     if (telemetry.isEnabled()) {
-      telemetry.afterBulk(request, response.took(), countFailures(response));
+      // The failed actions' origins are carried until handleItemFailures requeues or forgets them.
+      telemetry.afterBulk(request, response.took(), failedActions(objects, response));
     }
     String ingestTook = "";
     Long ingestTookInMillis = response.ingestTook();
@@ -140,6 +141,7 @@ public class Es8BulkListener
         tracker.recordCompleted(objects != null ? objects.size() : 0);
       }
       clearAttempts(objects);
+      forgetAll(objects);
       return;
     }
 
@@ -164,6 +166,7 @@ public class Es8BulkListener
           if (requeueSupport != null && writeRequest != null) {
             requeueSupport.clearAttempts(writeRequest);
           }
+          telemetry.forget(writeRequest);
         }
       }
     }
@@ -201,6 +204,7 @@ public class Es8BulkListener
         if (requeueSupport != null && writeRequest != null) {
           requeueSupport.clearAttempts(writeRequest);
         }
+        telemetry.forget(writeRequest);
         if (tracker != null) {
           tracker.recordCompleted(1);
         }
@@ -215,18 +219,17 @@ public class Es8BulkListener
         continue;
       }
 
+      // Giving up on the item: drop its carried origin along with its requeue attempts.
+      if (requeueSupport != null && writeRequest != null) {
+        requeueSupport.clearAttempts(writeRequest);
+      }
+      telemetry.forget(writeRequest);
       if (versionConflict) {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordLwwExhausted(1);
         }
         incrementMetric(METRIC_LWW_EXHAUSTED);
       } else {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordUnrecoveredTransferFailure(1);
         }
@@ -253,6 +256,15 @@ public class Es8BulkListener
     }
   }
 
+  private void forgetAll(@Nullable List<Object> objects) {
+    if (!telemetry.isEnabled() || objects == null) {
+      return;
+    }
+    for (Object context : objects) {
+      telemetry.forget(context);
+    }
+  }
+
   private static List<DocWriteRequest<?>> writeRequests(@Nullable List<Object> objects) {
     List<DocWriteRequest<?>> out = new ArrayList<>(objects == null ? 0 : objects.size());
     if (objects != null) {
@@ -265,14 +277,17 @@ public class Es8BulkListener
     return out;
   }
 
-  private static long countFailures(co.elastic.clients.elasticsearch.core.BulkResponse response) {
-    long failures = 0;
-    for (BulkResponseItem item : response.items()) {
-      if (item.error() != null) {
-        failures++;
+  /** The contexts whose items failed, by position; only computed when telemetry is on. */
+  private static List<Object> failedActions(
+      @Nullable List<Object> objects, co.elastic.clients.elasticsearch.core.BulkResponse response) {
+    List<Object> failed = new ArrayList<>();
+    List<BulkResponseItem> items = response.items();
+    for (int i = 0; i < items.size(); i++) {
+      if (items.get(i).error() != null && objects != null && i < objects.size()) {
+        failed.add(objects.get(i));
       }
     }
-    return failures;
+    return failed;
   }
 
   @Nullable
