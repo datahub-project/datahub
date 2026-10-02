@@ -2240,6 +2240,15 @@ _SERVER_BEDROCK_TITAN_V2 = ServerSemanticSearchConfig(
         model_embedding_key="titan_embed_text_v2",
     ),
 )
+_SERVER_ONNX_ARCTIC = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="onnx",
+        model_id="snowflake_arctic_embed_s",
+        model_embedding_key="snowflake_arctic_embed_s",
+    ),
+)
 
 
 class TestFingerprintFollowsServerEmbeddingConfig:
@@ -2295,6 +2304,20 @@ class TestFingerprintFollowsServerEmbeddingConfig:
         self._record_processed(self._run_source(tmp_path, earlier))
 
         assert self._run_source(tmp_path, later)._should_process(self.URN, self.TEXT)
+
+    def test_reprocesses_document_when_onnx_pooling_changes(
+        self, tmp_path, monkeypatch
+    ):
+        # The server does not expose pooling; the executor reads the env var GMS
+        # uses. cls and mean pooling give different vectors from the same model.
+        monkeypatch.setenv("ONNX_EMBEDDING_MODEL_DIR", "/models/arctic")
+        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", "cls")
+        self._record_processed(self._run_source(tmp_path, _SERVER_ONNX_ARCTIC))
+
+        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", "mean")
+        assert self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)._should_process(
+            self.URN, self.TEXT
+        )
 
     def test_skips_unchanged_document_under_same_server_config(self, tmp_path):
         self._record_processed(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))
