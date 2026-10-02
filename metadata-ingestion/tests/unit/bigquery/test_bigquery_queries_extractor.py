@@ -23,7 +23,7 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
-from typing import List
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -53,6 +53,8 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     _normalize_location_to_region_qualifier,
     _resolve_region_qualifiers,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.utilities.file_backed_collections import FileBackedList
 
 
 class TestBuildUserFilter:
@@ -1377,3 +1379,53 @@ class TestJobLabelsAsQueryProperties:
         row = self._row([{"key": "airflow-dag", "value": "my_dag"}])
         entry = self._build_extractor(enabled=False)._parse_audit_log_row(row)
         assert entry.custom_properties is None
+
+    @pytest.mark.parametrize(
+        "observations,expected_labels,expected_ts",
+        [
+            pytest.param(
+                [(1, {"airflow-task": "task_1"}), (2, {"airflow-task": "task_2"})],
+                {"airflow-task": "task_2"},
+                2,
+                id="newer_labels_replace",
+            ),
+            pytest.param(
+                [(1, {"airflow-task": "task_1"}), (2, None)],
+                None,
+                2,
+                id="newer_unlabeled_clears",
+            ),
+            # Projects and regions are fetched one after another, so an older job can
+            # be read after a newer one.
+            pytest.param(
+                [(2, {"airflow-task": "task_2"}), (1, {"airflow-task": "task_1"})],
+                {"airflow-task": "task_2"},
+                2,
+                id="older_job_read_later_ignored",
+            ),
+        ],
+    )
+    def test_deduplicate_keeps_newest_labels_in_bucket(
+        self,
+        observations: List[Tuple[int, Optional[Dict[str, str]]]],
+        expected_labels: Optional[Dict[str, str]],
+        expected_ts: int,
+    ) -> None:
+        extractor = self._build_extractor(enabled=True)
+        queries: FileBackedList[ObservedQuery] = FileBackedList()
+        for hour, labels in observations:
+            queries.append(
+                ObservedQuery(
+                    query="select * from `my_dataset`.`a`",
+                    timestamp=datetime(2024, 1, 1, hour, tzinfo=timezone.utc),
+                    custom_properties=labels,
+                )
+            )
+
+        deduped = extractor.deduplicate_queries(queries)
+
+        [buckets] = deduped.values()
+        [query] = buckets.values()
+        assert query.usage_multiplier == len(observations)
+        assert query.custom_properties == expected_labels
+        assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)

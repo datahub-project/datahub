@@ -404,7 +404,8 @@ class BigQueryQueriesExtractor(Closeable):
             report_timer = ProgressTimer(timedelta(minutes=5))
 
             for i, (_, query_instances) in enumerate(queries_deduped.items()):
-                for query in query_instances.values():
+                # The aggregator expects each query's observations in time order.
+                for _, query in sorted(query_instances.items()):
                     if log_timer.should_report():
                         logger.info(
                             f"Added {i} deduplicated query log entries to SQL aggregator"
@@ -459,8 +460,14 @@ class BigQueryQueriesExtractor(Closeable):
             # If the query already exists for this time bucket, update its attributes
             if observed_query is not query:
                 observed_query.usage_multiplier += 1
-                observed_query.timestamp = query.timestamp
-                observed_query.custom_properties = query.custom_properties
+                # Entries are time-ordered only within one project and region, so keep
+                # the newest job's timestamp and labels rather than the last one read.
+                if observed_query.timestamp is None or (
+                    query.timestamp is not None
+                    and query.timestamp >= observed_query.timestamp
+                ):
+                    observed_query.timestamp = query.timestamp
+                    observed_query.custom_properties = query.custom_properties
 
         return queries_deduped
 
