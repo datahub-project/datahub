@@ -18,17 +18,24 @@ export function useSearchResultLineageCounts(urns: string[]) {
     const queryUrns = uniqueUrns(urns);
     const skip = hideLineage || queryUrns.length === 0;
 
-    const { data, loading } = useGetSearchResultLineageCountsQuery({
+    const { data, loading, error } = useGetSearchResultLineageCountsQuery({
         variables: { urns: queryUrns },
         skip,
         fetchPolicy: 'cache-first',
-        errorPolicy: 'all',
     });
 
-    const countsByUrn = useMemo(() => lineageCountsByUrn(data?.entities as LineageCountEntity[] | undefined), [data]);
+    const countsByUrn = useMemo(() => {
+        // On query failure leave the map empty so the sidebar can fall back to getLineageCounts.
+        if (!data) {
+            return lineageCountsByUrn(undefined);
+        }
+        return lineageCountsByUrn(data.entities as LineageCountEntity[] | undefined, queryUrns);
+    }, [data, queryUrns]);
 
     return {
         countsByUrn,
-        loading: !skip && loading && countsByUrn.size === 0,
+        // Keep loading true across page turns even when the previous batch still has cached counts.
+        loading: !skip && loading,
+        error,
     };
 }

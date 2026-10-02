@@ -18,12 +18,13 @@ const useCountsQueryMock = useGetSearchResultLineageCountsQuery as unknown as Re
 const useHideLineageMock = useHideLineageInSearchCards as unknown as ReturnType<typeof vi.fn>;
 
 const URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)';
+const OTHER_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.other,PROD)';
 
 describe('useSearchResultLineageCounts', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         useHideLineageMock.mockReturnValue(false);
-        useCountsQueryMock.mockReturnValue({ data: undefined, loading: true });
+        useCountsQueryMock.mockReturnValue({ data: undefined, loading: true, error: undefined });
     });
 
     it('does not fetch until there are results to count', () => {
@@ -57,9 +58,25 @@ describe('useSearchResultLineageCounts', () => {
         expect(result.current.countsByUrn.size).toBe(0);
     });
 
-    it('maps returned totals by urn', () => {
+    it('keeps loading true while refetching even when prior counts are cached', () => {
+        useCountsQueryMock.mockReturnValue({
+            loading: true,
+            error: undefined,
+            data: {
+                entities: [{ urn: URN, upstream: { filtered: 0, total: 2 }, downstream: { filtered: 1, total: 5 } }],
+            },
+        });
+
+        const { result } = renderHook(() => useSearchResultLineageCounts([URN, OTHER_URN]));
+
+        expect(result.current.loading).toBe(true);
+        expect(result.current.countsByUrn.has(URN)).toBe(true);
+    });
+
+    it('maps returned totals by urn and settles missing URNs', () => {
         useCountsQueryMock.mockReturnValue({
             loading: false,
+            error: undefined,
             data: {
                 entities: [
                     { urn: URN, upstream: { filtered: 0, total: 2 }, downstream: { filtered: 1, total: 5 } },
@@ -68,7 +85,7 @@ describe('useSearchResultLineageCounts', () => {
             },
         });
 
-        const { result } = renderHook(() => useSearchResultLineageCounts([URN]));
+        const { result } = renderHook(() => useSearchResultLineageCounts([URN, OTHER_URN]));
 
         expect(result.current.loading).toBe(false);
         expect(result.current.countsByUrn.get(URN)).toEqual({
@@ -76,5 +93,24 @@ describe('useSearchResultLineageCounts', () => {
             upstream: { filtered: 0, total: 2 },
             downstream: { filtered: 1, total: 5 },
         });
+        expect(result.current.countsByUrn.get(OTHER_URN)).toEqual({
+            urn: OTHER_URN,
+            upstream: { total: 0, filtered: 0 },
+            downstream: { total: 0, filtered: 0 },
+        });
+    });
+
+    it('leaves counts empty on query failure so the sidebar can fall back', () => {
+        useCountsQueryMock.mockReturnValue({
+            loading: false,
+            error: new Error('lineage counts failed'),
+            data: undefined,
+        });
+
+        const { result } = renderHook(() => useSearchResultLineageCounts([URN]));
+
+        expect(result.current.loading).toBe(false);
+        expect(result.current.countsByUrn.size).toBe(0);
+        expect(result.current.error).toBeTruthy();
     });
 });

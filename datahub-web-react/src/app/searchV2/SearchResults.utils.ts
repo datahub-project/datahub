@@ -14,17 +14,35 @@ export type LineageCountEntity = {
     downstream?: SearchResultLineageCounts['downstream'];
 } | null;
 
+const EMPTY_LINEAGE_COUNT = { total: 0, filtered: 0 };
+
+/**
+ * Index complete count pairs by URN. Partial GraphQL payloads (one direction null under
+ * errorPolicy) are skipped so callers do not treat them as settled. Pass `requestedUrns`
+ * once the deferred query has returned to mark every visible URN settled — missing or
+ * incomplete entries get explicit zero counts so the footer can render the badge and the
+ * sidebar does not re-fetch.
+ */
 export function lineageCountsByUrn(
     entities: ReadonlyArray<LineageCountEntity> | null | undefined,
+    requestedUrns?: ReadonlyArray<string>,
 ): Map<string, SearchResultLineageCounts> {
     const counts = new Map<string, SearchResultLineageCounts>();
     entities?.forEach((entity) => {
         if (!entity?.urn) return;
-        if (entity.upstream == null && entity.downstream == null) return;
+        if (entity.upstream == null || entity.downstream == null) return;
         counts.set(entity.urn, {
             urn: entity.urn,
             upstream: entity.upstream,
             downstream: entity.downstream,
+        });
+    });
+    requestedUrns?.forEach((urn) => {
+        if (!urn || counts.has(urn)) return;
+        counts.set(urn, {
+            urn,
+            upstream: EMPTY_LINEAGE_COUNT,
+            downstream: EMPTY_LINEAGE_COUNT,
         });
     });
     return counts;

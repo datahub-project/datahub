@@ -2,8 +2,9 @@ type OperationVariables = Record<string, unknown>;
 
 /**
  * Global search flags are applied on the way out so every operation sees them.
- * An explicit `skipLineage: true` is kept: callers such as the search page opt out of the
- * per-result lineage counts even when the hide-lineage flag is off. The flag still forces a skip.
+ * An explicit `skipLineage: true` / `skipSiblingsSearch: true` is kept: callers that opt out
+ * (search page for lineage; deprecation/hydration for siblings) must not be overwritten when
+ * the corresponding feature flag is off. The flags still force a skip when on.
  */
 export function injectGlobalSearchVariables(
     variables: OperationVariables,
@@ -11,7 +12,7 @@ export function injectGlobalSearchVariables(
 ): OperationVariables {
     return {
         ...variables,
-        skipSiblingsSearch: flags.showSeparateSiblings,
+        skipSiblingsSearch: flags.showSeparateSiblings || variables.skipSiblingsSearch === true,
         skipLineage: flags.hideLineageInSearchCards || variables.skipLineage === true,
     };
 }
