@@ -1,12 +1,17 @@
 import logging
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pytest
+import yaml
+from click.testing import CliRunner
 
 import datahub.ingestion.agent.probe_methods as pm
+from datahub.cli.recipe_cli import recipe as recipe_group
 from datahub.ingestion.agent.log_guard import REUSED_LOGGERS, quiet_reused_logs
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeInternalError
+from tests.unit.agent._parity_fake_source import SOURCE_TYPE as RESOLVABLE_SOURCE
 
 SENTINEL = "PLANTED-log-secret"
 # A URL with a password in it, as reused code logs one. Built from parts so a
@@ -466,6 +471,28 @@ def test_run_probe_method_drops_a_providers_silenced_loggers(
     res = pm.run_probe_method("x", {}, "tables", {})
     assert res.result == [{"name": "t"}]
     assert SENTINEL not in caplog.text
+
+
+def test_probe_run_keeps_silencing_under_the_clis_own_guard(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    # `probe run` wraps run_probe_method in a guard of its own, so the
+    # provider's silencing comes from the inner one of two nested guards.
+    recipe = tmp_path / "recipe.yml"
+    recipe.write_text(
+        yaml.safe_dump({"source": {"type": RESOLVABLE_SOURCE, "config": {}}})
+    )
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _SilencingProvider)
+    caplog.set_level(logging.DEBUG)
+    result = CliRunner().invoke(
+        recipe_group, ["probe", "run", "tables", "--recipe", str(recipe)]
+    )
+    assert result.exit_code == 0, result.output
+    assert '"t"' in result.output
+    assert SENTINEL not in caplog.text
+    assert SENTINEL not in result.output
 
 
 def test_a_misdeclared_silenced_loggers_is_a_defect(
