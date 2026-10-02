@@ -300,11 +300,25 @@ def test_a_listed_status_degrades_to_the_fallback_with_a_warning() -> None:
     assert SENTINEL not in warnings[0]
 
 
-def test_an_unlisted_status_propagates_untouched() -> None:
-    error = _HttpError(401)
-    with pytest.raises(_HttpError) as info:
-        _reports([], error)
+@pytest.mark.parametrize(
+    "error",
+    [
+        _HttpError(401),
+        _HttpError(500),
+        # No .response at all: a dropped connection, exhausted retries.
+        ConnectionError("connection reset"),
+    ],
+    ids=["unlisted-status", "server-error", "no-response"],
+)
+def test_a_failure_that_is_not_a_listed_status_propagates_untouched(
+    error: Exception,
+) -> None:
+    """Degrading these would report "nothing here" for "could not look"."""
+    warnings: List[str] = []
+    with pytest.raises(type(error)) as info:
+        _reports(warnings, error)
     assert info.value is error
+    assert warnings == []
 
 
 def test_a_soft_error_raised_by_a_connector_translator_degrades_without_codes() -> None:

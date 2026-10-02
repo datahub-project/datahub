@@ -1,10 +1,8 @@
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
     Collection,
-    Iterator,
     Mapping,
     Optional,
     Sequence,
@@ -156,37 +154,6 @@ class ProbeConnectionError(Exception):
 class ProbeInternalError(Exception):
     """A defect in the probe or a provider: exit 1. Once the arguments are
     checked, a KeyError is the getter misreading a response, not the caller."""
-
-
-def soft_error_for(
-    exc: BaseException, codes: Collection[int], context: str
-) -> Optional[ProbeSoftError]:
-    """The ProbeSoftError soft_on_status turns `exc` into, or None.
-
-    Duck-types on `.response.status_code`, so the framework takes no
-    HTTP-library dependency. The message names the context and the status
-    only, never the exception's text.
-    """
-    status = getattr(getattr(exc, "response", None), "status_code", None)
-    if status in codes:
-        return ProbeSoftError(
-            f"{context} returned HTTP {status}; treating it as empty."
-        )
-    return None
-
-
-@contextmanager
-def soft_on_status(*codes: int, context: str) -> Iterator[None]:
-    """The listed HTTP statuses become a ProbeSoftError ("nothing here");
-    anything else propagates ("could not look"). Duck-typed on
-    `.response.status_code`, so no HTTP library is imported."""
-    try:
-        yield
-    except Exception as exc:
-        soft = soft_error_for(exc, codes, context)
-        if soft is not None:
-            raise soft from exc
-        raise
 
 
 def ancestors_in(

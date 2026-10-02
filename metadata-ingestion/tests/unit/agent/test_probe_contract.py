@@ -24,6 +24,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.probe_methods import (
+    CONFIG_HOOKS,
     PROVIDER_ATTRIBUTES,
     ProbeMethodSpec,
     ProbeProvider,
@@ -34,6 +35,7 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.source.sql.sql_config import SQL_FAMILY_HOOKS
 
 # Parameter names that carry something a connector hands to an interpreter, a
 # filesystem or the network. A getter taking one of these must declare the
@@ -226,69 +228,13 @@ def test_a_provider_taking_sql_declares_the_dialect_it_will_be_parsed_as():
     assert missing == {}, missing
 
 
-# Every hook the framework reads off a config by name. A method that looks like one
-# of these but is not exactly one is the failure this list exists to catch.
-_CONFIG_HOOKS = frozenset(
-    {
-        "probe_provider_class",
-        # Read by agent.config_validation: the pydantic context a source type
-        # validates with (mssql-odbc).
-        "probe_validation_context",
-        # Read by filter_check._match_target: the string a pattern is matched
-        # against, for every kind.
-        "probe_match_target",
-        # Read by filter_check._override_verdict: the connector's verdict for
-        # one name when no single pattern states it; see VerdictContext.
-        "probe_verdict_override",
-        "probe_unfiltered_kinds",
-        # Read by filter_check: the containers above a kind.
-        "probe_ancestor_kinds",
-        # Read by filter_check._kind_switches: the bool field that switches a
-        # kind off (Fabric's extract_lakehouses, Unity's include_notebooks).
-        "probe_kind_switches",
-        # Read by introspect.declared_rule_filtered_kinds: kinds decided by
-        # rules that are not an AllowDenyPattern (GCS/S3 path_specs), judged
-        # through probe_verdict_override.
-        "probe_rule_filtered_kinds",
-        # Read by probe_methods.declared_kind_overrides: the kind a command
-        # reports when the config class, not the provider, decides it.
-        "probe_kind_overrides",
-    }
-)
-
-# Read only by source/sql/, so only a SQLCommonConfig subclass may declare one.
-_SQL_FAMILY_HOOKS = frozenset(
-    {
-        # Read by sql_probe._identifier_target: the identifier for a source
-        # whose identifier the get_identifier shim cannot build.
-        "probe_filter_target",
-        # Read by sqlalchemy_probe._container_normalizer: how a listed
-        # container is spelled for ingestion.
-        "probe_normalize_container",
-        # Read by sqlalchemy_probe.for_config: the statement ceiling, client
-        # label and engine setup, the sqlglot dialect `probe sql` parses as,
-        # and the URL the probe dials when it differs from
-        # get_sql_alchemy_url().
-        "probe_engine_settings",
-        "probe_sqlglot_dialect",
-        "probe_sql_alchemy_url",
-        # Read by sqlalchemy_probe.for_config: what `probe sql` may read
-        # (CatalogScope), set as the provider's catalog_scope for the gate.
-        "probe_catalog_scope",
-        # Read by SQLCommonConfig: whether `containers` lists schemas or
-        # databases, which its probe_kind_overrides and ancestor chain follow.
-        "probe_container_kind",
-    }
-)
-
-
 def _unread_probe_hooks(config_cls: type) -> Dict[str, List[str]]:
     """class name -> its `probe_` attributes that no reader would ever call."""
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
-    known = _CONFIG_HOOKS
+    known = CONFIG_HOOKS
     if issubclass(config_cls, SQLCommonConfig):
-        known = known | _SQL_FAMILY_HOOKS
+        known = known | SQL_FAMILY_HOOKS
     unread: Dict[str, List[str]] = {}
     for klass in config_cls.__mro__:
         suspects = [
@@ -325,8 +271,8 @@ def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
         unknown.update(_unread_probe_hooks(config_cls))
     assert unknown == {}, (
         "these look like probe hooks but the framework reads none of them, so they "
-        f"do nothing; expected one of {sorted(_CONFIG_HOOKS)}, or on a "
-        f"SQLCommonConfig one of {sorted(_SQL_FAMILY_HOOKS)}: {unknown}"
+        f"do nothing; expected one of {sorted(CONFIG_HOOKS)}, or on a "
+        f"SQLCommonConfig one of {sorted(SQL_FAMILY_HOOKS)}: {unknown}"
     )
 
 
@@ -470,12 +416,12 @@ def test_the_guide_documents_exactly_the_hooks_the_framework_reads():
     implement for nothing.
     """
     documented = _documented_config_hooks(_GUIDE.read_text(encoding="utf-8"))
-    undocumented = sorted(_CONFIG_HOOKS - documented)
-    unread = sorted(documented - _CONFIG_HOOKS)
+    undocumented = sorted(CONFIG_HOOKS - documented)
+    unread = sorted(documented - CONFIG_HOOKS)
     assert not undocumented and not unread, (
-        f"{_GUIDE.name} '{_HOOK_REFERENCE_HEADING}' and _CONFIG_HOOKS disagree. "
-        f"In _CONFIG_HOOKS but missing from the guide: {undocumented}. "
-        f"In the guide but not in _CONFIG_HOOKS: {unread}."
+        f"{_GUIDE.name} '{_HOOK_REFERENCE_HEADING}' and CONFIG_HOOKS disagree. "
+        f"In CONFIG_HOOKS but missing from the guide: {undocumented}. "
+        f"In the guide but not in CONFIG_HOOKS: {unread}."
     )
 
 
@@ -494,10 +440,10 @@ def _documented_sql_family_hooks(markdown: str) -> Set[str]:
 
 def test_the_guide_documents_exactly_the_sql_family_hooks():
     documented = _documented_sql_family_hooks(_GUIDE.read_text(encoding="utf-8"))
-    assert documented == set(_SQL_FAMILY_HOOKS), (
-        f"{_GUIDE.name} '{_SQL_FAMILY_HEADING}' and _SQL_FAMILY_HOOKS disagree. "
-        f"Missing from the guide: {sorted(_SQL_FAMILY_HOOKS - documented)}. "
-        f"Not in _SQL_FAMILY_HOOKS: {sorted(documented - _SQL_FAMILY_HOOKS)}."
+    assert documented == set(SQL_FAMILY_HOOKS), (
+        f"{_GUIDE.name} '{_SQL_FAMILY_HEADING}' and SQL_FAMILY_HOOKS disagree. "
+        f"Missing from the guide: {sorted(SQL_FAMILY_HOOKS - documented)}. "
+        f"Not in SQL_FAMILY_HOOKS: {sorted(documented - SQL_FAMILY_HOOKS)}."
     )
 
 
@@ -922,6 +868,7 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
         # `database` is the container above the schema, which an override
         # whose recipe spans several databases needs from the caller.
         "probe_filter_target": {"schema", "entity", "warn", "database"},
+        "probe_ancestor_kinds": {"kind"},
     }
 
     problems = []
@@ -1275,3 +1222,12 @@ def test_a_rule_field_is_not_mistaken_for_the_name_guess(monkeypatch):
         introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}
     )
     assert _fields_leaning_on_the_name_convention("fake-source", _RulesOnly) == []
+
+
+def test_the_framework_reads_no_config_hook_outside_its_list():
+    from datahub.ingestion.agent.probe_methods import config_hook
+    from datahub.ingestion.agent.verdicts import ProbeInternalError
+
+    with pytest.raises(ProbeInternalError):
+        config_hook(object(), "probe_match_targets")
+    assert config_hook(object(), "probe_match_target") is None

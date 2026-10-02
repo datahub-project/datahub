@@ -10,6 +10,7 @@ from typing import (
     FrozenSet,
     Iterable,
     List,
+    Mapping,
     NoReturn,
     Optional,
     Protocol,
@@ -255,6 +256,62 @@ class ProbeProvider(Protocol):
     def __exit__(self, *exc: object) -> None: ...
 
 
+# Every hook the framework reads off a config by name, each through
+# config_hook: the guide's hook reference table, which test_probe_contract
+# checks against this list, as it refuses a `probe_*` config method outside it
+# (or outside the SQL family's list, on a SQLCommonConfig).
+CONFIG_HOOKS: FrozenSet[str] = frozenset(
+    {
+        # _provider_class: the provider class, for `probe methods` and `run`.
+        "probe_provider_class",
+        # config_validation: the pydantic context a source type validates with.
+        "probe_validation_context",
+        # filter_check._match_target: the string a pattern is matched against.
+        "probe_match_target",
+        # filter_check._override_verdict: the connector's verdict for one name
+        # when no single pattern states it; see VerdictContext.
+        "probe_verdict_override",
+        # introspect.declared_unfiltered_kinds: kinds nothing filters, on purpose.
+        "probe_unfiltered_kinds",
+        # filter_check._parent_exclusion: the containers above a kind.
+        "probe_ancestor_kinds",
+        # filter_check._switch_verdict: the bool field that switches a kind off.
+        "probe_kind_switches",
+        # introspect.declared_rule_filtered_kinds: kinds decided by rules that
+        # are not an AllowDenyPattern, judged through probe_verdict_override.
+        "probe_rule_filtered_kinds",
+        # declared_kind_overrides: the kind a command reports when the config
+        # class, not the provider, decides it.
+        "probe_kind_overrides",
+    }
+)
+
+
+def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
+    """The config's `name` hook, or None where it declares none.
+
+    Only a CONFIG_HOOKS name may be read, so that list is what the framework
+    reads; any other is the framework's own defect. The hook itself is
+    called unguarded: one that raises is the connector's defect, and
+    swallowing it would make "declared" read as "not declared".
+    """
+    if name not in CONFIG_HOOKS:
+        raise ProbeInternalError(f"'{name}' is not a config hook the framework reads")
+    hook = getattr(config, name, None)
+    return hook if callable(hook) else None
+
+
+def declared_mapping(config: object, name: str) -> Dict[str, str]:
+    """What a mapping hook (probe_kind_overrides, probe_kind_switches,
+    probe_rule_filtered_kinds) declares, keys and values as str; {} where the
+    config declares none."""
+    hook = config_hook(config, name)
+    if hook is None:
+        return {}
+    declared = cast(Mapping[object, object], hook())
+    return {str(key): str(value) for key, value in declared.items()}
+
+
 # The optional attributes the framework reads off a provider by name, beyond the
 # ProbeProvider protocol. ProbeProviderBase declares each with a default that
 # reads as absent. test_probe_contract refuses a near-miss name, which nothing
@@ -373,8 +430,8 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
 
 
 def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
-    getter = getattr(config_class_for(source_type), "probe_provider_class", None)
-    return getter() if callable(getter) else None
+    getter = config_hook(config_class_for(source_type), "probe_provider_class")
+    return cast(Optional[Type[ProbeProvider]], getter() if getter else None)
 
 
 def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
@@ -415,10 +472,7 @@ def declared_kind_overrides(config: object) -> Dict[str, str]:
     family's `containers`: schemas or databases). A classmethod, so discovery
     answers without a recipe.
     """
-    declared = getattr(config, "probe_kind_overrides", None)
-    if not callable(declared):
-        return {}
-    return {str(command): str(kind) for command, kind in declared().items()}
+    return declared_mapping(config, "probe_kind_overrides")
 
 
 def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:

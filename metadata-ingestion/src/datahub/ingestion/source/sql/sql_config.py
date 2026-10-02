@@ -259,6 +259,34 @@ def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, 
     return {kwarg: PROBE_QUERY_LABEL}
 
 
+# The hooks source/sql/ reads off a SQLCommonConfig, beyond the framework's
+# own (probe_methods.CONFIG_HOOKS): the guide's SQL-family table, which
+# test_probe_contract checks against this list. Only a SQLCommonConfig
+# subclass may declare one.
+SQL_FAMILY_HOOKS: FrozenSet[str] = frozenset(
+    {
+        # sql_probe._identifier_target: the identifier for a source whose
+        # identifier the get_identifier shim cannot build.
+        "probe_filter_target",
+        # sqlalchemy_probe._container_normalizer: how a listed container is
+        # spelled for ingestion.
+        "probe_normalize_container",
+        # sqlalchemy_probe.for_config: the statement ceiling, client label and
+        # engine setup, the sqlglot dialect `probe sql` parses as, the URL
+        # the probe dials when it differs from get_sql_alchemy_url(), and
+        # what `probe sql` may read (CatalogScope, set as the provider's
+        # catalog_scope for the gate).
+        "probe_engine_settings",
+        "probe_sqlglot_dialect",
+        "probe_sql_alchemy_url",
+        "probe_catalog_scope",
+        # SQLCommonConfig: whether `containers` lists schemas or databases,
+        # which its probe_kind_overrides and ancestor chain follow.
+        "probe_container_kind",
+    }
+)
+
+
 class SQLCommonConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -356,7 +384,7 @@ class SQLCommonConfig(
             DatasetContainerSubTypes.DATABASE,
         ):
             return None
-        if self.probe_ancestor_kinds(ctx.kind) == ():
+        if self.probe_ancestor_kinds(kind=ctx.kind) == ():
             return None
         # Without the container the shim builds ".orders", which ingestion
         # never matches.

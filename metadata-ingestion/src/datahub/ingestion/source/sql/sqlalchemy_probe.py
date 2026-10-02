@@ -177,9 +177,9 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # _container_normalizer. Identity unless the connector says otherwise.
     container_normalizer: Callable[[str], str] = staticmethod(lambda name: name)
 
-    # The config's probe_sqlglot_dialect, primed in for_config; None derives
-    # it from the engine's dialect.
-    declared_sqlglot_dialect: Optional[str] = None
+    # The config's probe_sqlglot_dialect, set in for_config through
+    # sql_dialect; None derives it from the engine's dialect.
+    _declared_sqlglot_dialect: Optional[str] = None
 
     # Listing caches. Created on first use, not in __init__: tests build this
     # class with __new__ and subclasses may bring their own constructor. One
@@ -287,7 +287,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         if settings.prepare is not None:
             settings.prepare(engine)
         probe = cls(engine)
-        probe.declared_sqlglot_dialect = config.probe_sqlglot_dialect()
+        probe.sql_dialect = config.probe_sqlglot_dialect()
         probe.query_budget = enforced_budget(cls.query_budget, settings)
         # Per dialect, so from the config rather than the class.
         probe.catalog_scope = config.probe_catalog_scope()
@@ -314,10 +314,16 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         return code
 
     @property
-    def sql_dialect(self) -> str:
-        return self.declared_sqlglot_dialect or sqlglot_dialect_for(
+    def sql_dialect(self) -> Optional[str]:
+        """The config's declared sqlglot dialect, else the engine dialect's
+        name in sqlglot's spelling."""
+        return self._declared_sqlglot_dialect or sqlglot_dialect_for(
             self._engine.dialect.name
         )
+
+    @sql_dialect.setter
+    def sql_dialect(self, declared: Optional[str]) -> None:
+        self._declared_sqlglot_dialect = declared
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         with self._engine.connect() as conn:

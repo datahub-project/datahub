@@ -3,7 +3,7 @@ import re
 import types
 import typing
 from functools import lru_cache
-from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Tuple, cast
 
 from pydantic import SecretStr
 from pydantic.fields import FieldInfo
@@ -22,7 +22,9 @@ from datahub.ingestion.agent.models import (
     SourceSpec,
 )
 from datahub.ingestion.agent.probe_methods import (
+    config_hook,
     declared_kind_overrides,
+    declared_mapping,
     list_probe_methods,
 )
 from datahub.ingestion.agent.verdicts import UNFILTERED
@@ -203,22 +205,14 @@ def _pattern_field_for_config_class(
 def declared_unfiltered_kinds(config: object) -> Set[str]:
     """Levels this source says it deliberately does not filter
     (probe_unfiltered_kinds), read by name on any config."""
-    declared = getattr(config, "probe_unfiltered_kinds", None)
-    if not callable(declared):
-        return set()
-    # Unguarded: a hook that raises is a connector defect, and swallowing it
-    # would make "not filtered on purpose" read as "filter not found".
-    return {str(kind) for kind in declared()}
+    hook = config_hook(config, "probe_unfiltered_kinds")
+    return set() if hook is None else {str(k) for k in cast(Iterable[object], hook())}
 
 
 def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:
     """kind -> the config field whose rules (not an AllowDenyPattern) decide it
-    (probe_rule_filtered_kinds, such as `path_specs`). Unguarded, as
-    declared_unfiltered_kinds is."""
-    declared = getattr(config, "probe_rule_filtered_kinds", None)
-    if not callable(declared):
-        return {}
-    return {str(kind): field for kind, field in declared().items()}
+    (probe_rule_filtered_kinds, such as `path_specs`)."""
+    return declared_mapping(config, "probe_rule_filtered_kinds")
 
 
 def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[str]:

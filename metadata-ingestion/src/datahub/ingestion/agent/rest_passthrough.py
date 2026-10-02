@@ -1,30 +1,27 @@
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional
 
 import requests
 
 from datahub.ingestion.agent.api_gate import probe_api_url
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
 
 # Long enough for a slow listing endpoint, short enough that a hung probe fails
 # rather than occupying the executor. Overridable per connector.
 DEFAULT_API_TIMEOUT_SECONDS = 30
 
 
-class RestApiPassthrough:
+class RestApiPassthrough(ProbeProviderBase):
     """Supplies the `api` probe command to a provider whose source has a REST API.
 
     The gate checks the input (scoped_path_param); this base makes the call
     the same way everywhere: through the connector's own session (its rate
     limiter and auth), with a timeout, raise_for_status before decoding, and
     the one URL join the gate validated. A provider sets `api_base_url` and
-    `api_allowlist`, and sets `api_session` or overrides `api_fetch_json`.
+    `api_allowlist` (declared on ProbeProviderBase), and sets `api_session` or
+    overrides `api_fetch_json`.
     """
 
-    # None until listed, so an unset list is refused as the provider's defect
-    # rather than blamed on the caller's path (as ProbeProviderBase declares it).
-    api_allowlist: Optional[Sequence[str]] = None
-
-    api_base_url: str = ""
     api_timeout_seconds: int = DEFAULT_API_TIMEOUT_SECONDS
     api_session: Optional[requests.Session] = None
 

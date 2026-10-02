@@ -36,7 +36,6 @@ from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeInternalError,
     ProbeSoftError,
-    soft_error_for,
 )
 
 if TYPE_CHECKING:
@@ -234,6 +233,21 @@ class PersonalWithholding(Generic[T]):
         return f"at least {self.withheld}" if stopped_early else str(self.withheld)
 
 
+def _soft_error_for(
+    exc: BaseException, codes: Sequence[int], context: str
+) -> Optional[ProbeSoftError]:
+    """The ProbeSoftError an HTTP error whose status is in `codes` becomes,
+    or None. Duck-typed on `.response.status_code`, so the framework takes no
+    HTTP-library dependency. The message names the context and the status
+    only, never the exception's text."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status in codes:
+        return ProbeSoftError(
+            f"{context} returned HTTP {status}; treating it as empty."
+        )
+    return None
+
+
 class soft_listing:
     """One sub-listing that may degrade: a ProbeSoftError, or an HTTP error
     whose status is in `codes`, becomes a warning, and the fallback after the
@@ -273,7 +287,7 @@ class soft_listing:
             return False
         soft = exc if isinstance(exc, ProbeSoftError) else None
         if soft is None and self._codes:
-            soft = soft_error_for(exc, self._codes, self._context)
+            soft = _soft_error_for(exc, self._codes, self._context)
             if soft is not None:
                 soft.__cause__ = exc
         if soft is None:

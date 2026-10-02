@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, TypeVar
+from typing import Any, Dict, List, Optional, Sequence
 
 from datahub.ingestion.agent.probe_methods import clamp_item_limit, probe_method
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
 from datahub.ingestion.agent.redact import mask_identity_columns
-from datahub.ingestion.agent.sql_gate import CatalogScope
 from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeInternalError
 
 _JSON_SAFE_TYPES = (str, int, float, bool)
@@ -14,10 +14,6 @@ _JSON_SAFE_TYPES = (str, int, float, bool)
 # string safe to interpolate where no bind parameter exists;
 # test_query_attribution.py pins both.
 PROBE_QUERY_LABEL = "datahub_recipe_probe"
-
-
-# `__enter__` returns the concrete provider, so a `with` keeps its getters.
-_SelfT = TypeVar("_SelfT", bound="SqlCatalogPassthrough")
 
 
 @dataclass(frozen=True)
@@ -66,20 +62,17 @@ class QueryBudget:
         return ", ".join(parts) or "no server-side ceiling"
 
 
-class SqlCatalogPassthrough:
-    """Supplies the `sql` probe command to a provider that is not SQLAlchemy-backed.
+class SqlCatalogPassthrough(ProbeProviderBase):
+    """Supplies the `sql` probe command to a provider that speaks SQL.
 
     The base owns the fetch-one-past-the-limit convention: `truncated` compares
     rows returned against the limit, so an adapter fetching exactly `limit`
     would report a cut-short result as complete. A subclass declares
-    `sql_dialect` (the gate refuses a query without one), implements
-    `execute_catalog_query`, and owns `__exit__`.
+    `sql_dialect` (the gate refuses a query without one) and `catalog_scope`
+    (both on ProbeProviderBase; a provider of its own sets the scope on its
+    class, the SQLAlchemy provider from the config's probe_catalog_scope),
+    and implements `execute_catalog_query`.
     """
-
-    # What `probe sql` may read; None is information_schema only. The one scope
-    # the gate reads: a provider of its own sets it on its class, the
-    # SQLAlchemy provider from the config's probe_catalog_scope.
-    catalog_scope: Optional[CatalogScope] = None
 
     # What one query may spend. The provider applies it, the mechanism being
     # per driver (the SQLAlchemy family through probe_engine_settings).
@@ -95,9 +88,6 @@ class SqlCatalogPassthrough:
             f"{type(self).__name__} must implement execute_catalog_query to supply "
             f"the `sql` probe command; this is a defect in the probe provider"
         )
-
-    def __enter__(self: _SelfT) -> _SelfT:
-        return self
 
     @probe_method(
         name="sql",

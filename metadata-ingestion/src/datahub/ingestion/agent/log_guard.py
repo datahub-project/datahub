@@ -1,9 +1,24 @@
+"""The log guard: reused code's log records are scrubbed while a probe runs.
+
+One hook does the work, logging.setLogRecordFactory: every record is made
+through it, whichever logger or handler it is bound for. warnings.warn is
+routed to logging for the guard's duration (logging.captureWarnings), so it is
+scrubbed as `py.warnings`.
+
+A gap remains on that route, and it is left alone rather than patched with a
+showwarning of our own. When capture is already on but bypassed -- turned on
+inside a catch_warnings block that has since put its printer back, or a
+library has installed its own warnings.showwarning since -- logging still
+reports capture as on, so the guard turns nothing on, and those warnings
+print through whoever's printer is in front, unscrubbed. Capture turned on by
+someone else while a guard is open is turned off with the guard's own.
+"""
+
 import logging
 import threading
-import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, Iterator, Sequence, Set, Tuple
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -79,8 +94,6 @@ class _Active:
         self.lock = threading.Lock()
         self.guards: Tuple[_Guard, ...] = ()
         self.turned_on_capture = False
-        # The showwarning put aside while logging's own is put back in front.
-        self.bypass: Optional[Callable[..., None]] = None
         # Each silenced logger's level before the first open guard naming it.
         self.saved_levels: Dict[str, int] = {}
 
@@ -116,25 +129,13 @@ class _Active:
             if self.turned_on_capture:
                 logging.captureWarnings(False)
                 self.turned_on_capture = False
-            if self.bypass is not None:
-                if warnings.showwarning is getattr(logging, "_showwarning", None):
-                    warnings.showwarning = self.bypass
-                self.bypass = None
 
     def _capture_warnings(self) -> None:
-        # Judged by what warnings calls, not by logging's flag alone: the flag
-        # stays set after a catch_warnings block that turned capture on exits,
-        # or after a library puts its own showwarning in, and then
-        # captureWarnings(True) does nothing while warnings print raw.
-        to_logging = getattr(logging, "_showwarning", None)
-        if warnings.showwarning is to_logging:
-            return
+        # logging keeps the printer it replaced while capture is on; the
+        # stdlib has no public way to ask.
         if getattr(logging, "_warnings_showwarning", None) is None:
             logging.captureWarnings(True)
             self.turned_on_capture = True
-        elif to_logging is not None:
-            self.bypass = warnings.showwarning
-            warnings.showwarning = to_logging
 
 
 _ACTIVE = _Active()
@@ -162,8 +163,9 @@ def quiet_reused_logs(
     after the factory runs (a JSON formatter, or a DATAHUB_LOG_CONFIG_FILE
     format naming them, prints them); a record factory installed mid-guard
     that does not call the one it replaced, which turns scrubbing off until
-    the next guard opens; and a silenced logger whose level is reset
-    mid-guard, which is then only scrubbed.
+    the next guard opens; a silenced logger whose level is reset mid-guard,
+    which is then only scrubbed; and warnings whose capture is on but
+    bypassed (see the module docstring).
 
     Guards may nest or close in any order. When the last one closes,
     exception or not, its factory comes out unless a third party's wrapper

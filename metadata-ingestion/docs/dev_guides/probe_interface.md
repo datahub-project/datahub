@@ -162,7 +162,6 @@ copy. None is a hook: the framework never looks them up.
 | `PersonalWithholding(is_personal=..., would_ingest=...)` | leaving out personal records: pass `.keep` to `take`, warn with `.count_text(stopped_early=...)`; `is_personal` fails closed |
 | `soft_listing(self._warn, 403, 404, context=...)`        | one sub-listing that may degrade: `return fetch()` inside the block, the fallback after it                                   |
 | `echoed(value)`                                          | a caller's argument or a listed name in a refusal: clipped and repr-quoted                                                   |
-| `soft_on_status(*codes, context=...)`                    | turning HTTP statuses into a `ProbeSoftError` you catch yourself                                                             |
 | `mask_identity_columns(columns, rows)`                   | masking identity columns (`user_name`, `email`, grantees) in a result you admit                                              |
 | `pattern_verdict(config, field, target)`                 | the standard allow/deny check, for a `probe_verdict_override` that defers to a pattern                                       |
 | `Verdict.include()` / `Verdict.exclude(field)`           | a verdict, naming the field or rule that excluded it                                                                         |
@@ -225,10 +224,11 @@ Both are environment variables, set where the probe runs, because the agent writ
 
 ## Hook reference
 
-Every hook the framework reads off a config, by name. All are optional except
-`probe_provider_class`. Copy the signature exactly: instance hooks are called with keyword
-arguments. `test_probe_contract.py` checks the names in this table against `_CONFIG_HOOKS`, refuses
-a `probe_*` method the framework does not read, and checks the keyword arguments.
+Every hook the framework reads off a config, by name: `CONFIG_HOOKS` in `agent/probe_methods.py`. All
+are optional except `probe_provider_class`. Copy the signature exactly: instance hooks are called
+with keyword arguments. `test_probe_contract.py` checks the names in this table against
+`CONFIG_HOOKS`, refuses a `probe_*` method the framework does not read, and checks the keyword
+arguments.
 
 | Hook                        | Signature                                                       | Declare it when                                                                     |
 | --------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -244,8 +244,8 @@ a `probe_*` method the framework does not read, and checks the keyword arguments
 
 Two field annotations complete it: `Filters(kind)` on the pattern field that filters a kind, and
 `Qualifier()` on a field naming the container a qualified name starts with. A new hook goes into
-`_CONFIG_HOOKS` and this table in the same change (a SQL-family hook: `_SQL_FAMILY_HOOKS` and
-[its table](#sql-family-hooks)).
+`CONFIG_HOOKS` and this table in the same change (a SQL-family hook: `SQL_FAMILY_HOOKS` in
+`source/sql/sql_config.py` and [its table](#sql-family-hooks)).
 
 ## Making verdicts match ingestion
 
@@ -358,7 +358,7 @@ the names its rules leave alone.
 ### SQL-family hooks
 
 Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
-`test_probe_contract.py` checks them against `_SQL_FAMILY_HOOKS`.
+`test_probe_contract.py` checks them against `SQL_FAMILY_HOOKS`.
 
 | Hook                        | Signature                                                                                                        | Declare it when                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
