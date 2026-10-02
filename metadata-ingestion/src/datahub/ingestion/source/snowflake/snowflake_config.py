@@ -755,10 +755,20 @@ class SnowflakeV2Config(
         "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
+    use_access_history: Optional[bool] = Field(
+        default=None,
+        description="Whether to use snowflake.account_usage.access_history for lineage/usage/queries "
+        "extraction. access_history is only populated on Enterprise edition or above; on Standard edition "
+        "the connector instead derives the same signals by parsing query text from "
+        "snowflake.account_usage.query_history. If unset, this is auto-detected from the account edition. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
     push_down_database_pattern_access_history: bool = Field(
         default=False,
         description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
-        "This filters on the accessed objects in access_history.",
+        "This filters on the accessed objects in access_history. Only applies when access_history is used "
+        "(see `use_access_history`); it has no effect on the query_history parsing path.",
     )
 
     additional_database_names_allowlist: List[str] = Field(

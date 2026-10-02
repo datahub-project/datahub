@@ -31,6 +31,61 @@ _UNSTRUCTURED_EXTRAS = frozenset(
     {"unstructured", "notion", "confluence", "datahub-documents"}
 )
 
+# Interpreters built against OpenSSL 4.0 (e.g. Wolfi's Python) drop TLSv1
+# entirely, so ssl.PROTOCOL_TLSv1 / OpenSSL.SSL.TLSv1_METHOD do not exist.
+# snowflake-connector-python's vendored urllib3 references both unconditionally
+# at import time. Nothing actually negotiates TLSv1 - the names are only used
+# as dict keys - so aliasing them to the generic TLS protocol/method is safe.
+_TLSV1_COMPAT_MODULE_NAME = "openssl4_tlsv1_compat"
+_TLSV1_COMPAT_MODULE = '''\
+import ssl
+
+if not hasattr(ssl, "PROTOCOL_TLSv1"):
+    ssl.PROTOCOL_TLSv1 = ssl.PROTOCOL_TLS
+
+try:
+    import OpenSSL.SSL
+except ImportError:
+    pass
+else:
+    if not hasattr(OpenSSL.SSL, "TLSv1_METHOD"):
+        OpenSSL.SSL.TLSv1_METHOD = OpenSSL.SSL.SSLv23_METHOD
+'''
+
+
+def _install_tlsv1_compat_shim(venv_path: str) -> None:
+    """
+    Write a .pth shim into the venv's site-packages when its interpreter lacks
+    ssl.PROTOCOL_TLSv1, so vendored-urllib3 consumers (snowflake-connector)
+    remain importable on OpenSSL 4.0 runtimes.
+    """
+    python_exe = os.path.join(venv_path, "bin", "python")
+    probe = subprocess.run(
+        [
+            python_exe,
+            "-c",
+            "import ssl, sysconfig; "
+            "print(sysconfig.get_paths()['purelib']); "
+            "print(hasattr(ssl, 'PROTOCOL_TLSv1'))",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    purelib, has_tlsv1 = probe.stdout.strip().splitlines()[-2:]
+    if has_tlsv1 == "True":
+        return
+
+    site_packages = Path(purelib)
+    site_packages.mkdir(parents=True, exist_ok=True)
+    (site_packages / f"{_TLSV1_COMPAT_MODULE_NAME}.py").write_text(
+        _TLSV1_COMPAT_MODULE
+    )
+    (site_packages / f"{_TLSV1_COMPAT_MODULE_NAME}.pth").write_text(
+        f"import {_TLSV1_COMPAT_MODULE_NAME}\n"
+    )
+    print("  → Installed ssl.PROTOCOL_TLSv1 compat shim (OpenSSL 4.0 runtime)")
+
 
 def _env_truthy(key: str) -> bool:
     return os.environ.get(key, "").lower() in ("true", "1", "yes")
@@ -142,6 +197,8 @@ def create_bundled_venv(
         subprocess.run(
             ["bash", "-c", install_cmd], check=True, capture_output=True, text=True
         )
+
+        _install_tlsv1_compat_shim(venv_path)
 
         extras_set = {e.strip() for e in extras_str.split(",") if e.strip()}
         if extras_set & _UNSTRUCTURED_EXTRAS:

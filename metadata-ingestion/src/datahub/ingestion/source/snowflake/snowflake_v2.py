@@ -56,6 +56,7 @@ from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfi
 from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
     SnowflakeQueriesExtractorConfig,
+    detect_snowflake_edition,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -878,6 +879,11 @@ class SnowflakeV2Source(
                 query_dedup_strategy=self.config.query_dedup_strategy,
                 push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
                 additional_database_names_allowlist=self.config.additional_database_names_allowlist,
+                # The edition detected in inspect_session_metadata is forwarded so
+                # the extractor doesn't re-probe; an explicit use_access_history
+                # recipe value still takes precedence inside the extractor.
+                use_access_history=self.config.use_access_history,
+                known_snowflake_edition=self.report.edition,
             ),
             structured_report=self.report,
             filters=self.filters,
@@ -1054,13 +1060,7 @@ class SnowflakeV2Source(
     def is_standard_edition(self) -> bool:
         if self.config.known_snowflake_edition is not None:
             return self.config.known_snowflake_edition == SnowflakeEdition.STANDARD
-        try:
-            self.connection.query(SnowflakeQuery.show_tags())
-            return False
-        except Exception as e:
-            if "Unsupported feature 'TAG'" in str(e):
-                return True
-            raise
+        return detect_snowflake_edition(self.connection) == SnowflakeEdition.STANDARD
 
     def _snowflake_clear_ocsp_cache(self) -> None:
         # Because of some issues with the Snowflake Python connector, we wipe the OCSP cache.
