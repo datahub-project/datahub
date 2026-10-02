@@ -149,6 +149,36 @@ source:
           timeout: 120
 ```
 
+##### Performance tuning for large REST catalogs
+
+Ingesting a catalog with thousands of tables is dominated by one `loadTable` request per table. Three settings
+decide how long that takes:
+
+- `processing_threads` (default `1`) loads tables strictly one after another. Every table costs at least one
+  catalog round trip, so raising it to e.g. `8` or `16` shortens the run almost proportionally. See
+  [Troubleshooting](#exceptions-while-increasing-processing_threads) if you hit open-file limits.
+- `snapshot-loading-mode` is passed to the REST catalog as the `snapshots` parameter of `loadTable`. DataHub only
+  reads the current snapshot, so it defaults this to `refs` (snapshots referenced by a branch or tag) instead of
+  the Iceberg default `all`. For tables with a long snapshot history this shrinks the response from megabytes to
+  kilobytes. Set `snapshot-loading-mode: all` under the catalog if you need the previous behaviour.
+- `header.X-Iceberg-Access-Delegation` controls credential vending. pyiceberg requests `vended-credentials` by
+  default, which makes some catalogs (for example Apache Polaris) obtain temporary storage credentials on every
+  `loadTable`. DataHub never reads data files unless profiling is enabled, so with profiling off you can turn this
+  off, e.g. `header.X-Iceberg-Access-Delegation: ""` for Polaris. Whether an empty value is accepted depends on the
+  catalog implementation, so check its documentation first.
+
+```yaml
+source:
+  type: "iceberg"
+  config:
+    processing_threads: 8
+    catalog:
+      demo:
+        type: "rest"
+        uri: "http://iceberg-catalog-uri"
+        snapshot-loading-mode: refs # DataHub default, shown for clarity
+```
+
 #### Google BigLake REST Catalog + GCS warehouse
 
 DataHub supports ingesting metadata from [Google BigLake](https://cloud.google.com/bigquery/docs/biglake-intro) via the Iceberg REST Catalog API.
