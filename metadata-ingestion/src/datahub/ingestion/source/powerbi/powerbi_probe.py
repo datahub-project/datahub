@@ -212,7 +212,7 @@ class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
         *,
         stopped_early: bool = False,
     ) -> None:
-        w = withholding or self._withholding
+        w = self._withholding if withholding is None else withholding
         if w.withheld:
             self._warn(
                 f"{w.count_text(stopped_early=stopped_early)} personal "

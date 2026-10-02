@@ -935,19 +935,24 @@ class PowerBiDashboardSourceConfig(
         if verdict.excluded_by == WORKSPACE_NAME_PATTERN:
             # Ingestion drops it on the name; that stays the reported reason.
             return verdict
+        # Worded to hold also when this is the --parent of a report or
+        # dashboard: the framework judges that parent by name alone, and these
+        # notes reach the child, whose own stamped facts the rule did judge.
         if facts.workspace_id is UNKNOWN:
             ctx.warn(
-                f"no workspace id for '{ctx.name}', so workspace_id_pattern was "
-                "not judged; save `probe run workspaces --report-to` and pass it "
-                "with `probe filter --from-run` to judge it"
+                f"no workspace id for '{ctx.name}' here: workspace_id_pattern is "
+                "judged only from a record that carries the id, which a saved "
+                "`probe run workspaces`, `reports` or `dashboards` run does; pass "
+                "one with `probe filter --from-run`"
             )
         if verdict.excluded_by == WORKSPACE_ID_PATTERN:
             return verdict
         if facts.workspace_type is UNKNOWN:
             ctx.warn(
-                f"no workspace type for '{ctx.name}', so workspace_type_filter "
-                "was not judged; save `probe run workspaces --report-to` and pass "
-                "it with `probe filter --from-run` to judge it"
+                f"no workspace type for '{ctx.name}' here: workspace_type_filter "
+                "is judged only from a record that carries the type, which a "
+                "saved `probe run workspaces`, `reports` or `dashboards` run "
+                "does; pass one with `probe filter --from-run`"
             )
         if not verdict.included:
             return verdict
