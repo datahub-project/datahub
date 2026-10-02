@@ -2240,6 +2240,17 @@ _SERVER_BEDROCK_TITAN_V2 = ServerSemanticSearchConfig(
         model_embedding_key="titan_embed_text_v2",
     ),
 )
+_SERVER_VERTEX_GEMINI = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="vertex_ai",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="test-project",
+        vertex_location="us-east1",
+    ),
+)
 _SERVER_ONNX_ARCTIC = ServerSemanticSearchConfig(
     enabled=True,
     enabled_entities=["document"],
@@ -2290,6 +2301,11 @@ class TestFingerprintFollowsServerEmbeddingConfig:
                 _SERVER_SEMANTIC_SEARCH_OFF,
                 _SERVER_BEDROCK_COHERE_V3,
                 id="semantic-search-turned-on",
+            ),
+            pytest.param(
+                _SERVER_SEMANTIC_SEARCH_OFF,
+                _SERVER_VERTEX_GEMINI,
+                id="semantic-search-turned-on-vertex",
             ),
             pytest.param(
                 _SERVER_BEDROCK_COHERE_V3,
