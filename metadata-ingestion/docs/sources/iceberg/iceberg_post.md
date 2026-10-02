@@ -149,6 +149,25 @@ source:
           timeout: 120
 ```
 
+To send custom HTTP headers with every request to the REST catalog, add them to the catalog configuration as
+`header.<name>` properties. These are handled natively by pyiceberg, and are applied before the catalog is created,
+so with the legacy `credential` flow they are also sent on the initial OAuth token request. With `auth.type: oauth2`
+they are not sent on the token request. This is useful for catalogs requiring a header on all traffic, for example
+Apache Polaris deployments requiring a `Polaris-Realm` header:
+
+```yaml
+source:
+  type: "iceberg"
+  config:
+    env: dev
+    catalog:
+      my_catalog:
+        type: rest
+        uri: http://localhost:8181/api/catalog
+        credential: client_id:client_secret
+        header.Polaris-Realm: my-realm
+```
+
 #### Google BigLake REST Catalog + GCS warehouse
 
 DataHub supports ingesting metadata from [Google BigLake](https://cloud.google.com/bigquery/docs/biglake-intro) via the Iceberg REST Catalog API.
