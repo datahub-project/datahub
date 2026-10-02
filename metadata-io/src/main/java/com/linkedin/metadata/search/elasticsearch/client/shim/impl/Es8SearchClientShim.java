@@ -997,14 +997,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   private co.elastic.clients.elasticsearch.core.DeleteByQueryRequest convertDeleteByQueryRequest(
       DeleteByQueryRequest deleteByQueryRequest, boolean synchronous) throws IOException {
-    return new co.elastic.clients.elasticsearch.core.DeleteByQueryRequest.Builder()
-        .query(convertQuery(deleteByQueryRequest.getSearchRequest().source().query()))
-        .index(Arrays.asList(deleteByQueryRequest.indices()))
-        .timeout(new Time.Builder().time(deleteByQueryRequest.getTimeout().getStringRep()).build())
-        .refresh(deleteByQueryRequest.isRefresh())
-        .scrollSize((long) deleteByQueryRequest.getBatchSize())
-        .waitForCompletion(synchronous)
-        .build();
+    co.elastic.clients.elasticsearch.core.DeleteByQueryRequest.Builder builder =
+        new co.elastic.clients.elasticsearch.core.DeleteByQueryRequest.Builder()
+            .query(convertQuery(deleteByQueryRequest.getSearchRequest().source().query()))
+            .index(Arrays.asList(deleteByQueryRequest.indices()))
+            .timeout(
+                new Time.Builder().time(deleteByQueryRequest.getTimeout().getStringRep()).build())
+            .refresh(deleteByQueryRequest.isRefresh())
+            .scrollSize((long) deleteByQueryRequest.getBatchSize())
+            .waitForCompletion(synchronous);
+    if (!deleteByQueryRequest.isAbortOnVersionConflict()) {
+      builder.conflicts(Conflicts.Proceed);
+    }
+    return builder.build();
   }
 
   // Index management operations

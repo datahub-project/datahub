@@ -72,7 +72,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Value;
 import org.testng.annotations.BeforeMethod;
@@ -203,9 +205,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -244,9 +244,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -309,9 +307,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -561,9 +557,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -603,9 +597,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -702,9 +694,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -841,9 +831,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -948,9 +936,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.argThat(
-                urnToRelationshipTypes ->
-                    Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn))),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -1278,5 +1264,11 @@ public class UpdateIndicesHookTest {
     updateIndicesHook.invokeBatch(opContext, Collections.emptyList());
 
     Mockito.verifyNoInteractions(mockEntitySearchService, mockGraphService);
+  }
+
+  private static ArgumentMatcher<Map<Urn, Set<String>>> removeEdgesForDownstream(
+      Urn downstreamUrn) {
+    return urnToRelationshipTypes ->
+        Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn));
   }
 }

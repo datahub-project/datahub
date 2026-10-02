@@ -30,7 +30,6 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -257,15 +256,18 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   private static Filter createUrnFilter(@Nonnull final Urn urn) {
-    Filter filter = new Filter();
-    CriterionArray criterionArray = new CriterionArray();
-    Criterion criterion = buildCriterion("urn", Condition.EQUAL, urn.toString());
-    criterionArray.add(criterion);
-    filter.setOr(
-        new ConjunctiveCriterionArray(
-            ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+    return createUrnsFilter(List.of(urn.toString()));
+  }
 
-    return filter;
+  private static Filter createUrnsFilter(@Nonnull final List<String> urns) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(buildCriterion("urn", Condition.EQUAL, urns)))))));
   }
 
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
@@ -346,17 +348,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
                 GraphFilters.from(createUrnsFilter(chunk), relationshipTypes, relationshipFilter));
           }
         });
-  }
-
-  private static Filter createUrnsFilter(@Nonnull final List<String> urns) {
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                ImmutableList.of(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                ImmutableList.of(buildCriterion("urn", Condition.EQUAL, urns)))))));
   }
 
   @Override
