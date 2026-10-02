@@ -9,7 +9,7 @@ connector, including:
 - Row type definitions (TypedDicts) for data fetcher interfaces
 """
 
-from typing import Annotated, Any, Dict, Optional, Sequence, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, Dict, Optional, Sequence, TypedDict
 
 from pydantic import Field, model_validator
 
@@ -22,7 +22,15 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineageConfigMixin,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.protocol_probe_settings import (
+    libpq_probe_settings,
+    mysql_probe_settings,
+    speaks_libpq,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    ProbeEngineSettings,
+)
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -31,6 +39,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.str_enum import StrEnum
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 # =============================================================================
 # Row Type Definitions
@@ -301,6 +312,13 @@ class HiveMetastore(
             kind,
             (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
         )
+
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        # The metastore's own database is MySQL (the default scheme) or
+        # PostgreSQL, so the settings are that backend's.
+        if speaks_libpq(self):
+            return libpq_probe_settings(self, budget)
+        return mysql_probe_settings(self, budget)
 
     @model_validator(mode="after")
     def validate_thrift_settings(self) -> "HiveMetastore":

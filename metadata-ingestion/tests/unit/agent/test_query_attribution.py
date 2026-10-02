@@ -11,15 +11,40 @@ import re
 from typing import Any, Dict, List
 
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
+from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadataProbe
-from datahub.ingestion.source.sql.sql_probe import engine_options
+from datahub.ingestion.source.sql.cockroachdb import CockroachDBConfig
+from datahub.ingestion.source.sql.doris.doris_source import DorisConfig
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
+from datahub.ingestion.source.sql.sqlalchemy_probe import probe_engine_options
+
+_CONFIG_FOR_DIALECT = {
+    "postgresql": PostgresConfig,
+    "cockroachdb": CockroachDBConfig,
+    "redshift": RedshiftConfig,
+    "mysql": MySQLConfig,
+    # MariaDB's source is declared with MySQLConfig.
+    "mariadb": MySQLConfig,
+    "doris": DorisConfig,
+}
 
 
 def _options_for(url: str, **config_attrs: Any) -> Dict[str, Any]:
-    config = type(
-        "_Config", (), {"get_sql_alchemy_url": lambda self: url, **config_attrs}
+    """The engine options the probe builds for the connector config whose
+    recipe connects to `url`; a dialect with no connector of its own goes
+    through the generic source."""
+    config_cls = _CONFIG_FOR_DIALECT.get(url.split("://", 1)[0].split("+", 1)[0])
+    config: SQLCommonConfig = (
+        config_cls(host_port="h:1", sqlalchemy_uri=url, **config_attrs)
+        if config_cls is not None
+        else SQLAlchemyGenericConfig(platform="exotic", connect_uri=url, **config_attrs)
     )
-    return engine_options(config(), budget=QueryBudget(timeout_seconds=30))
+    return probe_engine_options(
+        config, config.probe_engine_settings(QueryBudget(timeout_seconds=30))
+    )
 
 
 def test_the_label_stays_inside_the_charset_every_dialect_accepts():

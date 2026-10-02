@@ -74,14 +74,9 @@ class QueryBudget:
     max_bytes_billed: Optional[int] = None
 
     def __post_init__(self) -> None:
-        # There were two ways to say "unbounded" and only one of them was
-        # honest. Every applier treats <= 0 as no ceiling (sql_probe's
-        # _timeout_connect_args, install_statement_timeout,
-        # applies_statement_timeout all bail on it), but describe() checked
-        # only `is not None` -- so QueryBudget(timeout_seconds=0) reported
-        # "0s", which reads as a ceiling and is not one. That is precisely the
-        # failure the docstring above warns against, reachable through the
-        # constructor. None is the one representation of unbounded.
+        # None is the one representation of unbounded. A non-positive number
+        # would make describe() report a ceiling ("0s") that no applier
+        # enforces, which is the failure the docstring above warns against.
         for name in ("timeout_seconds", "max_bytes_billed"):
             value = getattr(self, name)
             if value is not None and value <= 0:
@@ -139,24 +134,11 @@ class SqlCatalogPassthrough:
     catalog_scope: CatalogScope = CatalogScope()
 
     # What one query here may spend. Applying it is the provider's job, since
-    # the mechanism is per-driver.
-    #
-    # Declaring it here does NOT bound a provider that ignores it -- an earlier
-    # version of this comment said it made such a provider "still bounded",
-    # which is exactly the kind of claim QueryBudget's own docstring warns
-    # about. A later version claimed "describe() reports it", which overstates
-    # the other way: describe() has no production caller, and query_budget
-    # reaches neither SourceSpec nor the CLI, so nothing surfaces the ceiling
-    # to a caller at runtime.
-    #
-    # What the default actually buys is narrower than either claim. Providers
-    # that do route through effective_budget() get a bounded ceiling without
-    # their author having thought about it, which is the common case the
-    # docstring above is written for; and the number lives in one declared
-    # place instead of being spelled out per adapter. A provider that applies
-    # nothing is bounded by nothing, and only reading it tells you so.
-    # Enforcing it would take a hook every adapter must route through, which
-    # this does not have.
+    # the mechanism is per-driver; declaring it does not bound a provider that
+    # ignores it. The SQLAlchemy family applies it through each dialect's
+    # SQLCommonConfig.probe_engine_settings and reports the part that applies.
+    # describe() has no production caller and query_budget reaches neither
+    # SourceSpec nor the CLI, so nothing surfaces the ceiling at runtime.
     query_budget: QueryBudget = QueryBudget()
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:

@@ -279,14 +279,15 @@ _CONFIG_HOOKS = frozenset(
 _SQL_FAMILY_HOOKS = frozenset(
     {
         # Read by sql_probe._identifier_target: the identifier for a source
-        # whose real Source is not a SQLAlchemySource.
+        # whose identifier the get_identifier shim cannot build.
         "probe_filter_target",
         # Read by sqlalchemy_probe._container_normalizer: how a listed
         # container is spelled for ingestion.
         "probe_normalize_container",
-        # Read by sqlalchemy_probe.for_config: connection-time engine setup,
-        # and the URL the probe dials when it differs from
-        # get_sql_alchemy_url().
+        # Read by sqlalchemy_probe.for_config: the dialect's statement
+        # ceiling and client label, connection-time engine setup, and the URL
+        # the probe dials when it differs from get_sql_alchemy_url().
+        "probe_engine_settings",
         "probe_prepare_engine",
         "probe_sql_alchemy_url",
         # Read by SQLCommonConfig: whether `containers` lists schemas or
@@ -1000,11 +1001,10 @@ def test_unity_catalog_is_qualified_by_its_own_override_not_the_framework():
 def test_no_sql_source_falls_back_to_the_bare_fqn():
     """The get_identifier shim must work for every registered SQL source.
 
-    A reviewer flagged that the shim builds the Source via __new__ and
-    hand-primes the attributes an override reads (mssql's current_database,
-    StarRocks's _current_catalog), so a NEW override reaching for state the
-    shim does not carry degrades to the plain fqn -- discoverable only at
-    runtime, on whichever connector nobody probed.
+    The shim builds the Source via __new__ and gives it only its config, so
+    an override reaching for state the shim does not carry degrades to the
+    plain fqn -- discoverable only at runtime, on whichever connector nobody
+    probed.
 
     The degrade is warned rather than silent, so it is a quality floor
     rather than a leak. This turns it into a build-time floor: all 29

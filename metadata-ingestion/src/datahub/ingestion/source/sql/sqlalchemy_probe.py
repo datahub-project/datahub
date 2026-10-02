@@ -1,4 +1,6 @@
+from dataclasses import replace
 from typing import (
+    Any,
     Callable,
     Dict,
     FrozenSet,
@@ -24,12 +26,19 @@ from datahub.ingestion.agent.probe_methods import (
     probe_method,
 )
 from datahub.ingestion.agent.provider_helpers import echoed
-from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
+from datahub.ingestion.agent.sql_passthrough import (
+    CatalogRows,
+    QueryBudget,
+    SqlCatalogPassthrough,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    ProbeEngineSettings,
+    SQLCommonConfig,
+)
 from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
@@ -130,6 +139,35 @@ def _container_normalizer(config: object) -> Callable[[str], str]:
     if callable(hook):
         return lambda name: str(hook(name))
     return lambda name: name
+
+
+def probe_engine_options(
+    config: SQLCommonConfig, settings: ProbeEngineSettings
+) -> Dict[str, Any]:
+    """The create_engine kwargs: the recipe's `options`, with the dialect's
+    connect_args merged over the recipe's own.
+
+    `options` rather than get_options(), because that is what every engine
+    ingestion builds is given (`**config.options`); a config defining both
+    (unity-catalog) keeps different dicts in them, and a probe connecting
+    with other options than ingestion's answers about a different connection.
+    """
+    # Engine kwargs are heterogeneous (a connect_args dict, pool ints, bools).
+    options: Dict[str, Any] = dict(config.options)
+    if settings.connect_args:
+        # A copy: the recipe's own dict stays as the recipe wrote it.
+        options["connect_args"] = {
+            **(options.get("connect_args") or {}),
+            **settings.connect_args,
+        }
+    return options
+
+
+def enforced_budget(budget: QueryBudget, settings: ProbeEngineSettings) -> QueryBudget:
+    """The budget as these settings enforce it: without its timeout unless
+    they apply one, since a ceiling that reads as present and is not is the
+    failure QueryBudget warns against."""
+    return budget if settings.timeout_applies else replace(budget, timeout_seconds=None)
 
 
 class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
@@ -274,17 +312,6 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # lazy: keep sqlalchemy engine construction off the config import path
         from sqlalchemy import create_engine
 
-        from datahub.ingestion.source.sql.sql_probe import (
-            effective_budget,
-            engine_options,
-            install_statement_timeout,
-        )
-
-        # The budget rides on the engine rather than on each statement, because
-        # that is the one construction point the whole SQLAlchemy family shares --
-        # wiring it per connector would be fifteen chances to forget. It also means
-        # the Inspector below inherits it, so the typed listings are bounded too and
-        # not just `sql`.
         # probe_sql_alchemy_url where a connector declares one, so a
         # connector whose probe must dial somewhere other than the default
         # says so without changing what every other caller gets. Doris is
@@ -293,18 +320,19 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # get_sql_alchemy_url() stays as it was for usage and profiling.
         probe_url = getattr(config, "probe_sql_alchemy_url", None)
         url = probe_url() if callable(probe_url) else config.get_sql_alchemy_url()
-        engine = create_engine(url, **engine_options(config, budget=cls.query_budget))
-        # Dialects whose ceiling cannot ride on connect_args get it here instead,
-        # applied per connection where a wrong variable name is survivable.
-        install_statement_timeout(engine, url, cls.query_budget.timeout_seconds)
+        # The budget rides on the engine rather than on each statement, so the
+        # Inspector inherits it and the typed listings are bounded as well as
+        # `sql`. How it is applied is the dialect's to declare.
+        settings = config.probe_engine_settings(cls.query_budget)
+        engine = create_engine(url, **probe_engine_options(config, settings))
+        if settings.prepare is not None:
+            settings.prepare(engine)
         # Whatever the connector does to its own engine that a bare create_engine
         # does not. Called before the Inspector is built, since a replaced dialect
         # has to be in place by then to have any effect.
         config.probe_prepare_engine(engine)
         probe = cls(engine)
-        # Report what this dialect actually enforces, not what the class declared:
-        # only some dialects have a knob to apply the timeout through.
-        probe.query_budget = effective_budget(url, cls.query_budget)
+        probe.query_budget = enforced_budget(cls.query_budget, settings)
         # One provider class serves ~15 dialects, so the catalog surface cannot be a
         # class attribute here -- it comes from the connector's own config, which is
         # per dialect.

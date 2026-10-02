@@ -14,6 +14,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    cast,
 )
 
 import sqlalchemy.dialects.mssql
@@ -438,6 +439,23 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     @property
     def db(self):
         return self.database
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        # get_identifier qualifies with current_database, which ingestion sets
+        # to each database as it walks them; the node's Database ancestor is
+        # that database. It reads nothing off the inspector.
+        source = SQLServerSource.__new__(SQLServerSource)
+        source.config = self
+        source.current_database = database
+        return source.get_identifier(
+            schema=schema, entity=entity, inspector=cast(Inspector, None)
+        )
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:

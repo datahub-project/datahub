@@ -34,6 +34,8 @@ from sqlalchemy.types import UserDefinedType
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+
 from typing_extensions import Annotated
 
 from datahub.configuration.common import AllowDenyPattern, Filters
@@ -63,13 +65,17 @@ from datahub.ingestion.source.sql.postgres.query import (
     POSTGRES_SYSTEM_DATABASES,
     PostgresQuery,
 )
+from datahub.ingestion.source.sql.protocol_probe_settings import libpq_probe_settings
 from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    ProbeEngineSettings,
+)
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -311,6 +317,9 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
             "options.connect_args.sslrootcert to the RDS CA bundle path "
             "(https://truststore.pki.rds.amazonaws.com/)"
         )
+
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return libpq_probe_settings(self, budget)
 
     def probe_prepare_engine(self, engine: Any) -> None:
         # Without this, an AWS_IAM recipe cannot be probed at all: the password

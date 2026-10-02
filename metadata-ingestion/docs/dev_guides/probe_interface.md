@@ -554,20 +554,23 @@ These hooks are read only by `source/sql/`, so only a `SQLCommonConfig` subclass
 `test_probe_contract.py` checks their names against this table, and `probe_filter_target`'s keyword
 arguments too.
 
-| Hook                        | Signature                                                                                                        | Declare it when                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)                 |
-| `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | your real Source is not a `SQLAlchemySource`, so the `get_identifier` shim cannot run |
-| `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on    |
-| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss      |
-| `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                      |
+| Hook                        | Signature                                                                                                        | Declare it when                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `probe_container_kind`      | classmethod `() -> str`                                                                                          | `containers` returns Databases rather than Schemas (two-tier sources)              |
+| `probe_engine_settings`     | `(self, budget: QueryBudget) -> ProbeEngineSettings`                                                             | your driver takes a statement ceiling or a client label (see below)                |
+| `probe_filter_target`       | `(self, schema: str, entity: str, warn: Callable[[str], None], database: Optional[str] = None) -> Optional[str]` | the `get_identifier` shim cannot build your identifier (see below)                 |
+| `probe_normalize_container` | `(self, name: str) -> str`                                                                                       | the Inspector spells a listed container differently from what ingestion matches on |
+| `probe_prepare_engine`      | `(self, engine: Any) -> None`                                                                                    | ingestion applies connection-time setup that a bare `create_engine()` would miss   |
+| `probe_sql_alchemy_url`     | `(self) -> str`                                                                                                  | the probe must dial a different URL from `get_sql_alchemy_url()`                   |
 
 `probe_filter_target` is read by the `get_identifier` shim in `sql_probe.py` that
-`SQLCommonConfig.probe_match_target` routes to.
-Override it when your real `Source` is not a `SQLAlchemySource`, so that shim has no
-`get_identifier` to call. `UnityCatalogSourceConfig` is the only one left that does — where the
-container is pinned by a config field, `Qualifier` says so declaratively and the shim resolves the
-rest, which is how Redshift dropped its override:
+`SQLCommonConfig.probe_match_target` routes to. The shim builds your `Source` without `__init__`
+and gives it the config and nothing else. Override this hook when that cannot produce your
+identifier: your real `Source` is not a `SQLAlchemySource` (`UnityCatalogSourceConfig`), or your
+`get_identifier` reads state ingestion sets while it walks (`SQLServerConfig` supplies the database
+being read). State that `__init__` sets belongs in a class-level default on the `Source` instead.
+Where the container is pinned by a config field, `Qualifier` says so declaratively and the shim
+resolves the rest:
 
 ```python
 def probe_filter_target(
@@ -587,6 +590,22 @@ container above the schema when the caller supplied one — so a three-argument 
 
 Call `warn` if you fall back to something less precise than your real ingestion identifier; it
 feeds the same warnings list, deduplicated by message so one connector-wide reason is reported once.
+
+`probe_engine_settings` says how your driver bounds a probe statement and labels the connection, so
+probe traffic is told apart from ingestion's in the server's logs. It returns a
+`ProbeEngineSettings`:
+
+- `connect_args`, merged over the recipe's own. A value there replaces the recipe's, so compose with
+  the recipe's where yours should defer to it (a label) or extend it (libpq's `options` string).
+- `prepare(engine)`, for what connect arguments cannot carry, such as a statement on each new
+  connection. It runs before `probe_prepare_engine`.
+- `timeout_applies`: whether these bound every probe statement by the budget's timeout. When false
+  the probe reports no time ceiling.
+
+The default declares nothing. Declare only arguments your driver is known to accept, and only when
+the config's URL names your own dialect: a recipe's `sqlalchemy_uri` can name another one, and a
+driver handed a keyword it does not know refuses to connect. The libpq and MySQL-protocol settings
+that several configs share are in `protocol_probe_settings.py`.
 
 Before opening the PR, go through the
 [connector-author checklist](#connector-author-checklist) at the end of this guide.

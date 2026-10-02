@@ -1,6 +1,16 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Callable, Dict, FrozenSet, Mapping, Optional, Sequence
+from dataclasses import dataclass, field
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Mapping,
+    Optional,
+    Sequence,
+)
 
 import pydantic
 from pydantic import Field, model_validator
@@ -42,6 +52,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -169,6 +184,46 @@ def sql_structural_verdict(
     if _in_defaults(config, "default_schemas", ctx.name):
         return Verdict(False, "default_schema")
     return _qualified_schema_verdict(config, ctx)
+
+
+@dataclass(frozen=True)
+class ProbeEngineSettings:
+    """What a dialect adds to the engine the probe builds from a recipe.
+
+    Declared by the dialect's config (SQLCommonConfig.probe_engine_settings),
+    because which connect_args a driver accepts is the driver's business: one
+    it rejects stops the connection opening at all.
+    """
+
+    # Merged over the recipe's own connect_args key by key, so a value here
+    # replaces the recipe's. A setting that should defer to or extend the
+    # recipe's value is composed by the config; see probe_label_connect_arg.
+    connect_args: Mapping[str, Any] = field(default_factory=dict)
+    # Run on the built engine, before probe_prepare_engine, for what
+    # connect_args cannot carry: a statement issued on each new connection.
+    prepare: Optional[Callable[["Engine"], None]] = None
+    # Whether these settings bound every probe statement by the budget's
+    # timeout. When False the probe reports no time ceiling, since claiming
+    # one that nothing enforces is worse than claiming none.
+    timeout_applies: bool = False
+
+
+def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
+    """The connect_args the recipe passes create_engine, as ingestion does."""
+    return config.options.get("connect_args") or {}
+
+
+def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, str]:
+    """`{kwarg: PROBE_QUERY_LABEL}`, so probe traffic is told apart from
+    ingestion's in the server's own logs, or nothing when the recipe already
+    names its connection through `kwarg`: that name is the recipe's choice."""
+    if kwarg in recipe_connect_args(config):
+        return {}
+    # lazy: agent.sql_passthrough loads the probe framework, which ingestion
+    # importing this module does not need
+    from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
+
+    return {kwarg: PROBE_QUERY_LABEL}
 
 
 class SQLCommonConfig(
@@ -309,16 +364,16 @@ class SQLCommonConfig(
         warn: Callable[[str], None],
         database: Optional[str] = None,
     ) -> Optional[str]:
-        """Override point for a connector whose real Source doesn't extend
-        SQLAlchemySource, so sql_probe.py's generic get_identifier shim (see
-        sql_probe._identifier_target) has no get_identifier to call for it.
+        """Override point for a connector whose identifier sql_probe.py's
+        generic get_identifier shim (see sql_probe._identifier_target) cannot
+        build: its real Source doesn't extend SQLAlchemySource
+        (UnityCatalogSourceConfig), or its get_identifier reads state
+        ingestion sets while it walks (SQLServerConfig's current database).
         Return the exact string ingestion filters table_pattern/view_pattern
         against, or None (the default) to let that shim keep resolving it.
-        Checked before the shim on every SQL Table-level node.
-        UnityCatalogSourceConfig is the only override left: where the container
-        is pinned by a config field, Qualifier states that declaratively and
-        the shim resolves the rest, which is how Redshift, Snowflake and
-        BigQuery stopped needing one.
+        Checked before the shim on every SQL Table-level node. Where the
+        container is pinned by a config field, Qualifier states that
+        declaratively instead and the shim resolves the rest.
 
         `database` is the container above the schema when the caller supplied
         one -- parent_path[0] on a source whose hierarchy has a level above
@@ -420,6 +475,15 @@ class SQLCommonConfig(
         refuses that rather than leaving it to be discovered.
         """
         return CatalogScope()
+
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        """The statement ceiling and client label this dialect's driver takes.
+
+        Nothing by default: a dialect declares only settings its driver is
+        known to accept, since a wrong connect_arg stops the connection
+        opening, which is worse than an unbounded or unlabelled probe.
+        """
+        return ProbeEngineSettings()
 
     def probe_prepare_engine(self, engine: Any) -> None:
         """Apply connection-time setup that a bare create_engine() would miss.

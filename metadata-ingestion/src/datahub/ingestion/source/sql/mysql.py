@@ -30,6 +30,8 @@ from sqlalchemy.pool import NullPool
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection, Engine
 
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+
 from datahub.configuration.common import (
     AllowDenyPattern,
     HiddenFromDocs,
@@ -49,11 +51,13 @@ from datahub.ingestion.source.aws.aws_common import (
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.sql.protocol_probe_settings import mysql_probe_settings
 from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import ProbeEngineSettings
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -301,6 +305,9 @@ class MySQLProfilingConfig(ProfilingConfig):
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return mysql_probe_settings(self, budget)
+
     def probe_prepare_engine(self, engine: Any) -> None:
         # Without this, an AWS_IAM recipe cannot be probed at all: the password
         # is a token injected per connection, so a bare create_engine() has no

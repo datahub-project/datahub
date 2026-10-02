@@ -16,7 +16,9 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.sql.druid import DruidConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_probe import (
+    IDENTIFIER_DEGRADE_MARKER,
     _identifier_target,
     _shim_inspector,
 )
@@ -346,6 +348,65 @@ def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypat
     assert "_FakeSource" in warn.messages[0]
     assert "_never_set" in warn.messages[0]
     assert _SENTINEL not in warn.messages[0]
+
+
+def test_the_shim_gives_get_identifier_the_config_and_nothing_else(monkeypatch):
+    """Source state a get_identifier reads beyond its config is the
+    connector's to provide, through its config's probe_filter_target or a
+    class-level default; a shim that primed one connector's attributes would
+    be guessing them for every other."""
+
+    class _ReadsIterationState(SQLAlchemySource):
+        # Annotated, not assigned: set only by ingestion as it walks.
+        current_database: str
+
+        def get_identifier(self, *, schema, entity, inspector, **kwargs):
+            return f"{self.current_database}:{schema}:{entity}"
+
+    monkeypatch.setattr(
+        sql_probe_module, "_source_class_for", lambda config: _ReadsIterationState
+    )
+    warn = _WarningCollector()
+    ctx = ClassifyContext(
+        config=PostgresConfig(host_port="localhost:5432"),
+        name="orders",
+        fqn="salesdb.public.orders",
+        pattern_field="table_pattern",
+        parent_path=("salesdb", "public"),
+        warn=warn,
+    )
+    assert _identifier_target(ctx) == ctx.fqn
+    assert len(warn.messages) == 1
+    assert IDENTIFIER_DEGRADE_MARKER in warn.messages[0]
+    assert "current_database" in warn.messages[0]
+
+
+@pytest.mark.parametrize(
+    "parent_path, config_database, expected",
+    [
+        (("salesdb", "dbo"), None, "salesdb.dbo.orders"),
+        (("dbo",), "pinned", "pinned.dbo.orders"),
+        (("dbo",), None, "dbo.orders"),
+        # The database the node lives under wins over the recipe's, as
+        # current_database does during ingestion.
+        (("salesdb", "dbo"), "pinned", "salesdb.dbo.orders"),
+    ],
+)
+def test_mssql_qualifies_a_table_with_the_database_ingestion_is_reading(
+    parent_path, config_database, expected
+):
+    from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
+
+    config = SQLServerConfig(host_port="localhost:1433", database=config_database)
+    ctx = ClassifyContext(
+        config=config,
+        name="orders",
+        fqn=".".join((*parent_path, "orders")),
+        pattern_field="table_pattern",
+        parent_path=parent_path,
+        warn=_ignore_warn,
+    )
+    assert _identifier_target(ctx) == expected
 
 
 def test_redshift_probe_filter_target_includes_the_database_segment():
