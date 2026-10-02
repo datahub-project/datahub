@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -203,6 +204,32 @@ public class ESUtilsTest {
             .collect(Collectors.toList()),
         conditions,
         "Expected each condition to reach the rewrite chain unchanged");
+  }
+
+  /** Unfiltered searches must hide non-latest versions just like filtered ones. */
+  @Test
+  public void testBuildFilterQueryNullFilterAppliesLatestVersionFlag() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    String withFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(true)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    String withoutFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+
+    assertTrue(withFlag.contains("isLatest"), withFlag);
+    assertFalse(withoutFlag.contains("isLatest"), withoutFlag);
   }
 
   @Test
