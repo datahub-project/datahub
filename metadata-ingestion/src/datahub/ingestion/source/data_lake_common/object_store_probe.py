@@ -3,13 +3,12 @@ its S3-compatible endpoint).
 
 Every listing goes through the same s3_boto_utils helpers ingestion uses and
 issues only ListBuckets / ListObjectsV2 -- never GetObject, so no object
-content and no schema inference. Listings are lazy paginators cut with islice,
-so a limit bounds the requests made, not just what is returned.
+content and no schema inference. Listings are lazy paginators cut with the
+shared `take`, so a limit bounds the requests made, not just what is returned.
 """
 
 import re
 from contextlib import contextmanager
-from itertools import islice
 from typing import (
     Callable,
     ClassVar,
@@ -27,6 +26,7 @@ from typing import (
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import take
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
 from datahub.ingestion.source.aws.s3_boto_utils import (
@@ -199,8 +199,18 @@ class S3CompatibleMetadataProbe:
         # context, so a helper that raises on the call rather than on the first
         # item is classified too.
         out: List[T] = []
+
+        def collect(item: T) -> bool:
+            # Collected as it is pulled, not from take's return value: a
+            # denial _storage_errors records rather than raises keeps what was
+            # listed before it.
+            out.append(item)
+            return True
+
         with self._storage_errors(context, whole=True):
-            out.extend(islice(listing(), limit))
+            # take closes the listing when it stops at the limit, so a
+            # suspended wildcard-resolution generator ends deterministically.
+            take(listing(), limit, keep=collect)
         return out
 
     def _spec(self, index: int) -> PathSpec:

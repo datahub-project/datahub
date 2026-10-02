@@ -1,4 +1,6 @@
 import pathlib
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List
 from unittest import mock
 
@@ -272,3 +274,67 @@ def test_object_tags_alone_need_a_key(tagged: None) -> None:
         run_probe_method(
             "s3", _tag_recipe(use_s3_object_tags=True), "tags", {"bucket": "my-bucket"}
         )
+
+
+_LISTING = "datahub.ingestion.source.data_lake_common.object_store_probe.list_objects_recursive_path"
+
+
+def _object(key: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        bucket_name="my-bucket",
+        key=key,
+        size=1,
+        last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
+    )
+
+
+def test_a_listing_cut_at_the_limit_is_closed(buckets: None) -> None:
+    # Wildcard resolution is a generator that lists as it is pulled; one left
+    # suspended past the limit would only be finished by the garbage collector.
+    # Holding a reference here keeps the collector out of it.
+    state: List[str] = []
+    started: List[Iterator[SimpleNamespace]] = []
+
+    def pages() -> Iterator[SimpleNamespace]:
+        try:
+            for n in range(10):
+                yield _object(f"raw/{n}.csv")
+        finally:
+            state.append("closed")
+
+    def listing(*_: object, **__: object) -> Iterator[SimpleNamespace]:
+        started.append(pages())
+        return started[-1]
+
+    with mock.patch(_LISTING, side_effect=listing):
+        result = run_probe_method(
+            "s3",
+            _recipe("s3://my-bucket/raw/*.csv"),
+            "objects",
+            {"bucket": "my-bucket", "limit": 2},
+        )
+    assert isinstance(result.result, list) and len(result.result) == 2
+    assert result.truncated
+    assert state == ["closed"]
+
+
+def test_a_listing_denied_partway_keeps_what_it_listed(buckets: None) -> None:
+    def listing(*_: object, **__: object) -> Iterator[SimpleNamespace]:
+        yield _object("raw/a.csv")
+        raise _denied("ListObjectsV2")
+
+    with mock.patch(_LISTING, side_effect=listing):
+        result = run_probe_method(
+            "s3",
+            _recipe("s3://my-bucket/raw/*.csv"),
+            "objects",
+            {"bucket": "my-bucket"},
+        )
+    assert result.result == [
+        {
+            "name": "s3://my-bucket/raw/a.csv",
+            "size": 1,
+            "last_modified": "2024-01-01T00:00:00+00:00",
+        }
+    ]
+    assert result.failures
