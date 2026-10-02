@@ -89,12 +89,8 @@ def _attr(obj: object, name: str) -> object:
 
 
 def _cause_links(exc: BaseException) -> List[BaseException]:
-    """`exc` and its `raise ... from` causes, outermost first.
-
-    Never the context: an exception raised while handling another is not that
-    other failure, and a 429 handled before an unrelated ConnectionError would
-    label it as rate limiting.
-    """
+    """`exc` and its `raise ... from` causes, outermost first. Never the
+    context: an exception raised while handling another is not that failure."""
     links: List[BaseException] = []
     link: object = exc
     while isinstance(link, BaseException) and len(links) < _MAX_CODE_LINKS:
@@ -168,14 +164,10 @@ def _first(
 
 
 def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> str:
-    """How an untrusted exception is named in place of its text: its class
-    name, plus one short code when it or its cause chain carries one.
-
-    `ProgrammingError; SQLSTATE 42P01`, `HTTPError; HTTP 403`. The code tells
-    the caller what kind of failure it was (missing relation, permission,
-    throttling) without the message. The provider's own reader is tried on
-    every link before the generic one is. Never raises: a failure reading the
-    exception leaves the class name alone.
+    """An untrusted exception's name in place of its text: its class, plus one
+    short code from it or its cause chain (`ProgrammingError; SQLSTATE 42P01`),
+    which says what kind of failure it was. The provider's reader is tried on
+    every link before the generic ones. Never raises.
     """
     name = type(exc).__name__
     try:
@@ -200,12 +192,8 @@ def withheld_text(exc: BaseException) -> str:
 
 def name_foreign(exc: BaseException, provider_cls: Optional[type] = None) -> str:
     """`(label)`, how an untrusted exception appears in a message, with its
-    withheld text after the parenthesis under the verbose switch.
-
-    After, not inside: the CLI scrubs the whole message again, and a masked
-    value runs to the next space or separator, so it would take a closing
-    parenthesis that followed it.
-    """
+    withheld text after the parenthesis under the verbose switch: inside, a
+    masked value would swallow the closing parenthesis."""
     return f"({foreign_label(exc, provider_cls)}){withheld_text(exc)}"
 
 
@@ -213,13 +201,8 @@ def classify_foreign(
     exc: BaseException, context: str, provider_cls: Optional[type] = None
 ) -> Exception:
     """The framework exception an untrusted failure in a provider call is
-    reported as, named by foreign_label.
-
-    Withholding the text must not also move the exit code, so this keeps the
-    family the bare exception would have reached the CLI as: a defect exits 1,
-    the ValueError family 2, and everything else (drivers, SDKs, HTTP and
-    permission errors) 3.
-    """
+    reported as. The exit code stays the bare exception's: a defect 1, the
+    ValueError family 2, anything else (drivers, SDKs, HTTP) 3."""
     message = f"{context} failed {name_foreign(exc, provider_cls)}"
     if isinstance(exc, DEFECT_TYPES):
         return ProbeInternalError(message)
@@ -247,11 +230,9 @@ def _foreign_in_chain(exc: BaseException) -> List[BaseException]:
 
 
 def _is_missed_key(exc: BaseException) -> bool:
-    """A lookup error raised with just the key it missed: `KeyError(k)`,
-    whose str is repr(k). That is the caller's own argument quoted back to
-    them, not the failure's text. A lookup error with a message of its own --
-    an IndexError's, or a KeyError subclass's (SQLAlchemy's
-    NoSuchColumnError) -- is foreign text like any other. Never raises."""
+    """A lookup error raised with just the key it missed (`KeyError(k)`, str
+    repr(k)): the caller's own argument, not foreign text. One with a message
+    of its own is foreign like any other. Never raises."""
     try:
         return (
             isinstance(exc, LookupError)
@@ -266,16 +247,11 @@ def withhold_foreign_text(
     exc: BaseException, provider_cls: Optional[type] = None
 ) -> str:
     """`str(exc)` with the text of any untrusted exception in its chain
-    replaced by `(label)`.
+    replaced by `(label)`: the backstop for `ProbeConnectionError(f"...{exc}")`.
 
-    A trusted type is trusted wherever it is raised, which makes
-    `ProbeConnectionError(f"login failed: {exc}")` around a driver error carry
-    the driver's text out. Only text that appears verbatim can be caught (the
-    str or repr of the foreign exception); a message built from parts of it
-    cannot, which is why the guide says never to interpolate an exception you
-    did not raise. A missed key is matched by its repr only (see
-    _is_missed_key), and a rendering under _MIN_RENDERING characters not at
-    all (see there).
+    Only a verbatim str or repr is caught, never text rebuilt from parts. A
+    missed key is matched by its repr only, and renderings shorter than
+    _MIN_RENDERING not at all.
     """
     message = str(exc)
     labels: Dict[str, str] = {}
@@ -304,13 +280,9 @@ def police_trusted(
     exc: BaseException, provider_cls: Optional[type] = None
 ) -> Optional[BaseException]:
     """A replacement for a trusted exception whose message quotes an untrusted
-    one, or None when it may be raised as it is.
-
-    The replacement keeps the exception's type, so the exit code does not
-    move. A subclass that cannot be rebuilt with a plain message (its
-    constructor takes other arguments, or its __str__ ignores args) is
-    replaced by the trusted type it derives from.
-    """
+    one, or None. It keeps the type, so the exit code does not move; a
+    subclass that cannot be rebuilt with a plain message becomes the trusted
+    type it derives from."""
     message = withhold_foreign_text(exc, provider_cls)
     if message == str(exc):
         return None

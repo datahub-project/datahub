@@ -47,28 +47,19 @@ from datahub.ingestion.agent.verdicts import (
 )
 
 if TYPE_CHECKING:
-    # Only for an annotation: the gates import sqlglot lazily (see
-    # _enforce_gates).
+    # Annotation only: the gates import sqlglot lazily (see _enforce_gates).
     from datahub.ingestion.agent.sql_gate import CatalogScope
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
-# The most items any probe command may return, whatever the caller asked for.
-# Probe output is read by an agent with a finite context window, and a listing
-# can legitimately run to tens of thousands (one row per column in a large
-# warehouse, one topic per tenant on a shared cluster), so an unbounded limit
-# floods the reader rather than informing it. Well above any listing a person
-# reads through, well below a flood.
+# The most items any probe command returns. The reader is an agent with a finite
+# context window, and a listing can run to tens of thousands of names.
 MAX_PROBE_ITEMS = 1000
 
 
 def clamp_item_limit(limit: int) -> int:
-    """Bound a caller's limit into a range that can actually be returned.
-
-    A limit at or below zero is the interesting case: `items[:0]` and
-    `items[:-1]` both "work" but mean nothing a caller intended -- `-1` silently
-    drops the last item and then reports the result as truncated.
-    """
+    """Bound a caller's limit to 1..MAX_PROBE_ITEMS: `items[:-1]` would drop the
+    last item and still report the result truncated."""
     return max(1, min(int(limit), MAX_PROBE_ITEMS))
 
 
@@ -93,38 +84,21 @@ class ProbeMethodSpec:
     command: str
     params: List[ProbeParam]
     description: str
-    # Names a parameter carrying raw SQL. The framework scope-checks it before
-    # invoking the method, so a provider cannot reach its engine with an
-    # unchecked query even though the query arrives as an ordinary parameter.
+    # The parameter carrying raw SQL; the framework scope-checks it first.
     scoped_sql_param: Optional[str] = None
-    # Names a parameter carrying an API path, checked against the provider's
-    # api_allowlist the same way.
+    # The parameter carrying an API path; checked against api_allowlist first.
     scoped_path_param: Optional[str] = None
-    # Names a parameter bounding how many rows the method returns. Declared so
-    # the framework can clamp it *before* invoking: a getter fetches `limit + 1`
-    # rows, so a limit of 10_000_000 is a fetch the connector really performs,
-    # and trimming the output afterwards would be too late to matter.
+    # The parameter bounding the result, clamped before the call: the getter
+    # really fetches what it is asked for, so trimming afterwards is too late.
     row_limit_param: Optional[str] = None
-    # This command returns its own envelope and does its own truncation
-    # accounting, so the framework must not also fetch one past the limit --
-    # two +1s would hand the caller one more item than they asked for and
-    # compute `truncated` against the wrong number. `sql` is the only such
-    # command: it returns {columns, rows, truncated} rather than a bare list.
-    # Declared rather than inferred from scoped_sql_param, so a future
-    # passthrough that shapes its own result says so instead of inheriting the
-    # behaviour by accident.
+    # The command returns its own envelope and truncation flag (`sql`), so the
+    # framework adds no +1 of its own. Declared, not inferred from scoped_sql_param.
     shapes_own_result: bool = False
-    # The parameters that name this command's container, outermost first. A
-    # caller that already passed `schema` to list its tables should not have to
-    # restate it as --parent to get verdicts: the command knows where it looked.
-    # Same principle as `kind` -- the getter states a fact it already has.
+    # The parameters naming the container the result lives under, outermost
+    # first; echoed as parent_path so a caller need not restate them as --parent.
     parent_params: Tuple[str, ...] = ()
-    # The DataHub subtype the returned names are, for a command that returns a
-    # listing. Declared here because the getter knows it and the caller would
-    # otherwise have to guess an exact subtype string to pass to `probe filter`.
-    # None for commands that return something other than one kind of name --
-    # `sql` cannot declare one, since what a catalog query selects is the
-    # caller's choice.
+    # The DataHub subtype of the returned names, so `probe filter` needs no
+    # guessed kind. None when the caller decides what comes back (`sql`).
     kind: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
@@ -213,15 +187,8 @@ def _resolve_annotation(
         non_none = [a for a in get_args(ann) if a is not type(None)]
         if len(non_none) == 1:
             ann = non_none[0]
-            # Only the annotation is unwrapped. `required` deliberately stays
-            # as the default decided it: Optional[...] says the parameter
-            # ACCEPTS None, not that it may be left out. Setting it False here
-            # advertised `def f(self, x: Optional[str])` as omittable and then
-            # called the method without x, so omitting it raised TypeError and
-            # recipe_cli mapped that to exit 2 -- "your input was wrong" for
-            # input the framework itself had described as optional. Latent
-            # today (no probe method has an Optional without a default), which
-            # is the only reason it never fired; three reviewers flagged it.
+            # `required` stays as the default decided it: Optional[...] says the
+            # parameter accepts None, not that it may be left out.
     if ann not in _TYPE_NAMES:
         raise TypeError(
             f"probe method '{fn_name}' parameter '{pname}' must be annotated "
@@ -249,8 +216,7 @@ def probe_method(
     """
 
     def deco(fn: Callable) -> Callable:
-        # setattr (not `fn.__probe_command__ = ...`) because `fn: Callable` has no
-        # such attribute — this keeps mypy clean without widening the parameter type.
+        # setattr: `Callable` declares no such attribute for mypy.
         setattr(  # noqa: B010
             fn,
             "__probe_command__",
@@ -272,16 +238,11 @@ def probe_method(
 
 @runtime_checkable
 class ProbeProvider(Protocol):
-    """What a connector's probe provider must be: constructible from the recipe's
-    config, and a context manager so whatever it opened gets closed.
+    """A probe provider: built from the recipe's config, and a context manager so
+    whatever it opened is closed.
 
-    `for_config` lives here rather than as a second hook on the config class so
-    that `probe_provider_class()` is the ONLY place naming the provider. When the
-    config named it twice -- once for discovery, once for construction -- the two
-    could disagree, and for Snowflake and BigQuery they did: both advertised six
-    SQLAlchemy getters their own provider does not have, each of which failed at
-    invocation. One naming site makes that unrepresentable rather than merely
-    tested for.
+    `for_config` lives here, not as a config hook, so `probe_provider_class()` is
+    the only place naming the provider: discovery and execution cannot disagree.
     """
 
     @classmethod
@@ -292,21 +253,18 @@ class ProbeProvider(Protocol):
     def __exit__(self, *exc: object) -> None: ...
 
 
-# The optional attributes the framework reads off a provider, by name, beyond
-# the ProbeProvider protocol. ProbeProviderBase declares each with its type and
-# a default that reads as absent; a provider without the base is read the same
-# way. test_probe_contract refuses a provider attribute named like one of these
-# but not exactly one, since the framework would never read it.
+# The optional attributes the framework reads off a provider by name, beyond the
+# ProbeProvider protocol. ProbeProviderBase declares each with a default that
+# reads as absent. test_probe_contract refuses a near-miss name, which nothing
+# would read.
 PROVIDER_ATTRIBUTES: FrozenSet[str] = frozenset(
     {
-        # _enforce_gates: the dialect a query is parsed as, the catalog it may
-        # read, and the endpoints and base URL a path is checked against.
+        # _enforce_gates: a query's dialect and catalog, a path's allowlist and base.
         "sql_dialect",
         "catalog_scope",
         "api_allowlist",
         "api_base_url",
-        # Read back after each command: degraded sub-fetches, reads that
-        # failed, and a SourceReport holding both.
+        # Read back after each command.
         "warnings",
         "failures",
         "probe_report",
@@ -324,41 +282,19 @@ class ProbeMethodResult:
     command: str
     params: Dict[str, object]
     result: object
-    # The subtype the returned names are, when the command declared one. Echoed
-    # so a caller can pass it to `probe filter` without knowing the vocabulary.
+    # The subtype of the returned names, to pass to `probe filter`.
     kind: Optional[str] = None
-    # The container these names live under, taken from the arguments the command was
-    # called with (see ProbeMethodSpec.parent_params). `probe filter` needs it to
-    # build the identifier ingestion matches, and asking the caller to restate what
-    # it just passed is how it ends up missing.
+    # The container the names live under, from the arguments named in
+    # ProbeMethodSpec.parent_params: `probe filter` needs it to build ingestion's
+    # identifier.
     parent_path: List[str] = field(default_factory=list)
-    # Non-fatal problems the provider hit while building `result` (see
-    # agent.verdicts.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
-    # it degraded to an empty/partial contribution instead of failing the
-    # whole command. A provider surfaces
-    # these by exposing its own `warnings: List[str]` attribute, which
-    # run_probe_method reads back after the call; a provider with no such
-    # attribute always reports an empty list here.
+    # Sub-fetches that degraded rather than failed (see ProbeSoftError).
     warnings: List[str] = field(default_factory=list)
-    # True when the listing was cut short by the limit, so a caller can tell
-    # "these are all of them" from "these are the first N". `sql` has always
-    # reported this inside its own result envelope; the typed listings returned
-    # a bare list and reported nothing, which is the same
-    # confidently-incomplete answer that `failures` exists to prevent one level
-    # up. Always False for a command that declares no row limit -- there is no
-    # limit for it to have hit.
+    # The limit cut the listing short.
     truncated: bool = False
-    # Reads the provider could not complete at all, as opposed to the degraded
-    # sub-fetches in `warnings`. This exists because a connector that reuses its
-    # ingestion fetchers records such a read with report.failure(), and nothing
-    # here used to look at report.failures -- so a 403 on Mode's data_sources
-    # came back as `{"result": {}, "warnings": []}` at exit 0, byte-identical to
-    # a workspace with genuinely no data sources. Reporting "empty" when the
-    # truth is "could not read" is the one confusion this interface exists to
-    # prevent, and it was the default for anything reusing an ingestion path.
-    #
-    # A non-empty list here means the result is NOT a complete answer, and
-    # recipe_cli exits non-zero on it.
+    # Reads that could not complete, from the provider or its SourceReport. Any
+    # entry means the result is incomplete, and the CLI exits 3: an empty result
+    # must never stand in for "could not read".
     failures: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, object]:
@@ -375,9 +311,7 @@ class ProbeMethodResult:
         }
 
 
-# Returns the connector's config class. Typed Any because get_config_class is
-# injected by the @config_class decorator at runtime — mypy can't see it, nor the
-# pydantic model API (model_validate) / probe_provider_class contract on the result.
+# Typed Any: @config_class injects get_config_class at runtime, out of mypy's view.
 def config_class_for(source_type: str) -> Any:
     # lazy: keeps the configuration module off this module's import path
     from datahub.configuration.common import ConfigurationError
@@ -386,35 +320,18 @@ def config_class_for(source_type: str) -> Any:
     # The ValueErrors below quote {exc}: the registry's own message, or the
     # import system's about a path the caller wrote -- never foreign text.
     try:
-        # registry.get raises KeyError (unknown source_type) or ConfigurationError
-        # (plugin failed to load) — neither is in the framework's ValueError/
-        # TypeError/AssertionError contract, so normalize to ValueError.
         source_cls = source_registry.get(source_type)
     except (KeyError, ConfigurationError) as exc:
-        # Only these two. KeyError is a name nobody registered and
-        # ConfigurationError a plugin whose extra is not installed -- both are
-        # the caller's to fix, and exit 2 is the honest answer.
-        #
-        # `except Exception` swallowed everything else too, so an
-        # AttributeError or ImportError from inside a plugin's own module came
-        # back as "unknown or unloadable source type" at exit 2. That sends an
-        # agent to rewrite a source type that was correct, and hides a real
-        # defect behind a user-error code. Anything else propagates and
-        # becomes exit 1, which is what EXIT_INTERNAL is for.
+        # An unregistered name, or a plugin whose extra is not installed: the
+        # caller's to fix (exit 2). Anything else a plugin's module raises is a
+        # defect and propagates (exit 1).
         raise ValueError(
             f"unknown or unloadable source type '{source_type}': {exc}"
         ) from exc
     except ImportError as exc:
-        # A source_type may be a dotted/colon import path to a source outside
-        # this repo, so a typo in one is the caller's mistake and belongs at
-        # exit 2 -- it surfaced as ModuleNotFoundError("No module named 'my'")
-        # instead, which is not in _USER_ERRORS and so exits 1, telling an
-        # agent to retry a name it should be fixing.
-        #
-        # Only for a path the CALLER wrote, which is what preserves the rule
-        # above: no registered source type contains "." or ":" (checked across
-        # all 119), so an ImportError from inside a registered plugin's own
-        # module still propagates to exit 1, where a deployment defect belongs.
+        # A dotted or colon source_type is an import path the caller wrote, so a
+        # typo in it is exit 2. No registered name contains either, so an
+        # ImportError inside a registered plugin still propagates (exit 1).
         if "." in source_type or ":" in source_type:
             raise ValueError(
                 f"unknown or unloadable source type '{source_type}': {exc}"
@@ -425,13 +342,11 @@ def config_class_for(source_type: str) -> Any:
 
 
 def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
-    """The provider's `silenced_loggers` (see agent.log_guard.quiet_reused_logs).
+    """The provider's `silenced_loggers` (see log_guard.quiet_reused_logs).
 
-    Refused unless it is a tuple or list of logger names: a bare string is the
-    likely slip, and iterating it would silence one-letter loggers while the
-    one meant stayed audible. Also refused: a framework logger, one under it,
-    or an ancestor it inherits its level from (the root included), so a
-    provider can never hide the probe's own diagnostics.
+    Must be a tuple or list of names: a bare string would silence one-letter
+    loggers. A framework logger, one under it, or an ancestor it inherits its
+    level from (root included) is refused, so the probe's own logs stay visible.
     """
     declared = _provider_attribute(provider_cls, "silenced_loggers", ())
     if not isinstance(declared, (tuple, list)) or not all(
@@ -463,19 +378,11 @@ def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
 def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
     """Every command this provider declares, as (command, spec), sorted.
 
-    Two attributes declaring the same command name is refused, and that is a
-    gate bypass rather than a cosmetic clash. This function used to keep
-    whichever spec dir() yielded last, while _bound_method separately returned
-    the first matching attribute -- so _enforce_gates could check one method's
-    declaration and run_probe_method invoke a different method. Demonstrated
-    with a `sql` command declared twice, once with scoped_sql_param and once
-    without: the ungated spec won the check, the gated method ran the query, and
-    the query executed with no scope check at all.
-
-    Refusing duplicates makes the two resolutions provably agree -- there is now
-    exactly one attribute per command, so first-match and last-match are the
-    same attribute. Overriding an inherited command is still normal Python:
-    redefine the *same attribute name*, which dir() yields once.
+    Two attributes declaring one command are refused. _enforce_gates checks one
+    declaration and _bound_method invokes one method, and only one attribute per
+    command guarantees they are the same: otherwise a gated method could run
+    under an ungated declaration. To override an inherited command, redefine the
+    same method name.
     """
     found: Dict[str, ProbeMethodSpec] = {}
     owner: Dict[str, str] = {}
@@ -500,13 +407,11 @@ def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
 
 
 def declared_kind_overrides(config: object) -> Dict[str, str]:
-    """command -> the kind it reports, where the config class rather than the
-    provider decides it (probe_kind_overrides).
+    """command -> kind, where the config class decides it (probe_kind_overrides).
 
-    One provider class may serve several configs that disagree about a
-    command's kind: the SQL family's `containers` lists schemas on a
-    three-tier source and databases on a two-tier one. A classmethod, so
-    discovery answers it without a recipe and without a connection.
+    One provider may serve configs that disagree about a command's kind (the SQL
+    family's `containers`: schemas or databases). A classmethod, so discovery
+    answers without a recipe.
     """
     declared = getattr(config, "probe_kind_overrides", None)
     if not callable(declared):
@@ -529,13 +434,8 @@ def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
 
 
 class _BareFlag:
-    """A `--flag` given with no value. Only the spec knows if that is legal.
-
-    The CLI parser cannot type-check: it sees tokens, not the declared
-    parameter. Emitting this instead of guessing "true" lets _coerce refuse a
-    valueless string parameter with exit 2 rather than passing a plausible-
-    looking name down to the driver.
-    """
+    """A `--flag` given with no value. The CLI parser sees tokens, not types, so
+    _coerce decides: true for a bool, exit 2 for anything else."""
 
 
 BARE_FLAG = _BareFlag()
@@ -549,13 +449,8 @@ def _coerce(param: ProbeParam, value: object) -> object:
             )
         return True
     if param.type == "int":
-        # Agent kwargs may arrive as native int/float/bool or a numeric string
-        # (CLI flags); bool is an int subclass so it is covered here too.
-        # Checked rather than str()-routed so `int(5.0)` and `int(True)` don't
-        # break -- and raised, not asserted: `python -O` strips asserts, and
-        # this is a caller-input contract, not an internal invariant. Without
-        # it the value reaches int() and the message degrades to whatever
-        # TypeError says, which names neither the parameter nor the command.
+        # Native numbers (bool included) or a numeric string. Raised, not
+        # asserted: `python -O` strips asserts, and this is caller input.
         if not isinstance(value, (int, float, str)):
             raise ProbeArgumentError(
                 f"parameter '{param.name}' expects an int-coercible value, got "
@@ -568,11 +463,8 @@ def _coerce(param: ProbeParam, value: object) -> object:
                 f"parameter '{param.name}' expects an int; got {value!r}"
             ) from None
     if param.type == "bool":
-        # Both directions named, and anything else refused. Reading an
-        # unrecognised value as False silently narrowed the answer -- `--flag
-        # ture` returned a smaller listing and called it the result -- while
-        # the int branch above surfaces bad input as exit 2. The asymmetry was
-        # not deliberate.
+        # Anything unrecognised is refused: reading it as False would silently
+        # narrow the answer.
         text = str(value).lower()
         if text in ("1", "true", "yes", "on"):
             return True
@@ -615,13 +507,8 @@ def _bound_method(provider: object, command: str) -> Callable:
 def _effective_row_limit(
     spec: ProbeMethodSpec, call_kwargs: Dict[str, object]
 ) -> Optional[int]:
-    """How many items this call is actually allowed to return.
-
-    The caller's clamped limit when they gave one, otherwise the getter's own
-    declared default -- read off the signature rather than guessed. Knowing it
-    in both cases is what lets the framework detect truncation for a listing
-    that was called with no --limit at all, which is the common case.
-    """
+    """How many items this call may return: the caller's clamped limit, else the
+    getter's declared default, so truncation is detected without a --limit."""
     if spec.row_limit_param is None:
         return None
     raw = call_kwargs.get(spec.row_limit_param)
@@ -640,46 +527,24 @@ def _bounded_kwargs(
 ) -> Dict[str, object]:
     """Clamp a declared row-limit parameter, and ask for one item past it.
 
-    Separate from _enforce_gates because it is a different kind of act: gates
-    refuse, this one adjusts.
-
-    The +1 is the same convention SqlCatalogPassthrough already uses for `sql`,
-    and for the same stated reason: truncation is detected by comparing what
-    came back against the limit, so a getter that returns exactly `limit` items
-    is indistinguishable from one that returned everything. It lives here
-    rather than in each getter because a getter cannot forget what it does not
-    do -- the typed listings sliced `[:limit]` and returned a bare list, so
-    `containers` reported 200 schemas identically whether the catalog held 200
-    or 20,000, and an agent reading that concludes it has seen the whole
-    catalog. Three reviewers found this independently.
+    Truncation is detected by comparing what came back against the limit, so a
+    getter returning exactly `limit` items would read as complete. Done here so
+    no getter can forget it.
     """
     limit = _effective_row_limit(spec, call_kwargs)
     if limit is None:
         return call_kwargs
     assert spec.row_limit_param is not None
     if spec.shapes_own_result:
-        # Its own +1 happens inside the command; adding a second here would
-        # return limit+1 items and compute `truncated` against limit+1.
+        # The command adds its own +1.
         return {**call_kwargs, spec.row_limit_param: limit}
     return {**call_kwargs, spec.row_limit_param: limit + 1}
 
 
 def _refuse_withheld_passthrough(spec: ProbeMethodSpec, source_type: str) -> None:
-    """The operator's kill switch, checked before anything connects.
-
-    It used to live in _enforce_gates, which runs inside `with
-    builder(config)` -- i.e. after the provider has authenticated. So on a
-    source that was slow or down, the operator's "raw access is off here"
-    never appeared: the caller got a connection error instead and went off to
-    fix credentials for a command that was never going to run. Nothing here
-    needs the provider, so nothing here should wait for one.
-
-    The message also promised more than it could deliver. Snowflake and
-    BigQuery expose `sql` as their ONLY probe command, so "this connector's
-    other probe commands still work" was false exactly where it mattered
-    most, and env_vars said the same. It now says what is true for this
-    connector, which means asking what else it has.
-    """
+    """The operator's raw-access kill switch, checked before the provider is
+    built so a slow or unreachable source cannot hide it behind a connection
+    error. The refusal names the commands that still work for this connector."""
     if spec.scoped_sql_param is None and spec.scoped_path_param is None:
         return
     if not get_disable_agent_probe_raw_access():
@@ -707,21 +572,14 @@ def _refuse_withheld_passthrough(spec: ProbeMethodSpec, source_type: str) -> Non
 def _enforce_gates(
     spec: ProbeMethodSpec, provider: object, call_kwargs: Dict[str, object]
 ) -> None:
-    """Check a scoped parameter before the provider ever sees it.
+    """Check a scoped parameter before the provider sees it.
 
-    Here rather than inside each getter on purpose: a connector cannot forget a
-    check it does not perform. A getter declares which parameter carries raw SQL
-    or an API path, and the framework is the only thing that gates it -- the same
-    "declare, framework enforces" split as Filters(...) on a config field.
-
-    Needs the live provider, since the dialect and the endpoint allowlist are
-    properties of the connector's client, not of the declaration. The one
-    check that does NOT need it -- the raw-access kill switch -- runs earlier,
-    in _refuse_withheld_passthrough; see there for why the difference matters.
+    The getter declares the parameter and the framework gates it, so a connector
+    cannot forget a check it does not perform. Needs the built provider: the
+    dialect, catalog scope and allowlist belong to the connector's client.
     """
     if spec.scoped_sql_param is not None:
-        # Lazy import: the gates pull in sqlglot, which a probe that runs no
-        # queries should not pay for.
+        # Lazy: sqlglot is paid for only by a probe that runs a query.
         from datahub.ingestion.agent.sql_gate import check_query_scope
 
         dialect = _provider_attribute(provider, "sql_dialect")
@@ -732,8 +590,7 @@ def _enforce_gates(
                 f"declares no sql_dialect, so the query cannot be checked; "
                 f"this is a defect in the probe provider"
             )
-        # The scope is the connector's declaration of what its dialect's catalog
-        # is; absent one, check_query_scope falls back to information_schema only.
+        # The connector's declared catalog; absent one, information_schema only.
         scope = _provider_attribute(provider, "catalog_scope")
         check_query_scope(
             str(call_kwargs[spec.scoped_sql_param]),
@@ -744,18 +601,14 @@ def _enforce_gates(
     if spec.scoped_path_param is not None:
         allowlist = _provider_attribute(provider, "api_allowlist")
         if allowlist is None:
-            # Distinct from an unlisted path, which is the caller's to fix: an
-            # absent allowlist means no path can ever work, and the connector
-            # is what is incomplete.
+            # Unlike an unlisted path (the caller's), no path could ever pass.
             raise ProbeInternalError(
                 f"probe method '{spec.command}' takes an API path but its "
                 f"provider declares no api_allowlist, so no path can be "
                 f"permitted; this is a defect in the probe provider"
             )
-        # GET-only is the rule, so the method is not the caller's to choose.
-        # The base URL is passed so the gate can resolve the path the way the
-        # client will and match on that, rather than on the caller's string --
-        # see _effective_path for the two bypasses that distinction closes.
+        # GET only. The base URL lets the gate match the path the client will
+        # send, not the caller's string (see api_gate._effective_path).
         base_url = _provider_attribute(provider, "api_base_url")
         check_api_request(
             READ_METHOD,
@@ -766,17 +619,8 @@ def _enforce_gates(
 
 
 def _report_entries(report: object, kind: str) -> Set[str]:
-    """Render one list off a provider's SourceReport, if it exposes one.
-
-    A connector that reuses its ingestion fetchers already has a SourceReport
-    holding both halves of the story; exposing it as `probe_report` is cheaper
-    and less forgettable than translating entries into a bespoke list per
-    connector, which is what hex_probe was doing for warnings only.
-
-    Entries are StructuredLogEntry, not strings. Rendered as "title: message"
-    to match the translation hex_probe already did by hand, so the two shapes
-    read the same in output.
-    """
+    """One list ("warnings" or "failures") off the SourceReport a provider exposes
+    as `probe_report`, each StructuredLogEntry rendered "title: message"."""
     if report is None:
         return set()
     entries: Set[str] = set()
@@ -798,12 +642,8 @@ def _report_entries(report: object, kind: str) -> Set[str]:
 def _raise_call_failure(
     exc: BaseException, provider: object, provider_cls: type, command: str
 ) -> NoReturn:
-    """Re-raise a provider call's failure in the shape the CLI reports.
-
-    An untrusted exception is named by class and code only and not chained
-    (see agent.error_policy); a trusted one keeps its type and message, minus
-    any untrusted text it quotes.
-    """
+    """Re-raise a provider call's failure as the CLI reports it (see
+    agent.error_policy): untrusted named by label only, trusted kept."""
     recorded = _read_back(provider, "failures")
     if recorded:
         # The recorded failure explains the miss, whatever was raised after it.
@@ -836,15 +676,10 @@ _PASS_THROUGH: Tuple[Type[BaseException], ...] = (KeyboardInterrupt, GeneratorEx
 
 
 def _provider_attribute(owner: object, name: str, default: object = None) -> object:
-    """`owner.name`, for a provider or its class: how the framework reads every
-    attribute in PROVIDER_ATTRIBUTES.
-
-    Absent (AttributeError) reads as `default`. An attribute that raises is
-    policed here, where it is raised: a trusted error keeps its type minus any
-    untrusted text it quotes, and anything else is the provider's defect
-    (exit 1), named by class and attribute but never by its text. A provider
-    whose attribute has to reach the source raises a framework type to say
-    what failed.
+    """`owner.name` for a provider or its class: how every PROVIDER_ATTRIBUTES
+    entry is read. Absent reads as `default`. A trusted error keeps its type;
+    anything else raised is the provider's defect (exit 1), named by class and
+    attribute, never by its text.
     """
     owner_cls = owner if isinstance(owner, type) else type(owner)
     try:
@@ -861,9 +696,8 @@ def _provider_attribute(owner: object, name: str, default: object = None) -> obj
 
 
 def _read_back(provider: object, kind: str) -> Set[str]:
-    """The provider's `kind` entries ("warnings" or "failures"): its own list,
-    and those of the SourceReport it exposes as `probe_report`, which is what
-    a connector reusing its ingestion fetchers records them in."""
+    """The provider's `kind` entries ("warnings" or "failures"), its own and its
+    `probe_report`'s."""
     own = _provider_attribute(provider, kind)
     return set(cast(Iterable[str], own or [])) | _report_entries(
         _provider_attribute(provider, "probe_report"), kind
@@ -883,11 +717,9 @@ class _ProviderCall:
 def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoReturn:
     """Re-raise a failure while opening or closing the provider.
 
-    A provider refusing the recipe on purpose raises a trusted type and keeps
-    its message. Anything else is named by class only, and is always a
-    connection error rather than classify_foreign's split: the caller's input
-    was all checked before the provider is built, so an untrusted failure
-    while building or closing it is the source's (exit 3), whatever its type.
+    A trusted type keeps its message. Anything else is a connection error (exit
+    3) named by label: the caller's input was checked before the provider was
+    built, so an untrusted failure here is the source's.
     """
     if is_trusted(exc):
         _reraise_trusted(exc, call.provider_cls)
@@ -905,14 +737,10 @@ class _CallOutcome:
 
 
 def _open_call_close(call: _ProviderCall) -> _CallOutcome:
-    """Open the provider, run the command, close the provider -- every failure
-    in all three policed the same way.
+    """Open the provider, run the command, close it, policing every failure.
 
-    The close is the provider's __exit__, which runs reused code too (Mode's
-    closes its ingestion session), so its failure is held to the open path's
-    rule. And a close failure while the command's own failure is propagating
-    must not replace it: contextlib would hand the caller "closing failed"
-    for what was a wrong argument or an unreachable endpoint.
+    The close (`__exit__`) runs reused code too, so it is held to the open
+    path's rule, and its failure never replaces the command's own.
     """
     body_error: Optional[BaseException] = None
     try:
@@ -928,19 +756,16 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
         if body_error is None:
             _source_failure(exc, call, "closing")
         if not is_trusted(body_error) and not isinstance(body_error, _PASS_THROUGH):
-            # Raised outside the open and call handlers and the attribute
-            # reads, each of which polices its own: a gate or the read-back
-            # iterating a value the provider supplied.
+            # Raised outside the handlers that police their own (open, call,
+            # attribute reads): a gate, or the read-back iterating a provider value.
             raise classify_foreign(
                 body_error, f"'{call.spec.command}'", call.provider_cls
             ) from None
         if exc is body_error:
             raise
-        # Keep the command's failure, with the close failure out of the
-        # displayed chain.
+        # Keep the command's failure; drop the close failure from the chain.
         raise body_error from body_error.__cause__
-    # Reached only when the provider's __exit__ returned true and so swallowed
-    # the command's own failure: there is no result to report.
+    # The provider's __exit__ returned true and swallowed the command's failure.
     raise ProbeInternalError(
         f"the probe provider for source '{call.source_type}' suppressed the "
         f"command's failure in its __exit__; this is a defect in the provider"
@@ -961,17 +786,8 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     try:
         result = method(**call.call_kwargs)
     except NotImplementedError:
-        # A source that lacks the concept raises this (a SQL dialect without
-        # a reflection method, say). Exit 3 would tell the caller the source
-        # was unreachable and send it to retry; the connection was fine, so
-        # this is exit 2: the command was the wrong one to ask for.
-        #
-        # Deliberately NOT backed by a per-dialect capability table. Everything
-        # else about an unsupported command is already derivable by the caller:
-        # the result carries source_type, and a dialect that answers oddly
-        # answers in a self-describing way -- Trino's get_indexes returns
-        # {"name": "partition", ...} because it reflects partition keys, which an
-        # agent that knows Trino reads for what it is.
+        # The source lacks the concept (a dialect without a reflection method).
+        # The connection was fine, so exit 2: the command was the wrong one.
         raise ProbeArgumentError(
             f"source '{source_type}' does not support the '{command}' command. "
             f"The source was reached fine -- this is a limit of the source, so "
@@ -980,14 +796,9 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     except _PASS_THROUGH:
         raise
     except BaseException as exc:
-        # Recorded failures are read here as on the success path, in both
-        # shapes: a getter that recorded a failed fetch and then raised
-        # "no such name" is reporting the fetch, not a bad argument.
+        # A getter that recorded a failed fetch and then raised "no such name"
+        # is reporting the fetch, not a bad argument.
         _raise_call_failure(exc, provider, call.provider_cls, command)
-    # Degraded sub-fetches (see agent.verdicts.ProbeSoftError) and reads that
-    # could not complete, so a result built around a failed read never reads
-    # as an empty answer. Reused ingestion code records an unreadable endpoint
-    # with report.failure(), which is why the report is read as well.
     return _CallOutcome(
         result=result,
         warnings=_read_back(provider, "warnings"),
@@ -1001,16 +812,9 @@ def run_probe_method(
     command: str,
     kwargs: Dict[str, object],
 ) -> ProbeMethodResult:
-    # SECURITY: before anything else, including the command lookup. Every
-    # probe command that touches the source funnels through this function --
-    # typed listings as much as the `sql`/`api` passthroughs -- so this is
-    # the one place a whole-probe switch can be enforced without enumerating
-    # commands that do not exist yet.
-    #
-    # Checked ahead of the command lookup on purpose: when the probe is off,
-    # "unknown probe method 'x'" is a worse answer than "the probe is off",
-    # and resolving the command first would make the refusal depend on
-    # getting the name right.
+    # SECURITY: every command that touches the source runs through here, so this
+    # is where the whole-probe switch is enforced. It precedes the command lookup
+    # so the refusal does not depend on naming a real command.
     if get_probe_disabled():
         raise ProbeArgumentError(
             "the probe is switched off here (DATAHUB_PROBE_DISABLED), so no "
@@ -1028,16 +832,11 @@ def run_probe_method(
             f"unknown probe method '{command}' for source '{source_type}'; "
             f"available: {', '.join(sorted(specs)) or '(none)'}"
         )
-    # Kept, because the limit has to be read back after the call to undo the
-    # +1 and judge truncation -- and it has to be read from the COERCED dict.
-    # `kwargs` still holds the CLI's raw strings, so "2" failed the int check
-    # and the whole truncation path silently went dormant: the live run
-    # reported limit 3 and truncated false for a listing cut off at 2.
+    # Truncation is judged against the coerced limit: `kwargs` holds raw strings.
     coerced_kwargs = _coerce_kwargs(specs[command], kwargs)
     call_kwargs = _bounded_kwargs(specs[command], coerced_kwargs)
-    # Before the config is even built, let alone a connection opened: this is
-    # the operator's switch, and it must not depend on the source being
-    # reachable.
+    # Before the config is built: the operator's switch must not depend on the
+    # source being reachable.
     _refuse_withheld_passthrough(specs[command], source_type)
     config_cls = config_class_for(source_type)
     config = validate_source_config(config_cls, source_type, config_dict)
@@ -1048,11 +847,8 @@ def run_probe_method(
             f"'{source_type}' has no for_config(config) classmethod, so it "
             f"cannot be built from the recipe"
         )
-    # The log guard is outermost so it also covers the provider's __exit__.
-    # No secret set here: the CLI wraps this call in its own guard holding the
-    # recipe's secret values, and scrub_text still masks credential shapes for
-    # any other caller. It also drops the records of any logger the provider
-    # lists in `silenced_loggers`.
+    # Outermost, so the guard also covers __exit__. No secrets here: the CLI's
+    # own guard holds the recipe's, and credential shapes are scrubbed regardless.
     with quiet_reused_logs(set(), silenced=_silenced_loggers(provider_cls)):
         outcome = _open_call_close(
             _ProviderCall(
@@ -1067,19 +863,10 @@ def run_probe_method(
     result = outcome.result
     spec = specs[command]
     kind = declared_kind_overrides(config_cls).get(command, spec.kind)
-    # Undo the +1 before anything reads it back: `params` is echoed to the
-    # caller, and reporting the limit we asked the driver for rather than the
-    # one that applies would be a small lie in the field a caller uses to
-    # reproduce the call.
+    # `params` echoes the limit that applies, not the +1 asked of the getter.
     truncated = False
     if spec.shapes_own_result:
-        # One field, meaningful for every command. `sql` reports truncation
-        # inside its own envelope because columns/rows/truncated describe one
-        # result set together -- but a caller should not have to know which
-        # commands wrap their result to find out whether they saw everything,
-        # so it is mirrored up. Leaving it False here would be worse than not
-        # having the field: a `sql` result cut short would read as complete at
-        # the one place a caller looks for that answer.
+        # Mirror the envelope's flag, so every command answers in one field.
         if isinstance(result, dict):
             truncated = bool(result.get("truncated"))
     limit = (
@@ -1093,28 +880,9 @@ def run_probe_method(
             result = result[:limit]
             truncated = True
     elif not spec.shapes_own_result and isinstance(result, (list, dict)):
-        # A command that declares no row_limit_param still must not flood the
-        # reader, and still must not report a cut-short list as complete.
-        # MAX_PROBE_ITEMS' own docstring calls itself "the most items any
-        # probe command may return, whatever the caller asked for" -- it was
-        # wired only to commands declaring the parameter, so Mode's spaces,
-        # reports, datasets, queries, definitions and data_sources, Hex's
-        # connections, and the SQLAlchemy family's columns/indexes/
-        # foreign_keys all returned everything with truncated: false. Mode's
-        # listings page the entire workspace, so a large one returned every
-        # report and called the answer complete.
-        #
-        # This bounds what reaches the caller, not what the connector
-        # fetched: the paging has already happened by the time the list gets
-        # here. Capping the fetch would need the limit pushed into each
-        # fetcher, which is the row_limit_param those commands do not
-        # declare.
-        # Mappings as well as lists. The list in the paragraph above names
-        # Hex's connections(), which returns a Dict keyed by connection id --
-        # so the very case the comment claimed to cover was the one
-        # `isinstance(result, list)` excluded, and a large workspace returned
-        # every connection with truncated: false. Dicts preserve insertion
-        # order, so the kept half is the first half rather than a sample.
+        # A command with no row_limit_param is still capped, and says so. This
+        # bounds what reaches the caller, not what was fetched (only a declared
+        # limit reaches the fetcher). A mapping keeps its first entries.
         if len(result) > MAX_PROBE_ITEMS:
             result = (
                 dict(list(result.items())[:MAX_PROBE_ITEMS])

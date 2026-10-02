@@ -1,3 +1,13 @@
+"""The SQL family's provider: listings and per-object metadata through the
+SQLAlchemy Inspector, which is what ingestion enumerates through, plus the
+gated `sql` command.
+
+Every caller-supplied schema, table or view is resolved against the server's
+own listing before reflection (sql_identifier_resolver), so reflection only
+receives a string the server produced. The engine is the recipe's own,
+bounded and labelled by the dialect's probe_engine_settings.
+"""
+
 from dataclasses import replace
 from typing import (
     Any,
@@ -46,8 +56,7 @@ from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_
 # grammar (see sql_gate._resolve_dialect).
 _SQLALCHEMY_TO_SQLGLOT_DIALECT: Dict[str, str] = {
     "postgresql": "postgres",
-    # CockroachDB implements the Postgres wire protocol and dialect, so this names
-    # the grammar it actually speaks rather than guessing a near-enough one.
+    # Speaks the Postgres dialect.
     "cockroachdb": "postgres",
     "awsathena": "athena",
     "teradatasql": "teradata",
@@ -62,9 +71,8 @@ def sqlglot_dialect_for(sqlalchemy_dialect_name: str) -> str:
 
 # Which Inspector listing a relation name is resolved against.
 _Listing = Literal["tables", "views", "materialized_views"]
-# A `table` argument may name any relation ingestion reflects: `columns`
-# documents views, and SQLAlchemy 2's Postgres lists materialized views apart
-# from both. Tried in order, each only on a miss in the one before.
+# A `table` argument may name any relation ingestion reflects, materialized
+# views included; tried in order, each only on a miss in the one before.
 _TABLE_LISTINGS: Tuple[_Listing, ...] = ("tables", "views", "materialized_views")
 _VIEW_LISTINGS: Tuple[_Listing, ...] = ("views", "materialized_views")
 
@@ -72,27 +80,9 @@ _VIEW_LISTINGS: Tuple[_Listing, ...] = ("views", "materialized_views")
 def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
     """Which containers this recipe reads, if it names them.
 
-    Two-tier only: on a three-tier source `database` names the database the
-    connection opens on, not a filter over the schemas `containers` returns,
-    so narrowing to it there would hide every other schema in the very
-    database being probed.
-
-    Singular first, plural as the fallback -- the precedence ingestion uses,
-    not a union of the two. TeradataSource.get_inspectors is explicit about
-    it:
-
-        if self.config.database and self.config.database != "":
-            databases = [self.config.database]
-        elif self.config.databases:
-            databases = list(self.config.databases)
-        else:
-            databases = <everything>
-
-    So a recipe that sets both -- a connection default plus an ingest list --
-    walks only the singular one, and unioning them reported databases
-    ingestion never opens: the same mismatch this pin exists to close, one
-    size smaller. Teradata is the only connector offering both, and for the
-    ones offering just `database` the two rules agree.
+    Two-tier only: on a three-tier source `database` is where the connection
+    opens, not a filter over its schemas. The singular `database` wins over
+    the plural `databases`, which is ingestion's precedence, not a union.
     """
     if str(container_kind) != str(DatasetContainerSubTypes.DATABASE):
         return frozenset()
@@ -128,13 +118,9 @@ def _driver_code(error: BaseException) -> Optional[str]:
 
 
 def _container_normalizer(config: object) -> Callable[[str], str]:
-    """How this connector spells a listed container for ingestion.
-
-    Identity for almost everyone. Doris needs it: on an external-catalog
-    connection the server may list `iceberg_catalog.sales` where ingestion
-    matches `sales`, and the probe has to report what ingestion matches --
-    a caller passes `containers` output straight back as --parent.
-    """
+    """How this connector spells a listed container for ingestion
+    (probe_normalize_container): callers pass `containers` output back as
+    --parent. Identity unless declared."""
     hook = getattr(config, "probe_normalize_container", None)
     if callable(hook):
         return lambda name: str(hook(name))
@@ -144,14 +130,9 @@ def _container_normalizer(config: object) -> Callable[[str], str]:
 def probe_engine_options(
     config: SQLCommonConfig, settings: ProbeEngineSettings
 ) -> Dict[str, Any]:
-    """The create_engine kwargs: the recipe's `options`, with the dialect's
-    connect_args merged over the recipe's own.
-
-    `options` rather than get_options(), because that is what every engine
-    ingestion builds is given (`**config.options`); a config defining both
-    (unity-catalog) keeps different dicts in them, and a probe connecting
-    with other options than ingestion's answers about a different connection.
-    """
+    """The create_engine kwargs: the recipe's `options`, which every engine
+    ingestion builds is given, with the dialect's connect_args merged over the
+    recipe's own."""
     # Engine kwargs are heterogeneous (a connect_args dict, pool ints, bools).
     options: Dict[str, Any] = dict(config.options)
     if settings.connect_args:
@@ -181,20 +162,12 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         self._engine = engine
         self._insp = inspect(engine)
 
-    # What `containers` lists, which names the container in a refusal. This
-    # class serves both tiers, so for_config primes it from the config's
-    # probe_kind_overrides, the same declaration `probe run` reports.
+    # What `containers` lists (named in refusals), primed in for_config from
+    # the config's probe_kind_overrides.
     container_kind: str = str(DatasetContainerSubTypes.SCHEMA)
 
-    # The containers this recipe reads, when it names any -- primed in
-    # for_config, since only the config knows. Empty on a three-tier source,
-    # and on a two-tier one that enumerates every database.
-    #
-    # A set rather than one name because naming several is a supported shape:
-    # Teradata's `databases` is documented as "List of databases to ingest",
-    # and reading only the singular `database` left such a recipe unpinned --
-    # so `containers` reported every database on the server while ingestion
-    # enumerated the configured two.
+    # The containers this recipe reads when it names any (see
+    # _pinned_containers); empty means every one.
     pinned_containers: FrozenSet[str] = frozenset()
 
     # How a listed container is spelled for ingestion; see
@@ -208,11 +181,8 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     _relation_listings: Optional[Dict[Tuple[str, str], List[str]]] = None
 
     # SECURITY: every caller-supplied schema/table/view passes through the
-    # resolvers below before any Inspector reflection call. Several dialects
-    # (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid, Databricks)
-    # format these arguments into their reflection SQL, which the `sql` gate
-    # never sees; resolving against the server's own listing means reflection
-    # only ever receives a string the server produced.
+    # resolvers below before reflection. Several dialects format these
+    # arguments into reflection SQL, which the `sql` gate never sees.
     def _listed_schemas(self) -> List[str]:
         if self._schema_listing is None:
             self._schema_listing = list(self._insp.get_schema_names())
@@ -233,15 +203,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     def _fetch_listing(
         self, schema: str, listing: _Listing, *, fallback: bool
     ) -> List[str]:
-        """One relation listing.
-
-        A fallback listing is consulted only after the primary one missed and
-        can only turn a refusal into a match, so when it cannot be read it
-        counts as empty and a typo still exits 2. Some dialects inherit a
-        listing query their server cannot run (Redshift's materialized-view
-        query names a column Redshift lacks). The primary listing keeps its
-        errors: those are a connection problem (exit 3), not a bad argument.
-        """
+        """One relation listing. A fallback listing can only turn a refusal
+        into a match, so one that cannot be read counts as empty (some dialects
+        inherit a query their server cannot run) and a typo still exits 2. The
+        primary listing's errors are a connection problem (exit 3)."""
         try:
             if listing == "tables":
                 return list(self._insp.get_table_names(schema=schema))
@@ -266,9 +231,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         def accepted() -> Iterator[str]:
             for raw in self._listed_schemas():
                 yield raw
-                # What `containers` reports, which callers pass straight
-                # back. Derived from the server's string, so still never the
-                # caller's.
+                # What `containers` reports, derived from the server's string.
                 yield self.container_normalizer(raw)
 
         return resolve_listed_name(
@@ -303,39 +266,25 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
-        """Build over an engine of this recipe's own making.
-
-        Engine construction lives here rather than on the config because the
-        provider is what needs it, and because `probe_provider_class()` is then
-        the config's only statement about which provider it has.
-        """
+        """Build over an engine of this recipe's own making."""
         # lazy: keep sqlalchemy engine construction off the config import path
         from sqlalchemy import create_engine
 
-        # probe_sql_alchemy_url where a connector declares one, so a
-        # connector whose probe must dial somewhere other than the default
-        # says so without changing what every other caller gets. Doris is
-        # the case: an external-catalog recipe has to connect to
-        # `catalog.database`, which is what ingestion uses, while
-        # get_sql_alchemy_url() stays as it was for usage and profiling.
+        # A connector whose probe must dial another URL than
+        # get_sql_alchemy_url() declares probe_sql_alchemy_url.
         probe_url = getattr(config, "probe_sql_alchemy_url", None)
         url = probe_url() if callable(probe_url) else config.get_sql_alchemy_url()
-        # The budget rides on the engine rather than on each statement, so the
-        # Inspector inherits it and the typed listings are bounded as well as
-        # `sql`. How it is applied is the dialect's to declare.
+        # On the engine, so the Inspector's listings are bounded as well as
+        # `sql`; how is the dialect's to declare.
         settings = config.probe_engine_settings(cls.query_budget)
         engine = create_engine(url, **probe_engine_options(config, settings))
         if settings.prepare is not None:
             settings.prepare(engine)
-        # Whatever the connector does to its own engine that a bare create_engine
-        # does not. Called before the Inspector is built, since a replaced dialect
-        # has to be in place by then to have any effect.
+        # Before the Inspector is built, so a replaced dialect takes effect.
         config.probe_prepare_engine(engine)
         probe = cls(engine)
         probe.query_budget = enforced_budget(cls.query_budget, settings)
-        # One provider class serves ~15 dialects, so the catalog surface cannot be a
-        # class attribute here -- it comes from the connector's own config, which is
-        # per dialect.
+        # Per dialect, so from the config rather than the class.
         probe.catalog_scope = config.probe_catalog_scope()
         probe.container_kind = declared_kind_overrides(config).get(
             "containers", probe.container_kind
@@ -349,14 +298,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     @staticmethod
     def probe_error_code(exc: BaseException) -> Optional[str]:
-        """The driver's code for a failure in this family: "SQLSTATE 42P01"
-        from psycopg2's pgcode or pyodbc, "errno 1146" from PyMySQL or
-        mysqlclient.
-
-        SQLAlchemy keeps the driver's error as `.orig`. It is usually the
-        cause too, which the framework walks, but not for a wrapper raised
-        without `from`; so the generic codes (`.sqlstate`, `.errno`, an HTTP
-        status) are read on `.orig` here as well as the drivers' own."""
+        """The driver's code for a failure in this family ("SQLSTATE 42P01",
+        "errno 1146"). Read on the error and on the driver error SQLAlchemy
+        keeps as `.orig`, which a wrapper raised without `from` does not
+        chain; `.orig` gets the generic codes too."""
         code = _driver_code(exc)
         orig = getattr(exc, "orig", None)
         if code is None and isinstance(orig, BaseException):
@@ -369,16 +314,9 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         with self._engine.connect() as conn:
-            # exec_driver_sql, not execute(text(...)): text() parses the SQL
-            # for `:name` bind parameters, and its regex fires on a colon
-            # after any non-word character -- inside a string literal, or an
-            # array slice. `WHERE column_default = '{"k":v}'` and
-            # `SELECT a[:2] ...` both become queries with an unbound
-            # parameter, so a query the gate has already cleared dies at
-            # execute with StatementError, which recipe_cli's fallback maps
-            # to EXIT_CONNECTION -- telling the agent the source is
-            # unreachable when the connection was fine. This SQL is opaque
-            # passthrough and must not be reinterpreted.
+            # exec_driver_sql, not text(): text() reads a colon inside a
+            # literal or an array slice as a bind parameter, failing a query
+            # the gate cleared. The SQL is passed through as written.
             result = conn.exec_driver_sql(query)
             rows = result.fetchmany(limit)
             return CatalogRows(
@@ -399,11 +337,8 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         Singular `database` and plural `databases` both count. The name is checked against the server's own listing rather than
         echoed back, so a typo still shows as absent instead of being
         confirmed."""
-        # Normalized before anything else looks at them: the caller passes
-        # these straight back as --parent, so they have to be the spelling
-        # ingestion matches on. Deduplicated because two server spellings
-        # can normalize to one database, and reporting it twice would read
-        # as two.
+        # In ingestion's spelling, as callers pass them back as --parent, and
+        # deduplicated: two server spellings can normalize to one.
         seen: Set[str] = set()
         names = []
         for raw in self._listed_schemas():

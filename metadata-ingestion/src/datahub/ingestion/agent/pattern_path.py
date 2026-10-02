@@ -1,12 +1,9 @@
 """An AllowDenyPattern addressed by a dotted path from the top-level config.
 
-A Filters(...) declaration may sit on a field of a nested ConfigModel --
-Dataplex keeps its entry filters under `filter_config.entries` -- so the field
-that filters a kind is named `filter_config.entries.pattern`. A path with no
-dot is an ordinary top-level field, and each helper here then does exactly
-what getattr / model_copy / validate_assignment did before.
-
-Kept free of other agent imports so verdicts.py (a leaf module) can use it.
+A Filters(...) declaration may sit on a nested ConfigModel's field, so the
+field filtering a kind can be `filter_config.entries.pattern`. A path without
+a dot is an ordinary top-level field. Free of other agent imports, so the leaf
+module verdicts.py can use it.
 """
 
 from typing import Optional
@@ -29,14 +26,9 @@ def pattern_at(config: object, path: str) -> Optional[AllowDenyPattern]:
 def unset_block_on(config: object, path: str) -> Optional[str]:
     """The dotted prefix of the first block on the way to `path` that is None.
 
-    An Optional block left out of a recipe (`block: Optional[Inner] = None`)
-    still resolves its nested Filters(...) field, because introspection
-    unwraps the Optional. That recipe is valid and filters nothing there, so
-    callers read it as allow-all -- unlike a leaf that is not a pattern, which
-    is a resolution bug. None when every block along the path is set, and
-    also when a block is absent altogether: a path through a field the model
-    does not have is a resolution bug too, left for require_pattern_at to
-    raise on.
+    An Optional block a recipe leaves out filters nothing, so callers read it as
+    allow-all. None when every block is set, and when a block is not a field at
+    all: that is a resolution bug, for require_pattern_at to raise.
     """
     node: object = config
     parents = path.split(".")[:-1]
@@ -64,14 +56,9 @@ def require_pattern_at(config: object, path: str) -> AllowDenyPattern:
 def copy_with_pattern_at(
     config: BaseModel, path: str, pattern: AllowDenyPattern
 ) -> BaseModel:
-    """A shallow copy of `config` with the pattern at `path` replaced.
-
-    Every block along the path is copied, so the recipe's parsed config is not
-    reached through a shared sub-model -- a plain model_copy of the top level
-    would share `filter_config` and let a later in-place validation of the leaf
-    rewrite the original. Shallow on purpose, as filter_check's own comment
-    explains: a deep copy clones cached token managers.
-    """
+    """A shallow copy of `config` with the pattern at `path` replaced. Every
+    block on the path is copied, so validating the leaf in place cannot rewrite
+    the original; shallow, since a deep copy clones cached credentials."""
     head, _, rest = path.partition(".")
     if not rest:
         return config.model_copy(update={head: pattern})
@@ -87,13 +74,8 @@ def copy_with_pattern_at(
 def validate_pattern_at(
     config: BaseModel, path: str, pattern: AllowDenyPattern
 ) -> None:
-    """Rerun the validators of the block that owns the leaf field.
-
-    Only that block's: validate_assignment reruns the owning model's
-    after-validators, not its parents'. No connector normalizes a nested
-    pattern from a parent validator today; one that does would need this
-    widened.
-    """
+    """Rerun the after-validators of the block owning the leaf field, not its
+    parents': a nested pattern is normalized in its own block."""
     *parents, leaf = path.split(".")
     owner: BaseModel = config
     for segment in parents:

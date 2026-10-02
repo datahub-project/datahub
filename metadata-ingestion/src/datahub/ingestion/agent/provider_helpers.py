@@ -1,16 +1,10 @@
-"""Plumbing a probe provider would otherwise write for itself.
+"""Shared plumbing for probe providers: name lookup, limits, personal-record
+withholding, lazily opened clients, and sub-listings that degrade.
 
-Every connector that gained probe support hand-wrote some of these -- a name
-lookup with an ambiguity error, a counter for withheld personal records, a
-listing that stops paging at the limit, a lazily built client closed on exit,
-a 403 that degrades to a warning -- and the copies drifted in wording, in the
-errors they raised, and in whether they closed what they opened.
-
-What these helpers raise on purpose is a framework type, so its text is
-shown (see agent.error_policy): a caller-facing refusal is a
-ProbeArgumentError (exit 2) or a ProbeSoftError, and a helper misused by the
-provider is a ProbeInternalError (exit 1). No message is ever built from the
-text of an exception this module did not raise.
+What these helpers raise on purpose is a framework type, so its text is shown
+(agent.error_policy): a refusal is a ProbeArgumentError (exit 2) or a
+ProbeSoftError, and a misused helper a ProbeInternalError (exit 1). No message
+is built from the text of an exception this module did not raise.
 """
 
 import itertools
@@ -46,8 +40,7 @@ from datahub.ingestion.agent.verdicts import (
 )
 
 if TYPE_CHECKING:
-    # Only for the annotation: sql_gate imports sqlglot, which a provider that
-    # runs no SQL should not pay for.
+    # Annotation only: sql_gate imports sqlglot.
     from datahub.ingestion.agent.sql_gate import CatalogScope
 
 T = TypeVar("T")
@@ -59,11 +52,8 @@ _MAX_LISTED = 5
 
 
 def echoed(value: str) -> str:
-    """`value` clipped and repr-quoted, safe to put in a refusal.
-
-    repr escapes NUL and control characters, so neither a caller's argument
-    nor a listed name can carry them into a terminal or a log line.
-    """
+    """`value` clipped and repr-quoted for a refusal: repr escapes control
+    characters, so none reaches a terminal or a log line."""
     clipped = value if len(value) <= _MAX_ECHOED else value[:_MAX_ECHOED] + "..."
     return repr(clipped)
 
@@ -78,9 +68,8 @@ class Resolved(Generic[T]):
     record: T
     # The listed spelling, key(record): what a pattern is matched against.
     name: str
-    # Matched by id_key, and the caller's argument is not the name. The
-    # framework builds parent_path from the raw argument, so a caller that
-    # accepted an id should say so (Fabric's _warn_if_resolved_by_id).
+    # Matched by id_key. parent_path holds the raw argument, so a provider
+    # that accepted an id should say so.
     by_id: bool
 
 
@@ -100,34 +89,21 @@ def resolve_name(
 ) -> Resolved[T]:
     """The record in `records` the caller's `arg` names, or ProbeArgumentError.
 
-    Matching is exact, on key(record) -- and on id_key(record) when given,
-    where an id match wins over another record's equal name, since ids are
-    unique and names are not. A name that differs only in case is refused,
-    with the listed spelling as a hint: ingestion matches patterns against
-    the listed spelling, so accepting another would have `probe filter`
-    judge a name ingestion never sees.
+    Exact match on key(record), and on id_key(record) when given; an id match
+    wins over another record's equal name. A case-only miss is refused with
+    the listed spelling as a hint, since ingestion matches the listed spelling.
+    The hint and the ambiguity list print listed names: pass records after
+    withholding personal ones.
 
-    The hint and the ambiguity list are drawn from `records` only. **Pass
-    records after withholding personal ones** (PersonalWithholding), or a
-    hint could print an owner's name the listing itself withheld.
-
-    `records` is iterated inside this call, so a listing that fails part-way
-    fails here with its own exception (the framework reports a foreign one
-    by class name). With stop_at_first, it is consumed only up to the first
-    match -- for listings whose names are unique, and so that a caller can
-    chain listings and pay for later ones only on a miss -- and ambiguity is
-    not checked. It cannot be combined with id_key: the first name match
-    would win over a later id match, the reverse of the precedence above.
-
-    `on_miss` runs before the refusal: to note why a record may be missing
-    (Power BI's withheld count), or to raise a read failure instead when an
-    unread listing could hold it (Fivetran, Fabric). `distinguish` (default
-    `id_key`) labels each candidate in an ambiguity refusal; `on_ambiguous`
-    tells the caller how to pick one. `where` follows the kind ("in
-    workspace 'x'"); it must not carry exception text.
+    `records` is iterated here, so a listing failing part-way fails here.
+    stop_at_first consumes only up to the first match (unique names, chained
+    listings) and skips the ambiguity check; it cannot take id_key. `on_miss`
+    runs before the refusal, to note why a record may be missing or to raise
+    a read failure instead. `distinguish` (default `id_key`) labels candidates
+    in an ambiguity refusal, `on_ambiguous` says how to pick one, and `where`
+    ("in workspace 'x'") must not carry exception text.
     """
     if stop_at_first and id_key is not None:
-        # A framework type, so the provider's author sees which rule broke.
         raise ProbeInternalError(
             "resolve_name cannot take stop_at_first with an id_key"
         )
@@ -214,13 +190,11 @@ def take(
     *,
     keep: Optional[Callable[[T], bool]] = None,
 ) -> List[T]:
-    """The first `limit` items `keep` admits (every one when limit is None).
+    """The first `limit` items `keep` admits (all when limit is None).
 
-    Pulls nothing past the limit: on a paged API the discarded pages are real
-    requests, and the framework asks for limit+1 to detect truncation, so
-    returning exactly what was asked is correct. The source is closed
-    explicitly, finished or not, rather than left to the garbage collector:
-    some SDK generators hold patched state while suspended.
+    Pulls nothing past the limit, since a paged API's discarded pages are real
+    requests. Closes the source explicitly: some SDK generators hold patched
+    state while suspended.
     """
     iterator = iter(items)
     try:
@@ -237,17 +211,11 @@ def take(
 @dataclass
 class PersonalWithholding(Generic[T]):
     """Leaves out records that name people and that ingestion would not emit,
-    and counts them so the listing can say how many.
+    counting them for a warning.
 
-    `is_personal` must fail closed -- True when unsure -- because what it
-    misses is printed. Databricks lists notebook paths from an allowlist
-    (/Shared/) for exactly that reason. A record the recipe ingests is shown
-    whatever it is: ingestion emits it anyway.
-
-    A predicate rather than a filtered list, so it works on a raw body
-    (`[r for r in body if w.keep(r)]`) and on a listing that must stop at the
-    limit (`take(pages, limit, keep=w.keep)`). Only the count is kept, never
-    a withheld record.
+    `is_personal` must fail closed (True when unsure): what it misses is
+    printed. A predicate, so it serves a raw body and `take(..., keep=w.keep)`
+    alike. Only the count is kept, never a withheld record.
     """
 
     is_personal: Callable[[T], bool]
@@ -267,35 +235,24 @@ class PersonalWithholding(Generic[T]):
 
 
 class soft_listing:
-    """One sub-listing that may degrade: a ProbeSoftError -- or an HTTP error
-    whose status is in `codes` -- becomes a warning, and the caller's own
-    fallback after the block is the answer.
+    """One sub-listing that may degrade: a ProbeSoftError, or an HTTP error
+    whose status is in `codes`, becomes a warning, and the fallback after the
+    block is the answer. Anything else propagates.
 
         with soft_listing(self._warn, 403, 404, context="reports listing"):
             return fetch()
         return []
 
-    "Could not look" must never read as "nothing here", which is why the
-    reason is always recorded. Everything else propagates untouched, so auth
-    and 5xx failures still fail the command. A class rather than a
-    @contextmanager because mypy treats a `with` as possibly suppressing only
-    when __exit__ returns bool: the fallback stays reachable, and a missing
-    one is reported as a missing return.
-
-    The recorded text has any foreign exception's text withheld (class name
-    instead) -- a backstop for a connector translator that quoted one. The
-    label carries generic codes only: this is not told the provider class,
-    so a provider's probe_error_code is not asked.
-    Do not interpolate parts of a foreign exception (an attribute such as
-    `e.doc`) into a ProbeSoftError's message: the backstop withholds only
-    the foreign exception's whole text, so a quoted part reaches the warning.
+    A class, not a @contextmanager: mypy then sees the fallback as reachable.
+    The warning withholds a quoted foreign exception's whole text (labelled
+    with generic codes only), but not a part of one (`e.doc`) interpolated
+    into a ProbeSoftError's message: never do that.
     """
 
     def __init__(
         self, warn: Callable[[str], None], *codes: int, context: Optional[str] = None
     ) -> None:
         if codes and context is None:
-            # A framework type, so the provider's author sees which rule broke.
             raise ProbeInternalError(
                 "soft_listing needs a context to map HTTP statuses"
             )
@@ -326,41 +283,29 @@ class soft_listing:
 
 
 class ProbeProviderBase:
-    """An optional base for probe providers: every attribute the framework
-    reads, declared with its default; de-duplicated warnings; lazily built
-    clients; and an __exit__ that closes everything that was opened.
+    """An optional base for providers: every attribute the framework reads
+    (probe_methods.PROVIDER_ATTRIBUTES), with a default that reads as absent;
+    de-duplicated warnings; lazily opened clients; an __exit__ closing them.
 
-    Opt-in. The framework reads a provider's attributes by name
-    (probe_methods.PROVIDER_ATTRIBUTES) whether or not it inherits this, and
-    each default here reads as an absent attribute would. It defines no
-    __init__, because every provider has its own and tests build some with
-    __new__; all state here is created on first use. A subclass still
-    declares for_config itself.
-
-    __exit__ closes last-opened first and runs every closer even when one
-    fails; that failure then propagates, and the framework reports it as it
-    reports any close failure (by class name when foreign, never replacing
-    the command's own failure). When several closers fail, the
-    earliest-registered one's failure is reported, because it runs last;
-    the earlier-run failures are not shown. A subclass that overrides __exit__
-    calls super().__exit__(*exc) last.
+    No __init__ (providers have their own, tests build some with __new__);
+    state is created on first use. __exit__ closes last-opened first and runs
+    every closer; a failure then propagates like any close failure (the
+    earliest-registered failing closer's, as it runs last). An overriding
+    __exit__ calls super().__exit__(*exc) last. Declare for_config yourself.
     """
 
-    # Required by a command that declares scoped_sql_param: the name sqlglot
-    # parses the query as.
+    # Required with scoped_sql_param: the dialect sqlglot parses the query as.
     sql_dialect: Optional[str] = None
     # What `probe sql` may read. None is information_schema only.
     catalog_scope: Optional["CatalogScope"] = None
-    # Required by a command that declares scoped_path_param. None rather than
-    # (): an unset list is the provider's omission, refused as its defect,
-    # where () would blame every path the caller tries.
+    # Required with scoped_path_param. None, not (): unset is refused as the
+    # provider's defect, where () would blame every path the caller tries.
     api_allowlist: Optional[Sequence[str]] = None
     # The URL a path is joined to, so the gate checks the path the client
     # will send. Empty: the gate resolves it against a placeholder.
     api_base_url: str = ""
-    # Reads that could not complete; any entry makes the result incomplete
-    # (exit 3). A tuple, so no instance can append to a shared default:
-    # assign a list per instance.
+    # Reads that could not complete (exit 3). A tuple, so no instance appends
+    # to a shared default: assign a list per instance.
     failures: Sequence[str] = ()
     # Loggers whose records are dropped while the probe runs (see
     # agent.log_guard.quiet_reused_logs). Read off the class.
@@ -372,9 +317,7 @@ class ProbeProviderBase:
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        # A class-level list is one list shared by every instance, so one
-        # probe's entries would carry into the next. An annotation alone, or
-        # assignment in __init__, is fine.
+        # A class-level list would be shared by every instance.
         for name in ("warnings", "failures"):
             if isinstance(vars(cls).get(name), list):
                 raise TypeError(
@@ -423,12 +366,9 @@ class ProbeProviderBase:
         *,
         close: Optional[Callable[[T], object]] = None,
     ) -> T:
-        """The client cached under `key`, built by `opener` on first use.
-
-        Built in a command rather than in for_config, so a bad credential
-        surfaces as that command's failure. One key per kind of client: two
-        openers under one key would share the first one's object.
-        """
+        """The client cached under `key`, built by `opener` on first use: in a
+        command, so a bad credential is that command's failure. One key per
+        kind of client."""
         if self._probe_opened is None:
             self._probe_opened = {}
         if key in self._probe_opened:

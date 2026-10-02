@@ -8,27 +8,19 @@ def validate_source_config(
 ) -> Any:
     """Build `config_cls` from a recipe the way the source's own create() does.
 
-    Some sources validate differently depending on the name they were
-    registered under: `mssql-odbc` is an alias of `mssql` whose only difference
-    is the pydantic context SQLServerSource.create passes, and `uri_args` is
-    legal only with it. A bare model_validate rejected every valid ODBC recipe
-    in recipe validate, probe run and probe filter alike. A config states its
-    context through `probe_validation_context(source_type=...)`; most need none.
+    Registered names sharing one config class may validate with different
+    pydantic contexts; a config states its context through
+    `probe_validation_context(source_type=...)`.
 
     A ValidationError comes back as a ValueError naming each failing field and
-    why, never the input: ConfigModel echoes input_value when DATAHUB_DEBUG is
-    on, and pydantic truncates a long value's repr, so the fragment it prints
-    matches no registered secret and nothing downstream could mask it.
-
-    Imports nothing from agent/, so any agent module can use it without a cycle.
+    why, never the input: a truncated repr of a secret matches no registered
+    value, so nothing downstream could mask it. Imports nothing from agent/.
     """
     hook = getattr(config_cls, "probe_validation_context", None)
     context = hook(source_type=source_type) if callable(hook) else None
     try:
         if context is None:
-            # Omitted rather than passed as None: pydantic's default is None, so
-            # this is identical, and a config (or test fake) whose model_validate
-            # takes no context keeps working.
+            # Omitted, so a model_validate taking no context still works.
             return config_cls.model_validate(config_dict)
         return config_cls.model_validate(config_dict, context=context)
     except pydantic.ValidationError as exc:

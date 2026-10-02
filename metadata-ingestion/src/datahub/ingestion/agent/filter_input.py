@@ -17,24 +17,18 @@ class RunListing:
     # Aligned with names. Only scalar fields travel: a verdict compares
     # strings, and a nested value has no single string to match.
     attributes: List[Dict[str, str]]
-    # Entries left out because `probe run` redacted their name: a secret that
-    # equals an identifier masks it, and "***" is not a name the source has.
-    # Indexes, not names, since the name is exactly what is unreadable.
+    # Indexes of entries whose name `probe run` redacted ("***" is no name).
     skipped: List[int] = field(default_factory=list)
-    # Attribute keys dropped from at least one entry for the same reason: a
-    # verdict matching an id against "***" is a verdict about nothing.
+    # Attribute keys dropped from at least one entry for the same reason.
     masked_attributes: List[str] = field(default_factory=list)
-    # A parent_path segment was redacted. Unlike a masked name this taints
-    # every verdict -- each is qualified by the parent -- so the CLI refuses
-    # the listing's parent rather than judging against "***", unless the
-    # caller passes --parent and the listing's is never used.
+    # A parent_path segment was redacted, which taints every verdict: the CLI
+    # refuses the listing's parent unless the caller passes --parent.
     parent_redacted: bool = False
     # The run stopped at its limit, so names beyond it were never listed.
     truncated: bool = False
     # The run recorded failures, so part of the source was not listed at all.
     incomplete: bool = False
-    # The run's own warnings: a degraded sub-fetch (ProbeSoftError) leaves the
-    # listing possibly partial without recording a failure.
+    # The run's warnings: a degraded sub-fetch leaves the listing possibly partial.
     run_warnings: List[str] = field(default_factory=list)
 
 
@@ -49,15 +43,9 @@ def _as_attribute(value: object) -> Optional[str]:
 
 
 def listing_from_run(envelope: object) -> RunListing:
-    """Read a `probe run` result envelope as a listing to judge.
-
-    Refuses rather than guesses: a result that is not a list (`sql` returns
-    rows in an envelope of its own) holds no names, and judging its keys
-    would answer a question nobody asked.
-    """
+    """Read a `probe run` result envelope as a listing to judge. Refuses
+    rather than guesses: a result that is not a list holds no names."""
     if not isinstance(envelope, Mapping):
-        # A file of the wrong shape (a bare list of names, say) is a bad
-        # argument, not a crash in the reader.
         raise ValueError(
             "that file is not a `probe run` output: it holds "
             f"{type(envelope).__name__}, not a result envelope. Pass the JSON "
@@ -89,9 +77,8 @@ def listing_from_run(envelope: object) -> RunListing:
                 f"entry {index} of the listing has no string `name`, so it "
                 f"cannot be judged"
             )
-        # `in`, not `==`: redact.py masks a secret as "***" but the registry
-        # masker writes "***REDACTED:NAME***", and a secret embedded in a
-        # longer identifier is masked as a substring.
+        # `in`: maskers write "***" or "***REDACTED:NAME***", possibly as a
+        # substring of a longer identifier.
         if MASK in name:
             skipped.append(index)
             continue
@@ -100,8 +87,7 @@ def listing_from_run(envelope: object) -> RunListing:
             text = _as_attribute(value) if key != "name" else None
             if text is None:
                 continue
-            # The redactor masks keys as well as values; a value kept under
-            # "***" is one no verdict reads, so the real field is just missing.
+            # Keys are masked as well as values.
             if MASK in key or MASK in text:
                 if key not in masked_keys:
                     masked_keys.append(key)
@@ -132,9 +118,7 @@ def listing_from_run(envelope: object) -> RunListing:
 
 
 def _unmasked(value: object) -> Optional[str]:
-    # A redacted kind or source_type is not one the source has: "***" as a
-    # kind resolves to no filters and judges every name included. Absent makes
-    # the CLI ask for --kind instead.
+    # A redacted kind or source_type reads as absent, so the CLI asks for --kind.
     if isinstance(value, str) and value and MASK not in value:
         return value
     return None
@@ -143,9 +127,7 @@ def _unmasked(value: object) -> Optional[str]:
 def _parent_path(parent: object) -> List[str]:
     if parent is None:
         return []
-    # Refused rather than read as no parent: a bare string used to become []
-    # and judge the names as top-level, and str() over a nested entry judged
-    # a repr no source has.
+    # Refused rather than read as no parent or as a repr no source has.
     if not isinstance(parent, list) or not all(isinstance(p, str) for p in parent):
         raise ValueError("not a `probe run` listing: its parent_path is malformed")
     return list(parent)

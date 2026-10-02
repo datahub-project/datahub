@@ -25,11 +25,9 @@ class EnvVarResolver:
 class MappingResolver:
     """Resolve `${ref}` from an explicit mapping rather than the environment.
 
-    For a caller that already holds the resolved secrets and must not put them
-    in `os.environ` -- the executor pipes them in a stdin envelope precisely so
-    they are not readable from /proc/<pid>/environ, `ps e`, or inherited by
-    every grandchild the CLI spawns. Placed ahead of EnvVarResolver so an
-    envelope value wins over a same-named ambient variable.
+    For a caller holding resolved secrets that must stay out of `os.environ`
+    (readable from /proc/<pid>/environ and inherited by children): the
+    executor's stdin envelope. Placed ahead of EnvVarResolver, so it wins.
     """
 
     def __init__(self, values: Dict[str, str]) -> None:
@@ -39,10 +37,8 @@ class MappingResolver:
         return self._values.get(ref)
 
 
-# ~/.datahubenv nests everything under `gms:` (DatahubConfig.gms), so a flat
-# top-level lookup resolves nothing at all. These map the two names a recipe
-# actually spells -- the same ones the CLI documents as env vars -- onto where
-# the file keeps them.
+# ~/.datahubenv nests under `gms:`; these map the env-var names a recipe spells
+# onto where the file keeps them.
 _DATAHUB_ENV_ALIASES = {
     "DATAHUB_GMS_URL": "gms.server",
     "DATAHUB_GMS_TOKEN": "gms.token",
@@ -51,7 +47,7 @@ _DATAHUB_ENV_ALIASES = {
 
 class DatahubEnvResolver:
     def resolve(self, ref: str) -> Optional[str]:
-        # Lazy import: only touch the CLI config file when this resolver is actually used.
+        # Lazy: the CLI config is read only when this resolver is used.
         from datahub.cli.config_utils import DATAHUB_CONFIG_PATH
 
         if not os.path.exists(DATAHUB_CONFIG_PATH):
@@ -62,17 +58,11 @@ class DatahubEnvResolver:
             with open(DATAHUB_CONFIG_PATH) as stream:
                 data = yaml.safe_load(stream) or {}
         except (OSError, yaml.YAMLError):
-            # Declining, not failing. A resolver that cannot read its own
-            # config has not resolved the ref, and saying so lets the next
-            # resolver try and the recipe fail by NAME. Raising instead sent
-            # a yaml.ParserError out of `recipe validate` as an internal
-            # error, so a recipe with an unresolvable ${REF} was answered with
-            # a YAML syntax complaint about a file it never mentioned -- with
-            # the local path in the message.
+            # Declining, not failing: the next resolver tries, and an
+            # unresolvable ref fails by name.
             return None
-        # Read the file directly rather than through get_url_and_token(): that
-        # path raises on a missing config and warns on an expired token, and
-        # this command emits JSON on stdout.
+        # Not get_url_and_token(): it raises on a missing config and warns on
+        # an expired token, and this command writes JSON.
         value = _lookup_path(data, _DATAHUB_ENV_ALIASES.get(ref, ref))
         return str(value) if value is not None else None
 
@@ -99,9 +89,7 @@ def _resolve_str(
         for resolver in resolvers:
             resolved = resolver.resolve(ref)
             if resolved is not None:
-                # Record every ${ref}-sourced value so the redactor can mask it
-                # regardless of how deeply it is nested. Over-collecting a
-                # non-secret ref (e.g. a host) is acceptable defense-in-depth.
+                # Every ${ref} value is masked, a non-secret one (a host) too.
                 if resolved:
                     collected.add(resolved)
                 return resolved

@@ -1,3 +1,12 @@
+"""`probe filter`: would the recipe's filters keep these names, and what decided.
+
+Connection-free. Per name: find the kind's field (Filters, the name convention,
+or a declared rule field), build the match target (probe_match_target), apply a
+kind switch (probe_kind_switches), ask the connector (probe_verdict_override),
+else match the pattern. Then judge the immediate --parent the same way
+(probe_ancestor_kinds): nothing inside an excluded container is ingested.
+"""
+
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set
 
@@ -34,9 +43,8 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 
-# The relational kinds. Canonical for every source, declared or not: a
-# miscased `--kind schema` is echoed and warned about as `Schema`, and every
-# config hook that compares kinds by identity sees that one spelling.
+# The relational kinds, canonical for every source: `--kind schema` reaches the
+# hooks, which compare kinds by identity, as `Schema`.
 _STANDARD_KINDS = frozenset(
     {
         str(DatasetSubTypes.TABLE),
@@ -48,12 +56,8 @@ _STANDARD_KINDS = frozenset(
 
 
 def _kind_switches(config: object) -> Dict[str, str]:
-    """kind -> the bool field that, when False, stops ingestion emitting it,
-    as the config's probe_kind_switches declares.
-
-    When one is off ingestion emits nothing of that kind, whatever the pattern
-    says, so a pattern verdict for it is a verdict ingestion does not make.
-    """
+    """kind -> the bool field that, when False, stops ingestion emitting that
+    kind whatever the pattern says (probe_kind_switches)."""
     declared = getattr(config, "probe_kind_switches", None)
     if not callable(declared):
         return {}
@@ -63,9 +67,8 @@ def _kind_switches(config: object) -> Dict[str, str]:
 @dataclass
 class FilterVerdict:
     name: str
-    # The exact string the pattern was matched against. Reported because it is
-    # usually NOT the bare name -- MySQL matches "schema.table", Postgres
-    # "db.schema.table" -- and seeing it is what explains a surprising verdict.
+    # The string the pattern was matched against, often not the bare name
+    # ("schema.table"): it explains a surprising verdict.
     target: str
     included: bool
     excluded_by: Optional[str]
@@ -84,24 +87,17 @@ class FilterCheckResult:
     source_type: str
     kind: str
     parent_path: List[str]
-    # The config field that decided, so a caller editing its recipe changes the
-    # right line. Not always the one named after the kind: MySQL copies
-    # table_pattern into view_pattern, and a view is decided by the latter.
+    # The config field that decided, so a caller edits the right recipe line.
     pattern_field: Optional[str]
     results: List[FilterVerdict]
     tried: Optional[Dict[str, List[str]]] = None
     warnings: List[str] = field(default_factory=list)
-    # Why pattern_field is null, which the field alone cannot say:
-    #   "by_pattern"  -- a field decided; pattern_field names it
-    #   "unfiltered"  -- the source declares it filters nothing at this level
-    #   "unresolved"  -- no field could be found, and none was declared absent
-    # The last is the interesting one: it is what a dropped annotation looks
-    # like. Teradata's database_pattern read exactly like Mode's genuinely
-    # unfiltered datasets until this told them apart.
+    # What decided: "by_pattern" (pattern_field), "by_rule" (a rule field the
+    # override judges), "unfiltered" (declared so), or "unresolved" (no field
+    # found and none declared absent: what a dropped annotation looks like).
     filtering: str = "by_pattern"
-    # Set when the verdicts come from an excluded --parent rather than this
-    # level's own pattern, so a caller judging the level below does not
-    # report the same exclusion twice. Not serialized: `warnings` says it.
+    # The verdicts come from an excluded --parent, so the level below does not
+    # report the exclusion twice. Not serialized: `warnings` says it.
     excluded_by_container: bool = False
 
     def to_dict(self) -> Dict[str, object]:
@@ -118,12 +114,8 @@ class FilterCheckResult:
 
 
 def _match_target(config: object, ctx: ClassifyContext) -> str:
-    """The string this connector's ingestion would filter on for one node.
-
-    The config's probe_match_target answers, for every kind; None or an empty
-    string leaves the bare name, which is right for a source whose display
-    name is its filter target (Kafka topics, Mode spaces).
-    """
+    """The string ingestion filters on for one node: probe_match_target's answer,
+    or the bare name when it gives None or "" or is not declared."""
     hook = getattr(config, "probe_match_target", None)
     if not callable(hook):
         return ctx.name
@@ -134,8 +126,7 @@ def _match_target(config: object, ctx: ClassifyContext) -> str:
 def _switch_verdict(config: object, kind: str) -> Optional[Verdict]:
     """The exclusion a switched-off kind makes, or None."""
     flag = _kind_switches(config).get(kind)
-    # getattr, not a hard read: a config without the field never switches the
-    # kind off.
+    # A config without the field never switches the kind off.
     if flag is not None and getattr(config, flag, True) is False:
         return Verdict(False, flag)
     return None
@@ -149,13 +140,10 @@ def _parent_exclusion(
     parent_path: Sequence[str],
     warn: Callable[[str], None],
 ) -> Optional[str]:
-    """The pattern that drops the immediate --parent container, if one does.
+    """The field that drops the immediate --parent container, if one does.
 
-    Ingestion never reaches anything inside an excluded container: a table
-    under a denied schema is not ingested whatever table_pattern says, and
-    judging the table's own pattern alone reported it included. The parent is
-    judged by check_filters itself, so its own parent is judged in turn and
-    every rule the config declares for that kind applies to it.
+    Ingestion never reaches inside an excluded container. The parent is judged
+    by check_filters itself, so its own parent is judged in turn.
     """
     if not parent_path:
         return None
@@ -180,8 +168,7 @@ def _parent_exclusion(
         names=[parent_path[-1]],
     )
     if parent.filtering not in ("by_pattern", "by_rule"):
-        # Nothing filters that level. Its warnings would be about a kind this
-        # source has no filter for, which is noise on this verdict.
+        # Nothing filters that level; its warnings would be noise here.
         return None
     for message in parent.warnings:
         warn(message)
@@ -200,15 +187,9 @@ def _parent_exclusion(
 
 
 def _canonical_kind(source_type: str, config: object, kind: str) -> str:
-    """The declared spelling of a kind the caller may have cased differently.
-
-    The `<kind>_pattern` name convention lowercases, while kind switches and
-    the config's hooks compare kinds by identity, so `--kind table` and
-    `--kind Table` must reach them as one spelling or they answer
-    differently. Canonicalised once, here, so everything downstream reads one
-    spelling. A kind nothing declares is returned untouched, which keeps the
-    "declares no kind" warning below able to fire.
-    """
+    """The declared spelling of a kind the caller may have cased differently:
+    the hooks compare kinds by identity. A kind nothing declares is returned
+    untouched, so the "declares no kind" warning can fire."""
     if kind in _STANDARD_KINDS:
         return kind
     lowered = kind.lower()
@@ -219,23 +200,16 @@ def _canonical_kind(source_type: str, config: object, kind: str) -> str:
 
 
 def _declared_kinds(source_type: str, config: object) -> Set[str]:
-    """The kinds this source's probe methods name, and the kinds its config
-    declares for them (probe_kind_overrides), as far as is knowable without a
-    connection.
-
-    Incomplete on purpose, and only ever used to canonicalise and to warn.
-    """
+    """The kinds the probe methods and probe_kind_overrides name, without a
+    connection. Incomplete, so used only to canonicalise and to warn."""
     kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
     return kinds | set(declared_kind_overrides(config).values())
 
 
 def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
-    """The connector's own verdict for one name, when no pattern states it.
-
-    Checked for type and for consistency because Python's truthiness would otherwise let a
-    returned bool or tuple decide silently -- `False` reads as "no opinion"
-    and the pattern answers instead of the connector.
-    """
+    """The connector's own verdict for one name (probe_verdict_override),
+    checked for type and consistency: a returned `False` would read as "no
+    opinion"."""
     override = getattr(config, "probe_verdict_override", None)
     if not callable(override):
         return None
@@ -246,9 +220,7 @@ def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
             f"{type(verdict).__name__}; it must return a Verdict or None"
         )
     if verdict is not None and verdict.included == (verdict.excluded_by is not None):
-        # Reported as-is, an included name with a reason, or an excluded one
-        # without, contradicts itself in the output and a caller cannot tell
-        # which half to believe.
+        # An included name with a reason, or an excluded one without.
         raise ProbeInternalError(
             f"{type(config).__name__}.probe_verdict_override returned "
             f"included={verdict.included} with excluded_by="
@@ -268,17 +240,11 @@ class _Resolution:
 def _resolve_filtering(config: object, kind: str) -> _Resolution:
     rule_field = declared_rule_filtered_kinds(config).get(kind)
     if rule_field is not None:
-        # Rules, not a pattern: the connector's override judges each name,
-        # and there is no allow/deny list for --try-* to replace.
+        # Rules, not a pattern: the override judges each name.
         return _Resolution(rule_field, rule_field, "by_rule")
     resolved = pattern_field_for_config(config, kind)
-    # Both of these report every name included, and the answer is right either
-    # way -- the question is "would these be ingested", and where nothing
-    # filters them the answer is yes. What differs is whether that is the
-    # source's design or a gap, and `filtering` is what says which. They were
-    # indistinguishable until a source could declare the first: a level whose
-    # annotation had been dropped looked exactly like a level with no filter,
-    # which is how Teradata's database_pattern went unnoticed.
+    # Both report every name included; `filtering` says whether that is the
+    # source's design or a gap.
     if resolved == UNFILTERED:
         return _Resolution(resolved, None, "unfiltered")
     if resolved is None:
@@ -313,9 +279,7 @@ def _pattern_to_judge(
             )
         return _Judged(config, AllowDenyPattern.allow_all())
     if pattern_field is None:
-        # "unfiltered" or "unresolved": no allow/deny list exists to replace.
-        # Judging the hypothetical anyway reported exclusions ingestion can
-        # never make, since it has no field to apply them from.
+        # No allow/deny list exists for a hypothetical to replace.
         if try_allow or try_deny:
             warn(
                 "--try-allow and --try-deny were ignored: this kind has no "
@@ -324,16 +288,13 @@ def _pattern_to_judge(
         return _Judged(config, AllowDenyPattern.allow_all())
     unset = unset_block_on(config, pattern_field) if pattern_field is not None else None
     if unset is not None:
-        # A valid recipe that leaves an Optional block out: ingestion applies
-        # no filter from it. require_pattern_at would call that a resolution
-        # bug and exit 2 on a recipe nothing is wrong with.
+        # A valid recipe leaving an Optional block out: no filter applies.
         warn(
             f"`{unset}` is unset in this recipe, so nothing at "
             f"`{pattern_field}` filters these"
         )
         if try_allow or try_deny:
-            # No block to copy the hypothetical into, and inventing one would
-            # judge a recipe the caller did not write.
+            # Inventing a block would judge a recipe the caller did not write.
             warn(
                 f"--try-allow and --try-deny were ignored: `{unset}` is unset, "
                 f"so there is no pattern at `{pattern_field}` to replace; set "
@@ -347,70 +308,35 @@ def _pattern_to_judge(
     )
     if not (try_allow or try_deny):
         return _Judged(config, recipe_pattern)
-    # Each half replaces only its own half. `allow=[".*"] if not try_allow`
-    # threw the recipe's allow list away whenever only --try-deny was
-    # given, so "what if I added this deny" was answered against an
-    # allow-all nobody asked for: on a recipe with allow ['^analytics$'],
-    # a --try-deny matching nothing flipped every other database from
-    # excluded to included, and the caller reads that as "the deny I am
-    # testing is harmless". The CLI documents --try-allow as replacing
-    # allow and --try-deny as "as --try-allow, for deny"; this is what
-    # that says.
+    # Each flag replaces only its own half; the recipe's other half stays.
     pattern = AllowDenyPattern(
         allow=list(try_allow) if try_allow else list(recipe_pattern.allow),
         deny=list(try_deny) if try_deny else list(recipe_pattern.deny),
     )
     tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
-    # Snapshotted before the connector's validators can touch `pattern`:
-    # they may rewrite it in place, and this is what "as the caller wrote
-    # it" has to mean when we compare afterwards.
+    # Snapshotted before validators can rewrite `pattern` in place.
     requested_allow = list(pattern.allow)
     requested_deny = list(pattern.deny)
     if pattern_field is not None:
-        # The hypothetical has to reach the config's probe_verdict_override
-        # too, not just the pattern comparison below: an override that reads
-        # the pattern off the config (the SQL family's qualified schema match
-        # does) and returns a verdict short-circuits the pattern branch, and
-        # would otherwise judge the recipe's pattern while `tried` echoes the
-        # hypothetical.
-        #
-        # A shallow copy on purpose: model_copy(deep=True) would clone the
-        # cached RDS IAM token manager along with its minted token.
+        # On the config too, so an override reading the pattern off the
+        # config judges the hypothetical. A shallow copy: a deep one would
+        # clone cached credentials (an IAM token manager and its token).
         config = copy_with_pattern_at(config, pattern_field, pattern)
-        # ...and then re-validated, because model_copy does NOT rerun
-        # validators and some connectors normalize the pattern there.
-        # BigQuery's after-validator rewrites an unqualified
-        # `dataset_pattern` entry to match `project.dataset`, so the
-        # recipe's own `^analytics$` becomes `^.*\.analytics$` and
-        # includes `analytics`, while the same string given to --try-allow
-        # stayed raw and excluded it. The command answered the opposite of
-        # the edit it exists to simulate, on BigQuery's default config.
-        #
-        # validate_assignment rather than a full model_validate: it reruns
-        # the model's after-validators against the instance we already
-        # have, so nothing is reconstructed and the token manager above is
-        # still shared rather than cloned.
+        # Re-validated, since connectors normalize patterns in validators and
+        # model_copy runs none; validate_assignment reruns them in place.
         try:
             validate_pattern_at(config, pattern_field, pattern)
         except ValidationError:
-            # A connector whose validator REJECTS the hypothetical is
-            # answering the question: the caller cannot write that in the
-            # recipe either. Reported rather than silently judged against
-            # the un-normalized pattern.
+            # The recipe could not hold this pattern either.
             warn(
                 "this source could not accept that pattern as written, so "
                 "the verdicts below judge it exactly as given; the recipe "
                 "may normalize it differently"
             )
         except Exception as exc:
-            # A validator that CRASHED is a different answer, and the
-            # message above is the wrong one for it: it tells the caller
-            # their pattern was rejected when nothing judged it. Same
-            # degrade -- this is a diagnostic command and a hard failure
-            # would be worse than a caveated answer -- but named for what
-            # happened, so the caller is not sent to fix a pattern that
-            # was never the problem. Labelled, not quoted: the validator's
-            # message is the connector's text and can carry config values.
+            # A crashed validator judged nothing: degrade, named as the
+            # connector's defect. Labelled, not quoted: its text can carry
+            # config values.
             warn(
                 f"this source's validator failed while checking that "
                 f"pattern ({foreign_label(exc)}), so the verdicts "
@@ -418,12 +344,7 @@ def _pattern_to_judge(
                 f"the connector, not in the pattern"
             )
         else:
-            # Re-read the pattern the config actually ended up with.
-            # Pydantic passes the same AllowDenyPattern instance through,
-            # so an after-validator that rewrites it IN PLACE is already
-            # visible on `pattern` -- but one that ASSIGNS a new pattern
-            # would leave `pattern` stale, and the verdicts below are
-            # computed from `pattern` rather than from the config.
+            # Re-read: a validator may have assigned a new pattern.
             effective = pattern_at(config, pattern_field)
             if effective is not None:
                 pattern = effective
@@ -431,15 +352,8 @@ def _pattern_to_judge(
                     requested_allow,
                     requested_deny,
                 ):
-                    # `tried` deliberately keeps echoing what the caller
-                    # asked for: that is the string to put in the recipe,
-                    # which would be normalized the same way. But without
-                    # saying so the result is unreadable -- BigQuery
-                    # reports target `proj.analytics`, allow
-                    # `['^analytics$']` and verdict INCLUDED, three facts
-                    # that cannot all be true of the pattern as printed.
-                    # Only the connector's log said a rewrite happened,
-                    # and an agent reads `warnings`, not the log.
+                    # `tried` echoes what to write in the recipe; say that
+                    # the verdicts used the normalized form.
                     warn(
                         f"this source normalized that pattern before "
                         f"matching: allow "
@@ -496,12 +410,8 @@ def check_filters(
     filtering = resolution.filtering
 
     if resolved is None:
-        # A kind the source never declares is more likely a typo than a level
-        # without a filter, and answering "all included" for a misspelling would
-        # be a wrong answer delivered confidently. It is a warning rather than
-        # an error because the kinds are not fully enumerable here -- container
-        # kinds are decided per recipe -- so a strict check would refuse valid
-        # input, which is the failure being fixed.
+        # An undeclared kind is likelier a typo than a level without a filter.
+        # A warning, not an error: the kinds are not fully enumerable here.
         declared = _declared_kinds(source_type, config)
         if declared and kind not in declared:
             warn(
@@ -531,12 +441,8 @@ def check_filters(
         )
         structural = _switch_verdict(config, kind)
         target = name if filtering == "by_rule" else _match_target(config, ctx)
-        # The connector's word on what no single pattern states -- the SQL
-        # family's system catalogs and qualified schema names, a view that
-        # must also pass table_pattern, a pinned SQL Server database. Told the
-        # switch verdict so it can keep or overrule it; None leaves the switch,
-        # then the pattern, in charge. A verdict that matched on its own
-        # string reports that string as the target.
+        # Told the switch verdict, to keep or overrule; None leaves the switch,
+        # then the pattern, in charge.
         override = _override_verdict(
             config,
             VerdictContext(
@@ -574,8 +480,7 @@ def check_filters(
             )
         )
 
-    # Not for a kind nothing resolves: the warning above already says the
-    # verdict means nothing, and this one would only repeat it.
+    # Not for a kind nothing resolves: the warning above already says so.
     parent_excluded_by = (
         None
         if resolved is None
