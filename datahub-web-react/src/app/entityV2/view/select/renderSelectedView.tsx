@@ -1,10 +1,11 @@
 import { Button, Tooltip } from '@components';
-import { radius } from '@components/theme';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { radius } from '@components/theme';
 
 const SelectButtonContainer = styled.div`
     display: flex;
