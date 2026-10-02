@@ -34,6 +34,39 @@ class ExtractSchemaConfig(ConfigModel):
     )
 
 
+class ShortcutsConfig(ConfigModel):
+    """Configuration for OneLake shortcut detection on lakehouse tables."""
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Identify lakehouse tables that are OneLake shortcuts by calling "
+            "`GET /workspaces/{workspaceId}/items/{lakehouseId}/shortcuts`. "
+            "Matching tables are tagged `shortcut` and get `shortcut_origin_*` "
+            "custom properties: original table name and path, plus the target "
+            "workspace and item ids and display names for OneLake targets. "
+            "Requires OneLake.Read.All (or OneLake.ReadWrite.All)."
+        ),
+    )
+    include_lineage: bool = Field(
+        default=False,
+        description=(
+            "When the shortcut target is another OneLake table, emit that table "
+            "as an upstream of the shortcut dataset. External targets (ADLS, S3, "
+            "and similar) still receive the `shortcut` tag and origin properties, "
+            "but no dataset upstream. Requires `enabled=True`."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_lineage_requires_enabled(self):
+        if self.include_lineage and not self.enabled:
+            raise ValueError(
+                "shortcuts.include_lineage=True requires shortcuts.enabled=True."
+            )
+        return self
+
+
 class SqlEndpointConfig(ConfigModel):
     """Configuration for SQL Analytics Endpoint schema extraction.
 
@@ -224,6 +257,15 @@ class FabricOneLakeSourceConfig(
             "Whether to extract views and their definitions. "
             "Requires a configured sql_endpoint, because views are discovered via "
             "INFORMATION_SCHEMA.VIEWS over the SQL Analytics Endpoint."
+        ),
+    )
+
+    shortcuts: ShortcutsConfig = Field(
+        default_factory=ShortcutsConfig,
+        description=(
+            "OneLake shortcut detection for lakehouse tables. Enabled by default; "
+            "set `shortcuts.include_lineage` to also emit the origin table as an "
+            "upstream."
         ),
     )
 

@@ -50,6 +50,7 @@ class FabricOneLakeSourceReport(
     warehouses_scanned: int = 0
     schemas_scanned: int = 0
     tables_scanned: int = 0
+    shortcuts_found: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
 
