@@ -1,10 +1,11 @@
 from types import SimpleNamespace
-from typing import Any, Callable, List, cast
+from typing import Annotated, Any, Callable, List, Optional, cast
 
 import pytest
 from sqlalchemy.engine.reflection import Inspector
 
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
+from datahub.configuration.common import Qualifier
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.common import PipelineContext
@@ -17,6 +18,7 @@ from datahub.ingestion.source.sql.druid import DruidConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_probe import (
     IDENTIFIER_DEGRADE_MARKER,
     _identifier_target,
@@ -53,43 +55,50 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 # set and the latter two are in `[dev]`, so the driver arrives either way.
 
 
-def test_an_uninstalled_provider_extra_falls_back_to_the_marker():
-    """The one failure that is about the environment, not the connector.
-
-    Every probe_provider_class() is a lazy import of a provider module, so a
-    missing extra raises ImportError here -- and declares_qualifier is the
-    right answer for a provider that cannot be built.
-    """
-    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
-
-    class _Config:
-        @classmethod
-        def probe_provider_class(cls) -> type:
-            raise ImportError("No module named 'some_optional_driver'")
-
-    # No Qualifier marker either, so the fallback's answer is False rather
-    # than an accident of the provider check.
-    assert not _matches_a_qualified_name(_Config())
+class _OwnProvider:
+    """Stands in for a provider that is not the SQL family's."""
 
 
-def test_a_broken_provider_is_not_quietly_downgraded_to_the_marker():
-    """`except Exception: pass` hid a defect behind a weaker question.
+class _UrlConfig(SQLCommonConfig):
+    def get_sql_alchemy_url(self) -> str:
+        return "postgresql://host/DB"
 
-    The provider check is the arity question; declares_qualifier reads a
-    marker and is the fallback. Swallowing every exception meant an
-    installed-but-broken provider silently produced the fallback's answer,
-    which can differ -- and this function returns a bool with no warn
-    channel, so nothing in the output would say so.
-    """
-    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
 
-    class _Config:
-        @classmethod
-        def probe_provider_class(cls) -> type:
-            raise AttributeError("the provider module is broken")
+class _OwnProviderConfig(_UrlConfig):
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        return _OwnProvider
 
-    with pytest.raises(AttributeError, match="provider module is broken"):
-        _matches_a_qualified_name(_Config())
+
+class _QualifiedConfig(_UrlConfig):
+    database: Annotated[Optional[str], Qualifier()] = None
+
+
+def test_a_provider_of_its_own_does_not_qualify_a_source():
+    """Which provider a connector brings says nothing about the identifier
+    its ingestion matches, so without a declaration the table is judged on
+    what its get_identifier builds."""
+    ctx = ClassifyContext(
+        config=_OwnProviderConfig.model_construct(),
+        name="T1",
+        fqn="DB.SCH.T1",
+        pattern_field="table_pattern",
+        parent_path=("DB", "SCH"),
+        warn=_ignore_warn,
+    )
+    assert _identifier_target(ctx) == "SCH.T1"
+
+
+def test_a_qualifier_declares_that_tables_match_on_the_qualified_name():
+    ctx = ClassifyContext(
+        config=_QualifiedConfig.model_construct(),
+        name="T1",
+        fqn="DB.SCH.T1",
+        pattern_field="table_pattern",
+        parent_path=("DB", "SCH"),
+        warn=_ignore_warn,
+    )
+    assert _identifier_target(ctx) == "DB.SCH.T1"
 
 
 # Planted in an AttributeError's text: foreign text must not reach the warning.

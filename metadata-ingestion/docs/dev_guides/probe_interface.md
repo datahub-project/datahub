@@ -580,7 +580,10 @@ identifier: your real `Source` is not a `SQLAlchemySource` (`UnityCatalogSourceC
 `get_identifier` reads state ingestion sets while it walks (`SQLServerConfig` supplies the database
 being read). State that `__init__` sets belongs in a class-level default on the `Source` instead.
 Where the container is pinned by a config field, `Qualifier` says so declaratively and the shim
-resolves the rest:
+resolves the rest. Where only the caller can name it, return
+`qualified_table_target(database, schema, entity, warn)` from `sql_config`, which builds
+`container.schema.entity` or warns that none was given (`SnowflakeV2Config`). Which provider a
+connector brings is never read as a declaration. The hook:
 
 ```python
 def probe_filter_target(

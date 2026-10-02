@@ -131,6 +131,31 @@ def _qualifying_container(
     return declared
 
 
+_NO_CONTAINER_WARNING = (
+    "no parent container given, so these were judged on "
+    "'schema.entity'; this source matches a fully qualified name, so "
+    "pass the containing database/project to get the verdict "
+    "ingestion actually makes"
+)
+
+
+def qualified_table_target(
+    container: Optional[str], schema: str, entity: str, warn: Callable[[str], None]
+) -> Optional[str]:
+    """`container.schema.entity`: what a source whose tables live under a
+    database or project matches table_pattern and view_pattern against.
+
+    None after warning when the container is unknown, which leaves the
+    get_identifier shim to judge `schema.entity`; inventing a container
+    would judge an object in a different database. The warning does not
+    name the object, so check_filters' dedupe reports it once.
+    """
+    if container:
+        return f"{container}.{schema}.{entity}"
+    warn(_NO_CONTAINER_WARNING)
+    return None
+
+
 def _qualified_schema_verdict(
     config: ConfigModel, ctx: VerdictContext
 ) -> Optional[Verdict]:
@@ -367,25 +392,25 @@ class SQLCommonConfig(
         """Override point for a connector whose identifier sql_probe.py's
         generic get_identifier shim (see sql_probe._identifier_target) cannot
         build: its real Source doesn't extend SQLAlchemySource
-        (UnityCatalogSourceConfig), or its get_identifier reads state
-        ingestion sets while it walks (SQLServerConfig's current database).
-        Return the exact string ingestion filters table_pattern/view_pattern
-        against, or None (the default) to let that shim keep resolving it.
-        Checked before the shim on every SQL Table-level node. Where the
-        container is pinned by a config field, Qualifier states that
-        declaratively instead and the shim resolves the rest.
+        (UnityCatalogSourceConfig, SnowflakeV2Config), or its get_identifier
+        reads state ingestion sets while it walks (SQLServerConfig's current
+        database). Return the exact string ingestion filters
+        table_pattern/view_pattern against, or None (the default) to let that
+        shim keep resolving it. Checked before the shim on every SQL
+        Table-level node. Where a config field names the container,
+        Qualifier states that declaratively instead and the shim resolves the
+        rest; qualified_table_target builds `container.schema.entity` for an
+        override whose container only the caller knows.
 
         `database` is the container above the schema when the caller supplied
         one -- parent_path[0] on a source whose hierarchy has a level above
-        the schema. Redshift and Unity Catalog take theirs from config
-        instead and ignore this; Snowflake and BigQuery cannot, because one
-        recipe spans several databases/projects and only the caller knows
-        which one the node came from.
+        the schema. An override whose recipe spans several databases or
+        projects needs it, since only the caller knows which one the node
+        came from.
 
         `warn` reports a degrade -- an override that cannot return its exact
         ingestion identifier and is falling back to something less precise
-        (see UnityCatalogSourceConfig's override, the only one that calls it
-        today) -- onto the same ProbeMethodResult.warnings list ProbeSoftError
+        -- onto the same ProbeMethodResult.warnings list ProbeSoftError
         feeds. It dedupes by message, so a connector-wide reason called once
         per node classified in a level is only recorded once per probe call.
         """

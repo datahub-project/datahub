@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -40,6 +40,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
     SQLFilterConfig,
+    qualified_table_target,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -986,3 +987,17 @@ class SnowflakeV2Config(
                         f"Skipping Share {share_name}, as it does not include current platform instance {self.platform_instance}",
                     )
         return inbounds
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        # SnowflakeV2Source is not a SQLAlchemySource, so the probe has no
+        # get_identifier to ask; ingestion matches table_pattern and
+        # view_pattern against `database.schema.table`. The database is the
+        # caller's --parent: a recipe spans several, so no config field
+        # names one.
+        return qualified_table_target(database, schema, entity, warn)

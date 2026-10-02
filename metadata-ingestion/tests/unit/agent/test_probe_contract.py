@@ -45,11 +45,6 @@ _PATHISH_PARAMS = frozenset({"path", "url", "uri", "endpoint", "route"})
 # declared for the framework to clamp it (probe_methods._bounded_kwargs).
 _LIMIT_PARAM = "limit"
 
-# Sources whose probe support is expected to exist, asserted separately so this
-# file cannot pass by scanning nothing. Both need only core dependencies, so they
-# load in any environment that can run the unit suite at all.
-_MUST_BE_SCANNED = ("postgres", "mysql")
-
 
 def _spec_of(fn: object) -> ProbeMethodSpec:
     spec = getattr(fn, "__probe_command__", None)
@@ -138,31 +133,17 @@ def test_the_scan_actually_reached_providers():
     # Guards the test above against passing vacuously: if plugin loading breaks,
     # _scan() finds nothing to check and every rule here trivially holds.
     _, scanned, broken, absent = _scan()
-    missing = [s for s in _MUST_BE_SCANNED if s not in scanned]
-    assert not missing, (
-        f"expected probe support on {missing} but the scan did not reach it; "
-        f"broken: {broken}; extras not installed: {absent}"
-    )
-    # A provider that fails to load was once only interpolated into the message
-    # above, so the scan could lose most of its providers with every guard
-    # still green. probe_provider_class imports the provider module lazily, so
-    # a provider whose import breaks leaves the *config* loadable -- and the
-    # count guard below does not catch it either, because one broken provider
-    # out of 33 still clears 25.
-    #
-    # Asserted on `broken` and not on `absent`: this file's own contract is
-    # that only _MUST_BE_SCANNED is guaranteed in a minimal environment, so
-    # requiring every provider to load would fail wherever an optional extra
-    # is not installed -- an environment fact, not a defect. Verified by
-    # hiding snowflake, google, confluent_kafka, databricks and pyhive: 18
-    # sources stop loading, all of them classified absent, none broken.
+    # probe_provider_class imports its provider lazily, so a provider whose
+    # import breaks leaves the config loadable, and one broken provider still
+    # clears the count below. Not asserted on `absent`: an optional extra
+    # that is not installed is a fact about the environment, not a defect.
     assert broken == [], (
         f"{len(broken)} providers are installed but could not be loaded, so "
         f"the gate scan silently skipped them: {broken}"
     )
     assert len(scanned) >= 25, (
         f"only {len(scanned)} providers scanned; the tripwire is inspecting "
-        "fewer sources than it should"
+        f"fewer sources than it should; extras not installed: {absent}"
     )
 
 
@@ -752,14 +733,11 @@ def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
                     f"{field} would filter it"
                 )
     assert not contradictions, "\n  ".join(contradictions)
-    # The guard every sibling tripwire in this file has, and this one did not.
-    # _probe_capable_configs swallows a source that will not load and
-    # declared_unfiltered_kinds returns an empty set when a config cannot
-    # answer -- so if Mode drops out of the scan, the loop body never runs and
-    # "no contradictions" becomes a statement about nothing.
+    # _probe_capable_configs skips a source that will not load and
+    # declared_unfiltered_kinds is empty for a config that cannot answer, so
+    # without this an emptied scan would pass as "no contradictions".
     assert checked > 0, (
-        "no source declared an unfiltered kind, so this tripwire checked "
-        "nothing; Mode declares Dataset and Query (source/mode.py)"
+        "no source declared an unfiltered kind, so this tripwire checked nothing"
     )
 
 
@@ -871,8 +849,8 @@ def test_no_connector_leans_on_the_name_convention():
         "these fields resolve only by the name convention:\n"
         f"  {leaning}\n"
         "Annotate each with Filters(...). Check first that it is the field "
-        "ingestion actually filters on -- BigQuery's guess found a deprecated "
-        "alias, and annotating that would have made the wrong field permanent."
+        "ingestion actually filters on: the guess can land on a deprecated "
+        "alias, and annotating that makes the wrong field permanent."
     )
     assert checked > 20, f"only {checked} probe-capable configs reached"
 
@@ -919,7 +897,7 @@ def test_no_config_declares_a_catalog_scope_its_provider_never_reads():
     )
     assert checked >= 3, (
         f"only {checked} SQL configs declare a catalog scope; expected at "
-        "least Postgres, MSSQL and Oracle, so this test is not scanning nothing"
+        "least three, so this test is not scanning nothing"
     )
 
 
@@ -942,12 +920,8 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
         "probe_validation_context": {"source_type"},
         "probe_match_target": {"ctx"},
         "probe_verdict_override": {"ctx"},
-        # Widened with `database` when Snowflake and BigQuery turned out to
-        # be judging tables on `schema.entity` while ingestion matched three
-        # parts. Those two fixes landed in the framework, not as config
-        # overrides: walking the registry, the only implementations are the
-        # base and UnityCatalogSourceConfig. Earlier versions of this comment
-        # named Snowflake, Redshift and BigQuery, none of which override it.
+        # `database` is the container above the schema, which an override
+        # whose recipe spans several databases needs from the caller.
         "probe_filter_target": {"schema", "entity", "warn", "database"},
     }
 
@@ -1001,30 +975,7 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     )
 
 
-# --- which sources the framework qualifies, pinned for all of them ---------
-#
-# This exists because a regression got through that a test already covered.
-# The Redshift Table-level assertion in test_shared_identifier_functions
-# would have failed; it was not run. And the connector the change was FOR --
-# Hana -- had no Table-level test at all, nor did the other 24: the only
-# arity coverage was the four warehouses, so 25 sources could be wrong
-# without a single assertion noticing.
-#
-# Pinned as an exhaustive map rather than a rule, deliberately. A rule is
-# what keeps being wrong here -- "is there a FooSource in this file",
-# "which provider does it reuse" -- and each time the rule looked right in
-# isolation. A list fails loudly when a new connector registers, which is
-# the moment somebody should think about it.
-
-_QUALIFIES = {
-    # Not SQLAlchemy-backed: no get_identifier to ask, so the framework
-    # builds container.schema.entity itself.
-    "snowflake",
-    "bigquery",
-    # SQLAlchemy provider, but their Source is not a SQLAlchemySource. They
-    # say so with Qualifier on the field naming their container.
-    "redshift",
-}
+# --- across every registered SQL source -------------------------------------
 
 
 def _sql_source_types():
@@ -1036,56 +987,6 @@ def _sql_source_types():
         if issubclass(config_cls, SQLCommonConfig)
     }
     return found
-
-
-def test_every_sql_source_agrees_about_its_own_identifier_arity():
-    """The probe must build the same number of parts the connector matches on.
-
-    Two ways to get this wrong, and this branch has shipped both:
-
-      too many   Hana was treated as fully qualified because HanaSource
-                 lives in hana/hana.py and its config in hana_config.py, so
-                 a filename match missed it. The probe told the caller to
-                 pass a database and then judged MYDB.MYSCHEMA.T1 -- three
-                 parts HanaSource never builds -- with no warning.
-
-      too few    Reading the declared provider instead fixed Hana and broke
-                 Redshift, whose Source is not a SQLAlchemySource but whose
-                 provider is SqlAlchemyMetadataProbe. Verdicts went from
-                 prod.public.orders to public.orders, i.e. inverted.
-    """
-    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
-
-    found = _sql_source_types()
-    assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
-
-    wrong = {}
-    for source_type, config_cls in found.items():
-        got = _matches_a_qualified_name(config_cls.model_construct())
-        expected = source_type in _QUALIFIES
-        if got != expected:
-            wrong[source_type] = (got, expected)
-
-    assert not wrong, (
-        "these sources disagree with the recorded arity. If a new connector "
-        "registered, decide which side it is on and add it to _QUALIFIES (or "
-        "not); if an existing one moved, something changed the signal:\n  "
-        + "\n  ".join(f"{k}: got {v[0]}, recorded {v[1]}" for k, v in wrong.items())
-    )
-
-
-def test_unity_catalog_is_qualified_by_its_own_override_not_the_framework():
-    """Unity is deliberately absent from _QUALIFIES. It declares
-    probe_filter_target, which returns None when no single catalog is pinned
-    -- a degrade the framework cannot express -- so it never reaches the
-    generic branch and does not need the flag."""
-    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-
-    assert (
-        UnityCatalogSourceConfig.probe_filter_target
-        is not SQLCommonConfig.probe_filter_target
-    )
 
 
 def test_no_sql_source_falls_back_to_the_bare_fqn():

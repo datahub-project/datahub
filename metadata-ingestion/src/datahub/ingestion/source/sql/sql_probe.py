@@ -44,15 +44,11 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     default is correct there too, since Hana's Source doesn't override
     get_identifier, so it would resolve to the same base method anyway.
 
-    Redshift and Unity Catalog reuse SQLCommonConfig's default probe (this
-    module) for their Table level, but their real Source classes don't extend
-    SQLAlchemySource at all -- their actual ingestion identifiers
-    (`database.schema.table` / `catalog.schema.table`) are built ad hoc
-    elsewhere, not via a get_identifier this shim can call. Those two declare
-    their own answer instead, through SQLCommonConfig.probe_filter_target
-    (checked in _identifier_target before this function ever runs) -- not by
-    special-casing their source_type here, which would make this module the
-    one place a new per-connector override had to be wired in by hand.
+    A connector whose real Source does not extend SQLAlchemySource has no
+    get_identifier here to call, so it declares its identifier instead -- a
+    Qualifier field or its own probe_filter_target, both checked in
+    _identifier_target before this function runs -- rather than being
+    special-cased by source_type in this module.
     """
     config_cls = type(config)
     name = config_cls.__name__
@@ -64,75 +60,6 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
         if isinstance(candidate, type) and issubclass(candidate, SQLAlchemySource):
             return candidate
     return SQLAlchemySource
-
-
-def _matches_a_qualified_name(config: object) -> bool:
-    """Whether this connector's ingestion matches `container.schema.entity`.
-
-    Declared, not inferred. Two ways to say it, and both are things the
-    connector already says for other reasons:
-
-      it brings its own probe provider -- Snowflake and BigQuery are not
-      SQLAlchemy-backed at all, so there is no get_identifier to ask
-
-      it marks a field with Qualifier -- Redshift's `database`, BigQuery's
-      `project_ids`; a connector that names the container it qualifies with
-      is telling you it qualifies
-
-    Everything else goes through the shim, where SQLAlchemySource's own
-    get_identifier (or a connector's override of it) is the authority.
-
-    This replaced `_source_class_for(config) is not SQLAlchemySource`, which
-    asked whether a class named FooSource sits in the same file as FooConfig
-    -- a filename convention that already existed to pick which
-    get_identifier to call, and was wrong for arity twice over:
-
-      hana   HanaSource is in hana/hana.py, its config in
-             hana/hana_config.py. The match failed, Hana was treated as
-             fully qualified, and the probe told the caller to pass a
-             database. Doing so produced MYDB.MYSCHEMA.T1 -- three parts
-             HanaSource, which does not override get_identifier, never
-             builds -- with no warning. A wrong answer reached by following
-             the tool's own advice.
-
-      redshift  The opposite. RedshiftSource is not in redshift/config.py
-             either, so the match ALSO failed -- and there the failure gave
-             the right answer, because Redshift genuinely is three-part.
-             Reading the provider instead fixed Hana and broke Redshift,
-             which is what a sweep of all 29 SQL sources caught: the
-             provider says SqlAlchemyMetadataProbe for both.
-
-    Neither question -- what file is the class in, which provider does it
-    reuse -- is the arity question. This one is.
-    """
-    getter = getattr(type(config), "probe_provider_class", None)
-    if callable(getter):
-        # lazy: keeps sqlalchemy off the config import path
-        from datahub.ingestion.source.sql.sqlalchemy_probe import (
-            SqlAlchemyMetadataProbe,
-        )
-
-        try:
-            if getter() is not SqlAlchemyMetadataProbe:
-                return True
-        except ImportError:
-            # Only this. Every probe_provider_class is a lazy import of a
-            # provider module, so an uninstalled extra is the one failure
-            # that is about the environment rather than the connector, and
-            # falling through to declares_qualifier is the right answer for
-            # it.
-            #
-            # `except Exception: pass` also swallowed a provider that is
-            # installed and broken, and the fallback is a WEAKER question --
-            # declares_qualifier reads a marker, this reads the provider --
-            # so a defect silently downgraded the arity answer with nothing
-            # to show for it. This function returns a bool and has no warn
-            # channel, so propagating is the only way it can be seen.
-            pass
-    # lazy: agent.introspect is only needed once a probe runs
-    from datahub.ingestion.agent.introspect import declares_qualifier
-
-    return declares_qualifier(config)
 
 
 class _HasDatabase(Protocol):
@@ -204,11 +131,13 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     """The exact string the connector's own get_identifier would use for this
     table/view node -- never a reimplementation of it (see _source_class_for).
 
-    Checks SQLCommonConfig.probe_filter_target first: a connector whose
-    identifier this shim cannot build declares it there -- its real Source is
-    not a SQLAlchemySource, or its get_identifier reads state ingestion sets
-    while it walks. Every other SQL config inherits the default (returns
-    None), so this is a no-op for them.
+    A connector whose identifier this shim cannot build declares it, and the
+    declaration is checked first: SQLCommonConfig.probe_filter_target when
+    its real Source is not a SQLAlchemySource or its get_identifier reads
+    state ingestion sets while it walks, or a Qualifier field when its tables
+    match on `container.schema.entity`. Nothing is inferred from which
+    provider a connector brings: that says nothing about what its ingestion
+    matches.
 
     Otherwise builds the resolved Source class via __new__ (bypassing
     __init__, which fires ingestion telemetry -- see
@@ -244,42 +173,35 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     )
     if override is not None:
         return override
-    # Only when the connector declared nothing. Unity Catalog declares an
-    # override that deliberately returns None when it cannot pin one catalog,
-    # with its own warning explaining the degrade -- running the generic path
-    # after it added a second warning saying the same thing.
-    # lazy: this module keeps SQLCommonConfig off its import path (see
-    # _SqlAlchemyUrlConfig) and needs it only for this identity check.
-    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+    # lazy: agent.introspect is only needed once a probe runs, and this
+    # module keeps SQLCommonConfig off its import path (see
+    # _SqlAlchemyUrlConfig).
+    from datahub.ingestion.agent.introspect import (
+        declared_qualifier,
+        declares_qualifier,
+    )
+    from datahub.ingestion.source.sql.sql_config import (
+        SQLCommonConfig,
+        qualified_table_target,
+    )
 
+    # An override that returned None has reported its own degrade, so the
+    # Qualifier path does not run after it and warn a second time.
     declared_own = (
         getattr(type(ctx.config), "probe_filter_target", None)
         is not SQLCommonConfig.probe_filter_target
     )
-    if not declared_own and _matches_a_qualified_name(ctx.config):
-        # No Source to ask, so the shim below would answer `schema.entity`
-        # -- which drops the top level for every non-SQLAlchemy SQL source.
-        # All four match `container.schema.entity`, so the framework builds
-        # it rather than each connector declaring the same f-string.
-        #
-        # The container comes from the same resolution the Schema level
-        # uses, not from parent_path alone: Qualifier(authoritative=True)
-        # is how Redshift says its single configured database wins over a
-        # --parent naming another, and the table level has to honour that
-        # too or the two levels answer about different databases.
-        # lazy: agent.introspect is only needed once a probe runs
-        from datahub.ingestion.agent.introspect import declared_qualifier
-
+    if not declared_own and declares_qualifier(ctx.config):
+        # A Qualifier field declares that tables match on
+        # `container.schema.entity`. The container is resolved as the Schema
+        # level resolves it, so Qualifier(authoritative=True) -- one
+        # configured database winning over a --parent naming another --
+        # holds at both levels.
         declared, authoritative = declared_qualifier(ctx.config)
         container = declared if (authoritative and declared) else (database or declared)
-        if container:
-            return f"{container}.{schema}.{ctx.name}"
-        ctx.warn(
-            "no parent container given, so these were judged on "
-            "'schema.entity'; this source matches a fully qualified name, so "
-            "pass the containing database/project to get the verdict "
-            "ingestion actually makes"
-        )
+        target = qualified_table_target(container, schema, ctx.name, ctx.warn)
+        if target is not None:
+            return target
     source_cls = _source_class_for(ctx.config)
     shim = source_cls.__new__(source_cls)
     shim.config = ctx.config
