@@ -116,6 +116,22 @@ def test_rest_mode_warns_that_the_id_is_matched_too() -> None:
     assert any("connector_id" in w for w in result.warnings)
 
 
+def test_rest_mode_reports_the_id_as_the_target_when_the_id_decides() -> None:
+    # The parity test proves the verdict; it cannot see which string matched.
+    result = check_filters(
+        source_type="fivetran",
+        config_dict={
+            "api_config": _API,
+            "connector_patterns": {"deny": ["^sales_pg$"]},
+        },
+        kind="Connector",
+        parent_path=[],
+        names=["sales_pg"],
+        attributes=[{"connector_id": "conn_a1"}],
+    )
+    assert (result.results[0].included, result.results[0].target) == (True, "conn_a1")
+
+
 _BASE = "https://api.fivetran.com/v1"
 
 
