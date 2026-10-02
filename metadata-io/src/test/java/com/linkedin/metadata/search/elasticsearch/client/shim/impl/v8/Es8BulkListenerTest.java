@@ -5,7 +5,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
+import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
@@ -120,6 +122,8 @@ public class Es8BulkListenerTest {
         BulkResponse.of(
             b -> b.errors(true).took(1L).items(item("1", 429, "es_rejected_execution_exception"))));
     assertEquals(requeued, List.of(first));
+    assertEquals(telemetry.carriedCount(), 0, "the requeue consumed the carried origin");
+    assertEquals(telemetry.pendingCount(), 1, "and it is pending again for the retry batch");
 
     BulkRequest retry = request();
     listener.beforeBulk(6L, retry, contexts);
@@ -132,6 +136,128 @@ public class Es8BulkListenerTest {
     assertEquals(collector.spans.size(), 2);
     assertEquals(collector.spans.get(1).getLinks().size(), 1);
     assertEquals(collector.spans.get(1).getLinks().get(0).getSpanContext().getTraceId(), TRACE);
+  }
+
+  /** Every branch that gives up on a failed item drops its carried origin. */
+  @Test
+  public void givingUpOnAFailedItemForgetsItsCarriedOrigin() {
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    BulkTelemetry telemetry =
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, false, null);
+    BulkItemRequeueSupport requeueSupport =
+        new BulkItemRequeueSupport(true, 1, telemetry::onRequeue);
+    Es8BulkListener listener = new Es8BulkListener(null, null, requeueSupport, telemetry);
+    Es8BulkListener noRequeue = new Es8BulkListener(null, null, null, telemetry);
+
+    IndexRequest parse = new IndexRequest("idx").id("1").source(Map.of("a", 1));
+    IndexRequest conflict = new IndexRequest("idx").id("2").source(Map.of("a", 2));
+    IndexRequest missing = new IndexRequest("idx").id("3").source(Map.of("a", 3));
+    try (Scope ignored = BulkTelemetryTest.remoteSpan(TRACE, "b7ad6b7169203331").makeCurrent()) {
+      telemetry.onAdd(parse);
+      telemetry.onAdd(conflict);
+      telemetry.onAdd(missing);
+    }
+    // Exhaust the single allowed requeue attempt for the conflict so it is given up on.
+    assertTrue(requeueSupport.tryRequeue(conflict));
+    List<Object> contexts = List.of(parse, conflict, missing);
+    BulkRequest request = request();
+    listener.beforeBulk(7L, request, contexts);
+    listener.afterBulk(
+        7L,
+        request,
+        contexts,
+        BulkResponse.of(
+            b ->
+                b.errors(true)
+                    .took(1L)
+                    .items(
+                        item("1", 400, "mapper_parsing_exception"),
+                        item("2", 409, "version_conflict_engine_exception"),
+                        item("3", 404, "document_missing_exception"))));
+    assertEquals(collector.spans.get(0).getAttributes().get(BulkTelemetry.FAILURES), 3L);
+    assertEquals(telemetry.carriedCount(), 0, "nothing lingers once each item is given up on");
+    assertEquals(telemetry.pendingCount(), 0, "and nothing was requeued");
+
+    // Without requeue support a retriable status is given up on immediately too.
+    IndexRequest rejected = new IndexRequest("idx").id("1").source(Map.of("a", 1));
+    try (Scope ignored = BulkTelemetryTest.remoteSpan(TRACE, "c7ad6b7169203332").makeCurrent()) {
+      telemetry.onAdd(rejected);
+    }
+    List<Object> one = List.of(rejected);
+    noRequeue.beforeBulk(8L, request, one);
+    noRequeue.afterBulk(
+        8L,
+        request,
+        one,
+        BulkResponse.of(
+            b -> b.errors(true).took(1L).items(item("1", 429, "es_rejected_execution_exception"))));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 0);
+
+    // More items than contexts (defensive): the surplus failures have no action to forget.
+    listener.beforeBulk(9L, request, one);
+    listener.afterBulk(
+        9L,
+        request,
+        one,
+        BulkResponse.of(
+            b ->
+                b.errors(true)
+                    .took(1L)
+                    .items(
+                        item("1", 400, "mapper_parsing_exception"),
+                        item("2", 400, "mapper_parsing_exception"))));
+    assertEquals(collector.spans.get(2).getAttributes().get(BulkTelemetry.FAILURES), 1L);
+    assertEquals(telemetry.carriedCount(), 0);
+  }
+
+  @Test
+  public void transportFailureForgetsWhatIsNotRequeued() {
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    BulkTelemetry telemetry =
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, false, null);
+    BulkItemRequeueSupport off = new BulkItemRequeueSupport(false, 3, telemetry::onRequeue);
+    Es8BulkListener listener = new Es8BulkListener(null, null, off, telemetry);
+    IndexRequest first = new IndexRequest("idx").id("1").source(Map.of("a", 1));
+    try (Scope ignored = BulkTelemetryTest.remoteSpan(TRACE, "b7ad6b7169203331").makeCurrent()) {
+      telemetry.onAdd(first);
+    }
+    List<Object> contexts = List.of(first, "not a write request");
+    BulkRequest request = request();
+    listener.beforeBulk(9L, request, contexts);
+    listener.afterBulk(9L, request, contexts, new RuntimeException("connection reset"));
+    assertEquals(telemetry.carriedCount(), 0, "requeue off: given up on, so forgotten");
+    assertEquals(telemetry.pendingCount(), 0);
+
+    // A missing-document failure completes the actions: nothing is carried either.
+    try (Scope ignored = BulkTelemetryTest.remoteSpan(TRACE, "b7ad6b7169203331").makeCurrent()) {
+      telemetry.onAdd(first);
+    }
+    listener.beforeBulk(10L, request, contexts);
+    listener.afterBulk(
+        10L,
+        request,
+        contexts,
+        new ElasticsearchException(
+            "bulk",
+            ErrorResponse.of(
+                r ->
+                    r.status(404)
+                        .error(ErrorCause.of(e -> e.type("document_missing_exception"))))));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 0);
+
+    // Requeue on: carried and then re-pended, not forgotten.
+    BulkItemRequeueSupport on = new BulkItemRequeueSupport(true, 3, telemetry::onRequeue);
+    Es8BulkListener requeuing = new Es8BulkListener(null, null, on, telemetry);
+    try (Scope ignored = BulkTelemetryTest.remoteSpan(TRACE, "b7ad6b7169203331").makeCurrent()) {
+      telemetry.onAdd(first);
+    }
+    requeuing.beforeBulk(11L, request, contexts);
+    requeuing.afterBulk(11L, request, contexts, new RuntimeException("connection reset"));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 1);
+    assertEquals(collector.spans.size(), 3);
   }
 
   @Test
@@ -161,6 +287,29 @@ public class Es8BulkListenerTest {
     assertEquals(collector.spans.get(1).getStatus().getStatusCode(), StatusCode.UNSET);
     assertEquals(
         collector.spans.get(1).getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(0));
+
+    // No contexts at all (defensive): failures are counted against nothing and nothing is carried.
+    BulkRequest noContexts = request();
+    listener.beforeBulk(12L, noContexts, null);
+    listener.afterBulk(
+        12L,
+        noContexts,
+        null,
+        BulkResponse.of(
+            b -> b.errors(true).took(1L).items(item("1", 400, "mapper_parsing_exception"))));
+    listener.beforeBulk(13L, noContexts, null);
+    listener.afterBulk(
+        13L,
+        noContexts,
+        null,
+        new ElasticsearchException(
+            "bulk",
+            ErrorResponse.of(
+                r ->
+                    r.status(404)
+                        .error(ErrorCause.of(e -> e.type("document_missing_exception"))))));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(collector.spans.size(), 4);
   }
 
   @Test
@@ -183,6 +332,16 @@ public class Es8BulkListenerTest {
           BulkResponse.of(
               b -> b.errors(true).took(1L).items(item("1", 400, "mapper_parsing_exception"))));
       l.afterBulk(6L, request, contexts, new RuntimeException("reset"));
+      l.afterBulk(
+          7L,
+          request,
+          contexts,
+          new ElasticsearchException(
+              "bulk",
+              ErrorResponse.of(
+                  r ->
+                      r.status(404)
+                          .error(ErrorCause.of(e -> e.type("document_missing_exception"))))));
     }
   }
 }

@@ -118,11 +118,13 @@ public class BulkTelemetryTest {
     assertEquals(off.opaqueId(request).isPresent(), false);
     assertSame(off.requestOptions(request, RequestOptions.DEFAULT), RequestOptions.DEFAULT);
     assertSame(off.makeCurrent(request), Scope.noop());
-    off.afterBulk(request, 1L, 0L);
+    off.afterBulk(request, 1L, List.of());
     off.afterBulk(request, new RuntimeException("x"));
     off.onRequeue(request.requests().get(0));
+    off.forget(request.requests().get(0));
     assertEquals(off.openBatches(), 0);
     assertEquals(off.pendingCount(), 0);
+    assertEquals(off.carriedCount(), 0);
   }
 
   @Test
@@ -151,7 +153,7 @@ public class BulkTelemetryTest {
     try (Scope ignored = t.makeCurrent(request)) {
       assertFalse(Span.current().getSpanContext().isValid());
     }
-    t.afterBulk(request, 5L, 0L);
+    t.afterBulk(request, 5L, List.of());
     t.afterBulk(second, new RuntimeException("boom"));
     assertEquals(t.openBatches(), 0);
     assertEquals(t.opaqueId(request).isPresent(), false, "ended batches are forgotten");
@@ -203,7 +205,7 @@ public class BulkTelemetryTest {
       assertTrue(Span.current().getSpanContext().isValid());
       assertEquals(RequestStats.current().isPresent(), false);
     }
-    t.afterBulk(request, 42L, 0L);
+    t.afterBulk(request, 42L, List.of());
 
     assertEquals(collector.spans.size(), 1);
     SpanData span = collector.spans.get(0);
@@ -234,7 +236,7 @@ public class BulkTelemetryTest {
     BulkRequest request = new BulkRequest().add(new IndexRequest("idx").id("1").source("{}", 0));
     t.beforeBulk(request, request.requests());
     String id = t.opaqueId(request).orElseThrow();
-    t.afterBulk(request, 1L, 0L);
+    t.afterBulk(request, 1L, List.of());
     String batchId = collector.spans.get(0).getAttributes().get(BulkTelemetry.BATCH_ID);
     assertEquals(id, "bulk|gms|batch=" + batchId + "|n=1");
   }
@@ -244,11 +246,15 @@ public class BulkTelemetryTest {
     Collector collector = new Collector();
     BulkTelemetry t = create(tracer(collector), true, false, null);
 
-    BulkRequest partial = new BulkRequest().add(new IndexRequest("idx").id("1").source("{}", 0));
+    BulkRequest partial =
+        new BulkRequest()
+            .add(new IndexRequest("idx").id("1").source("{}", 0))
+            .add(new IndexRequest("idx").id("1b").source("{}", 0))
+            .add(new IndexRequest("idx").id("1c").source("{}", 0));
     t.beforeBulk(partial, partial.requests());
     assertEquals(t.opaqueId(partial).isPresent(), false, "header off");
     assertSame(t.requestOptions(partial, RequestOptions.DEFAULT), RequestOptions.DEFAULT);
-    t.afterBulk(partial, -1L, 3L);
+    t.afterBulk(partial, -1L, partial.requests());
 
     BulkRequest failed =
         new BulkRequest()
@@ -263,6 +269,7 @@ public class BulkTelemetryTest {
     assertEquals(p.getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(3));
     assertEquals(p.getStatus().getStatusCode(), StatusCode.ERROR);
     assertEquals(p.getStatus().getDescription(), "3 item(s) failed");
+    assertEquals(t.carriedCount(), 0, "failed actions without an origin carry nothing");
 
     SpanData f = collector.spans.get(1);
     assertNull(f.getAttributes().get(BulkTelemetry.TOOK_MS));
@@ -283,8 +290,18 @@ public class BulkTelemetryTest {
     assertEquals(t.opaqueId(null).isPresent(), false);
     assertSame(t.makeCurrent(null), Scope.noop());
     assertSame(t.makeCurrent(new Object()), Scope.noop());
-    t.afterBulk(null, 1L, 0L);
-    t.afterBulk(new Object(), 1L, 0L);
+    t.afterBulk(null, 1L, List.of());
+    t.afterBulk(new Object(), 1L, List.of());
+    t.afterBulk(new Object(), 1L, null); // listeners with a null failure list
+    Object known = new Object();
+    t.beforeBulk(known, List.of());
+    t.afterBulk(known, 1L, null); // a null failure list on a known batch counts as no failures
+    assertEquals(collector.spans.size(), 1);
+    assertEquals(collector.spans.get(0).getAttributes().get(BulkTelemetry.FAILURES), 0L);
+    collector.spans.clear();
+    t.forget(null);
+    t.forget(new Object());
+    t.onRequeue(new Object());
     t.afterBulk(null, new RuntimeException());
     t.afterBulk(new Object(), new RuntimeException());
     assertEquals(collector.spans.size(), 0);
@@ -305,7 +322,7 @@ public class BulkTelemetryTest {
     }
     Object key = new Object();
     t.beforeBulk(key, actions);
-    t.afterBulk(key, 7L, 0L);
+    t.afterBulk(key, 7L, List.of());
     SpanData span = collector.spans.get(0);
     assertEquals(span.getLinks().size(), 64);
     assertEquals(span.getAttributes().get(BulkTelemetry.INDICES).size(), 32);
@@ -331,7 +348,7 @@ public class BulkTelemetryTest {
     }
     BulkRequest request = new BulkRequest().add(a).add(b).add(c);
     t.beforeBulk(request, request.requests());
-    t.afterBulk(request, 1L, 0L);
+    t.afterBulk(request, 1L, List.of());
     SpanData span = collector.spans.get(0);
     assertEquals(span.getLinks().size(), 2, "one link per distinct trace");
     assertEquals(span.getLinks().get(0).getSpanContext().getTraceId(), TRACE_A);
@@ -367,7 +384,7 @@ public class BulkTelemetryTest {
     actions.add(late);
     Object key = new Object();
     t.beforeBulk(key, actions);
-    t.afterBulk(key, 1L, 0L);
+    t.afterBulk(key, 1L, List.of());
     SpanData span = collector.spans.get(0);
     assertEquals(span.getLinks().size(), 64);
     assertEquals(span.getLinks().get(0).getSpanContext().getSpanId(), String.format("%016x", 1));
@@ -388,17 +405,19 @@ public class BulkTelemetryTest {
     // First batch fails the item; the listener requeues it from inside afterBulk.
     BulkRequest first = new BulkRequest().add(a).add(unlinked);
     t.beforeBulk(first, first.requests());
-    t.afterBulk(first, 3L, 1L);
+    t.afterBulk(first, 3L, first.requests());
     assertEquals(t.pendingCount(), 0);
+    assertEquals(t.carriedCount(), 1, "only the linked failed action has an origin to carry");
     t.onRequeue(a);
     t.onRequeue(unlinked); // never had an origin: nothing to carry
     t.onRequeue(null);
     t.onRequeue(new IndexRequest("idx").id("unknown"));
     assertEquals(t.pendingCount(), 1, "only the linked action is remembered again");
+    assertEquals(t.carriedCount(), 0, "consumed by the requeue");
 
     BulkRequest retry = new BulkRequest().add(a).add(unlinked);
     t.beforeBulk(retry, retry.requests());
-    t.afterBulk(retry, 2L, 0L);
+    t.afterBulk(retry, 2L, List.of());
 
     assertEquals(collector.spans.size(), 2);
     assertEquals(collector.spans.get(0).getLinks().size(), 1);
@@ -422,15 +441,17 @@ public class BulkTelemetryTest {
     BulkRequest first = new BulkRequest().add(a);
     t.beforeBulk(first, first.requests());
     t.afterBulk(first, new RuntimeException("reset"));
+    assertEquals(t.carriedCount(), 1, "a transport failure fails, and carries, every action");
     t.onRequeue(a);
+    assertEquals(t.carriedCount(), 0);
     BulkRequest retry = new BulkRequest().add(a);
     t.beforeBulk(retry, retry.requests());
-    t.afterBulk(retry, 1L, 0L);
+    t.afterBulk(retry, 1L, List.of());
     assertEquals(collector.spans.get(1).getLinks().get(0).getSpanContext().getTraceId(), TRACE_B);
   }
 
   @Test
-  public void recentBatchesAreBounded() {
+  public void carriedOriginSurvivesAnyNumberOfOtherCompletions() {
     Collector collector = new Collector();
     BulkTelemetry t = create(tracer(collector), true, false, null);
     IndexRequest old = new IndexRequest("idx").id("old").source("{}", 0);
@@ -439,29 +460,107 @@ public class BulkTelemetryTest {
     }
     BulkRequest first = new BulkRequest().add(old);
     t.beforeBulk(first, first.requests());
-    t.afterBulk(first, 1L, 1L);
-    // RECENT_BATCHES more linked batches push the first one out; unlinked batches are not kept.
-    for (int i = 0; i < BulkTelemetry.RECENT_BATCHES; i++) {
+    t.afterBulk(first, 1L, first.requests());
+    assertEquals(t.carriedCount(), 1);
+    // With several processors flushing concurrently, many other batches (linked, failed or not) can
+    // end between this one's end and its listener reaching the failed item. None of them touch it.
+    for (int i = 0; i < 40; i++) {
       IndexRequest r = new IndexRequest("idx").id("" + i).source("{}", 0);
       try (Scope ignored = remoteSpan(TRACE_B, String.format("%016x", i + 1)).makeCurrent()) {
         t.onAdd(r);
       }
       BulkRequest b = new BulkRequest().add(r);
       t.beforeBulk(b, b.requests());
-      t.afterBulk(b, 1L, 0L);
+      t.afterBulk(b, 1L, i % 2 == 0 ? List.of() : b.requests());
+      if (i % 2 == 1) {
+        t.forget(r);
+      }
       BulkRequest unlinked = new BulkRequest().add(new IndexRequest("idx").id("x" + i));
       t.beforeBulk(unlinked, unlinked.requests());
-      t.afterBulk(unlinked, 1L, 0L);
+      t.afterBulk(unlinked, 1L, List.of());
     }
+    assertEquals(t.carriedCount(), 1, "only the old failed action is still carried");
     t.onRequeue(old);
-    assertEquals(t.pendingCount(), 0, "evicted: origin forgotten");
-    // Header-only batches never enter the recent list either.
+    assertEquals(t.pendingCount(), 1, "the origin survived");
+    assertEquals(t.carriedCount(), 0);
+    BulkRequest retry = new BulkRequest().add(old);
+    t.beforeBulk(retry, retry.requests());
+    t.afterBulk(retry, 1L, List.of());
+    SpanData retrySpan = collector.spans.get(collector.spans.size() - 1);
+    assertEquals(retrySpan.getLinks().size(), 1, "retry batch still links to the origin");
+    assertEquals(retrySpan.getLinks().get(0).getSpanContext().getTraceId(), TRACE_A);
+    assertEquals(retrySpan.getLinks().get(0).getSpanContext().getSpanId(), "b7ad6b7169203331");
+  }
+
+  @Test
+  public void carriedIsEmptyAfterRequeueOrForgetAndSuccessesCarryNothing() {
+    Collector collector = new Collector();
+    BulkTelemetry t = create(tracer(collector), true, false, null);
+    IndexRequest requeued = new IndexRequest("idx").id("r").source("{}", 0);
+    IndexRequest givenUp = new IndexRequest("idx").id("g").source("{}", 0);
+    IndexRequest fine = new IndexRequest("idx").id("f").source("{}", 0);
+    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+      t.onAdd(requeued);
+      t.onAdd(givenUp);
+      t.onAdd(fine);
+    }
+    BulkRequest batch = new BulkRequest().add(requeued).add(givenUp).add(fine);
+    t.beforeBulk(batch, batch.requests());
+    t.afterBulk(batch, 1L, List.of(requeued, givenUp));
+    assertEquals(t.carriedCount(), 2, "the successful action's origin went with the batch");
+    assertEquals(t.openBatches(), 0, "the batch itself is dropped at afterBulk");
+    t.forget(givenUp);
+    assertEquals(t.carriedCount(), 1);
+    t.forget(givenUp); // idempotent
+    t.forget(fine); // never carried
+    assertEquals(t.carriedCount(), 1);
+    t.onRequeue(requeued);
+    assertEquals(t.carriedCount(), 0);
+    assertEquals(t.pendingCount(), 1);
+    t.onRequeue(requeued); // a second requeue of the same action finds nothing more to carry
+    assertEquals(t.pendingCount(), 1);
+    t.onRequeue(fine); // not failed: nothing carried, nothing re-pended
+    assertEquals(t.pendingCount(), 1);
+
+    // Header-only mode holds no origins at all, so nothing is ever carried.
     BulkTelemetry headerOnly = create(null, false, true, "svc");
-    BulkRequest h = new BulkRequest().add(old);
+    BulkRequest h = new BulkRequest().add(givenUp);
     headerOnly.beforeBulk(h, h.requests());
-    headerOnly.afterBulk(h, 1L, 0L);
-    headerOnly.onRequeue(old);
+    headerOnly.afterBulk(h, 1L, h.requests());
+    headerOnly.onRequeue(givenUp);
+    headerOnly.forget(givenUp);
     assertEquals(headerOnly.pendingCount(), 0);
+    assertEquals(headerOnly.carriedCount(), 0);
+    BulkRequest h2 = new BulkRequest().add(givenUp);
+    headerOnly.beforeBulk(h2, h2.requests());
+    headerOnly.afterBulk(h2, new RuntimeException("reset"));
+    assertEquals(headerOnly.carriedCount(), 0);
+  }
+
+  @Test
+  public void carriedOriginsAreBounded() {
+    BulkTelemetry t = create(tracer(new Collector()), true, false, null);
+    // Two failed batches of 15,000 linked actions each: 30,000 failures, MAX_PENDING carried.
+    for (int b = 0; b < 2; b++) {
+      List<DocWriteRequest<?>> actions = new ArrayList<>();
+      try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+        for (int i = 0; i < 15_000; i++) {
+          IndexRequest r = new IndexRequest("idx").id(b + "-" + i);
+          t.onAdd(r);
+          actions.add(r);
+        }
+      }
+      assertEquals(t.pendingCount(), 15_000);
+      Object key = new Object();
+      t.beforeBulk(key, actions);
+      assertEquals(t.pendingCount(), 0);
+      if (b == 0) {
+        t.afterBulk(key, 1L, actions);
+      } else {
+        t.afterBulk(key, new RuntimeException("reset"));
+      }
+    }
+    assertEquals(t.carriedCount(), 20_000);
   }
 
   @Test

@@ -11,13 +11,10 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,9 +49,15 @@ import org.opensearch.client.RequestOptions;
  *       {@value #MAX_LINKS}.
  * </ul>
  *
- * <p>A failed item that the listener requeues is re-added to the processor from {@code afterBulk},
- * outside any request scope; {@link #onRequeue} carries its original span over so the retry batch
- * links to the same request (see {@link #RECENT_BATCHES}).
+ * <p>An action's origin span moves through four places, each bounded: {@link #onAdd} remembers it
+ * in {@code pending}; {@link #beforeBulk} moves it into the batch, which holds it until the batch
+ * ends; {@link #afterBulk(Object, long, Collection)} moves the origins of the <em>failed</em>
+ * actions only (a transport failure fails them all) into {@code carried} and drops the batch; and
+ * the listener, which requeues or gives up on each failed item inside its own {@code afterBulk},
+ * either calls {@link #onRequeue}, which moves the origin back into {@code pending} so the retry
+ * batch links to the same request, or {@link #forget}, which drops it. Nothing is kept for a
+ * successful action once its batch ends, and nothing depends on how many other batches complete
+ * between a failure and its requeue.
  *
  * <p>Everything is off unless {@code telemetry.requestAttribution.enabled} is set (span) and {@code
  * telemetry.requestAttribution.opensearchOpaqueId} is set (header). When disabled every method is a
@@ -82,15 +85,11 @@ public final class BulkTelemetry {
   /** Most distinct index names recorded on one batch span. */
   static final int MAX_INDICES = 32;
 
-  /** Bound on actions whose originating span is remembered between add and flush. */
-  static final int MAX_PENDING = 20_000;
-
   /**
-   * Ended batches kept so {@link #onRequeue} can find an action's origin. The listener requeues
-   * synchronously inside the {@code afterBulk} that ended the batch, so only the newest few are
-   * ever consulted; the bound only caps memory when nothing requeues.
+   * Bound on actions whose originating span is remembered between add and flush ({@code pending}),
+   * and separately on failed actions whose origin is held for a requeue ({@code carried}).
    */
-  public static final int RECENT_BATCHES = 16;
+  static final int MAX_PENDING = 20_000;
 
   private static final BulkTelemetry DISABLED = new BulkTelemetry(null, false, DEFAULT_SERVICE);
 
@@ -106,8 +105,12 @@ public final class BulkTelemetry {
       Collections.synchronizedMap(new IdentityHashMap<>());
   private final Map<Object, Batch> batches = Collections.synchronizedMap(new IdentityHashMap<>());
 
-  /** Ended batches, newest last; guarded by itself. Only populated when spans are on. */
-  private final Deque<Batch> recent = new ArrayDeque<>(RECENT_BATCHES);
+  /**
+   * Origins of failed actions between the end of their batch and the listener's decision to requeue
+   * ({@link #onRequeue}) or give up ({@link #forget}). Only populated when spans are on.
+   */
+  private final Map<Object, SpanContext> carried =
+      Collections.synchronizedMap(new IdentityHashMap<>());
 
   private BulkTelemetry(@Nullable Tracer tracer, boolean opaqueIdEnabled, @Nonnull String service) {
     this.tracer = tracer;
@@ -156,31 +159,42 @@ public final class BulkTelemetry {
   }
 
   /**
-   * Carries an action's origin over to its next batch when the listener requeues it after a
-   * failure. Called from the requeue path, before the action is re-added to the processor; no-op
-   * when spans are off or the action's batch is no longer remembered.
+   * Carries a failed action's origin over to its next batch when the listener requeues it. Called
+   * from the requeue path, before the action is re-added to the processor; consumes the carried
+   * origin. No-op when spans are off or the action failed in no batch this instance ended.
    */
   public void onRequeue(@Nullable Object action) {
     if (tracer == null || action == null) {
       return;
     }
-    SpanContext ctx = null;
-    synchronized (recent) {
-      // Newest first: the requeue happens inside the afterBulk that just ended the batch.
-      for (Iterator<Batch> it = recent.descendingIterator(); it.hasNext() && ctx == null; ) {
-        ctx = it.next().origins.get(action);
-      }
-    }
+    SpanContext ctx = carried.remove(action);
     if (ctx != null) {
       remember(action, ctx);
     }
   }
 
+  /**
+   * Drops a failed action's carried origin when the listener gives up on it (not retriable, retries
+   * exhausted, or requeue off), so it does not linger. No-op when spans are off or nothing is
+   * carried for the action.
+   */
+  public void forget(@Nullable Object action) {
+    if (tracer == null || action == null) {
+      return;
+    }
+    carried.remove(action);
+  }
+
   private void remember(@Nonnull Object action, @Nonnull SpanContext ctx) {
+    put(pending, action, ctx);
+  }
+
+  private static void put(
+      @Nonnull Map<Object, SpanContext> map, @Nonnull Object action, @Nonnull SpanContext ctx) {
     // Collections.synchronizedMap locks on the map itself, so this makes check-and-put atomic.
-    synchronized (pending) {
-      if (pending.size() < MAX_PENDING) {
-        pending.put(action, ctx);
+    synchronized (map) {
+      if (map.size() < MAX_PENDING) {
+        map.put(action, ctx);
       }
     }
   }
@@ -276,25 +290,46 @@ public final class BulkTelemetry {
     return ctx.makeCurrent();
   }
 
-  /** Ends the batch after a response: the store's {@code took} and the number of failed items. */
-  public void afterBulk(@Nullable Object batchKey, long tookMs, long failures) {
+  /**
+   * Ends the batch after a response: the store's {@code took} and the actions whose items failed.
+   * Their origins are carried for the listener, which must then {@link #onRequeue} or {@link
+   * #forget} each one; successful actions' origins are dropped with the batch.
+   */
+  public void afterBulk(
+      @Nullable Object batchKey, long tookMs, @Nullable Collection<?> failedActions) {
     Batch batch = end(batchKey);
     if (batch == null) {
       return;
     }
+    long failures = 0;
+    if (failedActions != null) {
+      failures = failedActions.size();
+      for (Object action : failedActions) {
+        SpanContext ctx = batch.origins.get(action); // identity map: a null action finds nothing
+        if (ctx != null) {
+          put(carried, action, ctx);
+        }
+      }
+    }
     batch.span.setAttribute(TOOK_MS, Math.max(0L, tookMs));
-    batch.span.setAttribute(FAILURES, Math.max(0L, failures));
+    batch.span.setAttribute(FAILURES, failures);
     if (failures > 0) {
       batch.span.setStatus(StatusCode.ERROR, failures + " item(s) failed");
     }
     batch.span.end();
   }
 
-  /** Ends the batch after a transport-level failure: every action counts as failed. */
+  /**
+   * Ends the batch after a transport-level failure: every action counts as failed, so every origin
+   * the batch held is carried for the listener's requeue-or-forget decision.
+   */
   public void afterBulk(@Nullable Object batchKey, @Nonnull Throwable failure) {
     Batch batch = end(batchKey);
     if (batch == null) {
       return;
+    }
+    for (Map.Entry<Object, SpanContext> origin : batch.origins.entrySet()) {
+      put(carried, origin.getKey(), origin.getValue());
     }
     batch.span.setAttribute(FAILURES, (long) batch.actions);
     batch.span.recordException(failure);
@@ -303,8 +338,8 @@ public final class BulkTelemetry {
   }
 
   /**
-   * Forgets the open batch and, when it has a span, keeps it among the recent ones for {@link
-   * #onRequeue}. Returns the batch to end, or null when there is nothing to do.
+   * Forgets the open batch. Returns the batch to end (it has a span), or null when there is nothing
+   * to do: unknown key, or header-only mode where the batch has no span and no origins.
    */
   @Nullable
   private Batch end(@Nullable Object batchKey) {
@@ -312,20 +347,20 @@ public final class BulkTelemetry {
     if (batch == null || batch.span == null) {
       return null;
     }
-    if (!batch.origins.isEmpty()) {
-      synchronized (recent) {
-        if (recent.size() >= RECENT_BATCHES) {
-          recent.pollFirst();
-        }
-        recent.addLast(batch);
-      }
-    }
     return batch;
   }
 
   /** Number of actions whose origin span is remembered but not yet flushed (tests, diagnostics). */
   public int pendingCount() {
     return pending.size();
+  }
+
+  /**
+   * Number of failed actions whose origin is held for a requeue that the listener has neither
+   * requeued nor given up on yet (tests, diagnostics). Zero between flushes in steady state.
+   */
+  public int carriedCount() {
+    return carried.size();
   }
 
   /** Number of batches started but not yet ended (tests, diagnostics). */
@@ -338,7 +373,10 @@ public final class BulkTelemetry {
     private final int actions;
     @Nullable private final Span span;
 
-    /** Origin span per action (identity), for requeue; empty when spans are off. */
+    /**
+     * Origin span per action (identity), carried for failed actions at the end; empty when spans
+     * are off.
+     */
     private final Map<Object, SpanContext> origins;
 
     private Batch(

@@ -175,6 +175,8 @@ public class BulkListenerTest {
                 "idx", "2", new RuntimeException("rejected"), RestStatus.TOO_MANY_REQUESTS));
     listener.afterBulk(10L, request, new BulkResponse(new BulkItemResponse[] {ok, rejected}, 4L));
     assertEquals(requeued, List.of(request.requests().get(1)));
+    assertEquals(telemetry.carriedCount(), 0, "the requeue consumed the carried origin");
+    assertEquals(telemetry.pendingCount(), 1, "and it is pending again for the retry batch");
 
     BulkRequest retry = new BulkRequest().add(requeued.get(0));
     listener.beforeBulk(11L, retry);
@@ -186,6 +188,137 @@ public class BulkListenerTest {
     assertEquals(
         retrySpan.getLinks().get(0).getSpanContext().getTraceId(),
         "0af7651916cd43dd8448eb211c80319c");
+  }
+
+  private static BulkItemResponse failure(int index, String id, String message, RestStatus status) {
+    return new BulkItemResponse(
+        index,
+        DocWriteRequest.OpType.INDEX,
+        new BulkItemResponse.Failure("idx", id, new RuntimeException(message), status));
+  }
+
+  /** Every branch that gives up on a failed item drops its carried origin. */
+  @Test
+  public void givingUpOnAFailedItemForgetsItsCarriedOrigin() {
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    BulkTelemetry telemetry =
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, false, null);
+    BulkItemRequeueSupport requeueSupport =
+        new BulkItemRequeueSupport(true, 1, telemetry::onRequeue);
+    BulkListener listener = BulkListener.create(null, null, null, requeueSupport, telemetry);
+    BulkListener noRequeue = BulkListener.create(null, null, null, null, telemetry);
+
+    // Not retriable (mapper_parsing, 400), version conflict with retries exhausted, and a missing
+    // document: each item was added under a span, so each has an origin to carry and then drop.
+    BulkRequest request =
+        new BulkRequest()
+            .add(new IndexRequest("idx").id("1").source(Map.of("a", 1)))
+            .add(new IndexRequest("idx").id("2").source(Map.of("a", 2)))
+            .add(new IndexRequest("idx").id("3").source(Map.of("a", 3)));
+    try (Scope ignored =
+        BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+            .makeCurrent()) {
+      request.requests().forEach(telemetry::onAdd);
+    }
+    // Exhaust the single allowed requeue attempt for item 2 so the conflict is given up on.
+    assertTrue(requeueSupport.tryRequeue(request.requests().get(1)));
+    telemetry.onRequeue(request.requests().get(1)); // nothing carried yet: a no-op
+    listener.beforeBulk(1L, request);
+    listener.afterBulk(
+        1L,
+        request,
+        new BulkResponse(
+            new BulkItemResponse[] {
+              failure(0, "1", "mapper_parsing_exception", RestStatus.BAD_REQUEST),
+              failure(1, "2", "version_conflict_engine_exception", RestStatus.CONFLICT),
+              failure(2, "3", "document_missing_exception", RestStatus.NOT_FOUND)
+            },
+            2L));
+    assertEquals(collector.spans.get(0).getAttributes().get(BulkTelemetry.FAILURES), 3L);
+    assertEquals(telemetry.carriedCount(), 0, "nothing lingers once each item is given up on");
+    assertEquals(telemetry.pendingCount(), 0, "and nothing was requeued");
+
+    // Without requeue support the same failures are given up on immediately.
+    BulkRequest second = twoActions();
+    try (Scope ignored =
+        BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "c7ad6b7169203332")
+            .makeCurrent()) {
+      second.requests().forEach(telemetry::onAdd);
+    }
+    noRequeue.beforeBulk(2L, second);
+    noRequeue.afterBulk(
+        2L,
+        second,
+        new BulkResponse(
+            new BulkItemResponse[] {
+              failure(0, "1", "rejected execution", RestStatus.TOO_MANY_REQUESTS),
+              failure(1, "2", "mapper_parsing_exception", RestStatus.BAD_REQUEST)
+            },
+            2L));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 0);
+
+    // More items than actions (defensive): the surplus failures have no action to forget.
+    BulkRequest short1 = new BulkRequest().add(new IndexRequest("idx").id("1").source(Map.of()));
+    listener.beforeBulk(3L, short1);
+    listener.afterBulk(
+        3L,
+        short1,
+        new BulkResponse(
+            new BulkItemResponse[] {
+              failure(0, "1", "mapper_parsing_exception", RestStatus.BAD_REQUEST),
+              failure(1, "2", "mapper_parsing_exception", RestStatus.BAD_REQUEST)
+            },
+            1L));
+    assertEquals(collector.spans.get(2).getAttributes().get(BulkTelemetry.FAILURES), 1L);
+    assertEquals(telemetry.carriedCount(), 0);
+  }
+
+  @Test
+  public void transportFailureForgetsWhatIsNotRequeued() {
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    BulkTelemetry telemetry =
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, false, null);
+    // Requeue off: every action of a failed batch is given up on.
+    BulkItemRequeueSupport off = new BulkItemRequeueSupport(false, 3, telemetry::onRequeue);
+    BulkListener listener = BulkListener.create(null, null, null, off, telemetry);
+    BulkRequest request = twoActions();
+    try (Scope ignored =
+        BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+            .makeCurrent()) {
+      request.requests().forEach(telemetry::onAdd);
+    }
+    listener.beforeBulk(1L, request);
+    listener.afterBulk(1L, request, new RuntimeException("connection reset"));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 0);
+
+    // A missing-document transport failure completes the actions: nothing to carry either.
+    BulkRequest missing = twoActions();
+    try (Scope ignored =
+        BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+            .makeCurrent()) {
+      missing.requests().forEach(telemetry::onAdd);
+    }
+    listener.beforeBulk(2L, missing);
+    listener.afterBulk(2L, missing, new RuntimeException("document_missing_exception"));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 0);
+    assertEquals(collector.spans.size(), 2);
+
+    // Requeue on: the actions are carried and then re-pended, not forgotten.
+    BulkItemRequeueSupport on = new BulkItemRequeueSupport(true, 3, telemetry::onRequeue);
+    BulkListener requeuing = BulkListener.create(null, null, null, on, telemetry);
+    BulkRequest retried = twoActions();
+    try (Scope ignored =
+        BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+            .makeCurrent()) {
+      retried.requests().forEach(telemetry::onAdd);
+    }
+    requeuing.beforeBulk(3L, retried);
+    requeuing.afterBulk(3L, retried, new RuntimeException("connection reset"));
+    assertEquals(telemetry.carriedCount(), 0);
+    assertEquals(telemetry.pendingCount(), 2);
   }
 
   @Test
@@ -205,5 +338,7 @@ public class BulkListenerTest {
             new BulkItemResponse.Failure("idx", "1", new RuntimeException("mapper_parsing")));
     nullTelemetry.beforeBulk(3L, request);
     nullTelemetry.afterBulk(3L, request, new BulkResponse(new BulkItemResponse[] {failed}, 1L));
+    nullTelemetry.beforeBulk(4L, request);
+    nullTelemetry.afterBulk(4L, request, new RuntimeException("document_missing_exception"));
   }
 }
