@@ -38,8 +38,12 @@ public class LineageRegistryTest {
     List<LineageRegistry.EdgeInfo> upstreamEdges =
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.UPSTREAM);
 
-    // Verify
-    assertEquals(upstreamEdges.size(), 4);
+    // Verify. This change adds a `repository` entity to the test registry for the first
+    // time (needed to exercise dataJob/dataFlow's new repositoryLineage edges), which also
+    // surfaces repository's own pre-existing RepositoryProduces edge to dataset. Not a
+    // behavior change for dataset -- a previously under-represented entity is now present
+    // in this hand-picked fixture.
+    assertEquals(upstreamEdges.size(), 7);
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
@@ -51,6 +55,18 @@ public class LineageRegistryTest {
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Produces", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryProduces", RelationshipDirection.INCOMING, "repository")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryProduces", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryProduces", RelationshipDirection.INCOMING, "dataFlow")));
   }
 
   @Test
@@ -59,8 +75,8 @@ public class LineageRegistryTest {
     List<LineageRegistry.EdgeInfo> downstreamEdges =
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.DOWNSTREAM);
 
-    // Verify
-    assertEquals(downstreamEdges.size(), 9);
+    // Verify -- see comment in testGetLineageRelationshipsUpstream.
+    assertEquals(downstreamEdges.size(), 12);
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
@@ -68,6 +84,18 @@ public class LineageRegistryTest {
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.INCOMING, "repository")));
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.INCOMING, "dataFlow")));
   }
 
   @Test
@@ -142,10 +170,10 @@ public class LineageRegistryTest {
     // Test with different case
     LineageRegistry.LineageSpec lineageSpec = lineageRegistry.getLineageSpec("DATASET");
 
-    // Verify
+    // Verify. Counts match testGetLineageRelationshipsUpstream/Downstream above.
     assertNotNull(lineageSpec);
-    assertEquals(lineageSpec.getUpstreamEdges().size(), 4);
-    assertEquals(lineageSpec.getDownstreamEdges().size(), 9);
+    assertEquals(lineageSpec.getUpstreamEdges().size(), 7);
+    assertEquals(lineageSpec.getDownstreamEdges().size(), 12);
   }
 
   @Test
@@ -257,6 +285,73 @@ public class LineageRegistryTest {
 
     // Test hashCode
     assertEquals(edge1.hashCode(), edge2.hashCode());
+  }
+
+  @Test
+  public void testDataJobHasRepositoryLineageEdge() {
+    // dataJob now registers repositoryLineage, so a Repository (the
+    // job's source-code repo) is a valid upstream edge, alongside its existing
+    // dataset Consumes/Produces edges.
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("dataJob", LineageDirection.UPSTREAM);
+
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.OUTGOING, "repository")),
+        "dataJob should have an outgoing RepositoryConsumes edge to repository");
+
+    // Existing dataset lineage must be unaffected by adding the new aspect.
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.OUTGOING, "dataset")),
+        "dataJob should still have its existing Consumes edge to dataset");
+  }
+
+  @Test
+  public void testDataFlowHasRepositoryLineageEdge() {
+    // dataFlow had no input/output-style lineage aspect at all before
+    // this change. repositoryLineage is the first one it registers.
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("dataFlow", LineageDirection.UPSTREAM);
+
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.OUTGOING, "repository")),
+        "dataFlow should have an outgoing RepositoryConsumes edge to repository");
+  }
+
+  @Test
+  public void testRepositoryStillHasOwnLineageEdges() {
+    // Guard against a regression where re-registering the shared repositoryLineage
+    // aspect on dataJob/dataFlow accidentally narrows or duplicates Repository's
+    // own pre-existing edges (forkOf, inputEdges/outputEdges to dataset/repository).
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("repository", LineageDirection.UPSTREAM);
+
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryForkOf", RelationshipDirection.OUTGOING, "repository")),
+        "repository should still have its own RepositoryForkOf edge");
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.OUTGOING, "dataset")),
+        "repository should still have its own RepositoryConsumes edge to dataset");
+  }
+
+  @Test
+  public void testGetEntitiesWithLineageToRepository() {
+    // dataJob/dataFlow should now show up as entities with lineage
+    // pointing at repository, alongside repository's own self-referencing edges.
+    Set<String> entitiesWithLineage =
+        lineageRegistry.getEntitiesWithLineageToEntityType("repository");
+
+    assertTrue(entitiesWithLineage.contains("dataJob"));
+    assertTrue(entitiesWithLineage.contains("dataFlow"));
+    assertTrue(entitiesWithLineage.contains("repository"));
   }
 
   @Test

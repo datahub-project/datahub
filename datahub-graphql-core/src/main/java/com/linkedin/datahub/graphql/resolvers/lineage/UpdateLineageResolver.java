@@ -119,6 +119,16 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       upstreamUrnsToRemove,
                       actor);
                   break;
+                case Constants.DATA_FLOW_ENTITY_NAME:
+                  // dataFlow has no dataset/dataJob-shaped input/output aspect -- its only
+                  // upstream lineage is a linked source-code Repository via repositoryLineage.
+                  _lineageService.updateDataFlowUpstreamLineage(
+                      context.getOperationContext(),
+                      downstreamUrn,
+                      upstreamUrnsToAdd,
+                      upstreamUrnsToRemove,
+                      actor);
+                  break;
                 default:
                   throw new IllegalArgumentException(
                       String.format(
