@@ -5,6 +5,7 @@ from pydantic import BaseModel, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.config_validation import validate_source_config
+from datahub.ingestion.agent.error_policy import foreign_label
 from datahub.ingestion.agent.introspect import (
     declared_rule_filtered_kinds,
     pattern_field_for_config,
@@ -408,10 +409,11 @@ def _pattern_to_judge(
             # degrade -- this is a diagnostic command and a hard failure
             # would be worse than a caveated answer -- but named for what
             # happened, so the caller is not sent to fix a pattern that
-            # was never the problem.
+            # was never the problem. Labelled, not quoted: the validator's
+            # message is the connector's text and can carry config values.
             warn(
                 f"this source's validator failed while checking that "
-                f"pattern ({type(exc).__name__}: {exc}), so the verdicts "
+                f"pattern ({foreign_label(exc)}), so the verdicts "
                 f"below judge it exactly as given; this is a defect in "
                 f"the connector, not in the pattern"
             )

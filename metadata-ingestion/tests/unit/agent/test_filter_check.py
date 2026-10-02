@@ -734,6 +734,8 @@ def test_a_crashing_validator_is_not_reported_as_a_rejected_pattern(monkeypatch)
     )
     assert blamed_the_connector, result.warnings
     assert "RuntimeError" in blamed_the_connector[0]
+    # Named, never quoted: a validator's message can carry config values.
+    assert "boom inside" not in blamed_the_connector[0]
     # And it still answers, rather than failing the command outright.
     assert result.results[0].included
 

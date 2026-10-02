@@ -93,8 +93,8 @@ class MyMetadataProbe:
         return self._client.list_tables()[:limit]
 ```
 
-That is a working probe, and for a non-SQL source it is usually the whole of it: Kafka and Mode
-implement exactly this one hook and nothing else in this guide. Everything below is conditional.
+That is a working probe, and for a non-SQL source it is usually the whole of it: Kafka's is exactly
+this one hook and one provider class. Everything below is conditional.
 
 ### The provider
 

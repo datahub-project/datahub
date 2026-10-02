@@ -383,6 +383,8 @@ def config_class_for(source_type: str) -> Any:
     from datahub.configuration.common import ConfigurationError
     from datahub.ingestion.source.source_registry import source_registry
 
+    # The ValueErrors below quote {exc}: the registry's own message, or the
+    # import system's about a path the caller wrote -- never foreign text.
     try:
         # registry.get raises KeyError (unknown source_type) or ConfigurationError
         # (plugin failed to load) — neither is in the framework's ValueError/
