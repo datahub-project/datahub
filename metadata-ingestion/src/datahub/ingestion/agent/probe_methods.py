@@ -29,6 +29,7 @@ from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import (
     DEFECT_TYPES,
     classify_foreign,
+    foreign_label,
     is_authored,
     police_authored,
     withhold_foreign_text,
@@ -817,7 +818,7 @@ def _raise_call_failure(
     detail = (
         scrub_text(withhold_foreign_text(exc, provider_files), set())
         if authored
-        else type(exc).__name__
+        else foreign_label(exc)
     )
     if recorded:
         raise ProbeReadFailed(
@@ -906,7 +907,7 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
                 ) from None
             _reraise_authored(exc, call.provider_files)
         raise ProbeConnectionError(
-            f"closing source '{call.source_type}' failed ({type(exc).__name__})"
+            f"closing source '{call.source_type}' failed ({foreign_label(exc)})"
         ) from None
     # Reached only when the provider's __exit__ returned true and so swallowed
     # the command's own failure: there is no result to report.
@@ -936,7 +937,7 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
         # caller's input was all checked above, so a foreign failure while
         # building the provider is the source's (exit 3), whatever its type.
         raise ProbeConnectionError(
-            f"opening source '{source_type}' failed ({type(exc).__name__})"
+            f"opening source '{source_type}' failed ({foreign_label(exc)})"
         ) from None
     _enforce_gates(call.spec, provider, call.call_kwargs)
     try:

@@ -145,11 +145,24 @@ every call site:
   from. If a command already recorded read failures, it reports `ProbeReadFailed`
   (exit 3) instead.
 
+  The class name carries a short machine code when the exception, the driver error
+  SQLAlchemy wraps as `.orig`, or an exception in its cause chain has one:
+  `'tables' failed (ProgrammingError; SQLSTATE 42P01)`, `(ProgrammingError; errno 1146)`,
+  `(HTTPError; HTTP 403)`, `(ClientError; AccessDenied)`. It reads a SQLSTATE
+  (`pgcode`, `sqlstate`, pyodbc's first argument), an errno (`errno`, PyMySQL's first
+  argument), an HTTP status (`response.status_code`, `status_code`, `status`, and
+  `code` on Google and urllib errors), or botocore's `response["Error"]["Code"]`. A code
+  is shown only if it matches a strict pattern: five capitals or digits including a
+  digit, up to six digits, a status from 100 to 599, or an AWS-style error name.
+  Anything else is left out without notice. The attributes are read without running
+  the library's code, so a property or `__getattr__` that raises cannot leak through.
+  The code never changes the exit code.
+
 - **Never interpolate `{exc}` from an exception you did not raise; name the
   operation and the class.** `ProbeConnectionError(f"login failed: {exc}")` around a
   driver error would carry the driver's text out under a type the framework trusts.
   As a backstop, a foreign exception's text found verbatim in your message is replaced
-  by its class name, and the exception keeps its type and exit code. Text you rebuilt
+  by its class name and code, as above, and the exception keeps its type and exit code. Text you rebuilt
   from parts of it is not caught.
 
 - **All free text is scrubbed.** The recipe's own secret values are masked first,
