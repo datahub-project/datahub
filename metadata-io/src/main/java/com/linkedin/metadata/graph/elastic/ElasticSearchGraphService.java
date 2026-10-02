@@ -9,6 +9,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
@@ -51,6 +52,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -309,6 +311,52 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
     graphWriteDAO.deleteByQuery(
         opContext, GraphFilters.from(createUrnFilter(urn), relationshipTypes, relationshipFilter));
+  }
+
+  /**
+   * Groups source URNs that share the same relationship types and removes their edges with one
+   * delete_by_query per group (chunked by {@code deleteByQueryUrnBatchSize}). The union of the
+   * grouped queries matches exactly the edges the per-URN {@link #removeEdgesFromNode} calls would
+   * match.
+   */
+  @Override
+  public void removeEdgesFromNodes(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Map<Urn, Set<String>> urnToRelationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter) {
+    final int batchSize = graphWriteDAO.getDeleteByQueryUrnBatchSize();
+    if (batchSize <= 1 || urnToRelationshipTypes.size() <= 1) {
+      GraphService.super.removeEdgesFromNodes(
+          opContext, urnToRelationshipTypes, relationshipFilter);
+      return;
+    }
+
+    final Map<Set<String>, List<String>> urnsByRelationshipTypes = new LinkedHashMap<>();
+    urnToRelationshipTypes.forEach(
+        (urn, relationshipTypes) ->
+            urnsByRelationshipTypes
+                .computeIfAbsent(relationshipTypes, k -> new ArrayList<>())
+                .add(urn.toString()));
+
+    urnsByRelationshipTypes.forEach(
+        (relationshipTypes, urns) -> {
+          for (List<String> chunk : Lists.partition(urns, batchSize)) {
+            graphWriteDAO.deleteByQuery(
+                opContext,
+                GraphFilters.from(createUrnsFilter(chunk), relationshipTypes, relationshipFilter));
+          }
+        });
+  }
+
+  private static Filter createUrnsFilter(@Nonnull final List<String> urns) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(buildCriterion("urn", Condition.EQUAL, urns)))))));
   }
 
   @Override

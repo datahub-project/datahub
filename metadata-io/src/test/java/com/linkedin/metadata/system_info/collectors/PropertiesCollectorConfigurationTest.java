@@ -769,6 +769,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.exactMatch.withPrefix",
           "elasticsearch.search.graph.batchSize",
           "elasticsearch.search.graph.boostViaNodes",
+          "elasticsearch.search.graph.deleteByQueryRefresh",
+          "elasticsearch.search.graph.deleteByQueryUrnBatchSize",
           "elasticsearch.search.graph.enableMultiPathSearch",
           "elasticsearch.search.graph.graphStatusEnabled",
           "elasticsearch.search.graph.impact.keepAlive",

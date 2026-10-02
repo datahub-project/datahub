@@ -658,6 +658,8 @@ To send primary through a JVM proxy but keep secondary direct, set `ELASTICSEARC
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`                                              | Maximum parallel lineage graph queries                                                                                        | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`                                            | Reduce query nesting if possible                                                                                              | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`                                            | Enable creation of point in time snapshots for graph queries                                                                  | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_DELETE_BY_QUERY_URN_BATCH_SIZE` | `1`                                               | Max source URNs combined into one graph edge delete_by_query (e.g. fine-grained lineage fields); `1` = one request per URN    | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_DELETE_BY_QUERY_REFRESH`        | `true`                                            | Refresh the graph index after each edge delete_by_query; `false` skips the refresh and uses `conflicts=proceed`               | GMS        |
 
 ### Neo4j Configuration
 
