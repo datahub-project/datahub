@@ -1481,10 +1481,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             fingerprint["chunking_max_chunks_per_document"] = (
                 self.config.chunking.max_chunks_per_document
             )
-        # cls and mean pooling give different vectors from the same onnx model. Keyed
-        # on onnx only, so other providers' hashes (and embeddings) are left alone.
+        # cls and mean pooling give different vectors from the same onnx model. Like
+        # the chunk cap, only a non-default value is fingerprinted (normalized as the
+        # provider does), so onnx documents hashed before this knob are not re-embedded.
         if embedding.provider == "onnx":
-            fingerprint["onnx_pooling"] = embedding.onnx_pooling
+            pooling = (embedding.onnx_pooling or "cls").lower()
+            if pooling != "cls":
+                fingerprint["onnx_pooling"] = pooling
         return fingerprint
 
     @staticmethod

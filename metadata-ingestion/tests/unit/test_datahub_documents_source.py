@@ -2321,19 +2321,37 @@ class TestFingerprintFollowsServerEmbeddingConfig:
 
         assert self._run_source(tmp_path, later)._should_process(self.URN, self.TEXT)
 
+    @pytest.mark.parametrize(
+        "earlier_pooling, later_pooling", [("cls", "mean"), ("mean", "cls")]
+    )
     def test_reprocesses_document_when_onnx_pooling_changes(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, earlier_pooling, later_pooling
     ):
         # The server does not expose pooling; the executor reads the env var GMS
         # uses. cls and mean pooling give different vectors from the same model.
         monkeypatch.setenv("ONNX_EMBEDDING_MODEL_DIR", "/models/arctic")
-        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", "cls")
+        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", earlier_pooling)
         self._record_processed(self._run_source(tmp_path, _SERVER_ONNX_ARCTIC))
 
-        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", "mean")
+        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", later_pooling)
         assert self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)._should_process(
             self.URN, self.TEXT
         )
+
+    @pytest.mark.parametrize("pooling", [None, "cls", "CLS"])
+    def test_default_onnx_pooling_is_not_fingerprinted(
+        self, tmp_path, monkeypatch, pooling
+    ):
+        # Onnx documents hashed before pooling was fingerprinted must not all
+        # re-embed on upgrade, so the default (cls) adds nothing to the hash.
+        monkeypatch.setenv("ONNX_EMBEDDING_MODEL_DIR", "/models/arctic")
+        if pooling is None:
+            monkeypatch.delenv("ONNX_EMBEDDING_POOLING", raising=False)
+        else:
+            monkeypatch.setenv("ONNX_EMBEDDING_POOLING", pooling)
+        source = self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)
+
+        assert "onnx_pooling" not in source._get_processing_config_fingerprint()
 
     def test_skips_unchanged_document_under_same_server_config(self, tmp_path):
         self._record_processed(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))
