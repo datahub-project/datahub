@@ -1,12 +1,16 @@
 """Tests for Kafka Connect schema resolver integration."""
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+)
+from datahub.ingestion.source.kafka_connect.connector_registry import (
+    ConnectorRegistry,
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     JdbcSinkConnector,
@@ -15,7 +19,11 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
+from datahub.sql_parsing.schema_resolver import (
+    GraphQLSchemaMetadata,
+    SchemaResolverInterface,
+)
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +41,31 @@ class MockKafkaSchemaAspect:
 class MockGraph:
     def __init__(self) -> None:
         self._kafka_schemas: Dict[str, MockKafkaSchemaAspect] = {}
+        self._dataset_schemas: Dict[str, List[str]] = {}
 
     def set_kafka_schema(self, topic_urn: str, fields: List[str]) -> None:
         self._kafka_schemas[topic_urn] = MockKafkaSchemaAspect(fields)
 
     def get_aspect(self, urn: str, aspect_type: Any) -> Optional[MockKafkaSchemaAspect]:
         return self._kafka_schemas.get(urn)
+
+    def set_dataset_schema(self, dataset_urn: str, fields: List[str]) -> None:
+        """Schema served through the bulk fetch that SchemaResolverProvider uses."""
+        self._dataset_schemas[dataset_urn] = fields
+
+    def _bulk_fetch_schema_info_by_filter(
+        self, **kwargs: Any
+    ) -> Iterable[Tuple[str, GraphQLSchemaMetadata]]:
+        for urn, fields in self._dataset_schemas.items():
+            yield (
+                urn,
+                {
+                    "fields": [
+                        {"fieldPath": field, "nativeDataType": "string"}
+                        for field in fields
+                    ]
+                },
+            )
 
 
 class MockSchemaResolver(SchemaResolverInterface):
@@ -1259,6 +1286,51 @@ class TestSinkFineGrainedLineage:
         )
 
         assert result is None
+
+    def test_provider_built_resolver_emits_column_lineage(self) -> None:
+        """Column lineage works with a resolver from SchemaResolverProvider.
+
+        The provider builds resolvers with ``graph=None`` so lookups stay within
+        its bulk-fetched cache. The connector must get the graph another way, or
+        sink column lineage silently never fires in a real ingestion run.
+        """
+        target_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD)"
+        )
+        graph = MockGraph()
+        graph.set_kafka_schema(self._KAFKA_ORDERS_URN, ["id", "amount"])
+        graph.set_dataset_schema(target_urn, ["id", "amount", "created_at"])
+        provider = SchemaResolverProvider(graph=graph)  # type: ignore[arg-type]
+
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, self._config(), KafkaConnectSourceReport(), provider
+        )
+
+        assert isinstance(connector, JdbcSinkConnector)
+        assert connector.schema_resolver is not None
+        # The provider's contract is unchanged: its resolvers carry no graph.
+        assert connector.schema_resolver.graph is None
+        assert connector.graph is graph
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is not None
+        assert {urn for fgl in result for urn in fgl.downstreams or []} == {
+            make_schema_field_urn(target_urn, "id"),
+            make_schema_field_urn(target_urn, "amount"),
+        }
 
     def test_returns_none_when_kafka_schema_missing(self) -> None:
         """Returns None gracefully when the Kafka topic has no schema in DataHub."""
