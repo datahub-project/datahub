@@ -27,6 +27,12 @@ from datahub.ingestion.source.fivetran.data_classes import (
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
+from datahub.ingestion.source.fivetran.fivetran_selection import (
+    ConnectorFacts,
+    ConnectorFilters,
+    connector_pattern_verdict,
+    destination_verdict,
+)
 from datahub.ingestion.source.fivetran.log_reader import (
     FivetranJobsReader,
     FivetranLineageReader,
@@ -182,11 +188,12 @@ class FivetranLogRestReader:
             )
 
         # Collect work first (sequential, fast — just listing/filtering)…
+        filters = ConnectorFilters(connector_patterns, destination_patterns)
         scoped_listed: List[FivetranListedConnection] = []
         for group_id in self._discover_group_ids():
             # Filter groups before issuing list_connections — saves an API
             # call per disallowed group on accounts with many destinations.
-            if not destination_patterns.allowed(group_id):
+            if not destination_verdict(filters, group_id).included:
                 continue
             try:
                 listed_connections = list(self.api_client.list_connections(group_id))
@@ -199,19 +206,13 @@ class FivetranLogRestReader:
                 )
                 continue
             for listed in listed_connections:
-                # REST mode is new — no backwards-compat baseline to
-                # preserve — so we match either `connector_id` (`listed.id`,
-                # the stable identifier the Fivetran UI shows) or
-                # `connector_name` (`listed.schema_`, the destination schema
-                # name; the same string DB mode treats as `connector_name`).
-                # Allowing both lets a recipe written against DB-mode names
-                # keep working unchanged when the user switches to REST.
-                # DB mode itself remains name-only — see
-                # `fivetran_log_db_reader.py` for why we don't OR there.
-                if not (
-                    connector_patterns.allowed(listed.id)
-                    or connector_patterns.allowed(listed.schema_)
-                ):
+                # Either `connector_id` (`listed.id`, the stable identifier the
+                # Fivetran UI shows) or `connector_name` (`listed.schema_`, the
+                # string DB mode matches), so a recipe written against DB-mode
+                # names keeps working when the user switches to REST.
+                if not connector_pattern_verdict(
+                    filters, ConnectorFacts(listed.schema_, listed.id), rest=True
+                ).included:
                     # Filter pattern check is read-only on patterns + simple
                     # report mutation — do it under lock for symmetry.
                     with self._report_lock:
