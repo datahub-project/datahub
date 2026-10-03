@@ -66,12 +66,14 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
     };
 
     useEffect(() => {
-        const transformedAppliedFilters = appliedFilters.map((filter) => filter.name);
         const newVisibleFilters = filters.filter(
             (filter: FilterItem) =>
                 filter.category !== 'column' &&
                 filter.category !== 'tags' &&
-                (filter.count || transformedAppliedFilters.includes(filter.name)),
+                (filter.count ||
+                    appliedFilters.some(
+                        (applied) => applied.name === filter.name && applied.category === filter.category,
+                    )),
         );
         setVisibleFilters(newVisibleFilters);
     }, [filters, appliedFilters]);
