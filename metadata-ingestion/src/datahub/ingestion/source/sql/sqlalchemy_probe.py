@@ -47,6 +47,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
 from datahub.ingestion.source.sql.sql_config import (
+    MYSQL_SESSION_TEXT_RELATIONS,
     ProbeEngineSettings,
     SQLCommonConfig,
 )
@@ -289,8 +290,13 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         probe = cls(engine)
         probe.sql_dialect = config.probe_sqlglot_dialect()
         probe.query_budget = enforced_budget(cls.query_budget, settings)
-        # Per dialect, so from the config rather than the class.
-        probe.catalog_scope = config.probe_catalog_scope()
+        # Per dialect, so from the config rather than the class; a config's
+        # own scope still withholds MYSQL_SESSION_TEXT_RELATIONS.
+        scope = config.probe_catalog_scope()
+        probe.catalog_scope = replace(
+            scope,
+            excluded_relations=scope.excluded_relations | MYSQL_SESSION_TEXT_RELATIONS,
+        )
         probe.container_kind = declared_kind_overrides(config).get(
             "containers", probe.container_kind
         )

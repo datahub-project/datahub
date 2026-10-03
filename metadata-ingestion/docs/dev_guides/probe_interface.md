@@ -416,12 +416,17 @@ misspelling is not caught: test them against ingestion.
 | `default_databases`         | classmethod `() -> FrozenSet[str]`                                                                               | ingestion drops system databases whatever `database_pattern` says        |
 
 **Catalog scope.** `probe sql` reads only what `probe_catalog_scope()` names; the default is
-`information_schema`. Name relations, not whole schemas: a vendor catalog schema is rarely all
-metadata (query logs carry WHERE-clause literals), and a schema-level allow with exclusions admits
-the next such view by default. List an unqualified relation only where the dialect exposes its
-catalog unqualified. sqlglot must know your dialect (declare `probe_sqlglot_dialect` where its name
-differs from SQLAlchemy's), or `sql` refuses everything. A connector with its own provider sets
-`catalog_scope` on that class instead.
+`information_schema`. The family withholds `processlist` and `innodb_trx` from every scope, yours
+included, since the MySQL protocol keeps other sessions' SQL text there and a config's URL can name
+a MySQL-protocol server whatever its type. Name relations, not whole schemas: a vendor catalog
+schema is rarely all metadata (query logs carry WHERE-clause literals), and a schema-level allow
+with exclusions admits the next such view by default. List an unqualified relation only where the
+dialect exposes its catalog unqualified. sqlglot must know your dialect (declare
+`probe_sqlglot_dialect` where its name differs from SQLAlchemy's), or `sql` refuses everything. A
+connector with its own provider sets `catalog_scope` on that class instead, where a bare
+`CatalogScope()` admits `information_schema` whole. Set `split_dotted_identifiers=True` only where
+sqlglot leaves a path's dots inside one identifier slot and an identifier cannot contain a dot
+(BigQuery's scope does).
 
 **Qualification.** `SQLCommonConfig.probe_match_target` matches tables and views on the connector's
 own `get_identifier`, called on an uninitialised `Source` (see `source/sql/sql_probe.py`), and

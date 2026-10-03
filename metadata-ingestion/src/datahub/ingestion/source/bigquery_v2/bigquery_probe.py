@@ -43,7 +43,13 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
     # text-bearing view Google adds arrives permitted. Naming what is allowed keeps
     # the default deny. The list is what BigQuery ingestion itself reads, minus
     # JOBS, so a probe can reproduce anything ingestion does.
+    #
+    # sqlglot parses `myds.INFORMATION_SCHEMA.TABLES` with the name slot
+    # `INFORMATION_SCHEMA.TABLES`, so the slot must be split to match. Safe
+    # here: a BigQuery identifier cannot contain a dot (inside backticks a dot
+    # still separates path parts).
     catalog_scope = CatalogScope(
+        split_dotted_identifiers=True,
         schemas=frozenset(),
         relations=frozenset(
             f"{INFORMATION_SCHEMA}.{view}"

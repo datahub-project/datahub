@@ -259,6 +259,15 @@ def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, 
     return {kwarg: PROBE_QUERY_LABEL}
 
 
+# On the MySQL protocol, information_schema.processlist and innodb_trx hold
+# other sessions' SQL text. The SQL family withholds them from every scope:
+# SQLCommonConfig.probe_catalog_scope by default, and
+# SqlAlchemyMetadataProbe.for_config from a config's own, since a config's URL
+# can name a MySQL-protocol server whatever its type. Where the relations do
+# not exist, withholding them changes nothing.
+MYSQL_SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
+
+
 # The hooks source/sql/ reads off a SQLCommonConfig, beyond the framework's
 # own (probe_methods.CONFIG_HOOKS): the guide's SQL-family table, which
 # test_probe_contract checks against this list. Only a SQLCommonConfig
@@ -480,7 +489,7 @@ class SQLCommonConfig(
         `catalog_scope`. A connector with a provider of its own declares
         `catalog_scope` on that class instead.
         """
-        return CatalogScope()
+        return CatalogScope(excluded_relations=MYSQL_SESSION_TEXT_RELATIONS)
 
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
         """The statement ceiling, client label and engine setup of the

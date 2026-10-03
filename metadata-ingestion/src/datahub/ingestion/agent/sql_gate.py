@@ -23,22 +23,19 @@ from datahub.sql_parsing.sqlglot_utils import get_dialect
 INFORMATION_SCHEMA = "information_schema"
 
 
-# information_schema views holding other sessions' SQL text; see CatalogScope.
-SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
-
-
 @dataclass(frozen=True)
 class CatalogScope:
     """What one dialect considers catalog metadata, declared per connector
-    (SQLCommonConfig.probe_catalog_scope).
+    (SQLCommonConfig.probe_catalog_scope, or a provider's catalog_scope).
 
     Prefer `relations` over `schemas`: a vendor catalog schema is rarely wholly
     metadata (query logs carry WHERE-clause literals), and a whole-schema allow
     with exclusions is a denylist that admits the next such view by default.
 
     A ceiling, not the bound: the recipe's credential decides what an admitted
-    relation reveals. Even `information_schema` holds other sessions' SQL text on
-    the MySQL family, so SESSION_TEXT_RELATIONS are excluded by default.
+    relation reveals. Even `information_schema` can hold other sessions' SQL
+    text, so a connector whose dialect keeps any there lists those relations in
+    `excluded_relations`; the default excludes nothing.
     """
 
     # Whole schemas whose every relation is metadata by definition.
@@ -53,9 +50,16 @@ class CatalogScope:
 
     # Relations refused inside a permitted schema; sound only where the schema
     # is metadata apart from a known few.
-    excluded_relations: FrozenSet[str] = field(
-        default_factory=lambda: SESSION_TEXT_RELATIONS
-    )
+    excluded_relations: FrozenSet[str] = field(default_factory=frozenset)
+
+    # Split an identifier slot holding dots into path parts. Some parsers leave
+    # a path's dots inside one slot (`ds.INFORMATION_SCHEMA.TABLES` with the
+    # name slot `INFORMATION_SCHEMA.TABLES`), and such a reference matches
+    # nothing until it is split. Safe only where an identifier cannot contain a
+    # dot: elsewhere a quoted user table named "information_schema.tables"
+    # would split into a permitted path. False keeps every slot whole, so such
+    # a reference is refused rather than misread.
+    split_dotted_identifiers: bool = False
 
     def permits_path(self, parts: List[str]) -> bool:
         """Whether a reference, given as its dotted path parts, is in scope.
@@ -205,7 +209,7 @@ def check_query_scope(
     saw_relation = False
     for table in statement.find_all(exp.Table):
         # `or` would short-circuit and stop checking the rest.
-        if _check_table(table, scope=permitted, platform=platform):
+        if _check_table(table, scope=permitted):
             saw_relation = True
 
     # A query reading no physical relation computes from server state
@@ -358,20 +362,12 @@ def _parse_single_statement(
     return statements[0]
 
 
-# Dialects whose parser leaves a dot inside one identifier slot (BigQuery's
-# `myds.INFORMATION_SCHEMA.TABLES` is db='myds', name='INFORMATION_SCHEMA.TABLES').
-# An allowlist: splitting everywhere would turn a quoted user table named
-# "information_schema.tables" into a permitted path. Unlisted dialects fail closed.
-_DOT_IN_SLOT_DIALECTS = frozenset({"bigquery"})
-
-
-def _slot_pieces(slot: object, platform: str) -> List[str]:
+def _slot_pieces(slot: object, scope: CatalogScope) -> List[str]:
     """The path pieces one identifier slot contributes.
 
-    The dialect decides, not `Identifier.quoted` (sqlglot marks BigQuery's
-    dotted slot quoted). Splitting BigQuery is safe: its identifiers cannot
-    contain a dot. Elsewhere the slot stays whole, so a quoted dotted name is one
-    unqualified name and is refused.
+    The scope decides (split_dotted_identifiers), not `Identifier.quoted`: a
+    parser may mark a dotted slot quoted when the query did not quote it.
+    Unsplit, a quoted dotted name is one unqualified name and is refused.
     """
     if not isinstance(slot, exp.Identifier):
         # No path; _check_table guarantees the name slot is an identifier.
@@ -379,7 +375,7 @@ def _slot_pieces(slot: object, platform: str) -> List[str]:
     text = slot.name
     if not text:
         return []
-    if platform.lower() not in _DOT_IN_SLOT_DIALECTS:
+    if not scope.split_dotted_identifiers:
         return [text]
     return [piece for piece in text.split(".") if piece]
 
@@ -415,7 +411,7 @@ def _visible_cte_names(table: exp.Table) -> Set[str]:
     return names
 
 
-def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> bool:
+def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
     """Clear one table reference; True when it is a physical relation (a CTE
     reference parses as exp.Table but is not one)."""
     if not isinstance(table.this, exp.Identifier):
@@ -427,7 +423,7 @@ def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> bool:
         )
 
     # Flattened: dialects disagree about which slot holds what
-    # (_DOT_IN_SLOT_DIALECTS).
+    # (CatalogScope.split_dotted_identifiers).
     parts = [
         piece
         for slot in (
@@ -435,7 +431,7 @@ def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> bool:
             table.args.get("db"),
             table.args.get("this"),
         )
-        for piece in _slot_pieces(slot, platform)
+        for piece in _slot_pieces(slot, scope)
     ]
 
     if len(parts) < 2:
