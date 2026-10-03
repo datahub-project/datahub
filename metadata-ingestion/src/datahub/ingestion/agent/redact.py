@@ -209,12 +209,15 @@ def normalize_key(key: object) -> str:
 
 # Shapes that carry a secret whatever its value: an ADC or IAM-role recipe
 # registers no values to match. Userinfo runs to the last `@` of the authority,
-# or, after a `user:`, to the last `@` before whitespace or the next `://`: a
-# driver echoes a password unencoded, `/` and `@` included. The `:` keeps a
-# plain path's `@` (`https://host/u/x@y`) out; a path `@` after a port
-# (`http://host:8080/u/x@y`) is over-masked, the safe side. Stopping at `://`
-# keeps the scan linear.
-_URL_USERINFO = re.compile(r"(?<=://)(?:[^/\s:@]*:(?:[^\s:]|:(?!//))*@|[^/\s]*@)")
+# or, after a `user:`, to the last `@` before whitespace, a quote or the next
+# `://`: a driver echoes a password unencoded, `/` and `@` included. The `:`
+# keeps a plain path's `@` (`https://host/u/x@y`) out; a path `@` after a port
+# (`http://host:8080/u/x@y`) is over-masked, the safe side. Stopping at a quote
+# keeps the next JSON field out, and a password holding one is still masked by
+# the second branch. Stopping at `://` keeps the scan linear.
+_URL_USERINFO = re.compile(
+    r"(?<=://)(?:[^/\s:@\"'`]*:(?:[^\s:\"'`]|:(?!//))*@|[^/\s]*@)"
+)
 # The optional key prefix lets `client_secret`, `auth_token` and camelCase
 # `secretKey` match, while the lookbehind keeps it from starting mid-word
 # (and keeps the scan linear on long inputs).

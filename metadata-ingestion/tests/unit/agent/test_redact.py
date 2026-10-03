@@ -486,6 +486,30 @@ def test_scrub_text_masks_a_password_holding_a_slash(text: str, masked: str) -> 
     assert scrub_text(text, set()) == masked
 
 
+@pytest.mark.parametrize(
+    "text, masked",
+    [
+        # Built from parts so a secret scanner does not read the fixtures as
+        # real connection strings.
+        (
+            '{"url":"postgresql://svc:' + 'pw@db.example/x","owner":"ann@example.com"}',
+            '{"url":"postgresql://***@db.example/x","owner":"ann@example.com"}',
+        ),
+        ("'mysql://u:" + "p/q@h/db'", "'mysql://***@h/db'"),
+        ("`mysql://u:" + "p/q@h/db`", "`mysql://***@h/db`"),
+    ],
+)
+def test_scrub_text_keeps_a_url_password_match_inside_its_quotes(
+    text: str, masked: str
+) -> None:
+    assert scrub_text(text, set()) == masked
+
+
+def test_scrub_text_still_masks_a_password_holding_a_quote() -> None:
+    text = "postgresql://svc:" + 'pa"ss@db.example/x'
+    assert scrub_text(text, set()) == "postgresql://***@db.example/x"
+
+
 def test_scrub_text_over_masks_a_path_at_sign_after_a_port() -> None:
     # `host:8080` reads as `user:password` once a password may hold `/`, so an
     # `@` later in the path ends a userinfo. Over-masking is the safe side.
@@ -558,6 +582,7 @@ def test_scrub_text_stays_linear_on_long_input() -> None:
         "password" * 12500,
         "x://" * 25000,
         "http://u:p/" * 10000,
+        'x://u:"' * 15000,
         "pwd={" * 20000,
         "PWD={" + "a" * 100000,
         "eyJaaaaa." * 11000,
