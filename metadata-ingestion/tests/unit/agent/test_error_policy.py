@@ -1,10 +1,12 @@
 import builtins
+import io
 import json
 import pathlib
 from typing import Callable, Dict, List, Optional, Set, Type, cast
 
 import pytest
 from click.testing import CliRunner
+from pydantic import BaseModel
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
@@ -13,6 +15,7 @@ from datahub.ingestion.agent import probe_methods
 from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.error_policy import (
     TRUSTED_TYPES,
+    classify_foreign,
     foreign_label,
     is_trusted,
     police_trusted,
@@ -373,6 +376,40 @@ def test_an_untrusted_call_failure_keeps_its_exit_family_and_loses_its_text(
     with pytest.raises(expected) as info:
         run(mode, name="widget")
     assert str(info.value) == f"'things' failed ({label})"
+
+
+class _Response(BaseModel):
+    id: int
+
+
+def _raised_by(call: Callable[[], object]) -> BaseException:
+    try:
+        call()
+    except Exception as exc:
+        return exc
+    raise AssertionError("nothing was raised")
+
+
+@pytest.mark.parametrize(
+    "call, label",
+    [
+        # An SSO login page served with status 200 where JSON was expected.
+        (lambda: json.loads("<html>sign in</html>"), "JSONDecodeError"),
+        # A response failing the model it is parsed into.
+        (lambda: _Response.model_validate({"id": "n/a"}), "ValidationError"),
+        (lambda: b"\xff".decode("utf-8"), "UnicodeDecodeError"),
+        # An OSError that is also a ValueError.
+        (lambda: io.StringIO().fileno(), "UnsupportedOperation"),
+    ],
+)
+def test_a_value_error_reading_what_the_source_sent_is_the_sources(
+    call: Callable[[], object], label: str
+) -> None:
+    exc = _raised_by(call)
+    assert isinstance(exc, ValueError)
+    classified = classify_foreign(exc, "'things'")
+    assert isinstance(classified, ProbeConnectionError)
+    assert str(classified) == f"'things' failed ({label})"
 
 
 def test_a_recorded_failure_withholds_the_foreign_text(run: RunFn) -> None:

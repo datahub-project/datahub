@@ -21,6 +21,7 @@ locally.
 """
 
 import copy
+import json
 import re
 from typing import (
     AbstractSet,
@@ -34,6 +35,8 @@ from typing import (
     Type,
     TypeVar,
 )
+
+import pydantic
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -70,6 +73,17 @@ DEFECT_TYPES: Tuple[Type[BaseException], ...] = (
     AssertionError,
     IndexError,
     NameError,
+)
+
+# Failures reading what the source sent: a ValueError by type, but the
+# source's -- an SSO login page parsed as JSON, a response failing its model,
+# bytes that do not decode -- so exit 3. Checked before _ARGUMENT_TYPES; an
+# OSError can be a ValueError too (io.UnsupportedOperation).
+_SOURCE_DATA_TYPES: Tuple[Type[BaseException], ...] = (
+    OSError,
+    UnicodeError,
+    json.JSONDecodeError,
+    pydantic.ValidationError,
 )
 
 # What the CLI reads as "your input was wrong" (exit 2) when raised bare.
@@ -238,11 +252,13 @@ def classify_foreign(
     exc: BaseException, context: str, provider_cls: Optional[type] = None
 ) -> Exception:
     """The framework exception an untrusted failure in a provider call is
-    reported as. The exit code stays the bare exception's: a defect 1, the
-    ValueError family 2, anything else (drivers, SDKs, HTTP) 3."""
+    reported as: a defect 1; a failure reading what the source sent 3; the
+    rest of the ValueError family 2; anything else (drivers, SDKs, HTTP) 3."""
     message = f"{context} failed {name_foreign(exc, provider_cls)}"
     if isinstance(exc, DEFECT_TYPES):
         return ProbeInternalError(message)
+    if isinstance(exc, _SOURCE_DATA_TYPES):
+        return ProbeConnectionError(message)
     if isinstance(exc, _ARGUMENT_TYPES):
         return ProbeArgumentError(message)
     return ProbeConnectionError(message)

@@ -340,3 +340,32 @@ def test_a_failing_primary_table_listing_still_propagates() -> None:
     fake = _FallbackInspector(tables=_db_error())
     with pytest.raises(DBAPIError):
         _fallback_probe(fake).columns(schema="public", table="orders")
+
+
+@pytest.mark.parametrize(
+    "inspector, unread",
+    [
+        (_FallbackInspector(matviews=_db_error()), "materialized-view"),
+        (_FallbackInspector(views=_db_error()), "view"),
+    ],
+)
+def test_a_refusal_says_which_fallback_listing_could_not_be_read(
+    inspector: _FallbackInspector, unread: str
+) -> None:
+    """Still exit 2, so a typo is refused, but the caller learns the name
+    may be one this connection cannot list."""
+    with pytest.raises(ProbeArgumentError) as info:
+        _fallback_probe(inspector).columns(schema="public", table="ordrs")
+    message = str(info.value)
+    assert (
+        f"the {unread} listing could not be read (ProgrammingError); if it is "
+        f"one, this connection cannot resolve it"
+    ) in message
+    assert "column does not exist" not in message
+
+
+def test_a_dialect_without_the_fallback_listing_adds_no_such_note() -> None:
+    fake = _FallbackInspector(views=NotImplementedError())
+    with pytest.raises(ProbeArgumentError) as info:
+        _fallback_probe(fake).columns(schema="public", table="ordrs")
+    assert "could not be read" not in str(info.value)

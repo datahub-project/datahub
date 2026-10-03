@@ -31,6 +31,7 @@ from datahub.ingestion.agent.error_policy import (
     PASS_THROUGH,
     classify_foreign,
     is_trusted,
+    name_foreign,
     police_trusted,
 )
 from datahub.ingestion.agent.filter_check import check_filters
@@ -59,6 +60,7 @@ from datahub.ingestion.agent.secrets import (
     resolve_config_collecting,
 )
 from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
     ProbeConnectionError,
     ProbeInternalError,
 )
@@ -609,8 +611,17 @@ def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
     """What a source's test_connection raising is reported as: by label, never
     by its text (the source's own connect code wrote it), on the exit code
     `probe run` gives a provider call's (agent.error_policy.classify_foreign).
-    A SystemExit is the source giving up, whatever its status."""
-    return classify_foreign(exc, f"source '{source_type}' test_connection")
+    A SystemExit is the source giving up, whatever its status.
+
+    Except a ValidationError: test_connection is handed the recipe's config
+    unvalidated, so one it raises is the recipe failing the source's model
+    (exit 2), where a provider call's is a response failing its own (3)."""
+    from pydantic import ValidationError  # local: pydantic types only here
+
+    context = f"source '{source_type}' test_connection"
+    if isinstance(exc, ValidationError):
+        return ProbeArgumentError(f"{context} failed {name_foreign(exc)}")
+    return classify_foreign(exc, context)
 
 
 @dataclass(frozen=True)

@@ -29,6 +29,7 @@ from sqlalchemy.exc import DBAPIError
 
 from datahub.ingestion.agent.error_policy import (
     errno_code,
+    foreign_label,
     generic_error_code,
     sqlstate_code,
 )
@@ -42,6 +43,7 @@ from datahub.ingestion.agent.sql_passthrough import (
     QueryBudget,
     SqlCatalogPassthrough,
 )
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -84,6 +86,11 @@ _Listing = Literal["tables", "views", "materialized_views"]
 # views included; tried in order, each only on a miss in the one before.
 _TABLE_LISTINGS: Tuple[_Listing, ...] = ("tables", "views", "materialized_views")
 _VIEW_LISTINGS: Tuple[_Listing, ...] = ("views", "materialized_views")
+# How a refusal names a fallback listing it could not read.
+_FALLBACK_NOUNS: Dict[_Listing, str] = {
+    "views": "view",
+    "materialized_views": "materialized-view",
+}
 
 
 def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
@@ -197,6 +204,8 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # probe instance serves one command, so they never go stale.
     _schema_listing: Optional[List[str]] = None
     _relation_listings: Optional[Dict[Tuple[str, str], List[str]]] = None
+    # (schema, listing) -> the label of the error a fallback listing raised.
+    _unread_fallbacks: Optional[Dict[Tuple[str, str], str]] = None
 
     # SECURITY: every caller-supplied schema/table/view passes through the
     # resolvers below before reflection. Several dialects format these
@@ -223,8 +232,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     ) -> List[str]:
         """One relation listing. A fallback listing can only turn a refusal
         into a match, so one that cannot be read counts as empty (some dialects
-        inherit a query their server cannot run) and a typo still exits 2. The
-        primary listing's errors are a connection problem (exit 3)."""
+        inherit a query their server cannot run, as Redshift's
+        materialized-view listing does) and a typo still exits 2; the refusal
+        then says which listing went unread. The primary listing's errors are
+        a connection problem (exit 3)."""
         try:
             if listing == "tables":
                 return list(self._insp.get_table_names(schema=schema))
@@ -237,10 +248,13 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             if listing == "materialized_views" or fallback:
                 return []
             raise
-        except DBAPIError:
-            if fallback:
-                return []
-            raise
+        except DBAPIError as exc:
+            if not fallback:
+                raise
+            if self._unread_fallbacks is None:
+                self._unread_fallbacks = {}
+            self._unread_fallbacks[(schema, listing)] = foreign_label(exc, type(self))
+            return []
 
     def _container_label(self) -> str:
         return self.container_kind.lower()
@@ -271,15 +285,28 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
                 on_schema, listing, fallback=listing != listings[0]
             )
         )
-        relation = resolve_listed_name(
-            name,
-            candidates,
-            what="table, view or materialized view" if what == "table" else what,
-            where=f"in {self._container_label()} {echoed(on_schema)}",
-            list_command=(
-                f"tables --schema {on_schema!r}` or `views --schema {on_schema!r}"
-            ),
-        )
+        try:
+            relation = resolve_listed_name(
+                name,
+                candidates,
+                what="table, view or materialized view" if what == "table" else what,
+                where=f"in {self._container_label()} {echoed(on_schema)}",
+                list_command=(
+                    f"tables --schema {on_schema!r}` or `views --schema {on_schema!r}"
+                ),
+            )
+        except ProbeArgumentError as refusal:
+            unread = self._unread_fallbacks or {}
+            notes = [
+                f"the {_FALLBACK_NOUNS[listing]} listing could not be read "
+                f"({unread[(on_schema, listing)]}); if it is one, this "
+                f"connection cannot resolve it"
+                for listing in listings[1:]
+                if (on_schema, listing) in unread
+            ]
+            if not notes:
+                raise
+            raise ProbeArgumentError("; ".join([str(refusal), *notes])) from None
         return on_schema, relation
 
     @classmethod
@@ -317,6 +344,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._engine.dispose()
+        super().__exit__(*exc)
 
     @property
     def probe_report(self) -> object:

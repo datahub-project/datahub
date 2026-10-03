@@ -450,6 +450,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # get_identifier qualifies with current_database, which ingestion sets
         # to each database as it walks them; the node's Database ancestor is
         # that database. It reads nothing off the inspector.
+        if database is None and not self.database and not self.sqlalchemy_uri:
+            # Without it get_identifier builds `schema.table`, which
+            # ingestion, walking every database, never matches.
+            warn(
+                "this recipe sets no `database`, so ingestion qualifies each "
+                "table with the database it was found in; pass that database "
+                "as the first --parent -- judged on 'schema.table' instead"
+            )
         source = SQLServerSource.__new__(SQLServerSource)
         source.config = self
         source.current_database = database

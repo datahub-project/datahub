@@ -723,6 +723,32 @@ def test_try_allow_alone_keeps_the_recipes_deny_list():
     assert by_name["analytics"].included
 
 
+def test_try_allow_keeps_the_recipes_case_sensitivity():
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "table_pattern": {"ignoreCase": False}},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["information_schema"],
+        names=["orders"],
+        try_allow=["^information_schema\\.ORDERS$"],
+    )
+    assert not result.results[0].included
+
+
+def test_a_trial_pattern_keeps_the_recipes_fields_and_none_of_its_matches():
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.agent.filter_check import _trial_pattern
+
+    recipe_pattern = AllowDenyPattern(allow=["^a"], deny=["^ax"], ignoreCase=False)
+    # Compiles and caches the recipe's own regexes on the instance.
+    assert recipe_pattern.allowed("abc")
+    trial = _trial_pattern(recipe_pattern, try_allow=["^b"], try_deny=[])
+    assert (trial.allow, trial.deny, trial.ignoreCase) == (["^b"], ["^ax"], False)
+    assert trial.allowed("bcd")
+    assert not trial.allowed("abc")
+    assert not trial.allowed("BCD")
+
+
 # --- one spelling of --kind ------------------------------------------------
 
 

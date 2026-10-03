@@ -103,6 +103,13 @@ class SqlCatalogPassthrough(ProbeProviderBase):
         statement, or a vendor function is refused before the source sees it.
         Returns `columns` plus positional `rows`, with `truncated` telling you
         whether more exist beyond `limit`."""
+        if self.query_budget.timeout_seconds is None and (
+            self.query_budget.max_bytes_billed is None
+        ):
+            self._warn(
+                "no server-side ceiling applies to `sql` on this connection, so "
+                "a slow catalog query runs until the server finishes it"
+            )
         # One past the limit, so truncation is observed.
         fetched = self.execute_catalog_query(query, limit + 1)
         return sql_result(fetched.columns, list(fetched.rows), limit)

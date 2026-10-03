@@ -148,9 +148,11 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    `ValueError` included, keeps its exit code but is reported as a label: its class and at most one
    short code, such as `'tables' failed (ProgrammingError; SQLSTATE 42P01)`. While opening or closing
    the provider that is exit 3; during a command, Python defects (`TypeError`, `KeyError`,
-   `AttributeError`, `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
-   and `re.error` exit 2, everything else exits 3. After recorded failures it is `ProbeReadFailed`
-   (exit 3), and `NotImplementedError` reads as "does not support this command" (exit 2).
+   `AttributeError`, `AssertionError`, `IndexError`, `NameError`) exit 1; a failure reading what the
+   source sent (`OSError`, `UnicodeError`, `json.JSONDecodeError`, a pydantic `ValidationError`)
+   exits 3; the rest of the `ValueError` family and `re.error` exit 2; everything else exits 3.
+   After recorded failures it is `ProbeReadFailed` (exit 3), and `NotImplementedError` reads as
+   "does not support this command" (exit 2).
 3. **Never interpolate an exception you did not raise.**
    `ProbeConnectionError(f"login failed: {exc}")` would carry a driver's text out under a trusted
    type. Name the operation and the class.
@@ -456,7 +458,8 @@ brings is never read as a declaration.
 **Engine settings.** The probe connects with the recipe's own URL and `options`.
 `probe_engine_settings(budget)` returns a `ProbeEngineSettings`: `connect_args` merged over the
 recipe's, `prepare(engine)` run on the built engine before the Inspector exists, and
-`timeout_applies`, which is `True` only when every probe statement is bounded. The default gives
+`timeout_applies`, which is `True` only when every probe statement is bounded (where it is not,
+`sql` says so in its warnings). The default gives
 every config the settings of the wire protocol its URL names (libpq, the MySQL protocol, Redshift's
 driver; `probe_settings_for_url` in `source/sql/protocol_probe_settings.py`), so a config pointed at
 another protocol's dialect gets that one's. Add your own engine setup on top:

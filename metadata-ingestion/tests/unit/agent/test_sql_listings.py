@@ -446,3 +446,17 @@ def test_doris_reports_the_database_spelling_ingestion_matches():
     assert _container_normalizer(plain)("sales") == "sales"
     # A name that merely starts with something dotted is left alone.
     assert _container_normalizer(config)("other_catalog.sales") == "other_catalog.sales"
+
+
+def test_closing_the_probe_disposes_the_engine_then_runs_the_base_closers() -> None:
+    events: List[str] = []
+
+    class _Engine:
+        def dispose(self) -> None:
+            events.append("dispose")
+
+    probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
+    probe._engine = _Engine()  # type: ignore[assignment]
+    probe._on_exit(lambda: events.append("closer"))
+    probe.__exit__(None, None, None)
+    assert events == ["dispose", "closer"]

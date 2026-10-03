@@ -304,16 +304,31 @@ def _pattern_to_judge(
     recipe_pattern = require_pattern_at(config, pattern_field)
     if not trying:
         return _Judged(config, recipe_pattern)
-    # Each flag replaces only its own half; the recipe's other half stays.
-    pattern = AllowDenyPattern(
-        allow=list(try_allow) if try_allow else list(recipe_pattern.allow),
-        deny=list(try_deny) if try_deny else list(recipe_pattern.deny),
-    )
+    pattern = _trial_pattern(recipe_pattern, try_allow, try_deny)
     tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
     trial_config, judged_pattern = _with_trial_pattern(
         config, pattern_field, pattern, warn
     )
     return _Judged(trial_config, judged_pattern, tried)
+
+
+def _trial_pattern(
+    recipe_pattern: AllowDenyPattern,
+    try_allow: Optional[Sequence[str]],
+    try_deny: Optional[Sequence[str]],
+) -> AllowDenyPattern:
+    """The recipe's pattern with each --try-* flag replacing only its own
+    half, every other field (`ignoreCase`) kept.
+
+    Rebuilt rather than model_copy'd: the copy carries the compiled regexes
+    the recipe's pattern cached on first use, and would match those.
+    """
+    fields = recipe_pattern.model_dump()
+    if try_allow:
+        fields["allow"] = list(try_allow)
+    if try_deny:
+        fields["deny"] = list(try_deny)
+    return type(recipe_pattern).model_validate(fields)
 
 
 def _with_trial_pattern(

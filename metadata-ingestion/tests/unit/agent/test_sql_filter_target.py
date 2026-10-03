@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import Annotated, Any, Callable, List, Optional, cast
+from typing import Annotated, Any, Callable, Dict, List, Optional, cast
 
 import pytest
 from sqlalchemy.engine.reflection import Inspector
@@ -789,3 +789,40 @@ def test_a_database_verdict_is_not_reported_as_degraded():
         ("OTHERDB", False),
     ]
     assert not [w for w in result.warnings if "qualified" in w], result.warnings
+
+
+_NO_DATABASE_WARNING = (
+    "this recipe sets no `database`, so ingestion qualifies each table with "
+    "the database it was found in; pass that database as the first --parent "
+    "-- judged on 'schema.table' instead"
+)
+
+
+@pytest.mark.parametrize(
+    "config, parent_path, target, warned",
+    [
+        ({}, ["dbo"], "dbo.orders", True),
+        ({}, ["sales", "dbo"], "sales.dbo.orders", False),
+        ({"database": "sales"}, ["dbo"], "sales.dbo.orders", False),
+        (
+            {"sqlalchemy_uri": "mssql+pytds://u:p@h:1433/sales"},
+            ["dbo"],
+            "dbo.orders",
+            False,
+        ),
+    ],
+)
+def test_sql_server_says_when_the_table_target_lacks_its_database(
+    config: Dict[str, object], parent_path: List[str], target: str, warned: bool
+) -> None:
+    """Without a `database`, ingestion walks every database and qualifies a
+    table with the one it is in, which only a database --parent supplies."""
+    result = check_filters(
+        source_type="mssql",
+        config_dict={"host_port": "h:1433", "username": "u", "password": "p", **config},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=parent_path,
+        names=["orders"],
+    )
+    assert result.results[0].target == target
+    assert (_NO_DATABASE_WARNING in result.warnings) is warned, result.warnings

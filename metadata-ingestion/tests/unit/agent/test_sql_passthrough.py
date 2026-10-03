@@ -15,6 +15,7 @@ from datahub.ingestion.agent.probe_methods import (
 from datahub.ingestion.agent.sql_gate import SqlScopeError
 from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
+    QueryBudget,
     SqlCatalogPassthrough,
     rows_from_mappings,
 )
@@ -86,6 +87,20 @@ def test_the_inherited_command_is_discovered_and_gated():
     with pytest.raises(SqlScopeError):
         _enforce_gates(_sql_spec(_Provider), provider, {"query": "SELECT * FROM t"})
     _enforce_gates(_sql_spec(_Provider), provider, {"query": CATALOG_QUERY})
+
+
+def test_a_query_with_no_ceiling_on_this_connection_says_so():
+    provider = _Provider()
+    provider.query_budget = QueryBudget(timeout_seconds=None)
+    provider.sql(CATALOG_QUERY)
+    assert len(provider.warnings) == 1
+    assert "no server-side ceiling" in provider.warnings[0]
+
+
+def test_a_bounded_query_adds_no_warning():
+    provider = _Provider()
+    provider.sql(CATALOG_QUERY)
+    assert provider.warnings == []
 
 
 def test_a_provider_that_forgets_the_adapter_says_so():
