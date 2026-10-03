@@ -163,6 +163,54 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
 _RUN_IN_THREAD_TIMEOUT = float(
     os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 10)
 )
+
+# Optional ceiling on concurrently in-flight listener emits. Without one, the
+# live thread count is (event rate x DataHub response time) -- both outside this
+# plugin's control -- so a slow GMS multiplies into unbounded threads, each
+# holding a socket and the extractor working set.
+#
+# Defaults to 0 (unbounded, i.e. the historical behaviour): enabling the ceiling
+# by default would silently start dropping metadata for deployments that are
+# currently emitting everything. Opt in by setting a positive value; 10 is a
+# reasonable starting point, since a healthy deployment runs roughly one
+# concurrent emit.
+_MAX_CONCURRENT_EMITS = int(os.getenv("DATAHUB_AIRFLOW_PLUGIN_MAX_CONCURRENT_EMITS", 0))
+
+
+class _EmitGate:
+    """Bounds concurrently in-flight listener emits, shedding when saturated.
+
+    Sheds the incoming event rather than queueing it: queueing a slow emit only
+    defers the cost, and DataHub's UPSERT semantics mean a dropped event is
+    normally superseded by a later one.
+
+    A non-positive ``max_concurrent`` disables the ceiling entirely, so every
+    emit proceeds exactly as it did before this gate existed.
+    """
+
+    def __init__(self, max_concurrent: int) -> None:
+        self.max_concurrent = max_concurrent
+        self.dropped = 0
+        self._semaphore = (
+            threading.BoundedSemaphore(max_concurrent) if max_concurrent > 0 else None
+        )
+        self._lock = threading.Lock()
+
+    def try_acquire(self) -> bool:
+        if self._semaphore is None:
+            return True
+        if self._semaphore.acquire(blocking=False):
+            return True
+        with self._lock:
+            self.dropped += 1
+        return False
+
+    def release(self) -> None:
+        if self._semaphore is not None:
+            self._semaphore.release()
+
+
+_emit_gate = _EmitGate(_MAX_CONCURRENT_EMITS)
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
@@ -340,12 +388,16 @@ def run_in_thread(f: _F) -> _F:
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        def safe_target():
+        def safe_target(gate: _EmitGate) -> None:
             """
             Wrapper for the thread target that catches and logs exceptions.
 
             Without this, exceptions raised inside the thread would be silently
             lost, making debugging production issues nearly impossible.
+
+            Takes the gate it must release as an argument: resolving the module
+            global here instead would return the permit to whichever gate is
+            bound at completion time, not the one this thread acquired.
             """
             try:
                 f(*args, **kwargs)
@@ -354,6 +406,8 @@ def run_in_thread(f: _F) -> _F:
                     f"Error in thread executing {f.__name__}: {e}",
                     exc_info=True,
                 )
+            finally:
+                gate.release()
 
         try:
             if _RUN_IN_THREAD:
@@ -361,8 +415,28 @@ def run_in_thread(f: _F) -> _F:
                 # This ensures that we don't hang the task if the extractors
                 # are slow or the DataHub API is slow to respond.
 
-                thread = threading.Thread(target=safe_target, daemon=True)
-                thread.start()
+                gate = _emit_gate
+                if not gate.try_acquire():
+                    logger.warning(
+                        f"Dropping {f.__name__}: {gate.max_concurrent} emits "
+                        f"already in flight (dropped so far: {gate.dropped}). "
+                        "DataHub may be slow to respond; raise "
+                        "DATAHUB_AIRFLOW_PLUGIN_MAX_CONCURRENT_EMITS if this is "
+                        "expected load."
+                    )
+                    return
+
+                try:
+                    thread = threading.Thread(
+                        target=safe_target, args=(gate,), daemon=True
+                    )
+                    thread.start()
+                except BaseException:
+                    # safe_target never ran, so its finally will not release.
+                    # Construction is inside the guard too: wrapper's outer
+                    # handler catches a Thread() failure but cannot release.
+                    gate.release()
+                    raise
 
                 if _RUN_IN_THREAD_TIMEOUT > 0:
                     # If _RUN_IN_THREAD_TIMEOUT is 0, we just kick off the thread and move on.
