@@ -12,6 +12,8 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
@@ -28,6 +30,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.nio.charset.StandardCharsets;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -92,6 +96,57 @@ public class AssertionRunSummaryHookTest {
     verify(assertionService, never())
         .patchAssertionRunSummary(
             any(OperationContext.class), any(AssertionRunSummaryPatchBuilder.class));
+  }
+
+  @DataProvider
+  public Object[][] differentOutcomes() {
+    return new Object[][] {
+      {AssertionResultType.FAILURE, AssertionResultType.SUCCESS, AssertionStatus.FAILING},
+      {AssertionResultType.SUCCESS, AssertionResultType.FAILURE, AssertionStatus.PASSING},
+      {AssertionResultType.INIT, AssertionResultType.ERROR, AssertionStatus.INIT},
+      {AssertionResultType.ERROR, AssertionResultType.INIT, AssertionStatus.ERROR}
+    };
+  }
+
+  @Test(dataProvider = "differentOutcomes")
+  public void testOlderOutcomeDoesNotReplaceNewerStatus(
+      AssertionResultType resultType, AssertionResultType newerType, AssertionStatus ignoredStatus)
+      throws Exception {
+    when(assertionService.getAssertionRunSummary(operationContext, TEST_ASSERTION_URN))
+        .thenReturn(summaryWithTimestamp(newerType, 2000L));
+    when(event.getAspect())
+        .thenReturn(GenericRecordUtils.serializeAspect(runEvent(resultType, 1000L)));
+
+    hook.invoke(operationContext, event);
+
+    ArgumentCaptor<AssertionRunSummaryPatchBuilder> patch =
+        ArgumentCaptor.forClass(AssertionRunSummaryPatchBuilder.class);
+    verify(assertionService).patchAssertionRunSummary(eq(operationContext), patch.capture());
+    JsonNode operations =
+        new ObjectMapper()
+            .readTree(
+                patch.getValue().build().getAspect().getValue().asString(StandardCharsets.UTF_8));
+    assertEquals(operations.size(), 1);
+    assertEquals(operations.get(0).get("value").asLong(), 1000L);
+    assertFalse(operations.get(0).get("path").asText().equals("/assertionStatus"));
+  }
+
+  @Test(dataProvider = "differentOutcomes")
+  public void testNewerOutcomeUpdatesStatus(
+      AssertionResultType resultType,
+      AssertionResultType previousType,
+      AssertionStatus expectedStatus)
+      throws Exception {
+    when(assertionService.getAssertionRunSummary(operationContext, TEST_ASSERTION_URN))
+        .thenReturn(summaryWithTimestamp(previousType, 1000L));
+    when(event.getAspect())
+        .thenReturn(GenericRecordUtils.serializeAspect(runEvent(resultType, 2000L)));
+
+    hook.invoke(operationContext, event);
+
+    verify(assertionService)
+        .patchAssertionRunSummary(
+            eq(operationContext), eq(expectedPatch(resultType, expectedStatus, 2000L)));
   }
 
   @Test
