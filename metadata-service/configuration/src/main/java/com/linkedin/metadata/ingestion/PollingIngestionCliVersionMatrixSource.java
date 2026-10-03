@@ -4,9 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
@@ -32,11 +35,11 @@ import lombok.extern.slf4j.Slf4j;
  * }
  * }</pre>
  *
- * <p>Runtime contract: background refresh on a fixed interval, atomic lock-free cache swap read by
- * {@link #getMatrix()} (a single volatile read on {@link AtomicReference#get()}), and
- * last-known-good retention on read or parse failure so in-flight executions never see a flapping
- * view. Parsing and validation are delegated to {@link IngestionCliVersionMatrixParser}, so every
- * backend enforces one schema.
+ * <p>Runtime contract: synchronous load on construction, then background refresh on a fixed
+ * interval; atomic lock-free cache swap read by {@link #getMatrix()} (a single volatile read on
+ * {@link AtomicReference#get()}); and last-known-good retention on read or parse failure so
+ * in-flight executions never see a flapping view. Parsing and validation are delegated to {@link
+ * IngestionCliVersionMatrixParser}, so every backend enforces one schema.
  */
 @Slf4j
 public class PollingIngestionCliVersionMatrixSource implements IngestionCliVersionMatrixSource {
@@ -50,6 +53,15 @@ public class PollingIngestionCliVersionMatrixSource implements IngestionCliVersi
 
   /** Seconds to wait for the refresh thread to drain on graceful shutdown. */
   private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
+
+  /**
+   * Bound on the initial load's wait, so a slow or unreachable backend cannot stall GMS startup —
+   * the factory wiring this class states that startup is never blocked, and object-storage reads
+   * have no bound of their own (unlike the HTTP reader's own 10s timeout). Past this, the load
+   * keeps running on the background executor and the periodic schedule picks up the result on its
+   * next tick; callers just see an empty matrix a little longer.
+   */
+  private static final int INITIAL_LOAD_TIMEOUT_SECONDS = 10;
 
   /** Bound on the cause-chain walk in {@link #classify}, so a cyclic chain cannot spin. */
   private static final int MAX_CAUSE_DEPTH = 10;
@@ -66,6 +78,18 @@ public class PollingIngestionCliVersionMatrixSource implements IngestionCliVersi
 
   public PollingIngestionCliVersionMatrixSource(
       final MatrixDocumentReader reader, final int refreshIntervalSeconds) {
+    this(reader, refreshIntervalSeconds, INITIAL_LOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+  }
+
+  /**
+   * Package-private so tests can use a short initial-load bound instead of waiting out the
+   * production {@link #INITIAL_LOAD_TIMEOUT_SECONDS} to exercise the timeout path.
+   */
+  PollingIngestionCliVersionMatrixSource(
+      final MatrixDocumentReader reader,
+      final int refreshIntervalSeconds,
+      final long initialLoadTimeout,
+      final TimeUnit initialLoadTimeoutUnit) {
     this.reader = reader;
     this.cached = new AtomicReference<>(IngestionCliVersionMatrix.EMPTY);
     this.lastFetchedAtMillis = new AtomicLong(0L);
@@ -79,8 +103,32 @@ public class PollingIngestionCliVersionMatrixSource implements IngestionCliVersi
               t.setDaemon(true);
               return t;
             });
-    // Fetch immediately on startup (delay=0), then repeat on the configured interval.
-    this.executor.scheduleAtFixedRate(this::refresh, 0, refreshIntervalSeconds, TimeUnit.SECONDS);
+    // Load on the executor and wait for it, bounded, rather than scheduling it with delay=0 and
+    // letting the constructor return immediately: a scheduled delay=0 task is already submitted by
+    // the time the constructor returns, so a caller that shuts down right after construction
+    // (every unit test does) can still race it — ScheduledExecutorService#shutdown() lets
+    // already-submitted tasks run to completion instead of canceling them. Waiting for the same
+    // submitted task here removes that race, and the bound keeps a slow or unreachable backend
+    // from stalling GMS startup; the periodic schedule below picks up the result whenever it
+    // finishes.
+    Future<?> initialLoad = this.executor.submit(this::refresh);
+    try {
+      initialLoad.get(initialLoadTimeout, initialLoadTimeoutUnit);
+    } catch (TimeoutException e) {
+      log.warn(
+          "Initial ingestion version matrix load from {} exceeded {} {}; continuing startup"
+              + " without blocking, the background refresh will pick it up.",
+          reader.displayUri(),
+          initialLoadTimeout,
+          initialLoadTimeoutUnit);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      // refresh() already catches Throwable internally, so this shouldn't happen in practice.
+      log.warn("Unexpected exception awaiting initial ingestion version matrix load", e);
+    }
+    this.executor.scheduleAtFixedRate(
+        this::refresh, refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
   }
 
   /** The location being polled — lets callers log or assert which backend is bound. */
