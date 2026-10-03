@@ -18,6 +18,7 @@ from datahub.ingestion.agent.provider_helpers import (
     resolve_name,
     take,
 )
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -281,7 +282,7 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         sql_endpoint = self._config.sql_endpoint
         if sql_endpoint is None or not sql_endpoint.enabled:
             # The recipe's choice, so the caller's to fix (exit 2).
-            raise ValueError(
+            raise ProbeArgumentError(
                 "this recipe has no enabled sql_endpoint, so ingestion reads no "
                 "views or columns; set sql_endpoint.enabled: true"
             )
@@ -325,7 +326,7 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
     ) -> SchemaExtractionClient:
         sql_endpoint = self._config.sql_endpoint
         if sql_endpoint is None:
-            raise ValueError("sql_endpoint is not configured")
+            raise ProbeArgumentError("sql_endpoint is not configured")
         # The factory ingestion's _create_schema_client calls, so the probe
         # connects to the same endpoint, database and driver settings.
         return create_schema_extraction_client(
@@ -404,7 +405,7 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         found = by_table.get((schema, table))
         if found is None:
             # Every table and view has columns, so no entry means no object.
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"no table or view '{schema}.{table}' in the SQL Analytics "
                 f"Endpoint of {fabric_item.type} '{fabric_item.name}' (a newly "
                 f"created lakehouse table can take a while to appear there)"
@@ -437,7 +438,7 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
                         f"without lineage"
                     )
                 return v.view_definition
-        raise ValueError(
+        raise ProbeArgumentError(
             f"no view '{schema}.{view}' in {fabric_item.type} '{fabric_item.name}'"
         )
 
@@ -523,7 +524,7 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         in_parent_path: bool = True,
     ) -> FabricItem:
         if item_type is not None and item_type not in _ITEM_TYPES:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"--item-type must be one of {', '.join(_ITEM_TYPES)}, got "
                 f"'{item_type}'"
             )

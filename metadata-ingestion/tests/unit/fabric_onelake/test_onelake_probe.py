@@ -10,7 +10,8 @@ from azure.core.exceptions import ClientAuthenticationError
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
-from datahub.ingestion.agent.probe_methods import run_probe_method
+from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -163,6 +164,39 @@ def test_table_verdict_says_the_item_level_was_not_judged() -> None:
     )
     assert result.results[0].excluded_by == "schema_pattern"
     assert any("Fabric Schema" in w for w in result.warnings)
+
+
+def test_a_table_without_its_schema_is_judged_bare_and_says_so() -> None:
+    result = check_filters(
+        source_type=SOURCE,
+        config_dict={},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=[],
+        names=["orders"],
+    )
+    assert result.results[0].target == "orders"
+    assert any("no parent given" in w for w in result.warnings)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        GenericContainerSubTypes.FABRIC_WORKSPACE,
+        DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
+        DatasetContainerSubTypes.FABRIC_WAREHOUSE,
+        DatasetContainerSubTypes.FABRIC_SCHEMA,
+    ],
+)
+def test_containers_are_matched_bare_without_asking_for_a_parent(kind: str) -> None:
+    result = check_filters(
+        source_type=SOURCE,
+        config_dict={},
+        kind=str(kind),
+        parent_path=[],
+        names=["finance"],
+    )
+    assert result.results[0].target == "finance"
+    assert result.warnings == []
 
 
 WH_ID = "00000000-0000-0000-0000-00000000000c"
@@ -694,3 +728,61 @@ def test_a_case_only_workspace_miss_names_the_listed_spelling() -> None:
     with pytest.raises(ValueError, match="did you mean 'sales-ws'"):
         probe.lakehouses(workspace="SALES-WS")
     assert probe.failures == []
+
+
+def _run(
+    config: Dict[str, object],
+    command: str,
+    kwargs: Dict[str, object],
+    client: Optional[_FakeClient] = None,
+) -> ProbeMethodResult:
+    fake = client or _FakeClient()
+
+    def _factory(ws: FabricWorkspace, item: FabricItem) -> SchemaExtractionClient:
+        return cast(SchemaExtractionClient, _FakeSchemaClient())
+
+    def _for_config(
+        cls: object, cfg: FabricOneLakeSourceConfig
+    ) -> FabricOneLakeMetadataProbe:
+        return FabricOneLakeMetadataProbe(
+            cast(OneLakeClient, fake), cfg, schema_client_factory=_factory
+        )
+
+    with patch.object(
+        FabricOneLakeMetadataProbe, "for_config", classmethod(_for_config)
+    ):
+        return run_probe_method(SOURCE, config, command, kwargs)
+
+
+_NO_SQL_ENDPOINT: Dict[str, object] = {
+    "sql_endpoint": {"enabled": False},
+    "extract_views": False,
+    "extract_schema": {"enabled": False},
+    "usage": {"include_usage_statistics": False},
+}
+_ORDERS = {"workspace": "sales-ws", "item": "lh_main", "schema": "dbo"}
+
+
+@pytest.mark.parametrize(
+    "config, command, kwargs, shown",
+    [
+        ({}, "columns", {**_ORDERS, "table": "nope"}, "dbo.nope"),
+        ({}, "view_definition", {**_ORDERS, "view": "nope"}, "no view 'dbo.nope'"),
+        ({}, "tables", {**_ORDERS, "item_type": "Notebook"}, "--item-type"),
+        (_NO_SQL_ENDPOINT, "columns", {**_ORDERS, "table": "orders"}, "sql_endpoint"),
+    ],
+)
+def test_a_refusal_reaches_the_caller_with_its_message(
+    config: Dict[str, object], command: str, kwargs: Dict[str, object], shown: str
+) -> None:
+    with pytest.raises(ProbeArgumentError, match=shown):
+        _run(config, command, kwargs)
+
+
+def test_a_failed_read_reaches_the_caller_as_a_read_failure() -> None:
+    client = _FakeClient()
+    client.workspaces_error = _http_error(403)
+    with pytest.raises(ProbeReadFailed) as excinfo:
+        _run({}, "workspaces", {}, client=client)
+    assert "listing workspaces failed: HTTP 403" in str(excinfo.value)
+    assert "secret-ish" not in str(excinfo.value)
