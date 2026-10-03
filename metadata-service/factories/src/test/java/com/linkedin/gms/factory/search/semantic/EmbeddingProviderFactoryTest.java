@@ -915,4 +915,171 @@ public class EmbeddingProviderFactoryTest {
         provider instanceof NoOpEmbeddingProvider,
         "expected NoOpEmbeddingProvider, got: " + provider.getClass().getName());
   }
+
+  // ------- AiGateway provider tests -------
+
+  private static EmbeddingProviderConfiguration configWithAiGateway(
+      String baseUrl,
+      String platform,
+      String model,
+      String tokenUrl,
+      String clientId,
+      String clientSecret) {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("ai-gateway");
+    EmbeddingProviderConfiguration.AiGatewayConfig a =
+        new EmbeddingProviderConfiguration.AiGatewayConfig();
+    a.setBaseUrl(baseUrl);
+    a.setPlatform(platform);
+    a.setModel(model);
+    a.setTokenUrl(tokenUrl);
+    a.setClientId(clientId);
+    a.setClientSecret(clientSecret);
+    a.setDimensions(768);
+    config.setAiGateway(a);
+    return config;
+  }
+
+  @Test
+  public void instantiatesAiGatewayProvider() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "https://ai-gateway.example.com",
+            "google-vertex",
+            "gemini-embedding-001",
+            "https://auth.example.com/token",
+            "test-client-id",
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    EmbeddingProvider provider = factory.getInstance();
+
+    assertNotNull(provider);
+    assertTrue(
+        provider instanceof com.linkedin.metadata.search.embedding.AiGatewayEmbeddingProvider,
+        "expected AiGatewayEmbeddingProvider, got: " + provider.getClass().getName());
+  }
+
+  @Test
+  public void rejectsAiGatewayWithoutBaseUrl() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            null,
+            "google-vertex",
+            "gemini-embedding-001",
+            "https://auth.example.com/token",
+            "test-client-id",
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.baseUrl"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWithBlankBaseUrl() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "   ",
+            "google-vertex",
+            "gemini-embedding-001",
+            "https://auth.example.com/token",
+            "test-client-id",
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.baseUrl"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWithoutPlatform() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "https://ai-gateway.example.com",
+            null,
+            "gemini-embedding-001",
+            "https://auth.example.com/token",
+            "test-client-id",
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.platform"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWithoutModel() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "https://ai-gateway.example.com",
+            "google-vertex",
+            null,
+            "https://auth.example.com/token",
+            "test-client-id",
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.model"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWithoutTokenUrl() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "https://ai-gateway.example.com",
+            "google-vertex",
+            "gemini-embedding-001",
+            null,
+            "test-client-id",
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.tokenUrl"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWithoutClientId() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "https://ai-gateway.example.com",
+            "google-vertex",
+            "gemini-embedding-001",
+            "https://auth.example.com/token",
+            null,
+            "test-client-secret");
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.clientId"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWithoutClientSecret() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithAiGateway(
+            "https://ai-gateway.example.com",
+            "google-vertex",
+            "gemini-embedding-001",
+            "https://auth.example.com/token",
+            "test-client-id",
+            null);
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("AI Gateway client secret is required"));
+  }
+
+  @Test
+  public void rejectsAiGatewayWhenConfigIsNull() throws Exception {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("ai-gateway");
+    config.setAiGateway(null);
+
+    TestableFactory factory = factoryWithConfig(config);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(ex.getMessage().contains("embeddingProvider.aiGateway.baseUrl"));
+  }
 }

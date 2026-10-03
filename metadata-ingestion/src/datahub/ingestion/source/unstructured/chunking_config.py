@@ -66,11 +66,18 @@ class EmbeddingConfig(ConfigModel):
     # Core configuration (Optional - loaded from server if not set)
     provider: Optional[
         Literal[
-            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+            "bedrock",
+            "cohere",
+            "openai",
+            "local",
+            "vertex_ai",
+            "onnx",
+            "classical",
+            "ai_gateway",
         ]
     ] = Field(
         default=None,
-        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
+        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). 'ai_gateway' calls an OAuth2-authenticated AI Gateway (platform-agnostic proxy in front of Vertex AI/Azure OpenAI/Bedrock). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
@@ -89,6 +96,40 @@ class EmbeddingConfig(ConfigModel):
         "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity. "
         "When config is loaded from the server, falls back to the ONNX_EMBEDDING_POOLING env var "
         "(the same variable GMS reads), since the server API does not expose pooling.",
+    )
+    # AI Gateway configuration (used when provider is "ai_gateway"). These are local-only:
+    # the server's AppConfig API does not expose them, so they must be set here or via env
+    # vars and kept in sync with the GMS-side embeddingProvider.aiGateway.* configuration.
+    ai_gateway_platform: Optional[str] = Field(
+        default=None,
+        description="Upstream LLM platform routed to by the AI Gateway (e.g. 'google-vertex', "
+        "'azure-openai', 'amazon-bedrock'). Must match the GMS-side embeddingProvider.aiGateway.platform. "
+        "Falls back to the AI_GATEWAY_PLATFORM env var.",
+    )
+    ai_gateway_base_url: Optional[str] = Field(
+        default=None,
+        description="Base URL of the AI Gateway, without a trailing slash and without the "
+        "/platform/... path. Falls back to the AI_GATEWAY_BASE_URL env var.",
+    )
+    ai_gateway_token_url: Optional[str] = Field(
+        default=None,
+        description="OAuth2 token endpoint for the client_credentials grant. "
+        "Falls back to the AI_GATEWAY_TOKEN_URL env var.",
+    )
+    ai_gateway_dimensions: Optional[int] = Field(
+        default=None,
+        description="Desired embedding dimension, passed as the AI Gateway request's "
+        "options.dimensions. Leave unset to use the model's native dimensionality.",
+    )
+    client_id: Optional[str] = Field(
+        default=None,
+        description="OAuth2 app client ID for the ai_gateway provider. Falls back to the "
+        "AI_GATEWAY_CLIENT_ID env var.",
+    )
+    client_secret: Optional[TransparentSecretStr] = Field(
+        default=None,
+        description="OAuth2 app client secret for the ai_gateway provider. Falls back to the "
+        "AI_GATEWAY_CLIENT_SECRET env var.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -318,6 +359,10 @@ class EmbeddingConfig(ConfigModel):
             return "bedrock"
         if "cohere" in provider_lower:
             return "cohere"
+        # Check before "openai" since "ai-gateway"/"ai_gateway" would otherwise not match
+        # any branch and "gateway" is more specific than the generic "openai" substring check.
+        if "gateway" in provider_lower:
+            return "ai_gateway"
         if "openai" in provider_lower:
             return "openai"
         if "local" in provider_lower:
@@ -334,7 +379,14 @@ class EmbeddingConfig(ConfigModel):
     def _normalize_provider_from_server(
         server_provider: str,
     ) -> Literal[
-        "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+        "bedrock",
+        "cohere",
+        "openai",
+        "local",
+        "vertex_ai",
+        "onnx",
+        "classical",
+        "ai_gateway",
     ]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
@@ -352,6 +404,8 @@ class EmbeddingConfig(ConfigModel):
             return "onnx"
         elif normalized == "classical":
             return "classical"
+        elif normalized == "ai_gateway":
+            return "ai_gateway"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 

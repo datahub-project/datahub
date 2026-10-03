@@ -19,6 +19,9 @@ import lombok.NoArgsConstructor;
  *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
  *   <li><b>classical</b>: Deterministic in-process lexical hashing (no external service or model
  *       files)
+ *   <li><b>ai-gateway</b>: OAuth2-authenticated AI gateway embedding API (fronts Vertex AI, Azure
+ *       OpenAI, and Bedrock behind a single contract), authenticated via AWS Cognito JWT or similar
+ *       {@code client_credentials} grants
  * </ul>
  */
 @Data
@@ -28,7 +31,7 @@ public class EmbeddingProviderConfiguration {
 
   /**
    * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local",
-   * "vertex_ai", "onnx", "classical". Defaults to "openai".
+   * "vertex_ai", "onnx", "classical", "ai-gateway". Defaults to "openai".
    */
   private String type = "openai";
 
@@ -59,6 +62,9 @@ public class EmbeddingProviderConfiguration {
   /** Configuration for the classical (deterministic hashing) embedding provider. */
   private ClassicalConfig classical = new ClassicalConfig();
 
+  /** Configuration for the AI Gateway embedding provider. */
+  private AiGatewayConfig aiGateway = new AiGatewayConfig();
+
   /**
    * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
    */
@@ -81,6 +87,8 @@ public class EmbeddingProviderConfiguration {
         return onnx != null ? onnx.getModelName() : null;
       case "classical":
         return classical != null ? classical.getModel() : null;
+      case "ai-gateway":
+        return aiGateway != null ? aiGateway.getModel() : null;
       default:
         return null;
     }
@@ -269,7 +277,57 @@ public class EmbeddingProviderConfiguration {
     private String queryInstruction = "";
   }
 
-  /** Classical (deterministic hashing) provider configuration. */
+  /**
+   * AI Gateway-specific configuration. The AI gateway is a platform-agnostic proxy in front of
+   * Vertex AI / Azure OpenAI / Bedrock, so a single HTTP contract works for all of them — {@link
+   * #platform} and {@link #model} just select the upstream. Authentication is OAuth2 JWT ({@code
+   * client_credentials} grant); see https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.
+   */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class AiGatewayConfig {
+    /**
+     * Base URL of the AI Gateway, without a trailing slash and without the {@code /platform/...}
+     * path.
+     */
+    private String baseUrl;
+
+    /**
+     * Upstream LLM platform routed to by the AI Gateway. One of "google-vertex", "azure-openai",
+     * "amazon-bedrock". Required when type is "ai-gateway".
+     */
+    private String platform;
+
+    /**
+     * Model ID on the selected platform (e.g. "gemini-embedding-001", "text-embedding-3-small",
+     * "amazon.titan-embed-text-v2:0"). Required when type is "ai-gateway".
+     */
+    private String model;
+
+    /**
+     * OAuth2 token endpoint used to obtain a JWT via the {@code client_credentials} grant. Required
+     * when type is "ai-gateway".
+     */
+    private String tokenUrl;
+
+    /** OAuth2 app client ID. Required when type is "ai-gateway". */
+    private String clientId;
+
+    /**
+     * OAuth2 app client secret. Required when type is "ai-gateway". Can be set via the
+     * AI_GATEWAY_CLIENT_SECRET environment variable.
+     */
+    private String clientSecret;
+
+    /**
+     * Desired embedding dimension, passed as the AI Gateway request's {@code options.dimensions}.
+     * Set to 0 to use the model's native dimensionality (no {@code options} sent).
+     */
+    private int dimensions = 0;
+  }
+
+  /** Configuration for the classical (deterministic hashing) embedding provider. */
   @Data
   @NoArgsConstructor
   @AllArgsConstructor
