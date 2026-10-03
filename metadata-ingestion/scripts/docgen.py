@@ -737,6 +737,8 @@ def generate(  # noqa: C901
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
+            # glob joins with os.sep, but the patterns below expect "/".
+            path = path.replace(os.sep, "/")
             logger.info(f"Processing extra doc: {path}")
             if m := re.search("/docs/sources/(.*)/(.*).md", path):
                 platform_name = m.group(1).lower()  # TODO: rename this to platform_id
@@ -745,7 +747,7 @@ def generate(  # noqa: C901
                     f"../docs/generated/ingestion/sources/{platform_name}.md"
                 )
 
-                with open(path, "r") as doc_file:
+                with open(path, "r", encoding="utf-8") as doc_file:
                     file_contents = doc_file.read()
                 final_markdown = rewrite_markdown(file_contents, path, destination_md)
 
@@ -802,7 +804,7 @@ def generate(  # noqa: C901
                 plugin_name = yml_match.group(2)
                 platforms[platform_name].plugins[
                     plugin_name
-                ].starter_recipe = pathlib.Path(path).read_text()
+                ].starter_recipe = pathlib.Path(path).read_text(encoding="utf-8")
 
     for platform in platforms.values():
         if not platform.custom_docs_pre:
@@ -858,7 +860,7 @@ def generate(  # noqa: C901
         #     metrics["source_platforms"]["warnings"].append(warning_msg)  # type: ignore
         #     continue
 
-        with open(platform_doc_file, "w") as f:
+        with open(platform_doc_file, "w", encoding="utf-8") as f:
             i += 1
             description = catalog_descriptions.get(platform_id)
             f.write("---\n")
@@ -1061,7 +1063,7 @@ def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
     source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
     doc_file = f"{source_dir}/automatic-lineage-extraction.md"
-    with open(doc_file, "w+") as f:
+    with open(doc_file, "w+", encoding="utf-8") as f:
         f.write(
             """
 # Automatic Lineage Extraction
