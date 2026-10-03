@@ -481,24 +481,20 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     This wraps existing command callback functions to add upgrade and telemetry decorators.
     """
 
-    def has_decorator(func: Any, module_pattern: str, function_pattern: str) -> bool:
-        """Check if function already has a specific decorator"""
-        if hasattr(func, "__wrapped__"):
-            current_func = func
-            while hasattr(current_func, "__wrapped__"):
-                # Check if this wrapper matches the module and function patterns
-                if (
-                    hasattr(current_func, "__module__")
-                    and module_pattern in current_func.__module__
-                    and hasattr(current_func, "__name__")
-                    and function_pattern in current_func.__name__
-                ):
-                    return True
-                current_func = current_func.__wrapped__
-        return False
+    def has_telemetry_decorator(func: Any) -> bool:
+        # Asks the telemetry module, which marks its own wrappers.
+        #
+        # This replaced a heuristic that looked for "telemetry" in __module__ and
+        # "with_telemetry" in __name__ along the __wrapped__ chain. It could
+        # never match: with_telemetry's wrapper carries @wraps(func) and so
+        # reports the *wrapped* function's identity. So every explicitly
+        # decorated command got a second wrapper here and fired every
+        # function-call event twice -- once with the arg_* dimensions the
+        # explicit decorator captured, once with them as None, and with an
+        # identical `function` on both so they could not be told apart.
+        from datahub.telemetry import telemetry
 
-    def has_telemetry_decorator(func):
-        return has_decorator(func, "telemetry", "with_telemetry")
+        return telemetry.is_telemetry_wrapped(func)
 
     def wrap_command_callback(command_obj):
         """Wrap a command's callback function to add decorators"""
@@ -510,11 +506,19 @@ def enable_auto_decorators(main_group: click.Group) -> None:
 
             decorated_callback = original_callback
 
-            if not has_telemetry_decorator(decorated_callback):
-                log.debug(
-                    f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
-                )
-                decorated_callback = telemetry.with_telemetry()(decorated_callback)
+            if has_telemetry_decorator(decorated_callback):
+                # Nothing to add, and nothing to do: wraps() below would be
+                # wraps(f)(f), setting f.__wrapped__ = f. That cycle makes
+                # inspect.unwrap and inspect.signature raise "wrapper loop" on
+                # exactly the commands that instrument themselves. It was
+                # unreachable while the detection above never fired; making the
+                # detection work is what made it live.
+                return
+
+            log.debug(
+                f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
+            )
+            decorated_callback = telemetry.with_telemetry()(decorated_callback)
 
             # Preserve the original function's metadata
             decorated_callback = wraps(original_callback)(decorated_callback)
