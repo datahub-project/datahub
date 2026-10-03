@@ -1,3 +1,4 @@
+import base64
 import builtins
 import io
 import json
@@ -399,6 +400,8 @@ def _raised_by(call: Callable[[], object]) -> BaseException:
         # A response failing the model it is parsed into.
         (lambda: _Response.model_validate({"id": "n/a"}), "ValidationError"),
         (lambda: b"\xff".decode("utf-8"), "UnicodeDecodeError"),
+        # A base64 body that does not decode (binascii.Error).
+        (lambda: base64.b64decode("abc", validate=True), "Error"),
         # An OSError that is also a ValueError.
         (lambda: io.StringIO().fileno(), "UnsupportedOperation"),
     ],

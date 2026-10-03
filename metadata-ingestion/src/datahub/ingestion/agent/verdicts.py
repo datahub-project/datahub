@@ -25,6 +25,14 @@ class Verdict:
     # given (a qualified schema): reported as the target, since it decided.
     matched_target: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        # Checked here, not only in probe_verdict_override's consistency check:
+        # a selection module's verdict reaches ingestion without that check.
+        if not self.included and not (
+            isinstance(self.excluded_by, str) and self.excluded_by.strip()
+        ):
+            raise ValueError("an excluded verdict must name what excluded it")
+
     @classmethod
     def include(cls) -> "Verdict":
         return cls(True, None)
@@ -33,11 +41,7 @@ class Verdict:
     def exclude(
         cls, excluded_by: str, matched_target: Optional[str] = None
     ) -> "Verdict":
-        """An exclusion, naming the field or rule that decided it. Use it in a
-        selection module: ingestion calls those functions outside
-        probe_verdict_override's consistency check."""
-        if not excluded_by.strip():
-            raise ValueError("an excluded verdict must name what excluded it")
+        """An exclusion, naming the field or rule that decided it."""
         return cls(False, excluded_by, matched_target)
 
 

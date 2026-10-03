@@ -290,6 +290,22 @@ CONFIG_HOOKS: FrozenSet[str] = frozenset(
     }
 )
 
+# The CONFIG_HOOKS the framework calls on the config class, where no recipe has
+# been validated (`probe methods`, `describe`, validation itself), so each must
+# be a classmethod or staticmethod: an instance method fails only when called.
+# test_probe_contract checks every registered config against this list.
+CLASS_CONFIG_HOOKS: Tuple[str, ...] = (
+    # _provider_class.
+    "probe_provider_class",
+    # config_validation.validate_source_config.
+    "probe_validation_context",
+    # list_probe_methods, run_probe_method, introspect.declared_kinds_for_class.
+    "probe_kind_overrides",
+    # introspect._filter_kinds_by_field.
+    "probe_unfiltered_kinds",
+    "probe_rule_filtered_kinds",
+)
+
 
 def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
     """The config's `name` hook, or None where it declares none.

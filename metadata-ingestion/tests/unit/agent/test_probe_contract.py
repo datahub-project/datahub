@@ -24,6 +24,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.probe_methods import (
+    CLASS_CONFIG_HOOKS,
     CONFIG_HOOKS,
     PROVIDER_ATTRIBUTES,
     ProbeMethodSpec,
@@ -915,6 +916,57 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
         "probe_filter_target has no override left, so this test compares the "
         "base signature against nothing and cannot see a drift"
     )
+
+
+def _class_hook_problems(config_cls: type) -> List[str]:
+    """The CLASS_CONFIG_HOOKS `config_cls` declares as anything but a
+    classmethod or staticmethod. The framework calls them on the class, where
+    an instance method fails for want of `self` -- and only when called, so
+    `describe` or `probe methods` breaks while `probe filter` works."""
+    import inspect
+
+    problems = []
+    for hook in CLASS_CONFIG_HOOKS:
+        try:
+            declared = inspect.getattr_static(config_cls, hook)
+        except AttributeError:
+            continue
+        if not isinstance(declared, (classmethod, staticmethod)):
+            problems.append(
+                f"{config_cls.__name__}.{hook} is a {type(declared).__name__}; "
+                f"the framework calls it on the class, so make it a classmethod"
+            )
+    return problems
+
+
+def test_every_class_called_hook_is_a_classmethod():
+    assert set(CLASS_CONFIG_HOOKS) <= CONFIG_HOOKS
+    problems: List[str] = []
+    declaring = 0
+    for _source_type, config_cls in _loaded_source_configs():
+        if any(hasattr(config_cls, hook) for hook in CLASS_CONFIG_HOOKS):
+            declaring += 1
+        problems.extend(_class_hook_problems(config_cls))
+    assert problems == [], "\n  ".join(problems)
+    assert declaring > 20, f"only {declaring} configs declare a class-called hook"
+
+
+def test_the_class_hook_check_catches_an_instance_method():
+    class _Instance(ConfigModel):
+        def probe_unfiltered_kinds(self) -> Set[str]:
+            return {"Dataset"}
+
+    class _Inherits(_Instance):
+        pass
+
+    class _Class(ConfigModel):
+        @classmethod
+        def probe_unfiltered_kinds(cls) -> Set[str]:
+            return {"Dataset"}
+
+    assert len(_class_hook_problems(_Instance)) == 1
+    assert len(_class_hook_problems(_Inherits)) == 1
+    assert _class_hook_problems(_Class) == []
 
 
 # --- across every registered SQL source -------------------------------------

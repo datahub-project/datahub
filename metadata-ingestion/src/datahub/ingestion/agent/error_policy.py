@@ -20,6 +20,7 @@ after its label (see name_foreign), for a person debugging a connector
 locally.
 """
 
+import binascii
 import copy
 import json
 import re
@@ -77,11 +78,12 @@ DEFECT_TYPES: Tuple[Type[BaseException], ...] = (
 
 # Failures reading what the source sent: a ValueError by type, but the
 # source's -- an SSO login page parsed as JSON, a response failing its model,
-# bytes that do not decode -- so exit 3. Checked before _ARGUMENT_TYPES; an
-# OSError can be a ValueError too (io.UnsupportedOperation).
+# bytes or base64 that do not decode -- so exit 3. Checked before
+# _ARGUMENT_TYPES; an OSError can be a ValueError too (io.UnsupportedOperation).
 _SOURCE_DATA_TYPES: Tuple[Type[BaseException], ...] = (
     OSError,
     UnicodeError,
+    binascii.Error,
     json.JSONDecodeError,
     pydantic.ValidationError,
 )

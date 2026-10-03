@@ -7,7 +7,17 @@ on purpose, to pin the behaviour a source with no probe_kind_switches already
 had.
 """
 
-from typing import Annotated, Dict, List, Mapping, Optional, Sequence, Set, Type
+from typing import (
+    Annotated,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+)
 
 import pytest
 from pydantic import Field
@@ -385,13 +395,19 @@ def test_a_rule_kind_without_a_verdict_is_a_connector_defect(
         _judge("Table", ["gs://b/data/t1"])
 
 
-@pytest.mark.parametrize("inconsistent", [Verdict(True, "x"), Verdict(False, None)])
+# Built inside the hook: Verdict refuses an exclusion without a reason as it
+# is constructed, which an override does while it runs.
+@pytest.mark.parametrize(
+    "inconsistent",
+    [lambda: Verdict(True, "x"), lambda: Verdict(False, None)],
+    ids=["included-with-a-reason", "excluded-without-one"],
+)
 def test_an_inconsistent_override_verdict_is_a_connector_defect(
-    monkeypatch: pytest.MonkeyPatch, inconsistent: Verdict
+    monkeypatch: pytest.MonkeyPatch, inconsistent: Callable[[], Verdict]
 ) -> None:
     class _Contradicts(_Pinned):
         def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-            return inconsistent
+            return inconsistent()
 
     _register(monkeypatch, _Contradicts)
     with pytest.raises(ProbeInternalError):
@@ -411,3 +427,11 @@ def test_exclude_names_its_reason_and_keeps_the_matched_target() -> None:
 def test_exclude_refuses_an_exclusion_without_a_reason(reason: str) -> None:
     with pytest.raises(ValueError):
         Verdict.exclude(reason)
+
+
+@pytest.mark.parametrize("reason", [None, "", "   "])
+def test_a_verdict_built_directly_refuses_an_exclusion_without_a_reason(
+    reason: Optional[str],
+) -> None:
+    with pytest.raises(ValueError):
+        Verdict(False, reason)

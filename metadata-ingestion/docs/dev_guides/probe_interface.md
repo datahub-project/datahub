@@ -159,8 +159,9 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    short code, such as `'tables' failed (ProgrammingError; SQLSTATE 42P01)`. While opening or closing
    the provider that is exit 3; during a command, Python defects (`TypeError`, `KeyError`,
    `AttributeError`, `AssertionError`, `IndexError`, `NameError`) exit 1; a failure reading what the
-   source sent (`OSError`, `UnicodeError`, `json.JSONDecodeError`, a pydantic `ValidationError`)
-   exits 3; the rest of the `ValueError` family and `re.error` exit 2; everything else exits 3.
+   source sent (`OSError`, `UnicodeError`, `binascii.Error`, `json.JSONDecodeError`, a pydantic
+   `ValidationError`) exits 3; the rest of the `ValueError` family and `re.error` exit 2; everything
+   else exits 3.
    After recorded failures it is `ProbeReadFailed` (exit 3), and `NotImplementedError` reads as
    "does not support this command" (exit 2).
 3. **Never interpolate an exception you did not raise.**
