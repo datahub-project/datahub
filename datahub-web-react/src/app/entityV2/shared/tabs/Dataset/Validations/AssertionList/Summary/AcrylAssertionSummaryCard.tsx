@@ -122,7 +122,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
         const url = `${entityRegistry.getEntityUrl(
             EntityType.Dataset,
             entityData.urn,
-        )}/Quality/List${buildAssertionUrlSearch({ type })}`;
+        )}/Quality/List${buildAssertionUrlSearch({ type, customType: group.customType })}`;
         history.push(url);
     };
 

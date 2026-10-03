@@ -30,6 +30,7 @@ export type AssertionListFilter = {
         searchText: string;
         status: AssertionResultType[];
         type: AssertionType[];
+        category: string[];
         tags: string[];
         column: string[];
         source: AssertionSourceType[];
@@ -87,6 +88,7 @@ export type AssertionTable = {
 export type AssertionFilterOptions = {
     filterGroupOptions: {
         type: AssertionRecommendedFilter[];
+        category: AssertionRecommendedFilter[];
         status: AssertionRecommendedFilter[];
         column: AssertionRecommendedFilter[];
         tags: AssertionRecommendedFilter[];
@@ -98,7 +100,7 @@ export type AssertionFilterOptions = {
 
 export type AssertionRecommendedFilter = {
     name: string;
-    category: 'status' | 'type' | 'source' | 'tags' | 'column' | 'owners';
+    category: 'category' | 'status' | 'type' | 'source' | 'tags' | 'column' | 'owners';
     count: number;
     displayName: string;
 };

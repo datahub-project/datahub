@@ -59,6 +59,13 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     facets,
 }) => {
     const filterOptions = extractFilterOptionsFromFacets(filteredAssertions, facets);
+    selectedFilters.filterCriteria.category.forEach((name) => {
+        if (!filterOptions.filterGroupOptions.category.some((option) => option.name === name)) {
+            const option = { name, displayName: name, category: 'category' as const, count: 0 };
+            filterOptions.filterGroupOptions.category.push(option);
+            filterOptions.recommendedFilters.push(option);
+        }
+    });
 
     const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
@@ -74,7 +81,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
-            { type: [], status: [], source: [], column: [], tags: [], owners: [] },
+            { type: [], category: [], status: [], source: [], column: [], tags: [], owners: [] },
         );
 
         handleFilterChange({
@@ -87,11 +94,9 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
      * This hook is for setting applied filter when we are getting it from selected Filter state
      */
     const appliedRecommendedFilters = useMemo(() => {
-        const { status, type, source, column, tags, owners } =
-            selectedFilters.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
+        const criteria = selectedFilters.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
         const recommendedFilters = filterOptions?.recommendedFilters || [];
-        const selectedNames = new Set<string>([...status, ...type, ...source, ...column, ...tags, ...owners]);
-        return recommendedFilters.filter((item) => selectedNames.has(item.name));
+        return recommendedFilters.filter((item) => (criteria[item.category] as string[]).includes(item.name));
     }, [filterOptions?.recommendedFilters, selectedFilters.filterCriteria]);
 
     const initialSelectedOptions = useMemo(
