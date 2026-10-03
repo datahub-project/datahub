@@ -1,13 +1,25 @@
 import logging
+import re
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterator, List, Optional, TypeVar
+from typing import Dict, Iterator, List, Optional
 
 import tableauserverclient as TSC
 from tableauserverclient import Server
-from tableauserverclient.server.endpoint.exceptions import ServerResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    ServerResponseError,
+    TableauError,
+)
 
+from datahub.ingestion.agent.error_policy import http_status_code
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeSoftError
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    echoed,
+    soft_listing,
+    take,
+)
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.tableau import tableau_constant as c
@@ -25,29 +37,38 @@ from datahub.ingestion.source.tableau.tableau_common import (
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
-
-# Tableau error codes are six digits whose first three are the HTTP status.
+# A Tableau REST error code: six digits, the HTTP status then Tableau's own
+# sub-code (403069). Checked for that shape, since the server sends it.
+_TSC_CODE = re.compile(r"[0-9]{6}")
 _SOFT_STATUSES = ("403", "404")
 
 
+def _tsc_code(exc: BaseException) -> Optional[str]:
+    """The code TSC puts on `.code` of a REST error (ServerResponseError, and
+    FailedSignInError at sign-in), when it has the documented shape. Read off
+    TableauError, the base every supported TSC version has."""
+    code = getattr(exc, "code", None) if isinstance(exc, TableauError) else None
+    return code if isinstance(code, str) and _TSC_CODE.fullmatch(code) else None
+
+
 @contextmanager
-def _soft_on_tsc(context: str) -> Iterator[None]:
-    """soft_on_status for TSC. It raises ServerResponseError with a string code
-    such as "403069" and no .response, so the shared helper never fires on it."""
+def _tsc_soft_statuses(context: str) -> Iterator[None]:
+    """A 403 or 404 from TSC as ProbeSoftError, for soft_listing to degrade.
+    TSC raises ServerResponseError with the status inside a string code and no
+    `.response`, the attribute soft_listing's own HTTP mapping reads."""
     try:
         yield
     except ServerResponseError as exc:
-        if str(exc.code)[:3] in _SOFT_STATUSES:
-            # The code only: summary and detail are the server's text, and a
-            # warning is built here, where the framework cannot withhold it.
+        code = _tsc_code(exc)
+        if code is not None and code[:3] in _SOFT_STATUSES:
+            # The code only: summary and detail are the server's text.
             raise ProbeSoftError(
-                f"{context} returned Tableau error {exc.code}; treating it as empty."
+                f"{context} returned Tableau error {code}; treating it as empty."
             ) from exc
         raise
 
 
-class TableauMetadataProbe:
+class TableauMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over one Tableau site.
 
     Holds a TableauSiteSource, ingestion's per-site worker, and not a Source:
@@ -62,13 +83,9 @@ class TableauMetadataProbe:
     directories (PII); the Metadata API is a POST and exposes raw custom SQL.
     """
 
-    # Read back by run_probe_method after each command: soft 403/404 reads.
-    warnings: List[str]
-
     def __init__(self, config: TableauConfig, server: Server) -> None:
         self._config = config
         self._report = TableauSourceReport()
-        self.warnings = []
         # Its constructor makes one users.get_by_id call (report_user_role),
         # which records the "Insufficient Permissions" warning: the most useful
         # permission diagnosis the probe can give.
@@ -88,8 +105,15 @@ class TableauMetadataProbe:
         # cannot be opened lazily, so sign-in happens here.
         return cls(config, config.make_tableau_client(config.site))
 
-    def __enter__(self) -> "TableauMetadataProbe":
-        return self
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """TSC's code for a REST error ("Tableau 403069"), or the HTTP status
+        of a 5xx ("HTTP 500"). TSC keeps both on `.code`, which the generic
+        readers do not read; elsewhere `.code` is anything."""
+        if isinstance(exc, InternalServerError):
+            return http_status_code(exc.code)
+        code = _tsc_code(exc)
+        return f"Tableau {code}" if code else None
 
     def __exit__(self, *exc: object) -> None:
         # self._site.server, not the server we were given: _re_authenticate
@@ -100,6 +124,7 @@ class TableauMetadataProbe:
             logger.warning(
                 "Tableau probe sign-out failed (%s); continuing", type(ex).__name__
             )
+        super().__exit__(*exc)
 
     @property
     def probe_report(self) -> object:
@@ -107,19 +132,8 @@ class TableauMetadataProbe:
         project hierarchy" and "Insufficient Permissions" reach the caller."""
         return self._report
 
-    def _listing(self, fetch: Callable[[], List[T]]) -> List[T]:
-        try:
-            return fetch()
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
-            return []
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
-
     def _all_projects(self) -> Dict[str, TableauProject]:
-        with _soft_on_tsc("projects listing"):
+        with _tsc_soft_statuses("projects listing"):
             return self._site._get_all_project()
 
     def _path(self, project: TableauProject) -> str:
@@ -133,12 +147,9 @@ class TableauMetadataProbe:
         name: Optional[str] = None
         content_url: Optional[str] = None
         state: Optional[str] = None
-        try:
-            with _soft_on_tsc("site details"):
-                item = self._site.server.sites.get_by_id(self._site.server.site_id)
+        with soft_listing(self._warn), _tsc_soft_statuses("site details"):
+            item = self._site.server.sites.get_by_id(self._site.server.site_id)
             name, content_url, state = item.name, item.content_url, item.state
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
         users = self._report.logged_in_user
         user = users[-1] if users else None
         return {
@@ -161,23 +172,15 @@ class TableauMetadataProbe:
         only with ingest_multiple_sites (Tableau Server only). A 403, as on
         Tableau Cloud or below server administrator, degrades to [] with a
         warning."""
-
-        def fetch() -> List[Dict[str, object]]:
-            out: List[Dict[str, object]] = []
-            with _soft_on_tsc("sites listing"):
-                for item in TSC.Pager(self._site.server.sites):
-                    out.append(
-                        {
-                            "name": item.name,
-                            "content_url": item.content_url,
-                            "state": item.state,
-                        }
-                    )
-                    if len(out) >= limit:
-                        break
-            return out
-
-        return self._listing(fetch)
+        with soft_listing(self._warn), _tsc_soft_statuses("sites listing"):
+            return take(
+                (
+                    {"name": i.name, "content_url": i.content_url, "state": i.state}
+                    for i in TSC.Pager(self._site.server.sites)
+                ),
+                limit,
+            )
+        return []
 
     @probe_method(kind=BIContainerSubTypes.TABLEAU_PROJECT, row_limit_param="limit")
     def projects(self, limit: int = 200) -> List[str]:
@@ -189,9 +192,9 @@ class TableauMetadataProbe:
         needs every ancestor. A project whose parent this credential cannot see
         is reported at the root, as ingestion treats it, and the result says so
         in its warnings. Owners and descriptions are withheld."""
-        return self._listing(
-            lambda: sorted(self._path(p) for p in self._all_projects().values())[:limit]
-        )
+        with soft_listing(self._warn):
+            return sorted(self._path(p) for p in self._all_projects().values())[:limit]
+        return []
 
     # Tableau REST filter expressions are "field:op:value" joined by commas, so
     # a value containing either delimiter cannot be sent as a filter.
@@ -209,8 +212,9 @@ class TableauMetadataProbe:
         exactly when its project is, so judge with `probe filter --kind
         Workbook --parent <project_path>`. Resolved by the project's LUID,
         because project names repeat across parents."""
-
-        def fetch() -> List[str]:
+        # _project_or_raise runs inside the block, so a 403 on the projects
+        # listing degrades rather than reading as a bad argument.
+        with soft_listing(self._warn):
             project = self._project_or_raise(project_path)
             options = TSC.RequestOptions()
             if not any(d in project.name for d in self._FILTER_DELIMITERS):
@@ -222,29 +226,25 @@ class TableauMetadataProbe:
                         project.name,
                     )
                 )
-            names: List[str] = []
-            with _soft_on_tsc(f"workbooks listing for project '{project_path}'"):
-                for item in TSC.Pager(self._site.server.workbooks, options):
-                    # As _init_workbook_registry: membership is by project id.
-                    if item.project_id != project.id or not item.name:
-                        continue
-                    names.append(item.name)
-                    if len(names) >= limit:
-                        break
-            return names
-
-        # _project_or_raise runs inside fetch, so a 403 on the projects listing
-        # degrades through _listing rather than reading as a bad argument.
-        return self._listing(fetch)
+            context = f"workbooks listing for project {echoed(project_path)}"
+            with _tsc_soft_statuses(context):
+                return take(
+                    (
+                        item.name
+                        for item in TSC.Pager(self._site.server.workbooks, options)
+                        # As _init_workbook_registry: membership is by project id.
+                        if item.project_id == project.id and item.name
+                    ),
+                    limit,
+                )
+        return []
 
     def _project_or_raise(self, project_path: str) -> TableauProject:
         for project in self._all_projects().values():
             if self._path(project) == project_path:
                 return project
-        # A plain ValueError: the caller named a project that is not there,
-        # which is a bad argument (exit 2), not a degraded read.
-        raise ValueError(
-            f"no project with path '{project_path}' on this site; "
+        raise ProbeArgumentError(
+            f"no project with path {echoed(project_path)} on this site; "
             f"`probe run projects` lists them"
         )
 
@@ -257,13 +257,13 @@ class TableauMetadataProbe:
         would land in the wrong platform instance is visible before a run.
         Needs the Metadata API to be enabled; an error there is raised, not
         treated as empty."""
-        out: List[Dict[str, object]] = []
-        for server in self._site.get_connection_objects(
+        servers = self._site.get_connection_objects(
             query=database_servers_graphql_query,
             connection_type=c.DATABASE_SERVERS_CONNECTION,
             page_size=self._config.effective_database_server_page_size,
-        ):
-            out.append(
+        )
+        return take(
+            (
                 {
                     "id": server.get(c.ID),
                     "name": server.get(c.NAME),
@@ -272,7 +272,7 @@ class TableauMetadataProbe:
                     ),
                     "connection_type": server.get(c.CONNECTION_TYPE),
                 }
-            )
-            if len(out) >= limit:
-                break
-        return out
+                for server in servers
+            ),
+            limit,
+        )

@@ -9,7 +9,12 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Protocol, Sequence
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+    pattern_verdict,
+)
 
 PROJECT_PATTERN = "project_pattern"
 PROJECT_PATH_PATTERN = "project_path_pattern"
@@ -96,7 +101,7 @@ def project_selection(
     _init_tableau_project_registry's rule down from the root: allowed on its
     own, or re-admitted under an included parent unless explicitly denied."""
     if not segments:
-        raise ValueError("a project path needs at least one project name")
+        raise ProbeArgumentError("a project path needs at least one project name")
     separator = config.project_path_separator
     included = rescued = depends = False
     parent_included = parent_rescued = False
