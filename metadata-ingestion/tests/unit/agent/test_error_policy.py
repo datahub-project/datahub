@@ -925,6 +925,33 @@ def test_a_label_reader_that_exits_leaves_the_bare_class_name() -> None:
     assert foreign_label(RuntimeError(), _ExitingReader) == "RuntimeError"
 
 
+class _ExitingNameMeta(type):
+    """A metaclass whose classes exit when asked their name."""
+
+    @property
+    def __name__(cls) -> str:
+        raise SystemExit(f"metaname {SENTINEL}")
+
+    # Writable, as type.__name__ is.
+    @__name__.setter
+    def __name__(cls, value: str) -> None:
+        pass
+
+
+class _NamelessError(Exception, metaclass=_ExitingNameMeta):
+    pass
+
+
+def test_a_class_that_cannot_say_its_name_gets_a_fixed_label() -> None:
+    # Asserted outside the handler: pytest cannot render this class either,
+    # and an escaped SystemExit would end the session.
+    try:
+        label = foreign_label(_NamelessError(SENTINEL))
+    except SystemExit:
+        label = "escaped as SystemExit"
+    assert label == "exception"
+
+
 class _ClosingConfig(ConfigModel):
     reader: bool = False
 
@@ -948,6 +975,30 @@ class _ClosesWithAnExitingLabel:
 
 class _ClosesWithAnExitingCode(_ClosesWithAnExitingLabel):
     probe_error_code = staticmethod(_exiting_code_reader)
+
+
+class _ClosesWithANamelessError(_ClosesWithAnExitingLabel):
+    def __exit__(self, *exc: object) -> None:
+        raise _NamelessError(f"close failed: {SENTINEL}")
+
+
+def test_a_nameless_close_failure_is_labelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Config(_ClosingConfig):
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _ClosesWithANamelessError
+
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+    message = "did not raise"
+    try:
+        run_probe_method("fake", {}, "things", {})
+    except ProbeConnectionError as exc:
+        message = str(exc)
+    except SystemExit:
+        message = "escaped as SystemExit"
+    assert message == "closing source 'fake' failed (exception)"
 
 
 @pytest.mark.parametrize("reader", [False, True])

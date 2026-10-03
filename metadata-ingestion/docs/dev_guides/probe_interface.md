@@ -34,7 +34,7 @@ Anything else needs one config hook and one provider class:
 
 ```python
 # mysource/config.py
-from typing import Annotated, List
+from typing import Annotated
 
 from pydantic import Field
 
@@ -58,8 +58,13 @@ class MySourceConfig(ConfigModel):
 
 
 # mysource/mysource_probe.py
+from typing import List
+
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.mysource.client import MyClient
+from datahub.ingestion.source.mysource.config import MySourceConfig
 
 
 class MyMetadataProbe(ProbeProviderBase):
@@ -152,7 +157,9 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    As a backstop, a foreign exception's verbatim `str` or `repr` in your message is replaced by its
    label; text rebuilt from parts of it (`e.doc`) is not caught. A lookup error naming a value the
    caller passed this call is the caller's own text, so
-   `except KeyError: raise ProbeArgumentError(f"no thing named '{name}'")` keeps the name.
+   `except KeyError: raise ProbeArgumentError(f"no thing named '{name}'")` keeps the name. That
+   exemption covers failures `run_probe_method` handles: a `soft_listing` warning withholds a quoted
+   lookup error even when it names the caller's argument.
 4. **Codes, not text.** The framework reads an HTTP status (`.response.status_code`, `.status_code`,
    `.status`), a SQLSTATE (`.sqlstate`) and an errno (`.errno`) along the `raise ... from` chain. For a
    vendor shape, declare a staticmethod `probe_error_code(exc) -> Optional[str]` on the provider. It is
@@ -178,6 +185,9 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    each withheld exception's text after its label, scrubbed of credential shapes (the CLI masks the
    recipe's secrets on top), for `probe run` and for a crashed `test-connection` alike:
    `'tables' failed (HTTPError; HTTP 403): 403 Client Error: Forbidden for url: https://***@host/api`.
+   A crashed `test-connection` is labelled; a failed one, which returns a report, prints the
+   source's own `failure_reason` text, scrubbed of the recipe's secrets and credential shapes, with
+   or without the switch.
 9. **Exit codes are a contract.** 2 for the caller's input, 3 for the source, 1 for a defect. Test
    every code your provider can produce.
 

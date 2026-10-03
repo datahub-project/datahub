@@ -4,6 +4,7 @@ import pathlib
 import re
 import sys
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import (
     Callable,
     Dict,
@@ -583,13 +584,29 @@ def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
     return ProbeInternalError(message)
 
 
+@dataclass(frozen=True)
+class _TestedConnection:
+    """What a source's test_connection returned, and its JSON-shaped form."""
+
+    report: object
+    # as_obj(): TestConnectionReport is a Report, not a dict, and json.dumps
+    # would hand the whole object to _json_default, which stringifies it, so
+    # basic_connectivity would not be a key of the payload.
+    rendered: object
+
+
 def _run_test_connection(
     test: Callable[[Dict[str, object]], object],
     resolved: Dict[str, object],
     source_type: str,
-) -> object:
+) -> _TestedConnection:
     try:
-        return test(resolved)
+        report = test(resolved)
+        # The source's own report code, so policed like test_connection.
+        as_obj = getattr(report, "as_obj", None)
+        return _TestedConnection(
+            report=report, rendered=as_obj() if callable(as_obj) else report
+        )
     except PASS_THROUGH:
         raise
     except SystemExit as exc:
@@ -631,19 +648,14 @@ def test_connection(recipe_path: str) -> None:
                     f"source '{source_type}' does not support test-connection",
                     EXIT_USER,
                 )
-            report = _run_test_connection(
+            tested = _run_test_connection(
                 source_cls.test_connection, resolved, source_type
             )
+        report = tested.report
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).
-        # as_obj() first: TestConnectionReport is a Report, not a dict, and
-        # json.dumps handed the whole object to _json_default, which
-        # stringified it -- stdout became one string and basic_connectivity,
-        # the key the exit-3 message points at, was not in the payload.
-        as_obj = getattr(report, "as_obj", None)
-        report_obj = as_obj() if callable(as_obj) else report
-        safe_report = json.loads(json.dumps(report_obj, default=_json_default))
+        safe_report = json.loads(json.dumps(tested.rendered, default=_json_default))
         _emit(scrub_strings(redact(safe_report, secret_values), secret_values))
         # The report was emitted but never consulted, so a FAILED connection
         # test exited 0 -- in a CLI whose whole contract is that the caller

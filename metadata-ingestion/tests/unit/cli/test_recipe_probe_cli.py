@@ -2076,6 +2076,22 @@ def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
 _CRASH_SENTINEL = "PLANTED-crash-text"
 
 
+def _test_connection_of(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, source_cls: type
+) -> Result:
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: source_cls,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", source_cls, raising=False
+    )
+    return CliRunner().invoke(
+        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
+    )
+
+
 def _crashing_test_connection(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, raised: BaseException
 ) -> Result:
@@ -2084,17 +2100,7 @@ def _crashing_test_connection(
         def test_connection(config_dict):
             raise raised
 
-    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
-    monkeypatch.setattr(
-        "datahub.ingestion.source.source_registry.source_registry.get",
-        lambda st: _Crashing,
-    )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Crashing, raising=False
-    )
-    return CliRunner().invoke(
-        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
-    )
+    return _test_connection_of(monkeypatch, tmp_path, _Crashing)
 
 
 class _ConnectorError(Exception):
@@ -2134,6 +2140,31 @@ def test_a_crashed_test_connection_is_named_by_label_on_its_own_exit_code(
     assert _CRASH_SENTINEL not in res.output
     assert json.loads(res.stderr)["error"] == (
         f"source 'postgres' test_connection failed ({label})"
+    )
+
+
+class _UnrenderableReport:
+    def as_obj(self) -> object:
+        raise _ConnectorError(f"report broke on db://u:{_CRASH_SENTINEL}@h")
+
+
+class _ReturnsAnUnrenderableReport:
+    @staticmethod
+    def test_connection(config_dict):
+        return _UnrenderableReport()
+
+
+def test_a_report_that_cannot_render_itself_is_named_by_label(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """as_obj() is the source's own report code, so its crash is labelled
+    like test_connection's."""
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+    res = _test_connection_of(monkeypatch, tmp_path, _ReturnsAnUnrenderableReport)
+    assert res.exit_code == 3, res.output
+    assert _CRASH_SENTINEL not in res.output
+    assert json.loads(res.stderr)["error"] == (
+        "source 'postgres' test_connection failed (_ConnectorError)"
     )
 
 

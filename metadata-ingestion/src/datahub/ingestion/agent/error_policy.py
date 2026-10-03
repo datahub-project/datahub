@@ -184,14 +184,22 @@ def _first(
     return next((code for code in map(read, links) if code), None)
 
 
+# The label of an exception whose class cannot give a plain name.
+_UNNAMED = "exception"
+
+
 def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> str:
     """An untrusted exception's name in place of its text: its class, plus one
     short code from it or its cause chain (`ProgrammingError; SQLSTATE 42P01`),
     which says what kind of failure it was. The provider's reader is tried on
     every link before the generic ones. Never raises.
     """
-    name = type(exc).__name__
+    name = _UNNAMED
     try:
+        # Read in here: a metaclass can make the class name run code. Exactly
+        # str, since a subclass may render as anything.
+        raw = type(exc).__name__
+        name = raw if type(raw) is str else _UNNAMED
         links = _cause_links(exc)
         code = _first(links, lambda link: _provider_code(link, provider_cls))
         code = code or _first(links, generic_error_code)

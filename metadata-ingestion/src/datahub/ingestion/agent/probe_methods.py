@@ -256,10 +256,12 @@ class ProbeProvider(Protocol):
     def __exit__(self, *exc: object) -> None: ...
 
 
-# Every hook the framework reads off a config by name, each through
-# config_hook: the guide's hook reference table, which test_probe_contract
-# checks against this list, as it refuses a `probe_*` config method outside it
-# (or outside the SQL family's list, on a SQLCommonConfig).
+# Every hook the framework reads off a config by name: the guide's hook
+# reference table, which test_probe_contract checks against this list, as it
+# refuses a `probe_*` config method outside it (or outside the SQL family's
+# list, on a SQLCommonConfig). Each is read through config_hook except
+# probe_validation_context, which config_validation reads itself because it
+# imports nothing from agent/.
 CONFIG_HOOKS: FrozenSet[str] = frozenset(
     {
         # _provider_class: the provider class, for `probe methods` and `run`.
