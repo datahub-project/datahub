@@ -103,7 +103,7 @@ The source will automatically detect and use the appropriate method based on you
 - **Storage**: Query Store storage usage depends on retention settings and query volume
 - **Parsing Time**: Scales with query complexity and volume; monitor debug logs for timing
 
-#### Probing a recipe
+#### Probe support
 
 `datahub recipe probe` checks a recipe against the server without running ingestion. For SQL
 Server it offers `databases`, `containers` (schemas), `tables`, `views`, `procedures`, `columns`,
