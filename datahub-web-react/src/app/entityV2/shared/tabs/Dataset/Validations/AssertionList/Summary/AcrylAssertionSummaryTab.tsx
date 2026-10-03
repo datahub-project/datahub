@@ -139,6 +139,7 @@ const AcrylAssertionTypeSummary = ({
         assertions: [],
         summary,
         type: assertionType,
+        customType,
     };
 
     return <AcrylAssertionSummaryCard group={assertionGroup} />;

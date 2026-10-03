@@ -6,7 +6,10 @@ import {
     convertSortFieldToQueryField,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { ASSERTION_DEFAULT_FILTERS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
-import { extractFilterOptionsFromFacets } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import {
+    buildAssertionUrlSearch,
+    extractFilterOptionsFromFacets,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import {
     ASSERTION_CUSTOM_TYPE_FILTER_NAME,
     ASSERTION_FIELD_PATH_FILTER_NAME,
@@ -53,6 +56,7 @@ describe('buildAssertionListFilters', () => {
                 ...ASSERTION_DEFAULT_FILTERS,
                 filterCriteria: {
                     searchText: '',
+                    category: [],
                     status: [AssertionResultType.Failure],
                     type: [AssertionType.Field],
                     source: [AssertionSourceType.Native],
@@ -179,6 +183,54 @@ describe('buildAssertionListFilters', () => {
         ]);
         expect(options.filterGroupOptions.source).toEqual([
             expect.objectContaining({ name: AssertionSourceType.External, count: 1 }),
+        ]);
+    });
+});
+
+describe('custom category navigation', () => {
+    it('preserves an encoded custom category and status in the destination URL', () => {
+        const params = new URLSearchParams(
+            buildAssertionUrlSearch({
+                type: AssertionType.Custom,
+                customType: 'Validity + 100%',
+                status: AssertionResultType.Failure,
+            }),
+        );
+        expect(params.get('assertion_type')).toBe(AssertionType.Custom);
+        expect(params.get('assertion_custom_type')).toBe('Validity + 100%');
+        expect(params.get('assertion_status')).toBe(AssertionResultType.Failure);
+    });
+
+    it('combines the category with the type, column, and status server filters', () => {
+        const filters = buildAssertionListFilters(
+            {
+                ...ASSERTION_DEFAULT_FILTERS,
+                filterCriteria: {
+                    ...ASSERTION_DEFAULT_FILTERS.filterCriteria,
+                    type: [AssertionType.Custom],
+                    category: ['Completeness'],
+                    column: ['col_a'],
+                    status: [AssertionResultType.Failure],
+                },
+            },
+            ['urn:li:dataset:test'],
+        );
+        expect(filters[0].and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ field: ASSERTION_TYPE_FILTER_NAME, values: [AssertionType.Custom] }),
+                expect.objectContaining({ field: ASSERTION_CUSTOM_TYPE_FILTER_NAME, values: ['Completeness'] }),
+                expect.objectContaining({ field: ASSERTION_FIELD_PATH_FILTER_NAME, values: ['col_a'] }),
+                expect.objectContaining({ field: ASSERTION_STATUS_FILTER_NAME, values: ['FAILING'] }),
+            ]),
+        );
+    });
+
+    it('exposes custom category facets as removable category filters', () => {
+        const options = extractFilterOptionsFromFacets([], [
+            { field: ASSERTION_CUSTOM_TYPE_FILTER_NAME, aggregations: [{ value: 'Validity', count: 2 }] },
+        ] as FacetMetadata[]);
+        expect(options.filterGroupOptions.category).toEqual([
+            expect.objectContaining({ name: 'Validity', category: 'category', count: 2, displayName: 'Validity' }),
         ]);
     });
 });

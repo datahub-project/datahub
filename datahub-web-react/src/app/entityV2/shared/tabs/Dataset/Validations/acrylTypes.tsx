@@ -20,4 +20,5 @@ export type AssertionGroup = {
     assertions: Assertion[];
     summary: AssertionStatusSummary;
     type: AssertionType;
+    customType?: string;
 };
