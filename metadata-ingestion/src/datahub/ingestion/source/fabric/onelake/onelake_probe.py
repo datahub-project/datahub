@@ -18,7 +18,7 @@ from datahub.ingestion.agent.provider_helpers import (
     resolve_name,
     take,
 )
-from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -47,12 +47,14 @@ SchemaClientFactory = Callable[[FabricWorkspace, FabricItem], SchemaExtractionCl
 _ITEM_TYPES = ("Lakehouse", "Warehouse")
 
 
-class FabricReadError(Exception):
-    """A Fabric read failed; the message is already scrubbed.
+class FabricReadError(ProbeReadFailed):
+    """A Fabric read failed (exit 3), in a message the probe wrote.
 
-    Not a ValueError: the caller's arguments were fine, so this must not map to
-    "fix your input". run_probe_method sees the matching entry in `failures`
-    and reports a read failure.
+    A trusted type, so its text is shown: that text is built by `_scrubbed`
+    from the operation, the HTTP status and the exception's class only, and
+    must stay that way. Not a ValueError: the caller's arguments were fine.
+    The same message is recorded in `failures`, which run_probe_method reports
+    after it.
     """
 
 
