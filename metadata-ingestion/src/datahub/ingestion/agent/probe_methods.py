@@ -1,3 +1,4 @@
+import functools
 import inspect
 from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
@@ -32,6 +33,7 @@ from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import (
     PASS_THROUGH,
+    call_config_hook,
     classify_foreign,
     foreign_label,
     is_trusted,
@@ -260,8 +262,8 @@ class ProbeProvider(Protocol):
 # reference table, which test_probe_contract checks against this list, as it
 # refuses a `probe_*` config method outside it (or outside the SQL family's
 # list, on a SQLCommonConfig). Each is read through config_hook except
-# probe_validation_context, which config_validation reads itself because it
-# imports nothing from agent/.
+# probe_validation_context, which config_validation reads itself (this module
+# imports it) and calls under the same policy.
 CONFIG_HOOKS: FrozenSet[str] = frozenset(
     {
         # _provider_class: the provider class, for `probe methods` and `run`.
@@ -293,14 +295,17 @@ def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
     """The config's `name` hook, or None where it declares none.
 
     Only a CONFIG_HOOKS name may be read, so that list is what the framework
-    reads; any other is the framework's own defect. The hook itself is
-    called unguarded: one that raises is the connector's defect, and
-    swallowing it would make "declared" read as "not declared".
+    reads; any other is the framework's own defect. The hook is returned
+    behind agent.error_policy.call_config_hook: one that raises is the
+    connector's defect, reported rather than swallowed, since swallowing it
+    would make "declared" read as "not declared".
     """
     if name not in CONFIG_HOOKS:
         raise ProbeInternalError(f"'{name}' is not a config hook the framework reads")
     hook = getattr(config, name, None)
-    return hook if callable(hook) else None
+    if not callable(hook):
+        return None
+    return functools.partial(call_config_hook, config, name, hook)
 
 
 def declared_mapping(config: object, name: str) -> Dict[str, str]:
@@ -372,8 +377,9 @@ class ProbeMethodResult:
         }
 
 
-# Typed Any: @config_class injects get_config_class at runtime, out of mypy's view.
-def config_class_for(source_type: str) -> Any:
+def source_class_for(source_type: str) -> type:
+    """The registered Source class for `source_type`; a name the caller got
+    wrong is a ValueError (exit 2)."""
     # lazy: keeps the configuration module off this module's import path
     from datahub.configuration.common import ConfigurationError
     from datahub.ingestion.source.source_registry import source_registry
@@ -381,7 +387,7 @@ def config_class_for(source_type: str) -> Any:
     # The ValueErrors below quote {exc}: the registry's own message, or the
     # import system's about a path the caller wrote -- never foreign text.
     try:
-        source_cls = source_registry.get(source_type)
+        return source_registry.get(source_type)
     except (KeyError, ConfigurationError) as exc:
         # An unregistered name, or a plugin whose extra is not installed: the
         # caller's to fix (exit 2). Anything else a plugin's module raises is a
@@ -398,7 +404,11 @@ def config_class_for(source_type: str) -> Any:
                 f"unknown or unloadable source type '{source_type}': {exc}"
             ) from exc
         raise
-    get_config_class = getattr(source_cls, "get_config_class", None)
+
+
+# Typed Any: @config_class injects get_config_class at runtime, out of mypy's view.
+def config_class_for(source_type: str) -> Any:
+    get_config_class = getattr(source_class_for(source_type), "get_config_class", None)
     return get_config_class() if get_config_class is not None else None
 
 

@@ -2,17 +2,17 @@ import io
 import json
 import pathlib
 import sys
-from typing import Callable, Dict, FrozenSet, List, Sequence, Set, Tuple
+from typing import Annotated, Callable, Dict, FrozenSet, List, Sequence, Set, Tuple
 
 import click
 import pytest
 from click.testing import CliRunner, Result
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from sqlalchemy import create_engine
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.filter_check import FilterCheckResult, FilterVerdict
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
@@ -2283,9 +2283,12 @@ class _ConnectorAbort(BaseException):
             "_ConnectorError",
         ),
         (ValueError(f"bad host {_CRASH_SENTINEL}"), 2, "ValueError"),
-        (KeyError(f"no key {_CRASH_SENTINEL}"), 2, "KeyError"),
-        (SystemExit(f"fatal: {_CRASH_SENTINEL}"), 1, "SystemExit"),
-        (_ConnectorAbort(f"aborted with {_CRASH_SENTINEL}"), 1, "_ConnectorAbort"),
+        (KeyError(f"no key {_CRASH_SENTINEL}"), 1, "KeyError"),
+        # An exit status carries no text, and is still the source giving up.
+        (SystemExit(0), 3, "SystemExit"),
+        (SystemExit(None), 3, "SystemExit"),
+        (SystemExit(f"fatal: {_CRASH_SENTINEL}"), 3, "SystemExit"),
+        (_ConnectorAbort(f"aborted with {_CRASH_SENTINEL}"), 3, "_ConnectorAbort"),
     ],
 )
 def test_a_crashed_test_connection_is_named_by_label_on_its_own_exit_code(
@@ -2296,12 +2299,36 @@ def test_a_crashed_test_connection_is_named_by_label_on_its_own_exit_code(
     label: str,
 ) -> None:
     """The source's own connect code raised: its text is the source's, and
-    is where a connection string comes from, so it is named by label."""
+    is where a connection string comes from, so it is named by label, on the
+    exit code `probe run` gives the same exception."""
     res = _crashing_test_connection(monkeypatch, tmp_path, raised)
     assert res.exit_code == exit_code, res.output
     assert _CRASH_SENTINEL not in res.output
     assert json.loads(res.stderr)["error"] == (
         f"source 'postgres' test_connection failed ({label})"
+    )
+
+
+class _PortConfig(ConfigModel):
+    port: int
+
+
+def test_a_test_connection_refusing_the_recipe_exits_on_the_bad_argument_code(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """test_connection is handed the recipe's config unvalidated, so a
+    ValidationError it raises is the recipe failing the source's model."""
+    from pydantic import ValidationError
+
+    try:
+        _PortConfig.model_validate({"port": _CRASH_SENTINEL})
+    except ValidationError as exc:
+        raised = exc
+    res = _crashing_test_connection(monkeypatch, tmp_path, raised)
+    assert res.exit_code == 2, res.output
+    assert _CRASH_SENTINEL not in res.output
+    assert json.loads(res.stderr)["error"] == (
+        "source 'postgres' test_connection failed (ValidationError)"
     )
 
 
@@ -2502,3 +2529,195 @@ def test_the_verbose_switch_shows_untrusted_text_scrubbed(
     assert res.exit_code == rc.EXIT_CONNECTION, res.output
     assert "'foreign' failed (RuntimeError): fetcher gave up on https://" in res.stderr
     assert _TRUST_SENTINEL not in res.output
+
+
+_HOOK_SENTINEL = "PLANTED-hook-text"
+
+
+class _UrlCheckingConfig(ConfigModel):
+    uri: str
+
+    @field_validator("uri")
+    @classmethod
+    def _reachable(cls, value: str) -> str:
+        raise ValueError(f"cannot reach {value}")
+
+
+class _UrlCheckingSource:
+    @classmethod
+    def get_config_class(cls) -> type:
+        return _UrlCheckingConfig
+
+
+def test_validate_scrubs_credential_shapes_from_a_validator_message(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """A validator's message is kept, since it is the diagnostic, and may
+    quote a value under a key no hint marks secret: masked by its shape."""
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _UrlCheckingSource,
+    )
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text(
+        "source:\n  type: checking\n  config:\n"
+        f"    uri: http://admin:{_HOOK_SENTINEL}@db.example/x\n"
+    )
+    res = CliRunner().invoke(recipe, ["validate", str(recipe_file)])
+    assert res.exit_code == 0, res.output
+    assert _HOOK_SENTINEL not in res.output
+    errors = json.loads(res.stdout)["errors"]
+    assert any("cannot reach http://***@db.example/x" in e for e in errors), errors
+
+
+def test_the_recipes_secrets_reach_the_masking_registry_for_the_verbose_switch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    _real_cli_logging: click.Command,
+) -> None:
+    """DATAHUB_PROBE_VERBOSE_LOGS turns the log guard off, which leaves the
+    registry's masking of every log handler: a value the recipe resolved, with
+    no credential shape, is masked there only if it was registered."""
+    from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+    from datahub.ingestion.source.sql.postgres.source import PostgresConfig
+
+    class _Source:
+        @classmethod
+        def get_config_class(cls) -> type:
+            return PostgresConfig
+
+        @staticmethod
+        def test_connection(config_dict):
+            import logging
+
+            logging.getLogger("some_driver.session").warning(
+                "session opened for %s", config_dict["username"]
+            )
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True)
+            )
+
+    monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
+    monkeypatch.setenv("PROBE_SESSION_USER", _REGISTERED_SENTINEL)
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Source,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Source, raising=False
+    )
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text(
+        "source:\n  type: postgres\n  config:\n    host_port: h:5432\n"
+        "    username: ${PROBE_SESSION_USER}\n    database: d\n"
+    )
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        ["recipe", "test-connection", "--recipe", str(recipe_file)],
+    )
+    assert res.exit_code == 0, res.output
+    assert "session opened for" in res.stderr
+    assert _REGISTERED_SENTINEL not in res.stderr
+    assert _REGISTERED_SENTINEL not in res.output
+
+
+class _HookFailure:
+    """What a config hook raises, set per test."""
+
+    raised: BaseException = KeyError(f"no rule for {_HOOK_SENTINEL}")
+
+
+class _OverrideRaisingConfig(ConfigModel):
+    table_pattern: Annotated[AllowDenyPattern, Filters("Table")] = (
+        AllowDenyPattern.allow_all()
+    )
+
+    def probe_verdict_override(self, ctx: object) -> None:
+        raise _HookFailure.raised
+
+
+@pytest.mark.parametrize(
+    "raised, exit_code, error",
+    [
+        (
+            KeyError(f"no rule for {_HOOK_SENTINEL}"),
+            1,
+            "the connector is defective: "
+            "_OverrideRaisingConfig.probe_verdict_override failed (KeyError)",
+        ),
+        (
+            TypeError(f"bad ctx {_HOOK_SENTINEL}"),
+            1,
+            "the connector is defective: "
+            "_OverrideRaisingConfig.probe_verdict_override failed (TypeError)",
+        ),
+        (
+            ProbeArgumentError("pass the database as the first --parent"),
+            2,
+            "pass the database as the first --parent",
+        ),
+    ],
+)
+def test_a_config_hook_raising_in_probe_filter_is_policed_like_a_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    raised: BaseException,
+    exit_code: int,
+    error: str,
+) -> None:
+    """A hook is the connector's code: an untrusted exception from it is the
+    connector's defect, named by label; a trusted one keeps its type and text."""
+    from datahub.ingestion.agent import filter_check, probe_methods
+
+    monkeypatch.setattr(_HookFailure, "raised", raised)
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    for module in (filter_check, probe_methods):
+        monkeypatch.setattr(
+            module, "config_class_for", lambda _st: _OverrideRaisingConfig
+        )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--name",
+            "orders",
+        ],
+    )
+    assert res.exit_code == exit_code, res.output
+    assert _HOOK_SENTINEL not in res.output
+    assert json.loads(res.stderr)["error"] == error
+
+
+class _UnfilteredRaisingConfig(ConfigModel):
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        raise KeyError(f"no kinds in {_HOOK_SENTINEL}")
+
+
+class _UnfilteredRaisingSource:
+    @classmethod
+    def get_config_class(cls) -> type:
+        return _UnfilteredRaisingConfig
+
+
+def test_a_config_hook_raising_in_describe_is_the_connectors_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _UnfilteredRaisingSource,
+    )
+    res = CliRunner().invoke(recipe, ["describe", "fake"])
+    assert res.exit_code == 1, res.output
+    assert _HOOK_SENTINEL not in res.output
+    assert json.loads(res.stderr)["error"] == (
+        "the connector is defective: "
+        "_UnfilteredRaisingConfig.probe_unfiltered_kinds failed (KeyError)"
+    )

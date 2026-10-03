@@ -2,9 +2,10 @@
 
 Text is trusted by type only. A framework type (TRUSTED_TYPES, which the SQL
 and API gate refusals subclass) carries a message written for the caller.
-Anything else raised while a provider is opened, called or closed -- reused
-ingestion code, a driver, an SDK, or the provider's own plain ValueError --
-is named by `foreign_label` instead: its class name and at most one short
+Anything else raised while a provider is opened, called or closed, or while a
+config hook runs -- reused ingestion code, a driver, an SDK, or the
+connector's own plain ValueError -- is named by `foreign_label` instead: its
+class name and at most one short
 code, because its text is where connection strings, token-endpoint bodies and
 query literals come from.
 
@@ -31,6 +32,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
 )
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
@@ -42,6 +44,8 @@ from datahub.ingestion.agent.verdicts import (
     ProbeReadFailed,
     ProbeSoftError,
 )
+
+T = TypeVar("T")
 
 TRUSTED_TYPES: Tuple[Type[BaseException], ...] = (
     ProbeArgumentError,
@@ -333,6 +337,30 @@ def withhold_foreign_text(
         "|".join(re.escape(r) for r in sorted(labels, key=len, reverse=True))
     )
     return pattern.sub(lambda match: labels[match.group(0)], message)
+
+
+def call_config_hook(
+    config: object, name: str, hook: Callable[..., T], *args: object, **kwargs: object
+) -> T:
+    """`hook(*args, **kwargs)`, the config's `name` hook, held to a provider
+    call's rule: a trusted exception keeps its type, minus any untrusted text
+    it quotes; anything else raised is the connector's defect (exit 1), named
+    by class, hook and label, never by its text."""
+    try:
+        return hook(*args, **kwargs)
+    except PASS_THROUGH:
+        raise
+    except BaseException as exc:
+        if is_trusted(exc):
+            replacement = police_trusted(exc)
+            if replacement is not None:
+                raise replacement from None
+            raise
+        owner = config if isinstance(config, type) else type(config)
+        raise ProbeInternalError(
+            f"the connector is defective: {owner.__name__}.{name} failed "
+            f"{name_foreign(exc)}"
+        ) from None
 
 
 def police_trusted(

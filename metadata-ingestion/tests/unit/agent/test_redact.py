@@ -301,7 +301,15 @@ def test_a_credential_named_api_key_is_collected_as_a_secret():
     hint the typed registry does not cover them either."""
     from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
 
-    for key in ("api_key", "apikey", "passwd", "aws_access_key_id", "kafka_api_key"):
+    for key in (
+        "api_key",
+        "apikey",
+        "passwd",
+        "aws_access_key_id",
+        "kafka_api_key",
+        "passphrase",
+        "ssh_passphrase",
+    ):
         found = collect_nested_secret_values({key: "the-value"}, SENSITIVE_KEY_HINTS)
         assert found == {"the-value"}, f"{key} was not collected"
 
@@ -445,6 +453,11 @@ def test_a_registered_secret_is_removed_whole_before_structural_passes(
         "x\n-----BEGIN RSA PRIVATE"
         + " KEY-----\nPLANTEDvalue\n-----END RSA PRIVATE KEY-----\ny",
         "-----BEGIN PRIVATE" + " KEY-----\nPLANTEDvalue",
+        # A key as JSON or a log line escapes its newlines.
+        'material="-----BEGIN PRIVATE'
+        + ' KEY-----\\nPLANTEDvalue\\nPLANTEDmore\\n-----END PRIVATE KEY-----"',
+        "passphrase=PLANTEDvalue",
+        "private_key_passphrase: PLANTEDvalue",
     ],
 )
 def test_scrub_text_covers_more_credential_shapes(text: str) -> None:
@@ -485,6 +498,7 @@ def test_scrub_text_stays_linear_on_long_input() -> None:
         "Authorization: Token " * 5000,
         "basic " * 17000,
         "input_value=" * 8000,
+        "-----BEGIN PRIVATE KEY-----" + "\\n" * 50000,
     ):
         scrub_text(text, set())
     # Generous on purpose: this catches catastrophic (quadratic or worse)

@@ -124,7 +124,7 @@ def test_logger_exception_and_stack_info_are_dropped(
     assert "Stack (most recent call last)" not in caplog.text
 
 
-@pytest.mark.parametrize("name", [*FRAMEWORK_LOGGERS, "datahub.cli.recipe_cli"])
+@pytest.mark.parametrize("name", FRAMEWORK_LOGGERS)
 def test_a_framework_record_passes_untouched(
     name: str, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -139,7 +139,17 @@ def test_a_framework_record_passes_untouched(
 
 
 @pytest.mark.parametrize(
-    "name", ["pymysql", "kafka.conn", "some_new_sdk.auth", "datahub.utilities.x"]
+    "name",
+    [
+        "pymysql",
+        "kafka.conn",
+        "some_new_sdk.auth",
+        "datahub.utilities.x",
+        # CLI helpers and telemetry a source reuses log reused text too.
+        "datahub.cli.config_utils",
+        "datahub.telemetry.telemetry",
+        "datahub.entrypoints",
+    ],
 )
 def test_any_other_logger_is_scrubbed_and_loses_its_traceback(
     name: str, caplog: pytest.LogCaptureFixture

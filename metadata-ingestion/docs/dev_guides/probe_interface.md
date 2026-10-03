@@ -178,14 +178,17 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    values (a connector config, a response body) in `silenced_loggers`, a tuple or list of logger
    names: they, and children inheriting their level, are dropped while `probe run` runs
    (`test-connection` builds no provider, so there they are only scrubbed). A framework logger
-   (`datahub.ingestion.agent`, `datahub.cli` and the others in `log_guard.FRAMEWORK_LOGGERS`), a
-   logger under one, an ancestor of one, or root is refused as the provider's defect (exit 1). Never
-   call `setLevel` yourself, and never log responses, URLs or exception text.
+   (`datahub.ingestion.agent`, `datahub.cli.recipe_cli` and `datahub.masking`:
+   `log_guard.FRAMEWORK_LOGGERS`), a logger under one, an ancestor of one, or root is refused as the
+   provider's defect (exit 1). Every other logger is scrubbed, other `datahub.cli` modules and
+   telemetry included. Never call `setLevel` yourself, and never log responses, URLs or exception
+   text.
 8. **`DATAHUB_PROBE_VERBOSE_LOGS=1` is for local debugging only.** It turns the log guard off and puts
    each withheld exception's text after its label, scrubbed of credential shapes (the CLI masks the
    recipe's secrets on top), for `probe run` and for a crashed `test-connection` alike:
    `'tables' failed (HTTPError; HTTP 403): 403 Client Error: Forbidden for url: https://***@host/api`.
-   A crashed `test-connection` is labelled; a failed one, which returns a report, prints the
+   A crashed `test-connection` is labelled, on the exit code `probe run` gives the same exception
+   (a `SystemExit` included, whatever its status); a failed one, which returns a report, prints the
    source's own `failure_reason` text, scrubbed of the recipe's secrets and credential shapes, with
    or without the switch.
 9. **Exit codes are a contract.** 2 for the caller's input, 3 for the source, 1 for a defect. Test
@@ -277,7 +280,8 @@ Every hook the framework reads off a config, by name: `CONFIG_HOOKS` in `agent/p
 are optional except `probe_provider_class`. Copy the signature exactly: instance hooks are called
 with keyword arguments. `test_probe_contract.py` checks the names in this table against
 `CONFIG_HOOKS`, refuses a `probe_*` method the framework does not read, and checks the keyword
-arguments.
+arguments. A hook is held to a provider call's rule: a trusted exception keeps its type and message,
+and anything else it raises is the connector's defect (exit 1), reported by class, hook and label.
 
 | Hook                        | Signature                                                       | Declare it when                                                                     |
 | --------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |

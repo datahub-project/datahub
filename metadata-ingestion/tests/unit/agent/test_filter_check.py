@@ -3,7 +3,11 @@ from typing import Dict, List
 import pytest
 
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
-from datahub.ingestion.agent.verdicts import UNFILTERED, pattern_verdict
+from datahub.ingestion.agent.verdicts import (
+    UNFILTERED,
+    ProbeInternalError,
+    pattern_verdict,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -294,21 +298,9 @@ def test_describe_does_not_advertise_a_field_for_a_kind_declared_unfiltered(
 
 
 def test_a_source_whose_unfiltered_declaration_raises_is_not_read_as_silence():
-    """An indistinguishable empty answer is the bug this hook exists to fix.
-
-    Mode's probe_unfiltered_kinds docstring says why the declaration is
-    there: it is how you tell "this level is reported whole" apart from "the
-    Filters annotation was dropped" -- which is what happened to Teradata's
-    database_pattern, and nothing noticed because the two look identical
-    from outside.
-
-    `except Exception: return set()` turned a broken hook into exactly that
-    indistinguishable silence. pattern_field_for_config would go on to
-    resolve a pattern field by convention and answer by_pattern, contradicting
-    what the connector meant to say, with nothing in the output to show for
-    it. There is no warn channel here to surface it either, so propagating is
-    the only way it can be seen.
-    """
+    """A broken probe_unfiltered_kinds is the connector's defect, reported:
+    read as an empty answer, a field matched by convention would answer
+    by_pattern against what the connector meant to declare."""
     from datahub.ingestion.agent.introspect import pattern_field_for_config
 
     class _BrokenDeclaration:
@@ -316,8 +308,12 @@ def test_a_source_whose_unfiltered_declaration_raises_is_not_read_as_silence():
         def probe_unfiltered_kinds(cls):
             raise RuntimeError("this connector's hook is broken")
 
-    with pytest.raises(RuntimeError, match="hook is broken"):
+    with pytest.raises(ProbeInternalError) as info:
         pattern_field_for_config(_BrokenDeclaration(), "Dataset")
+    assert str(info.value) == (
+        "the connector is defective: _BrokenDeclaration.probe_unfiltered_kinds "
+        "failed (RuntimeError)"
+    )
 
 
 def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
@@ -456,10 +452,8 @@ def test_redshift_ignores_the_parent_and_uses_its_own_database():
 @pytest.mark.parametrize("source_type", ["postgres", "mssql"])
 def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_type):
     """Schema verdicts on sources that inherit SQLCommonConfig's
-    probe_verdict_override rather than overriding it. A hook signature that
-    drifts on the base breaks every such source, and a TypeError there exits
-    2 (it is in recipe_cli._USER_ERRORS), telling the caller their input was
-    wrong about a framework bug.
+    probe_verdict_override rather than overriding it: a hook signature that
+    drifts on the base breaks every such source at once.
     """
     configs: Dict[str, Dict[str, object]] = {
         "postgres": {

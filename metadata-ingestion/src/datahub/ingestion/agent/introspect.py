@@ -38,9 +38,9 @@ from datahub.ingestion.agent.probe_methods import (
     declared_kind_overrides,
     declared_mapping,
     list_probe_methods,
+    source_class_for,
 )
 from datahub.ingestion.agent.verdicts import UNFILTERED
-from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +208,7 @@ def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]
     """collect_secret_field_values for this source's config class. Raises as
     describe_source does for a source type that does not resolve."""
     return collect_secret_field_values(
-        _config_class(source_registry.get(source_type), source_type), config
+        _config_class(source_class_for(source_type), source_type), config
     )
 
 
@@ -485,8 +485,8 @@ def _config_class(source_cls: type, source_type: str) -> Type[ConfigModel]:
 
 
 def describe_source(source_type: str) -> SourceSpec:
-    # Raises KeyError/ConfigurationError on a miss; never returns None.
-    source_cls = source_registry.get(source_type)
+    # A source type that does not resolve is a ValueError; never returns None.
+    source_cls = source_class_for(source_type)
     config_cls = _config_class(source_cls, source_type)
     filter_kinds = _filter_kinds_by_field(source_type, config_cls)
     fields = [

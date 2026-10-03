@@ -2,6 +2,8 @@ from typing import Any, Mapping
 
 import pydantic
 
+from datahub.ingestion.agent.error_policy import call_config_hook
+
 
 def validate_source_config(
     config_cls: Any, source_type: str, config_dict: Mapping[str, object]
@@ -18,11 +20,18 @@ def validate_source_config(
     A validator's own message is kept, since it is the diagnostic a recipe
     author needs ("either password or private_key must be set"); it may
     quote what it rejected, so callers scrub this text against the recipe's
-    secrets and credential shapes, as the CLI does. Imports nothing from
-    agent/.
+    secrets and credential shapes, as the CLI does. The hook is called as
+    probe_methods.config_hook calls the others; it is read here because
+    probe_methods imports this module.
     """
     hook = getattr(config_cls, "probe_validation_context", None)
-    context = hook(source_type=source_type) if callable(hook) else None
+    context = (
+        call_config_hook(
+            config_cls, "probe_validation_context", hook, source_type=source_type
+        )
+        if callable(hook)
+        else None
+    )
     try:
         if context is None:
             # Omitted, so a model_validate taking no context still works.

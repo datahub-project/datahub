@@ -94,6 +94,8 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     # Catalog properties (`s3.access-key-id`, `adls.account-key`) match after
     # normalize_key.
     "account_key",
+    # An encrypted private key's (`private_key_passphrase`, `ssh_passphrase`).
+    "passphrase",
     # Half of an API credential pair.
     "client_id",
     # Not "credential": see _SCALAR_ONLY_KEY_HINTS.
@@ -213,7 +215,7 @@ _URL_USERINFO = re.compile(r"(?<=://)[^/\s]*@")
 # (and keeps the scan linear on long inputs).
 _SECRET_ASSIGNMENT = re.compile(
     r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*?(?:"
-    r"password|passwd|pwd|secret[_-]?(?:access[_-]?)?key|secret|token"
+    r"passphrase|password|passwd|pwd|secret[_-]?(?:access[_-]?)?key|secret|token"
     r"|api[_-]?key|access[_-]?key(?:[_-]?id)?|private[_-]?key|account[_-]?key"
     r"|signature|sig|credential"
     r"))([\"']?(?:\s*[=:]\s*|%3[Dd]))"
@@ -247,10 +249,13 @@ _PREFIXED_TOKEN = re.compile(
     r"|\bgithub_pat_[A-Za-z0-9_]{20,}"
     r"|\bxox[abprs]-[A-Za-z0-9-]{10,}"
 )
-# The body class stops at the first non-base64 character, so an unterminated
-# or truncated key is still masked without a lazy scan to a missing END marker.
+# The body stops at the first character that is neither base64, whitespace nor
+# an escaped newline (a key inside JSON or a log line reads `\n`), so an
+# unterminated or truncated key is still masked without a lazy scan to a
+# missing END marker. The two branches share no character, so the scan stays
+# linear.
 _PEM_BLOCK = re.compile(
-    r"-----BEGIN [A-Z ]*PRIVATE KEY-----[A-Za-z0-9+/=\s]*"
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[A-Za-z0-9+/=\s]|\\+[rn])*"
     r"(?:-----END [A-Z ]*PRIVATE KEY-----)?"
 )
 # pydantic's `input_value='...'` suffix, in text a source builds itself: its

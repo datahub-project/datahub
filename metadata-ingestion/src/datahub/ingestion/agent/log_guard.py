@@ -25,14 +25,13 @@ from datahub.ingestion.agent.redact import scrub_text
 
 # Loggers whose text the framework writes itself, and so may show as logged,
 # tracebacks included. Every other record is reused code -- a source, a
-# driver, an SDK, or a datahub module a provider calls into. Default deny: a
-# library nobody thought to list is still covered.
+# driver, an SDK, or a datahub module a provider calls into, CLI helpers and
+# telemetry included. Default deny: a library nobody thought to list is still
+# covered.
 FRAMEWORK_LOGGERS: Tuple[str, ...] = (
     "datahub.ingestion.agent",
-    "datahub.cli",
+    "datahub.cli.recipe_cli",
     "datahub.masking",
-    "datahub.entrypoints",
-    "datahub.telemetry",
 )
 
 # Above CRITICAL, so a logger at this level makes no record at all.

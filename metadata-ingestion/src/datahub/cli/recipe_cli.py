@@ -27,9 +27,10 @@ from datahub.configuration.config_loader import (
     parse_recipe_envelope,
 )
 from datahub.ingestion.agent.error_policy import (
+    DEFECT_TYPES,
     PASS_THROUGH,
+    classify_foreign,
     is_trusted,
-    name_foreign,
     police_trusted,
 )
 from datahub.ingestion.agent.filter_check import check_filters
@@ -41,6 +42,7 @@ from datahub.ingestion.agent.probe_methods import (
     ProbeMethodResult,
     list_probe_methods,
     run_probe_method,
+    source_class_for,
 )
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
@@ -57,7 +59,6 @@ from datahub.ingestion.agent.secrets import (
     resolve_config_collecting,
 )
 from datahub.ingestion.agent.verdicts import (
-    ProbeArgumentError,
     ProbeConnectionError,
     ProbeInternalError,
 )
@@ -168,19 +169,17 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
 
 # Exceptions that mean "your input was wrong" (EXIT_USER), in one place: every
 # command classifies through _exit_codes, so a clause added here applies to
-# all of them.
+# all of them. Only what the CLI's own checks raise: code a connector supplies
+# (a provider, a config hook, test_connection) is classified by
+# agent.error_policy before it gets here, and a Python defect is EXIT_INTERNAL.
 #
 # The last two are not ValueErrors:
-#   ConfigurationError is MetaError, raised by source_registry.get() when a
-#     plugin extra is not installed -- the most likely first-contact failure,
-#     and its message already carries the `pip install 'acryl-datahub[x]'` hint.
+#   ConfigurationError is MetaError, which a config validator may raise about
+#     the recipe it was given; pydantic wraps only ValueError.
 #   re.error comes from an AllowDenyPattern compiling lazily inside .allowed(),
 #     so a malformed --try-allow is the caller's input, not a crash.
 _USER_ERRORS: Tuple[Type[BaseException], ...] = (
     ValueError,  # SqlScopeError, ApiScopeError, ProbeSoftError all subclass it
-    TypeError,
-    AssertionError,
-    KeyError,
     ConfigurationError,
     re.error,
 )
@@ -219,6 +218,8 @@ def _exit_codes(
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
     except _USER_ERRORS as exc:
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_USER)
+    except DEFECT_TYPES as exc:
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
     except Exception as exc:
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), fallback)
 
@@ -357,7 +358,30 @@ def _load_recipe(path: str) -> Dict[str, object]:
     return loaded
 
 
+def _register_for_masking(secret_values: Set[str]) -> None:
+    """Hand the recipe's secrets to the masking registry, as `ingest` does with
+    what it resolves. The stdout wrapper, logging filter and excepthook the
+    `recipe` group installs mask only what the registry holds, and with
+    DATAHUB_PROBE_VERBOSE_LOGS the log guard is off, so the registry is all
+    that masks reused code's log lines. Named by position: a name is logged
+    when a value cannot be masked, and a value must never be."""
+    SecretRegistry.get_instance().register_secrets_batch(
+        {f"recipe_secret_{i}": v for i, v in enumerate(sorted(secret_values))}
+    )
+
+
 def _resolve_for_probe(
+    recipe: Dict[str, object],
+    stdin_secrets: Optional[Mapping[str, str]] = None,
+) -> Tuple[str, Dict[str, object], Set[str]]:
+    """resolve_probe_recipe for this invocation, its secrets registered for
+    masking before any command can print."""
+    source_type, config, secret_values = _resolved_recipe(recipe, stdin_secrets)
+    _register_for_masking(secret_values)
+    return source_type, config, secret_values
+
+
+def _resolved_recipe(
     recipe: Dict[str, object],
     stdin_secrets: Optional[Mapping[str, str]] = None,
 ) -> Tuple[str, Dict[str, object], Set[str]]:
@@ -394,8 +418,9 @@ def resolve_probe_recipe(
 
     `stdin_secrets` are an envelope's secrets, resolved as though piped in.
     Only these: what an earlier CLI invocation in this process read from
-    stdin is left in _stdin_secrets, and nothing here clears it."""
-    return _resolve_for_probe(recipe, stdin_secrets or {})
+    stdin is left in _stdin_secrets, and nothing here clears it. Registers
+    nothing for masking."""
+    return _resolved_recipe(recipe, stdin_secrets or {})
 
 
 def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
@@ -567,26 +592,25 @@ def recipe_validate(path: str) -> None:
     with _exit_codes(secret_values):
         recipe_doc = _load_recipe(path)
         secret_values.update(_secrets_in_recipe(recipe_doc))
+        _register_for_masking(secret_values)
         # Same resolvers the probe path uses, so `validate -` does not report a
         # ${REF} unresolvable when the caller piped its value in and `probe run`
         # on the identical envelope would accept it.
-        _emit(
-            redact(validate_recipe(recipe_doc, _stdin_aware_resolvers()), secret_values)
-        )
+        report = validate_recipe(recipe_doc, _stdin_aware_resolvers())
+        # The errors quote validators, which may echo what they rejected under
+        # a key no hint marks secret, so they are scrubbed for credential
+        # shapes too. The warnings are this module's own text, whose
+        # `password: ${PASSWORD}` advice a shape scrub would mask.
+        report["errors"] = scrub_strings(report["errors"], secret_values)
+        _emit(redact(report, secret_values))
 
 
 def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
     """What a source's test_connection raising is reported as: by label, never
     by its text (the source's own connect code wrote it), on the exit code
-    the bare exception had here -- 2 for the input-error types, 3 for any
-    other Exception, 1 for a SystemExit carrying text or another
-    BaseException."""
-    message = f"source '{source_type}' test_connection failed {name_foreign(exc)}"
-    if isinstance(exc, _USER_ERRORS):
-        return ProbeArgumentError(message)
-    if isinstance(exc, Exception):
-        return ProbeConnectionError(message)
-    return ProbeInternalError(message)
+    `probe run` gives a provider call's (agent.error_policy.classify_foreign).
+    A SystemExit is the source giving up, whatever its status."""
+    return classify_foreign(exc, f"source '{source_type}' test_connection")
 
 
 @dataclass(frozen=True)
@@ -614,11 +638,6 @@ def _run_test_connection(
         )
     except PASS_THROUGH:
         raise
-    except SystemExit as exc:
-        if exc.code is None or isinstance(exc.code, int):
-            # An exit status alone carries no text.
-            raise
-        raise _test_connection_crash(exc, source_type) from None
     except BaseException as exc:
         if not is_trusted(exc):
             raise _test_connection_crash(exc, source_type) from None
@@ -645,9 +664,8 @@ def test_connection(recipe_path: str) -> None:
             # Lazy import: keeps TestableSource / source_registry out of this
             # module's import-time surface until test-connection is invoked.
             from datahub.ingestion.api.source import TestableSource
-            from datahub.ingestion.source.source_registry import source_registry
 
-            source_cls = source_registry.get(source_type)
+            source_cls = source_class_for(source_type)
             if not issubclass(source_cls, TestableSource):
                 _fail(
                     f"source '{source_type}' does not support test-connection",
