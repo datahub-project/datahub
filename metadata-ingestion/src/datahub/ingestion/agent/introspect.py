@@ -27,6 +27,7 @@ from datahub.configuration.common import (
     Filters,
     Qualifier,
 )
+from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.models import (
     FieldKind,
     FieldSpec,
@@ -194,7 +195,7 @@ def _secrets_in_value(
                 )
         elif issubclass(
             origin, (collections.abc.Sequence, collections.abc.Set)
-        ) and isinstance(value, list):
+        ) and isinstance(value, (list, tuple, set, frozenset)):
             # Every item against every argument: a Tuple[A, B] is read without
             # matching positions.
             for index, item in enumerate(value):
@@ -204,12 +205,60 @@ def _secrets_in_value(
                     )
 
 
+def iter_model_secret_values(model: BaseModel) -> Iterator[Tuple[str, str]]:
+    """(path, value) for every non-empty SecretStr a validated config holds,
+    at any depth: nested models, and lists, tuples, sets and dicts of them.
+    Paths are named as iter_secret_field_values names them, by field name:
+    where a validator renamed a key (pydantic_renamed_field), the new name.
+
+    The validated config, unlike the recipe, holds a value under the field it
+    was renamed into, or one a validator read in (a deploy key file).
+    """
+    return _secrets_in_instance(model, "", 0, frozenset())
+
+
+def _secrets_in_instance(
+    value: object, path: str, depth: int, active: FrozenSet[int]
+) -> Iterator[Tuple[str, str]]:
+    if depth > _MAX_SECRET_DEPTH or id(value) in active:
+        return
+    if isinstance(value, SecretStr):
+        secret = value.get_secret_value()
+        if secret:
+            yield path, secret
+        return
+    children: Iterable[Tuple[str, object]]
+    if isinstance(value, BaseModel):
+        children = (
+            (f"{path}.{name}" if path else name, getattr(value, name, None))
+            for name in type(value).model_fields
+        )
+    elif isinstance(value, dict):
+        children = ((f"{path}[{key}]", item) for key, item in value.items())
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        children = ((f"{path}[{index}]", item) for index, item in enumerate(value))
+    else:
+        return
+    for child_path, child in children:
+        yield from _secrets_in_instance(
+            child, child_path, depth + 1, active | {id(value)}
+        )
+
+
 def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]:
-    """collect_secret_field_values for this source's config class. Raises as
-    describe_source does for a source type that does not resolve."""
-    return collect_secret_field_values(
-        _config_class(source_class_for(source_type), source_type), config
-    )
+    """Every SecretStr value of this recipe's config: the recipe's own, by
+    collect_secret_field_values, and the config's as its source validates it,
+    when it does (iter_model_secret_values). A recipe failing validation is
+    covered by the first. Raises as describe_source does for a source type
+    that does not resolve."""
+    config_cls = _config_class(source_class_for(source_type), source_type)
+    found = collect_secret_field_values(config_cls, config)
+    try:
+        validated = validate_source_config(config_cls, source_type, config)
+    except Exception:
+        # The command validates the config again and reports what is wrong.
+        return found
+    return found | {value for _path, value in iter_model_secret_values(validated)}
 
 
 # The name convention (Schema -> schema_pattern, Topic -> topic_patterns): a

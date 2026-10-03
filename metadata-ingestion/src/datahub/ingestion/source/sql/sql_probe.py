@@ -55,13 +55,17 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     return SQLAlchemySource
 
 
-def view_listing_source(config: "SQLCommonConfig") -> SQLAlchemySource:
-    """This config's Source class, built with __new__ as _identifier_target
-    builds it, carrying the config and a fresh report: what its
-    _get_view_names reads. That is the hook a connector overrides to list
-    view-like objects ingestion judges by view_pattern (PostgresSource adds
-    materialized views), so `probe run views` calls it rather than restating
-    which dialects have them. Its warnings land in the report.
+def config_only_source(config: "SQLCommonConfig") -> SQLAlchemySource:
+    """This config's Source class (_source_class_for), built with __new__,
+    since its __init__ opens connections and emits telemetry. It carries the
+    config and a fresh report, and nothing else: state __init__ sets belongs
+    in a class-level default.
+
+    Both uses read only those two. `probe filter` calls its get_identifier
+    (_identifier_target). `probe run views` calls its _get_view_names, the
+    hook a connector overrides to list what ingestion judges by view_pattern
+    (PostgresSource adds materialized views), and reads that listing's
+    warnings back from the report.
     """
     source_cls = _source_class_for(config)
     shim = source_cls.__new__(source_cls)
@@ -120,12 +124,11 @@ def _identifier_target(ctx: ClassifyContext) -> str:
 
     A declaration wins: probe_filter_target, then a Qualifier field
     (`container.schema.entity`). Which provider a connector brings is never
-    read as one. Otherwise the Source class is built with __new__ (its
-    __init__ opens connections and emits telemetry), so overrides calling
-    super() resolve as on a real instance. It carries the config and nothing
-    else: state __init__ sets belongs in a class-level default, state
-    ingestion sets while walking in probe_filter_target. Without either, the
-    node degrades to its plain fqn with a warning.
+    read as one. Otherwise the connector's get_identifier is called on
+    config_only_source(config), so overrides calling super() resolve as on a
+    real instance; state ingestion sets while walking belongs in
+    probe_filter_target. Without either, the node degrades to its plain fqn
+    with a warning.
     """
     schema = ctx.parent_path[-1] if ctx.parent_path else ""
     # (database, schema) when a Database level is above the container.
@@ -164,9 +167,8 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         target = qualified_table_target(container, schema, ctx.name, ctx.warn)
         if target is not None:
             return target
-    source_cls = _source_class_for(ctx.config)
-    shim = source_cls.__new__(source_cls)
-    shim.config = ctx.config
+    shim = config_only_source(ctx.config)
+    source_cls = type(shim)
     # Outside the try: an AttributeError building the URL is not missing
     # source state.
     inspector = _shim_inspector(ctx.config, database=database)

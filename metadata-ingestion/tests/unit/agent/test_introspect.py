@@ -1,13 +1,15 @@
-from typing import Dict, List, Optional
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import pytest
 from pydantic import Field, SecretStr
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.agent.introspect import (
     _classify,
     collect_secret_field_values,
     describe_source,
+    iter_model_secret_values,
 )
 from datahub.ingestion.agent.models import FieldKind, FieldSpec
 
@@ -120,4 +122,65 @@ def test_secret_fields_are_read_in_lists_of_blocks_and_under_their_alias():
         "top-level-value",
         "first-material",
         "second-material",
+    }
+
+
+class _Keyring(ConfigModel):
+    tokens: Tuple[SecretStr, ...] = ()
+    keys: FrozenSet[SecretStr] = frozenset()
+
+
+def test_the_recipe_walk_reads_tuple_and_set_values():
+    config: Dict[str, object] = {
+        "tokens": ("first-token", "second-token"),
+        "keys": {"only-key"},
+    }
+    assert collect_secret_field_values(_Keyring, config) == {
+        "first-token",
+        "second-token",
+        "only-key",
+    }
+
+
+class _GitBlock(ConfigModel):
+    repo: str
+    deploy_key: Optional[SecretStr] = None
+
+
+class _RenamingConfig(ConfigModel):
+    git_info: Optional[_GitBlock] = None
+    mirrors: Dict[str, _GitBlock] = {}
+    fleet: List[_FleetConfig] = []
+
+    _github_info = pydantic_renamed_field("github_info", "git_info")
+
+
+def test_a_renamed_fields_secret_is_found_only_on_the_validated_config():
+    raw: Dict[str, object] = {"github_info": {"repo": "o/r", "deploy_key": "old-key"}}
+    assert collect_secret_field_values(_RenamingConfig, raw) == set()
+    with pytest.warns(Warning, match="github_info is deprecated"):
+        validated = _RenamingConfig.model_validate(raw)
+    assert list(iter_model_secret_values(validated)) == [
+        ("git_info.deploy_key", "old-key")
+    ]
+
+
+def test_the_validated_walk_reaches_secrets_at_any_depth():
+    validated = _RenamingConfig.model_validate(
+        {
+            "mirrors": {"eu": {"repo": "o/eu", "deploy_key": "mirror-key"}},
+            "fleet": [
+                {
+                    "deploy_key": "fleet-key",
+                    "endpoints": [
+                        {"url": "https://a.example", "signingMaterial": "material"}
+                    ],
+                }
+            ],
+        }
+    )
+    assert dict(iter_model_secret_values(validated)) == {
+        "mirrors[eu].deploy_key": "mirror-key",
+        "fleet[0].deploy_key": "fleet-key",
+        "fleet[0].endpoints[0].signing_material": "material",
     }

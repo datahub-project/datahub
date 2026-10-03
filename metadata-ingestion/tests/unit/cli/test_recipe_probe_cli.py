@@ -1188,6 +1188,16 @@ def _probe_secrets(recipe_doc: Dict[str, object]) -> Set[str]:
         ),
         ("odcs", {"git_info": {"repo": "o/r", "deploy_key": _NESTED_SENTINEL}}),
         ("sqlmesh", {"git_info": {"repo": "o/r", "deploy_key": _NESTED_SENTINEL}}),
+        # The deprecated name pydantic_renamed_field moves to git_info: only
+        # the validated config holds it under a SecretStr field.
+        (
+            "lookml",
+            {
+                "github_info": {"repo": "o/r", "deploy_key": _NESTED_SENTINEL},
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+            },
+        ),
     ],
 )
 def test_an_inline_secret_in_a_nested_config_block_is_collected(
@@ -2720,4 +2730,25 @@ def test_a_config_hook_raising_in_describe_is_the_connectors_defect(
     assert json.loads(res.stderr)["error"] == (
         "the connector is defective: "
         "_UnfilteredRaisingConfig.probe_unfiltered_kinds failed (KeyError)"
+    )
+
+
+def test_a_renamed_fields_secret_is_registered_before_a_command_prints(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The registry learns it when the CLI collects the recipe's secrets,
+    before any command runs, not only when the source validates later."""
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    _require_connector("lookml")
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text(
+        "source:\n  type: lookml\n  config:\n"
+        "    project_name: p\n    connection_to_platform_map: {c: postgres}\n"
+        f"    github_info: {{repo: o/r, deploy_key: {_NESTED_SENTINEL}}}\n"
+    )
+    _t, _c, secret_values = rc._resolve_for_probe(rc._load_recipe(str(recipe_file)))
+    assert _NESTED_SENTINEL in secret_values
+    assert _NESTED_SENTINEL not in SecretMaskingFilter().mask_text(
+        f"clone refused key {_NESTED_SENTINEL}"
     )

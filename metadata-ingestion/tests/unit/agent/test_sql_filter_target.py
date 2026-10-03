@@ -826,3 +826,28 @@ def test_sql_server_says_when_the_table_target_lacks_its_database(
     )
     assert result.results[0].target == target
     assert (_NO_DATABASE_WARNING in result.warnings) is warned, result.warnings
+
+
+class _ReportReadingConfig(_UrlConfig):
+    pass
+
+
+class _ReportReadingSource(SQLAlchemySource):
+    """A get_identifier that reads the report, as the view listing does: both
+    run on the one config-only Source."""
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        assert self.report is not None
+        return f"{schema}.{entity}.checked"
+
+
+def test_the_identifier_source_carries_the_report_the_view_listing_reads() -> None:
+    warn = _WarningCollector()
+    config = _ReportReadingConfig.model_validate({})
+    assert sql_probe_module.config_only_source(config).report is not None
+    assert _identifier_target(_ctx(config, "public", "orders", warn=warn)) == (
+        "public.orders.checked"
+    )
+    assert warn.messages == []

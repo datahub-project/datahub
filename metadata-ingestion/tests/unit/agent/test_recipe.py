@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List
 
 import pytest
@@ -444,3 +445,51 @@ def test_a_referenced_secret_in_a_nested_config_block_is_not_reported() -> None:
         }
     )
     assert not any("git_info.deploy_key" in w for w in _warnings_of(result))
+
+
+def test_a_plaintext_secret_under_a_renamed_field_is_reported() -> None:
+    """github_info is renamed into git_info by validation, so only the
+    validated config holds its deploy_key under a SecretStr field."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "github_info": _git_info(_PLAINTEXT),
+                    "connection_to_platform_map": {"c": "postgres"},
+                    "project_name": "p",
+                },
+            }
+        }
+    )
+    found = _warnings_of(result)
+    assert any(
+        "'git_info.deploy_key' contains a plaintext secret" in w for w in found
+    ), found
+    assert not any(_PLAINTEXT in w for w in found)
+
+
+def test_each_suggested_environment_variable_is_named_once() -> None:
+    """Two dependency keys can spell one variable name; one variable bound to
+    two different deploy keys would hand one of them the wrong key."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "project_dependencies": {
+                        "foo.bar": _git_info(_PLAINTEXT + "-one"),
+                        "foo-bar": _git_info(_PLAINTEXT + "-two"),
+                    },
+                    "connection_to_platform_map": {"c": "postgres"},
+                    "project_name": "p",
+                    "base_folder": "/tmp",
+                },
+            }
+        }
+    )
+    exports = re.findall(r"export (\w+)=", " ".join(_warnings_of(result)))
+    assert len(exports) == 2, _warnings_of(result)
+    assert len(set(exports)) == 2, exports

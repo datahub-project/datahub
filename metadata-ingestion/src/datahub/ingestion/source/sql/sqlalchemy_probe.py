@@ -55,7 +55,7 @@ from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
 )
 from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
-from datahub.ingestion.source.sql.sql_probe import view_listing_source
+from datahub.ingestion.source.sql.sql_probe import config_only_source
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -195,7 +195,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     _declared_sqlglot_dialect: Optional[str] = None
 
     # The connector's own Source, set in for_config (see
-    # sql_probe.view_listing_source): `views` returns its _get_view_names.
+    # sql_probe.config_only_source): `views` returns its _get_view_names.
     # None lists get_view_names alone.
     _view_source: Optional["SQLAlchemySource"] = None
 
@@ -339,7 +339,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         )
         probe.pinned_containers = _pinned_containers(config, probe.container_kind)
         probe.container_normalizer = staticmethod(_container_normalizer(config))  # type: ignore[assignment]
-        probe._view_source = view_listing_source(config)
+        probe._view_source = config_only_source(config)
         return probe
 
     def __exit__(self, *exc: object) -> None:
