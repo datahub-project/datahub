@@ -57,6 +57,15 @@ class EventSource(Closeable, metaclass=ABCMeta):
         Acknowledges the processing of an individual event by the Actions Framework
         """
 
+    def dead_letter(self, event: EventEnvelope, error: BaseException) -> bool:
+        """
+        Durably records an event that failed processing, so the pipeline can ack and
+        skip it without losing it. Returns False when the source has no dead-letter
+        destination. Raises if the write fails; the pipeline then stops without
+        acknowledging the event.
+        """
+        return False
+
     def set_filters(self, filters: List["Filter"]) -> None:
         """
         Called by the pipeline after filters are built. Sources may override this
