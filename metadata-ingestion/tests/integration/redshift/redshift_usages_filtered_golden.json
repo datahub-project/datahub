@@ -13,7 +13,8 @@
             },
             "actor": "urn:li:corpuser:test-name",
             "operationType": "INSERT",
-            "lastUpdatedTimestamp": 1631664000000
+            "lastUpdatedTimestamp": 1631664000000,
+            "messageId": "293100-insert"
         }
     }
 },
