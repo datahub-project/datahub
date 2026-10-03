@@ -94,7 +94,7 @@ def test_a_query_with_no_ceiling_on_this_connection_says_so():
     provider.query_budget = QueryBudget(timeout_seconds=None)
     provider.sql(CATALOG_QUERY)
     assert len(provider.warnings) == 1
-    assert "no server-side ceiling" in provider.warnings[0]
+    assert "no time limit is guaranteed" in provider.warnings[0]
 
 
 def test_a_bounded_query_adds_no_warning():

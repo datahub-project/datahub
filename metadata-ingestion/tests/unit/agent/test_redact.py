@@ -298,7 +298,9 @@ def test_a_credential_named_api_key_is_collected_as_a_secret():
     """Five connectors carry a credential under a key the original hints
     missed, none SecretStr-typed -- elasticsearch's api_key, and
     aws_access_key_id on dynamodb/glue/quicksight/sagemaker -- so without the
-    hint the typed registry does not cover them either."""
+    hint the typed registry does not cover them either. An encrypted private
+    key's passphrase (`passphrase`, `ssh_passphrase`) is collected the same
+    way."""
     from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
 
     for key in (

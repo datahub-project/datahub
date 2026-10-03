@@ -462,7 +462,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             warn(
                 "this recipe sets no `database`, so ingestion qualifies each "
                 "table with the database it was found in; pass that database "
-                "as the first --parent -- judged on 'schema.table' instead"
+                "as the first --parent, or the name is judged on 'schema.table', "
+                "which ingestion never matches"
             )
         source = SQLServerSource.__new__(SQLServerSource)
         source.config = self

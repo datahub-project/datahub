@@ -106,9 +106,11 @@ class SqlCatalogPassthrough(ProbeProviderBase):
         if self.query_budget.timeout_seconds is None and (
             self.query_budget.max_bytes_billed is None
         ):
+            # Not "no ceiling": MySQL and MariaDB get a best-effort one the
+            # budget does not claim, since it may not be in force.
             self._warn(
-                "no server-side ceiling applies to `sql` on this connection, so "
-                "a slow catalog query runs until the server finishes it"
+                "no time limit is guaranteed for `sql` on this connection, so "
+                "a slow catalog query may run until the server finishes it"
             )
         # One past the limit, so truncation is observed.
         fetched = self.execute_catalog_query(query, limit + 1)

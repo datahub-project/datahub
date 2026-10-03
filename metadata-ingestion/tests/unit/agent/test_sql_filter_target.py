@@ -785,8 +785,8 @@ def test_a_database_verdict_is_not_reported_as_degraded():
 
 _NO_DATABASE_WARNING = (
     "this recipe sets no `database`, so ingestion qualifies each table with "
-    "the database it was found in; pass that database as the first --parent "
-    "-- judged on 'schema.table' instead"
+    "the database it was found in; pass that database as the first --parent, "
+    "or the name is judged on 'schema.table', which ingestion never matches"
 )
 
 

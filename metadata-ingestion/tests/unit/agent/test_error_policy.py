@@ -406,7 +406,7 @@ def _raised_by(call: Callable[[], object]) -> BaseException:
         (lambda: io.StringIO().fileno(), "UnsupportedOperation"),
     ],
 )
-def test_a_value_error_reading_what_the_source_sent_is_the_sources(
+def test_a_value_error_reading_what_the_source_sent_is_a_connection_error(
     call: Callable[[], object], label: str
 ) -> None:
     exc = _raised_by(call)
