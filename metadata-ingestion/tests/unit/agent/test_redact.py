@@ -467,6 +467,25 @@ def test_scrub_text_covers_more_credential_shapes(text: str) -> None:
     assert "***" in out
 
 
+@pytest.mark.parametrize(
+    "text, masked",
+    [
+        ("passphrase=PLANTED horse battery staple", "passphrase=***"),
+        (
+            "private_key_passphrase: PLANTED horse battery\nnext: x",
+            "private_key_passphrase: ***\nnext: x",
+        ),
+        # The next `name=` pair on the line ends it.
+        ("passphrase=PLANTED horse user=bob", "passphrase=*** user=bob"),
+        ("PASSPHRASE=PLANTED horse;UID=bob", "PASSPHRASE=***;UID=bob"),
+    ],
+)
+def test_scrub_text_masks_an_unquoted_passphrase_of_several_words(
+    text: str, masked: str
+) -> None:
+    assert scrub_text(text, set()) == masked
+
+
 def test_scrub_text_masks_userinfo_up_to_the_last_at_sign() -> None:
     assert scrub_text("http://u:p@ss@h/x", set()) == "http://***@h/x"
 
@@ -495,18 +514,39 @@ def test_scrub_text_masks_a_password_holding_a_slash(text: str, masked: str) -> 
             '{"url":"postgresql://svc:' + 'pw@db.example/x","owner":"ann@example.com"}',
             '{"url":"postgresql://***@db.example/x","owner":"ann@example.com"}',
         ),
+        # A userinfo with no password, and a URL with no path after it.
+        (
+            '{"url":"postgresql://svc@db.example","owner":"ann@example.com"}',
+            '{"url":"postgresql://***@db.example","owner":"ann@example.com"}',
+        ),
         ("'mysql://u:" + "p/q@h/db'", "'mysql://***@h/db'"),
         ("`mysql://u:" + "p/q@h/db`", "`mysql://***@h/db`"),
+        (
+            "{'url': 'mysql://u:" + "p/q', 'owner': 'ann@example.com'}",
+            "{'url': 'mysql://u:" + "p/q', 'owner': 'ann@example.com'}",
+        ),
     ],
 )
-def test_scrub_text_keeps_a_url_password_match_inside_its_quotes(
+def test_scrub_text_keeps_a_url_userinfo_match_inside_its_quotes(
     text: str, masked: str
 ) -> None:
     assert scrub_text(text, set()) == masked
 
 
-def test_scrub_text_still_masks_a_password_holding_a_quote() -> None:
-    text = "postgresql://svc:" + 'pa"ss@db.example/x'
+@pytest.mark.parametrize(
+    "text",
+    [
+        "postgresql://svc:" + 'pa"ss@db.example/x',
+        # A quote and a slash: neither stops the match.
+        "postgresql://svc:" + 'pa"s/s@db.example/x',
+        "postgresql://svc:" + "p'a\"s/s@db.example/x",
+        # A quote before a delimiter is the password's while an `@` follows it
+        # before the next quote.
+        "postgresql://svc:" + 'pa",s/s@db.example/x',
+        "postgresql://s'vc:" + "pa/ss@db.example/x",
+    ],
+)
+def test_scrub_text_masks_a_password_holding_a_quote(text: str) -> None:
     assert scrub_text(text, set()) == "postgresql://***@db.example/x"
 
 
@@ -567,6 +607,8 @@ def test_scrub_text_masks_a_truncated_legacy_encrypted_pem() -> None:
         "access_key: field required",
         "Bearer token required",
         "token: expired",
+        "passphrase: required",
+        "Passphrase must be set for an encrypted private key",
     ],
 )
 def test_scrub_text_keeps_diagnostic_words_after_a_secret_keyword(text: str) -> None:
@@ -583,6 +625,13 @@ def test_scrub_text_stays_linear_on_long_input() -> None:
         "x://" * 25000,
         "http://u:p/" * 10000,
         'x://u:"' * 15000,
+        'x://u:",' * 12000,
+        'x://u:"a' * 12000,
+        'x://u:",' + "a" * 100000,
+        "passphrase=a" + " b" * 50000,
+        "passphrase=a " + "b" * 100000,
+        "passphrase=a" + " b=" * 30000,
+        "passphrase " * 10000,
         "pwd={" * 20000,
         "PWD={" + "a" * 100000,
         "eyJaaaaa." * 11000,

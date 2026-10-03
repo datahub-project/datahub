@@ -209,14 +209,22 @@ def normalize_key(key: object) -> str:
 
 # Shapes that carry a secret whatever its value: an ADC or IAM-role recipe
 # registers no values to match. Userinfo runs to the last `@` of the authority,
-# or, after a `user:`, to the last `@` before whitespace, a quote or the next
-# `://`: a driver echoes a password unencoded, `/` and `@` included. The `:`
-# keeps a plain path's `@` (`https://host/u/x@y`) out; a path `@` after a port
-# (`http://host:8080/u/x@y`) is over-masked, the safe side. Stopping at a quote
-# keeps the next JSON field out, and a password holding one is still masked by
-# the second branch. Stopping at `://` keeps the scan linear.
+# or, after a `user:`, to the last `@` before whitespace, a closing quote or
+# the next `://`: a driver echoes a password unencoded, `/` and `@` included.
+# The `:` keeps a plain path's `@` (`https://host/u/x@y`) out; a path `@` after
+# a port (`http://host:8080/u/x@y`) is over-masked, the safe side. Stopping at
+# `://` keeps the scan linear.
+#
+# A quote is the password's unless it closes a quoted field: followed by
+# whitespace or a delimiter, with no `@` before the next quote. That keeps the
+# next JSON field (`","owner":"ann@example.com"`) out of the match.
+_USERINFO_QUOTE = r"[\"'`](?:(?![\s,:;}\])>])|(?=[^\s\"'`]*@))"
 _URL_USERINFO = re.compile(
-    r"(?<=://)(?:[^/\s:@\"'`]*:(?:[^\s:\"'`]|:(?!//))*@|[^/\s]*@)"
+    r"(?<=://)(?:"
+    rf"(?:[^/\s:@\"'`]|{_USERINFO_QUOTE})*:"
+    rf"(?:[^\s:\"'`]|:(?!//)|{_USERINFO_QUOTE})*@"
+    rf"|(?:[^/\s\"'`]|{_USERINFO_QUOTE})*@"
+    r")"
 )
 # The optional key prefix lets `client_secret`, `auth_token` and camelCase
 # `secretKey` match, while the lookbehind keeps it from starting mid-word
@@ -231,6 +239,15 @@ _SECRET_ASSIGNMENT = re.compile(
     # closing brace. `{` is excluded inside it so an unterminated brace stops
     # at the next one instead of rescanning the rest of the input.
     r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\{[^{}\n]*\}|[^\s&;,]+)"
+)
+# A passphrase is usually several words, so unquoted it runs to the end of the
+# line or to the next `name=` pair, where any other secret stops at whitespace.
+# Prose after `passphrase:` is masked with it, the safe side. Quoted and braced
+# values are _SECRET_ASSIGNMENT's. The lookahead reads only the word after a
+# separator, so the scan stays linear.
+_PASSPHRASE_ASSIGNMENT = re.compile(
+    r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*?passphrase)([\"']?[ \t]*[=:][ \t]*)"
+    r"([^\s\"'{](?:(?![ \t&;,][A-Za-z_][A-Za-z0-9_.-]*=)[^\r\n])*)"
 )
 _BEARER = re.compile(r"(?i)\b(bearer)\s+([A-Za-z0-9._~+/=-]+)")
 # The keyword alone is case-insensitive; the token must look like base64 --
@@ -330,6 +347,7 @@ def scrub_text(text: str, secret_values: Set[str]) -> str:
     out = _PYDANTIC_INPUT_UNTERMINATED.sub(r"\1" + MASK, out)
     out = _PEM_BLOCK.sub(MASK, out)
     out = _URL_USERINFO.sub(MASK + "@", out)
+    out = _PASSPHRASE_ASSIGNMENT.sub(_mask_assignment, out)
     out = _SECRET_ASSIGNMENT.sub(_mask_assignment, out)
     out = _BEARER.sub(_mask_scheme, out)
     out = _BASIC.sub(_mask_scheme, out)
