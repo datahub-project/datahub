@@ -11,8 +11,8 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link NonBlockingSystemUpgrade} upgrade job that populates the fieldPath field on all
- * FieldAssertionInfo aspects.
+ * A {@link NonBlockingSystemUpgrade} upgrade job that populates the shared column paths on all
+ * AssertionInfo aspects.
  */
 @Slf4j
 public class GenerateAssertionFieldPath implements NonBlockingSystemUpgrade {

@@ -1693,11 +1693,8 @@ systemUpdate:
     delayMs: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_DELAY_MS:0}
     limit: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_LIMIT:0}
   assertionFieldPath:
-    # Pre-v1.0.0 backfill (dead migration); AbstractMCPStep marker "assertion-field-path-v1" already
-    # written on any deploy that passed through v1.0.0. Env override kept for emergency reprocess.
-    # NOTE: bumping the step id (…-v2) yields a fresh marker so the step would re-run — flip this
-    # default back to true in the same change, or the new version silently never runs.
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:false}
+    # Populate the shared assertion column projection once per assertion-field-path-v2 marker.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_LIMIT:0}
