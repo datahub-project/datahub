@@ -126,7 +126,7 @@ def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
 
 def test_max_queries_to_combine_default_matches_combiner_constant() -> None:
     # Same drift guard as above: the config duplicates the literal.
-    assert GEProfilingConfig().max_queries_to_combine == MAX_QUERIES_TO_COMBINE_AT_ONCE
+    assert ProfilingConfig().max_queries_to_combine == MAX_QUERIES_TO_COMBINE_AT_ONCE
 
 
 def test_flatten_is_off_by_default() -> None:

@@ -1533,20 +1533,14 @@ class TestSampledPartitionSpec:
         profile = DatasetProfileClass(timestampMillis=0, partitionSpec=spec)
         context = ProfilingContext(pretty_name="t", table="t", is_sampled=True)
 
-        runner = MagicMock()
         row_count = MagicMock()
         row_count.result.return_value = 997
-        runner.batch.return_value.__enter__.return_value.get_row_count.return_value = (
-            row_count
-        )
 
-        measured = profiler._profile_row_count(
-            runner=runner,
-            sql_table=MagicMock(),
+        measured = profiler._extract_row_count(
+            row_count_future=row_count,
             profile=profile,
             context=context,
             pretty_name="t",
-            adapter=MagicMock(),
         )
 
         assert measured == 997

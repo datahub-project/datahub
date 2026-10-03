@@ -380,11 +380,12 @@ class TestResultExtraction:
     def test_duplicate_labels_fallback_then_ambiguous_at_consumption(
         self, engine, test_table
     ):
-        # Two columns labeled 'v' in one query: the statement itself is valid
-        # and runs, but mapping its row back by column name collides, so the
-        # combiner falls back to serial execution. Serial execution succeeds at
-        # the DB level and stores a real CursorResult; the ambiguity then
-        # surfaces at consumption (row['v']), not at flush().
+        # Two columns labeled 'v' in one query make the wrapper fail to compile
+        # (SQLAlchemy raises while populating the subquery's column collection,
+        # before combined_queries_issued is incremented), so the combiner falls
+        # back to serial execution. Serial execution succeeds at the DB level
+        # and stores a real CursorResult; the ambiguity then surfaces at
+        # consumption (row['v']), not at flush().
         query = sa.select(
             sa.func.min(test_table.c.value).label("v"),
             sa.func.max(test_table.c.value).label("v"),
@@ -393,7 +394,7 @@ class TestResultExtraction:
         with engine.connect() as conn, combiner.activate() as qc:
             cap = _schedule(qc, conn, query)
             qc.flush()  # NOT in pytest.raises: flush() succeeds (fallback)
-            assert combiner.report.combined_queries_issued == 1
+            assert combiner.report.combined_queries_issued == 0
             assert combiner.report.uncombined_queries_issued == 1
             assert combiner.report.query_exceptions == 1
             assert combiner.report.total_queries == 1

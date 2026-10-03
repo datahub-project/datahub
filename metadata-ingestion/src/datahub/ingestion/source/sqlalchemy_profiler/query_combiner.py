@@ -554,21 +554,25 @@ class SQLAlchemyQueryCombiner:
         # each query into its own CTE, (2) selecting all the columns we need
         # and (3) extracting the results once the query finishes.
 
+        # Columns to read each query's results back from, by queue key. Taken
+        # from a CTE or subquery rather than the original query because on SA
+        # 2.0 the original may hold unlabeled BindParameters with no .name;
+        # wrapping always yields stable string names, in the same order.
         if len(pending_queue) == 1:
             # Nothing to cross-join, and a one-member CTE only makes the server
-            # materialize the query. Issue it as written; the extraction below
-            # reads columns in the same order either way.
+            # materialize the query. Issue it as written.
+            key = next(iter(pending_queue))
             combined_query = queue_item.query
+            cols_by_key = {key: list(get_query_columns(queue_item.query.subquery()))}
         else:
             ctes = {
                 k: query_future.query.cte(k)
                 for k, query_future in pending_queue.items()
             }
+            cols_by_key = {k: list(get_query_columns(cte)) for k, cte in ctes.items()}
 
             combined_cols = list(
-                itertools.chain.from_iterable(
-                    get_query_columns(cte) for cte in ctes.values()
-                )
+                itertools.chain.from_iterable(cols_by_key[k] for k in ctes)
             )
             # SA 2.0 removed the list form of select() and Select.append_from().
             combined_query = sqlalchemy.select(*combined_cols)
@@ -593,15 +597,11 @@ class SQLAlchemyQueryCombiner:
         assert len(results) == 1
         row = results[0]
 
-        # Extract the results into a result for each query. Use the CTE's
-        # columns (not the original query's) because the combined select was
-        # built from them, and on SA 2.0 the original query may contain
-        # unlabeled BindParameters without a .name. CTE columns always have
-        # stable string names.
+        # Extract the results into a result for each query.
         index = 0
         for k, query_future in pending_queue.items():
             data = {}
-            for col in get_query_columns(ctes[k]):
+            for col in cols_by_key[k]:
                 data[col.name] = row[index]
                 index += 1
 
