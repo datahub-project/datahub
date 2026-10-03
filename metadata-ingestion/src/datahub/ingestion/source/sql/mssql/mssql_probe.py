@@ -16,6 +16,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
+from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import (
     SqlAlchemyMetadataProbe,
@@ -86,7 +87,9 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         self._database_engines: Dict[str, Engine] = {}
         self._database_inspectors: Dict[str, Inspector] = {}
         self._known_databases: Optional[List[str]] = None
-        self.warnings: List[str] = []
+        # From the config the constructor is given, so a provider built
+        # without for_config still parses `sql` as T-SQL.
+        self.sql_dialect = config.probe_sqlglot_dialect()
 
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlServerMetadataProbe":
@@ -94,9 +97,9 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             raise TypeError(
                 f"{cls.__name__} needs a SQLServerConfig, got {type(config).__name__}"
             )
-        url = config.probe_sql_alchemy_url()
-        probe = cls(build_probe_engine(config, url, cls.query_budget), config)
-        probe.prime_from_config(config, url)
+        settings = config.probe_engine_settings(cls.query_budget)
+        probe = cls(build_probe_engine(config, probe_url(config), settings), config)
+        probe.prime_from_config(config, settings)
         return probe
 
     def __exit__(self, *exc: object) -> None:
@@ -107,16 +110,6 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             self._database_engines.clear()
             self._database_inspectors.clear()
             super().__exit__(*exc)
-
-    @property
-    def sql_dialect(self) -> str:
-        # sqlglot's name for T-SQL, pinned rather than resolved through the
-        # "mssql" platform alias so the grammar cannot change under the gate.
-        return "tsql"
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         # On the driver's cursor with no parameters at all. SQLAlchemy's
@@ -146,7 +139,8 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         url = self._config.get_sql_alchemy_url(
             current_db=name, is_odbc=self._config.uses_odbc()
         )
-        return build_probe_engine(self._config, url, type(self).query_budget)
+        settings = self._config.probe_engine_settings(type(self).query_budget)
+        return build_probe_engine(self._config, url, settings)
 
     # -- resolution --
 

@@ -2,13 +2,16 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
+from datahub.ingestion.agent.error_policy import sqlstate_code
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import echoed
+from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
     PROBE_QUERY_LABEL,
     CatalogRows,
     SqlCatalogPassthrough,
 )
-from datahub.ingestion.agent.verdicts import ProbeInternalError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeInternalError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -69,10 +72,59 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
 
     sql_dialect = "redshift"
 
+    # What `sql` may read. pg_catalog is named relation by relation, NOT
+    # allowed at schema level, because Redshift keeps executed SQL in that
+    # schema: stl_query (querytxt), stl_querytext (text) and svl_statementtext
+    # (text) sit right beside the svv_* metadata views. A schema-level allow
+    # would also make any relation listed under it dead: permits_path
+    # short-circuits on the schema.
+    #
+    # The list is derived from redshift/query.py: every catalog relation
+    # ingestion reads for schema shape belongs here, so the probe can see
+    # what the recipe will see (list_databases reads pg_database, say).
+    #
+    # Deliberately absent, and the reason each is:
+    #   stl_query, stl_querytext, svl_statementtext -- executed SQL, which
+    #     carries literal values out of users' queries.
+    #   pg_user, pg_user_info, svv_user_info, svl_user_info -- user names
+    #     rather than schema shape.
+    #   stl_insert/delete/scan/load_commits/unload_log,
+    #     svl_query_metrics_summary -- operational history feeding lineage
+    #     and usage, not shape a probe needs to report.
+    catalog_scope = CatalogScope(
+        schemas=frozenset({INFORMATION_SCHEMA}),
+        relations=frozenset(
+            {
+                # svv_* metadata views
+                "pg_catalog.svv_table_info",
+                "pg_catalog.svv_all_schemas",
+                "pg_catalog.svv_external_schemas",
+                "pg_catalog.svv_external_tables",
+                "pg_catalog.svv_external_columns",
+                "pg_catalog.svv_redshift_databases",
+                "pg_catalog.svv_redshift_schemas",
+                "pg_catalog.svv_redshift_tables",
+                "pg_catalog.svv_redshift_columns",
+                "pg_catalog.svv_datashares",
+                "pg_catalog.svv_mv_info",
+                "pg_catalog.stv_mv_info",
+                # Postgres-inherited catalog: names, columns, comments and
+                # dependencies. No statement text in any of these.
+                "pg_catalog.pg_database",
+                "pg_catalog.pg_class",
+                "pg_catalog.pg_class_info",
+                "pg_catalog.pg_namespace",
+                "pg_catalog.pg_attribute",
+                "pg_catalog.pg_attrdef",
+                "pg_catalog.pg_depend",
+                "pg_catalog.pg_description",
+            }
+        ),
+    )
+
     def __init__(self, connection: Any, config: RedshiftConfig) -> None:
         self._connection = connection
         self._config = config
-        self.warnings: List[str] = []
         self._shared: Optional[bool] = None
         self._all_relations: Optional[List[_Relation]] = None
         self._schema_listing: Optional[List["RedshiftSchema"]] = None
@@ -83,12 +135,12 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         # none of which `probe methods` or `probe filter` should pay for --
         # both import this module through RedshiftConfig.probe_provider_class
         from datahub.ingestion.source.redshift.redshift import RedshiftSource
-        from datahub.ingestion.source.sql.sql_probe import (
+        from datahub.ingestion.source.sql.protocol_probe_settings import (
             set_redshift_statement_timeout,
         )
 
-        # The label defers to the recipe, as engine_options does for the
-        # SQLAlchemy family: a recipe that names its connection has said what
+        # The label defers to the recipe, as probe_label_connect_arg does for
+        # the SQLAlchemy family: a recipe that names its connection has said what
         # it wants it called. Everything else in extra_client_options (IAM,
         # sslmode, cluster_identifier) is passed through untouched, which is
         # the point of going through the ingestion builder. A copy, so the
@@ -111,16 +163,22 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         except Exception:
             connection.close()
             raise
-        probe = cls(connection, config)
-        # Instance-level, not a class attribute: the scope is declared on
-        # RedshiftConfig (test_catalog_scopes reads it there), and declaring it
-        # on this class too would make that declaration dead --
-        # test_no_config_declares_a_catalog_scope_its_provider_overrides.
-        probe.catalog_scope = config.probe_catalog_scope()
-        return probe
+        return cls(connection, config)
 
     def __exit__(self, *exc: object) -> None:
         self._connection.close()
+
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The SQLSTATE a redshift_connector error carries: it is raised with
+        the server's ErrorResponse fields as one dict, the code under "C"."""
+        if str(getattr(type(exc), "__module__", "")).split(".")[0] != (
+            "redshift_connector"
+        ):
+            return None
+        args = getattr(exc, "args", ())
+        fields = args[0] if isinstance(args, tuple) and args else None
+        return sqlstate_code(fields.get("C")) if isinstance(fields, dict) else None
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         cursor = self._connection.cursor()
@@ -174,7 +232,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         return self._schema_listing
 
     def _resolve_schema(self, schema: str) -> "RedshiftSchema":
-        """The catalog's own RedshiftSchema for `schema`, or ValueError (exit 2).
+        """The catalog's own RedshiftSchema for `schema`, or a refusal (exit 2).
 
         Every command naming a schema checks it here first, so a schema the
         catalog does not list is a bad argument everywhere rather than an
@@ -183,8 +241,8 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         listed = self._schemas()
         match = next((s for s in listed if s.name == schema), None)
         if match is None:
-            raise ValueError(
-                f"no schema named '{schema}' in database "
+            raise ProbeArgumentError(
+                f"no schema named {echoed(schema)} in database "
                 f"'{self._config.database}'"
                 f"{_case_hint(schema, (s.name for s in listed))}; run "
                 f"`containers` for the names this recipe can see"
@@ -240,7 +298,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
             # Ingestion reports the same condition ("No tables found in some
             # schemas ... insufficient privileges"); an empty list without it
             # reads as "this schema is empty".
-            self.warnings.append(
+            self._warn(
                 f"no tables or views are visible in schema '{schema}': it may "
                 f"be empty, or this user may lack privileges on it"
             )
@@ -290,8 +348,8 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
             # Ingestion would send this name as written and fail on it; the
             # probe refuses instead of sending a query whose literal it no
             # longer controls.
-            raise ValueError(
-                f"schema '{schema}' has a quote or backslash in its name, which "
+            raise ProbeArgumentError(
+                f"schema {echoed(schema)} has a quote or backslash in its name, which "
                 f"the Redshift column query cannot take safely; use `sql` "
                 f"against svv_redshift_columns instead"
             )
@@ -320,8 +378,8 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         # SQL.
         found = by_table.get(table, [])
         if not found:
-            self.warnings.append(
-                f"no columns visible for '{schema}.{table}': it may not exist, "
+            self._warn(
+                f"no columns visible for {echoed(f'{schema}.{table}')}: it may not exist, "
                 f"or this user may lack privileges on it"
                 f"{_case_hint(table, by_table)}; `tables` and `views` list what "
                 f"this schema holds"
@@ -347,6 +405,6 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         if match is None:
             hint = _case_hint(view, (r.name for r in relations if r.is_view))
             if hint:
-                self.warnings.append(f"no view named '{schema}.{view}'{hint}")
+                self._warn(f"no view named {echoed(f'{schema}.{view}')}{hint}")
             return None
         return match.definition

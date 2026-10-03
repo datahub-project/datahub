@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pytest
+import redshift_connector
 
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
@@ -111,7 +112,7 @@ def test_for_config_connects_through_the_ingestion_builder(
     assert options["iam"] is True and options["sslmode"] == "prefer"
     assert options["application_name"] == PROBE_QUERY_LABEL
     assert "SET statement_timeout = 30000" in conn.executed
-    assert probe.catalog_scope == RedshiftConfig.probe_catalog_scope()
+    assert probe.catalog_scope == RedshiftMetadataProbe.catalog_scope
 
 
 def test_recipe_application_name_wins(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -528,3 +529,37 @@ def test_probe_methods_advertises_the_per_object_commands() -> None:
 
     commands = {spec.command for spec in list_probe_methods("redshift")}
     assert {"columns", "view_definition"} <= commands
+
+
+def test_a_redshift_error_is_labelled_with_its_sqlstate_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.ingestion.agent.probe_methods import run_probe_method
+
+    planted = "PLANTED relation text"
+    error = redshift_connector.ProgrammingError(
+        {"S": "ERROR", "C": "42P01", "M": planted}
+    )
+    assert RedshiftMetadataProbe.probe_error_code(error) == "SQLSTATE 42P01"
+    # Another library's error, or one without the fields, carries no code.
+    assert RedshiftMetadataProbe.probe_error_code(RuntimeError({"C": "42P01"})) is None
+    assert (
+        RedshiftMetadataProbe.probe_error_code(redshift_connector.InterfaceError("x"))
+        is None
+    )
+
+    class _FailingCursor(_FakeCursor):
+        def execute(self, query: str, args: Any = None) -> "_FakeCursor":
+            if "schema_type" in query:
+                raise error
+            return super().execute(query, args)
+
+    class _FailingConnection(_FakeConnection):
+        def cursor(self) -> _FakeCursor:
+            return _FailingCursor(self)
+
+    _connect_with(monkeypatch, _FailingConnection(routes=[_SCHEMAS]))
+    with pytest.raises(ProbeConnectionError) as caught:
+        run_probe_method("redshift", dict(_RECIPE), "containers", {})
+    assert "'containers' failed (ProgrammingError; SQLSTATE 42P01)" in str(caught.value)
+    assert planted not in str(caught.value)

@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, List, Tuple, cast
 
 import pytest
@@ -11,6 +12,8 @@ from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.recipe import validate_recipe
 from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
+from datahub.ingestion.agent.sql_passthrough import QueryBudget
+from datahub.ingestion.source.sql.mssql import source as mssql_source
 from datahub.ingestion.source.sql.mssql.mssql_probe import SqlServerMetadataProbe
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
 
@@ -190,7 +193,7 @@ def test_pinned_recipe_lists_and_reads_only_its_pin(tmp_path: Path) -> None:
 
 
 def test_the_database_travels_in_parent_path() -> None:
-    specs = {s.command: s for s in list_probe_methods("mssql", _BASE)}
+    specs = {s.command: s for s in list_probe_methods("mssql")}
     assert specs["tables"].parent_params == ("database", "schema")
     assert specs["views"].parent_params == ("database", "schema")
     assert specs["containers"].parent_params == ("database",)
@@ -709,3 +712,38 @@ def test_a_schema_resolved_to_another_spelling_says_so(tmp_path: Path) -> None:
     with _probe(tmp_path, database="DemoData") as probe:
         probe.tables(schema="main")
         assert probe.warnings == []
+
+
+def test_a_procedure_judged_without_a_parent_keeps_its_bare_name() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "procedure_pattern": {"deny": ["^NewProc$"]}},
+        kind=_PROC,
+        parent_path=[],
+        names=["NewProc"],
+    )
+    assert result.results[0].target == "NewProc"
+    assert any("no parent" in w for w in result.warnings), result.warnings
+
+
+@pytest.mark.parametrize("driver, listens", [("pyodbc", True), ("pytds", False)])
+def test_the_probe_engine_reads_sql_variant_on_pyodbc_only(
+    monkeypatch: pytest.MonkeyPatch, driver: str, listens: bool
+) -> None:
+    """The converter is an ODBC hook, so only a pyodbc engine gets it."""
+    listened: List[Tuple[object, str]] = []
+    monkeypatch.setattr(
+        mssql_source,
+        "event",
+        SimpleNamespace(
+            listen=lambda target, name, fn: listened.append((target, name))
+        ),
+    )
+    engine = SimpleNamespace(dialect=SimpleNamespace(driver=driver))
+    settings = SQLServerConfig.model_validate(_BASE).probe_engine_settings(
+        QueryBudget(timeout_seconds=30)
+    )
+
+    assert settings.prepare is not None
+    settings.prepare(cast(Engine, engine))
+    assert listened == ([(engine, "connect")] if listens else [])
