@@ -57,6 +57,8 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
+    # Langfuse
+    LANGFUSE_PROMPT = "Langfuse Prompt"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -216,6 +218,11 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE_TASK_RUN = "Task Run"
 
     FOLDER = "Folder"
+
+    # Langfuse
+    LANGFUSE_PROJECT = "Langfuse Project"
+    LANGFUSE_TRACE = "Langfuse Trace"
+    LANGFUSE_GENERATION = "Langfuse Generation"
 
 
 class DataFlowSubTypes(StrEnum):
