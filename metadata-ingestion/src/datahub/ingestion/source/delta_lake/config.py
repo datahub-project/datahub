@@ -3,7 +3,6 @@ from functools import cached_property
 from typing import Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -164,7 +163,7 @@ class DeltaLakeSourceConfig(
         "'<base_path>/<relative_path>' and URNs will be created using "
         "relative_path only.",
     )
-    platform: Literal["delta-lake"] = Field(
+    platform: str = Field(
         default="delta-lake",
         description="The platform that this source connects to",
     )
