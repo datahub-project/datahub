@@ -30,9 +30,7 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 # db2 and starrocks are imported inside the two tests that need them, and not
 # up here with the rest.
 #
-# Both are necessary, not stylistic. This comment twice claimed otherwise --
-# first that only db2 needed it, then that `starrocks>=1.3.3,<2.0` sits in the
-# `[dev]` block unconditionally. Neither is in `[dev]`. setup.py maps "dev" to
+# Both are necessary, not stylistic. Neither is in `[dev]`: setup.py maps "dev" to
 # dev_requirements, which is base_dev_requirements, and that plugin list names
 # neither; both are in full_test_dev_requirements, exposed as the
 # `integration-tests` extra. So a plain `[dev]` environment has neither
@@ -305,12 +303,11 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
     is the literal "default_catalog" -- StarRocks's name for its built-in
     internal catalog that most tables actually live in. Priming the shim to
     that same __init__ value (mirroring current_database's mssql handling)
-    turns what used to be an AttributeError fallback into a real answer, not
-    a guess: this is exactly the failure mode a recipe with
-    table_pattern.allow: ["default_catalog\\.analytics\\..*"] hit before this
-    fix (every table reported excluded_by: table_pattern while ingestion
-    ingested them all). No warning: this is a real (if partial -- external
-    catalogs still can't be resolved) answer, not a degrade."""
+    gives a real answer rather than the AttributeError fallback, under which
+    a recipe with table_pattern.allow: ["default_catalog\\.analytics\\..*"]
+    reports every table excluded_by: table_pattern while ingestion ingests
+    them all. No warning: this is a real (if partial -- external catalogs
+    still can't be resolved) answer, not a degrade."""
     # Local because the dialect really can be missing: starrocks is in the
     # `integration-tests` extra, not `[dev]`. See the note beside the imports.
     from datahub.ingestion.source.sql.starrocks import StarRocksConfig
@@ -323,16 +320,11 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
 
 
 def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypatch):
-    """Regression guard: ctx.warn dedupes on message identity (see
-    ClientProbe.list_children's warn closure), but an earlier version of this
-    message embedded ctx.fqn, which is different for every node -- defeating
-    the dedupe and, per a whole-plan review, flooding ProbeResult.warnings
-    with one near-identical entry per table (measured: 200 for 200 StarRocks
-    tables, before StarRocks itself was fixed to no longer hit this path at
-    all -- see test_starrocks_shim_primes_current_catalog_to_its_init_state
-    above). Faking the AttributeError here (rather than relying on a real
-    connector) keeps this test valid regardless of which real connectors do
-    or don't exercise the fallback at any given time.
+    """ctx.warn dedupes on message identity (see ClientProbe.list_children's
+    warn closure), so a message embedding ctx.fqn, which differs per node,
+    would put one near-identical entry per table in ProbeResult.warnings.
+    The AttributeError is faked rather than taken from a real connector, so
+    this holds whichever connectors reach the fallback.
     """
 
     class _FakeSource:
@@ -532,7 +524,7 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
             "schema_pattern": {"deny": [r"^public$"]},
         }
     )
-    # A deny anchored to the bare schema name no longer excludes once
+    # A deny anchored to the bare schema name does not exclude once
     # match_fully_qualified_names is on: ingestion checks "analytics.public".
     assert bare_name_deny.included
     assert bare_name_deny.excluded_by is None
@@ -648,8 +640,8 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
 
 def test_a_single_pinned_container_needs_no_parent():
     """The other side of the same coin: Qualifier() on project_ids means a
-    single-project recipe is answerable without --parent, which is the
-    common case and used to warn."""
+    single-project recipe, the common case, is answerable without --parent
+    and without a warning."""
     result = check_filters(
         source_type="bigquery",
         config_dict={

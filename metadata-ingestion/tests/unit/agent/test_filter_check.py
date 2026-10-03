@@ -628,14 +628,13 @@ def test_try_allow_reaches_a_source_that_decides_structurally():
 
 
 def test_a_crashing_validator_is_not_reported_as_a_rejected_pattern(monkeypatch):
-    """Two different answers used to share one message.
+    """A rejected pattern and a crashed validator get different messages.
 
     --try-allow re-validates the hypothetical because some connectors
     normalize a pattern in an after-validator. A connector that REJECTS the
     pattern is answering the caller's question, and the warning says so. A
-    connector whose validator CRASHES has answered nothing -- but
-    `except Exception` gave it the same text, sending the caller to fix a
-    pattern that was never judged.
+    connector whose validator CRASHES has answered nothing, and the same text
+    would send the caller to fix a pattern that was never judged.
 
     Still a degrade rather than a hard failure: `probe filter` is a
     diagnostic and a caveated answer beats no answer. Only the attribution

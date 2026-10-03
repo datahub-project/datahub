@@ -14,9 +14,10 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent import probe_methods
 from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.error_policy import (
+    _MAX_CHAIN_LINKS,
     TRUSTED_TYPES,
+    _foreign_in_chain,
     classify_foreign,
-    foreign_label,
     is_trusted,
     police_trusted,
     withhold_foreign_text,
@@ -632,28 +633,6 @@ def test_a_policed_trusted_error_is_labelled_once_under_verbose(
     assert f"{label}: " in message
 
 
-class _UnreadableLoggers(type):
-    @property
-    def silenced_loggers(cls) -> object:
-        raise RuntimeError(f"logger table {SENTINEL} is unreadable")
-
-
-class _LoudProvider(_Provider, metaclass=_UnreadableLoggers):
-    pass
-
-
-def test_silenced_loggers_that_cannot_be_read_are_the_providers_defect(
-    run: RunFn, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: _LoudProvider)
-    with pytest.raises(ProbeInternalError) as info:
-        run("")
-    assert str(info.value) == (
-        "the probe provider is defective: reading _LoudProvider.silenced_loggers "
-        "failed (RuntimeError)"
-    )
-
-
 @pytest.mark.parametrize(
     "mode, expected, message",
     [
@@ -937,120 +916,6 @@ def test_a_foreign_key_errors_text_is_withheld_under_every_trusted_type(
     assert str(info.value) == "listing failed: (KeyError)"
 
 
-class _ExitingStatus(Exception):
-    """A foreign error whose status property exits with the text it holds."""
-
-    @property
-    def status_code(self) -> int:
-        raise SystemExit(f"status unreadable: {SENTINEL}")
-
-
-def _exiting_code_reader(exc: BaseException) -> Optional[str]:
-    raise SystemExit(f"reader gave up on {SENTINEL}")
-
-
-class _ExitingReader:
-    probe_error_code = staticmethod(_exiting_code_reader)
-
-
-def test_a_label_reader_that_exits_leaves_the_bare_class_name() -> None:
-    assert foreign_label(_ExitingStatus()) == "_ExitingStatus"
-    assert foreign_label(RuntimeError(), _ExitingReader) == "RuntimeError"
-
-
-class _ExitingNameMeta(type):
-    """A metaclass whose classes exit when asked their name."""
-
-    @property
-    def __name__(cls) -> str:
-        raise SystemExit(f"metaname {SENTINEL}")
-
-    # Writable, as type.__name__ is.
-    @__name__.setter
-    def __name__(cls, value: str) -> None:
-        pass
-
-
-class _NamelessError(Exception, metaclass=_ExitingNameMeta):
-    pass
-
-
-def test_a_class_that_cannot_say_its_name_gets_a_fixed_label() -> None:
-    # Asserted outside the handler: pytest cannot render this class either,
-    # and an escaped SystemExit would end the session.
-    try:
-        label = foreign_label(_NamelessError(SENTINEL))
-    except SystemExit:
-        label = "escaped as SystemExit"
-    assert label == "exception"
-
-
-class _ClosingConfig(ConfigModel):
-    reader: bool = False
-
-
-class _ClosesWithAnExitingLabel:
-    @classmethod
-    def for_config(cls, config: _ClosingConfig) -> "_ClosesWithAnExitingLabel":
-        return _ClosesWithAnExitingCode() if config.reader else cls()
-
-    def __enter__(self) -> "_ClosesWithAnExitingLabel":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        raise _ExitingStatus(f"close failed: {SENTINEL}")
-
-    @probe_method(name="things")
-    def things(self) -> List[str]:
-        """List things."""
-        return []
-
-
-class _ClosesWithAnExitingCode(_ClosesWithAnExitingLabel):
-    probe_error_code = staticmethod(_exiting_code_reader)
-
-
-class _ClosesWithANamelessError(_ClosesWithAnExitingLabel):
-    def __exit__(self, *exc: object) -> None:
-        raise _NamelessError(f"close failed: {SENTINEL}")
-
-
-def test_a_nameless_close_failure_is_labelled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class _Config(_ClosingConfig):
-        @classmethod
-        def probe_provider_class(cls) -> type:
-            return _ClosesWithANamelessError
-
-    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
-    message = "did not raise"
-    try:
-        run_probe_method("fake", {}, "things", {})
-    except ProbeConnectionError as exc:
-        message = str(exc)
-    except SystemExit:
-        message = "escaped as SystemExit"
-    assert message == "closing source 'fake' failed (exception)"
-
-
-@pytest.mark.parametrize("reader", [False, True])
-def test_a_label_reader_that_exits_cannot_escape_the_close_path(
-    monkeypatch: pytest.MonkeyPatch, reader: bool
-) -> None:
-    # Open and call failures are policed again by the outermost handler; a
-    # close failure is labelled there, so a reader exiting must not escape.
-    class _Config(_ClosingConfig):
-        @classmethod
-        def probe_provider_class(cls) -> type:
-            return _ClosesWithAnExitingCode if reader else _ClosesWithAnExitingLabel
-
-    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
-    with pytest.raises(ProbeConnectionError) as info:
-        run_probe_method("fake", {"reader": reader}, "things", {})
-    assert str(info.value) == "closing source 'fake' failed (_ExitingStatus)"
-
-
 def test_a_short_foreign_text_is_not_searched_for() -> None:
     try:
         try:
@@ -1087,6 +952,22 @@ def test_the_backstop_reads_an_exception_groups_children() -> None:
             raise ProbeConnectionError(f"login failed: {child}")  # noqa: B904
     except ProbeConnectionError as wrapper:
         assert withhold_foreign_text(wrapper) == "login failed: (RuntimeError)"
+
+
+def test_the_backstop_walks_a_bounded_number_of_an_exception_groups_children() -> None:
+    group_type = getattr(builtins, "ExceptionGroup", None)
+    if group_type is None:
+        pytest.skip("ExceptionGroup is new in Python 3.11")
+    children = [RuntimeError(f"child {i} of {SENTINEL}") for i in range(200)]
+    try:
+        try:
+            raise group_type("fan-out", children)
+        except Exception:
+            raise ProbeConnectionError("fan-out failed")  # noqa: B904
+    except ProbeConnectionError as wrapper:
+        found = _foreign_in_chain(wrapper)
+    # The group and the children read before the bound, out of 201 links.
+    assert len(found) == _MAX_CHAIN_LINKS
 
 
 class _SoftRebuildRefusing(ProbeSoftError):

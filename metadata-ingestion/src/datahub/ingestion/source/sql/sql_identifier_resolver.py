@@ -8,11 +8,7 @@ dialect, with no per-dialect quoting rule to get wrong.
 
 from typing import Iterable
 
-from datahub.ingestion.agent.provider_helpers import echoed, resolve_name
-
-# Kept for providers importing it from here; new code imports
-# agent.provider_helpers.echoed.
-_echoed = echoed
+from datahub.ingestion.agent.provider_helpers import resolve_name
 
 
 def _listed_string(name: str) -> str:

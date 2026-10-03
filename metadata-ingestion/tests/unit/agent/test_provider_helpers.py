@@ -1,4 +1,4 @@
-"""agent.provider_helpers: the plumbing every probe provider used to hand-write."""
+"""agent.provider_helpers: the plumbing every probe provider shares."""
 
 import functools
 from dataclasses import dataclass

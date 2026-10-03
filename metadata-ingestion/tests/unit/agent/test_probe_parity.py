@@ -112,6 +112,13 @@ def test_an_object_the_probe_includes_but_ingestion_skips_fails(
         )
 
 
+def test_no_listing_at_all_compares_nothing_and_fails(tmp_path: Path) -> None:
+    with pytest.raises(AssertionError, match="no listing"):
+        assert_probe_parity(
+            SOURCE_TYPE, {}, pipeline_ingestion(SOURCE_TYPE, tmp_path), []
+        )
+
+
 def test_an_empty_kind_fails_unless_expected(tmp_path: Path) -> None:
     with pytest.raises(AssertionError, match="groups: ingestion emitted none"):
         assert_probe_parity(

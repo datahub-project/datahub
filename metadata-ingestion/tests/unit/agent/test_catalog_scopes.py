@@ -1,8 +1,8 @@
 """Each dialect's catalog surface, as its own connector declares it.
 
-The gate used to hold this centrally and got it wrong: Oracle and Teradata have no
-`information_schema` at all, so both advertised a `sql` command whose every
-legitimate query was refused. The cases below are drawn from what our own ingestion
+Declared per connector, not held centrally by the gate: Oracle and Teradata have no
+`information_schema` at all, so a central default refuses every legitimate query
+their `sql` command could take. The cases below are drawn from what our own ingestion
 code reads -- DBC.TablesV, DBA_TABLES, sys.tables -- and from the query-text
 surfaces sitting beside them in the same schemas.
 """
@@ -511,7 +511,7 @@ def test_every_declared_relation_does_work():
 def test_the_postgres_declaration_is_inherited_by_its_derivatives():
     # One declaration covers three connectors; CockroachDB and TimescaleDB extend
     # PostgresConfig rather than restating it. Asserted on the named relations
-    # and on what they withhold, since pg_catalog is no longer allowed at schema
+    # and on what they withhold, since pg_catalog is not allowed at schema
     # level -- the derivatives must inherit the narrowing, not just the allowing.
     for source_type in ("postgres", "cockroachdb", "timescaledb"):
         scope = _scope(source_type)
@@ -692,11 +692,11 @@ def test_declared_scopes_carry_no_user_schema():
 def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
     """`target` must be what the pattern was matched against, or it misleads.
 
-    Redshift matches "database.schema" once match_fully_qualified_names is on, and
-    the probe used to report the bare name regardless. A caller then saw
-    target='analytics' excluded by a pattern of '^analytics$' -- a verdict that
-    contradicts its own explanation -- and would "fix" the pattern in the wrong
-    direction. `target` is the one field probe filter exists to get right.
+    Redshift matches "database.schema" once match_fully_qualified_names is on.
+    Reported as the bare name, target='analytics' excluded by '^analytics$'
+    contradicts its own explanation, and a caller would "fix" the pattern in
+    the wrong direction. `target` is the one field probe filter exists to get
+    right.
     """
 
     base: Dict[str, Any] = {

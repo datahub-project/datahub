@@ -205,10 +205,9 @@ def test_a_listing_is_asked_for_one_past_its_limit():
 
 
 def test_an_omitted_row_limit_uses_the_getters_own_declared_default():
-    """It used to be left out entirely, which meant the framework did not know
-    the limit and so could not tell a truncated listing from a complete one --
-    and calling with no --limit is the common case. The default is read off the
-    signature rather than guessed, so it is still the getter's own number."""
+    """Without a --limit, the common case, the framework still needs the
+    limit to tell a truncated listing from a complete one. It is read off the
+    signature rather than guessed, so it is the getter's own number."""
     bounded = _bounded_kwargs(_spec(FakeListingProvider(), "containers"), {})
     assert bounded["limit"] == 201  # the getter's own 200, plus the probe row
 

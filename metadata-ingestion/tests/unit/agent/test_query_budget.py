@@ -289,15 +289,14 @@ def test_the_sqlalchemy_family_gets_a_timeout_through_its_engine(
 
 
 def test_redshift_gets_no_connect_arg_because_its_driver_is_not_libpq():
-    """This list used to include redshift, and a live cluster refused every
-    probe connection: `TypeError: connect() got an unexpected keyword argument
+    """Given libpq's `options`, a live cluster refuses every probe
+    connection: `TypeError: connect() got an unexpected keyword argument
     'options'`.
 
     The `-c setting` string is libpq's, and Redshift's SQLAlchemy driver is
-    redshift+redshift_connector -- pure Python, never links libpq. The old test
-    passed because it asked about `redshift+psycopg2://`, a URL no config
-    produces; _scheme_of truncates at the `+`, so the fiction was invisible.
-    Hence the real scheme here.
+    redshift+redshift_connector -- pure Python, never links libpq. Asked with
+    the scheme a Redshift config produces: `redshift+psycopg2://` is a URL no
+    config produces, and _scheme_of truncates at the `+`.
     """
 
     options = _engine_options("redshift+redshift_connector://h/db")
@@ -543,12 +542,10 @@ def test_no_config_in_the_sql_probe_family_diverges_on_its_option_source():
 
 
 def test_a_recipes_own_libpq_options_survive_the_timeout():
-    """libpq packs every `-c setting` into one connect_arg, so assigning the
-    timeout there threw the recipe's own away -- a
-    `-c search_path=reporting,public` vanished and the probe then connected
-    with different session settings than ingestion. Verified by hand when
-    fixed and not by a test, which is how it stayed the only uncovered line
-    in the file."""
+    """libpq packs every `-c setting` into one connect_arg, so the timeout is
+    appended to the recipe's own: assigned, it would drop a
+    `-c search_path=reporting,public`, and the probe would connect with
+    different session settings than ingestion."""
 
     sent = _engine_options(
         "postgresql://h/db",

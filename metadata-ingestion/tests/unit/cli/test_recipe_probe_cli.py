@@ -48,12 +48,11 @@ def _isolate_secret_registry(monkeypatch):
     # secrets and forgets the old ones.
     SecretRegistry.get_instance().clear()
 
-    # The stdin envelope globals, for the same reason and in the same place.
-    # Every test here used to reset _stdin_secrets in its own body -- 21
-    # copies of one line, which is how one of them ends up forgotten. Tests
-    # that dispatch the CLI get this from the `recipe` group callback too;
-    # the ones calling rc._load_recipe("-") directly bypass the group, so the
-    # fixture is what covers them.
+    # The stdin envelope globals, for the same reason and in the same place,
+    # rather than in each test's body. Tests that dispatch the CLI get this
+    # from the `recipe` group callback too; the ones calling
+    # rc._load_recipe("-") directly bypass the group, so the fixture is what
+    # covers them.
     monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
 
     yield
@@ -125,8 +124,8 @@ def test_parse_extra_params():
 
 
 def test_a_bare_flag_is_refused_for_a_non_boolean_parameter():
-    """`probe run columns --schema --table orders` used to parse as
-    schema="true" and reach the driver as a real name -- on MySQL as
+    """Parsed as schema="true", `probe run columns --schema --table orders`
+    would reach the driver as a real name -- on MySQL as
     SHOW CREATE TABLE `true`.`orders`, and on a dialect whose listing filters
     by name rather than erroring, as an empty result at exit 0."""
     with pytest.raises(ValueError, match="expects a str value but was given none"):
@@ -292,10 +291,10 @@ def test_a_read_the_provider_could_not_complete_does_not_exit_zero(
     """The cardinal case: an empty result that is not an empty source.
 
     A connector reusing its ingestion fetchers records an unreadable endpoint
-    with report.failure(), which nothing used to read -- so a 403 on Mode's
-    data_sources came back as {"result": {}, "warnings": []} at exit 0, exactly
-    what a workspace with no data sources returns. The partial result is still
-    emitted; what changes is that the command no longer claims success.
+    with report.failure(): unread, a 403 on Mode's data_sources comes back as
+    {"result": {}, "warnings": []} at exit 0, exactly what a workspace with no
+    data sources returns. The partial result is still emitted; the exit code
+    says it is not the whole answer.
     """
     monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("mode", {}, set()))
 
@@ -522,9 +521,7 @@ def test_a_name_containing_a_comma_is_judged_whole(monkeypatch, tmp_path):
 
     Mode collections are human-named and a quoted SQL identifier may contain a
     comma, so splitting on it would judge two names that do not exist and report
-    both as excluded -- a wrong answer that looks like a real verdict. The
-    executor previously skipped such names with a warning because the CLI could
-    not express them.
+    both as excluded -- a wrong answer that looks like a real verdict.
     """
     seen = {}
 
@@ -757,18 +754,11 @@ def _envelope(secrets):
 
 
 def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tmp_path):
-    """_stdin_secrets is module state, and only ever updated.
-
-    Its comment called that safe because the value "is set at most once per
-    process". That is true of `datahub recipe ...` as a one-shot CLI and
-    false of every other way the group is dispatched -- this test file alone
-    resets it by hand in 21 places, which is the workaround, not the
-    contract.
-
-    The consequence is not just staleness: a later recipe resolving ${REF}
-    gets the EARLIER caller's credential, and registers it for masking as
-    though it had been handed it. Cleared in the group callback, which runs
-    exactly once per invocation.
+    """_stdin_secrets is module state. Set once per process holds for
+    `datahub recipe ...` as a one-shot CLI and for no other way the group is
+    dispatched, and a later recipe resolving ${REF} would get the EARLIER
+    caller's credential, registered for masking as though it had been handed
+    it. Cleared in the group callback, which runs once per invocation.
     """
     monkeypatch.delenv("PROBE_TEST_REF", raising=False)
     runner = CliRunner()
@@ -1431,12 +1421,12 @@ def test_clearing_the_registry_keeps_installed_filters_working():
 
 
 def test_an_unserializable_value_becomes_a_bounded_string_not_its_internals():
-    """_json_default used to return o.__dict__.
+    """_json_default returns str(o), not o.__dict__.
 
-    json.dumps then walked whatever the library hung on the object -- a
-    driver error carries connection state, and redaction afterwards only
+    Given __dict__, json.dumps walks whatever the library hung on the object
+    -- a driver error carries connection state, and redaction afterwards only
     knows the values it collected, so an unregistered credential nested a
-    few attributes deep went out in the clear. str(o) is bounded and is
+    few attributes deep goes out in the clear. str(o) is bounded and is
     what the caller can act on.
     """
     from pydantic import SecretStr

@@ -18,6 +18,8 @@ caller already has against the recipe's filters, the way ingestion would, so a c
 patterns (`--try-allow`, `--try-deny`) against one listing without touching the source again.
 `probe filter --from-run r.json` judges a listing that `probe run --report-to r.json` wrote, and hands
 the connector each record's scalar fields as `ctx.attributes` (for a source that filters on an id).
+Each record must be a name string or a mapping with a string `name` key; any other record makes the
+listing unjudgeable (exit 2), so a listing method returning records names each one `name`.
 `probe methods` lists the commands, connection-free: a method's parameters are its CLI flags and its
 docstring is its help text. `recipe describe`, `recipe scaffold` and `recipe validate` need no
 connection either.
@@ -27,8 +29,16 @@ Every command prints JSON, and the exit code says who has to act: **2** the call
 
 ## The minimal provider
 
-**A SQLAlchemy-family source needs nothing.** `SQLCommonConfig` supplies the whole contract; see
-[The SQL family](#the-sql-family). Check with `datahub recipe probe methods --recipe r.yml`.
+**A SQLAlchemy-family source gets a provider without writing one.** A config inheriting
+`SQLCommonConfig` gets `SqlAlchemyMetadataProbe` and its ten commands, verdict hooks judging tables
+and views on the connector's own `get_identifier`, and an engine set up for the wire protocol its
+URL names; see [The SQL family](#the-sql-family). It declares a hook only where its ingestion
+differs from those defaults: a `get_identifier` the probe cannot call without ingestion's state
+(`probe_filter_target`), a catalog beyond `information_schema` (`probe_catalog_scope`), engine setup
+ingestion does that `create_engine()` does not (`probe_engine_settings`), system schemas it drops
+whatever the pattern says (`default_schemas`), and the rest of the
+[SQL-family hooks](#sql-family-hooks). Check with `datahub recipe probe methods --recipe r.yml`, and
+check the verdicts against ingestion with a parity test.
 
 Anything else needs one config hook and one provider class:
 
@@ -127,15 +137,15 @@ the extra item and reports `truncated`.
 The framework reads these provider attributes by name. `ProbeProviderBase` declares each with a
 default that reads as absent, and `test_probe_contract.py` refuses a near-miss name (`probe_reports`):
 
-| Attribute                       | Declare it when                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------- |
-| `warnings`                      | a listing degrades rather than fails (`ProbeProviderBase` provides it, with `_warn`)  |
-| `failures`                      | a read can fail without raising; any entry makes the result incomplete (exit 3)       |
-| `probe_report`                  | you reuse ingestion fetchers: their `SourceReport` warnings and failures are read off |
-| `silenced_loggers`              | reused code logs source values that carry no credential shape (see the rules)         |
-| `probe_error_code(exc)`         | your vendor's errors carry a code the generic readers miss (see the rules)            |
-| `sql_dialect`, `catalog_scope`  | a method declares `scoped_sql_param`                                                  |
-| `api_allowlist`, `api_base_url` | a method declares `scoped_path_param`                                                 |
+| Attribute                       | Declare it when                                                                       | How                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `warnings`                      | a listing degrades rather than fails                                                  | inherited: add with `self._warn(message)`                                                 |
+| `failures`                      | a read can fail without raising; any entry makes the result incomplete (exit 3)       | `self.failures = []` in `__init__`, never a class-level list (the base's default is `()`) |
+| `probe_report`                  | you reuse ingestion fetchers: their `SourceReport` warnings and failures are read off | a `@property` returning the report; the base's is a read-only property                    |
+| `silenced_loggers`              | reused code logs source values that carry no credential shape (see the rules)         | a class attribute: a tuple of logger names                                                |
+| `probe_error_code(exc)`         | your vendor's errors carry a code the generic readers miss (see the rules)            | a `@staticmethod`                                                                         |
+| `sql_dialect`, `catalog_scope`  | a method declares `scoped_sql_param`                                                  | a class attribute, or set on the instance in `for_config`                                 |
+| `api_allowlist`, `api_base_url` | a method declares `scoped_path_param`                                                 | a class attribute, or set on the instance in `for_config`                                 |
 
 An attribute that raises when read is reported as the provider's defect (exit 1), by class and name.
 

@@ -519,6 +519,12 @@ def assert_probe_parity(
     disagreement. Returns the per-kind verdicts so that a test can also pin
     which rule excluded what.
     """
+    if not listings:
+        # Before ingestion runs: with no listing, every kind would agree.
+        raise AssertionError(
+            "assert_probe_parity was given no listing, so it would compare "
+            "nothing; pass a ParityListing per kind"
+        )
     emitted = run_ingestion(dict(recipe))
     # The config and secrets `probe run` and `probe filter` work from, so the
     # probe side judges the recipe exactly as the CLI would.

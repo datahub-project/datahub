@@ -390,10 +390,10 @@ def test_a_write_statement_is_named_by_its_sql_keyword(sql, expected):
 
 
 def test_an_unmodelled_statement_does_not_leak_a_parser_node_name():
-    # FLUSH PRIVILEGES parses to an Alias node, so the message used to read
-    # "got ALIAS" -- a sqlglot internal that tells a caller nothing and reads
-    # like a bug in their own query. The refusal is the agent's only signal for
-    # how to rewrite, so it has to be in SQL terms.
+    # FLUSH PRIVILEGES parses to an Alias node; "got ALIAS" would be a sqlglot
+    # internal that tells a caller nothing and reads like a bug in their own
+    # query. The refusal is the agent's only signal for how to rewrite, so it
+    # has to be in SQL terms.
     with pytest.raises(SqlScopeError) as exc:
         check_query_scope("FLUSH PRIVILEGES", platform="mysql")
     message = str(exc.value)
@@ -666,11 +666,11 @@ def test_rejects_a_query_that_reads_no_catalog_relation(sql):
     class, including built-in functions sqlglot models as first-class nodes
     (not Anonymous) that the function check cannot see.
 
-    `SELECT VERSION()` used to be the headline case here and has moved to
-    test_server_state_cannot_ride_in_on_a_real_table: it is refused by name
-    now, which this rule could never do once the query also names a table.
-    CURRENT_DATE stays, because it is refused ONLY by this rule -- it
-    discloses nothing, so it is allowed alongside a real relation."""
+    `SELECT VERSION()` is in test_server_state_cannot_ride_in_on_a_real_table:
+    it is refused by name, which this rule cannot do once the query also
+    names a table. CURRENT_DATE is here because it is refused ONLY by this
+    rule -- it discloses nothing, so it is allowed alongside a real
+    relation."""
     with pytest.raises(SqlScopeError, match="catalog relation"):
         check_query_scope(sql, platform="mysql")
 
