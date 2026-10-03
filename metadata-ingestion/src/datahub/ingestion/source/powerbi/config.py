@@ -1,7 +1,17 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
-from typing import Dict, List, Literal, Optional, Union
+from typing import (
+    Annotated,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 import pydantic
 from pydantic import field_validator, model_validator
@@ -11,15 +21,27 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Filters,
     HiddenFromDocs,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
-from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+)
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    UNKNOWN,
+    WORKSPACE_ID_PATTERN,
+    WORKSPACE_NAME_PATTERN,
+    WorkspaceFacts,
+    workspace_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -491,6 +513,12 @@ NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
 )
 
 
+# ReportType.PaginatedReport.value: the subtype a paginated report is emitted
+# with. Restated because data_classes imports this module, so importing
+# ReportType here would be circular.
+_PAGINATED_REPORT_KIND = "PaginatedReport"
+
+
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -547,7 +575,9 @@ class PowerBiDashboardSourceConfig(
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
     # PowerBi workspace name
-    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+    workspace_name_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.POWERBI_WORKSPACE)
+    ] = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter PowerBI workspaces in ingestion by name."
         " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
@@ -818,6 +848,117 @@ class PowerBiDashboardSourceConfig(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: powerbi_probe imports this module, so a top-level import
+        # would be circular.
+        from datahub.ingestion.source.powerbi.powerbi_probe import (
+            PowerBiMetadataProbe,
+        )
+
+        return PowerBiMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Reports and dashboards are ingested whole for every workspace the
+        recipe keeps; no pattern applies below a workspace (powerbi.py filters
+        only in get_allowed_workspaces)."""
+        return {
+            str(BIAssetSubTypes.REPORT),
+            _PAGINATED_REPORT_KIND,
+            str(BIAssetSubTypes.DASHBOARD),
+        }
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        """PowerBiAPI.fill_regular_metadata_detail skips the report and
+        dashboard listings outright when these are off."""
+        return {
+            str(BIAssetSubTypes.REPORT): "extract_reports",
+            _PAGINATED_REPORT_KIND: "extract_reports",
+            str(BIAssetSubTypes.DASHBOARD): "extract_dashboards",
+        }
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Reports and dashboards are fetched only for allowed workspaces
+        (get_workunits_internal iterates get_allowed_workspaces). A parent
+        judged this way is judged by name only, since --parent carries no id
+        or type; the override below warns about the other two halves."""
+        return ancestors_in(
+            (str(BIContainerSubTypes.POWERBI_WORKSPACE),),
+            kind,
+            self.probe_unfiltered_kinds(),
+        )
+
+    def _workspace_child_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """A report or dashboard inherits its workspace's verdict. The
+        framework judges the --parent workspace on its name; a saved
+        `reports`/`dashboards` run also stamps the workspace's id and type on
+        each record, so the other two rules apply here."""
+        if not ctx.parent_path:
+            return None
+        verdict = workspace_verdict(
+            self,
+            WorkspaceFacts(
+                ctx.parent_path[-1],
+                ctx.attributes.get("workspace_id", UNKNOWN),
+                ctx.attributes.get("workspace_type", UNKNOWN),
+            ),
+        )
+        return None if verdict.included else verdict
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """get_allowed_workspaces also requires workspace_id_pattern on the id
+        and `type in workspace_type_filter`, and the scan drops a workspace
+        whose state is not Active. None is knowable from a name, so they are
+        judged from the per-name attributes the probe's `workspaces` listing
+        emits; a missing id or type is warned about rather than passed
+        silently."""
+        if ctx.structural is not None:
+            return None
+        if ctx.kind in self.probe_unfiltered_kinds():
+            return self._workspace_child_verdict(ctx)
+        if ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE:
+            return None
+        # A saved run drops a null field, so a missing attribute is unknown.
+        facts = WorkspaceFacts(
+            ctx.target,
+            ctx.attributes.get("id", UNKNOWN),
+            ctx.attributes.get("type", UNKNOWN),
+        )
+        verdict = workspace_verdict(self, facts)
+        if verdict.excluded_by == WORKSPACE_NAME_PATTERN:
+            # Ingestion drops it on the name; that stays the reported reason.
+            return verdict
+        # Worded to hold also when this is the --parent of a report or
+        # dashboard: the framework judges that parent by name alone, and these
+        # notes reach the child, whose own stamped facts the rule did judge.
+        if facts.workspace_id is UNKNOWN:
+            ctx.warn(
+                f"no workspace id for '{ctx.name}' here: workspace_id_pattern is "
+                "judged only from a record that carries the id, which a saved "
+                "`probe run workspaces`, `reports` or `dashboards` run does; pass "
+                "one with `probe filter --from-run`"
+            )
+        if verdict.excluded_by == WORKSPACE_ID_PATTERN:
+            return verdict
+        if facts.workspace_type is UNKNOWN:
+            ctx.warn(
+                f"no workspace type for '{ctx.name}' here: workspace_type_filter "
+                "is judged only from a record that carries the type, which a "
+                "saved `probe run workspaces`, `reports` or `dashboards` run "
+                "does; pass one with `probe filter --from-run`"
+            )
+        if not verdict.included:
+            return verdict
+        # Only the admin API reports a state, so its absence says nothing.
+        # The scan drops every workspace that is not Active
+        # (PowerBiAPI.fill_metadata_from_scan_result).
+        state = ctx.attributes.get("state")
+        if state is not None and state != Constant.ACTIVE:
+            return Verdict.exclude("workspace_state")
+        return Verdict.include()
 
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":

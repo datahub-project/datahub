@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import (
+    Annotated,
     Any,
     Dict,
     Iterable,
@@ -50,6 +51,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
@@ -63,6 +65,11 @@ from datahub.emitter.mcp_builder import (
     ContainerKey,
     add_entity_to_container,
     gen_containers,
+)
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -131,6 +138,14 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_initial_sql_by_datasource,
     extract_initial_sql_connections,
     extract_tds_bytes,
+)
+from datahub.ingestion.source.tableau.tableau_selection import (
+    ACTIVE_SITE_STATE,
+    is_project_allowed,
+    is_project_denied,
+    probe_project_verdict,
+    probe_site_verdict,
+    project_segments,
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
@@ -536,7 +551,9 @@ class TableauConfig(
     )
     _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
 
-    project_path_pattern: AllowDenyPattern = Field(
+    project_path_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.TABLEAU_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
         " This is also useful when you need to exclude all nested projects under a particular project."
@@ -680,7 +697,9 @@ class TableauConfig(
         description="When enabled, ingests multiple sites the user has access to. If the user doesn't have access to the default site, specify an initial site to query in the site property. By default all sites the user has access to will be ingested. You can filter sites with the site_name_pattern property. This flag is currently only supported for Tableau Server. Tableau Cloud is not supported.",
     )
 
-    site_name_pattern: AllowDenyPattern = Field(
+    site_name_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.TABLEAU_SITE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filter for specific Tableau sites. "
         "By default, all sites will be included in the ingestion. "
@@ -720,6 +739,56 @@ class TableauConfig(
         month="December",
         year=2024,
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: tableau_probe imports this module, so a top-level import
+        # would be circular.
+        from datahub.ingestion.source.tableau.tableau_probe import (
+            TableauMetadataProbe,
+        )
+
+        return TableauMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Workbooks have no name filter: emit_workbooks takes every workbook
+        whose project is selected, so the Project verdict decides."""
+        return {str(BIContainerSubTypes.TABLEAU_WORKBOOK)}
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Projects list no ancestor on purpose: _init_tableau_project_registry
+        includes an allowed project under an excluded parent, so exclusion must
+        not propagate between projects. A workbook is dropped with its project."""
+        project = str(BIContainerSubTypes.TABLEAU_PROJECT)
+        ancestors: Dict[str, Tuple[str, ...]] = {
+            str(BIContainerSubTypes.TABLEAU_SITE): (),
+            project: (),
+            str(BIContainerSubTypes.TABLEAU_WORKBOOK): (project,),
+        }
+        return ancestors.get(kind)
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """A project's path, which project_path_pattern is matched on
+        (_get_project_path); sites and workbooks keep their bare name. A
+        separator inside a name is warned about in probe_project_verdict, and
+        only where the two readings of it disagree."""
+        if ctx.kind != BIContainerSubTypes.TABLEAU_PROJECT:
+            return None
+        return self.project_path_separator.join(
+            project_segments(self, ctx.name, ctx.parent_path)
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Project: both project patterns plus extract_project_hierarchy
+        re-admission (tableau_selection.project_selection, which ingestion
+        also calls). Site: site_name_pattern applies only with
+        ingest_multiple_sites (get_workunits_internal)."""
+        if ctx.kind == BIContainerSubTypes.TABLEAU_PROJECT:
+            return probe_project_verdict(self, ctx.name, ctx.parent_path, ctx.warn)
+        if ctx.kind == BIContainerSubTypes.TABLEAU_SITE:
+            return probe_site_verdict(self, ctx)
+        return None
 
     # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
@@ -988,6 +1057,14 @@ class TableauSourceReport(
     num_email_fallback_to_username: int = 0
 
 
+def parse_database_server_hostname(server_connection: Optional[str]) -> Optional[str]:
+    """A connection string that is a URL is reduced to its host; anything else
+    is returned as is. The key database_hostname_to_platform_instance_map uses."""
+    if server_connection is None:
+        return None
+    return urlparse(server_connection).hostname or server_connection
+
+
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
     title: str = "Insufficient Permissions"
     message: str = "The user must have the `Site Administrator Explorer` role to perform metadata ingestion."
@@ -1111,7 +1188,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_multiple_sites:
                 for site in list(TSC.Pager(self.server.sites)):
                     if (
-                        site.state != "Active"
+                        site.state != ACTIVE_SITE_STATE
                         or not self.config.site_name_pattern.allowed(site.name)
                     ):
                         logger.info(
@@ -1287,14 +1364,6 @@ class TableauSiteSource:
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _populate_database_server_hostname_map(self) -> None:
-        def maybe_parse_hostname():
-            # If the connection string is a URL instead of a hostname, parse it
-            # and extract the hostname, otherwise just return the connection string.
-            parsed_host_name = urlparse(server_connection).hostname
-            if parsed_host_name:
-                return parsed_host_name
-            return server_connection
-
         for database_server in self.get_connection_objects(
             query=database_servers_graphql_query,
             connection_type=c.DATABASE_SERVERS_CONNECTION,
@@ -1302,7 +1371,7 @@ class TableauSiteSource:
         ):
             database_server_id = database_server.get(c.ID)
             server_connection = database_server.get(c.HOST_NAME)
-            host_name = maybe_parse_hostname()
+            host_name = parse_database_server_hostname(server_connection)
             name = database_server.get(c.NAME) or ""
             connection_type = database_server.get(c.CONNECTION_TYPE) or ""
 
@@ -1398,11 +1467,9 @@ class TableauSiteSource:
         return all_project_map
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in allow
-        is_allowed: bool = (
-            self.config.project_pattern.allowed(project.name)
-            or self.config.project_pattern.allowed(self._get_project_path(project))
-        ) and self.config.project_path_pattern.allowed(self._get_project_path(project))
+        is_allowed = is_project_allowed(
+            self.config, project.name, self._get_project_path(project)
+        )
         if is_allowed is False:
             logger.info(
                 f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern"
@@ -1410,36 +1477,11 @@ class TableauSiteSource:
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
-        """
-        Why use an explicit denial check instead of the `AllowDenyPattern.allowed` method?
-
-        Consider a scenario where a Tableau site contains four projects: A, B, C, and D, with the following hierarchical relationship:
-
-        - **A**
-          - **B** (Child of A)
-          - **C** (Child of A)
-        - **D**
-
-        In this setup:
-
-        - `project_pattern` is configured with `allow: ["A"]` and `deny: ["B"]`.
-        - `extract_project_hierarchy` is set to `True`.
-
-        The goal is to extract assets from project A and its children while explicitly denying the child project B.
-
-        If we rely solely on the `project_pattern.allowed()` method, project C's assets will not be ingested.
-        This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
-        However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
-
-        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
-        """
-
-        # Either project_pattern or project_path_pattern is set in a recipe
-        # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
-
-        return self.config.project_pattern.denied(
-            project.name
-        ) or self.config.project_path_pattern.denied(self._get_project_path(project))
+        # See is_project_denied for why this is an explicit deny check rather
+        # than `not allowed`.
+        return is_project_denied(
+            self.config, project.name, self._get_project_path(project)
+        )
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
