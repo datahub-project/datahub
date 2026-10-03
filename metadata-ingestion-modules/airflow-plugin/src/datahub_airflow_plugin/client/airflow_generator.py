@@ -1,4 +1,5 @@
 import json
+from contextlib import suppress
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
@@ -135,6 +136,29 @@ class AirflowGenerator:
         return [owner.strip() for owner in dag.owner.split(",")]
 
     @staticmethod
+    def _get_schedule(dag: "DagType") -> Optional[str]:
+        """Return the DAG's timetable summary, as shown in the Airflow UI.
+
+        The DataFlow is emitted from both the DAG-run hooks (SerializedDAG, no
+        `schedule` attribute) and the task hooks (Task SDK DAG), so read the
+        timetable rather than `schedule` to get one value for both. Core
+        timetables expose `summary`; Task SDK timetables (split out in Airflow
+        3.2) don't, and are converted to core first. Mirrors the OpenLineage
+        provider's `DagInfo.timetable_summary`.
+        """
+        timetable = getattr(dag, "timetable", None)
+        if timetable is None:
+            return None
+        summary = getattr(timetable, "summary", None)
+        if summary is None:
+            with suppress(ImportError):
+                from airflow.serialization.encoders import coerce_to_core_timetable
+
+                summary = coerce_to_core_timetable(timetable).summary
+        # NullTimetable.summary is the string "None" (unscheduled DAG).
+        return summary if isinstance(summary, str) else None
+
+    @staticmethod
     def generate_dataflow(
         config: DatahubLineageConfig,
         dag: "DagType",
@@ -199,6 +223,10 @@ class AirflowGenerator:
             if hasattr(dag, key):
                 value = getattr(dag, key)
                 flow_property_bag[key] = _serialize_dag_property(value)
+
+        schedule = AirflowGenerator._get_schedule(dag)
+        if schedule is not None:
+            flow_property_bag["schedule"] = schedule
 
         data_flow.properties = flow_property_bag
         base_url = _get_base_url()
