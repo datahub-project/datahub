@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,7 +147,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
+      @Nonnull final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -159,7 +158,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastPassedAt == null || runEvent.getTimestampMillis() > maybeLastPassedAt) {
       patchBuilder.setLastPassedAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null && isLatestRun(runEvent, assertionSummary)) {
+      if (isLatestRun(runEvent, assertionSummary)) {
         patchBuilder.setAssertionStatus(assertionStatus.name());
       }
       // And also emit.
@@ -172,7 +171,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
+      @Nonnull final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -183,7 +182,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastFailedAt == null || runEvent.getTimestampMillis() > maybeLastFailedAt) {
       patchBuilder.setLastFailedAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null && isLatestRun(runEvent, assertionSummary)) {
+      if (isLatestRun(runEvent, assertionSummary)) {
         patchBuilder.setAssertionStatus(assertionStatus.name());
       }
       // And also emit.
@@ -198,7 +197,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
+      @Nonnull final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -209,7 +208,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastErroredAt == null || runEvent.getTimestampMillis() > maybeLastErroredAt) {
       patchBuilder.setLastErroredAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null && isLatestRun(runEvent, assertionSummary)) {
+      if (isLatestRun(runEvent, assertionSummary)) {
         patchBuilder.setAssertionStatus(assertionStatus.name());
       }
       // And also emit.
@@ -224,7 +223,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
+      @Nonnull final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -235,7 +234,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastInitializedAt == null || runEvent.getTimestampMillis() > maybeLastInitializedAt) {
       patchBuilder.setLastInitializedAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null && isLatestRun(runEvent, assertionSummary)) {
+      if (isLatestRun(runEvent, assertionSummary)) {
         patchBuilder.setAssertionStatus(assertionStatus.name());
       }
       // And also emit.
