@@ -117,6 +117,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "analytics_data",
+                        "description": "Aggregated analytics with Doris-specific types",
                         "tags": []
                     }
                 },
@@ -179,6 +180,7 @@
                             {
                                 "fieldPath": "user_ids_hll",
                                 "nullable": true,
+                                "description": "HyperLogLog for cardinality estimation",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
@@ -191,6 +193,7 @@
                             {
                                 "fieldPath": "user_bitmap",
                                 "nullable": true,
+                                "description": "Bitmap for set operations",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
@@ -203,6 +206,7 @@
                             {
                                 "fieldPath": "tags",
                                 "nullable": true,
+                                "description": "Array of tags",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {}
@@ -215,6 +219,7 @@
                             {
                                 "fieldPath": "metadata",
                                 "nullable": true,
+                                "description": "JSON binary format",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -227,6 +232,7 @@
                             {
                                 "fieldPath": "percentile_data",
                                 "nullable": true,
+                                "description": "Quantile state for percentile calculations",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
@@ -317,6 +323,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "customers",
+                        "description": "One row per registered customer",
                         "tags": []
                     }
                 },
@@ -343,6 +350,7 @@
                             {
                                 "fieldPath": "customer_id",
                                 "nullable": false,
+                                "description": "Unique customer identifier",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -355,6 +363,7 @@
                             {
                                 "fieldPath": "customer_name",
                                 "nullable": false,
+                                "description": "Customer's full name",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -367,6 +376,7 @@
                             {
                                 "fieldPath": "email",
                                 "nullable": true,
+                                "description": "Contact email, may be \"unverified\"",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -379,6 +389,7 @@
                             {
                                 "fieldPath": "country",
                                 "nullable": true,
+                                "description": "\u56fd\u5bb6 (ISO country name)",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}

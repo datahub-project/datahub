@@ -236,6 +236,9 @@ class DorisSourceReport(SQLSourceReport):
     # Nonzero means DESCRIBE failed on a table that reflected fine otherwise, so its
     # Doris-specific column types were downgraded to MySQL equivalents.
     tables_with_unreflected_types: int = 0
+    # Nonzero means the information_schema comment lookup failed for a database, so
+    # some or all of its table and column descriptions are missing.
+    databases_without_comments: int = 0
 
 
 @platform_name("Apache Doris", id="doris")
@@ -244,6 +247,10 @@ class DorisSourceReport(SQLSourceReport):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Table and column comments, read from information_schema",
+)
 class DorisSource(MySQLSource):
     config: DorisConfig
     report: DorisSourceReport
@@ -388,14 +395,14 @@ class DorisSource(MySQLSource):
             self.report.tables_reflected_without_keys += 1
             if fallback.expected:
                 self.report.warning(
-                    title="Table reflected without keys or comment",
-                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: columns are complete but keys, foreign keys and the table comment are missing.",
+                    title="Table reflected without keys",
+                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: its columns are complete but keys and foreign keys are missing.",
                     context=f"{full_name}: {fallback.error}",
                 )
             else:
                 self.report.warning(
-                    title="Table reflected without keys or comment after an unexpected error",
-                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so columns are complete, but keys, foreign keys and the table comment are missing. Check the account's grants on this table.",
+                    title="Table reflected without keys after an unexpected error",
+                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so its columns are complete, but keys and foreign keys are missing. Check the account's grants on this table.",
                     context=f"{full_name}: {fallback.error}",
                 )
 
@@ -405,6 +412,14 @@ class DorisSource(MySQLSource):
                 title="Doris column types unavailable",
                 message="DESCRIBE failed, so column types fall back to MySQL reflection: Doris-specific types such as HLL, BITMAP and VARIANT are reported as their closest MySQL equivalent instead.",
                 context=f"{full_name}: {error}",
+            )
+
+        for database, error in dialect.pop_comment_lookup_failures().items():
+            self.report.databases_without_comments += 1
+            self.report.warning(
+                title="Doris table and column comments unavailable",
+                message="Reading comments from information_schema failed, so some or all of this database's table and column descriptions are missing. Check that the account can read information_schema.TABLES and information_schema.COLUMNS.",
+                context=f"{database}: {error}",
             )
 
     def get_platform(self) -> str:
