@@ -11,9 +11,6 @@ _REF = re.compile(r"\$\{([^}]+)\}")
 class ResolvedConfig:
     config: Dict[str, object]
     secret_values: Set[str] = field(default_factory=set)
-    # Each string the recipe wrote with a ${REF} in it, as resolved: whole,
-    # where secret_values holds each reference's own value.
-    referenced: Set[str] = field(default_factory=set)
 
 
 class SecretResolver(Protocol):
@@ -105,14 +102,10 @@ def resolve_config_collecting(
     config_dict: Dict[str, object], resolvers: List[SecretResolver]
 ) -> ResolvedConfig:
     collected: Set[str] = set()
-    referenced: Set[str] = set()
 
     def walk(node: object) -> object:
         if isinstance(node, str):
-            value = _resolve_str(node, resolvers, collected)
-            if _REF.search(node):
-                referenced.add(value)
-            return value
+            return _resolve_str(node, resolvers, collected)
         if isinstance(node, dict):
             return {k: walk(v) for k, v in node.items()}
         if isinstance(node, list):
@@ -121,7 +114,7 @@ def resolve_config_collecting(
 
     result = walk(copy.deepcopy(config_dict))
     assert isinstance(result, dict)
-    return ResolvedConfig(config=result, secret_values=collected, referenced=referenced)
+    return ResolvedConfig(config=result, secret_values=collected)
 
 
 def resolve_config(

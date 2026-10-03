@@ -1,8 +1,10 @@
+import pathlib
 import re
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 import pytest
 
+from datahub.cli.recipe_cli import resolve_probe_recipe
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.secrets import MappingResolver
 
@@ -448,7 +450,16 @@ def test_a_referenced_secret_in_a_nested_config_block_is_not_reported() -> None:
     assert not any("git_info.deploy_key" in w for w in _warnings_of(result))
 
 
-def test_a_plaintext_secret_under_a_renamed_field_is_reported() -> None:
+@pytest.mark.parametrize(
+    "deploy_key",
+    [
+        _PLAINTEXT,
+        # A key on one line with escaped newlines, which deploy_key's validator
+        # rewrites into real ones: still the value the recipe spells.
+        _PLAINTEXT + "\\n" + _PLAINTEXT,
+    ],
+)
+def test_a_plaintext_secret_under_a_renamed_field_is_reported(deploy_key: str) -> None:
     """github_info is renamed into git_info by validation, so only the
     validated config holds its deploy_key under a SecretStr field."""
     _require_connector("lookml")
@@ -457,7 +468,7 @@ def test_a_plaintext_secret_under_a_renamed_field_is_reported() -> None:
             "source": {
                 "type": "lookml",
                 "config": {
-                    "github_info": _git_info(_PLAINTEXT),
+                    "github_info": _git_info(deploy_key),
                     "connection_to_platform_map": {"c": "postgres"},
                     "project_name": "p",
                 },
@@ -469,6 +480,60 @@ def test_a_plaintext_secret_under_a_renamed_field_is_reported() -> None:
         "'git_info.deploy_key' contains a plaintext secret" in w for w in found
     ), found
     assert not any(_PLAINTEXT in w for w in found)
+
+
+_KEY_FILE_CONTENT = "held-in-a" + "-deploy-key-file"
+
+
+def _key_file_info(path: str) -> Dict[str, object]:
+    return {"repo": "o/r", "deploy_key_file": path}
+
+
+@pytest.mark.parametrize(
+    "source_type, config_for",
+    [
+        (
+            "lookml",
+            lambda key: {
+                "git_info": _key_file_info(key),
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+            },
+        ),
+        (
+            "lookml",
+            lambda key: {
+                "project_dependencies": {"dep": _key_file_info(key)},
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+                "base_folder": "/tmp",
+            },
+        ),
+        ("odcs", lambda key: {"path": "/tmp", "git_info": _key_file_info(key)}),
+        ("sqlmesh", lambda key: {"git_info": _key_file_info(key)}),
+    ],
+)
+def test_a_deploy_key_read_from_its_file_is_not_reported_as_plaintext(
+    source_type: str,
+    config_for: Callable[[str], Dict[str, object]],
+    tmp_path: pathlib.Path,
+) -> None:
+    """deploy_key_file is the recommended form. Its validator reads the key
+    into deploy_key, so the validated config holds a value the recipe never
+    spells: no plaintext to move into a ${REF}, though it is still masked."""
+    _require_connector(source_type)
+    key_file = tmp_path / "deploy_key"
+    key_file.write_text(_KEY_FILE_CONTENT)
+    recipe: Dict[str, object] = {
+        "source": {"type": source_type, "config": config_for(str(key_file))}
+    }
+
+    result = validate_recipe(recipe)
+
+    assert result["valid"], result
+    assert not any("plaintext" in w for w in _warnings_of(result)), result
+    _, _, secret_values = resolve_probe_recipe(recipe)
+    assert _KEY_FILE_CONTENT in secret_values
 
 
 def _renamed_lookml(**config: object) -> Dict[str, object]:

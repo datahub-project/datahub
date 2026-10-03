@@ -1,6 +1,7 @@
 import re
 from typing import Dict, Iterator, List, Optional, Set
 
+from datahub.configuration.validate_multiline_string import escaped_newlines_to_real
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.introspect import (
     describe_source,
@@ -158,15 +159,18 @@ def validate_recipe(
         else:
             # What only the validated config holds under a SecretStr field: a
             # value under a key validation renamed (github_info -> git_info).
-            # Its path is not the recipe's, so its origin is read off the
-            # values: one only a ${REF} supplies, whole, is not plaintext,
-            # while one the recipe also spells literally still is.
-            from_reference = resolved.referenced - set(_literal_strings(config))
+            # Its path is not the recipe's, so it is plaintext only if the
+            # recipe spells the value, as written or as a field validator
+            # rewrites it (escaped newlines). Not one a ${REF} supplied, nor
+            # one a validator read in (deploy_key_file): those are masked,
+            # but there is nothing in the file to move into a ${REF}.
+            literals = set(_literal_strings(config))
+            spelled = literals | {escaped_newlines_to_real(v) for v in literals}
             for path, value in iter_model_secret_values(validated):
                 if (
                     path in judged_paths
                     or value in already_named
-                    or value in from_reference
+                    or value not in spelled
                 ):
                     continue
                 already_named.add(value)
