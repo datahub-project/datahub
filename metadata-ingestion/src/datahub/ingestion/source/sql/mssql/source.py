@@ -2,6 +2,7 @@ import logging
 import re
 import urllib.parse
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     Callable,
@@ -21,8 +22,8 @@ from typing import (
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine.base import Connection
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import (
     DatabaseError,
@@ -45,7 +46,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.sql_gate import (
     CatalogScope,
 )
-from datahub.ingestion.agent.verdicts import ClassifyContext, Verdict, VerdictContext
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    parent_required,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -96,6 +102,8 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
+    ProbeEngineSettings,
+    sql_structural_verdict,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
@@ -111,6 +119,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -262,6 +273,19 @@ def add_sql_variant_converter(dbapi_connection: Any) -> None:
             "Failed to mount output converter for MSSQL data type -150 due to %s",
             e,
         )
+
+
+def _read_sql_variant_on_each_connection(engine: Engine) -> None:
+    """_add_output_converters for the probe's engine, which never runs
+    SQLServerSource.__init__, where ingestion installs it. pyodbc only: the
+    converter is an ODBC hook."""
+    if engine.dialect.driver != "pyodbc":
+        return
+
+    def _on_connect(dbapi_connection: Any, _record: Any) -> None:
+        add_sql_variant_converter(dbapi_connection)
+
+    event.listen(engine, "connect", _on_connect)
 
 
 # SQLServerSource.get_identifier takes an inspector and never reads it; the
@@ -440,18 +464,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
         return database_name_from_url(make_url(self.probe_sql_alchemy_url()))
 
-    def probe_prepare_engine(self, engine: Any) -> None:
-        # _add_output_converters, applied per connection because the probe
-        # never runs SQLServerSource.__init__, where ingestion applies it.
-        if engine.dialect.driver != "pyodbc":
-            return
-        # lazy: sqlalchemy events are only needed once a probe actually runs
-        from sqlalchemy import event
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return (
+            super()
+            .probe_engine_settings(budget)
+            .followed_by(_read_sql_variant_on_each_connection)
+        )
 
-        def _on_connect(dbapi_connection: Any, _record: Any) -> None:
-            add_sql_variant_converter(dbapi_connection)
-
-        event.listen(engine, "connect", _on_connect)
+    @classmethod
+    def probe_sqlglot_dialect(cls) -> Optional[str]:
+        # sqlglot's name for T-SQL, pinned rather than resolved through the
+        # "mssql" platform alias so the grammar cannot change under the gate.
+        return "tsql"
 
     @field_validator("max_queries_to_extract")
     @classmethod
@@ -547,39 +571,15 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     def db(self):
         return self.database
 
-    def probe_filter_target(
-        self,
-        schema: str,
-        entity: str,
-        warn: Callable[[str], None],
-        database: Optional[str] = None,
-    ) -> Optional[str]:
-        # get_identifier qualifies with current_database, which ingestion sets
-        # to each database as it walks them; the node's Database ancestor is
-        # that database. It reads nothing off the inspector.
-        if database is None and not self.database and not self.sqlalchemy_uri:
-            # Without it get_identifier builds `schema.table`, which
-            # ingestion, walking every database, never matches.
-            warn(
-                "this recipe sets no `database`, so ingestion qualifies each "
-                "table with the database it was found in; pass that database "
-                "as the first --parent, or the name is judged on 'schema.table', "
-                "which ingestion never matches"
-            )
-        source = SQLServerSource.__new__(SQLServerSource)
-        source.config = self
-        source.current_database = database
-        return source.get_identifier(
-            schema=schema, entity=entity, inspector=cast(Inspector, None)
-        )
-
-    def probe_match_target(self, ctx: ClassifyContext) -> str:
-        if ctx.pattern_field != "procedure_pattern":
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        if ctx.kind != JobContainerSubTypes.STORED_PROCEDURE:
             return super().probe_match_target(ctx)
         # loop_stored_procedures: f"{db_name}.{schema}.{name}", by hand and
         # never lowercased -- get_identifier (the default route) would
         # lowercase it under convert_urns_to_lowercase, a string ingestion
         # never matches.
+        if parent_required(ctx):
+            return None
         schema = ctx.parent_path[-1]
         if self.is_single_database_recipe():
             # get_db_name of the one inspector, whatever --parent says; a
@@ -593,13 +593,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         if self.is_single_database_recipe():
             # No target to get right: ingestion emits no procedure here, and
             # probe_verdict_override says so and why.
-            return ctx.name
+            return None
         ctx.warn(
             "no database given, so procedures were judged on their bare "
             "names; procedure_pattern matches database.schema.procedure, so "
             "pass the database and the schema as --parent"
         )
-        return ctx.name
+        return None
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         # loop_stored_procedures runs inside the allowed-schema loop of each
@@ -611,18 +611,23 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         # get_inspectors' single-inspector branch: the pin is read whatever
         # database_pattern and MSSQL_SYSTEM_DATABASES say, and nothing else
-        # is. Overrules ctx.structural on purpose: a pinned `master` is read.
+        # is. So a pinned recipe's databases skip sql_structural_verdict on
+        # purpose: a pinned `master` is read.
         if ctx.kind == JobContainerSubTypes.STORED_PROCEDURE:
-            return self._unpinned_procedure_verdict(ctx)
-        if ctx.kind != DatasetContainerSubTypes.DATABASE:
-            return None
-        if not self.is_single_database_recipe():
-            return None
+            unpinned = self._unpinned_procedure_verdict(ctx)
+            if unpinned is not None:
+                return unpinned
+            return sql_structural_verdict(self, ctx)
+        if (
+            ctx.kind != DatasetContainerSubTypes.DATABASE
+            or not self.is_single_database_recipe()
+        ):
+            return sql_structural_verdict(self, ctx)
         pinned = self.pinned_database_name()
         if not pinned:
             # The login's default database -- often `master` -- whose name is
-            # not knowable offline. Included rather than left to ctx.structural:
-            # the single branch consults neither database_pattern nor the
+            # not knowable offline. Included rather than left to the default
+            # rules: the single branch consults neither database_pattern nor the
             # system list, so either excluding it would be a verdict ingestion
             # never makes, and one inherited by every table under it.
             ctx.warn(
@@ -665,30 +670,29 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         warn: Callable[[str], None],
         database: Optional[str] = None,
     ) -> Optional[str]:
-        if database is None:
-            if not self.is_single_database_recipe():
-                # get_identifier (the shim, reached by returning None) builds
-                # `schema.table` without a database, which ingestion -- always
-                # carrying current_database on this kind of recipe -- never
-                # matches.
-                warn(
-                    "this recipe sets no `database`, so ingestion qualifies "
-                    "each table with the database it was found in; pass that "
-                    "database as the first --parent (a `tables --database` "
-                    "result carries it) -- judged on 'schema.table' instead"
-                )
-            return None
-        if not self.is_single_database_recipe():
-            return None
-        # A pinned recipe never sets current_database (get_inspectors' single
-        # branch), so the shim's per-database value must not reach
-        # get_identifier: it would prefix a database a sqlalchemy_uri recipe
-        # never names, or the caller's spelling of a `database` one. A
-        # --parent naming another database is excluded by the Database
-        # verdict above, so the target only has to be right for the pin.
+        # get_identifier qualifies with current_database, which ingestion sets
+        # to each database as it walks them (the node's Database ancestor).
+        if self.is_single_database_recipe():
+            # get_inspectors' single branch never sets it, so a --parent
+            # database must not reach get_identifier: it would prefix a
+            # database a sqlalchemy_uri recipe never names, or the caller's
+            # spelling of a `database` one. A --parent naming another
+            # database is excluded by the Database verdict above, so the
+            # target only has to be right for the pin.
+            database = None
+        elif database is None:
+            # Without it get_identifier builds `schema.table`, which
+            # ingestion -- always carrying current_database on this kind of
+            # recipe -- never matches.
+            warn(
+                "this recipe sets no `database`, so ingestion qualifies "
+                "each table with the database it was found in; pass that "
+                "database as the first --parent (a `tables --database` "
+                "result carries it) -- judged on 'schema.table' instead"
+            )
         source = SQLServerSource.__new__(SQLServerSource)
         source.config = self
-        source.current_database = None
+        source.current_database = database
         return source.get_identifier(
             schema=schema, entity=entity, inspector=_NO_INSPECTOR
         )
@@ -697,7 +701,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     def probe_kind_switches(cls) -> Mapping[str, str]:
         # SQLAlchemySource.get_schema_level_workunits reaches
         # loop_stored_procedures only when this is set.
-        return {str(JobContainerSubTypes.STORED_PROCEDURE): "include_stored_procedures"}
+        return {
+            **super().probe_kind_switches(),
+            str(JobContainerSubTypes.STORED_PROCEDURE): "include_stored_procedures",
+        }
 
     @classmethod
     def probe_provider_class(cls) -> type:

@@ -276,7 +276,8 @@ _CREDS = {"username": "u", "password": "p"}
             False,
             False,
         ),
-        (lambda: SQLServerConfig(host_port="h:1433", **_CREDS), [], False, False),
+        # Its own step: the sql_variant converter, which acts only on pyodbc.
+        (lambda: SQLServerConfig(host_port="h:1433", **_CREDS), [], True, False),
         (
             lambda: HiveMetastore(host_port="h:3306", **_CREDS),
             ["program_name"],
