@@ -1,2 +1,21 @@
 subNavigationMode: false
-microFrontends: []
+microFrontends:
+    - id: HelloWorld
+      label: Hello World
+      path: /helloworld
+      remoteEntry: http://localhost:3002/remoteEntry.js
+      module: helloWorldMFE/mount
+      flags:
+          enabled: true
+          showInNav: true
+      navIcon: HandWaving
+
+    - id: HelloWorldAngular
+      label: Hello Angular
+      path: /helloworld-angular
+      remoteEntry: http://localhost:3004/remoteEntry.js
+      module: helloWorldAngularMFE/mount
+      flags:
+          enabled: true
+          showInNav: true
+      navIcon: Code
