@@ -416,3 +416,31 @@ def test_a_namespace_is_judged_on_its_own_name() -> None:
         ("sales", True),
         ("ops", False),
     ]
+
+
+def test_a_table_without_its_namespace_is_judged_bare_and_says_so() -> None:
+    # table_pattern is written against `<namespace>.<table>`: a bare name
+    # judged against it is not the verdict ingestion makes.
+    result = check_filters(
+        source_type="iceberg",
+        config_dict=_config_dict(**_PARITY_PATTERNS),
+        kind="Table",
+        parent_path=[],
+        names=["orders"],
+    )
+
+    assert result.results[0].target == "orders"
+    assert any("no parent given" in w for w in result.warnings), result.warnings
+
+
+def test_a_namespace_is_top_level_so_needs_no_parent() -> None:
+    result = check_filters(
+        source_type="iceberg",
+        config_dict=_config_dict(**_PARITY_PATTERNS),
+        kind="Namespace",
+        parent_path=[],
+        names=["sales"],
+    )
+
+    assert result.results[0].target == "sales"
+    assert result.warnings == []

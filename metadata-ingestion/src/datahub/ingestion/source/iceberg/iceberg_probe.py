@@ -11,7 +11,7 @@ from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -65,7 +65,7 @@ class IcebergMetadataProbe:
         for candidate in self._top_level_namespaces():
             if _dotted(candidate) == namespace:
                 return candidate
-        raise ValueError(
+        raise ProbeArgumentError(
             f"no top-level namespace '{namespace}' in this catalog. Ingestion "
             f"reads only top-level namespaces (see the `namespaces` command), "
             f"so a nested namespace is never ingested"
@@ -87,12 +87,14 @@ class IcebergMetadataProbe:
         except (NoSuchIcebergTableError, NoSuchPropertyException) as exc:
             # Checked before NoSuchTableError, its base class. Ingestion skips
             # these with a warning (iceberg.py _try_processing_dataset).
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"'{namespace}.{table}' is not an Iceberg table; ingestion "
                 f"skips it with a warning"
             ) from exc
         except NoSuchTableError as exc:
-            raise ValueError(f"no table '{table}' in namespace '{namespace}'") from exc
+            raise ProbeArgumentError(
+                f"no table '{table}' in namespace '{namespace}'"
+            ) from exc
         except ValueError as exc:
             if "Could not initialize FileIO" not in str(exc):
                 raise
@@ -116,7 +118,7 @@ class IcebergMetadataProbe:
         try:
             properties = self._catalog.load_namespace_properties(resolved)
         except NoSuchNamespaceError as exc:
-            raise ValueError(f"no namespace '{namespace}'") from exc
+            raise ProbeArgumentError(f"no namespace '{namespace}'") from exc
         return {str(k): str(v) for k, v in properties.items()}
 
     @probe_method(
@@ -134,7 +136,7 @@ class IcebergMetadataProbe:
         try:
             identifiers = self._catalog.list_tables(resolved)
         except NoSuchNamespaceError as exc:
-            raise ValueError(f"no namespace '{namespace}'") from exc
+            raise ProbeArgumentError(f"no namespace '{namespace}'") from exc
         return sorted(identifier[-1] for identifier in identifiers)[:limit]
 
     @probe_method()
