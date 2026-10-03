@@ -30,7 +30,11 @@ from urllib3.util import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.ingestion.agent.verdicts import ClassifyContext, ancestors_in
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    ancestors_in,
+    parent_required,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -309,8 +313,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
 
         return IcebergMetadataProbe
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Tables are listed only for namespaces namespace_pattern keeps
         (iceberg.py _get_datasets iterates the namespaces _get_namespaces
         yielded), and namespaces are top-level, with nothing above them."""
@@ -320,13 +323,16 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             {str(DatasetSubTypes.TABLE)},
         )
 
-    def probe_match_target(self, ctx: ClassifyContext) -> str:
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
         """table_pattern is matched against ".".join(dataset_path), the full
         identifier including its namespace (iceberg.py _process_dataset).
-        ctx.fqn is the parent path and name joined the same way. Namespaces
-        never reach this hook: their ancestor chain is empty, so the framework
-        matches them on the bare name, which is ".".join(namespace) for a
-        top-level namespace."""
+        ctx.fqn is the parent path and name joined the same way, so a table
+        needs its namespace as the parent. A namespace is matched on its bare
+        name, which is ".".join(namespace) for a top-level namespace."""
+        if ctx.kind != DatasetSubTypes.TABLE:
+            return None
+        if parent_required(ctx):
+            return None
         return ctx.fqn
 
 
