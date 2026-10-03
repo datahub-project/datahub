@@ -12,18 +12,22 @@ from typing import Dict, List
 import pytest
 
 from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodResult,
     ProbeMethodSpec,
     _iter_specs,
     config_class_for,
     probe_method,
+    run_probe_method,
 )
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.source.sql import sqlalchemy_probe
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 
 class _FakeInspector:
-    def __init__(self) -> None:
+    def __init__(self, materialized_views_fail: bool = False) -> None:
         self.asked_for: List[str] = []
+        self.materialized_views_fail = materialized_views_fail
 
     def get_schema_names(self) -> List[str]:
         return ["analytics", "information_schema"]
@@ -35,6 +39,12 @@ class _FakeInspector:
     def get_view_names(self, schema: str) -> List[str]:
         self.asked_for.append(f"views:{schema}")
         return ["orders_v"] if schema == "analytics" else []
+
+    def get_materialized_view_names(self, schema: str) -> List[str]:
+        self.asked_for.append(f"materialized_views:{schema}")
+        if self.materialized_views_fail:
+            raise RuntimeError("permission denied for relation pg_class")
+        return ["orders_mv"] if schema == "analytics" else []
 
 
 def _probe(source_type: str = "postgres") -> SqlAlchemyMetadataProbe:
@@ -82,6 +92,67 @@ def test_tables_and_views_are_separate_listings():
     assert probe.views("analytics") == ["orders_v"]
     assert _spec("tables").kind == "Table"
     assert _spec("views").kind == "View"
+
+
+def _run_views(
+    monkeypatch: pytest.MonkeyPatch,
+    source_type: str,
+    config: Dict[str, object],
+    inspector: _FakeInspector,
+) -> ProbeMethodResult:
+    # for_config builds a real engine (over SQLite); the listing is then read
+    # through the fake Inspector, so only what the config wires in is tested.
+    monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda engine: inspector)
+    return run_probe_method(source_type, config, "views", {"schema": "analytics"})
+
+
+@pytest.mark.parametrize(
+    "source_type, config, views",
+    [
+        # PostgresSource._get_view_names ingests materialized views as views,
+        # judged by view_pattern.
+        (
+            "postgres",
+            {"host_port": "h:5432", "sqlalchemy_uri": "sqlite://"},
+            ["orders_v", "orders_mv"],
+        ),
+        # Ingestion lists get_view_names alone everywhere else, the generic
+        # source on a Postgres server included.
+        (
+            "sqlalchemy",
+            {"connect_uri": "sqlite://", "platform": "postgres"},
+            ["orders_v"],
+        ),
+        (
+            "mysql",
+            {"host_port": "h:3306", "sqlalchemy_uri": "sqlite://"},
+            ["orders_v"],
+        ),
+    ],
+)
+def test_views_lists_what_the_connectors_own_view_listing_ingests(
+    monkeypatch: pytest.MonkeyPatch,
+    source_type: str,
+    config: Dict[str, object],
+    views: List[str],
+) -> None:
+    result = _run_views(monkeypatch, source_type, config, _FakeInspector())
+    assert result.result == views
+    assert result.kind == "View"
+
+
+def test_a_materialized_view_listing_that_fails_warns_as_ingestion_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _run_views(
+        monkeypatch,
+        "postgres",
+        {"host_port": "h:5432", "sqlalchemy_uri": "sqlite://"},
+        _FakeInspector(materialized_views_fail=True),
+    )
+    assert result.result == ["orders_v"]
+    assert any("materialized views" in w.lower() for w in result.warnings)
+    assert not any("pg_class" in w for w in result.warnings)
 
 
 def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():

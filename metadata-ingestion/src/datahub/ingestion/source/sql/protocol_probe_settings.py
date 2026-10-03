@@ -17,6 +17,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict
 
 from sqlalchemy import event
+from sqlalchemy.engine import make_url
 
 from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
@@ -101,9 +102,19 @@ def _libpq_settings(
         ceiling = f"-c statement_timeout={seconds * 1000}"
         # Appended: the recipe's own settings (a search_path, say) share this
         # string, and the probe must connect with them as ingestion does.
-        own = recipe_connect_args(config).get(_LIBPQ_OPTIONS)
+        own = _recipe_libpq_options(config)
         connect_args[_LIBPQ_OPTIONS] = f"{own} {ceiling}" if own else ceiling
     return ProbeEngineSettings(connect_args=connect_args, timeout_applies=bool(seconds))
+
+
+def _recipe_libpq_options(config: SQLCommonConfig) -> object:
+    """The libpq options ingestion's engine hands the driver: connect_args'
+    when the recipe sets them there, else the probe URL's query string's, as
+    create_engine lets connect_args override the URL."""
+    own = recipe_connect_args(config)
+    if _LIBPQ_OPTIONS in own:
+        return own[_LIBPQ_OPTIONS]
+    return make_url(probe_url(config)).query.get(_LIBPQ_OPTIONS)
 
 
 def set_redshift_statement_timeout(dbapi_connection: Any, seconds: int) -> None:

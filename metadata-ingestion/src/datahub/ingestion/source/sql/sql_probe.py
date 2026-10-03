@@ -9,10 +9,14 @@ get_identifier needs state only ingestion sets.
 
 import sys
 from dataclasses import dataclass
-from typing import Optional, Protocol, Type, cast
+from typing import TYPE_CHECKING, Optional, Protocol, Type, cast
 
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 # FooConfig -> FooSource (see _source_class_for).
 _CONFIG_CLASS_SUFFIX = "Config"
@@ -49,6 +53,21 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
         if isinstance(candidate, type) and issubclass(candidate, SQLAlchemySource):
             return candidate
     return SQLAlchemySource
+
+
+def view_listing_source(config: "SQLCommonConfig") -> SQLAlchemySource:
+    """This config's Source class, built with __new__ as _identifier_target
+    builds it, carrying the config and a fresh report: what its
+    _get_view_names reads. That is the hook a connector overrides to list
+    view-like objects ingestion judges by view_pattern (PostgresSource adds
+    materialized views), so `probe run views` calls it rather than restating
+    which dialects have them. Its warnings land in the report.
+    """
+    source_cls = _source_class_for(config)
+    shim = source_cls.__new__(source_cls)
+    shim.config = config
+    shim.report = SQLSourceReport()
+    return shim
 
 
 class _HasDatabase(Protocol):

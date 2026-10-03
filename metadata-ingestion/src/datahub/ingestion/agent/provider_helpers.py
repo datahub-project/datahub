@@ -8,7 +8,7 @@ is built from the text of an exception this module did not raise.
 """
 
 import itertools
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from dataclasses import dataclass
 from types import TracebackType
 from typing import (
@@ -193,18 +193,23 @@ def take(
 
     Pulls nothing past the limit, since a paged API's discarded pages are real
     requests. Closes the source explicitly: some SDK generators hold patched
-    state while suspended.
+    state while suspended. A close that fails after a listing or `keep` has
+    failed is dropped, so it never replaces the failure that ended the read.
     """
     iterator = iter(items)
+    close = getattr(iterator, "close", None)
     try:
         kept: Iterator[T] = iterator if keep is None else filter(keep, iterator)
-        if limit is None:
-            return list(kept)
-        return list(itertools.islice(kept, limit))
-    finally:
-        close = getattr(iterator, "close", None)
+        bounded = kept if limit is None else itertools.islice(kept, limit)
+        result = list(bounded)
+    except BaseException:
         if callable(close):
-            close()
+            with suppress(Exception):
+                close()
+        raise
+    if callable(close):
+        close()
+    return result
 
 
 @dataclass

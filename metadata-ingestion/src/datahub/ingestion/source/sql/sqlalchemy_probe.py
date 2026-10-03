@@ -10,6 +10,7 @@ bounded and labelled by the config's probe_engine_settings.
 
 from dataclasses import replace
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -52,6 +53,10 @@ from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
 )
 from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
+from datahub.ingestion.source.sql.sql_probe import view_listing_source
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names: the family's
 # default spelling for these, under any config that declares none of its own
@@ -182,6 +187,11 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # sql_dialect; None derives it from the engine's dialect.
     _declared_sqlglot_dialect: Optional[str] = None
 
+    # The connector's own Source, set in for_config (see
+    # sql_probe.view_listing_source): `views` returns its _get_view_names.
+    # None lists get_view_names alone.
+    _view_source: Optional["SQLAlchemySource"] = None
+
     # Listing caches. Created on first use, not in __init__: tests build this
     # class with __new__ and subclasses may bring their own constructor. One
     # probe instance serves one command, so they never go stale.
@@ -302,10 +312,18 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         )
         probe.pinned_containers = _pinned_containers(config, probe.container_kind)
         probe.container_normalizer = staticmethod(_container_normalizer(config))  # type: ignore[assignment]
+        probe._view_source = view_listing_source(config)
         return probe
 
     def __exit__(self, *exc: object) -> None:
         self._engine.dispose()
+
+    @property
+    def probe_report(self) -> object:
+        """The report the connector's own view listing warns into, as when
+        Postgres cannot list materialized views; read back after each
+        command."""
+        return None if self._view_source is None else self._view_source.report
 
     @staticmethod
     def probe_error_code(exc: BaseException) -> Optional[str]:
@@ -387,9 +405,13 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         kind=DatasetSubTypes.VIEW, row_limit_param="limit", parent_params=("schema",)
     )
     def views(self, schema: str, limit: int = 200) -> List[str]:
-        """Views in one schema, judged by view_pattern. Separate from `tables` for the
-        reason given there."""
-        return self._listed(self._resolve_schema(schema), "views")[:limit]
+        """Views in one schema, judged by view_pattern: what the connector's own
+        ingestion lists as views, so Postgres's materialized views are among them.
+        Separate from `tables` for the reason given there."""
+        on_schema = self._resolve_schema(schema)
+        if self._view_source is None:
+            return self._listed(on_schema, "views")[:limit]
+        return list(self._view_source._get_view_names(self._insp, on_schema))[:limit]
 
     @probe_method()
     def foreign_keys(self, schema: str, table: str) -> List[Dict[str, object]]:

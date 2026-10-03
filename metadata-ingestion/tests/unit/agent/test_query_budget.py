@@ -19,6 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadata
 from datahub.ingestion.source.sql.cockroachdb import CockroachDBConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
 from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
     SQLCommonConfig,
@@ -559,3 +560,55 @@ def test_a_recipes_own_libpq_options_survive_the_timeout():
 def test_the_timeout_stands_alone_when_the_recipe_asked_for_nothing():
     sent = _engine_options("postgresql://h/db")["connect_args"]["options"]
     assert sent == "-c statement_timeout=30000"
+
+
+class _Captured(Exception):
+    pass
+
+
+def _driver_options(url: str, engine_kwargs: Dict[str, Any]) -> Optional[str]:
+    """The libpq `options` psycopg2.connect would receive from this engine,
+    caught at do_connect, after SQLAlchemy has merged the URL's query with
+    connect_args and before a socket opens."""
+    engine = sqlalchemy.create_engine(url, **engine_kwargs)
+    seen: Dict[str, Any] = {}
+
+    @sqlalchemy.event.listens_for(engine, "do_connect")
+    def _capture(
+        dialect: Any, conn_rec: Any, cargs: Any, cparams: Dict[str, Any]
+    ) -> None:
+        seen.update(cparams)
+        raise _Captured()
+
+    try:
+        with pytest.raises(_Captured):
+            engine.connect()
+    finally:
+        engine.dispose()
+    return seen.get("options")
+
+
+@pytest.mark.parametrize(
+    "url, options",
+    [
+        ("postgresql+psycopg2://u:p@h:5432/db?options=-csearch_path%3Dmyschema", None),
+        (
+            "postgresql+psycopg2://u:p@h:5432/db",
+            {"connect_args": {"options": "-csearch_path=myschema"}},
+        ),
+        # connect_args override the URL's query in create_engine, so the
+        # URL's options never reach the driver on either engine.
+        (
+            "postgresql+psycopg2://u:p@h:5432/db?options=-csearch_path%3Durl_only",
+            {"connect_args": {"options": "-csearch_path=myschema"}},
+        ),
+    ],
+)
+def test_the_probe_sends_ingestions_libpq_options_and_then_its_ceiling(
+    url: str, options: Optional[Dict[str, Any]]
+) -> None:
+    config = _config_for(url, options)
+    ingestion = _driver_options(config.get_sql_alchemy_url(), config.options)
+    probe = _driver_options(probe_url(config), _engine_options(url, options))
+    assert ingestion == "-csearch_path=myschema"
+    assert probe == f"{ingestion} -c statement_timeout=30000"

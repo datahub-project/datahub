@@ -363,6 +363,20 @@ def test_bigquery_queries_matches_datasets_on_the_qualified_name() -> None:
             DatasetSubTypes.VIEW,
             "include_views",
         ),
+        # The subtype Cube emits a view's dataset with: include_views drops
+        # those too.
+        (
+            "cube",
+            {"api_url": "http://h/cubejs-api/v1", "api_token": "t"},
+            DatasetSubTypes.SEMANTIC_MODEL,
+            "include_views",
+        ),
+        (
+            "cube",
+            {"api_url": "http://h/cubejs-api/v1", "api_token": "t"},
+            DatasetSubTypes.CUBE,
+            "include_cubes",
+        ),
         (
             "informix",
             {"host_port": "h:1", "server": "s", "database": "db"},

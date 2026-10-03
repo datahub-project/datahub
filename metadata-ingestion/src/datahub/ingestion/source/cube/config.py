@@ -128,7 +128,13 @@ class CubeSourceConfig(
 
     @classmethod
     def probe_kind_switches(cls) -> Mapping[str, str]:
-        return {str(DatasetSubTypes.VIEW): "include_views"}
+        # A view is emitted with subtype Semantic Model, and view_pattern
+        # resolves to kind View, so include_views switches off both kinds.
+        return {
+            str(DatasetSubTypes.VIEW): "include_views",
+            str(DatasetSubTypes.SEMANTIC_MODEL): "include_views",
+            str(DatasetSubTypes.CUBE): "include_cubes",
+        }
 
     include_reports: bool = Field(
         default=True,

@@ -237,6 +237,44 @@ def test_take_closes_the_source_when_keep_raises() -> None:
     assert state == ["closed"]
 
 
+class _BrokenPager:
+    """A paged listing whose next page fails, and whose close fails too."""
+
+    def __iter__(self) -> "_BrokenPager":
+        return self
+
+    def __next__(self) -> int:
+        raise ConnectionError("page 2 fetch failed")
+
+    def close(self) -> None:
+        raise RuntimeError("session already torn down")
+
+
+def _listing_whose_close_fails() -> Iterator[int]:
+    try:
+        yield from range(10)
+    finally:
+        raise RuntimeError("cleanup failed")
+
+
+def test_a_failing_close_does_not_replace_the_listings_own_failure() -> None:
+    with pytest.raises(ConnectionError):
+        take(_BrokenPager(), 10)
+
+
+def test_a_failing_close_does_not_replace_a_keep_refusal() -> None:
+    def keep(n: int) -> bool:
+        raise ProbeArgumentError("bad record filter")
+
+    with pytest.raises(ProbeArgumentError):
+        take(_listing_whose_close_fails(), 5, keep=keep)
+
+
+def test_a_failing_close_after_a_clean_listing_is_raised() -> None:
+    with pytest.raises(RuntimeError, match="cleanup failed"):
+        take(_listing_whose_close_fails(), 2)
+
+
 def test_take_filters_before_counting_and_takes_all_without_a_limit() -> None:
     assert take(range(10), 2, keep=lambda n: n % 2 == 1) == [1, 3]
     assert take(iter([1, 2, 3]), None) == [1, 2, 3]
