@@ -283,11 +283,13 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
             session = KafkaConnectSource._create_connect_session(
                 config, session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
             )
-        except ValueError:
-            # Confluent Cloud without Connect credentials, the one error the
-            # factory raises: a recipe error, so deferred like a bad
-            # connect_uri, and stated in ingestion's words without quoting
-            # the exception.
+        except ValueError as exc:
+            # Confluent Cloud without Connect credentials is a recipe error, so
+            # it is deferred like a bad connect_uri. Any other ValueError
+            # (the config's own reads run in here too) propagates, for the
+            # framework to label.
+            if str(exc) != CONFLUENT_CLOUD_CREDENTIALS_REQUIRED:
+                raise
             recipe_problem = CONFLUENT_CLOUD_CREDENTIALS_REQUIRED
             session = _TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
         kafka_session = KafkaConnectSource._create_kafka_session(
