@@ -735,3 +735,22 @@ def test_the_connector_logger_is_audible_again_after_a_probe(
         "after the probe"
     )
     assert "after the probe" in caplog.text
+
+
+def test_only_the_missing_credential_error_is_reported_as_one() -> None:
+    # The session factory also runs the config's own reads; a ValueError from
+    # one of them is not a missing credential, so it propagates for the
+    # framework to label instead of borrowing that message.
+    config = _recipe(username=None, password=None)
+    with (
+        mock.patch.object(
+            KafkaConnectSourceConfig,
+            "is_confluent_cloud",
+            # Only the factory's call fails; the provider's later read does
+            # not, so swallowing the first would build a provider silently.
+            side_effect=[ValueError("boom"), False],
+        ),
+        pytest.raises(ValueError) as raised,
+    ):
+        KafkaConnectMetadataProbe.for_config(config)
+    assert str(raised.value) == "boom"
