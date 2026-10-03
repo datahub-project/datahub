@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Optional, Set
+from typing import Dict, Iterator, List, Optional, Set
 
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.introspect import (
@@ -40,6 +40,19 @@ def _unique_env_name(path: str, taken: Set[str]) -> str:
         name = f"{base}_{suffix}"
     taken.add(name)
     return name
+
+
+def _literal_strings(node: object) -> Iterator[str]:
+    """Every string value a recipe's config spells without a ${REF}."""
+    if isinstance(node, str):
+        if not _REF.search(node):
+            yield node
+    elif isinstance(node, dict):
+        for item in node.values():
+            yield from _literal_strings(item)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _literal_strings(item)
 
 
 def _plaintext_warning(path: str, env: str) -> str:
@@ -117,13 +130,15 @@ def validate_recipe(
     # Every SecretStr field the recipe writes inline, at any depth, by path: the
     # walk the redactor masks with. dict() drops a path a union read twice.
     already_named: Set[str] = set()
-    named_paths: Set[str] = set()
+    # Each path this walk judged, a ${REF} one too: the validated walk below
+    # names a path the recipe holds the same way, and needs no second verdict.
+    judged_paths: Set[str] = set()
     env_names: Set[str] = set()
     for path, value in dict(iter_secret_field_values(config_cls, config)).items():
+        judged_paths.add(path)
         if _REF.search(value):
             continue
         already_named.add(value)
-        named_paths.add(path)
         warnings.append(_plaintext_warning(path, _unique_env_name(path, env_names)))
 
     # Validated resolved, as `datahub ingest` does: a raw `${VAR}` is a string
@@ -143,16 +158,19 @@ def validate_recipe(
         else:
             # What only the validated config holds under a SecretStr field: a
             # value under a key validation renamed (github_info -> git_info).
-            # A value a ${REF} supplied is not plaintext.
+            # Its path is not the recipe's, so its origin is read off the
+            # values: one only a ${REF} supplies, whole, is not plaintext,
+            # while one the recipe also spells literally still is.
+            from_reference = resolved.referenced - set(_literal_strings(config))
             for path, value in iter_model_secret_values(validated):
                 if (
-                    value in already_named
-                    or path in named_paths
-                    or value in resolved.secret_values
+                    path in judged_paths
+                    or value in already_named
+                    or value in from_reference
                 ):
                     continue
                 already_named.add(value)
-                named_paths.add(path)
+                judged_paths.add(path)
                 warnings.append(
                     _plaintext_warning(path, _unique_env_name(path, env_names))
                 )

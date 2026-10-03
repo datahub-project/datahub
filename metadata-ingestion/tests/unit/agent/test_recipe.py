@@ -4,6 +4,7 @@ from typing import Dict, List
 import pytest
 
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
+from datahub.ingestion.agent.secrets import MappingResolver
 
 
 def _require_connector(source_type: str) -> None:
@@ -468,6 +469,47 @@ def test_a_plaintext_secret_under_a_renamed_field_is_reported() -> None:
         "'git_info.deploy_key' contains a plaintext secret" in w for w in found
     ), found
     assert not any(_PLAINTEXT in w for w in found)
+
+
+def _renamed_lookml(**config: object) -> Dict[str, object]:
+    return {
+        "source": {
+            "type": "lookml",
+            "config": {
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+                **config,
+            },
+        }
+    }
+
+
+def test_a_reference_elsewhere_does_not_hide_a_plaintext_secret() -> None:
+    """A ${REF} under another key resolving to the same string does not make
+    the renamed field's literal any less plaintext, and the referenced path
+    is not the one reported."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        _renamed_lookml(
+            github_info=_git_info(_PLAINTEXT),
+            project_dependencies={"dep": _git_info("${DEP_KEY}")},
+        ),
+        [MappingResolver({"DEP_KEY": _PLAINTEXT})],
+    )
+    found = _warnings_of(result)
+    assert any(
+        "'git_info.deploy_key' contains a plaintext secret" in w for w in found
+    ), found
+    assert not any("project_dependencies" in w for w in found), found
+
+
+def test_a_composed_reference_under_a_renamed_field_is_not_plaintext() -> None:
+    _require_connector("lookml")
+    result = validate_recipe(
+        _renamed_lookml(github_info=_git_info("${KEY_HEAD}${KEY_TAIL}")),
+        [MappingResolver({"KEY_HEAD": "abcd", "KEY_TAIL": "efgh"})],
+    )
+    assert not any("deploy_key" in w for w in _warnings_of(result))
 
 
 def test_each_suggested_environment_variable_is_named_once() -> None:
