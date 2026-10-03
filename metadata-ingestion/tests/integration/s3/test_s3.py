@@ -26,12 +26,17 @@ import os
 import pathlib
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
+from unittest import mock
 
 import boto3
 import pytest
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.testing import mce_helpers
 
 pytestmark = pytest.mark.integration
@@ -374,3 +379,177 @@ def test_data_lake_local_ingest(
             r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['size_in_bytes'\]",
         ],
     )
+
+
+# Probe tests. They share this module's emulator fixture rather than starting a
+# second one, and compare against the goldens above: those are real ingestion
+# output for the same recipes against the same emulator.
+
+
+def _probe_source(source_file_tuple: Tuple[str, str]) -> Dict[str, Any]:
+    source_dir, source_file = source_file_tuple
+    with open(os.path.join(source_dir, source_file)) as f:
+        config: Dict[str, Any] = json.load(f)["config"]
+    config.setdefault("aws_config", {})["aws_endpoint_url"] = ENDPOINT_URL
+    return config
+
+
+def _golden(source_file: str) -> List[Dict[str, Any]]:
+    with open(test_resources_dir / f"golden-files/s3/golden_mces_{source_file}") as f:
+        return json.load(f)
+
+
+def _probe_included_tables(config: Dict[str, Any]) -> Dict[str, str]:
+    """urn -> s3 uri, for every dataset candidate probe filter includes."""
+    parsed = DataLakeSourceConfig.model_validate(config)
+    names: Set[str] = set()
+    for i, spec in enumerate(parsed.path_specs):
+        if spec.emit_folders_only:
+            continue
+        listing = run_probe_method(
+            "s3", config, "datasets", {"path_spec": str(i), "limit": "1000"}
+        )
+        assert not listing.truncated and not listing.failures
+        assert isinstance(listing.result, list)
+        names |= {d["name"] for d in listing.result}
+    verdicts = check_filters(
+        source_type="s3",
+        config_dict=config,
+        kind="Table",
+        parent_path=[],
+        names=sorted(names),
+    )
+    out: Dict[str, str] = {}
+    for r in verdicts.results:
+        if r.included:
+            path = r.name[len("s3://") :].strip("/")
+            if parsed.convert_urns_to_lowercase:
+                path = path.lower()
+            urn = make_dataset_urn_with_platform_instance(
+                "s3", path, parsed.platform_instance, parsed.env
+            )
+            out[urn] = r.name
+    return out
+
+
+def _no_allowed_file_under(config: Dict[str, Any], folder_uri: str) -> bool:
+    """The gap the probe declares: a {table} folder whose files all fail the
+    spec's file rules. Listing it shows that is why ingestion skipped it."""
+    parsed = DataLakeSourceConfig.model_validate(config)
+    bucket, _, prefix = folder_uri[len("s3://") :].partition("/")
+    pages = (
+        _client("s3")
+        .get_paginator("list_objects_v2")
+        .paginate(Bucket=bucket, Prefix=f"{prefix}/" if prefix else "")
+    )
+    keys = [o["Key"] for page in pages for o in page.get("Contents", [])]
+    # No keys: the candidate is an object, not a table folder, and an extra
+    # object is never the declared gap.
+    return bool(keys) and not any(
+        spec.allowed(f"s3://{bucket}/{key}", ignore_ext=parsed.use_s3_content_type)
+        for spec in parsed.path_specs
+        for key in keys
+    )
+
+
+def _dataset_source_files() -> List[Tuple[str, str]]:
+    return [
+        t
+        for t in _source_files()
+        if not any(s.get("emit_folders_only") for s in _probe_source(t)["path_specs"])
+    ]
+
+
+@pytest.mark.parametrize(
+    "source_file_tuple", _dataset_source_files(), ids=_descriptive_id
+)
+def test_probe_datasets_match_real_ingestion(
+    s3_emulator: None, source_file_tuple: Tuple[str, str]
+) -> None:
+    """probe run datasets + probe filter, against the emulator and recipe the
+    golden was ingested from: never fewer datasets, and extra ones only where no
+    file under the table folder passes the spec."""
+    config = _probe_source(source_file_tuple)
+    golden = {
+        e["entityUrn"]
+        for e in _golden(source_file_tuple[1])
+        if e.get("entityType") == "dataset"
+        and e.get("aspectName") == "datasetProperties"
+    }
+    probed = _probe_included_tables(config)
+    assert golden <= set(probed), f"probe missed {golden - set(probed)}"
+    for urn in set(probed) - golden:
+        assert _no_allowed_file_under(config, probed[urn]), probed[urn]
+
+
+def test_probe_folders_match_real_folders_only_ingestion(s3_emulator: None) -> None:
+    config = _probe_source(
+        (str(test_resources_dir / "sources/s3"), "folders_only.json")
+    )
+    listing = run_probe_method("s3", config, "path_spec_folders", {"limit": "1000"})
+    assert isinstance(listing.result, list) and listing.result
+    # The leaves the walk lists, and every folder above them: ingestion emits
+    # the whole chain as containers, so each one needs a verdict.
+    candidates: Set[str] = set()
+    for leaf in listing.result:
+        parts = leaf.split("/")
+        candidates |= {"/".join(parts[:n]) for n in range(4, len(parts) + 1)}
+    verdicts = check_filters(
+        source_type="s3",
+        config_dict=config,
+        kind="Folder",
+        parent_path=[],
+        names=sorted(candidates),
+    )
+    probed = {r.name[len("s3://") :] for r in verdicts.results if r.included}
+    folders = {
+        e["aspect"]["json"]["customProperties"]["folder_abs_path"]
+        for e in _golden("folders_only.json")
+        if e.get("aspectName") == "containerProperties"
+        and "folder_abs_path" in e["aspect"]["json"].get("customProperties", {})
+    }
+    assert probed == folders
+
+
+def test_probe_buckets_and_tags_against_the_emulator(s3_emulator: None) -> None:
+    config = _probe_source((str(test_resources_dir / "sources/s3"), "single_file.json"))
+    buckets = run_probe_method("s3", config, "buckets", {}).result
+    assert isinstance(buckets, list)
+    assert {PRIMARY_BUCKET, SECONDARY_BUCKET} <= set(buckets)
+    tags = run_probe_method(
+        "s3",
+        {**config, "use_s3_bucket_tags": True, "use_s3_object_tags": True},
+        "tags",
+        {"bucket": PRIMARY_BUCKET, "key": EXPECTED_PRIMARY_KEYS[0]},
+    ).result
+    assert tags == {"bucket": ["foo:bar"], "object": ["baz:bob"]}
+
+
+def test_probe_issues_only_metadata_operations_against_the_emulator(
+    s3_emulator: None,
+) -> None:
+    seen: List[str] = []
+    real_client = boto3.session.Session.client
+
+    def recording_client(self: Any, *args: Any, **kwargs: Any) -> Any:
+        client = real_client(self, *args, **kwargs)
+        client.meta.events.register(
+            "before-call.s3", lambda model, **_: seen.append(model.name)
+        )
+        return client
+
+    config = _probe_source(
+        (
+            str(test_resources_dir / "sources/s3"),
+            "bucket_wildcard_with_nested_table.json",
+        )
+    )
+    with mock.patch.object(boto3.session.Session, "client", recording_client):
+        for command, kwargs in [
+            ("buckets", {}),
+            ("folders", {"bucket": PRIMARY_BUCKET}),
+            ("objects", {"bucket": PRIMARY_BUCKET, "limit": "50"}),
+            ("datasets", {}),
+        ]:
+            run_probe_method("s3", config, command, dict(kwargs))
+    assert seen and set(seen) <= {"ListBuckets", "ListObjectsV2"}

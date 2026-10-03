@@ -11,7 +11,16 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -121,6 +130,69 @@ class DataLakeSourceConfig(
             self.profiling.operation_config
         )
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: s3_probe imports this module and the S3 listing stack
+        from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
+
+        return S3MetadataProbe
+
+    @classmethod
+    def probe_rule_filtered_kinds(cls) -> Dict[str, str]:
+        """path_specs, not an AllowDenyPattern, decide every level this source emits."""
+        return {
+            str(DatasetContainerSubTypes.S3_BUCKET): "path_specs",
+            str(DatasetContainerSubTypes.FOLDER): "path_specs",
+            str(DatasetSubTypes.TABLE): "path_specs",
+        }
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Judge one name with the PathSpec calls S3Source makes; see path_spec_verdict."""
+        # lazy: path_spec_verdict imports s3.source, which imports this module
+        from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+            judge_bucket,
+            judge_dataset,
+            judge_folder,
+        )
+
+        if self.platform != "s3":
+            raise ProbeArgumentError(
+                f"probe filter judges s3:// path_specs; this recipe reads local "
+                f"paths (platform '{self.platform}')"
+            )
+        if self.aws_config is None:
+            ctx.warn(
+                "aws_config is not set, so ingesting this recipe fails before it "
+                "lists anything; the verdict is what path_specs decide once it is set"
+            )
+        kind = str(ctx.kind)
+        if kind == str(DatasetContainerSubTypes.S3_BUCKET):
+            if "/" in ctx.name:
+                raise ProbeArgumentError(
+                    f"'{ctx.name}' is not a bucket name; pass bare names, as "
+                    f"`probe run buckets` lists them"
+                )
+            return judge_bucket(self.path_specs, ctx.name, ctx.warn)
+        # s3a:// and s3n:// are refused too: create_s3_path always writes s3://,
+        # so ingestion never names a dataset or folder with them.
+        if not ctx.name.startswith("s3://"):
+            raise ProbeArgumentError(
+                f"'{ctx.name}' is not an s3:// URI; {kind} names are full s3:// "
+                f"URIs, as `probe run datasets` lists them"
+            )
+        if kind == str(DatasetContainerSubTypes.FOLDER):
+            return judge_folder(
+                self.path_specs,
+                ctx.name,
+                ctx.warn,
+                bucket_kind=str(DatasetContainerSubTypes.S3_BUCKET),
+            )
+        # ignore_ext mirrors get_workunits_internal: is_s3_platform() (checked
+        # above) and use_s3_content_type.
+        return judge_dataset(
+            self.path_specs, ctx.name, ctx.warn, ignore_ext=self.use_s3_content_type
+        )
+
     @field_validator("path_specs", mode="before")
     @classmethod
     def check_path_specs(cls, path_specs: Any, info: ValidationInfo) -> Any:
@@ -209,3 +281,25 @@ class DataLakeSourceConfig(
                 )
 
         return self
+
+
+def s3_probe_refusal(config: DataLakeSourceConfig) -> Optional[str]:
+    """Why the probe cannot list for this recipe, or None.
+
+    Mirrors where S3Source itself would not reach S3: a local-path recipe is
+    walked with os.walk (local_browser), which the probe must never do on the
+    host it runs on, and an S3 recipe without aws_config raises
+    "aws_config not set" in s3_browser.
+    """
+    if config.platform != "s3":
+        return (
+            f"this recipe's path_specs are on the '{config.platform}' platform "
+            f"(local paths, not s3://); the probe lists and judges S3 only"
+        )
+    if config.aws_config is None:
+        return (
+            "aws_config is not set, and S3 ingestion refuses to browse S3 "
+            "without it; add aws_config (an empty mapping uses the default AWS "
+            "credential chain)"
+        )
+    return None
