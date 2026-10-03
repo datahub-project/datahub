@@ -31,7 +31,9 @@ from looker_sdk.sdk.api40.models import (
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import MAX_PROBE_ITEMS, probe_method
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
 from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
     ProbeConnectionError,
     ProbeReadFailed,
     ProbeSoftError,
@@ -262,7 +264,7 @@ def _looker_call(context: str, not_found: Optional[str] = None) -> Iterator[None
     except SDKError as exc:
         status = sdk_error_status(exc)
         if status == 404 and not_found is not None:
-            raise ValueError(not_found) from None
+            raise ProbeArgumentError(not_found) from None
         if status in (403, 404):
             raise ProbeSoftError(
                 f"{context} returned HTTP {status}; treating it as empty."
@@ -285,7 +287,7 @@ def _open_looker(config: LookerDashboardSourceConfig) -> LookerAPI:
     the me() call that proves the credentials work."""
     parsed = urlparse(config.base_url)
     if parsed.username is not None or parsed.password is not None:
-        raise ValueError(
+        raise ProbeArgumentError(
             "base_url carries a user name or password before the host; Looker "
             "authenticates with client_id and client_secret, so remove it from "
             "base_url"
@@ -307,7 +309,13 @@ def _open_looker(config: LookerDashboardSourceConfig) -> LookerAPI:
         ) from None
 
 
-class LookerMetadataProbe:
+def _close_session(looker: LookerAPI) -> None:
+    transport = looker.client.transport
+    if isinstance(transport, looker_requests_transport.RequestsTransport):
+        transport.session.close()
+
+
+class LookerMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over the Looker API, for the `looker` source.
 
     Builds LookerAPI on the first command rather than in for_config, so a bad
@@ -315,37 +323,18 @@ class LookerMetadataProbe:
     LookerDashboardSource, whose __init__ opens the API and builds registries.
     """
 
-    # Read back by run_probe_method after each command.
-    warnings: List[str]
-
     def __init__(self, config: LookerDashboardSourceConfig) -> None:
         self._config = config
-        self._looker: Optional[LookerAPI] = None
         self._folder_cache: Dict[str, _FolderFacts] = {}
-        self.warnings = []
 
     @classmethod
     def for_config(cls, config: LookerDashboardSourceConfig) -> "LookerMetadataProbe":
         return cls(config)
 
-    def __enter__(self) -> "LookerMetadataProbe":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        if self._looker is None:
-            return
-        transport = self._looker.client.transport
-        if isinstance(transport, looker_requests_transport.RequestsTransport):
-            transport.session.close()
-
     def _api(self) -> LookerAPI:
-        if self._looker is None:
-            self._looker = _open_looker(self._config)
-        return self._looker
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
+        return self._open_once(
+            "looker", lambda: _open_looker(self._config), close=_close_session
+        )
 
     def _degrading(self, fetch: Callable[[], _T], empty: _T) -> _T:
         """`empty` plus a warning when the read was refused (403/404), so an
@@ -690,7 +679,7 @@ class LookerMetadataProbe:
             # The listing was refused and the warning says so; "no such model"
             # would blame the caller for what is a permissions gap.
             return []
-        raise ValueError(
+        raise ProbeArgumentError(
             f"no LookML model named '{model}'; pass a name from the `models` listing"
         )
 
