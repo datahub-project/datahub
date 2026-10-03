@@ -1,6 +1,6 @@
 """Configuration classes for Fabric OneLake connector."""
 
-from typing import Annotated, Callable, Literal, Mapping, Optional, Sequence
+from typing import Annotated, Literal, Mapping, Optional, Sequence
 
 from pydantic import Field, model_validator
 
@@ -10,7 +10,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -319,28 +319,16 @@ class FabricOneLakeSourceConfig(
             str(DatasetSubTypes.VIEW): (schema,),
         }.get(kind)
 
-    def probe_container_match_target(
-        self,
-        kind: str,
-        name: str,
-        parent_path: Sequence[str],
-        warn: Callable[[str], None],
-    ) -> Optional[str]:
-        """Items and schemas are matched on their bare names (source.py
-        _process_workspace_items / _process_item_tables). Declared because
-        filter_check otherwise routes these kinds to probe_match_target, which
-        would qualify them like a table."""
-        if kind in (
-            DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
-            DatasetContainerSubTypes.FABRIC_WAREHOUSE,
-            DatasetContainerSubTypes.FABRIC_SCHEMA,
-        ):
-            return name
-        return None
-
-    def probe_match_target(self, ctx: ClassifyContext) -> str:
-        """`schema.name`, the string table_pattern and view_pattern are matched
-        against; the immediate --parent is the schema."""
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """`schema.name` for tables and views, the string table_pattern and
+        view_pattern are matched against; the immediate --parent is the schema.
+        None, the bare name, for workspaces, items and schemas: ingestion
+        matches those on their display names (source.py
+        _process_workspace_items / _process_item_tables)."""
+        if ctx.kind not in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            return None
+        if parent_required(ctx):
+            return None
         return qualified_filter_name(ctx.parent_path[-1], ctx.name)
 
     @model_validator(mode="after")

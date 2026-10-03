@@ -342,7 +342,7 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
-#### Probing a recipe
+#### Probe support
 
 `datahub recipe probe` lists what the recipe's credential can see and judges it
 the way ingestion will, without running an ingestion. Commands take display
