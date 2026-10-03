@@ -29,6 +29,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
@@ -740,22 +741,44 @@ public class AssertionInfoMutatorTest {
 
   @Test
   public void testCustomLegacyFieldAndDatasetFields() {
-    Urn field = Urn.createFromTuple("schemaField", testDatasetUrn.toString(), "col_a");
+    String path = "func(a,b)+50%off%20";
+    Urn field = SchemaFieldUtils.generateSchemaFieldUrn(testDatasetUrn, path);
     CustomAssertionInfo custom =
         new CustomAssertionInfo().setType("Quality").setEntity(testDatasetUrn).setField(field);
     AssertionInfo info =
         new AssertionInfo().setType(AssertionType.CUSTOM).setCustomAssertion(custom);
     mutateAssertion(info);
-    assertEquals(info.data().get("fieldPaths"), new StringArray("col_a").data());
+    assertEquals(info.data().get("fieldPaths"), new StringArray(path).data());
 
     DatasetAssertionInfo dataset =
         new DatasetAssertionInfo().setDataset(testDatasetUrn).setFields(new UrnArray(field));
     info = new AssertionInfo().setType(AssertionType.DATASET).setDatasetAssertion(dataset);
     mutateAssertion(info);
-    assertEquals(info.data().get("fieldPaths"), new StringArray("col_a").data());
+    assertEquals(info.data().get("fieldPaths"), new StringArray(path).data());
     dataset.removeFields();
     mutateAssertion(info);
     assertEquals(info.data().get("fieldPaths"), new StringArray().data());
+  }
+
+  @Test
+  public void testPartialAssertionAndMalformedFieldAssociations() {
+    AssertionInfo partial = new AssertionInfo().setFieldPaths(new StringArray("stale"));
+    assertTrue(mutateAssertion(partial));
+    assertTrue(partial.getFieldPaths().isEmpty());
+
+    AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.CUSTOM)
+            .setCustomAssertion(
+                new CustomAssertionInfo()
+                    .setType("Quality")
+                    .setEntity(testDatasetUrn)
+                    .setFields(
+                        new UrnArray(
+                            UrnUtils.getUrn("urn:li:schemaField:malformed"),
+                            SchemaFieldUtils.generateSchemaFieldUrn(testDatasetUrn, "col_a"))));
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.getFieldPaths(), new StringArray("col_a"));
   }
 
   private boolean mutateAssertion(AssertionInfo info) {
