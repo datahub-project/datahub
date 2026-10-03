@@ -13,6 +13,15 @@ source:
     password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
 
+    # (Alternative) Keyless auth when ingestion runs on AWS, Azure or GCP.
+    # Replace the username and password above with the workload's own cloud identity.
+    # See https://docs.snowflake.com/en/user-guide/workload-identity-federation
+    # authentication_type: "WORKLOAD_IDENTITY_AUTHENTICATOR"
+    # workload_identity_provider: "AWS"  # or "AZURE", or "GCP"
+    #
+    # (Optional, AZURE only) Entra resource to request the managed identity token for.
+    # workload_identity_entra_resource: "api://<application_id_uri>"
+
     # (Optional) Uncomment and update this section to filter ingested datasets 
     # database_pattern:
     #   allow:
