@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -22,6 +23,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -205,8 +207,16 @@ public class SearchDocumentTransformer {
       final Boolean forDelete,
       final AuditStamp mclCreateAuditStamp)
       throws RemoteInvocationException, URISyntaxException {
+    // Rebuilds must derive paths for stored definitions written before this projection existed.
+    RecordTemplate searchableAspect = aspect;
+    if (aspect instanceof AssertionInfo) {
+      AssertionInfo assertion = new AssertionInfo(new DataMap(aspect.data()));
+      assertion.setFieldPaths(AssertionUtils.getFieldPathsFromAssertionInfo(assertion));
+      searchableAspect = assertion;
+    }
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
-        FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
+        FieldExtractor.extractFields(
+            searchableAspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
     final Map<SearchableRefFieldSpec, List<Object>> extractedSearchRefFields =
         FieldExtractor.extractFields(
             aspect, aspectSpec.getSearchableRefFieldSpecs(), maxValueLength);
