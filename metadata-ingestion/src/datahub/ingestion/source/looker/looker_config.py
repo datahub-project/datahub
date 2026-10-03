@@ -368,8 +368,7 @@ class LookerDashboardSourceConfig(
             EXPLORE_KIND: "emit_used_explores_only",
         }
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """None of these kinds declares a container for the framework to
         re-judge.
 

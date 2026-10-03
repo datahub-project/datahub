@@ -17,7 +17,7 @@ Explore usage is attached only to explores that were actually ingested in the sa
 
 :::
 
-#### Probing a Looker recipe
+#### Probe support
 
 `datahub recipe probe` lists what this recipe's credential can see and judges
 it the way ingestion will, before you run an ingestion. Probe output is

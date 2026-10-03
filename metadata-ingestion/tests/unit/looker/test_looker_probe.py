@@ -18,7 +18,11 @@ from datahub.ingestion.agent.probe_methods import (
     list_probe_methods,
     run_probe_method,
 )
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_probe import (
     LookerMetadataProbe,
@@ -109,6 +113,19 @@ def test_a_base_url_carrying_userinfo_is_refused_without_echoing_it() -> None:
             {},
         )
     assert "hunter22" not in str(raised.value)
+
+
+def test_a_base_url_carrying_userinfo_tells_the_caller_what_to_remove() -> None:
+    with (
+        fake_looker(),
+        pytest.raises(ProbeArgumentError, match="remove it from base_url"),
+    ):
+        run_probe_method(
+            "looker",
+            recipe(base_url="https://someone:hunter22@looker.example.com"),
+            "permissions",
+            {},
+        )
 
 
 def test_sdk_error_status_reads_the_documentation_url_then_the_message() -> None:
