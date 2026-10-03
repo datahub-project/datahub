@@ -243,7 +243,10 @@ public class AssertionUtils {
   }
 
   /** Derive the shared column search projection from authoritative field associations. */
-  public static StringArray getFieldPathsFromAssertionInfo(AssertionInfo info) {
+  public static StringArray getFieldPathsFromAssertionInfo(@Nullable AssertionInfo info) {
+    if (info == null || !info.hasType()) {
+      return new StringArray();
+    }
     Collection<Urn> fields = Collections.emptyList();
     switch (info.getType()) {
       case CUSTOM:
@@ -276,8 +279,19 @@ public class AssertionUtils {
     }
     return new StringArray(
         fields.stream()
-            .filter(urn -> "schemaField".equals(urn.getEntityType()))
-            .map(urn -> urn.getEntityKey().get(1))
+            .filter(
+                urn ->
+                    "schemaField".equals(urn.getEntityType())
+                        && urn.getEntityKey().getParts().size() == 2)
+            // Schema-field URNs escape tuple delimiters, not arbitrary URL characters.
+            .map(
+                urn ->
+                    urn.getEntityKey()
+                        .get(1)
+                        .replace("%28", "(")
+                        .replace("%29", ")")
+                        .replace("%2C", ",")
+                        .replace("%2c", ","))
             .distinct()
             .collect(Collectors.toList()));
   }

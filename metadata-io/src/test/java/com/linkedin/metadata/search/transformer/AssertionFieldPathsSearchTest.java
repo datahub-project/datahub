@@ -18,6 +18,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.Test;
@@ -62,6 +63,24 @@ public class AssertionFieldPathsSearchTest {
     custom.setFields(new UrnArray());
     doc = transform(info);
     assertTrue(doc.path("fieldPath").isNull() || doc.path("fieldPath").isEmpty());
+  }
+
+  @Test
+  public void testEncodedFieldPathMatchesRawSchemaPathDuringRebuild() throws Exception {
+    String path = "func(a,b)+50%off%20";
+    AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.CUSTOM)
+            .setCustomAssertion(
+                new CustomAssertionInfo()
+                    .setType("Quality")
+                    .setEntity(DATASET)
+                    .setFields(
+                        new UrnArray(
+                            SchemaFieldUtils.generateSchemaFieldUrn(DATASET, path),
+                            UrnUtils.getUrn("urn:li:schemaField:malformed"))));
+    assertEquals(transform(info).path("fieldPath").get(0).asText(), path);
+    assertEquals(transform(info).path("fieldPath").size(), 1);
   }
 
   @Test
