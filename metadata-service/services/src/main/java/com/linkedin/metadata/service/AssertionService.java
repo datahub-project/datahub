@@ -168,7 +168,7 @@ public class AssertionService extends BaseService {
       @Nonnull final OperationContext opContext,
       @Nonnull final AssertionRunSummaryPatchBuilder patchBuilder)
       throws Exception {
-    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), true);
   }
 
   /**
