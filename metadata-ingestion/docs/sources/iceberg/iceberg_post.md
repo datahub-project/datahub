@@ -452,6 +452,26 @@ For advanced Iceberg behavior and tuning, refer to:
 - [Iceberg specification](https://iceberg.apache.org/spec/)
 - [PyIceberg configuration](https://py.iceberg.apache.org/)
 
+#### Checking a recipe before ingesting
+
+`datahub recipe probe` lists what the catalog holds and says what your patterns would keep, using
+the same catalog configuration and credentials as ingestion. It reads catalog listings and table
+metadata files only, never data files.
+
+```shell
+datahub recipe probe run namespaces --recipe recipe.yml
+datahub recipe probe run tables --recipe recipe.yml --namespace sales
+datahub recipe probe run columns --recipe recipe.yml --namespace sales --table orders
+datahub recipe probe filter --recipe recipe.yml --kind Table --parent sales --name orders
+```
+
+Two matching rules are worth knowing when writing patterns:
+
+- `namespace_pattern` is matched against the namespace name. Only top-level namespaces are
+  ingested; tables in nested namespaces are not.
+- `table_pattern` is matched against `<namespace>.<table>`, not the bare table name, so write
+  `^sales\.orders$` rather than `^orders$`.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
