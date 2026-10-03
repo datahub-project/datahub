@@ -234,3 +234,15 @@ describe('custom category navigation', () => {
         ]);
     });
 });
+
+describe('selected custom categories', () => {
+    it.each([undefined, []])('retains a missing selected category without duplicates (facets=%s)', (facets) => {
+        const options = extractFilterOptionsFromFacets([], facets, ['Validity', 'Validity']);
+        expect(options.filterGroupOptions.category).toEqual([
+            { name: 'Validity', category: 'category', displayName: 'Validity', count: 0 },
+        ]);
+        expect(options.recommendedFilters.filter((option) => option.category === 'category')).toEqual(
+            options.filterGroupOptions.category,
+        );
+    });
+});

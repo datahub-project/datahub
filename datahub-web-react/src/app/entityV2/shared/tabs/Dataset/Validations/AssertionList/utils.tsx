@@ -398,10 +398,7 @@ const normalizeStatusFacet = (value: string): string => {
     return value;
 };
 
-export const extractFilterOptionsFromFacets = (
-    assertions: Assertion[],
-    facets?: FacetMetadata[],
-): AssertionFilterOptions => {
+const extractAvailableFilterOptions = (assertions: Assertion[], facets?: FacetMetadata[]): AssertionFilterOptions => {
     if (!facets) {
         return extractFilterOptionListFromAssertions(assertions);
     }
@@ -469,6 +466,26 @@ export const extractFilterOptionsFromFacets = (
     ).forEach((source) => buildFilterOptions('source', { [source]: 0 }, filterOptions));
 
     return filterOptions;
+};
+
+export const extractFilterOptionsFromFacets = (
+    assertions: Assertion[],
+    facets?: FacetMetadata[],
+    selectedCategories: string[] = [],
+): AssertionFilterOptions => {
+    const options = extractAvailableFilterOptions(assertions, facets);
+    const existingNames = new Set(options.filterGroupOptions.category.map((option) => option.name));
+    const missingCategories = [...new Set(selectedCategories)]
+        .filter((name) => !existingNames.has(name))
+        .map((name): AssertionRecommendedFilter => ({ name, displayName: name, category: 'category', count: 0 }));
+    return {
+        ...options,
+        filterGroupOptions: {
+            ...options.filterGroupOptions,
+            category: [...options.filterGroupOptions.category, ...missingCategories],
+        },
+        recommendedFilters: [...options.recommendedFilters, ...missingCategories],
+    };
 };
 
 // create column id group from column assertions

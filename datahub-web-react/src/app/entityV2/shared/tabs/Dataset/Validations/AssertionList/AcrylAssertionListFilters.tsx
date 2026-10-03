@@ -58,14 +58,11 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     totalAssertionCount,
     facets,
 }) => {
-    const filterOptions = extractFilterOptionsFromFacets(filteredAssertions, facets);
-    selectedFilters.filterCriteria.category.forEach((name) => {
-        if (!filterOptions.filterGroupOptions.category.some((option) => option.name === name)) {
-            const option = { name, displayName: name, category: 'category' as const, count: 0 };
-            filterOptions.filterGroupOptions.category.push(option);
-            filterOptions.recommendedFilters.push(option);
-        }
-    });
+    const filterOptions = extractFilterOptionsFromFacets(
+        filteredAssertions,
+        facets,
+        selectedFilters.filterCriteria.category,
+    );
 
     const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
