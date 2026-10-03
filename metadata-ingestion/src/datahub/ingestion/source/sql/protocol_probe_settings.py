@@ -14,7 +14,7 @@ SQL-family knowledge only: no connector module is imported here.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict
+from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping
 
 from sqlalchemy import event
 from sqlalchemy.engine import make_url
@@ -62,6 +62,13 @@ def probe_url(config: SQLCommonConfig) -> str:
     declares one, else get_sql_alchemy_url()."""
     declared = getattr(config, "probe_sql_alchemy_url", None)
     return str(declared() if callable(declared) else config.get_sql_alchemy_url())
+
+
+def probe_url_query(config: SQLCommonConfig) -> Mapping[str, object]:
+    """The probe URL's query arguments, which the dialect hands the driver
+    as connect kwargs. create_engine lets connect_args override them, so a
+    probe connect_arg with the same name replaces the recipe's value."""
+    return make_url(probe_url(config)).query
 
 
 def probe_settings_for_url(
@@ -114,7 +121,7 @@ def _recipe_libpq_options(config: SQLCommonConfig) -> object:
     own = recipe_connect_args(config)
     if _LIBPQ_OPTIONS in own:
         return own[_LIBPQ_OPTIONS]
-    return make_url(probe_url(config)).query.get(_LIBPQ_OPTIONS)
+    return probe_url_query(config).get(_LIBPQ_OPTIONS)
 
 
 def set_redshift_statement_timeout(dbapi_connection: Any, seconds: int) -> None:

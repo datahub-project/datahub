@@ -10,6 +10,8 @@ it.
 import re
 from typing import Any, Dict, List
 
+import pytest
+
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadataProbe
@@ -17,9 +19,11 @@ from datahub.ingestion.source.sql.cockroachdb import CockroachDBConfig
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import probe_engine_options
+from tests.unit.agent._driver_capture import driver_connect_kwargs
 
 _CONFIG_FOR_DIALECT = {
     "postgresql": PostgresConfig,
@@ -99,6 +103,33 @@ def test_a_recipe_that_names_its_own_connection_keeps_that_name():
     )
     assert options["connect_args"]["application_name"] == "my_own_name"
     assert "statement_timeout" in options["connect_args"]["options"]
+
+
+@pytest.mark.parametrize(
+    "url, kwarg",
+    [
+        (
+            "postgresql+psycopg2://u:p@h:5432/db?application_name=recipe_app",
+            "application_name",
+        ),
+        ("mysql+pymysql://u:p@h:3306/db?program_name=recipe_app", "program_name"),
+    ],
+)
+def test_a_client_name_in_the_recipes_url_reaches_the_driver_unreplaced(
+    url: str, kwarg: str
+) -> None:
+    """connect_args override the URL's query in create_engine, so a label in
+    the probe's connect_args would replace the name the recipe chose there."""
+    config = _CONFIG_FOR_DIALECT[url.split("+", 1)[0]](
+        host_port="h:1", sqlalchemy_uri=url
+    )
+    options = probe_engine_options(
+        config, config.probe_engine_settings(QueryBudget(timeout_seconds=30))
+    )
+    ingestion = driver_connect_kwargs(config.get_sql_alchemy_url(), config.options)
+    probe = driver_connect_kwargs(probe_url(config), options)
+    assert ingestion[kwarg] == "recipe_app"
+    assert probe[kwarg] == "recipe_app"
 
 
 class _StubConnection:

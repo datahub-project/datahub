@@ -29,6 +29,7 @@ from datahub.ingestion.source.sql.sqlalchemy_probe import (
     enforced_budget,
     probe_engine_options,
 )
+from tests.unit.agent._driver_capture import driver_connect_kwargs
 
 _CONFIG_FOR_DIALECT = {
     "postgresql": PostgresConfig,
@@ -562,32 +563,6 @@ def test_the_timeout_stands_alone_when_the_recipe_asked_for_nothing():
     assert sent == "-c statement_timeout=30000"
 
 
-class _Captured(Exception):
-    pass
-
-
-def _driver_options(url: str, engine_kwargs: Dict[str, Any]) -> Optional[str]:
-    """The libpq `options` psycopg2.connect would receive from this engine,
-    caught at do_connect, after SQLAlchemy has merged the URL's query with
-    connect_args and before a socket opens."""
-    engine = sqlalchemy.create_engine(url, **engine_kwargs)
-    seen: Dict[str, Any] = {}
-
-    @sqlalchemy.event.listens_for(engine, "do_connect")
-    def _capture(
-        dialect: Any, conn_rec: Any, cargs: Any, cparams: Dict[str, Any]
-    ) -> None:
-        seen.update(cparams)
-        raise _Captured()
-
-    try:
-        with pytest.raises(_Captured):
-            engine.connect()
-    finally:
-        engine.dispose()
-    return seen.get("options")
-
-
 @pytest.mark.parametrize(
     "url, options",
     [
@@ -608,7 +583,7 @@ def test_the_probe_sends_ingestions_libpq_options_and_then_its_ceiling(
     url: str, options: Optional[Dict[str, Any]]
 ) -> None:
     config = _config_for(url, options)
-    ingestion = _driver_options(config.get_sql_alchemy_url(), config.options)
-    probe = _driver_options(probe_url(config), _engine_options(url, options))
-    assert ingestion == "-csearch_path=myschema"
-    assert probe == f"{ingestion} -c statement_timeout=30000"
+    ingestion = driver_connect_kwargs(config.get_sql_alchemy_url(), config.options)
+    probe = driver_connect_kwargs(probe_url(config), _engine_options(url, options))
+    assert ingestion["options"] == "-csearch_path=myschema"
+    assert probe["options"] == f"{ingestion['options']} -c statement_timeout=30000"

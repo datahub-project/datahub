@@ -250,8 +250,15 @@ def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
 def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, str]:
     """`{kwarg: PROBE_QUERY_LABEL}`, so probe traffic is told apart from
     ingestion's in the server's own logs, or nothing when the recipe already
-    names its connection through `kwarg`: that name is the recipe's choice."""
+    names its connection through `kwarg`, in connect_args or in the URL's
+    query: that name is the recipe's choice, and a connect_arg would replace
+    the URL's."""
     if kwarg in recipe_connect_args(config):
+        return {}
+    # lazy: protocol_probe_settings imports this module
+    from datahub.ingestion.source.sql.protocol_probe_settings import probe_url_query
+
+    if kwarg in probe_url_query(config):
         return {}
     # lazy: ingestion importing this module does not need the probe framework
     from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
