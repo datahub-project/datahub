@@ -82,7 +82,8 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "basic.auth.user.info",
     "ssl.key",
     # Key-pair auth and service-account JSON nest the key
-    # (`credential.private_key`), out of a top-level SecretStr sweep's reach.
+    # (`credential.private_key`); the hint reaches it where no config class is
+    # read, as on a raw recipe.
     "private_key",
     # Spellings that are not substrings of the above. Bare "key" is absent: it
     # would match partition_key, primary_key and key_path.
@@ -107,17 +108,6 @@ _SENSITIVE_KEY_HINTS = SENSITIVE_KEY_HINTS
 # `credential` object holds project_id beside private_key (caught by its own
 # hint), and masking the project id would corrupt every line of output.
 _SCALAR_ONLY_KEY_HINTS: Tuple[str, ...] = ("credential",)
-
-
-def collect_secret_values(
-    resolved_config: Dict[str, object], secret_field_names: Set[str]
-) -> Set[str]:
-    values: Set[str] = set()
-    for name in secret_field_names:
-        value = resolved_config.get(name)
-        if isinstance(value, str) and value:
-            values.add(value)
-    return values
 
 
 def _is_scalar_only_secret_key(key: object) -> bool:

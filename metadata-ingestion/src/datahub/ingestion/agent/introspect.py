@@ -1,11 +1,23 @@
+import collections.abc
 import logging
 import re
 import types
 import typing
 from functools import lru_cache
-from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Tuple, cast
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    cast,
+)
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
@@ -42,7 +54,10 @@ def _strip_annotated(annotation: object) -> object:
 
 def _unwrap_optional(annotation: object) -> List[object]:
     # The non-None members of an Optional/Union (or [annotation]). "X | None"
-    # reports types.UnionType where Optional[X] reports typing.Union.
+    # reports types.UnionType where Optional[X] reports typing.Union. Annotated
+    # comes off the union too: pydantic lifts it off a field's own annotation
+    # but not off a container's argument (Dict[str, Annotated[Union[...]]]).
+    annotation = _strip_annotated(annotation)
     origin = typing.get_origin(annotation)
     if origin is typing.Union or origin is types.UnionType:
         return [
@@ -99,6 +114,88 @@ def iter_config_fields(
         for member in _model_members(info.annotation):
             if member not in active:
                 yield from iter_config_fields(member, f"{path}.", active)
+
+
+# Far deeper than any registered config nests a secret (four levels): a bound,
+# so a config handed in holding a value that contains itself still returns.
+_MAX_SECRET_DEPTH = 16
+
+
+def _recipe_keys(name: str, info: FieldInfo) -> Set[str]:
+    """The keys a recipe can hold this field under. Validation reads the alias
+    (or each AliasChoices string) when there is one, else the name; the name is
+    read regardless, since over-collecting is the safe side for masking."""
+    alias = info.validation_alias or info.alias
+    if isinstance(alias, AliasChoices):
+        keys = {choice for choice in alias.choices if isinstance(choice, str)}
+    elif isinstance(alias, str):
+        keys = {alias}
+    else:
+        keys = set()
+    return keys | {name}
+
+
+def collect_secret_field_values(
+    config_cls: Type[BaseModel], config: Dict[str, object]
+) -> Set[str]:
+    """Every non-empty string a recipe's config holds in a SecretStr field, at
+    any depth: nested config blocks, and lists, tuples, sets and dicts of them.
+
+    The walk follows the recipe's values, not the class's fields, so a config
+    that names itself recurses only as deep as the recipe nests it.
+    """
+    found: Set[str] = set()
+    _collect_from_model(config_cls, config, found, 0)
+    return found
+
+
+def _collect_from_model(
+    model: Type[BaseModel], config: Dict[str, object], found: Set[str], depth: int
+) -> None:
+    for name, info in model.model_fields.items():
+        for key in _recipe_keys(name, info):
+            if key in config:
+                _collect_from_value(info.annotation, config[key], found, depth + 1)
+
+
+def _collect_from_value(
+    annotation: object, value: object, found: Set[str], depth: int
+) -> None:
+    if depth > _MAX_SECRET_DEPTH:
+        return
+    for member in _unwrap_optional(annotation):
+        origin = typing.get_origin(member)
+        if origin is None:
+            if not isinstance(member, type):
+                continue
+            if issubclass(member, SecretStr):
+                if isinstance(value, str) and value:
+                    found.add(value)
+            elif issubclass(member, BaseModel) and isinstance(value, dict):
+                _collect_from_model(member, value, found, depth)
+            continue
+        args = [a for a in typing.get_args(member) if a is not Ellipsis]
+        if not isinstance(origin, type) or not args:
+            continue
+        if issubclass(origin, collections.abc.Mapping) and isinstance(value, dict):
+            for item in value.values():
+                _collect_from_value(args[-1], item, found, depth + 1)
+        elif issubclass(
+            origin, (collections.abc.Sequence, collections.abc.Set)
+        ) and isinstance(value, list):
+            # Every item against every argument: a Tuple[A, B] is read without
+            # matching positions.
+            for item in value:
+                for arg in args:
+                    _collect_from_value(arg, item, found, depth + 1)
+
+
+def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]:
+    """collect_secret_field_values for this source's config class. Raises as
+    describe_source does for a source type that does not resolve."""
+    return collect_secret_field_values(
+        _config_class(source_registry.get(source_type), source_type), config
+    )
 
 
 # The name convention (Schema -> schema_pattern, Topic -> topic_patterns): a
@@ -365,14 +462,18 @@ def _classify(
     )
 
 
-def describe_source(source_type: str) -> SourceSpec:
-    # Raises KeyError/ConfigurationError on a miss; never returns None.
-    source_cls = source_registry.get(source_type)
+def _config_class(source_cls: type, source_type: str) -> Type[ConfigModel]:
     # Injected by @config_class at runtime, out of mypy's view.
     get_config_class = getattr(source_cls, "get_config_class", None)
     if get_config_class is None:
         raise TypeError(f"Source {source_type!r} does not define a config class")
-    config_cls = get_config_class()
+    return get_config_class()
+
+
+def describe_source(source_type: str) -> SourceSpec:
+    # Raises KeyError/ConfigurationError on a miss; never returns None.
+    source_cls = source_registry.get(source_type)
+    config_cls = _config_class(source_cls, source_type)
     filter_kinds = _filter_kinds_by_field(source_type, config_cls)
     fields = [
         _classify(name, info, filter_kinds)

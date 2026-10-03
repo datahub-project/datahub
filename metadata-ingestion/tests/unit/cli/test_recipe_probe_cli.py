@@ -2,15 +2,17 @@ import io
 import json
 import pathlib
 import sys
-from typing import Dict, FrozenSet, List, Sequence, Tuple
+from typing import Callable, Dict, FrozenSet, List, Sequence, Set, Tuple
 
 import click
 import pytest
 from click.testing import CliRunner, Result
+from pydantic import SecretStr
 from sqlalchemy import create_engine
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.filter_check import FilterCheckResult, FilterVerdict
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
@@ -1147,6 +1149,104 @@ def test_a_ref_under_an_unrecognised_key_is_still_masked(monkeypatch):
 
     _t, _config, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
     assert "not-a-database-name" in secret_values
+
+
+_NESTED_SENTINEL = "nested-inline-sentinel-7Q2"
+
+
+def _require_connector(source_type: str) -> None:
+    from datahub.ingestion.agent.probe_methods import config_class_for
+
+    try:
+        config_class_for(source_type)
+    except ValueError as exc:
+        pytest.skip(f"{source_type} extra not installed: {exc}")
+
+
+def _probe_secrets(recipe_doc: Dict[str, object]) -> Set[str]:
+    return rc.resolve_probe_recipe(recipe_doc)[2]
+
+
+@pytest.mark.parametrize(
+    "collect",
+    [_probe_secrets, rc._secrets_in_recipe],
+    ids=["probe", "validate"],
+)
+@pytest.mark.parametrize(
+    "source_type, config",
+    [
+        ("abs", {"azure_config": {"connection_string": _NESTED_SENTINEL}}),
+        ("excel", {"azure_config": {"connection_string": _NESTED_SENTINEL}}),
+        ("lookml", {"git_info": {"repo": "o/r", "deploy_key": _NESTED_SENTINEL}}),
+        (
+            "lookml",
+            {
+                "project_dependencies": {
+                    "dep": {"repo": "o/dep", "deploy_key": _NESTED_SENTINEL}
+                }
+            },
+        ),
+        ("odcs", {"git_info": {"repo": "o/r", "deploy_key": _NESTED_SENTINEL}}),
+        ("sqlmesh", {"git_info": {"repo": "o/r", "deploy_key": _NESTED_SENTINEL}}),
+    ],
+)
+def test_an_inline_secret_in_a_nested_config_block_is_collected(
+    collect: Callable[[Dict[str, object]], Set[str]],
+    source_type: str,
+    config: Dict[str, object],
+) -> None:
+    """SecretStr fields in nested config blocks, under keys no name hint
+    matches, so only walking the config class finds them -- in both the probe
+    path and the never-raising one validate and the error handler use."""
+    _require_connector(source_type)
+    recipe_doc: Dict[str, object] = {"source": {"type": source_type, "config": config}}
+    assert _NESTED_SENTINEL in collect(recipe_doc)
+
+
+class _RepositoryBlock(ConfigModel):
+    repo: str
+    deploy_key: SecretStr
+
+
+class _NestedSecretConfig(ConfigModel):
+    repository: _RepositoryBlock
+
+
+def test_test_connection_masks_an_inline_secret_in_a_nested_block(
+    monkeypatch, tmp_path
+):
+    from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+
+    class _EchoingSource:
+        @staticmethod
+        def get_config_class() -> type:
+            return _NestedSecretConfig
+
+        @staticmethod
+        def test_connection(config_dict):
+            key = config_dict["repository"]["deploy_key"]
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False, failure_reason=f"clone refused key {key}"
+                )
+            )
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _EchoingSource,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _EchoingSource, raising=False
+    )
+    p = tmp_path / "r.yml"
+    p.write_text(
+        "source:\n  type: echoing\n  config:\n    repository:\n"
+        f"      repo: o/r\n      deploy_key: {_NESTED_SENTINEL}\n"
+    )
+    res = CliRunner().invoke(recipe, ["test-connection", "--recipe", str(p)])
+    assert res.exit_code == 3, res.output
+    assert "clone refused key" in res.stdout
+    assert _NESTED_SENTINEL not in res.output
 
 
 def test_an_envelope_secret_equal_to_a_plain_value_is_still_registered(monkeypatch):

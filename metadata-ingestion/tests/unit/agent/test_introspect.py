@@ -1,10 +1,14 @@
-from typing import Optional
+from typing import Dict, List, Optional
 
 import pytest
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.ingestion.agent.introspect import _classify, describe_source
+from datahub.ingestion.agent.introspect import (
+    _classify,
+    collect_secret_field_values,
+    describe_source,
+)
 from datahub.ingestion.agent.models import FieldKind, FieldSpec
 
 
@@ -92,3 +96,28 @@ def test_describe_source_unknown_raises():
     with pytest.raises(Exception) as exc_info:
         describe_source("definitely-not-a-source")
     assert exc_info.value is not None
+
+
+class _Endpoint(ConfigModel):
+    url: str
+    signing_material: SecretStr = Field(alias="signingMaterial")
+
+
+class _FleetConfig(ConfigModel):
+    deploy_key: SecretStr
+    endpoints: List[_Endpoint] = []
+
+
+def test_secret_fields_are_read_in_lists_of_blocks_and_under_their_alias():
+    config: Dict[str, object] = {
+        "deploy_key": "top-level-value",
+        "endpoints": [
+            {"url": "https://a.example", "signingMaterial": "first-material"},
+            {"url": "https://b.example", "signingMaterial": "second-material"},
+        ],
+    }
+    assert collect_secret_field_values(_FleetConfig, config) == {
+        "top-level-value",
+        "first-material",
+        "second-material",
+    }

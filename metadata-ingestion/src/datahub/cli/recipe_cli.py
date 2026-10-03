@@ -34,9 +34,8 @@ from datahub.ingestion.agent.error_policy import (
 )
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
-from datahub.ingestion.agent.introspect import describe_source
+from datahub.ingestion.agent.introspect import describe_source, secret_field_values
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
-from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
     ProbeMethodResult,
@@ -47,7 +46,6 @@ from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
-    collect_secret_values,
     redact,
     scrub_strings,
     scrub_text,
@@ -370,12 +368,10 @@ def _resolve_for_probe(
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
     resolved = resolve_config_collecting(config, _stdin_aware_resolvers(piped))
-    spec = describe_source(source_type)
-    secret_fields = {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
-    # Union of every ${ref}-sourced value (nested-safe) and top-level inline
-    # secret fields (which may be literals with no ${ref} to record).
-    secret_values = resolved.secret_values | collect_secret_values(
-        resolved.config, secret_fields
+    # Union of every ${ref}-sourced value and every SecretStr field's value at
+    # any depth of the config (which may be literals with no ${ref} to record).
+    secret_values = resolved.secret_values | secret_field_values(
+        source_type, resolved.config
     )
     # Defense-in-depth: catch secrets living in free-form dict config fields
     # (e.g. Kafka's consumer_config) that aren't typed SecretStr and so aren't
@@ -405,11 +401,11 @@ def resolve_probe_recipe(
 def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     """Every secret this recipe resolves to, best-effort, never raising.
 
-    Independent of describe_source on purpose. _resolve_for_probe resolves
-    secrets and *then* validates the source type, so a recipe with an unknown
-    type but a resolvable ${SECRET} reached the error handler with an empty
-    secret set and emitted unredacted. Each fallback below keeps whatever was
-    already collected rather than returning nothing.
+    Independent of the source type resolving, on purpose. _resolve_for_probe
+    resolves secrets and *then* validates the source type, so a recipe with an
+    unknown type but a resolvable ${SECRET} reached the error handler with an
+    empty secret set and emitted unredacted. Each fallback below keeps whatever
+    was already collected rather than returning nothing.
     """
     values: Set[str] = set()
     # Anything piped in is a secret by declaration, and goes in before the
@@ -433,13 +429,10 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     values |= resolved.secret_values
     values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
     try:
-        spec = describe_source(str(source.get("type")))
+        values |= secret_field_values(str(source.get("type")), resolved.config)
     except Exception:
         # Unknown or uninstalled source type: keep the refs already resolved.
-        return values
-    values |= collect_secret_values(
-        resolved.config, {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
-    )
+        pass
     return values
 
 

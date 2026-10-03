@@ -1,12 +1,9 @@
-from typing import Dict
-
 import pytest
 
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_credential_values,
     collect_nested_secret_values,
-    collect_secret_values,
     redact,
     scrub_text,
 )
@@ -25,12 +22,6 @@ def test_redacts_exact_and_embedded_values():
     out_list = out["list"]
     assert isinstance(out_list, list)
     assert out_list[1] == "safe"
-
-
-def test_collect_secret_values_only_from_secret_fields():
-    resolved: Dict[str, object] = {"password": "s3cr3t", "host_port": "db:3306"}
-    values = collect_secret_values(resolved, {"password"})
-    assert values == {"s3cr3t"}
 
 
 def test_empty_secrets_is_noop():
