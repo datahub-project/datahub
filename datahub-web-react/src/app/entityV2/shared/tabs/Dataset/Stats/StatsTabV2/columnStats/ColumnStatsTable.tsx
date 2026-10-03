@@ -161,6 +161,7 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
             {fields.length > 0 && (
                 <SchemaFieldDrawer
                     schemaFields={fields as any}
+                    schemaMetadata={entityWithSchema?.schemaMetadata as any}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                     editableSchemaMetadata={entityWithSchema?.editableSchemaMetadata as any}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}

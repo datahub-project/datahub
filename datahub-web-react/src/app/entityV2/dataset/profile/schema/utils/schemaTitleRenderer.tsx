@@ -10,6 +10,7 @@ export default function useSchemaTitleRenderer(
     schemaMetadata: SchemaMetadata | undefined | null,
     filterText: string,
     isCompact?: boolean,
+    setExpandedDrawerFieldPath?: (fieldPath: string | null) => void,
 ) {
     return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
         return (
@@ -20,6 +21,7 @@ export default function useSchemaTitleRenderer(
                 fieldPath={fieldPath}
                 record={record}
                 schemaMetadata={schemaMetadata}
+                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
             />
         );
     };
