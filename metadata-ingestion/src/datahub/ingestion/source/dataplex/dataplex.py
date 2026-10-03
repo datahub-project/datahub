@@ -48,6 +48,7 @@ from datahub.ingestion.source.dataplex.dataplex_export import (
     DATAPLEX_API_ROOT,
     GCP_SCOPES,
     build_authed_session,
+    build_service_account_credentials,
     build_storage_client,
     iter_exported_entries,
     read_export_targets,
@@ -240,14 +241,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: DataplexReport = DataplexReport()
 
-        creds = self.config.get_credentials()
-        credentials = (
-            service_account.Credentials.from_service_account_info(
-                creds, scopes=GCP_SCOPES
-            )
-            if creds
-            else None
-        )
+        credentials = build_service_account_credentials(self.config)
         # Stored for the lazy `_project_ids` cached_property to use on first access.
         self._credentials: Optional[service_account.Credentials] = credentials
 
@@ -393,14 +387,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             config = DataplexConfig.model_validate(config_dict)
-            creds = config.get_credentials()
-            credentials = (
-                service_account.Credentials.from_service_account_info(
-                    creds, scopes=GCP_SCOPES
-                )
-                if creds
-                else None
-            )
+            credentials = build_service_account_credentials(config)
 
             if config.extraction_method == "read_export":
                 assert config.read_export_config is not None

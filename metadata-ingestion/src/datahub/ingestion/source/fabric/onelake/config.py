@@ -1,16 +1,25 @@
 """Configuration classes for Fabric OneLake connector."""
 
-from typing import Literal, Optional
+from typing import Annotated, Literal, Mapping, Optional, Sequence
 
 from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+    GenericContainerSubTypes,
+)
+from datahub.ingestion.source.fabric.onelake.filter_names import (
+    qualified_filter_name,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -146,7 +155,9 @@ class FabricOneLakeSourceConfig(
     )
 
     # Filtering options
-    workspace_pattern: AllowDenyPattern = Field(
+    workspace_pattern: Annotated[
+        AllowDenyPattern, Filters(GenericContainerSubTypes.FABRIC_WORKSPACE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter workspaces by name. "
@@ -154,7 +165,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    lakehouse_pattern: AllowDenyPattern = Field(
+    lakehouse_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter lakehouses by name. "
@@ -162,7 +175,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    warehouse_pattern: AllowDenyPattern = Field(
+    warehouse_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_WAREHOUSE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter warehouses by name. "
@@ -170,7 +185,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    schema_pattern: AllowDenyPattern = Field(
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter schemas by name. "
@@ -179,7 +196,7 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    table_pattern: AllowDenyPattern = Field(
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter tables by name. "
@@ -187,7 +204,7 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    view_pattern: AllowDenyPattern = Field(
+    view_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.VIEW)] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter views by name. "
@@ -262,6 +279,57 @@ class FabricOneLakeSourceConfig(
             "configured and enabled `sql_endpoint`."
         ),
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: onelake_probe imports this module, so a top-level
+        # import here would be circular.
+        from datahub.ingestion.source.fabric.onelake.onelake_probe import (
+            FabricOneLakeMetadataProbe,
+        )
+
+        return FabricOneLakeMetadataProbe
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        # source.py _process_workspace_items and _process_lakehouse /
+        # _process_warehouse never list these kinds when the switch is off.
+        return {
+            str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE): "extract_lakehouses",
+            str(DatasetContainerSubTypes.FABRIC_WAREHOUSE): "extract_warehouses",
+            str(DatasetSubTypes.VIEW): "extract_views",
+        }
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """What contains each kind, outermost first.
+
+        Stops at the schema: the level above it is a Lakehouse OR a Warehouse,
+        filtered by different patterns, and a --parent path carries names, not
+        item types. Declaring either would judge a warehouse by
+        lakehouse_pattern. Schema returns None so the framework says the item
+        and workspace were not judged, instead of implying they were.
+        """
+        workspace = str(GenericContainerSubTypes.FABRIC_WORKSPACE)
+        schema = str(DatasetContainerSubTypes.FABRIC_SCHEMA)
+        return {
+            workspace: (),
+            str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE): (workspace,),
+            str(DatasetContainerSubTypes.FABRIC_WAREHOUSE): (workspace,),
+            str(DatasetSubTypes.TABLE): (schema,),
+            str(DatasetSubTypes.VIEW): (schema,),
+        }.get(kind)
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """`schema.name` for tables and views, the string table_pattern and
+        view_pattern are matched against; the immediate --parent is the schema.
+        None, the bare name, for workspaces, items and schemas: ingestion
+        matches those on their display names (source.py
+        _process_workspace_items / _process_item_tables)."""
+        if ctx.kind not in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            return None
+        if parent_required(ctx):
+            return None
+        return qualified_filter_name(ctx.parent_path[-1], ctx.name)
 
     @model_validator(mode="after")
     def validate_sql_endpoint_dependencies(self):
