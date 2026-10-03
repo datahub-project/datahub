@@ -175,3 +175,39 @@ jobs:
           emoji: ":scissors:"
           message: ${{ steps.slack_message.outputs.message }}
           slack-bot-token: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+
+  rollback_analysis:
+    name: Rollback Analysis
+    needs: cut_branch
+    if: inputs.branch_type == 'release'
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo with full history and tags
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+
+      # N is the just-cut branch tip. N-1 is left to the script, which picks the
+      # latest stable release tag for this repo (v*-cloud in acryl-fork, v* in OSS).
+      - name: Rollback analysis N → N-1
+        env:
+          CURRENT: ${{ needs.cut_branch.outputs.commit_sha }}
+        run: |
+          python3 .github/scripts/rollback_analysis.py \
+            --current "$CURRENT" \
+            --output rollback-n1.md --json
+          cat rollback-n1.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: rollback-reports-v${{ inputs.version }}
+          path: |
+            rollback-n1.md
+            rollback-n1.json
+          if-no-files-found: warn
