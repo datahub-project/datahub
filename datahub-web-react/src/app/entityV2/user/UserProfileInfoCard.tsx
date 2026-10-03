@@ -1,4 +1,4 @@
-import { Avatar } from '@components';
+import { Avatar, colors } from '@components';
 import { Col } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -65,7 +65,7 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
     return (
         <>
             <CustomAvatarContainer>
-                <GradientContainer />
+                <GradientContainer gradient={colors.primary[900]} />
                 <UserInfo>
                     <Col xxl={8} xl={10} lg={24} md={24} sm={24} xs={24}>
                         <ProfileAvatarWrapper>
