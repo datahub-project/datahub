@@ -9,6 +9,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefi
 import com.linkedin.metadata.graph.cache.service.internal.GraphComponentContext;
 import com.linkedin.metadata.graph.cache.service.read.GraphReadDepthResolver;
 import com.linkedin.metadata.graph.cache.service.read.PartialGraphReadBackend;
+import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -51,6 +52,63 @@ public class PartialGraphScopeReadStrategy implements GraphScopeReadStrategy {
     return partialBackend
         .shared()
         .expandFromComponents(definition, direction, roots, limit, maxDepth, components);
+  }
+
+  /**
+   * Serves a trusted full walk without calling {@code ensureFreshForRoot}. A builder-complete
+   * snapshot misses with {@link ReadMissReason#INSUFFICIENT_COVERAGE} and is left for the caller to
+   * walk.
+   */
+  @Nonnull
+  @Override
+  public GraphReadResult expandFullPath(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull GraphSnapshotSource source,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Collection<String> roots,
+      int limit,
+      int maxDepth) {
+    Set<String> normalizedRoots = partialBackend.shared().rootsFrom(roots);
+    if (normalizedRoots.isEmpty()) {
+      return GraphReadResult.miss(ReadMissReason.INVALID_REQUEST);
+    }
+    String cacheKey = null;
+    for (String root : normalizedRoots) {
+      Optional<String> resolved =
+          partialBackend
+              .shared()
+              .findCacheKeyForSeeds(definition.getGraphId(), source, Set.of(root));
+      if (resolved.isEmpty()) {
+        return GraphReadResult.miss(ReadMissReason.ABSENT);
+      }
+      if (cacheKey == null) {
+        cacheKey = resolved.get();
+      } else if (!cacheKey.equals(resolved.get())) {
+        return GraphReadResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+      }
+    }
+    ReadMissReason freshnessMiss =
+        partialBackend.shared().missReasonFromFreshness(definition, cacheKey, direction);
+    if (freshnessMiss != null) {
+      return GraphReadResult.miss(freshnessMiss);
+    }
+    GraphComponentContext component =
+        partialBackend.shared().resolveComponent(definition, cacheKey);
+    if (component == null || !component.view().containsAllSeeds(normalizedRoots)) {
+      return GraphReadResult.miss(ReadMissReason.ABSENT);
+    }
+    TraversalCoverage coverage = component.coverage();
+    TraversalCoverage.DirectionCoverage stamped =
+        coverage == null ? null : coverage.getDirection(direction);
+    if (stamped == null
+        || !stamped.isTrustedFullWalk()
+        || !component.view().coversRoots(direction, stamped.getTrustedSeeds(), normalizedRoots)) {
+      return GraphReadResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+    }
+    return partialBackend
+        .shared()
+        .expandFromComponents(
+            definition, direction, normalizedRoots, limit, maxDepth, List.of(component));
   }
 
   @Nonnull

@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.service.read;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.CacheStatus;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.GraphReadResult;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
@@ -277,7 +278,6 @@ public class GraphReadBackend {
       int maxDepth,
       @Nonnull TraversalDirection direction,
       @Nonnull List<GraphComponentContext> components) {
-    int callerDepth = GraphReadDepthResolver.resolve(definition, maxDepth);
     int coverageCap =
         components.stream()
             .map(GraphComponentContext::coverage)
@@ -287,10 +287,35 @@ public class GraphReadBackend {
             .mapToInt(TraversalCoverage.DirectionCoverage::getExploredDepth)
             .min()
             .orElse(Integer.MAX_VALUE);
+    if (trustedFullWalk(direction, components)) {
+      int callerDepth =
+          maxDepth == EntityGraphCache.USE_DEFINITION_MAX_DEPTH || maxDepth <= 0
+              ? Integer.MAX_VALUE
+              : maxDepth;
+      if (coverageCap == Integer.MAX_VALUE) {
+        return callerDepth;
+      }
+      return Math.min(callerDepth, coverageCap);
+    }
+    int callerDepth = GraphReadDepthResolver.resolve(definition, maxDepth);
     if (coverageCap == Integer.MAX_VALUE) {
       return callerDepth;
     }
     return Math.min(callerDepth, coverageCap);
+  }
+
+  private static boolean trustedFullWalk(
+      @Nonnull TraversalDirection direction, @Nonnull List<GraphComponentContext> components) {
+    if (components.isEmpty()) {
+      return false;
+    }
+    for (GraphComponentContext component : components) {
+      TraversalCoverage coverage = component.coverage();
+      if (coverage == null || !coverage.isTrustedFullWalk(direction)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Nullable
