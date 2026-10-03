@@ -128,7 +128,15 @@ public class AssertionRunSummaryHookTest {
                 patch.getValue().build().getAspect().getValue().asString(StandardCharsets.UTF_8));
     assertEquals(operations.size(), 1);
     assertEquals(operations.get(0).get("value").asLong(), 1000L);
-    assertFalse(operations.get(0).get("path").asText().equals("/assertionStatus"));
+    assertEquals(
+        operations.get(0).get("path").asText(),
+        switch (resultType) {
+          case SUCCESS -> "/lastPassedAtMillis";
+          case FAILURE -> "/lastFailedAtMillis";
+          case ERROR -> "/lastErroredAtMillis";
+          case INIT -> "/lastInitializedAtMillis";
+          default -> throw new IllegalArgumentException("Unsupported result type " + resultType);
+        });
   }
 
   @Test(dataProvider = "differentOutcomes")
@@ -147,6 +155,22 @@ public class AssertionRunSummaryHookTest {
     verify(assertionService)
         .patchAssertionRunSummary(
             eq(operationContext), eq(expectedPatch(resultType, expectedStatus, 2000L)));
+  }
+
+  @Test
+  public void testSameTimestampPreservesExistingCorrectionBehavior() throws Exception {
+    when(assertionService.getAssertionRunSummary(operationContext, TEST_ASSERTION_URN))
+        .thenReturn(summaryWithTimestamp(AssertionResultType.SUCCESS, 2000L));
+    when(event.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent(AssertionResultType.FAILURE, 2000L)));
+
+    hook.invoke(operationContext, event);
+
+    verify(assertionService)
+        .patchAssertionRunSummary(
+            eq(operationContext),
+            eq(expectedPatch(AssertionResultType.FAILURE, AssertionStatus.FAILING, 2000L)));
   }
 
   @Test

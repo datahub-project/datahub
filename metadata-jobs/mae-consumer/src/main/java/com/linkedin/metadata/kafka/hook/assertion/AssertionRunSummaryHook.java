@@ -247,6 +247,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
 
   private static boolean isLatestRun(AssertionRunEvent runEvent, AssertionRunSummary summary) {
     // An older run may advance its own outcome timestamp without changing global status.
+    // Preserve the existing equal-time correction behavior; reconciliation is a separate concern.
     return Stream.of(
             summary.getLastPassedAtMillis(),
             summary.getLastFailedAtMillis(),
