@@ -18,7 +18,12 @@ from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.api.source import (
     StructuredLogCategory,
     StructuredLogLevel,
@@ -35,7 +40,10 @@ from datahub.ingestion.source.kafka_connect.common import (
 from datahub.ingestion.source.kafka_connect.connector_registry import (
     ConnectorRegistry,
 )
-from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.ingestion.source.kafka_connect.kafka_connect import (
+    CONFLUENT_CLOUD_CREDENTIALS_REQUIRED,
+    KafkaConnectSource,
+)
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 
 # Ingestion's Connect calls pass no timeout, which a long run tolerates. A probe
@@ -236,7 +244,7 @@ class _TimeoutSession(requests.Session):
         return super().request(*args, **kwargs)
 
 
-class KafkaConnectMetadataProbe:
+class KafkaConnectMetadataProbe(ProbeProviderBase):
     """Reads through an uninitialized KafkaConnectSource (see
     KafkaConnectSource.for_probe), so each command runs ingestion's own
     per-connector steps -- minus connector_patterns, which `probe filter` judges.
@@ -256,7 +264,6 @@ class KafkaConnectMetadataProbe:
         # Replaced rather than reused so the reused steps' report entries are
         # never logged; see _UnloggedStructuredLogs.
         self._source.report = _ProbeReport()
-        self.warnings: List[str] = []
         # Judged here, without a request, but raised from the first command:
         # an error while the provider is built is reported as "could not open
         # source" (exit 3), and these are the caller's to fix (exit 2).
@@ -276,11 +283,12 @@ class KafkaConnectMetadataProbe:
             session = KafkaConnectSource._create_connect_session(
                 config, session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
             )
-        except ValueError as exc:
-            # Confluent Cloud without Connect credentials: a recipe error, so
-            # deferred like a bad connect_uri. The message is ingestion's fixed
-            # text, with no recipe value in it.
-            recipe_problem = str(exc)
+        except ValueError:
+            # Confluent Cloud without Connect credentials, the one error the
+            # factory raises: a recipe error, so deferred like a bad
+            # connect_uri, and stated in ingestion's words without quoting
+            # the exception.
+            recipe_problem = CONFLUENT_CLOUD_CREDENTIALS_REQUIRED
             session = _TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
         kafka_session = KafkaConnectSource._create_kafka_session(
             session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
@@ -292,14 +300,12 @@ class KafkaConnectMetadataProbe:
             recipe_problem=recipe_problem,
         )
 
-    def __enter__(self) -> "KafkaConnectMetadataProbe":
-        return self
-
     def __exit__(self, *exc: object) -> None:
         # Not self._source.close(): that runs StatefulIngestionSourceBase.close()
         # on a shim that never ran its __init__.
         self._source.session.close()
         self._source.kafka_session.close()
+        super().__exit__(*exc)
 
     @property
     def probe_report(self) -> object:
@@ -360,7 +366,7 @@ class KafkaConnectMetadataProbe:
 
     def _refuse_recipe_problem(self) -> None:
         if self._recipe_problem is not None:
-            raise ValueError(self._recipe_problem)
+            raise ProbeArgumentError(self._recipe_problem)
 
     def _listed_names(self) -> List[str]:
         # The GET /connectors ingestion's endpoint discovery already makes, which
@@ -382,20 +388,16 @@ class KafkaConnectMetadataProbe:
         reports can reach a per-connector endpoint. The character check runs
         first so a crafted name costs no request at all."""
         if any(ch in connector for ch in _URL_SIGNIFICANT):
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"connector name '{connector}' contains URL syntax "
                 f"({' '.join(_URL_SIGNIFICANT)}); ingestion addresses connectors "
                 f"by unencoded name, so it could not read this one either"
             )
         if connector not in self._listed_names():
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"no connector named '{connector}' on this Connect cluster; "
                 f"`probe run connectors` lists them"
             )
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     def _resolve(self, connector: str) -> _Resolved:
         """One connector through ingestion's own steps, minus connector_patterns.
@@ -410,7 +412,7 @@ class KafkaConnectMetadataProbe:
         with self._connect_request(f"GET /connectors/{connector}"):
             response = source.session.get(url)
             if response.status_code == 404:
-                raise ValueError(
+                raise ProbeArgumentError(
                     f"connector '{connector}' was listed but no longer exists"
                 )
             response.raise_for_status()
@@ -527,7 +529,7 @@ class KafkaConnectMetadataProbe:
         config-inferred only. The listing is fully paged before the limit
         applies, as ingestion pages it."""
         if not self._source._is_confluent_cloud:
-            raise ValueError(
+            raise ProbeArgumentError(
                 "cluster_topics applies to Confluent Cloud only; self-hosted "
                 "ingestion reads each connector's runtime topics instead -- use "
                 "connector_topics"

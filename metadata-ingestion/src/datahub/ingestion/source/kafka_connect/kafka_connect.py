@@ -76,6 +76,13 @@ from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
 
+# Named so the probe can report this recipe error in the same words without
+# quoting the exception.
+CONFLUENT_CLOUD_CREDENTIALS_REQUIRED = (
+    "Confluent Cloud detected but no Connect API credentials provided. "
+    "Confluent Cloud requires authentication credentials for API access."
+)
+
 
 class CatalogLineageOutcome(Enum):
     # No catalog entry, lineage disabled, or not a source: behave as if no catalog.
@@ -575,10 +582,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # requests handles the Basic encoding.
             session.auth = (connect_username, connect_password)
         elif config.is_confluent_cloud():
-            raise ValueError(
-                "Confluent Cloud detected but no Connect API credentials provided. "
-                "Confluent Cloud requires authentication credentials for API access."
-            )
+            raise ValueError(CONFLUENT_CLOUD_CREDENTIALS_REQUIRED)
         return session
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:

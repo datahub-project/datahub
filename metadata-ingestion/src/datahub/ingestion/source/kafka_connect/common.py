@@ -368,8 +368,7 @@ class KafkaConnectSourceConfig(
         `probe filter --kind Topic` says 'unfiltered' rather than 'unresolved'."""
         return {str(DatasetSubTypes.TOPIC)}
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Per-connector topics and lineage exist only for connectors
         connector_patterns keeps (get_connectors_manifest), so a topic's verdict
         follows its connector's."""

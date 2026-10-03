@@ -835,7 +835,7 @@ provided_configs:
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
 
-#### Checking a recipe with the probe
+#### Probe support
 
 `datahub recipe probe` reads the Connect REST API with the recipe's credentials and answers the way ingestion will. It returns metadata only. Connector config values are never returned, apart from the keys lineage inference reads (topics, table lists, transforms), so passwords, connection URLs and query text stay on the cluster. Key names are listed, so you can still see that a connector sets `connection.password`.
 
