@@ -4,7 +4,12 @@ from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock
 
 import pytest
-from databricks.sdk.errors import NotFound, PermissionDenied, Unauthenticated
+from databricks.sdk.errors import (
+    BadRequest,
+    NotFound,
+    PermissionDenied,
+    Unauthenticated,
+)
 from databricks.sdk.service import catalog as sdk_catalog
 from databricks.sdk.service.catalog import (
     CatalogInfo,
@@ -17,9 +22,10 @@ from databricks.sdk.service.catalog import (
 from databricks.sdk.service.workspace import ObjectInfo, ObjectType
 from databricks.sql.exc import RequestError, ServerOperationError
 
+from datahub.ingestion.agent.error_policy import foreign_label
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import TableInfoWithGeneration
 from datahub.ingestion.source.unity.unity_probe import UnityCatalogMetadataProbe
@@ -225,6 +231,61 @@ def test_sdk_error_text_never_reaches_the_caller() -> None:
     with pytest.raises(ValueError) as missing:
         _probe(ws).schemas(catalog="main")
     assert "s3cr3t" not in str(missing.value)
+
+
+@pytest.mark.parametrize(
+    "command, arguments, shown",
+    [
+        ("schemas", {"catalog": "typo"}, "no catalog 'typo' visible"),
+        ("tables", {"catalog": "main", "schema": "s"}, "refused as a bad request"),
+        (
+            "sql",
+            {"query": "SELECT table_name FROM main.information_schema.tables"},
+            "set warehouse_id in the recipe",
+        ),
+    ],
+)
+def test_a_caller_mistake_reaches_the_caller_with_its_message(
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    arguments: Dict[str, Any],
+    shown: str,
+) -> None:
+    # Through the framework, which shows only a trusted type's message: a
+    # plain ValueError would arrive as "'schemas' failed (ValueError)".
+    ws = _fake_ws()
+
+    def get(name: str, include_browse: bool) -> CatalogInfo:
+        if name == "typo":
+            raise NotFound("no such catalog")
+        return CatalogInfo(name=name)
+
+    ws.catalogs.get.side_effect = get
+    ws.tables.list.side_effect = BadRequest("INVALID_PARAMETER_VALUE")
+    _serve(monkeypatch, ws)
+    with pytest.raises(ProbeArgumentError, match=shown):
+        run_probe_method("unity-catalog", BASE, command, arguments)
+
+
+class _OtherLibraryError(Exception):
+    error_code = "PERMISSION_DENIED"
+
+
+def test_an_escaping_sdk_error_is_labelled_with_its_code_never_its_text() -> None:
+    exc = PermissionDenied("Bearer s3cr3t", error_code="PERMISSION_DENIED")
+    assert UnityCatalogMetadataProbe.probe_error_code(exc) == "PERMISSION_DENIED"
+    assert foreign_label(exc, UnityCatalogMetadataProbe) == (
+        "PermissionDenied; PERMISSION_DENIED"
+    )
+    # Text in the code slot is no code, and another library's attribute is
+    # not the SDK's.
+    assert (
+        UnityCatalogMetadataProbe.probe_error_code(
+            PermissionDenied("x", error_code="see s3cr3t")
+        )
+        is None
+    )
+    assert UnityCatalogMetadataProbe.probe_error_code(_OtherLibraryError()) is None
 
 
 def test_a_client_that_cannot_be_built_is_reported_without_the_sdk_text(
