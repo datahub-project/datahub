@@ -58,6 +58,7 @@ from datahub.ingestion.agent.verdicts import (
     Verdict,
     VerdictContext,
     ancestors_in,
+    parent_required,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -478,8 +479,7 @@ class GlueSourceConfig(
         probe_verdict_override applies."""
         return {str(FlowContainerSubTypes.GLUE_JOB)}
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Tables and views sit under their database (_gen_table_wu re-checks
         database_pattern on it); databases and Glue jobs are top-level."""
         if kind == FlowContainerSubTypes.GLUE_JOB:
@@ -490,13 +490,15 @@ class GlueSourceConfig(
             {str(DatasetSubTypes.TABLE), str(DatasetSubTypes.VIEW)},
         )
 
-    def probe_match_target(self, ctx: ClassifyContext) -> str:
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
         """table_pattern is matched against f"{database}.{table}"
-        (_gen_table_wu's full_table_name), for views as for tables. The
-        framework calls this only for Table/View with a parent; databases and
-        jobs are matched on the bare name."""
-        if not ctx.parent_path:
-            return ctx.name
+        (_gen_table_wu's full_table_name), for views as for tables, so a table
+        needs its database as --parent. Databases and Glue jobs are top-level
+        and matched on the bare name."""
+        if self.probe_ancestor_kinds(kind=ctx.kind) == ():
+            return None
+        if parent_required(ctx):
+            return None
         return f"{ctx.parent_path[-1]}.{ctx.name}"
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:

@@ -6,18 +6,15 @@ arguments that routinely carry connection passwords, and register_secrets only
 masks secrets that came from the recipe.
 """
 
-import itertools
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
-    Iterable,
     Iterator,
     List,
     Mapping,
     Optional,
-    TypeVar,
     Union,
 )
 
@@ -33,12 +30,17 @@ from botocore.exceptions import (
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
 from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
     ProbeConnectionError,
     ProbeInternalError,
     ProbeSoftError,
 )
-from datahub.ingestion.source.aws.aws_common import aws_error_code
+from datahub.ingestion.source.aws.aws_common import (
+    aws_error_code,
+    aws_probe_error_code,
+)
 from datahub.ingestion.source.aws.glue import (
     GlueSource,
     GlueSourceConfig,
@@ -53,8 +55,6 @@ from datahub.ingestion.source.common.subtypes import (
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
-
-_T = TypeVar("_T")
 
 # What get_all_databases_and_tables does when one database's GetTables fails.
 _DENIED_TABLES_SUFFIX = (
@@ -100,13 +100,13 @@ def _translated(
     request id are enough to diagnose with.
     """
     if isinstance(exc, NoRegionError):
-        return ValueError(
+        return ProbeArgumentError(
             "no AWS region was resolved for Glue; set aws_region in the recipe"
         )
     if isinstance(exc, ParamValidationError):
         # Refused by botocore before anything was sent, so the input is at
         # fault, not the source. Its text quotes the offending value.
-        return ValueError(
+        return ProbeArgumentError(
             f"{action} was refused before it was sent: a request parameter is "
             f"invalid ({type(exc).__name__}); check the names passed to the "
             f"command and the recipe's catalog_id"
@@ -147,7 +147,7 @@ def _translated(
                 f"aws_secret_access_key, aws_profile or aws_role"
             )
         if code == "EntityNotFoundException":
-            return ValueError(f"{action} found no such object ({code})")
+            return ProbeArgumentError(f"{action} found no such object ({code})")
         return ProbeConnectionError(f"{action} failed ({code}){suffix}")
     # Endpoint, proxy, timeout and SSL errors. Named by class only: SSLError's
     # text embeds the transport error verbatim, and a proxy error's the proxy.
@@ -167,16 +167,6 @@ def aws_call(action: str, soft_on_denied: bool = False) -> Iterator[None]:
         yield
     except (ClientError, BotoCoreError) as exc:
         raise _translated(exc, action, soft_on_denied) from exc
-
-
-def _take(items: Iterable[_T], limit: Optional[int]) -> List[_T]:
-    """At most `limit` items, pulling no further page than needed.
-
-    A paginator's search() is lazy, so islice stops the paging itself; on a
-    catalog with tens of thousands of tables the discarded pages would be
-    real requests.
-    """
-    return list(items) if limit is None else list(itertools.islice(items, limit))
 
 
 def _database_record(database: Mapping[str, Any]) -> Dict[str, object]:
@@ -290,7 +280,7 @@ def _unparseable_node(dag: Mapping[str, Any]) -> str:
     return "node unknown"
 
 
-class GlueMetadataProbe:
+class GlueMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over the AWS Glue Data Catalog and Glue jobs.
 
     Reuses the connector's fetch, never its policy: no getter applies
@@ -299,28 +289,20 @@ class GlueMetadataProbe:
     explain rather than hidden.
     """
 
-    warnings: List[str]
-
     def __init__(self, config: GlueSourceConfig) -> None:
         self._config = config
-        self._client: Optional["GlueClient"] = None
         self._source: Optional[GlueSource] = None
-        self.warnings = []
 
     @classmethod
     def for_config(cls, config: GlueSourceConfig) -> "GlueMetadataProbe":
-        # No client here. Building one resolves the session, which with
-        # aws_role calls sts:AssumeRole, and the framework reports a failure
-        # raised from for_config with its raw text.
+        # No client here: building one resolves the session, which with
+        # aws_role calls sts:AssumeRole, so a refused credential is the
+        # command's failure.
         return cls(config)
 
-    def __enter__(self) -> "GlueMetadataProbe":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        # The S3 client is left open: get_s3_client memoizes it on the config.
-        if self._client is not None:
-            self._client.close()
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        return aws_probe_error_code(exc)
 
     @property
     def probe_report(self) -> Optional[GlueSourceReport]:
@@ -328,19 +310,18 @@ class GlueMetadataProbe:
         their warnings and failures are folded into the result."""
         return self._source.report if self._source is not None else None
 
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
-
     def _glue(self) -> "GlueClient":
-        if self._client is None:
-            with aws_call("resolving AWS credentials for Glue"):
-                self._client = self._config.get_glue_client()
-        return self._client
+        with aws_call("resolving AWS credentials for Glue"):
+            return self._open_once(
+                "glue",
+                self._config.get_glue_client,
+                close=lambda client: client.close(),
+            )
 
     def _ingestion_source(self) -> GlueSource:
         if self._source is None:
             glue = self._glue()
+            # Left open on exit: get_s3_client memoizes it on the config.
             with aws_call("resolving AWS credentials for S3"):
                 s3 = self._config.get_s3_client()
             self._source = GlueSource.for_probe(
@@ -360,7 +341,7 @@ class GlueMetadataProbe:
                 .get_paginator("get_databases")
                 .paginate(**glue_catalog_kwargs(self._config.catalog_id))
             )
-            return _take(pages.search("DatabaseList"), limit)
+            return take(pages.search("DatabaseList"), limit)
 
     def _database(self, name: str) -> Dict[str, Any]:
         """One database's record, from the listing ingestion reads.
@@ -380,7 +361,7 @@ class GlueMetadataProbe:
                 None,
             )
         if found is None:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"no database named '{name}' in {self._catalog_label()}; "
                 f"`probe run databases` lists them"
             )
@@ -414,7 +395,7 @@ class GlueMetadataProbe:
                     **glue_catalog_kwargs(self._config.catalog_id),
                 )
             )
-            return _take(pages.search("TableList"), limit)
+            return take(pages.search("TableList"), limit)
 
     def _note_database_rules(self, database: Mapping[str, Any]) -> None:
         name = database["Name"]
@@ -482,7 +463,7 @@ class GlueMetadataProbe:
             return []
         found = next((t for t in listed if t.get("Name") == table), None)
         if found is None:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"no table '{table}' in database '{database}'; `probe run "
                 f"tables --database {database}` lists them"
             )
@@ -523,13 +504,13 @@ class GlueMetadataProbe:
         # job API is not cross-account.
         with aws_call("glue:GetJobs"):
             pages = self._glue().get_paginator("get_jobs").paginate()
-            return _take(pages.search("Jobs"), limit)
+            return take(pages.search("Jobs"), limit)
 
     def _find_job(self, name: str) -> Dict[str, Any]:
         # GetJobs rather than GetJob: ingestion's policy grants only the former.
         found = next((j for j in self._list_jobs(None) if j.get("Name") == name), None)
         if found is None:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"no Glue job named '{name}' in this account and region; "
                 f"`probe run jobs` lists them"
             )
@@ -590,13 +571,13 @@ class GlueMetadataProbe:
             # ingestion's ValueError formats them in, and PyYAML's error quotes
             # a window of the value it could not parse.
             except yaml.YAMLError:
-                raise ValueError(
+                raise ProbeArgumentError(
                     f"job '{job}' has a DAG node whose arguments are not valid "
                     f"YAML ({_unparseable_node(dag)}), so ingestion fails on "
                     f"this job; the job script was likely edited by hand"
                 ) from None
             except ValueError as exc:
-                raise ValueError(self._dag_value_error(job, exc)) from None
+                raise ProbeArgumentError(self._dag_value_error(job, exc)) from None
             except Exception as exc:
                 raise ProbeInternalError(
                     f"resolving the DAG of job '{job}' failed inside the "

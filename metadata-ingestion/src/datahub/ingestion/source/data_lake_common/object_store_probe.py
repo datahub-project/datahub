@@ -26,9 +26,13 @@ from typing import (
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import take
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
+from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
+    aws_error_code,
+    aws_probe_error_code,
+)
 from datahub.ingestion.source.aws.s3_boto_utils import (
     list_buckets,
     list_folders_path,
@@ -96,7 +100,7 @@ T = TypeVar("T")
 Whole = Union[bool, Callable[[], bool]]
 
 
-class S3CompatibleMetadataProbe:
+class S3CompatibleMetadataProbe(ProbeProviderBase):
     display_scheme: ClassVar[str] = "s3://"
     bucket_name_pattern: ClassVar[Pattern[str]] = _BUCKET_NAME
 
@@ -109,22 +113,23 @@ class S3CompatibleMetadataProbe:
         self._aws_config = aws_config
         # The s3:// specs ingestion matches with, not the recipe's gs:// ones.
         self._path_specs = list(path_specs)
-        # Why this recipe cannot be probed at all. Raised as a caller error by
-        # every command, not from for_config, which the framework reports as
-        # "could not open the source".
+        # Why this recipe cannot be probed at all, raised as a caller error by
+        # every command before it makes a request.
         self._refusal = refusal
-        self.warnings: List[str] = []
         self.failures: List[str] = []
 
-    def _refuse_if_unavailable(self) -> None:
-        if self._refusal is not None:
-            raise ValueError(self._refusal)
-
-    def __enter__(self) -> "S3CompatibleMetadataProbe":
-        return self
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        # GCS's S3-compatible endpoint answers with S3's error codes too.
+        return aws_probe_error_code(exc)
 
     def __exit__(self, *exc: object) -> None:
         self._aws_config.close_cached_s3_clients()
+        super().__exit__(*exc)
+
+    def _refuse_if_unavailable(self) -> None:
+        if self._refusal is not None:
+            raise ProbeArgumentError(self._refusal)
 
     def _display(self, s3_uri: str) -> str:
         return self.display_scheme + s3_uri[len("s3://") :]
@@ -132,7 +137,7 @@ class S3CompatibleMetadataProbe:
     def _bucket_uri(self, bucket: str, prefix: str) -> str:
         self._refuse_if_unavailable()
         if not self.bucket_name_pattern.match(bucket):
-            raise ValueError(f"'{bucket}' is not a bucket name")
+            raise ProbeArgumentError(f"'{bucket}' is not a bucket name")
         if prefix and not prefix.endswith("/"):
             prefix += "/"
         return f"s3://{bucket}/{prefix.lstrip('/')}"
@@ -162,9 +167,9 @@ class S3CompatibleMetadataProbe:
                     f"{context}: credential rejected ({code or status})"
                 ) from exc
             if code == "NoSuchBucket":
-                raise ValueError(f"{context}: no such bucket") from exc
+                raise ProbeArgumentError(f"{context}: no such bucket") from exc
             if code == "NoSuchKey":
-                raise ValueError(f"{context}: no such object") from exc
+                raise ProbeArgumentError(f"{context}: no such object") from exc
             if code == "AccessDenied" or code in _REGION_ERROR_CODES:
                 why = (
                     "access denied"
@@ -181,7 +186,7 @@ class S3CompatibleMetadataProbe:
                 f"{context}: the storage request failed ({code or status})"
             ) from exc
         except ParamValidationError as exc:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"{context}: the request was refused before it was sent "
                 f"({aws_error_code(exc)})"
             ) from exc
@@ -216,7 +221,7 @@ class S3CompatibleMetadataProbe:
     def _spec(self, index: int) -> PathSpec:
         self._refuse_if_unavailable()
         if not 0 <= index < len(self._path_specs):
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"path_spec {index} does not exist; the recipe has "
                 f"{len(self._path_specs)} (0-based)"
             )
