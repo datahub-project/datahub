@@ -78,5 +78,5 @@ type ActionColumnProps = {
 };
 
 export function ActionsColumn({ record }: ActionColumnProps) {
-    return <ViewDropdownMenu view={record} visible />;
+    return <ViewDropdownMenu view={record} isOwnedByUser={record.viewType === DataHubViewType.Personal} visible />;
 }
