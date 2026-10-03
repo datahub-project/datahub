@@ -8,6 +8,7 @@ Tests focus on:
 - Auto-discovery orchestration
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 from unittest import mock
 
@@ -799,3 +800,71 @@ class TestParseIntoDBTNodeFreshness:
         dbt_node = source._parse_into_dbt_node(node)
 
         assert dbt_node.freshness_info is None
+
+
+class TestExtractTestInfoExecutionTime:
+    """The assertion run event timestamp is part of its timeseries document id, so
+    it must come from dbt Cloud (not wall-clock) for re-ingestion to be idempotent."""
+
+    def _create_source(self) -> DBTCloudSource:
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=12345678,
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        return DBTCloudSource(config, ctx)
+
+    def _test_node(self, **overrides: Optional[str]) -> dict:
+        node = {
+            "uniqueId": "test.project.not_null_orders_id",
+            "name": "not_null_orders_id",
+            "resourceType": "test",
+            "runId": 123,
+            "jobId": 456,
+            "dependsOn": ["macro.dbt.test_not_null"],
+            "columnName": "id",
+            "state": "pass",
+            "status": "pass",
+            "error": None,
+            "fail": False,
+            "warn": False,
+            "skip": False,
+            "executeStartedAt": "2026-01-14T12:00:01.500Z",
+            "runGeneratedAt": "2026-01-14T12:05:00Z",
+        }
+        node.update(overrides)
+        return node
+
+    def test_uses_execute_started_at(self) -> None:
+        source = self._create_source()
+        _, result = source._extract_test_info(self._test_node(), "not_null_orders_id")
+        assert result is not None
+        assert result.execution_time == datetime(
+            2026, 1, 14, 12, 0, 1, 500000, tzinfo=timezone.utc
+        )
+        assert not source.report.warnings
+
+    def test_falls_back_to_run_generated_at(self) -> None:
+        source = self._create_source()
+        _, result = source._extract_test_info(
+            self._test_node(executeStartedAt=None), "not_null_orders_id"
+        )
+        assert result is not None
+        assert result.execution_time == datetime(
+            2026, 1, 14, 12, 5, 0, tzinfo=timezone.utc
+        )
+
+    def test_falls_back_to_now_with_warning(self) -> None:
+        source = self._create_source()
+        before = datetime.now(timezone.utc)
+        _, result = source._extract_test_info(
+            self._test_node(executeStartedAt=None, runGeneratedAt=None),
+            "not_null_orders_id",
+        )
+        assert result is not None
+        assert result.execution_time >= before
+        assert source.report.warnings

@@ -295,3 +295,42 @@ def test_build_assertions_with_results_preserves_decimal_observed_values():
     result = assertions[0]["assertionResults"][0].result
     assert result.nativeResults["partial_unexpected_list"] == '["10", "9"]'
     assert result.externalUrl == "https://app.example.com/validations/abc"
+
+
+def test_build_assertions_with_results_timestamp_is_validation_run_time():
+    # The run event's timestampMillis is part of its timeseries document id, so it
+    # must come from the GX run time (not wall-clock) for re-emits to be idempotent.
+    run_time = datetime(2024, 1, 15, 12, 0, 0, 123000, tzinfo=timezone.utc)
+    validation_result = SimpleNamespace(
+        evaluation_parameters=None,
+        results=[
+            {
+                "success": True,
+                "expectation_config": {
+                    "type": "expect_table_row_count_to_equal",
+                    "kwargs": {"value": 10},
+                },
+                "result": {"observed_value": 10},
+            }
+        ],
+    )
+    datasets = [
+        {
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.t,PROD)",
+            "partitionSpec": None,
+            "batchSpec": None,
+        }
+    ]
+    events = [
+        build_assertions_with_results(
+            validation_result,
+            "suite",
+            SimpleNamespace(run_time=run_time),
+            datasets,
+            docs_link=None,
+        )[0]["assertionResults"][0]
+        for _ in range(2)
+    ]
+    assert events[0].timestampMillis == int(run_time.timestamp() * 1000)
+    assert events[1].timestampMillis == events[0].timestampMillis
+    assert events[0].runId == "2024-01-15T12:00:00Z"
