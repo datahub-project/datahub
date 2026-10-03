@@ -229,6 +229,23 @@ public class GraphReadBackend {
     }
     int effectiveDepth = resolveExpandDepth(definition, maxDepth, direction, components);
     logIncompleteCoverage(definition, direction, components);
+    return expandAtDepth(
+        definition, direction, normalizedRoots, limit, maxDepth, view, effectiveDepth);
+  }
+
+  /**
+   * Expands {@code view} at {@code effectiveDepth}. {@code requestedMaxDepth} is the caller's depth
+   * and is used only for truncation logging.
+   */
+  @Nonnull
+  public GraphReadResult expandAtDepth(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> normalizedRoots,
+      int limit,
+      int requestedMaxDepth,
+      @Nonnull EntityGraphView view,
+      int effectiveDepth) {
     EntityGraphView.ExpandResult expandResult =
         view.expandWithResult(direction, normalizedRoots, limit, effectiveDepth);
 
@@ -242,13 +259,13 @@ public class GraphReadBackend {
           normalizedRoots,
           effectiveDepth,
           expandResult.getVertices().size());
-    } else if (expandResult.isTruncatedByMaxDepth() && maxDepth > 0) {
+    } else if (expandResult.isTruncatedByMaxDepth() && requestedMaxDepth > 0) {
       log.warn(
           "Entity graph expand truncated by per-call maxDepth: graphId={} direction={} roots={} maxDepth={} resultSize={}",
           definition.getGraphId(),
           direction,
           normalizedRoots,
-          maxDepth,
+          requestedMaxDepth,
           expandResult.getVertices().size());
     }
     if (expandResult.isTruncatedByLimit()) {
@@ -277,7 +294,6 @@ public class GraphReadBackend {
       int maxDepth,
       @Nonnull TraversalDirection direction,
       @Nonnull List<GraphComponentContext> components) {
-    int callerDepth = GraphReadDepthResolver.resolve(definition, maxDepth);
     int coverageCap =
         components.stream()
             .map(GraphComponentContext::coverage)
@@ -287,6 +303,7 @@ public class GraphReadBackend {
             .mapToInt(TraversalCoverage.DirectionCoverage::getExploredDepth)
             .min()
             .orElse(Integer.MAX_VALUE);
+    int callerDepth = GraphReadDepthResolver.resolve(definition, maxDepth);
     if (coverageCap == Integer.MAX_VALUE) {
       return callerDepth;
     }
