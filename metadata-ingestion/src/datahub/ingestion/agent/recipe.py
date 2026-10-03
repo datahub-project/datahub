@@ -2,7 +2,10 @@ import re
 from typing import Dict, List, Optional, Set
 
 from datahub.ingestion.agent.config_validation import validate_source_config
-from datahub.ingestion.agent.introspect import describe_source
+from datahub.ingestion.agent.introspect import (
+    describe_source,
+    iter_secret_field_values,
+)
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
@@ -18,9 +21,10 @@ from datahub.ingestion.source.source_registry import source_registry
 _REF = re.compile(r"\$\{[^}]+\}")
 
 
-def _secret_field_names(source_type: str) -> Set[str]:
-    spec = describe_source(source_type)
-    return {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
+def _env_name(path: str) -> str:
+    """An environment variable name for a config path (`git_info.deploy_key`
+    -> GIT_INFO_DEPLOY_KEY)."""
+    return re.sub(r"[^0-9A-Za-z]+", "_", path).strip("_").upper()
 
 
 def scaffold(source_type: str) -> Dict[str, object]:
@@ -88,17 +92,19 @@ def validate_recipe(
             "warnings": [],
         }
 
-    # Flagged exactly when describe_source reports the field as a secret.
+    # Every SecretStr field the recipe writes inline, at any depth, by path: the
+    # walk the redactor masks with. dict() drops a path a union read twice.
     already_named: Set[str] = set()
-    for name in _secret_field_names(source_type):
-        value = config.get(name)
-        if isinstance(value, str) and value and not _REF.search(value):
-            already_named.add(value)
-            warnings.append(
-                f"'{name}' contains a plaintext secret; the agent sees this value when "
-                f"editing the file. Recommend '{name}: ${{{name.upper()}}}' and "
-                f"export {name.upper()}=..."
-            )
+    for path, value in dict(iter_secret_field_values(config_cls, config)).items():
+        if _REF.search(value):
+            continue
+        already_named.add(value)
+        env = _env_name(path)
+        warnings.append(
+            f"'{path}' contains a plaintext secret; the agent sees this value when "
+            f"editing the file. Recommend '{path}: ${{{env}}}' and "
+            f"export {env}=..."
+        )
 
     # Secrets nested in free-form dicts (`consumer_config['sasl.password']`),
     # counted without naming the value or its path, which would put it in the

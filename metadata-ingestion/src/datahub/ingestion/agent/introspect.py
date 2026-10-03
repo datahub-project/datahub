@@ -135,32 +135,42 @@ def _recipe_keys(name: str, info: FieldInfo) -> Set[str]:
     return keys | {name}
 
 
-def collect_secret_field_values(
+def iter_secret_field_values(
     config_cls: Type[BaseModel], config: Dict[str, object]
-) -> Set[str]:
-    """Every non-empty string a recipe's config holds in a SecretStr field, at
-    any depth: nested config blocks, and lists, tuples, sets and dicts of them.
+) -> Iterator[Tuple[str, str]]:
+    """(path, value) for every non-empty string a recipe's config holds in a
+    SecretStr field, at any depth: nested config blocks, and lists, tuples, sets
+    and dicts of them. The path is dotted, under the key the recipe used, with
+    a list index or dict key in brackets (`endpoints[0].token`), as ConfigModel
+    names nested secrets. A path can repeat when a union reads it twice.
 
     The walk follows the recipe's values, not the class's fields, so a config
     that names itself recurses only as deep as the recipe nests it.
     """
-    found: Set[str] = set()
-    _collect_from_model(config_cls, config, found, 0)
-    return found
+    return _secrets_in_model(config_cls, config, "", 0)
 
 
-def _collect_from_model(
-    model: Type[BaseModel], config: Dict[str, object], found: Set[str], depth: int
-) -> None:
+def collect_secret_field_values(
+    config_cls: Type[BaseModel], config: Dict[str, object]
+) -> Set[str]:
+    """The values iter_secret_field_values finds."""
+    return {value for _path, value in iter_secret_field_values(config_cls, config)}
+
+
+def _secrets_in_model(
+    model: Type[BaseModel], config: Dict[str, object], prefix: str, depth: int
+) -> Iterator[Tuple[str, str]]:
     for name, info in model.model_fields.items():
         for key in _recipe_keys(name, info):
             if key in config:
-                _collect_from_value(info.annotation, config[key], found, depth + 1)
+                yield from _secrets_in_value(
+                    info.annotation, config[key], f"{prefix}{key}", depth + 1
+                )
 
 
-def _collect_from_value(
-    annotation: object, value: object, found: Set[str], depth: int
-) -> None:
+def _secrets_in_value(
+    annotation: object, value: object, path: str, depth: int
+) -> Iterator[Tuple[str, str]]:
     if depth > _MAX_SECRET_DEPTH:
         return
     for member in _unwrap_optional(annotation):
@@ -170,24 +180,28 @@ def _collect_from_value(
                 continue
             if issubclass(member, SecretStr):
                 if isinstance(value, str) and value:
-                    found.add(value)
+                    yield path, value
             elif issubclass(member, BaseModel) and isinstance(value, dict):
-                _collect_from_model(member, value, found, depth)
+                yield from _secrets_in_model(member, value, f"{path}.", depth)
             continue
         args = [a for a in typing.get_args(member) if a is not Ellipsis]
         if not isinstance(origin, type) or not args:
             continue
         if issubclass(origin, collections.abc.Mapping) and isinstance(value, dict):
-            for item in value.values():
-                _collect_from_value(args[-1], item, found, depth + 1)
+            for key, item in value.items():
+                yield from _secrets_in_value(
+                    args[-1], item, f"{path}[{key}]", depth + 1
+                )
         elif issubclass(
             origin, (collections.abc.Sequence, collections.abc.Set)
         ) and isinstance(value, list):
             # Every item against every argument: a Tuple[A, B] is read without
             # matching positions.
-            for item in value:
+            for index, item in enumerate(value):
                 for arg in args:
-                    _collect_from_value(arg, item, found, depth + 1)
+                    yield from _secrets_in_value(
+                        arg, item, f"{path}[{index}]", depth + 1
+                    )
 
 
 def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]:
