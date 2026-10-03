@@ -784,5 +784,8 @@ def test_a_failed_read_reaches_the_caller_as_a_read_failure() -> None:
     client.workspaces_error = _http_error(403)
     with pytest.raises(ProbeReadFailed) as excinfo:
         _run({}, "workspaces", {}, client=client)
-    assert "listing workspaces failed: HTTP 403" in str(excinfo.value)
-    assert "secret-ish" not in str(excinfo.value)
+    # The connector's own scrubbed words, then what it recorded.
+    assert str(excinfo.value) == (
+        "listing workspaces failed: HTTP 403; the connector recorded: "
+        "listing workspaces failed: HTTP 403"
+    )
