@@ -30,7 +30,7 @@ pip install 'acryl-datahub-airflow-plugin'
 
 ### Configuration
 
-Set up a DataHub connection in Airflow, either via command line or the Airflow UI.
+Set up a DataHub connection in Airflow, via command line, the Airflow UI, or an environment variable.
 
 #### Command Line
 
@@ -47,6 +47,16 @@ On the Airflow UI, go to Admin -> Connections and click the "+" symbol to create
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/airflow/plugin_connection_setup.png"/>
 </p>
+
+### Environment Variable
+
+You can configure the connection using Airflow's connection environment variable. For example:
+
+```shell
+AIRFLOW_CONN_DATAHUB_REST_DEFAULT=datahub-rest://:<token>@http%3A%2F%2Fdatahub-gms:8080
+```
+
+Ensure that the DataHub URL is percent-encoded in the connection URI.
 
 #### Optional Configurations
 
