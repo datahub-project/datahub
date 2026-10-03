@@ -319,7 +319,20 @@ def test_the_scope_not_the_dialect_decides_whether_a_dotted_slot_splits():
         check_query_scope(sql, platform="bigquery", scope=CatalogScope())
 
 
-def test_a_bigquery_url_on_the_sql_family_default_cannot_read_job_text():
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT query FROM myds.INFORMATION_SCHEMA.JOBS",
+        # Region-qualified, the spelling BigQuery documents for JOBS, bare
+        # and backticked.
+        "SELECT query FROM region-us.INFORMATION_SCHEMA.JOBS",
+        "SELECT query FROM `region-us`.INFORMATION_SCHEMA.JOBS",
+        "SELECT query FROM `myproj.region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT`",
+    ],
+)
+def test_a_bigquery_url_on_the_sql_family_default_cannot_read_job_text(
+    sql: str,
+) -> None:
     """The generic source on a bigquery:// URL parses as bigquery but carries
     the SQL family's information_schema-wide default. While the split keyed
     on the dialect, that pairing admitted INFORMATION_SCHEMA.JOBS, the SQL
@@ -327,9 +340,7 @@ def test_a_bigquery_url_on_the_sql_family_default_cannot_read_job_text():
     split (BigQuery's own provider's, a named-relation allowlist) splits."""
     with pytest.raises(SqlScopeError):
         check_query_scope(
-            "SELECT query FROM myds.INFORMATION_SCHEMA.JOBS",
-            platform="bigquery",
-            scope=SQLCommonConfig.probe_catalog_scope(),
+            sql, platform="bigquery", scope=SQLCommonConfig.probe_catalog_scope()
         )
 
 

@@ -2,8 +2,9 @@ import io
 import json
 import pathlib
 import sys
-from typing import List, Tuple
+from typing import Dict, FrozenSet, List, Sequence, Tuple
 
+import click
 import pytest
 from click.testing import CliRunner, Result
 from sqlalchemy import create_engine
@@ -57,10 +58,56 @@ def _isolate_secret_registry(monkeypatch):
     SecretRegistry.get_instance().clear()
 
 
+@pytest.fixture(autouse=True)
+def _verbose_logs_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests pin what the CLI withholds, which an exported
+    DATAHUB_PROBE_VERBOSE_LOGS (the local-debugging switch) turns off. A test
+    of the switch sets it itself."""
+    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
+
+
 def _recipe_file(tmp_path):
     p = tmp_path / "r.yml"
     p.write_text("source:\n  type: postgres\n  config: {}\n")
     return str(p)
+
+
+def _invoke_probe_run(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    provider: type,
+    config: type,
+    command: str = "tables",
+    *params: str,
+    cli: click.Command = recipe,
+    before: Sequence[str] = (),
+    source_type: str = "leaky",
+    secrets: FrozenSet[str] = frozenset(),
+) -> Result:
+    """`probe run <command> --recipe <file> <params>` over a stand-in
+    source: the recipe resolves to `secrets`, the provider and config are the
+    classes given, and telemetry is off. `before` goes ahead of `probe`, for
+    a `cli` above the `recipe` group (`datahub --debug recipe`)."""
+    from datahub.ingestion.agent import probe_methods
+
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda _r: (source_type, {}, set(secrets))
+    )
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: provider)
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: config)
+    return CliRunner().invoke(
+        cli,
+        [
+            *before,
+            "probe",
+            "run",
+            command,
+            "--recipe",
+            _recipe_file(tmp_path),
+            *params,
+        ],
+    )
 
 
 def test_parse_extra_params():
@@ -751,6 +798,43 @@ def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tm
         "the second invocation can resolve ${PROBE_TEST_REF} from the first "
         "caller's envelope"
     )
+
+
+def test_resolve_probe_recipe_resolves_only_from_the_secrets_it_is_given(
+    monkeypatch,
+):
+    """The entry point for callers outside the CLI never runs the `recipe`
+    group callback that clears _stdin_secrets, so it must not read them: a
+    CLI invocation earlier in the process would otherwise hand its ${REF}s
+    the earlier caller's credential."""
+    monkeypatch.setenv("PROBE_TEST_REF", "from-env")
+    first = CliRunner().invoke(
+        recipe,
+        ["validate", "-"],
+        input=_envelope({"PROBE_TEST_REF": "from-the-earlier-cli-call"}),
+    )
+    assert first.exit_code == 0, first.output
+    assert rc._stdin_secrets, "the earlier call left nothing behind to inherit"
+    loaded: Dict[str, object] = {
+        "source": {
+            "type": "mysql",
+            "config": {
+                "host_port": "h:3306",
+                "username": "u",
+                "password": "${PROBE_TEST_REF}",
+            },
+        }
+    }
+
+    _t, config, secret_values = rc.resolve_probe_recipe(loaded)
+    assert config["password"] == "from-env"
+    assert "from-the-earlier-cli-call" not in secret_values
+
+    _t, config, secret_values = rc.resolve_probe_recipe(
+        loaded, stdin_secrets={"PROBE_TEST_REF": "handed-in"}
+    )
+    assert config["password"] == "handed-in"
+    assert "handed-in" in secret_values
 
 
 def test_a_ref_resolves_from_the_stdin_envelope_not_the_environment(monkeypatch):
@@ -1756,27 +1840,14 @@ def test_reused_code_debug_tracebacks_are_dropped_under_the_debug_flag(
     request URL must still not reach it while a probe runs -- and a registered
     secret with no credential shape is masked because the CLI hands the
     recipe's secrets to the guard."""
-    import datahub.ingestion.agent.probe_methods as pm
-
-    monkeypatch.setattr(
-        rc,
-        "_resolve_for_probe",
-        lambda r: ("leaky", {}, {_REGISTERED_SENTINEL}),
-    )
-    monkeypatch.setattr(pm, "_provider_class", lambda st: _DebugLeakingProvider)
-    monkeypatch.setattr(pm, "config_class_for", lambda st: _DebugLeakingConfig)
-    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
-    res = CliRunner().invoke(
-        _real_cli_logging,
-        [
-            "--debug",
-            "recipe",
-            "probe",
-            "run",
-            "tables",
-            "--recipe",
-            _recipe_file(tmp_path),
-        ],
+    res = _invoke_probe_run(
+        monkeypatch,
+        tmp_path,
+        _DebugLeakingProvider,
+        _DebugLeakingConfig,
+        cli=_real_cli_logging,
+        before=["--debug", "recipe"],
+        secrets=frozenset({_REGISTERED_SENTINEL}),
     )
     assert res.exit_code == 0, res.output
     assert "retrying with" in res.stderr
@@ -1807,16 +1878,13 @@ class _UtilityLoggingConfig(_DebugLeakingConfig):
 def test_a_shared_datahub_module_debug_line_is_scrubbed_under_the_debug_flag(
     monkeypatch, tmp_path, _real_cli_logging
 ):
-    import datahub.ingestion.agent.probe_methods as pm
-
-    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("leaky", {}, set()))
-    monkeypatch.setattr(pm, "_provider_class", lambda st: _UtilityLoggingProvider)
-    monkeypatch.setattr(pm, "config_class_for", lambda st: _UtilityLoggingConfig)
-    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
-    res = CliRunner().invoke(
-        _real_cli_logging,
-        ["--debug", "recipe", "probe", "run", "tables", "--recipe"]
-        + [_recipe_file(tmp_path)],
+    res = _invoke_probe_run(
+        monkeypatch,
+        tmp_path,
+        _UtilityLoggingProvider,
+        _UtilityLoggingConfig,
+        cli=_real_cli_logging,
+        before=["--debug", "recipe"],
     )
     assert res.exit_code == 0, res.output
     assert "helper saw" in res.stderr
@@ -1962,8 +2030,6 @@ def _assert_scrubbed_everywhere(res: Result, side: io.StringIO, debug: bool) -> 
 def test_probe_run_scrubs_every_reused_log_channel(
     monkeypatch, tmp_path, _real_cli_logging, debug
 ):
-    import datahub.ingestion.agent.probe_methods as pm
-
     side = io.StringIO()
 
     class _Provider(_DebugLeakingProvider):
@@ -1973,20 +2039,17 @@ def test_probe_run_scrubs_every_reused_log_channel(
             _log_like_reused_code(side)
             return [{"name": "t"}]
 
-    monkeypatch.setattr(
-        rc, "_resolve_for_probe", lambda r: ("leaky", {}, {_REGISTERED_SENTINEL})
-    )
-    monkeypatch.setattr(pm, "_provider_class", lambda st: _Provider)
-    monkeypatch.setattr(pm, "config_class_for", lambda st: _DebugLeakingConfig)
-    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
     if not debug:
         # tests/conftest.py turns DATAHUB_DEBUG on for the whole run.
         monkeypatch.delenv("DATAHUB_DEBUG", raising=False)
-    args = ["--debug"] if debug else []
-    res = CliRunner().invoke(
-        _real_cli_logging,
-        [*args, "recipe", "probe", "run", "tables", "--recipe"]
-        + [_recipe_file(tmp_path)],
+    res = _invoke_probe_run(
+        monkeypatch,
+        tmp_path,
+        _Provider,
+        _DebugLeakingConfig,
+        cli=_real_cli_logging,
+        before=["--debug", "recipe"] if debug else ["recipe"],
+        secrets=frozenset({_REGISTERED_SENTINEL}),
     )
     _assert_scrubbed_everywhere(res, side, debug)
 
@@ -2134,7 +2197,6 @@ def test_a_crashed_test_connection_is_named_by_label_on_its_own_exit_code(
 ) -> None:
     """The source's own connect code raised: its text is the source's, and
     is where a connection string comes from, so it is named by label."""
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
     res = _crashing_test_connection(monkeypatch, tmp_path, raised)
     assert res.exit_code == exit_code, res.output
     assert _CRASH_SENTINEL not in res.output
@@ -2159,7 +2221,6 @@ def test_a_report_that_cannot_render_itself_is_named_by_label(
 ) -> None:
     """as_obj() is the source's own report code, so its crash is labelled
     like test_connection's."""
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
     res = _test_connection_of(monkeypatch, tmp_path, _ReturnsAnUnrenderableReport)
     assert res.exit_code == 3, res.output
     assert _CRASH_SENTINEL not in res.output
@@ -2269,20 +2330,19 @@ def _invoke_trust(
     command: str,
     *params: str,
 ) -> Result:
-    from datahub.ingestion.agent import probe_methods
-
     class _Config:
         @classmethod
         def model_validate(cls, d: object) -> "_Config":
             return cls()
 
-    monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
-    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
-    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: _TrustProvider)
-    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
-    return CliRunner().invoke(
-        recipe,
-        ["probe", "run", command, "--recipe", _recipe_file(tmp_path), *params],
+    return _invoke_probe_run(
+        monkeypatch,
+        tmp_path,
+        _TrustProvider,
+        _Config,
+        command,
+        *params,
+        source_type="fake",
     )
 
 
@@ -2302,7 +2362,6 @@ def test_a_scoped_command_without_its_declaration_is_a_provider_defect(
 ) -> None:
     """A provider that takes SQL or a path but declares no dialect or
     allowlist cannot be fixed by the caller, so it exits 1, not 2."""
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
     res = _invoke_trust(monkeypatch, tmp_path, command, *params)
     assert res.exit_code == rc.EXIT_INTERNAL, res.output
     assert declaration in res.stderr
@@ -2311,7 +2370,6 @@ def test_a_scoped_command_without_its_declaration_is_a_provider_defect(
 def test_a_providers_plain_value_error_exits_2_by_class_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
     res = _invoke_trust(monkeypatch, tmp_path, "plain_value")
     assert res.exit_code == rc.EXIT_USER, res.output
     assert "'plain_value' failed (ValueError)" in res.stderr
@@ -2321,7 +2379,6 @@ def test_a_providers_plain_value_error_exits_2_by_class_name(
 def test_a_probe_argument_error_exits_2_with_its_message(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
     res = _invoke_trust(monkeypatch, tmp_path, "argument")
     assert res.exit_code == rc.EXIT_USER, res.output
     assert "no widget named 'w'; run `widgets`" in res.stderr
@@ -2330,7 +2387,6 @@ def test_a_probe_argument_error_exits_2_with_its_message(
 def test_untrusted_text_is_withheld_by_default(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
     res = _invoke_trust(monkeypatch, tmp_path, "foreign")
     assert res.exit_code == rc.EXIT_CONNECTION, res.output
     assert "'foreign' failed (RuntimeError)" in res.stderr

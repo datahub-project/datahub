@@ -37,11 +37,6 @@ from tests.unit.agent import _foreign_errors
 from tests.unit.agent._foreign_errors import SENTINEL
 
 
-@pytest.fixture(autouse=True)
-def _quiet_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
-
-
 def test_probe_argument_error_is_a_value_error_but_not_a_soft_error() -> None:
     err = ProbeArgumentError("no project titled 'x'")
     assert isinstance(err, ValueError)

@@ -15,7 +15,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.emitter.mce_builder import make_container_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ancestors_in
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import config_class
 from datahub.ingestion.api.source import Source, SourceReport
@@ -37,6 +37,9 @@ LIST_NOTHING = "list_nothing"
 SOFT_DEGRADE = "soft_degrade"
 # A warning the source gives on every normal run, which a listing can accept.
 BENIGN_NOTE = "benign_note"
+# Lists item "a" of each group a second time, marked archived, which the
+# probe's own override drops: one listing record judged two ways.
+ARCHIVED_DUPLICATE = "archived_duplicate"
 GROUP_NOTE = "group descriptions are never listed"
 
 
@@ -66,6 +69,11 @@ class ItemsConfig(ConfigModel):
     @classmethod
     def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
         return ancestors_in((GROUP_KIND,), kind, (ITEM_KIND,))
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if self.probe_drift == ARCHIVED_DUPLICATE and ctx.attributes.get("archived"):
+            return Verdict.exclude("archived")
+        return None
 
 
 class ItemsProbe:
@@ -100,7 +108,10 @@ class ItemsProbe:
             self.warnings.append(f"could not read every item of {group}")
         if self.config.probe_drift == BENIGN_NOTE:
             self.warnings.append(item_note(group))
-        return [{"name": item} for item in GROUPS[group]]
+        listed = [{"name": item} for item in GROUPS[group]]
+        if self.config.probe_drift == ARCHIVED_DUPLICATE:
+            listed.append({"name": "a", "archived": "true"})
+        return listed
 
 
 @config_class(ItemsConfig)

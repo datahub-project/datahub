@@ -31,11 +31,6 @@ from tests.unit.agent import _foreign_coded_errors as coded
 from tests.unit.agent._foreign_coded_errors import SENTINEL
 
 
-@pytest.fixture(autouse=True)
-def _quiet_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("DATAHUB_PROBE_VERBOSE_LOGS", raising=False)
-
-
 def _caught(raiser: Callable[[], object]) -> BaseException:
     try:
         raiser()

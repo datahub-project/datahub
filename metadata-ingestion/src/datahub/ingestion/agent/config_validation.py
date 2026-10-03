@@ -13,8 +13,13 @@ def validate_source_config(
     `probe_validation_context(source_type=...)`.
 
     A ValidationError comes back as a ValueError naming each failing field and
-    why, never the input: a truncated repr of a secret matches no registered
-    value, so nothing downstream could mask it. Imports nothing from agent/.
+    why. pydantic's input_value is never included: its truncated repr of a
+    secret matches no registered value, so nothing downstream could mask it.
+    A validator's own message is kept, since it is the diagnostic a recipe
+    author needs ("either password or private_key must be set"); it may
+    quote what it rejected, so callers scrub this text against the recipe's
+    secrets and credential shapes, as the CLI does. Imports nothing from
+    agent/.
     """
     hook = getattr(config_cls, "probe_validation_context", None)
     context = hook(source_type=source_type) if callable(hook) else None

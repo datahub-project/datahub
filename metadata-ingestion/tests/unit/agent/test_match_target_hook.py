@@ -69,9 +69,9 @@ def test_the_hook_is_told_the_kind_and_its_target_is_matched(
     _register(monkeypatch, _Recording)
     result = _judge("Topic", ["keep", "drop"])
 
-    assert [(r.target, r.included) for r in result.results] == [
-        ("ns.keep", True),
-        ("ns.drop", False),
+    assert [(r.target, r.included, r.excluded_by) for r in result.results] == [
+        ("ns.keep", True, None),
+        ("ns.drop", False, "topic_pattern"),
     ]
     assert seen == ["Topic", "Topic"]
     # The framework adds no warning of its own: whether a parent is needed is

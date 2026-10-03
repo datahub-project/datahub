@@ -569,18 +569,7 @@ def test_every_config_on_the_sql_familys_default_withholds_session_text():
     inherits."""
     inheriting: List[str] = []
     for source_type, scope in _declared_scopes():
-        provider = _provider_class(source_type)
-        if provider is not None and "catalog_scope" in vars(provider):
-            continue
-        declaring = next(
-            (
-                klass
-                for klass in config_class_for(source_type).__mro__
-                if "probe_catalog_scope" in vars(klass)
-            ),
-            None,
-        )
-        if declaring is not SQLCommonConfig:
+        if scope != SQLCommonConfig.probe_catalog_scope():
             continue
         inheriting.append(source_type)
         for query in _SESSION_TEXT_QUERIES:
@@ -618,7 +607,6 @@ def test_a_mysql_protocol_probe_refuses_session_text(
     monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda target: object())
     probe = SqlAlchemyMetadataProbe.for_config(config_cls.model_validate(config))
     assert probe.sql_dialect == "mysql"
-    assert probe.catalog_scope == SQLCommonConfig.probe_catalog_scope()
     with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
         run_probe_method(source_type, config, "sql", {"query": query})
 

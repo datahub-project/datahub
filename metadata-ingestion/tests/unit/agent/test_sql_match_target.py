@@ -1,8 +1,8 @@
 """The SQL family's match targets, answered by SQLCommonConfig.probe_match_target.
 
-The check_filters cases pin the whole result a caller reads (echoed kind,
-target, verdict and warnings) for each kind on a three-tier and a two-tier
-source. The direct cases pin what the hook itself answers per kind.
+The check_filters cases pin what a caller reads (echoed kind, target and
+warnings) for each kind on a three-tier and a two-tier source. The direct
+cases pin what the hook itself answers per kind.
 """
 
 from dataclasses import dataclass, field

@@ -149,8 +149,8 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    short code, such as `'tables' failed (ProgrammingError; SQLSTATE 42P01)`. While opening or closing
    the provider that is exit 3; during a command, Python defects (`TypeError`, `KeyError`,
    `AttributeError`, `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
-   exits 2, everything else exits 3. After recorded failures it is `ProbeReadFailed` (exit 3), and
-   `NotImplementedError` reads as "does not support this command" (exit 2).
+   and `re.error` exit 2, everything else exits 3. After recorded failures it is `ProbeReadFailed`
+   (exit 3), and `NotImplementedError` reads as "does not support this command" (exit 2).
 3. **Never interpolate an exception you did not raise.**
    `ProbeConnectionError(f"login failed: {exc}")` would carry a driver's text out under a trusted
    type. Name the operation and the class.
@@ -487,8 +487,10 @@ ceiling.
 - [ ] **Degrade path.** A 403 or 404 on one sub-listing gives an empty result and a warning; auth
       failures and 5xx raise.
 - [ ] **Personal data.** Personal records withheld with a count, identity columns masked.
-- [ ] **Verdicts match ingestion.** Selection rules in `<connector>_selection.py`, a parity test
-      through `assert_probe_parity`, and for SQL sources `tests/unit/agent/test_sql_filter_target.py`.
+- [ ] **Verdicts match ingestion.** A parity test through `assert_probe_parity`, and for SQL
+      sources `tests/unit/agent/test_sql_filter_target.py`. Where the connector has selection rules
+      of its own (a `probe_verdict_override` beyond the defaults), they live in
+      `<connector>_selection.py`, called by the source and the override alike.
 - [ ] **Gated commands.** Anything touching `sql_gate` has attack cases (a user table in a CTE,
       subquery, `UNION` branch or join; two statements; a vendor function in the projection) and
       false-positive cases (a trailing semicolon, a recursive CTE).

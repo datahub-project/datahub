@@ -102,8 +102,8 @@ def validate_recipe(
 
     # Secrets nested in free-form dicts (`consumer_config['sasl.password']`),
     # counted without naming the value or its path, which would put it in the
-    # transcript. The detecting collector, which judges a dotted key on its
-    # last segment, so `sasl.mechanism` is not flagged.
+    # transcript. The detecting collector judges a dotted key on its last
+    # segment, so `sasl.mechanism` is not flagged.
     nested = collect_nested_credential_values(config, _SENSITIVE_KEY_HINTS)
     # Minus values the sweep above already reported.
     plaintext_nested = sorted(

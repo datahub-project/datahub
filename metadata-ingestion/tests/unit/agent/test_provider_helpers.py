@@ -173,7 +173,8 @@ def test_hinted_and_distinguishing_values_are_clipped_and_escaped() -> None:
     listed = "Ab\x1b" + "c" * 500
     records = [
         _Ws(listed, "i\x1b1"),
-        _Ws(listed.lower(), "i2"),
+        # Among the ambiguous matches, so its id is rendered as a label.
+        _Ws(listed.lower(), "i\x1b2"),
         _Ws(listed.lower(), "i3"),
     ]
     with pytest.raises(ProbeArgumentError) as hint:
@@ -182,6 +183,7 @@ def test_hinted_and_distinguishing_values_are_clipped_and_escaped() -> None:
         resolve_name(
             listed.lower(), records, key=_by_name, distinguish=_by_id, kind="ws"
         )
+    assert "i\\x1b2" in str(ambiguous.value)
     for message in (str(hint.value), str(ambiguous.value)):
         assert "\x1b" not in message
         assert len(message) < 400

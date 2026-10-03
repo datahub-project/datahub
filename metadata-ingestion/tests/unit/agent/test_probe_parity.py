@@ -29,6 +29,7 @@ from tests.test_helpers.probe_parity import (
     report_envelope,
 )
 from tests.unit.agent._parity_fake_source import (
+    ARCHIVED_DUPLICATE,
     BENIGN_NOTE,
     DROP_ITEM_A,
     GROUP_KIND,
@@ -202,13 +203,29 @@ def test_the_harness_reads_the_file_probe_run_writes(tmp_path: Path) -> None:
     )
 
 
-def test_conflicting_verdicts_for_one_identity_fail(tmp_path: Path) -> None:
+def test_distinct_records_with_conflicting_verdicts_in_one_identity_fail(
+    tmp_path: Path,
+) -> None:
     with pytest.raises(AssertionError, match="distinct listing records"):
         assert_probe_parity(
             SOURCE_TYPE,
             {"item_pattern": {"deny": ["^b$"]}},
             pipeline_ingestion(SOURCE_TYPE, tmp_path),
             [_ONE_IDENTITY],
+        )
+
+
+def test_one_record_listed_twice_with_different_verdicts_fails(
+    tmp_path: Path,
+) -> None:
+    # g1/a is listed once plain and once archived, which the probe drops:
+    # the same listing record, so no identity function can tell them apart.
+    with pytest.raises(AssertionError, match="different verdicts"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"probe_drift": ARCHIVED_DUPLICATE},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_ITEMS],
         )
 
 

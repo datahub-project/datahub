@@ -10,6 +10,7 @@ from typing import (
     Dict,
     Iterator,
     List,
+    Mapping,
     NoReturn,
     Optional,
     Set,
@@ -252,7 +253,9 @@ def _fail(message: str, code: int) -> NoReturn:
 _stdin_secrets: Dict[str, str] = {}
 
 
-def _stdin_aware_resolvers() -> List[SecretResolver]:
+def _stdin_aware_resolvers(
+    stdin_secrets: Optional[Mapping[str, str]] = None,
+) -> List[SecretResolver]:
     """The environment chain, preceded by anything that arrived on stdin.
 
     Every command that takes `-` shares this, not just the probe ones: `validate`
@@ -262,9 +265,11 @@ def _stdin_aware_resolvers() -> List[SecretResolver]:
     A value the caller piped in wins over a same-named ambient variable: they
     passed it that way precisely to avoid the environment. With no envelope this
     is `default_resolvers()` unchanged, so the file path behaves as before.
+    `stdin_secrets` stands in for what arrived; by default this invocation's.
     """
-    if _stdin_secrets:
-        return [MappingResolver(_stdin_secrets), *default_resolvers()]
+    piped = _stdin_secrets if stdin_secrets is None else stdin_secrets
+    if piped:
+        return [MappingResolver(dict(piped)), *default_resolvers()]
     return default_resolvers()
 
 
@@ -356,13 +361,15 @@ def _load_recipe(path: str) -> Dict[str, object]:
 
 def _resolve_for_probe(
     recipe: Dict[str, object],
+    stdin_secrets: Optional[Mapping[str, str]] = None,
 ) -> Tuple[str, Dict[str, object], Set[str]]:
+    piped = _stdin_secrets if stdin_secrets is None else stdin_secrets
     raw_source = recipe.get("source")
     source: Dict[str, object] = raw_source if isinstance(raw_source, dict) else {}
     source_type = str(source.get("type"))
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
-    resolved = resolve_config_collecting(config, _stdin_aware_resolvers())
+    resolved = resolve_config_collecting(config, _stdin_aware_resolvers(piped))
     spec = describe_source(source_type)
     secret_fields = {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
     # Union of every ${ref}-sourced value (nested-safe) and top-level inline
@@ -377,17 +384,22 @@ def _resolve_for_probe(
     # Anything piped in is a secret by declaration, so mask it whether or not
     # the recipe happened to reference it (it may have arrived already
     # substituted). Mirrors what load_config_file does for `ingest -c -`.
-    secret_values |= {v for v in _stdin_secrets.values() if v}
+    secret_values |= {v for v in piped.values() if v}
     return source_type, resolved.config, secret_values
 
 
 def resolve_probe_recipe(
     recipe: Dict[str, object],
+    stdin_secrets: Optional[Mapping[str, str]] = None,
 ) -> Tuple[str, Dict[str, object], Set[str]]:
     """The source type, resolved config and secret values the probe commands
     work from, for a recipe document already loaded. For a caller outside the
-    CLI that must reproduce exactly what `probe run` and `probe filter` see."""
-    return _resolve_for_probe(recipe)
+    CLI that must reproduce exactly what `probe run` and `probe filter` see.
+
+    `stdin_secrets` are an envelope's secrets, resolved as though piped in.
+    Only these: what an earlier CLI invocation in this process read from
+    stdin is left in _stdin_secrets, and nothing here clears it."""
+    return _resolve_for_probe(recipe, stdin_secrets or {})
 
 
 def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
@@ -482,12 +494,12 @@ def _ping_probe(command: str, source_type: str, **dims: object) -> None:
 # tell "***" from a name otherwise.
 _MASKED_NOTICE = (
     "something in this result was redacted and now reads '***'. Read it as "
-    "'redacted', never as a name. Credential-shaped text is masked wherever it "
-    "appears, and when a secret happens to equal an identifier -- a password "
-    "the same as a database, schema or table name -- that identifier is masked "
-    "everywhere it occurs, `target` included, so a verdict can name a "
-    "pattern while the thing it matched shows as '***'. The recipe has the real "
-    "name; this output deliberately does not."
+    "'redacted', never as a name. Credential-shaped text in warnings and "
+    "failures is masked, and when a secret happens to equal an identifier -- "
+    "a password the same as a database, schema or table name -- that "
+    "identifier is masked everywhere it occurs, `target` included, so a "
+    "verdict can name a pattern while the thing it matched shows as '***'. "
+    "The recipe has the real name; this output deliberately does not."
 )
 
 
