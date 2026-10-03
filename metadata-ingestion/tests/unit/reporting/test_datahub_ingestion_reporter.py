@@ -15,6 +15,7 @@ from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceInfoClass,
     ExecutionRequestInputClass,
+    ExecutionRequestResultClass,
 )
 
 
@@ -287,3 +288,109 @@ def test_on_completion_masks_report_and_summary() -> None:
         "source": {"failures": ["pw=***REDACTED:DB_PASS***"]}
     }
     SecretRegistry.reset_instance()
+
+
+def test_truncate_report_fits_under_cap_when_serialized_report_is_large() -> None:
+    large_report = {
+        "source": {
+            "type": "hive-metastore",
+            "report": {
+                "tables_scanned": [f"db.schema.table_{i:05d}" for i in range(200_000)]
+            },
+        }
+    }
+    cap = 100_000
+    shrunk, was_truncated = DatahubIngestionRunSummaryProvider._truncate_report_to_fit(
+        large_report, max_size=cap
+    )
+
+    assert was_truncated
+    serialized = json.dumps(shrunk, indent=2)
+    assert len(serialized) <= cap
+    reparsed = json.loads(serialized)
+    tables = reparsed["source"]["report"]["tables_scanned"]
+    assert any(isinstance(x, str) and "truncated" in x for x in tables)
+
+
+def test_truncate_report_does_not_mutate_caller_dict() -> None:
+    original = {"source": {"report": {"items": list(range(50_000))}}}
+    snapshot = json.dumps(original)
+    DatahubIngestionRunSummaryProvider._truncate_report_to_fit(original, max_size=1_000)
+    assert json.dumps(original) == snapshot
+
+
+def test_truncate_report_noop_when_already_fits() -> None:
+    small = {"source": {"report": {"items": [1, 2, 3]}}}
+    shrunk, was_truncated = DatahubIngestionRunSummaryProvider._truncate_report_to_fit(
+        small, max_size=1_000
+    )
+    assert not was_truncated
+    assert shrunk is small
+
+
+def test_truncate_report_preserves_top_level_keys() -> None:
+    large_report = {
+        "source": {"type": "hive-metastore", "report": {"x": list(range(100_000))}},
+        "sink": {"type": "datahub-rest", "report": {"y": list(range(100_000))}},
+    }
+    shrunk, _ = DatahubIngestionRunSummaryProvider._truncate_report_to_fit(
+        large_report, max_size=50_000
+    )
+    assert set(shrunk.keys()) == {"source", "sink"}
+    assert "type" in shrunk["source"]
+    assert "type" in shrunk["sink"]
+
+
+def test_on_completion_emits_bounded_execution_request_result() -> None:
+    provider, ctx, mock_sink = _make_provider("normal-cli-run-id")
+    mock_sink.reset_mock()
+
+    large_report = {
+        "source": {
+            "type": "hive-metastore",
+            "report": {
+                "tables_scanned": [f"db.schema.table_{i:05d}" for i in range(200_000)],
+            },
+        }
+    }
+    provider.on_completion(status="SUCCESS", report=large_report, ctx=ctx)
+
+    calls = mock_sink.write_record_async.call_args_list
+    assert len(calls) == 1
+    envelope = calls[0][0][0]
+    aspect = envelope.record.aspect
+    assert isinstance(aspect, ExecutionRequestResultClass)
+
+    assert aspect.report is not None
+    assert len(aspect.report) <= DatahubIngestionRunSummaryProvider._MAX_SUMMARY_SIZE
+
+    assert aspect.structuredReport is not None
+    assert (
+        len(aspect.structuredReport.serializedValue)
+        <= DatahubIngestionRunSummaryProvider._MAX_STRUCTURED_REPORT_SIZE
+    )
+    json.loads(aspect.structuredReport.serializedValue)
+
+    wire_bytes = len(json.dumps(envelope.record.make_mcp().to_obj()).encode())
+    kafka_max = 8 * 1024 * 1024
+    assert wire_bytes < kafka_max, (
+        f"execution-result MCP is {wire_bytes} bytes, over Kafka's {kafka_max} limit"
+    )
+
+
+def test_on_completion_omits_structured_report_when_untruncatable() -> None:
+    provider, ctx, mock_sink = _make_provider("normal-cli-run-id")
+    mock_sink.reset_mock()
+
+    huge_string = "x" * (
+        DatahubIngestionRunSummaryProvider._MAX_STRUCTURED_REPORT_SIZE + 10_000
+    )
+    report = {"source": {"type": "hive-metastore", "report": {"blob": huge_string}}}
+    provider.on_completion(status="SUCCESS", report=report, ctx=ctx)
+
+    calls = mock_sink.write_record_async.call_args_list
+    assert len(calls) == 1
+    aspect = calls[0][0][0].record.aspect
+    assert isinstance(aspect, ExecutionRequestResultClass)
+    assert aspect.structuredReport is None
+    assert aspect.report is not None
