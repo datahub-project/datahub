@@ -17,12 +17,12 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     PersonalWithholding,
-    ProbeProviderBase,
     resolve_name,
     soft_listing,
     take,
 )
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
@@ -47,7 +47,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
 _R = TypeVar("_R", bound=DataResolverBase)
 
 
-class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
+class PowerBiMetadataProbe(RestApiPassthrough):
     """Metadata-only probe over the PowerBI REST API.
 
     Goes through the connector's own resolvers rather than PowerBiAPI:
@@ -159,7 +159,7 @@ class PowerBiMetadataProbe(ProbeProviderBase, RestApiPassthrough):
             # than 30 days): a recipe value to fix. Ingestion logs it and lists
             # every workspace instead; a probe must not present that as
             # filtered.
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"PowerBI refused modified_since="
                 f"{self._config.modified_since!r} ({type(exc).__name__} from "
                 f"the modified-workspaces request). Ingestion would log "

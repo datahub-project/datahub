@@ -9,7 +9,7 @@ from datahub.ingestion.agent.api_gate import ApiScopeError, check_api_request
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiEnvironment,
@@ -659,7 +659,8 @@ def test_the_paginated_report_kind_is_the_subtype_ingestion_emits() -> None:
     config_cls = PowerBiDashboardSourceConfig
     assert kind in config_cls.probe_unfiltered_kinds()
     assert config_cls.probe_kind_switches()[kind] == "extract_reports"
-    assert config_cls.probe_ancestor_kinds(kind) == ("Workspace",)
+    config = config_cls.model_validate(_RECIPE)
+    assert config.probe_ancestor_kinds(kind=kind) == ("Workspace",)
 
 
 def test_a_case_hint_never_names_a_withheld_personal_workspace(
@@ -768,3 +769,18 @@ def test_a_workspace_judged_with_its_id_and_type_gives_no_warning() -> None:
     )
     assert verdicts == {"Sales": (True, None)}
     assert result.warnings == []
+
+
+def test_a_rejected_modified_since_reaches_the_caller_with_its_message(
+    requests_mock: rm.Mocker,
+) -> None:
+    requests_mock.get(
+        f"{_ORG}/admin/workspaces/modified",
+        status_code=400,
+        json={"error": {"code": "PLANTED-server-text"}},
+    )
+    recipe = {**_RECIPE, "modified_since": "2020-01-01T00:00:00.0000000Z"}
+    with pytest.raises(ProbeArgumentError) as excinfo:
+        run_probe_method("powerbi", recipe, "workspaces", {})
+    assert "PowerBI refused modified_since=" in str(excinfo.value)
+    assert "PLANTED" not in str(excinfo.value)

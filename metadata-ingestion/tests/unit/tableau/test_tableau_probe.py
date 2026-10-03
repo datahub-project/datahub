@@ -4,11 +4,18 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
-from tableauserverclient import ProjectItem, SiteItem, UserItem, WorkbookItem
-from tableauserverclient.server.endpoint.exceptions import ServerResponseError
+from tableauserverclient import ProjectItem, Server, SiteItem, UserItem, WorkbookItem
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    ServerResponseError,
+)
 
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeSoftError
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeSoftError,
+)
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     parse_database_server_hostname,
@@ -288,3 +295,45 @@ def test_a_failed_sign_out_logs_the_class_only(
     _probe(server).__exit__(None, None, None)
     assert "RuntimeError" in caplog.text
     assert "PLANTED" not in caplog.text
+
+
+def test_a_server_error_is_labelled_with_its_tableau_code_not_its_text() -> None:
+    server = _server()
+    server.sites.get.side_effect = ServerResponseError(
+        "500000", "PLANTED-summary-text", "PLANTED-detail-text"
+    )
+    with pytest.raises(ProbeConnectionError) as excinfo:
+        _run(server, "sites")
+    assert "(ServerResponseError; Tableau 500000)" in str(excinfo.value)
+    assert "PLANTED" not in str(excinfo.value)
+
+
+def test_a_failed_sign_in_is_labelled_with_the_code_ingestion_wrapped() -> None:
+    def sign_in(site: str) -> Server:
+        # make_tableau_client re-raises a sign-in failure as a ValueError
+        # carrying the server's text, from the TSC error.
+        cause = ServerResponseError("401002", "PLANTED-summary", "PLANTED-detail")
+        raise ValueError(f"Unable to login: {cause}") from cause
+
+    with (
+        mock.patch.object(TableauConfig, "make_tableau_client", side_effect=sign_in),
+        pytest.raises(ProbeConnectionError) as excinfo,
+    ):
+        run_probe_method("tableau", dict(_RECIPE), "site", {})
+    assert "(ValueError; Tableau 401002)" in str(excinfo.value)
+    assert "PLANTED" not in str(excinfo.value)
+
+
+def test_only_a_tsc_code_of_the_documented_shape_is_read() -> None:
+    response = mock.MagicMock(status_code=503, content=b"PLANTED")
+    read = TableauMetadataProbe.probe_error_code
+    assert read(InternalServerError(response, "https://x")) == "HTTP 503"
+    assert read(ServerResponseError("403069", "s", "d")) == "Tableau 403069"
+    assert read(ServerResponseError("403 denied", "s", "d")) is None
+    assert read(OSError("not tableau")) is None
+
+
+def test_an_unknown_project_path_reaches_the_caller_with_its_message() -> None:
+    server = _server_with_workbooks([_project("1", "Sales")], [])
+    with pytest.raises(ProbeArgumentError, match="no project with path 'Nope'"):
+        _run(server, "workbooks", project_path="Nope")

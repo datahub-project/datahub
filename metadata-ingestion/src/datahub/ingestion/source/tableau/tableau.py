@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import (
     Annotated,
     Any,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -67,7 +66,11 @@ from datahub.emitter.mcp_builder import (
     add_entity_to_container,
     gen_containers,
 )
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -753,8 +756,7 @@ class TableauConfig(
         whose project is selected, so the Project verdict decides."""
         return {str(BIContainerSubTypes.TABLEAU_WORKBOOK)}
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Projects list no ancestor on purpose: _init_tableau_project_registry
         includes an allowed project under an excluded parent, so exclusion must
         not propagate between projects. A workbook is dropped with its project."""
@@ -766,20 +768,15 @@ class TableauConfig(
         }
         return ancestors.get(kind)
 
-    def probe_container_match_target(
-        self,
-        kind: str,
-        name: str,
-        parent_path: Sequence[str],
-        warn: Callable[[str], None],
-    ) -> Optional[str]:
-        """The path project_path_pattern is matched on (_get_project_path).
-        A separator inside a name is warned about in probe_project_verdict,
-        and only where the two readings of it disagree."""
-        if kind != BIContainerSubTypes.TABLEAU_PROJECT:
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """A project's path, which project_path_pattern is matched on
+        (_get_project_path); sites and workbooks keep their bare name. A
+        separator inside a name is warned about in probe_project_verdict, and
+        only where the two readings of it disagree."""
+        if ctx.kind != BIContainerSubTypes.TABLEAU_PROJECT:
             return None
         return self.project_path_separator.join(
-            project_segments(self, name, parent_path)
+            project_segments(self, ctx.name, ctx.parent_path)
         )
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:

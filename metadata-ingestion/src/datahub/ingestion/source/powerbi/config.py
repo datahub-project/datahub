@@ -27,7 +27,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -880,20 +880,16 @@ class PowerBiDashboardSourceConfig(
             str(BIAssetSubTypes.DASHBOARD): "extract_dashboards",
         }
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Reports and dashboards are fetched only for allowed workspaces
         (get_workunits_internal iterates get_allowed_workspaces). A parent
         judged this way is judged by name only, since --parent carries no id
         or type; the override below warns about the other two halves."""
-        workspace = str(BIContainerSubTypes.POWERBI_WORKSPACE)
-        ancestors: Dict[str, Sequence[str]] = {
-            workspace: (),
-            str(BIAssetSubTypes.REPORT): (workspace,),
-            _PAGINATED_REPORT_KIND: (workspace,),
-            str(BIAssetSubTypes.DASHBOARD): (workspace,),
-        }
-        return ancestors.get(kind)
+        return ancestors_in(
+            (str(BIContainerSubTypes.POWERBI_WORKSPACE),),
+            kind,
+            self.probe_unfiltered_kinds(),
+        )
 
     def _workspace_child_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
         """A report or dashboard inherits its workspace's verdict. The
