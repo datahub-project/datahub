@@ -7,6 +7,7 @@ import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError, ProfileNotFound
 from moto import mock_aws
 
+from datahub.ingestion.agent.error_policy import foreign_label
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common import object_store_probe
@@ -14,6 +15,8 @@ from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
+from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
 
 KEYS = [
     "raw/a.csv",
@@ -315,3 +318,26 @@ def test_a_denied_first_listing_while_resolving_wildcards_is_a_failure(
     with _deny_listing_under("s3://my-bucket/"):
         assert probe.datasets(limit=10) == []
     assert probe.failures and not probe.warnings
+
+
+@pytest.mark.parametrize(
+    "error, label",
+    [
+        (_client_error("NoSuchBucket", 404, message=_ARN_MESSAGE), "NoSuchBucket"),
+        # S3 answers a HEAD request with the bare status as the code.
+        (_client_error("404", 404, operation="HeadObject"), "HTTP 404"),
+    ],
+    ids=["named", "head_status"],
+)
+def test_an_escaping_storage_error_is_labelled_by_its_code_only(
+    error: ClientError, label: str
+) -> None:
+    # The S3 and GCS providers inherit the reader: GCS answers through the same
+    # S3-compatible API.
+    for provider in (S3MetadataProbe, GCSMetadataProbe):
+        assert foreign_label(error, provider) == f"ClientError; {label}"
+
+
+def test_an_error_without_an_aws_code_falls_back_to_the_generic_label() -> None:
+    error = EndpointConnectionError(endpoint_url="https://private-host.example:9000")
+    assert foreign_label(error, S3CompatibleMetadataProbe) == "EndpointConnectionError"

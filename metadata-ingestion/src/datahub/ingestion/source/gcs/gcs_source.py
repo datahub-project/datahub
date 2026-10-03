@@ -24,7 +24,11 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -291,13 +295,13 @@ class GCSSourceConfig(
         kind = str(ctx.kind)
         if kind == str(DatasetContainerSubTypes.GCS_BUCKET):
             if "/" in ctx.name:
-                raise ValueError(
+                raise ProbeArgumentError(
                     f"'{ctx.name}' is not a bucket name; pass bare names, as "
                     f"`probe run buckets` lists them"
                 )
             return judge_bucket(specs, ctx.name, ctx.warn)
         if not is_gcs_uri(ctx.name):
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"'{ctx.name}' is not a gs:// URI; {kind} names are full gs:// "
                 f"URIs, as `probe run datasets` lists them"
             )
@@ -310,9 +314,9 @@ class GCSSourceConfig(
                     ctx.warn,
                     bucket_kind=str(DatasetContainerSubTypes.GCS_BUCKET),
                 )
-            except ValueError as exc:
+            except ProbeArgumentError as exc:
                 # The judge sees the rewritten s3:// name; the caller wrote gs://.
-                raise ValueError(str(exc).replace(s3_uri, ctx.name)) from exc
+                raise ProbeArgumentError(str(exc).replace(s3_uri, ctx.name)) from exc
         else:
             # GCSSource never sets use_s3_content_type, so S3Source passes
             # ignore_ext=False for every file.

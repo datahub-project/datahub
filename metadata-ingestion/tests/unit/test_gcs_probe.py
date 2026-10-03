@@ -232,10 +232,7 @@ def _names(result: ProbeMethodResult) -> List[str]:
 
 
 def test_methods_advertise_the_gcs_kinds() -> None:
-    kinds = {
-        s.command: s.kind
-        for s in list_probe_methods("gcs", _recipe("gs://my-bucket/raw/*.csv"))
-    }
+    kinds = {s.command: s.kind for s in list_probe_methods("gcs")}
     assert kinds == {
         "buckets": "GCS bucket",
         "folders": None,

@@ -13,7 +13,7 @@ from typing import Callable, Optional, Sequence
 import parse
 from wcmatch import pathlib
 
-from datahub.ingestion.agent.verdicts import Verdict
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, Verdict
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import listing_prefix
 
@@ -150,7 +150,7 @@ def judge_folder(
     # "s3://my-bucket" has two slashes: it is a bucket container, never a folder.
     if folder.count("/") <= 2:
         where = f'--kind "{bucket_kind}"' if bucket_kind else "the bucket kind"
-        raise ValueError(
+        raise ProbeArgumentError(
             f"'{uri}' is a bucket, not a folder; judge its bare name with {where}"
         )
 

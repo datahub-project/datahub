@@ -11,7 +11,11 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -152,7 +156,7 @@ class DataLakeSourceConfig(
         )
 
         if self.platform != "s3":
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"probe filter judges s3:// path_specs; this recipe reads local "
                 f"paths (platform '{self.platform}')"
             )
@@ -164,7 +168,7 @@ class DataLakeSourceConfig(
         kind = str(ctx.kind)
         if kind == str(DatasetContainerSubTypes.S3_BUCKET):
             if "/" in ctx.name:
-                raise ValueError(
+                raise ProbeArgumentError(
                     f"'{ctx.name}' is not a bucket name; pass bare names, as "
                     f"`probe run buckets` lists them"
                 )
@@ -172,7 +176,7 @@ class DataLakeSourceConfig(
         # s3a:// and s3n:// are refused too: create_s3_path always writes s3://,
         # so ingestion never names a dataset or folder with them.
         if not ctx.name.startswith("s3://"):
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"'{ctx.name}' is not an s3:// URI; {kind} names are full s3:// "
                 f"URIs, as `probe run datasets` lists them"
             )

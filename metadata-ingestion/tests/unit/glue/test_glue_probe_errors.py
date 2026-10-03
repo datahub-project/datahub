@@ -9,8 +9,13 @@ from botocore.exceptions import (
     ProxyConnectionError,
 )
 
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeSoftError
-from datahub.ingestion.source.aws.glue_probe import aws_call
+from datahub.ingestion.agent.error_policy import foreign_label
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeSoftError,
+)
+from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe, aws_call
 
 _PRINCIPAL = "arn:aws:sts::123456789012:assumed-role/ingest-role/someone@example.com"
 
@@ -72,13 +77,13 @@ def test_rejected_credentials_are_a_connection_error() -> None:
 def test_a_missing_entity_is_a_caller_error() -> None:
     error = _raised(_client_error("EntityNotFoundException"))
 
-    assert type(error) is ValueError
+    assert type(error) is ProbeArgumentError
 
 
 def test_no_region_is_a_recipe_error() -> None:
     error = _raised(NoRegionError())
 
-    assert type(error) is ValueError
+    assert type(error) is ProbeArgumentError
     assert "aws_region" in str(error)
 
 
@@ -132,6 +137,15 @@ def test_invalid_request_parameters_are_a_caller_error() -> None:
         )
     )
 
-    assert type(error) is ValueError
+    assert type(error) is ProbeArgumentError
     assert "ParamValidationError" in str(error)
     assert "0-secret-ish" not in str(error)
+
+
+def test_an_escaping_aws_error_is_labelled_by_its_code_not_its_principal() -> None:
+    label = foreign_label(_client_error("AccessDeniedException"), GlueMetadataProbe)
+
+    assert label == "ClientError; AccessDeniedException"
+    assert foreign_label(NoCredentialsError(), GlueMetadataProbe) == (
+        "NoCredentialsError"
+    )

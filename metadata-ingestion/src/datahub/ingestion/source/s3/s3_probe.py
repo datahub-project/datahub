@@ -8,6 +8,7 @@ from typing import Dict, List
 from botocore.exceptions import ClientError
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
 from datahub.ingestion.source.aws.s3_boto_utils import (
     get_bucket_tag_set,
@@ -74,18 +75,18 @@ class S3MetadataProbe(S3CompatibleMetadataProbe):
         self._bucket_uri(bucket, "")  # the refusal, then the bucket-name check
         flags = self._config
         if not (flags.use_s3_bucket_tags or flags.use_s3_object_tags):
-            raise ValueError(
+            raise ProbeArgumentError(
                 "this recipe sets neither use_s3_bucket_tags nor "
                 "use_s3_object_tags, so ingestion reads no tags and neither "
                 "does the probe"
             )
         if key and not flags.use_s3_object_tags:
-            raise ValueError(
+            raise ProbeArgumentError(
                 "`key` asks for object tags, but use_s3_object_tags is off, so "
                 "ingestion would not read them"
             )
         if not key and not flags.use_s3_bucket_tags:
-            raise ValueError(
+            raise ProbeArgumentError(
                 "this recipe reads object tags only (use_s3_object_tags), so pass "
                 "`key` to name the object to read them from"
             )
