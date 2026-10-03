@@ -28,7 +28,8 @@ from google.cloud import dataplex_v1, resourcemanager_v3
 from google.oauth2 import service_account
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProject,
     _iter_all_projects,
@@ -101,7 +102,7 @@ def _scrubbed(method: str, not_found: Optional[str] = None) -> Iterator[None]:
     # former and embeds the last server error in its text.
     except exceptions.GoogleAPIError as exc:
         if not_found is not None and isinstance(exc, exceptions.NotFound):
-            raise ValueError(not_found) from None
+            raise ProbeArgumentError(not_found) from None
         raise ProbeConnectionError(f"GCP {method} failed: {_status(exc)}") from None
     except GoogleAuthError as exc:
         raise ProbeConnectionError(
@@ -109,7 +110,7 @@ def _scrubbed(method: str, not_found: Optional[str] = None) -> Iterator[None]:
         ) from None
 
 
-class DataplexMetadataProbe:
+class DataplexMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over the Dataplex Catalog and Resource Manager APIs.
 
     Clients are created on first use, so building the provider opens nothing
@@ -131,7 +132,6 @@ class DataplexMetadataProbe:
         self._projects_client = projects_client
         # Clients this provider built itself, and so must close.
         self._opened: List[_Client] = []
-        self.warnings: List[str] = []
 
     @classmethod
     def for_config(cls, config: DataplexConfig) -> "DataplexMetadataProbe":
@@ -142,19 +142,17 @@ class DataplexMetadataProbe:
         except Exception as exc:
             # SECURITY: the parser's message can quote the key material or the
             # key id it choked on. The type is enough to act on.
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"could not build service-account credentials from the recipe's "
                 f"`credential` block ({type(exc).__name__}); check that it holds "
                 f"a complete service-account key"
             ) from None
         return cls(config, credentials)
 
-    def __enter__(self) -> "DataplexMetadataProbe":
-        return self
-
     def __exit__(self, *exc: object) -> None:
         for client in self._opened:
             client.transport.close()
+        super().__exit__(*exc)
 
     @cached_property
     def _catalog(self) -> dataplex_v1.CatalogServiceClient:
@@ -209,7 +207,7 @@ class DataplexMetadataProbe:
                     yield loc, item
             except _LOCATION_SOFT_ERRORS as exc:
                 failed.append(exc)
-                self.warnings.append(
+                self._warn(
                     f"{what} for project '{project}' in location '{loc}' could "
                     f"not be read ({_status(exc)}); skipped, as ingestion skips it"
                 )
@@ -224,7 +222,7 @@ class DataplexMetadataProbe:
         project the credential can see (narrowed by project_labels, as ingestion
         narrows it), including ones project_id_pattern excludes."""
         if self._config.project_ids:
-            self.warnings.append(_EXPLICIT_PROJECTS_NOTE)
+            self._warn(_EXPLICIT_PROJECTS_NOTE)
             return [
                 {"name": pid, "display_name": pid}
                 for pid in self._config.project_ids[:limit]
@@ -329,12 +327,12 @@ class DataplexMetadataProbe:
                     }
                 )
         if any(not r["fully_qualified_name"] for r in records):
-            self.warnings.append(
+            self._warn(
                 "some entries have no fully_qualified_name; ingestion skips those "
                 "whatever filter_config says"
             )
         if any(not r["supported"] for r in records):
-            self.warnings.append(
+            self._warn(
                 "some entries have an entry_type ingestion has no mapper for "
                 "(supported: false); ingestion skips those whatever filter_config "
                 "says"

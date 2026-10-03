@@ -13,7 +13,7 @@ from google.cloud import dataplex_v1, resourcemanager_v3
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.common.gcp_project_filter import (
     _search_projects_by_labels,
 )
@@ -117,6 +117,28 @@ def test_a_malformed_credential_is_reported_without_its_contents() -> None:
         assert secret not in text
     assert info.value.__cause__ is None
     assert info.value.__suppress_context__ is True
+
+
+def test_a_malformed_credential_is_the_callers_to_fix_through_the_framework() -> None:
+    # for_config runs while the provider is opened, where anything but a
+    # framework type is a connection failure (exit 3) named by class only.
+    with pytest.raises(ProbeArgumentError, match="service-account credentials") as info:
+        run_probe_method(
+            "dataplex",
+            {
+                **BASE,
+                "credential": {
+                    "private_key_id": "key-id-value",
+                    "private_key": "not-a-pem-key",
+                    "client_email": "sa-name@proj-a.iam.gserviceaccount.com",
+                    "client_id": "123",
+                },
+            },
+            "projects",
+            {},
+        )
+    for secret in ("key-id-value", "not-a-pem-key", "sa-name"):
+        assert secret not in str(info.value)
 
 
 def test_explicit_project_ids_are_listed_without_resource_manager(
@@ -424,6 +446,20 @@ def test_an_unknown_entry_group_is_a_bad_argument(
             catalog=client,
         )
     assert SERVER_DETAIL not in str(info.value)
+
+
+def test_a_name_the_caller_got_wrong_is_refused_with_the_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.list_entries.side_effect = exceptions.NotFound(SERVER_DETAIL)
+    with pytest.raises(ProbeArgumentError, match=f"no entry group named '{GROUP}'"):
+        _run(
+            monkeypatch,
+            "entries",
+            {"project": "proj-a", "entry_group": GROUP},
+            catalog=client,
+        )
 
 
 def test_a_forbidden_entry_group_is_scrubbed(monkeypatch: pytest.MonkeyPatch) -> None:
