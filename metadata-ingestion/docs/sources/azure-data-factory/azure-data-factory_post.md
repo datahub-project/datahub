@@ -188,7 +188,7 @@ urn:li:dataFlow:(azure-data-factory,{platform_instance}.{factory_name}.{pipeline
 
 For Azure naming rules, see [Azure Data Factory naming rules](https://learn.microsoft.com/en-us/azure/data-factory/naming-rules).
 
-#### Checking a recipe before a run
+#### Probe support
 
 `datahub recipe probe` reads the Data Factory management API with the recipe's credential and answers the way ingestion will, so you can check scope and lineage resolution before a run. See the [probe interface guide](https://docs.datahub.com/docs/metadata-ingestion/docs/dev_guides/probe_interface) for the general workflow.
 

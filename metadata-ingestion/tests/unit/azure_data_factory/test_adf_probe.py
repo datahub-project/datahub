@@ -11,6 +11,7 @@ from azure.mgmt.datafactory import models as adf
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import _iter_specs
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
@@ -625,3 +626,45 @@ def test_a_dataset_without_properties_is_an_unresolved_row_not_a_crash() -> None
     assert records[0]["urn"] is None
     assert records[0]["unresolved_reason"]
     assert records[1]["urn"] is not None
+
+
+def test_a_caller_naming_a_missing_factory_or_pipeline_gets_a_shown_refusal() -> None:
+    # ProbeArgumentError, not a plain ValueError: only a framework type's text
+    # reaches the caller, and these name what to fix.
+    with pytest.raises(ProbeArgumentError, match="no-such-factory"):
+        _probe(_FakeClient()).pipelines("no-such-factory")
+    with pytest.raises(ProbeArgumentError, match="no_such_pipeline"):
+        _probe(_with_pipeline([])).activities("my-factory", "no_such_pipeline")
+
+
+def test_a_forbidden_pipeline_read_degrades_with_a_warning() -> None:
+    client = _FakeClient()
+    client.pipelines["my-factory"] = lambda: next(_forbidden())
+    probe = _probe(client)
+    assert probe.activities("my-factory", "sales_pipeline") == []
+    assert any("sales_pipeline" in w and "403" in w for w in probe.warnings)
+
+
+def _arm_error(body: object) -> HttpResponseError:
+    return HttpResponseError(
+        response=SimpleNamespace(
+            status_code=403,
+            reason="Forbidden",
+            text=lambda encoding=None: json.dumps(body),
+            headers={},
+            content_type="application/json",
+            request=None,
+        )
+    )
+
+
+def test_a_failure_is_labelled_with_azures_error_code_never_its_message() -> None:
+    planted = _arm_error(
+        {"error": {"code": "AuthorizationFailed", "message": f"client {PLANTED}"}}
+    )
+    assert (
+        AzureDataFactoryMetadataProbe.probe_error_code(planted) == "AuthorizationFailed"
+    )
+    # No ARM error body, or not an Azure error: the generic readers decide.
+    assert AzureDataFactoryMetadataProbe.probe_error_code(_arm_error({})) is None
+    assert AzureDataFactoryMetadataProbe.probe_error_code(ValueError(PLANTED)) is None
