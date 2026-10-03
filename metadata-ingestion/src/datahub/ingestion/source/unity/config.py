@@ -40,7 +40,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.profiling.config import ProfilingConfig
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    sql_structural_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -732,14 +735,18 @@ class UnityCatalogSourceConfig(
     @classmethod
     def probe_kind_switches(cls) -> Mapping[str, str]:
         # get_workunits_internal runs process_notebooks only with this on.
-        return {str(DatasetSubTypes.NOTEBOOK): "include_notebooks"}
+        return {
+            **super().probe_kind_switches(),
+            str(DatasetSubTypes.NOTEBOOK): "include_notebooks",
+        }
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """What process_tables and _get_catalogs (source.py) decide that no
         single pattern states: every table-like object must pass table_pattern
         before its own pattern is read, metric_view_pattern applies only with
         include_metric_views, and a pinned `catalogs` list is all ingestion
-        reads. A built-in exclusion (include_views: false) stands."""
+        reads. A kind switch's exclusion (include_views: false) stands, and
+        the SQL family's rules judge every name these leave alone."""
         if ctx.structural is not None:
             return None
         if ctx.kind in (DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW):
@@ -754,7 +761,7 @@ class UnityCatalogSourceConfig(
                 and not self.include_metric_views
             ):
                 return Verdict.include()
-            return None
+            return sql_structural_verdict(self, ctx)
         if ctx.kind == DatasetContainerSubTypes.CATALOG and self.catalogs:
             # Truthiness, as _get_catalogs reads it: `catalogs: []` lists all.
             # Case-folded because catalogs.get resolves names
@@ -762,7 +769,7 @@ class UnityCatalogSourceConfig(
             pinned = {name.casefold() for name in self.catalogs}
             if ctx.name.casefold() not in pinned:
                 return Verdict(False, "catalogs")
-        return None
+        return sql_structural_verdict(self, ctx)
 
     @classmethod
     def probe_provider_class(cls) -> type:

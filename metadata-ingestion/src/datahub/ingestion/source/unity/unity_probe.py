@@ -15,17 +15,13 @@ from databricks.sql import connect
 from databricks.sql.exc import Error as SqlConnectorError, ServerOperationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import (
-    PersonalWithholding,
-    ProbeProviderBase,
-    take,
-)
+from datahub.ingestion.agent.provider_helpers import PersonalWithholding, take
 from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
     QueryBudget,
     SqlCatalogPassthrough,
 )
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -92,6 +88,14 @@ _HIVE_NOT_PROBED = (
 )
 
 
+def _databricks_error_code(exc: BaseException) -> Optional[str]:
+    """The SDK's error code ("PERMISSION_DENIED"), or None: never its message."""
+    code = getattr(exc, "error_code", None)
+    if isinstance(code, str) and _ERROR_CODE.fullmatch(code):
+        return code
+    return None
+
+
 def _describe_failure(exc: BaseException) -> str:
     """What failed, without the SDK's message.
 
@@ -105,8 +109,8 @@ def _describe_failure(exc: BaseException) -> str:
         if isinstance(exc, error_cls):
             parts.append(f"HTTP {status}")
             break
-    code = getattr(exc, "error_code", None)
-    if isinstance(code, str) and _ERROR_CODE.fullmatch(code):
+    code = _databricks_error_code(exc)
+    if code is not None:
         parts.append(code)
     return ", ".join(parts)
 
@@ -122,7 +126,7 @@ def _describe_warehouse_failure(exc: BaseException) -> str:
     return ", ".join(parts)
 
 
-class _Missing(ValueError):
+class _Missing(ProbeArgumentError):
     """The caller named something that is not there (exit 2). A subclass so
     the pinned-catalog loop can tell it from a bad request."""
 
@@ -132,7 +136,7 @@ class _Degraded(Exception):
     raised it, after the reason was recorded as a warning; never propagated."""
 
 
-class UnityCatalogMetadataProbe(ProbeProviderBase, SqlCatalogPassthrough):
+class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
     """Metadata-only probe for Databricks Unity Catalog.
 
     Enumerates through UnityCatalogApiProxy -- the REST fetchers ingestion
@@ -144,6 +148,14 @@ class UnityCatalogMetadataProbe(ProbeProviderBase, SqlCatalogPassthrough):
 
     sql_dialect = "databricks"
     query_budget = QueryBudget(timeout_seconds=30)
+
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        # The generic readers find no status on a DatabricksError: the SDK
+        # maps it onto a subclass and keeps the vendor code in error_code.
+        if isinstance(exc, DatabricksError):
+            return _databricks_error_code(exc)
+        return None
 
     def __init__(
         self, workspace_client: WorkspaceClient, config: UnityCatalogSourceConfig
@@ -208,7 +220,7 @@ class UnityCatalogMetadataProbe(ProbeProviderBase, SqlCatalogPassthrough):
             )
             raise _Degraded() from None
         except BadRequest as exc:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"{operation} was refused as a bad request "
                 f"({_describe_failure(exc)}); {_WITHHELD}"
             ) from None
@@ -516,7 +528,7 @@ class UnityCatalogMetadataProbe(ProbeProviderBase, SqlCatalogPassthrough):
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         if not self._config.warehouse_id:
-            raise ValueError(
+            raise ProbeArgumentError(
                 "`sql` runs on a Databricks SQL warehouse; set warehouse_id in "
                 "the recipe to use it (the other probe commands do not need one)"
             )
@@ -541,7 +553,7 @@ class UnityCatalogMetadataProbe(ProbeProviderBase, SqlCatalogPassthrough):
                 rows = cursor.fetchmany(limit)
                 columns = [d[0] for d in cursor.description or []]
         except ServerOperationError as exc:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"the warehouse rejected the query "
                 f"({_describe_warehouse_failure(exc)}); its message is withheld "
                 f"because it can quote cell values"
