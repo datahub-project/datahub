@@ -1,3 +1,4 @@
+import builtins
 import json
 import pathlib
 from typing import Callable, Dict, List, Optional, Set, Type, cast
@@ -1039,6 +1040,21 @@ def test_the_backstop_reads_the_context_as_well_as_the_cause() -> None:
         replacement = police_trusted(wrapper)
     assert isinstance(replacement, ProbeConnectionError)
     assert str(replacement) == "fetch said (RuntimeError)"
+
+
+def test_the_backstop_reads_an_exception_groups_children() -> None:
+    # Looked up, not named: the package still supports Python 3.10.
+    group_type = getattr(builtins, "ExceptionGroup", None)
+    if group_type is None:
+        pytest.skip("ExceptionGroup is new in Python 3.11")
+    child = RuntimeError(f"fetcher gave up on https://user:{SENTINEL}@host/api")
+    try:
+        try:
+            raise group_type("connect", [child, OSError("refused")])
+        except Exception:
+            raise ProbeConnectionError(f"login failed: {child}")  # noqa: B904
+    except ProbeConnectionError as wrapper:
+        assert withhold_foreign_text(wrapper) == "login failed: (RuntimeError)"
 
 
 class _SoftRebuildRefusing(ProbeSoftError):

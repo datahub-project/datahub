@@ -387,6 +387,22 @@ def test_hyphenated_and_dotted_keys_are_treated_as_secrets() -> None:
     } <= found
 
 
+def test_a_dotted_hint_matches_its_key_in_a_free_form_client_config() -> None:
+    # Schema Registry and librdkafka spell their keys with dots, and the
+    # userinfo has no shape scrub_text would catch: only its key marks it.
+    config = {
+        "connection": {
+            "schema_registry_config": {
+                "basic.auth.user.info": "PLANTED-user:PLANTED-pw",
+                "url": "http://registry:8081",
+            },
+            "consumer_config": {"ssl.key.pem": "PLANTED-pem-body", "group.id": "g1"},
+        }
+    }
+    found = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    assert found == {"PLANTED-user:PLANTED-pw", "PLANTED-pem-body"}
+
+
 def test_credential_mapping_does_not_mask_sibling_identifiers() -> None:
     cfg = {"credential": {"project_id": "proj", "private_key": "PLANTED-key"}}
     found = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
@@ -515,6 +531,28 @@ def test_scrub_text_masks_vendor_token_shapes(text: str) -> None:
     assert "PLANTED" not in out
     assert "dXNlcjpQTEFOVEVE" not in out
     assert "***" in out
+
+
+@pytest.mark.parametrize(
+    "text, masked",
+    [
+        # Lowercase-only base64 has none of the characters the bare `Basic`
+        # rule needs to tell a token from prose; the header settles it.
+        ("Authorization: Basic ajphamdh", "Authorization: Basic ***"),
+        ("authorization=basic ajphamdh", "authorization=basic ***"),
+    ],
+)
+def test_the_word_after_an_explicit_basic_header_is_masked(
+    text: str, masked: str
+) -> None:
+    assert scrub_text(text, set()) == masked
+
+
+def test_a_fine_grained_github_token_is_masked_whole() -> None:
+    # Built from parts so a secret scanner does not read the fixture as a
+    # token. The underscore inside the body is part of the format.
+    token = "github" + "_pat_" + "11PLANTED0123456789ab_" + "Zq9" * 19
+    assert scrub_text(f"clone failed with {token}", set()) == "clone failed with ***"
 
 
 def test_an_odbc_braced_value_is_masked_without_swallowing_its_neighbours() -> None:

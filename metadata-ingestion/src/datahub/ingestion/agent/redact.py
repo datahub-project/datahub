@@ -139,7 +139,10 @@ def collect_nested_secret_values(
     found: Set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
-            sensitive = under_sensitive or any(h in normalize_key(k) for h in hints)
+            # Both sides normalized: a dotted hint (`basic.auth.user.info`)
+            # never appears in a key whose dots normalize_key has rewritten.
+            key = normalize_key(k)
+            sensitive = under_sensitive or any(normalize_key(h) in key for h in hints)
             if isinstance(v, str):
                 if v and (sensitive or _is_scalar_only_secret_key(k)):
                     found.add(v)
@@ -237,16 +240,21 @@ _BASIC = re.compile(
     r"\b((?i:basic))\s+"
     r"(?=[A-Za-z0-9+/]*[0-9A-Z+/=])([A-Za-z0-9+/]{8,}={0,2})"
 )
-# `Authorization: Token <value>`, the scheme Django REST APIs and others use.
+# `Authorization: Token <value>`, the scheme Django REST APIs and others use,
+# and `Authorization: Basic <value>`: after the header the next word is the
+# credential, so it needs none of the shape _BASIC asks of prose.
 _AUTHORIZATION_TOKEN = re.compile(
-    r"(?i)\b(authorization[\"']?\s*[:=]\s*[\"']?token)\s+([A-Za-z0-9._~+/=-]+)"
+    r"(?i)\b(authorization[\"']?\s*[:=]\s*[\"']?(?:token|basic))"
+    r"\s+([A-Za-z0-9._~+/=-]+)"
 )
 _AWS_KEY_ID = re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")
 # Tokens recognisable by their prefix: JWTs, GitHub and Slack tokens. Not ARNs
-# or account ids, which callers supply and read back.
+# or account ids, which callers supply and read back. A fine-grained GitHub
+# token has an underscore inside its body.
 _PREFIXED_TOKEN = re.compile(
     r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}"
     r"|\bgh[pousr]_[A-Za-z0-9]{20,}"
+    r"|\bgithub_pat_[A-Za-z0-9_]{20,}"
     r"|\bxox[abprs]-[A-Za-z0-9-]{10,}"
 )
 # The body class stops at the first non-base64 character, so an unterminated

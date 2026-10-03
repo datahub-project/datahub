@@ -83,7 +83,7 @@ _SQLSTATE = re.compile(r"[0-9A-Z]{5}")
 _MAX_ERRNO = 999_999
 
 # How many `raise ... from` links a code is looked for in, and how many
-# cause/context links the backstop walks.
+# cause, context and group-child links the backstop walks.
 _MAX_CODE_LINKS = 8
 _MAX_CHAIN_LINKS = 32
 # Shorter renderings carry too little to leak and would match innocently
@@ -244,15 +244,29 @@ def classify_foreign(
     return ProbeConnectionError(message)
 
 
+def _links(exc: BaseException) -> List[object]:
+    """What `exc` leads to: its cause, its context and, for an exception
+    group, its children. A child's text can be quoted as readily as a
+    cause's. Read by attribute, as Python 3.10 has no BaseExceptionGroup."""
+    links = [_attr(exc, "__cause__"), _attr(exc, "__context__")]
+    children = _attr(exc, "exceptions")
+    if isinstance(children, (tuple, list)):
+        links.extend(children)
+    return links
+
+
 def _foreign_in_chain(exc: BaseException) -> List[BaseException]:
-    """Every untrusted exception in `exc`'s cause and context chain."""
+    """Every untrusted exception in `exc`'s cause and context chain and in
+    the children of any exception group on it."""
     found: List[BaseException] = []
     seen: Set[int] = {id(exc)}
     pending = [exc]
     while pending and len(seen) <= _MAX_CHAIN_LINKS:
         current = pending.pop()
-        for name in ("__cause__", "__context__"):
-            link = _attr(current, name)
+        for link in _links(current):
+            # Checked per link too: one group can hold any number of children.
+            if len(seen) > _MAX_CHAIN_LINKS:
+                break
             if not isinstance(link, BaseException) or id(link) in seen:
                 continue
             seen.add(id(link))
