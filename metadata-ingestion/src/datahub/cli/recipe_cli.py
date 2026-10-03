@@ -1,9 +1,22 @@
 import importlib.resources
 import json
+import pathlib
 import re
 import sys
 from contextlib import contextmanager
-from typing import Dict, Iterator, List, NoReturn, Optional, Set, Tuple, Type
+from dataclasses import dataclass
+from typing import (
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    NoReturn,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 import click
 import yaml
@@ -13,20 +26,32 @@ from datahub.configuration.config_loader import (
     MalformedRecipeEnvelope,
     parse_recipe_envelope,
 )
+from datahub.ingestion.agent.error_policy import (
+    DEFECT_TYPES,
+    PASS_THROUGH,
+    classify_foreign,
+    is_trusted,
+    name_foreign,
+    police_trusted,
+)
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.introspect import describe_source
-from datahub.ingestion.agent.models import FieldKind
+from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
+from datahub.ingestion.agent.introspect import describe_source, secret_field_values
+from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
+    ProbeMethodResult,
     list_probe_methods,
     run_probe_method,
+    source_class_for,
 )
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
-    collect_secret_values,
     redact,
+    scrub_strings,
+    scrub_text,
 )
 from datahub.ingestion.agent.secrets import (
     MappingResolver,
@@ -34,7 +59,11 @@ from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
 )
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeInternalError
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeInternalError,
+)
 from datahub.masking.secret_registry import SecretRegistry
 
 EXIT_OK = 0
@@ -96,17 +125,22 @@ def _json_default(o: object) -> object:
     return str(o)
 
 
+def report_to_text(payload: object) -> str:
+    """The text `--report-to` writes for `payload`: masked against the
+    registry as a structure, then serialized. See _write_report for why."""
+    return json.dumps(_masked(payload), default=_json_default)
+
+
 def _write_report(report_to: Optional[str], payload: object) -> None:
     # Redacted payload only -- this file is written for a caller that captures
     # a structured report instead of parsing stdout, and it must carry no more
     # than stdout does.
     if report_to:
         try:
-            # Serialized BEFORE the file is opened: json.dump truncates on
-            # open, so a value it cannot serialize used to raise partway
-            # through and leave a half-written report that reads as valid
-            # output.
-            text = json.dumps(_masked(payload), default=_json_default)
+            # Serialized BEFORE the file is opened: opening truncates, so a
+            # value that cannot be serialized would otherwise leave a
+            # half-written report that reads as valid output.
+            text = report_to_text(payload)
 
             # SECURITY: masked against the registry, the same as stdout.
             #
@@ -120,8 +154,7 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             # Per-command redaction is not a substitute and does not cover
             # this: `probe methods` passes its payload with no
             # _redacted_payload at all, and the other two redact only what
-            # they collected. An earlier version of this comment claimed
-            # every caller pre-redacts. It does not.
+            # they collected.
             #
             # Masked as a structure, before serializing: JSON escaping changes
             # how a secret renders, so masking the serialized text can miss it.
@@ -136,26 +169,19 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             raise ValueError(f"cannot write report to '{report_to}': {exc}") from exc
 
 
-# Exceptions that mean "your input was wrong" (EXIT_USER), in one place.
+# Exceptions that mean "your input was wrong" (EXIT_USER), in one place: every
+# command classifies through _exit_codes, so a clause added here applies to
+# all of them. Only what the CLI's own checks raise: code a connector supplies
+# (a provider, a config hook, test_connection) is classified by
+# agent.error_policy before it gets here, and a Python defect is EXIT_INTERNAL.
 #
-# There were seven copies of this ladder and they had drifted apart: `validate`
-# omitted KeyError, and five of the seven had no catch-all at all, so anything
-# unexpected escaped as an unredacted traceback. verdicts.py's own comment
-# predicted it -- "the CLI has four such ladders, and adding a clause to three
-# of four is how this landed on the wrong code to begin with" -- and there were
-# seven, not four. Classifying once is the fix; adding an eighth clause is not.
-#
-# The last two are the ones that were escaping. Neither is a ValueError:
-#   ConfigurationError is MetaError, raised by source_registry.get() when a
-#     plugin extra is not installed -- the most likely first-contact failure,
-#     and its message already carries the `pip install 'acryl-datahub[x]'` hint.
+# The last two are not ValueErrors:
+#   ConfigurationError is MetaError, which a config validator may raise about
+#     the recipe it was given; pydantic wraps only ValueError.
 #   re.error comes from an AllowDenyPattern compiling lazily inside .allowed(),
-#     so a malformed --try-allow crashed the very command meant to diagnose it.
+#     so a malformed --try-allow is the caller's input, not a crash.
 _USER_ERRORS: Tuple[Type[BaseException], ...] = (
     ValueError,  # SqlScopeError, ApiScopeError, ProbeSoftError all subclass it
-    TypeError,
-    AssertionError,
-    KeyError,
     ConfigurationError,
     re.error,
 )
@@ -164,10 +190,8 @@ _USER_ERRORS: Tuple[Type[BaseException], ...] = (
 def _redacted_text(exc: BaseException, secret_values: Set[str]) -> str:
     # SECURITY: exception text is where credentials leak in practice -- a driver
     # echoing a connection string, a pydantic ValidationError echoing its
-    # input_value. Redact before it reaches stderr.
-    redacted = redact(str(exc), secret_values)
-    assert isinstance(redacted, str)
-    return redacted
+    # input_value. Mask registered values, then credential shapes.
+    return scrub_text(str(exc), secret_values)
 
 
 @contextmanager
@@ -196,6 +220,8 @@ def _exit_codes(
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
     except _USER_ERRORS as exc:
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_USER)
+    except DEFECT_TYPES as exc:
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
     except Exception as exc:
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), fallback)
 
@@ -221,16 +247,16 @@ def _fail(message: str, code: int) -> NoReturn:
 # resolve step happens well after loading, and threading an extra argument
 # through every probe subcommand to carry it would be noise.
 #
-# Reset per invocation by the `recipe` group callback, NOT merely updated.
-# An earlier version of this comment justified the global with "a value that
-# is set at most once per process", which holds for the one-shot CLI and for
-# nothing else that dispatches the group -- and the failure is not just a
-# stale read: a later recipe resolving ${REF} would get the EARLIER caller's
-# credential and register it for masking as though it had been handed it.
+# Reset per invocation by the `recipe` group callback, NOT merely updated:
+# anything that dispatches the group more than once per process would
+# otherwise hand a later recipe resolving ${REF} the EARLIER caller's
+# credential, registered for masking as though it had been handed it.
 _stdin_secrets: Dict[str, str] = {}
 
 
-def _stdin_aware_resolvers() -> List[SecretResolver]:
+def _stdin_aware_resolvers(
+    stdin_secrets: Optional[Mapping[str, str]] = None,
+) -> List[SecretResolver]:
     """The environment chain, preceded by anything that arrived on stdin.
 
     Every command that takes `-` shares this, not just the probe ones: `validate`
@@ -240,9 +266,11 @@ def _stdin_aware_resolvers() -> List[SecretResolver]:
     A value the caller piped in wins over a same-named ambient variable: they
     passed it that way precisely to avoid the environment. With no envelope this
     is `default_resolvers()` unchanged, so the file path behaves as before.
+    `stdin_secrets` stands in for what arrived; by default this invocation's.
     """
-    if _stdin_secrets:
-        return [MappingResolver(_stdin_secrets), *default_resolvers()]
+    piped = _stdin_secrets if stdin_secrets is None else stdin_secrets
+    if piped:
+        return [MappingResolver(dict(piped)), *default_resolvers()]
     return default_resolvers()
 
 
@@ -251,12 +279,10 @@ def _recipe_from_stdin() -> Dict[str, object]:
     if not raw.strip():
         raise ValueError("no recipe received on stdin")
 
-    # One parser for this format, shared with load_config_file. There were
-    # two and they had drifted: only one validated `__recipe_yaml__`, so the
-    # same malformed envelope produced a named error here and a TypeError
-    # from StringIO on the `ingest -c -` path. The strings-only secret
-    # filter and the reasoning for keeping an empty string now live there
-    # too, beside the check.
+    # One parser for this format, shared with load_config_file, so a
+    # malformed envelope fails the same way here and on `ingest -c -`. The
+    # strings-only secret filter and the reasoning for keeping an empty
+    # string live there, beside the check.
     try:
         envelope = parse_recipe_envelope(raw)
     except MalformedRecipeEnvelope as exc:
@@ -334,21 +360,44 @@ def _load_recipe(path: str) -> Dict[str, object]:
     return loaded
 
 
+def _register_for_masking(secret_values: Set[str]) -> None:
+    """Hand the recipe's secrets to the masking registry, as `ingest` does with
+    what it resolves. The stdout wrapper, logging filter and excepthook the
+    `recipe` group installs mask only what the registry holds, and with
+    DATAHUB_PROBE_VERBOSE_LOGS the log guard is off, so the registry is all
+    that masks reused code's log lines. Named by position: a name is logged
+    when a value cannot be masked, and a value must never be."""
+    SecretRegistry.get_instance().register_secrets_batch(
+        {f"recipe_secret_{i}": v for i, v in enumerate(sorted(secret_values))}
+    )
+
+
 def _resolve_for_probe(
     recipe: Dict[str, object],
+    stdin_secrets: Optional[Mapping[str, str]] = None,
 ) -> Tuple[str, Dict[str, object], Set[str]]:
+    """resolve_probe_recipe for this invocation, its secrets registered for
+    masking before any command can print."""
+    source_type, config, secret_values = _resolved_recipe(recipe, stdin_secrets)
+    _register_for_masking(secret_values)
+    return source_type, config, secret_values
+
+
+def _resolved_recipe(
+    recipe: Dict[str, object],
+    stdin_secrets: Optional[Mapping[str, str]] = None,
+) -> Tuple[str, Dict[str, object], Set[str]]:
+    piped = _stdin_secrets if stdin_secrets is None else stdin_secrets
     raw_source = recipe.get("source")
     source: Dict[str, object] = raw_source if isinstance(raw_source, dict) else {}
     source_type = str(source.get("type"))
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
-    resolved = resolve_config_collecting(config, _stdin_aware_resolvers())
-    spec = describe_source(source_type)
-    secret_fields = {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
-    # Union of every ${ref}-sourced value (nested-safe) and top-level inline
-    # secret fields (which may be literals with no ${ref} to record).
-    secret_values = resolved.secret_values | collect_secret_values(
-        resolved.config, secret_fields
+    resolved = resolve_config_collecting(config, _stdin_aware_resolvers(piped))
+    # Union of every ${ref}-sourced value and every SecretStr field's value at
+    # any depth of the config (which may be literals with no ${ref} to record).
+    secret_values = resolved.secret_values | secret_field_values(
+        source_type, resolved.config
     )
     # Defense-in-depth: catch secrets living in free-form dict config fields
     # (e.g. Kafka's consumer_config) that aren't typed SecretStr and so aren't
@@ -357,18 +406,33 @@ def _resolve_for_probe(
     # Anything piped in is a secret by declaration, so mask it whether or not
     # the recipe happened to reference it (it may have arrived already
     # substituted). Mirrors what load_config_file does for `ingest -c -`.
-    secret_values |= {v for v in _stdin_secrets.values() if v}
+    secret_values |= {v for v in piped.values() if v}
     return source_type, resolved.config, secret_values
+
+
+def resolve_probe_recipe(
+    recipe: Dict[str, object],
+    stdin_secrets: Optional[Mapping[str, str]] = None,
+) -> Tuple[str, Dict[str, object], Set[str]]:
+    """The source type, resolved config and secret values the probe commands
+    work from, for a recipe document already loaded. For a caller outside the
+    CLI that must reproduce exactly what `probe run` and `probe filter` see.
+
+    `stdin_secrets` are an envelope's secrets, resolved as though piped in.
+    Only these: what an earlier CLI invocation in this process read from
+    stdin is left in _stdin_secrets, and nothing here clears it. Registers
+    nothing for masking."""
+    return _resolved_recipe(recipe, stdin_secrets or {})
 
 
 def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     """Every secret this recipe resolves to, best-effort, never raising.
 
-    Independent of describe_source on purpose. _resolve_for_probe resolves
-    secrets and *then* validates the source type, so a recipe with an unknown
-    type but a resolvable ${SECRET} reached the error handler with an empty
-    secret set and emitted unredacted. Each fallback below keeps whatever was
-    already collected rather than returning nothing.
+    Independent of the source type resolving, on purpose. _resolve_for_probe
+    resolves secrets and *then* validates the source type, so a recipe with an
+    unknown type but a resolvable ${SECRET} reached the error handler with an
+    empty secret set and emitted unredacted. Each fallback below keeps whatever
+    was already collected rather than returning nothing.
     """
     values: Set[str] = set()
     # Anything piped in is a secret by declaration, and goes in before the
@@ -392,13 +456,10 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     values |= resolved.secret_values
     values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
     try:
-        spec = describe_source(str(source.get("type")))
+        values |= secret_field_values(str(source.get("type")), resolved.config)
     except Exception:
         # Unknown or uninstalled source type: keep the refs already resolved.
-        return values
-    values |= collect_secret_values(
-        resolved.config, {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
-    )
+        pass
     return values
 
 
@@ -453,11 +514,12 @@ def _ping_probe(command: str, source_type: str, **dims: object) -> None:
 # tell "***" from a name otherwise.
 _MASKED_NOTICE = (
     "something in this result was redacted and now reads '***'. Read it as "
-    "'redacted', never as a name. When a secret happens to equal an identifier -- "
-    "a password the same as a database, schema or table name -- that identifier is "
-    "masked everywhere it occurs, `target` included, so a verdict can name a "
-    "pattern while the thing it matched shows as '***'. The recipe has the real "
-    "name; this output deliberately does not."
+    "'redacted', never as a name. Credential-shaped text in warnings and "
+    "failures is masked, and when a secret happens to equal an identifier -- "
+    "a password the same as a database, schema or table name -- that "
+    "identifier is masked everywhere it occurs, `target` included, so a "
+    "verdict can name a pattern while the thing it matched shows as '***'. "
+    "The recipe has the real name; this output deliberately does not."
 )
 
 
@@ -472,14 +534,38 @@ def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
     nothing that is not already visible in the output -- naming the field would
     tell a caller who cannot see a ${ENV_VAR} secret that it equals an
     identifier they can see.
+
+    The free-text `warnings` / `failures` lists are also scrubbed for
+    credential shapes. Nothing here mutates `payload`.
     """
     redacted = redact(payload, secret_values)
+    if not isinstance(redacted, dict):
+        return redacted
+    redacted = dict(redacted)
+    for key in ("warnings", "failures"):
+        items = redacted.get(key)
+        if isinstance(items, list):
+            redacted[key] = [
+                scrub_text(item, secret_values) if isinstance(item, str) else item
+                for item in items
+            ]
     if redacted == payload:
         return redacted
-    warnings = redacted.get("warnings") if isinstance(redacted, dict) else None
-    if isinstance(warnings, list):
-        warnings.append(_MASKED_NOTICE)
+    warnings = redacted.get("warnings")
+    redacted["warnings"] = (
+        [*warnings, _MASKED_NOTICE] if isinstance(warnings, list) else [_MASKED_NOTICE]
+    )
     return redacted
+
+
+def probe_run_envelope(result: ProbeMethodResult, secret_values: Set[str]) -> object:
+    """The payload `probe run` emits and writes to --report-to, before the
+    registry masking both of those apply on output (see report_to_text)."""
+    # SECURITY: normalize to pure JSON types before redacting, so a raw
+    # exception/driver object nested in the result cannot smuggle a secret
+    # past the redactor (which only inspects str/dict/list values).
+    safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
+    return _redacted_payload(safe, secret_values)
 
 
 @recipe.command()
@@ -508,12 +594,68 @@ def recipe_validate(path: str) -> None:
     with _exit_codes(secret_values):
         recipe_doc = _load_recipe(path)
         secret_values.update(_secrets_in_recipe(recipe_doc))
+        _register_for_masking(secret_values)
         # Same resolvers the probe path uses, so `validate -` does not report a
         # ${REF} unresolvable when the caller piped its value in and `probe run`
         # on the identical envelope would accept it.
-        _emit(
-            redact(validate_recipe(recipe_doc, _stdin_aware_resolvers()), secret_values)
+        report = validate_recipe(recipe_doc, _stdin_aware_resolvers())
+        # The errors quote validators, which may echo what they rejected under
+        # a key no hint marks secret, so they are scrubbed for credential
+        # shapes too. The warnings are this module's own text, whose
+        # `password: ${PASSWORD}` advice a shape scrub would mask.
+        report["errors"] = scrub_strings(report["errors"], secret_values)
+        _emit(redact(report, secret_values))
+
+
+def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
+    """What a source's test_connection raising is reported as: by label, never
+    by its text (the source's own connect code wrote it), on the exit code
+    `probe run` gives a provider call's (agent.error_policy.classify_foreign).
+    A SystemExit is the source giving up, whatever its status.
+
+    Except a ValidationError: test_connection is handed the recipe's config
+    unvalidated, so one it raises is the recipe failing the source's model
+    (exit 2), where a provider call's is a response failing its own (3)."""
+    from pydantic import ValidationError  # local: pydantic types only here
+
+    context = f"source '{source_type}' test_connection"
+    if isinstance(exc, ValidationError):
+        return ProbeArgumentError(f"{context} failed {name_foreign(exc)}")
+    return classify_foreign(exc, context)
+
+
+@dataclass(frozen=True)
+class _TestedConnection:
+    """What a source's test_connection returned, and its JSON-shaped form."""
+
+    report: object
+    # as_obj(): TestConnectionReport is a Report, not a dict, and json.dumps
+    # would hand the whole object to _json_default, which stringifies it, so
+    # basic_connectivity would not be a key of the payload.
+    rendered: object
+
+
+def _run_test_connection(
+    test: Callable[[Dict[str, object]], object],
+    resolved: Dict[str, object],
+    source_type: str,
+) -> _TestedConnection:
+    try:
+        report = test(resolved)
+        # The source's own report code, so policed like test_connection.
+        as_obj = getattr(report, "as_obj", None)
+        return _TestedConnection(
+            report=report, rendered=as_obj() if callable(as_obj) else report
         )
+    except PASS_THROUGH:
+        raise
+    except BaseException as exc:
+        if not is_trusted(exc):
+            raise _test_connection_crash(exc, source_type) from None
+        replacement = police_trusted(exc)
+        if replacement is not None:
+            raise replacement from None
+        raise
 
 
 @recipe.command(name="test-connection")
@@ -525,26 +667,30 @@ def test_connection(recipe_path: str) -> None:
     with _exit_codes(secret_values, fallback=EXIT_CONNECTION):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
-        # Lazy import: keeps TestableSource / source_registry out of this
-        # module's import-time surface until test-connection is actually invoked.
-        from datahub.ingestion.api.source import TestableSource
-        from datahub.ingestion.source.source_registry import source_registry
+        # SECURITY: test_connection runs the source's own connect code, which
+        # logs connection strings and request URLs like any reused fetcher.
+        # The guard also covers looking the source up, which imports its
+        # module, as `probe run`'s does.
+        with quiet_reused_logs(secret_values):
+            # Lazy import: keeps TestableSource / source_registry out of this
+            # module's import-time surface until test-connection is invoked.
+            from datahub.ingestion.api.source import TestableSource
 
-        source_cls = source_registry.get(source_type)
-        if not issubclass(source_cls, TestableSource):
-            _fail(f"source '{source_type}' does not support test-connection", EXIT_USER)
-        report = source_cls.test_connection(resolved)
+            source_cls = source_class_for(source_type)
+            if not issubclass(source_cls, TestableSource):
+                _fail(
+                    f"source '{source_type}' does not support test-connection",
+                    EXIT_USER,
+                )
+            tested = _run_test_connection(
+                source_cls.test_connection, resolved, source_type
+            )
+        report = tested.report
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).
-        # as_obj() first: TestConnectionReport is a Report, not a dict, and
-        # json.dumps handed the whole object to _json_default, which
-        # stringified it -- stdout became one string and basic_connectivity,
-        # the key the exit-3 message points at, was not in the payload.
-        as_obj = getattr(report, "as_obj", None)
-        report_obj = as_obj() if callable(as_obj) else report
-        safe_report = json.loads(json.dumps(report_obj, default=_json_default))
-        _emit(redact(safe_report, secret_values))
+        safe_report = json.loads(json.dumps(tested.rendered, default=_json_default))
+        _emit(scrub_strings(redact(safe_report, secret_values), secret_values))
         # The report was emitted but never consulted, so a FAILED connection
         # test exited 0 -- in a CLI whose whole contract is that the caller
         # reads the exit code to tell "your input was wrong" from "I could not
@@ -632,10 +778,10 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     """
     secret_values: Set[str] = set()
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
-        source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        source_type, _, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
         _ping_probe("methods", source_type)
-        specs = list_probe_methods(source_type, resolved)
+        specs = list_probe_methods(source_type)
         payload = {
             "source_type": source_type,
             "methods": [s.to_dict() for s in specs],
@@ -644,13 +790,64 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
         _emit(payload)
 
 
+def _read_run_file(path: str) -> object:
+    """The parsed JSON of a `probe run --report-to` file.
+
+    click checks the file is readable, but only at parse time; a permission
+    or I/O error at the read itself is the caller's argument being wrong, as
+    _write_report treats it, so it exits 2 rather than as an internal error.
+    """
+    try:
+        text = pathlib.Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"cannot read --from-run file '{path}': {exc}") from exc
+    return json.loads(text)
+
+
+def listing_warnings(listing: RunListing) -> List[str]:
+    """What the caller must know about a listing judged as it stands.
+
+    Each is a warning, not a refusal: the names that are there still get a
+    correct verdict. What would be wrong is reading the result as covering
+    every object the source has.
+    """
+    warnings: List[str] = []
+    if listing.skipped:
+        warnings.append(
+            "not judged, because redaction masked their names: listing entries "
+            f"{', '.join(str(i) for i in listing.skipped)}. A name that collides "
+            "with a secret reads '***'; judge it with --name and the real name"
+        )
+    if listing.masked_attributes:
+        keys = ", ".join(f"`{k}`" for k in listing.masked_attributes)
+        warnings.append(
+            f"redaction masked {keys} on some entries, so those values were "
+            "left out of their verdicts; a source that filters on them judged "
+            "those names without them"
+        )
+    if listing.truncated:
+        warnings.append(
+            "that listing was truncated, so names beyond it were not judged"
+        )
+    if listing.incomplete:
+        warnings.append(
+            "the run that wrote that listing recorded failures, so the listing "
+            "is incomplete and names it could not read were not judged"
+        )
+    warnings.extend(
+        f"the run that wrote that listing warned, so it may be partial: {w}"
+        for w in listing.run_warnings
+    )
+    return warnings
+
+
 @probe_group.command(name="filter")
 @click.option("--recipe", "recipe_path", required=True)
 @click.option(
     "--kind",
-    required=True,
+    default=None,
     help="The subtype being judged, e.g. Table, View, Schema, Topic. Selects "
-    "which *_pattern field applies.",
+    "which *_pattern field applies. Taken from --from-run when omitted.",
 )
 @click.option(
     "--parent",
@@ -665,11 +862,19 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     "--name",
     "names",
     multiple=True,
-    required=True,
     help="An object name to judge, exactly as the source reports it. Repeat for "
     "each name. Not comma-separated: a Mode collection or a quoted SQL "
     "identifier may legitimately contain a comma, and splitting on it would "
     "judge names that do not exist.",
+)
+@click.option(
+    "--from-run",
+    "from_run",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Judge the listing a `probe run --report-to` wrote: its names, the "
+    "facts listed with each (an id, a type) that some sources filter on, and "
+    "its kind and parent unless --kind/--parent are given. Instead of --name.",
 )
 @click.option(
     "--try-allow",
@@ -688,9 +893,10 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
 )
 def probe_filter_cmd(
     recipe_path: str,
-    kind: str,
+    kind: Optional[str],
     parents: Tuple[str, ...],
     names: Tuple[str, ...],
+    from_run: Optional[str],
     try_allow: Tuple[str, ...],
     try_deny: Tuple[str, ...],
     report_to: Optional[str],
@@ -706,6 +912,45 @@ def probe_filter_cmd(
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
+        attributes = None
+        from_run_warnings: List[str] = []
+        if from_run is not None:
+            if names:
+                raise ValueError(
+                    "--name and --from-run both name the objects to judge; pass one"
+                )
+            listing = listing_from_run(_read_run_file(from_run))
+            if listing.source_type and listing.source_type != source_type:
+                raise ValueError(
+                    f"this listing came from {listing.source_type}, the recipe "
+                    f"is {source_type}"
+                )
+            if kind and listing.kind and kind.lower() != listing.kind.lower():
+                raise ValueError(
+                    f"--kind {kind} contradicts the listing, which holds "
+                    f"{listing.kind} names"
+                )
+            if not (kind or listing.kind):
+                raise ValueError(
+                    "the listing does not say what kind it holds; pass --kind"
+                )
+            if not parents and listing.parent_redacted:
+                raise ValueError(
+                    "that listing's parent_path was redacted, so its names "
+                    "cannot be judged against the right container; pass "
+                    "--parent with the real container names"
+                )
+            kind = kind or listing.kind
+            parents = parents or tuple(listing.parent_path)
+            names = tuple(listing.names)
+            attributes = listing.attributes
+            from_run_warnings = listing_warnings(listing)
+        elif not names:
+            raise ValueError(
+                "nothing to judge: pass --name, or --from-run with a `probe run` output"
+            )
+        if not kind:
+            raise ValueError("pass --kind: it says what kind of object the names are")
         _ping_probe("filter", source_type, kind=kind)
         result = check_filters(
             source_type=source_type,
@@ -715,7 +960,10 @@ def probe_filter_cmd(
             names=list(names),
             try_allow=list(try_allow),
             try_deny=list(try_deny),
+            attributes=attributes,
         )
+        # Before redaction, so these pass through it like every other warning.
+        result.warnings.extend(from_run_warnings)
         payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)
@@ -756,12 +1004,13 @@ def probe_run_cmd(
         # that did not work.
         _ping_probe("run", source_type, probe_command=command)
         call_kwargs: Dict[str, object] = dict(_parse_extra_params(params))
-        result = run_probe_method(source_type, resolved, command, call_kwargs)
-        # SECURITY: normalize to pure JSON types before redacting, so a raw
-        # exception/driver object nested in the result cannot smuggle a secret
-        # past the redactor (which only inspects str/dict/list values).
-        safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
-        payload = _redacted_payload(safe, secret_values)
+        # SECURITY: reused ingestion code logs connection strings and request
+        # URLs at DEBUG, which `datahub --debug` prints. Guarded here as well as
+        # inside run_probe_method because only this caller holds the recipe's
+        # secret values, which have no credential shape for scrub_text to find.
+        with quiet_reused_logs(secret_values):
+            result = run_probe_method(source_type, resolved, command, call_kwargs)
+        payload = probe_run_envelope(result, secret_values)
         _write_report(report_to, payload)
         _emit(payload)
         # A failure means the result is not a complete answer, so the command

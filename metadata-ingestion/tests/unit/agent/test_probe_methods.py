@@ -715,52 +715,40 @@ def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
     assert not result.truncated
 
 
-def test_discovery_survives_a_recipe_that_does_not_validate_yet():
-    """`probe methods` is the agent's first call on a recipe it is still writing.
+def test_probe_methods_reports_the_container_kind_without_a_recipe():
+    """`containers` returns Schemas on a three-tier source and Databases on a
+    two-tier one, and one provider class serves both. The config class
+    declares which (probe_kind_overrides), so discovery reports it with no
+    recipe at all, and an incomplete recipe cannot hide it."""
 
-    list_probe_methods takes the config only to ask a CLASSMETHOD
-    (probe_kind_overrides) which kind a per-recipe command reports -- its own
-    docstring says "Still connection-free". Building the config to ask that
-    question made an incomplete recipe fail the whole command: a postgres
-    recipe missing host_port exited 2 with no methods listed, so the agent
-    could not discover the commands that would tell it what to fix.
+    def kinds(source_type: str) -> Dict[str, Optional[str]]:
+        return {spec.command: spec.kind for spec in list_probe_methods(source_type)}
 
-    The kinds degrade to the un-overridden ones, which is what a caller
-    passing no config gets anyway.
-    """
-    complete = {
-        "host_port": "h:5432",
-        "username": "u",
-        "password": "p",
-        "database": "d",
-    }
-    full = list_probe_methods("postgres", config_dict=complete)
-    partial = list_probe_methods("postgres", config_dict={"username": "u"})
-    none_given = list_probe_methods("postgres")
+    assert kinds("postgres")["containers"] == "Schema"
+    assert kinds("mysql")["containers"] == "Database"
+    # Kinds the provider declares itself are untouched.
+    assert kinds("postgres")["tables"] == "Table"
+    assert kinds("mysql")["views"] == "View"
 
-    def kinds(specs):
-        return {spec.command: spec.kind for spec in specs}
 
-    assert [s.command for s in partial] == [s.command for s in full]
-    assert [s.command for s in partial] == [s.command for s in none_given]
+def test_run_reports_the_kind_the_config_class_declares(monkeypatch):
+    class _Listing(_FakeProvider):
+        @probe_method()
+        def containers(self) -> list:
+            "Containers, whose kind the config decides."
+            return ["sales"]
 
-    # The commands above cannot catch a kind regression: probe_kind_overrides
-    # only ever changes `kind`, so the three lists are identical by
-    # construction and this test would pass with the degrade broken.
-    #
-    # The kinds are where the behaviour is. An incomplete recipe degrades to
-    # exactly what passing no config gives...
-    assert kinds(partial) == kinds(none_given)
-    # ...and that really is a degrade rather than two connectors agreeing on
-    # None by accident: a complete postgres recipe resolves `containers` to
-    # Schema, which is the override the incomplete one cannot ask for.
-    assert kinds(full)["containers"] == "Schema"
-    assert kinds(partial)["containers"] is None
-    # Everything not driven by the config is unaffected either way, so the
-    # degrade is scoped to the per-recipe answer and does not flatten the
-    # class-level kinds.
-    assert kinds(full)["tables"] == "Table"
-    assert kinds(partial)["tables"] == "Table"
+    class _TwoTier(_FakeConfig):
+        @classmethod
+        def probe_kind_overrides(cls) -> Dict[str, str]:
+            return {"containers": "Database"}
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Listing)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _TwoTier)
+
+    assert pm.run_probe_method("x", {}, "containers", {}).kind == "Database"
+    listed = {spec.command: spec.kind for spec in pm.list_probe_methods("x")}
+    assert listed == {"containers": "Database", "foreign_keys": None}
 
 
 @pytest.mark.parametrize(
@@ -832,9 +820,11 @@ def test_a_connect_failure_is_not_reported_as_bad_input(
         if on_open
         else _provider_raising(on_call=error)
     )
-    with pytest.raises(ProbeConnectionError, match="host unreachable") as exc_info:
+    # Not a framework type, so it is named by class only (agent.error_policy):
+    # a connect failure's text is the driver's, where connection strings leak.
+    with pytest.raises(ProbeConnectionError, match="ConfigurationError") as exc_info:
         _run_with(monkeypatch, provider)
-    assert not isinstance(exc_info.value, ValueError)
+    assert "host unreachable" not in str(exc_info.value)
 
 
 def test_a_getter_defect_is_not_reported_as_bad_input(
@@ -851,7 +841,10 @@ def test_a_getter_defect_is_not_reported_as_bad_input(
 def test_a_getter_refusing_its_input_is_still_bad_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(ValueError, match="no table named"):
+    from datahub.ingestion.agent.verdicts import ProbeArgumentError
+
+    with pytest.raises(ProbeArgumentError, match="no table named"):
         _run_with(
-            monkeypatch, _provider_raising(on_call=ValueError("no table named t"))
+            monkeypatch,
+            _provider_raising(on_call=ProbeArgumentError("no table named t")),
         )

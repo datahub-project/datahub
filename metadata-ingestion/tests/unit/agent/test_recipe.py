@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List
 
 import pytest
@@ -391,3 +392,104 @@ def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch)
     assert isinstance(errors, list)
     assert any("NO_SUCH_REF" in str(e) for e in errors), errors
     assert not any("yaml" in str(e).lower() for e in errors), errors
+
+
+def _git_info(deploy_key: str) -> Dict[str, object]:
+    return {"repo": "o/r", "deploy_key": deploy_key}
+
+
+@pytest.mark.parametrize(
+    "source_type, config, path",
+    [
+        (
+            "abs",
+            {"azure_config": {"connection_string": _PLAINTEXT}},
+            "azure_config.connection_string",
+        ),
+        (
+            "excel",
+            {"azure_config": {"connection_string": _PLAINTEXT}},
+            "azure_config.connection_string",
+        ),
+        ("lookml", {"git_info": _git_info(_PLAINTEXT)}, "git_info.deploy_key"),
+        (
+            "lookml",
+            {"project_dependencies": {"dep": _git_info(_PLAINTEXT)}},
+            "project_dependencies[dep].deploy_key",
+        ),
+        ("odcs", {"git_info": _git_info(_PLAINTEXT)}, "git_info.deploy_key"),
+        ("sqlmesh", {"git_info": _git_info(_PLAINTEXT)}, "git_info.deploy_key"),
+    ],
+)
+def test_a_plaintext_secret_in_a_nested_config_block_is_reported_by_path(
+    source_type: str, config: Dict[str, object], path: str
+) -> None:
+    """SecretStr fields in nested blocks, under keys no name hint matches: the
+    redactor masks them, so the warning that asks for a ${REF} has to see them
+    too, and say where they are."""
+    _require_connector(source_type)
+    result = validate_recipe({"source": {"type": source_type, "config": config}})
+    found = _warnings_of(result)
+    assert any(path in w and "plaintext secret" in w for w in found), found
+    assert not any(_PLAINTEXT in w for w in found)
+
+
+def test_a_referenced_secret_in_a_nested_config_block_is_not_reported() -> None:
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {"git_info": _git_info("${LOOKML_DEPLOY_KEY}")},
+            }
+        }
+    )
+    assert not any("git_info.deploy_key" in w for w in _warnings_of(result))
+
+
+def test_a_plaintext_secret_under_a_renamed_field_is_reported() -> None:
+    """github_info is renamed into git_info by validation, so only the
+    validated config holds its deploy_key under a SecretStr field."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "github_info": _git_info(_PLAINTEXT),
+                    "connection_to_platform_map": {"c": "postgres"},
+                    "project_name": "p",
+                },
+            }
+        }
+    )
+    found = _warnings_of(result)
+    assert any(
+        "'git_info.deploy_key' contains a plaintext secret" in w for w in found
+    ), found
+    assert not any(_PLAINTEXT in w for w in found)
+
+
+def test_each_suggested_environment_variable_is_named_once() -> None:
+    """Two dependency keys can spell one variable name; one variable bound to
+    two different deploy keys would hand one of them the wrong key."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "project_dependencies": {
+                        "foo.bar": _git_info(_PLAINTEXT + "-one"),
+                        "foo-bar": _git_info(_PLAINTEXT + "-two"),
+                    },
+                    "connection_to_platform_map": {"c": "postgres"},
+                    "project_name": "p",
+                    "base_folder": "/tmp",
+                },
+            }
+        }
+    )
+    exports = re.findall(r"export (\w+)=", " ".join(_warnings_of(result)))
+    assert len(exports) == 2, _warnings_of(result)
+    assert len(set(exports)) == 2, exports

@@ -11,6 +11,7 @@ from pydantic import Field
 
 import datahub.ingestion.source as srcpkg
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import (
     _pattern_field_for_config_class,
     _reset_convention_warnings,
@@ -313,3 +314,29 @@ def test_an_annotated_connector_stays_silent(caplog):
 
     assert resolved == "schema_pattern"
     assert caplog.text == "", caplog.text
+
+
+def test_sql_server_declares_the_pattern_its_databases_are_filtered_by(caplog):
+    _pattern_field_for_config_class.cache_clear()
+    _reset_convention_warnings()
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        result = check_filters(
+            "mssql",
+            {
+                "host_port": "h:1433",
+                "username": "u",
+                "password": "p",
+                "database_pattern": {"deny": ["^dropped$"]},
+            },
+            str(DatasetContainerSubTypes.DATABASE),
+            [],
+            ["kept", "dropped", "master"],
+        )
+
+    assert "not by declaration" not in caplog.text, caplog.text
+    assert result.pattern_field == "database_pattern"
+    assert [(v.name, v.included, v.excluded_by) for v in result.results] == [
+        ("kept", True, None),
+        ("dropped", False, "database_pattern"),
+        ("master", False, "default_database"),
+    ]

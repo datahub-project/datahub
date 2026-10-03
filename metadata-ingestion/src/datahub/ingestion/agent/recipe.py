@@ -1,13 +1,19 @@
 import re
 from typing import Dict, List, Optional, Set
 
-from datahub.ingestion.agent.introspect import describe_source
+from datahub.ingestion.agent.config_validation import validate_source_config
+from datahub.ingestion.agent.introspect import (
+    describe_source,
+    iter_model_secret_values,
+    iter_secret_field_values,
+)
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_credential_values,
 )
 from datahub.ingestion.agent.secrets import (
+    ResolvedConfig,
     SecretResolver,
     default_resolvers,
     resolve_config_collecting,
@@ -17,29 +23,39 @@ from datahub.ingestion.source.source_registry import source_registry
 _REF = re.compile(r"\$\{[^}]+\}")
 
 
-def _secret_field_names(source_type: str) -> Set[str]:
-    spec = describe_source(source_type)
-    return {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
+def _env_name(path: str) -> str:
+    """An environment variable name for a config path (`git_info.deploy_key`
+    -> GIT_INFO_DEPLOY_KEY)."""
+    return re.sub(r"[^0-9A-Za-z]+", "_", path).strip("_").upper()
+
+
+def _unique_env_name(path: str, taken: Set[str]) -> str:
+    """_env_name(path), suffixed `_2`, `_3`, ... when an earlier path in
+    `taken` spells it too (`deps[foo.bar]` and `deps[foo-bar]`): one variable
+    bound to two secrets would hand one of them the wrong value."""
+    base = _env_name(path)
+    name, suffix = base, 1
+    while name in taken:
+        suffix += 1
+        name = f"{base}_{suffix}"
+    taken.add(name)
+    return name
+
+
+def _plaintext_warning(path: str, env: str) -> str:
+    return (
+        f"'{path}' contains a plaintext secret; the agent sees this value when "
+        f"editing the file. Recommend '{path}: ${{{env}}}' and export {env}=..."
+    )
 
 
 def scaffold(source_type: str) -> Dict[str, object]:
     """A minimal recipe for this source: its required fields, and its secrets
     as ${REF} placeholders.
 
-    Pattern fields are deliberately absent. Emitting
-    `{"allow": [".*"], "deny": []}` for each looked helpful and was the
-    opposite: it *overwrites* the connector's own deny defaults, so a
-    scaffolded recipe ingested more than the same recipe without the line.
-    Snowflake stops denying ^SNOWFLAKE$ and ^SNOWFLAKE_SAMPLE_DATA$, Kafka
-    stops denying ^_.* so __consumer_offsets becomes a dataset, Mode picks up
-    Personal spaces, Teradata picks up all 43 of its system databases. This is
-    the first command an agent runs, and it was handing back a recipe strictly
-    worse than the connector's defaults with nothing saying so.
-
-    Emitting the real default instead would freeze it: a deny list copied into
-    a recipe today does not gain the entry DataHub adds tomorrow. Omitting the
-    field is what keeps the connector's own default live, and `describe` is
-    where an agent learns which pattern fields exist and what they default to.
+    Pattern fields are absent: an allow-all would overwrite the connector's
+    own deny defaults (system schemas, internal topics), and a copied default
+    would stop tracking DataHub's. `describe` lists them and their defaults.
     """
     spec = describe_source(source_type)
     config: Dict[str, object] = {}
@@ -58,9 +74,8 @@ def validate_recipe(
 ) -> Dict[str, object]:
     """Whether this recipe would load, and what is wrong with it if not.
 
-    `resolvers` defaults to the environment chain. A caller holding secrets
-    from somewhere else -- the CLI's stdin envelope -- passes its own, so a
-    `${REF}` that resolves for `probe run` is not reported unresolvable here.
+    `resolvers` defaults to the environment chain; a caller holding secrets
+    elsewhere (the CLI's stdin envelope) passes its own.
     """
     errors: List[str] = []
     warnings: List[str] = []
@@ -72,11 +87,8 @@ def validate_recipe(
             "warnings": [],
         }
     source_type = str(source["type"])
-    # `or {}` would swallow every falsey value, so a "config: []" reached the
-    # config class as {} and failed on whatever field happened to be required
-    # -- an error naming host_port when the real problem is the config's shape.
-    # A bare "config:" is YAML null and does mean "no config", so it alone
-    # still defaults.
+    # Only YAML null ("config:") means no config; any other non-mapping is
+    # refused for its shape rather than reaching the config class as {}.
     config = source.get("config", {})
     if config is None:
         config = {}
@@ -87,58 +99,70 @@ def validate_recipe(
             "warnings": [],
         }
 
-    # Resolve source class once, up front, and degrade gracefully on failure.
     try:
         source_cls = source_registry.get(source_type)
-        # get_config_class is injected by the @config_class decorator at runtime, so it is
-        # not declared on the Source base class and mypy cannot see it statically.
+        # Injected by @config_class at runtime, out of mypy's view.
         get_config_class = getattr(source_cls, "get_config_class", None)
         if get_config_class is None:
             raise TypeError(f"Source {source_type!r} does not define a config class")
         config_cls = get_config_class()
     except Exception as exc:
-        # Catch KeyError, ConfigurationError, TypeError, and any other exception from
-        # source resolution. Degrade to invalid recipe.
+        # Any failure to resolve the source makes the recipe invalid.
         return {
             "valid": False,
             "errors": [f"unknown or unloadable source type '{source_type}': {exc}"],
             "warnings": [],
         }
 
-    # Plaintext-secret detection reuses the same field classification the
-    # introspection API exposes elsewhere (FieldKind.SECRET), so a field is
-    # flagged here exactly when describe_source would report it as secret.
+    # Every SecretStr field the recipe writes inline, at any depth, by path: the
+    # walk the redactor masks with. dict() drops a path a union read twice.
     already_named: Set[str] = set()
-    for name in _secret_field_names(source_type):
-        value = config.get(name)
-        if isinstance(value, str) and value and not _REF.search(value):
-            already_named.add(value)
-            warnings.append(
-                f"'{name}' contains a plaintext secret; the agent sees this value when "
-                f"editing the file. Recommend '{name}: ${{{name.upper()}}}' and "
-                f"export {name.upper()}=..."
-            )
+    named_paths: Set[str] = set()
+    env_names: Set[str] = set()
+    for path, value in dict(iter_secret_field_values(config_cls, config)).items():
+        if _REF.search(value):
+            continue
+        already_named.add(value)
+        named_paths.add(path)
+        warnings.append(_plaintext_warning(path, _unique_env_name(path, env_names)))
 
-    # The sweep above sees only top-level fields describe_source classifies as
-    # SECRET, so a secret in a free-form nested dict was reported as a clean
-    # recipe -- kafka's connection.consumer_config['sasl.password'] being the
-    # case that matters, and snowflake's credential.private_key the typed one.
-    # The redactor already knows those are secrets: its nested collector
-    # is what masks them on the way out. The one command whose job is to say
-    # "you have a plaintext secret in this file" was the only thing not asking.
-    #
-    # Reported without naming the value or its path: the point is that the file
-    # holds one, and echoing where would put it in the transcript this warning
-    # exists to keep it out of.
-    # collect_nested_CREDENTIAL_values, not the redactor's collector: that one
-    # matches `sasl` anywhere in a key, which is right for masking and wrong
-    # here -- it told a correct Kafka recipe that `sasl.mechanism: PLAIN` was a
-    # plaintext secret, and the only way to satisfy it was to unset a mandatory
-    # field.
+    # Validated resolved, as `datahub ingest` does: a raw `${VAR}` is a string
+    # even in a bool field. An unresolvable reference is an error by name.
+    try:
+        resolved: Optional[ResolvedConfig] = resolve_config_collecting(
+            config, default_resolvers() if resolvers is None else resolvers
+        )
+    except ValueError as exc:
+        errors.append(str(exc))
+        resolved = None
+    if resolved is not None:
+        try:
+            validated = validate_source_config(config_cls, source_type, resolved.config)
+        except (ValueError, TypeError, AssertionError) as exc:
+            errors.append(str(exc))
+        else:
+            # What only the validated config holds under a SecretStr field: a
+            # value under a key validation renamed (github_info -> git_info).
+            # A value a ${REF} supplied is not plaintext.
+            for path, value in iter_model_secret_values(validated):
+                if (
+                    value in already_named
+                    or path in named_paths
+                    or value in resolved.secret_values
+                ):
+                    continue
+                already_named.add(value)
+                named_paths.add(path)
+                warnings.append(
+                    _plaintext_warning(path, _unique_env_name(path, env_names))
+                )
+
+    # Secrets nested in free-form dicts (`consumer_config['sasl.password']`),
+    # counted without naming the value or its path, which would put it in the
+    # transcript. The detecting collector judges a dotted key on its last
+    # segment, so `sasl.mechanism` is not flagged.
     nested = collect_nested_credential_values(config, _SENSITIVE_KEY_HINTS)
-    # Minus what the named sweep above already reported. The same top-level
-    # `password` was counted twice, the second time as "nested" -- two warnings
-    # for one value, one of them pointing where the value is not.
+    # Minus values the sweeps above already reported.
     plaintext_nested = sorted(
         v for v in nested if not _REF.search(v) and v not in already_named
     )
@@ -149,28 +173,5 @@ def validate_recipe(
             f"redactor masks on the way out). Replace each with a ${{REF}} "
             f"placeholder and export it where the probe runs"
         )
-
-    # Validated against the RESOLVED config, not the raw one. `${VAR}` is a
-    # string wherever it appears, so a recipe using one for an int or bool
-    # field -- `profiling: {enabled: ${PROFILING_ENABLED}}` -- failed
-    # pydantic with "Input should be a valid boolean" and was reported
-    # invalid, while `datahub ingest` ran it happily. This command's own
-    # warning text tells the author to use ${...} references, so it was
-    # advising the thing it then rejected.
-    #
-    # An unresolvable reference is a real error and says so by name, which is
-    # a better answer than a type complaint about the literal "${VAR}".
-    try:
-        resolved = resolve_config_collecting(
-            config, default_resolvers() if resolvers is None else resolvers
-        ).config
-    except ValueError as exc:
-        errors.append(str(exc))
-        resolved = None
-    if resolved is not None:
-        try:
-            config_cls.model_validate(resolved)
-        except (ValueError, TypeError, AssertionError) as exc:
-            errors.append(str(exc))
 
     return {"valid": not errors, "errors": errors, "warnings": warnings}

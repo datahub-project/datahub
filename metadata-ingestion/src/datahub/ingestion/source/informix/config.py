@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional
 
 from pydantic import Field, SecretStr, model_validator
 
@@ -8,6 +8,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -89,6 +90,14 @@ class InformixSourceConfig(
     include_views: bool = Field(
         default=True, description="Whether views should be ingested."
     )
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        return {
+            str(DatasetSubTypes.TABLE): "include_tables",
+            str(DatasetSubTypes.VIEW): "include_views",
+        }
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default_factory=dict,
         description="Attach domains to databases, schemas or tables during ingestion "

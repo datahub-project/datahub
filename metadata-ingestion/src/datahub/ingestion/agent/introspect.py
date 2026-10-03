@@ -1,11 +1,23 @@
+import collections.abc
 import logging
 import re
 import types
 import typing
 from functools import lru_cache
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    cast,
+)
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
@@ -15,35 +27,39 @@ from datahub.configuration.common import (
     Filters,
     Qualifier,
 )
+from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.models import (
     FieldKind,
     FieldSpec,
     ProbeNodeKind,
     SourceSpec,
 )
-from datahub.ingestion.agent.probe_methods import list_probe_methods
+from datahub.ingestion.agent.probe_methods import (
+    config_hook,
+    declared_kind_overrides,
+    declared_mapping,
+    list_probe_methods,
+    source_class_for,
+)
 from datahub.ingestion.agent.verdicts import UNFILTERED
-from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
 
 def _strip_annotated(annotation: object) -> object:
-    # Pydantic v2 configs often wrap secret fields as Annotated[SecretStr, PlainSerializer(...)]
-    # for custom serialization; unwrap to the underlying type for classification.
+    # Annotated[SecretStr, PlainSerializer(...)] and the like: classify the type.
     if typing.get_origin(annotation) is typing.Annotated:
         return typing.get_args(annotation)[0]
     return annotation
 
 
 def _unwrap_optional(annotation: object) -> List[object]:
-    # Return the non-None members of an Optional/Union annotation (or [annotation] itself).
+    # The non-None members of an Optional/Union (or [annotation]). "X | None"
+    # reports types.UnionType where Optional[X] reports typing.Union. Annotated
+    # comes off the union too: pydantic lifts it off a field's own annotation
+    # but not off a container's argument (Dict[str, Annotated[Union[...]]]).
+    annotation = _strip_annotated(annotation)
     origin = typing.get_origin(annotation)
-    # "X | None" and "Optional[X]" mean the same thing and report different
-    # origins -- types.UnionType against typing.Union. Matching only the latter
-    # silently misclassifies a field written in the newer syntax: an
-    # "AllowDenyPattern | None" reads as a plain field, so pattern resolution
-    # reports no filter for that level.
     if origin is typing.Union or origin is types.UnionType:
         return [
             _strip_annotated(a)
@@ -66,35 +82,190 @@ def _kind_for(annotation: object) -> FieldKind:
 
 
 def is_pattern_field(annotation: object) -> bool:
-    """True when a config field's annotation is an AllowDenyPattern.
-
-    Shared with the probe framework's pattern resolver so both agree on what
-    counts as a filter field.
-    """
+    """True when a config field's annotation is an AllowDenyPattern."""
     return _kind_for(annotation) == FieldKind.PATTERN
 
 
-# A pattern field is conventionally named after the kind it filters:
-# Schema -> schema_pattern, Topic -> topic_patterns.
-#
-# Kept deliberately, as a net for connectors this repo cannot see. Filters(...)
-# is the mechanism now -- 30 annotations, and a contract test asserting that no
-# registered connector resolves by name alone -- so for everything in-tree this
-# is unreachable, and review reasonably asked whether it should go.
-#
-# It stays because deleting it turns a right answer into a wrong one for an
-# out-of-tree connector, which the source registry accepts via entry points and
-# the contract test cannot reach. Measured on postgres with its annotations
-# stripped: with the convention, `schema_pattern` allow ['^analytics$']
-# correctly excludes other_schema; without it, resolution returns None, the
-# pattern defaults to allow-all, and other_schema is reported INCLUDED --
-# the opposite of what ingestion does.
-#
-# The "declares no kind" warning does not cover that. It is gated on
-# `declared and kind not in declared`, and Schema IS among the kinds postgres
-# declares, so nothing fires; only `filtering: "unresolved"` marks it. So the
-# net earns its place -- but it must not be invisible, which is what
-# _warn_convention is for.
+def _model_members(annotation: object) -> List[type]:
+    """The ConfigModel types a field holds directly, Optional unwrapped, apart
+    from AllowDenyPattern (a ConfigModel that cannot hold a Filters field)."""
+    return [
+        member
+        for member in _unwrap_optional(annotation)
+        if isinstance(member, type)
+        and issubclass(member, ConfigModel)
+        and not issubclass(member, AllowDenyPattern)
+    ]
+
+
+def iter_config_fields(
+    config_cls: type,
+    _prefix: str = "",
+    _active: FrozenSet[type] = frozenset(),
+) -> Iterator[Tuple[str, FieldInfo]]:
+    """Every field on this config and its nested config blocks, as
+    (dotted path, FieldInfo). Top-level fields keep their bare names."""
+    fields = getattr(config_cls, "model_fields", None) or {}
+    # Only classes on the current descent are excluded: a self-referencing
+    # config stops, while two sibling blocks of one type are both walked.
+    active = _active | {config_cls}
+    for name, info in fields.items():
+        path = f"{_prefix}{name}"
+        yield path, info
+        for member in _model_members(info.annotation):
+            if member not in active:
+                yield from iter_config_fields(member, f"{path}.", active)
+
+
+# Far deeper than any registered config nests a secret (four levels): a bound,
+# so a config handed in holding a value that contains itself still returns.
+_MAX_SECRET_DEPTH = 16
+
+
+def _recipe_keys(name: str, info: FieldInfo) -> Set[str]:
+    """The keys a recipe can hold this field under. Validation reads the alias
+    (or each AliasChoices string) when there is one, else the name; the name is
+    read regardless, since over-collecting is the safe side for masking."""
+    alias = info.validation_alias or info.alias
+    if isinstance(alias, AliasChoices):
+        keys = {choice for choice in alias.choices if isinstance(choice, str)}
+    elif isinstance(alias, str):
+        keys = {alias}
+    else:
+        keys = set()
+    return keys | {name}
+
+
+def iter_secret_field_values(
+    config_cls: Type[BaseModel], config: Dict[str, object]
+) -> Iterator[Tuple[str, str]]:
+    """(path, value) for every non-empty string a recipe's config holds in a
+    SecretStr field, at any depth: nested config blocks, and lists, tuples, sets
+    and dicts of them. The path is dotted, under the key the recipe used, with
+    a list index or dict key in brackets (`endpoints[0].token`), as ConfigModel
+    names nested secrets. A path can repeat when a union reads it twice.
+
+    The walk follows the recipe's values, not the class's fields, so a config
+    that names itself recurses only as deep as the recipe nests it.
+    """
+    return _secrets_in_model(config_cls, config, "", 0)
+
+
+def collect_secret_field_values(
+    config_cls: Type[BaseModel], config: Dict[str, object]
+) -> Set[str]:
+    """The values iter_secret_field_values finds."""
+    return {value for _path, value in iter_secret_field_values(config_cls, config)}
+
+
+def _secrets_in_model(
+    model: Type[BaseModel], config: Dict[str, object], prefix: str, depth: int
+) -> Iterator[Tuple[str, str]]:
+    for name, info in model.model_fields.items():
+        for key in _recipe_keys(name, info):
+            if key in config:
+                yield from _secrets_in_value(
+                    info.annotation, config[key], f"{prefix}{key}", depth + 1
+                )
+
+
+def _secrets_in_value(
+    annotation: object, value: object, path: str, depth: int
+) -> Iterator[Tuple[str, str]]:
+    if depth > _MAX_SECRET_DEPTH:
+        return
+    for member in _unwrap_optional(annotation):
+        origin = typing.get_origin(member)
+        if origin is None:
+            if not isinstance(member, type):
+                continue
+            if issubclass(member, SecretStr):
+                if isinstance(value, str) and value:
+                    yield path, value
+            elif issubclass(member, BaseModel) and isinstance(value, dict):
+                yield from _secrets_in_model(member, value, f"{path}.", depth)
+            continue
+        args = [a for a in typing.get_args(member) if a is not Ellipsis]
+        if not isinstance(origin, type) or not args:
+            continue
+        if issubclass(origin, collections.abc.Mapping) and isinstance(value, dict):
+            for key, item in value.items():
+                yield from _secrets_in_value(
+                    args[-1], item, f"{path}[{key}]", depth + 1
+                )
+        elif issubclass(
+            origin, (collections.abc.Sequence, collections.abc.Set)
+        ) and isinstance(value, (list, tuple, set, frozenset)):
+            # Every item against every argument: a Tuple[A, B] is read without
+            # matching positions.
+            for index, item in enumerate(value):
+                for arg in args:
+                    yield from _secrets_in_value(
+                        arg, item, f"{path}[{index}]", depth + 1
+                    )
+
+
+def iter_model_secret_values(model: BaseModel) -> Iterator[Tuple[str, str]]:
+    """(path, value) for every non-empty SecretStr a validated config holds,
+    at any depth: nested models, and lists, tuples, sets and dicts of them.
+    Paths are named as iter_secret_field_values names them, by field name:
+    where a validator renamed a key (pydantic_renamed_field), the new name.
+
+    The validated config, unlike the recipe, holds a value under the field it
+    was renamed into, or one a validator read in (a deploy key file).
+    """
+    return _secrets_in_instance(model, "", 0, frozenset())
+
+
+def _secrets_in_instance(
+    value: object, path: str, depth: int, active: FrozenSet[int]
+) -> Iterator[Tuple[str, str]]:
+    if depth > _MAX_SECRET_DEPTH or id(value) in active:
+        return
+    if isinstance(value, SecretStr):
+        secret = value.get_secret_value()
+        if secret:
+            yield path, secret
+        return
+    children: Iterable[Tuple[str, object]]
+    if isinstance(value, BaseModel):
+        children = (
+            (f"{path}.{name}" if path else name, getattr(value, name, None))
+            for name in type(value).model_fields
+        )
+    elif isinstance(value, dict):
+        children = ((f"{path}[{key}]", item) for key, item in value.items())
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        children = ((f"{path}[{index}]", item) for index, item in enumerate(value))
+    else:
+        return
+    for child_path, child in children:
+        yield from _secrets_in_instance(
+            child, child_path, depth + 1, active | {id(value)}
+        )
+
+
+def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]:
+    """Every SecretStr value of this recipe's config: the recipe's own, by
+    collect_secret_field_values, and the config's as its source validates it,
+    when it does (iter_model_secret_values). A recipe failing validation is
+    covered by the first. Raises as describe_source does for a source type
+    that does not resolve."""
+    config_cls = _config_class(source_class_for(source_type), source_type)
+    found = collect_secret_field_values(config_cls, config)
+    try:
+        validated = validate_source_config(config_cls, source_type, config)
+    except Exception:
+        # The command validates the config again and reports what is wrong.
+        return found
+    return found | {value for _path, value in iter_model_secret_values(validated)}
+
+
+# The name convention (Schema -> schema_pattern, Topic -> topic_patterns): a
+# fallback for out-of-tree connectors, which register through entry points the
+# contract test cannot reach. In-tree connectors declare Filters(...). Without
+# the fallback such a connector's filter would read allow-all and report
+# everything included; _warn_convention keeps its use visible.
 _PATTERN_SUFFIXES = ("_pattern", "_patterns")
 
 
@@ -103,10 +274,8 @@ def _pattern_field_candidates(kind: ProbeNodeKind) -> List[str]:
     return [base + suffix for suffix in _PATTERN_SUFFIXES]
 
 
-# (config class, kind) pairs already warned about. Deduped because
-# pattern_field_for_config is deliberately not memoized and `probe filter`
-# resolves the field once per name it judges -- a warning per call is a
-# warning nobody reads.
+# (config class, kind) pairs already warned about: `probe filter` resolves the
+# field once per name it judges.
 _CONVENTION_WARNED: Set[Tuple[str, str]] = set()
 
 
@@ -116,16 +285,8 @@ def _reset_convention_warnings() -> None:
 
 
 def _warn_convention(config_cls: type, kind: ProbeNodeKind, name: str) -> None:
-    """Say out loud that a connector is leaning on the name guess.
-
-    Without this the fallback is indistinguishable from a live path at a
-    glance, which is not hypothetical: a dead `probe_schema_needs_parent`
-    reader in filter_check.py survived four commits of deliberate hook removal
-    for exactly that reason.
-    """
-    # Qualified, because two connectors can ship config classes with the same
-    # __name__ and the second one's warning would be swallowed by the first's
-    # -- silencing exactly the connector nobody has looked at yet.
+    """Warn, once per class and kind, that a field was found by the name guess."""
+    # Qualified: two connectors can ship config classes of the same __name__.
     key = (f"{config_cls.__module__}.{config_cls.__qualname__}", str(kind))
     if key in _CONVENTION_WARNED:
         return
@@ -145,17 +306,13 @@ def _warn_convention(config_cls: type, kind: ProbeNodeKind, name: str) -> None:
 
 @lru_cache(maxsize=None)
 def _hinted_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str]:
-    """The field explicitly declaring Filters(kind), or None.
-
-    Exact by construction: unlike the name convention, a hint cannot
-    accidentally match, so a wrong result here is a declaration bug and is
-    raised rather than guessed around.
-    """
+    """The field declaring Filters(kind), or None. Exact, so an ambiguous or
+    mistyped declaration is raised as the connector's bug rather than guessed."""
     wanted = str(kind)
-    fields = getattr(config_cls, "model_fields", {})
+    fields = dict(iter_config_fields(config_cls))
     matches = sorted(
-        name
-        for name, field in fields.items()
+        path
+        for path, field in fields.items()
         if any(
             isinstance(meta, Filters) and str(meta.kind) == wanted
             for meta in field.metadata
@@ -182,14 +339,11 @@ def _hinted_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str
 def _pattern_field_for_config_class(
     config_cls: type, kind: ProbeNodeKind
 ) -> Optional[str]:
-    """Find the config class's AllowDenyPattern field that filters `kind`, by
-    convention, from its declared pydantic fields.
+    """The class's AllowDenyPattern field filtering `kind`: the Filters
+    declaration, else the name convention; None when there is none.
 
-    Returns None when no such field exists, or when a same-named field is not an
-    AllowDenyPattern. This is the class-level fallback for when an instance has an
-    Optional pattern field left as None — see pattern_field_for_config for the
-    instance-aware check that runs first. Memoized: resolution is per (config
-    class, kind) and never changes at runtime.
+    The fallback for pattern_field_for_config when an instance holds an Optional
+    pattern field as None. Memoized per (class, kind).
     """
     hinted = _hinted_pattern_field(config_cls, kind)
     if hinted is not None:
@@ -201,11 +355,7 @@ def _pattern_field_for_config_class(
         if field is None or not is_pattern_field(field.annotation):
             continue
         if _is_hidden_field(config_cls, name):
-            # Same rule as the instance-level loop in pattern_field_for_config;
-            # see the comment there. Both branches need it -- the instance
-            # check only reached this field when it happened to be set, so
-            # skipping it there alone left the default path resolving the
-            # deprecated alias anyway.
+            # As in pattern_field_for_config: a hidden field is a deprecated alias.
             continue
         _warn_convention(config_cls, kind, name)
         return name
@@ -213,60 +363,29 @@ def _pattern_field_for_config_class(
 
 
 def declared_unfiltered_kinds(config: object) -> Set[str]:
-    """Levels this source says it deliberately does not filter.
+    """Levels this source says it deliberately does not filter
+    (probe_unfiltered_kinds), read by name on any config."""
+    hook = config_hook(config, "probe_unfiltered_kinds")
+    return set() if hook is None else {str(k) for k in cast(Iterable[object], hook())}
 
-    Read duck-typed rather than off SQLCommonConfig, because the sources that
-    need it are not all SQL: Mode filters spaces and reports and nothing below
-    them, and its config is not a SQLCommonConfig. Same reason
-    probe_container_kind is read this way.
-    """
-    declared = getattr(config, "probe_unfiltered_kinds", None)
-    if not callable(declared):
-        # Not declaring is the ordinary case and means exactly that.
-        return set()
-    # Deliberately unguarded. This used to be wrapped in `except Exception:
-    # return set()`, described as "a config that cannot answer is treated as
-    # not having answered" -- but those are the two states this hook exists
-    # to keep apart. Mode's probe_unfiltered_kinds docstring makes the point:
-    # declaring is how you tell "reported whole" from "the Filters annotation
-    # was dropped", which is what happened to Teradata's database_pattern and
-    # nothing noticed because the two look identical from outside.
-    #
-    # Swallowing put that back: pattern_field_for_config would fall through to
-    # the name convention and answer by_pattern, contradicting the connector,
-    # and there is no warn channel on this path to say so. A hook that raises
-    # is a connector defect, and the caller's exit-code mapping reports it.
-    return {str(kind) for kind in declared()}
+
+def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:
+    """kind -> the config field whose rules (not an AllowDenyPattern) decide it
+    (probe_rule_filtered_kinds, such as `path_specs`)."""
+    return declared_mapping(config, "probe_rule_filtered_kinds")
 
 
 def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[str]:
-    """Find the *live config object's* AllowDenyPattern field that filters `kind`.
+    """The live config's AllowDenyPattern field that filters `kind`.
 
-    Precedence, highest first: a kind the source declares unfiltered resolves
-    to UNFILTERED before anything is looked up -- saying "nothing filters this
-    level" is a statement, not a guess, and there is nothing to find. Then a
-    declared hint (Filters(kind) on a field's Annotated metadata), which wins
-    over both the instance check below and _pattern_field_for_config_class's
-    convention because it is exact by construction. Failing that, checks the
-    instance's own attributes first — what pattern_verdict() actually reads via
-    getattr(config, pattern_field) — before falling back to
-    _pattern_field_for_config_class's class-level introspection (which also
-    catches an Optional pattern field the instance happens to hold as None).
-    Deliberately not memoized: unlike _pattern_field_for_config_class's (class,
-    kind) cache, many distinct config instances (e.g. every test fixture built as
-    a plain SimpleNamespace) can share the same type, so caching by type would
-    leak one instance's resolved field onto an unrelated instance of that same
-    type.
+    Precedence: a kind declared unfiltered is UNFILTERED (a statement beats a
+    guess); then a Filters(kind) declaration; then the name convention on the
+    instance's attributes, which is what pattern_verdict reads; then the class
+    (an Optional pattern field held as None). Not memoized: distinct instances
+    (SimpleNamespace fixtures) share one type.
     """
-    # Narrowed via an annotated local: passing `type(config)` inline infers as
-    # type[Any], which mypy's lru_cache stub rejects as Hashable (a metaclass
-    # __hash__ signature mismatch) even though it is hashable at runtime.
+    # Annotated local: mypy's lru_cache stub rejects an inline type[Any].
     config_cls: type = type(config)
-    # Checked first, and deliberately: a source saying "nothing filters this
-    # level" is making a statement, where the convention below is a guess. A
-    # source that declares a kind unfiltered *and* has a field the guess would
-    # find is contradicting itself, which a contract test refuses rather than
-    # resolving silently.
     if str(kind) in declared_unfiltered_kinds(config):
         return UNFILTERED
     hinted = _hinted_pattern_field(config_cls, kind)
@@ -276,20 +395,10 @@ def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[st
         if not isinstance(getattr(config, name, None), AllowDenyPattern):
             continue
         if _is_hidden_field(config_cls, name):
-            # The convention is a guess, and a field hidden from the docs is
-            # not one a recipe is meant to set -- it is a deprecated alias
-            # kept for compatibility. Resolving to one gives a confident
-            # wrong verdict: on every two-tier source, `schema_pattern` is a
-            # HiddenFromDocs alias that pydantic_renamed_field has already
-            # emptied into `database_pattern`, so it reads allow-all. A
-            # legacy mysql recipe with schema_pattern allow ['^analytics$']
-            # had `probe filter --kind Schema` report other_db as included,
-            # filtering "by_pattern", no warning -- while ingestion, matching
-            # on database_pattern, drops it.
-            #
-            # Skipping it lets the resolution fall through to "no field for
-            # this kind", which is what makes the "declares no kind" warning
-            # fire and name the kind the source really has (Database).
+            # A field hidden from the docs is a deprecated alias, already
+            # renamed into its successor (two-tier `schema_pattern` reads
+            # allow-all). Skipping it lets the "declares no kind" warning name
+            # the kind the source really has.
             continue
         _warn_convention(config_cls, kind, name)
         return name
@@ -297,17 +406,9 @@ def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[st
 
 
 def _is_hidden_field(config_cls: type, name: str) -> bool:
-    """Whether this field is HiddenFromDocs, i.e. not one a recipe should set.
-
-    HiddenFromDocs is Annotated[..., SkipJsonSchema()], so the marker is in
-    the field's metadata rather than on FieldInfo itself.
-    """
-    # Deliberately local, and this one has a technical reason rather than a
-    # stylistic one: SkipJsonSchema is a parameterized generic alias, and
-    # imported at module scope mypy resolves it as such and rejects the
-    # isinstance below outright ('Parameterized generics cannot be used with
-    # class or instance checks'). The runtime check is the correct one --
-    # HiddenFromDocs puts a SkipJsonSchema() INSTANCE in the metadata.
+    """Whether this field is HiddenFromDocs: a SkipJsonSchema() in its metadata."""
+    # Local: at module scope mypy resolves SkipJsonSchema as a parameterized
+    # generic and rejects the isinstance check, which is right at runtime.
     from pydantic.json_schema import SkipJsonSchema
 
     fields = getattr(config_cls, "model_fields", None)
@@ -317,13 +418,8 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
 
 
 def _qualifier_fields(config: object) -> Iterator[Tuple[str, Qualifier]]:
-    """Every Qualifier-marked field on this config's class, with its marker.
-
-    One scan, because the two callers below ask different questions of the
-    same thing -- "does this connector qualify at all" and "which container
-    does this recipe name" -- and they had a copy each. A change to how the
-    marker is found must not be able to answer them differently.
-    """
+    """Every Qualifier-marked field on this config's class, with its marker; the
+    one scan both callers below share."""
     fields = getattr(type(config), "model_fields", None) or {}
     for name, info in fields.items():
         marker = next(
@@ -335,29 +431,14 @@ def _qualifier_fields(config: object) -> Iterator[Tuple[str, Qualifier]]:
 
 
 def declares_qualifier(config: object) -> bool:
-    """Whether any field carries Qualifier, whatever its current value.
-
-    Distinct from declared_qualifier(), which answers "what is the container"
-    and returns None both when no field is marked and when a marked field is
-    empty -- BigQuery naming two projects, say. The distinction matters
-    because the first is a statement about the CONNECTOR (it qualifies) and
-    the second about this RECIPE (it did not say which).
-    """
+    """Whether any field carries Qualifier, whatever its value: a statement about
+    the connector, where declared_qualifier() answers for one recipe."""
     return any(True for _ in _qualifier_fields(config))
 
 
 def declared_qualifier(config: object) -> Tuple[Optional[str], bool]:
-    """The container a Qualifier-marked field names, and whether it wins.
-
-    Read off the field rather than from a method the connector declares:
-    Filters() already establishes that idiom, and a method saying "my
-    container is self.project_ids" restates the field's own name in a worse
-    place. Returns (value, authoritative); a list field qualifies only when
-    it pins exactly one value, since several have no single answer to give
-    without guessing.
-
-    The FIRST marked field decides, which is what the shared scan preserves.
-    """
+    """(container, authoritative) from the first Qualifier-marked field. A list
+    field names a container only when it pins exactly one value."""
     for name, marker in _qualifier_fields(config):
         value = getattr(config, name, None)
         if isinstance(value, str) and value:
@@ -387,61 +468,38 @@ def _declared_filter_kind(field_info: FieldInfo) -> Optional[str]:
 
 
 def declared_kinds_for_class(source_type: str, config_cls: type) -> Set[str]:
-    """The kinds this source names, as far as is knowable without a connection.
-
-    probe_container_kind is a classmethod, so `containers` can be resolved from
-    the class -- which is what lets `describe` answer the same question
-    `probe filter` answers against a live config.
+    """The kinds this source names, as far as is knowable without a connection:
+    its probe methods' kinds and the kinds its config declares for them
+    (probe_kind_overrides), so `describe` answers what `probe filter` does.
     """
     try:
         kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
     except Exception:
         # A source whose provider will not import still gets described.
         kinds = set()
-    container_kind = getattr(config_cls, "probe_container_kind", None)
-    if callable(container_kind):
-        try:
-            kinds.add(str(container_kind()))
-        except Exception:
-            pass
-    return kinds
+    return kinds | set(declared_kind_overrides(config_cls).values())
 
 
 def _filter_kinds_by_field(source_type: str, config_cls: type) -> Dict[str, str]:
-    """field name -> the kind it filters, resolved as `probe filter` resolves it.
+    """field name -> the kind it filters, resolved as `probe filter` resolves
+    it, so `describe` and `probe filter` agree.
 
-    Reading only the explicit annotation was strictness in one direction of a
-    two-way mapping, which is not strictness but disagreement:
-    pattern_field_for_config goes kind -> field through the annotation *and then
-    the name convention*, so `describe` reported `filters: null` for a field that
-    `probe filter` was actively filtering on. Teradata is the live case -- it
-    redeclares database_pattern, pydantic v2 drops the inherited Filters
-    metadata, and the two commands then contradict each other about the same
-    field, with no way from outside to tell which is lying.
-
-    The convention is inverted only across kinds this source actually declares,
-    which is what makes it safe: `procedure_pattern` and `profile_pattern` are
-    real filters that gate no hierarchy level, and a blind inversion of the name
-    convention would report them as levels. No declared kind, no inversion.
-
-    A kind the source declares UNFILTERED is skipped for the same
-    agree-with-the-other-command reason. pattern_field_for_config gives that
-    declaration top precedence and answers UNFILTERED without looking
-    anything up, so a connector that declares a kind unfiltered while keeping
-    a same-named compatibility field would otherwise have `describe`
-    advertise the field and `probe filter` answer UNFILTERED -- the same
-    contradiction, one door along.
+    Only kinds the source declares are inverted: `procedure_pattern` filters no
+    hierarchy level. Kinds declared unfiltered or rule-filtered are skipped, as
+    `probe filter` reads no pattern for them.
     """
     unfiltered = declared_unfiltered_kinds(config_cls)
+    rule_kinds = declared_rule_filtered_kinds(config_cls)
     resolved: Dict[str, str] = {}
     for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
-        if str(kind) in unfiltered:
+        if str(kind) in unfiltered or str(kind) in rule_kinds:
             continue
         field = _pattern_field_for_config_class(config_cls, kind)
-        # First kind wins, and sorted() makes that deterministic rather than
-        # dependent on set iteration order.
+        # First kind wins; sorted() makes it deterministic.
         if field is not None and field not in resolved:
             resolved[field] = kind
+    for kind, field in sorted(rule_kinds.items()):
+        resolved.setdefault(field, kind)
     return resolved
 
 
@@ -467,20 +525,31 @@ def _classify(
     )
 
 
-def describe_source(source_type: str) -> SourceSpec:
-    # source_registry.get raises KeyError/ConfigurationError on miss (never returns None).
-    source_cls = source_registry.get(source_type)
-    # get_config_class is injected by the @config_class decorator at runtime, so it is
-    # not declared on the Source base class and mypy cannot see it statically.
+def _config_class(source_cls: type, source_type: str) -> Type[ConfigModel]:
+    # Injected by @config_class at runtime, out of mypy's view.
     get_config_class = getattr(source_cls, "get_config_class", None)
     if get_config_class is None:
         raise TypeError(f"Source {source_type!r} does not define a config class")
-    config_cls = get_config_class()
+    return get_config_class()
+
+
+def describe_source(source_type: str) -> SourceSpec:
+    # A source type that does not resolve is a ValueError; never returns None.
+    source_cls = source_class_for(source_type)
+    config_cls = _config_class(source_cls, source_type)
     filter_kinds = _filter_kinds_by_field(source_type, config_cls)
     fields = [
         _classify(name, info, filter_kinds)
         for name, info in config_cls.model_fields.items()
     ]
+    # A declared pattern in a nested block is described under its dotted path,
+    # as `probe filter` reports it. Declared ones only, and scaffold() skips
+    # PATTERN fields, so a dotted name never becomes a recipe key.
+    fields.extend(
+        _classify(path, info, filter_kinds)
+        for path, info in iter_config_fields(config_cls)
+        if "." in path and _declared_filter_kind(info) is not None
+    )
     capabilities: List[Dict[str, object]] = []
     get_caps = getattr(source_cls, "get_capabilities", None)
     if callable(get_caps):

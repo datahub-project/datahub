@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Dict, Optional
+from typing import Dict, Mapping, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -11,6 +11,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.cube.constants import (
     DEFAULT_REQUEST_TIMEOUT_SEC,
     MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD,
@@ -124,6 +125,17 @@ class CubeSourceConfig(
             "instead of a view dataset."
         ),
     )
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        # A view is emitted with subtype Semantic Model, and view_pattern
+        # resolves to kind View, so include_views switches off both kinds.
+        return {
+            str(DatasetSubTypes.VIEW): "include_views",
+            str(DatasetSubTypes.SEMANTIC_MODEL): "include_views",
+            str(DatasetSubTypes.CUBE): "include_cubes",
+        }
+
     include_reports: bool = Field(
         default=True,
         description=(

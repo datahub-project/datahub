@@ -1,13 +1,11 @@
-from typing import Dict
-
 import pytest
 
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_credential_values,
     collect_nested_secret_values,
-    collect_secret_values,
     redact,
+    scrub_text,
 )
 
 
@@ -24,12 +22,6 @@ def test_redacts_exact_and_embedded_values():
     out_list = out["list"]
     assert isinstance(out_list, list)
     assert out_list[1] == "safe"
-
-
-def test_collect_secret_values_only_from_secret_fields():
-    resolved: Dict[str, object] = {"password": "s3cr3t", "host_port": "db:3306"}
-    values = collect_secret_values(resolved, {"password"})
-    assert values == {"s3cr3t"}
 
 
 def test_empty_secrets_is_noop():
@@ -309,7 +301,15 @@ def test_a_credential_named_api_key_is_collected_as_a_secret():
     hint the typed registry does not cover them either."""
     from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
 
-    for key in ("api_key", "apikey", "passwd", "aws_access_key_id", "kafka_api_key"):
+    for key in (
+        "api_key",
+        "apikey",
+        "passwd",
+        "aws_access_key_id",
+        "kafka_api_key",
+        "passphrase",
+        "ssh_passphrase",
+    ):
         found = collect_nested_secret_values({key: "the-value"}, SENSITIVE_KEY_HINTS)
         assert found == {"the-value"}, f"{key} was not collected"
 
@@ -333,3 +333,354 @@ def _fresh_registry():
 
     SecretRegistry.reset_instance()
     return SecretRegistry.get_instance()
+
+
+@pytest.mark.parametrize(
+    "text, secret",
+    [
+        ("GET http://admin:PLANTED-pw@connect.example:8083/connectors", "PLANTED-pw"),
+        ("jdbc:mysql://db:3306?user=u&password=PLANTED-pw", "PLANTED-pw"),
+        ("https://acct.blob.core.windows.net/c?sv=1&sig=PLANTEDsig%3D", "PLANTEDsig"),
+        ("Authorization: Bearer PLANTED.jwt.value", "PLANTED.jwt.value"),
+        ("aws_access_key_id=AKIAPLANTED000000000 rejected", "AKIAPLANTED000000000"),
+        ("connection failed: secret: 'PLANTED-quoted'", "PLANTED-quoted"),
+    ],
+)
+def test_scrub_text_strips_secrets_with_no_registered_values(
+    text: str, secret: str
+) -> None:
+    out = scrub_text(text, set())
+    assert secret not in out
+    assert "***" in out
+
+
+def test_scrub_text_keeps_identifiers_that_mention_secret_words() -> None:
+    text = "table token_usage in schema password_resets has 3 columns"
+    assert scrub_text(text, set()) == text
+
+
+def test_scrub_text_keeps_the_host_after_removing_userinfo() -> None:
+    out = scrub_text("http://u:p4ssw0rd@connect.example:8083/x", set())
+    assert out == "http://***@connect.example:8083/x"
+
+
+def test_scrub_text_still_masks_registered_values() -> None:
+    assert scrub_text("driver said hunter2-long", {"hunter2-long"}) == "driver said ***"
+
+
+def test_hyphenated_and_dotted_keys_are_treated_as_secrets() -> None:
+    config = {
+        "catalog": {
+            "s3.access-key-id": "AKIAPLANTED000000000",
+            "adls.account-key": "PLANTED-account-key",
+            "credential": "client:PLANTED-cred",
+        },
+        "client_id": "PLANTED-client-id",
+    }
+    found = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    assert {
+        "AKIAPLANTED000000000",
+        "PLANTED-account-key",
+        "client:PLANTED-cred",
+        "PLANTED-client-id",
+    } <= found
+
+
+def test_a_dotted_hint_matches_its_key_in_a_free_form_client_config() -> None:
+    # Schema Registry and librdkafka spell their keys with dots, and the
+    # userinfo has no shape scrub_text would catch: only its key marks it.
+    config = {
+        "connection": {
+            "schema_registry_config": {
+                "basic.auth.user.info": "PLANTED-user:PLANTED-pw",
+                "url": "http://registry:8081",
+            },
+            "consumer_config": {"ssl.key.pem": "PLANTED-pem-body", "group.id": "g1"},
+        }
+    }
+    found = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    assert found == {"PLANTED-user:PLANTED-pw", "PLANTED-pem-body"}
+
+
+def test_credential_mapping_does_not_mask_sibling_identifiers() -> None:
+    cfg = {"credential": {"project_id": "proj", "private_key": "PLANTED-key"}}
+    found = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "PLANTED-key" in found
+    assert "proj" not in found
+
+
+@pytest.mark.parametrize(
+    "secret, tail",
+    [
+        ("p@ssw0rd-long", "ssw0rd-long"),
+        ("hunter two-long", "two-long"),
+        ("abc&def-long-secret", "def-long-secret"),
+        ("ab;cd-long-secret", "cd-long-secret"),
+    ],
+)
+def test_a_registered_secret_is_removed_whole_before_structural_passes(
+    secret: str, tail: str
+) -> None:
+    for text in (
+        f"http://admin:{secret}@db:5432/x",
+        f"password={secret} rejected",
+        f"token={secret}",
+        f"pwd={secret}",
+    ):
+        out = scrub_text(text, {secret})
+        assert tail not in out, (text, out)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "client_secret=PLANTEDvalue",
+        "auth_token=PLANTEDvalue",
+        "access_token=PLANTEDvalue",
+        "refresh_token=PLANTEDvalue",
+        "session_token=PLANTEDvalue",
+        "private_key=PLANTEDvalue",
+        "aws_secret_access_key=PLANTEDvalue",
+        "aws_access_key_id=PLANTEDvalue",
+        "secretKey=PLANTEDvalue",
+        "clientSecret: PLANTEDvalue",
+        '{"pass' + 'word": "PLANTEDvalue"}',
+        "{'pass" + "word': 'PLANTEDvalue'}",
+        "Authorization: Basic UExBTlRFRHZhbHVl",
+        "SharedAccessSignature=PLANTEDvalue",
+        "token%3DPLANTEDvalue",
+        'secret="PLANTED\\"value"',
+        "x\n-----BEGIN RSA PRIVATE"
+        + " KEY-----\nPLANTEDvalue\n-----END RSA PRIVATE KEY-----\ny",
+        "-----BEGIN PRIVATE" + " KEY-----\nPLANTEDvalue",
+        # A key as JSON or a log line escapes its newlines.
+        'material="-----BEGIN PRIVATE'
+        + ' KEY-----\\nPLANTEDvalue\\nPLANTEDmore\\n-----END PRIVATE KEY-----"',
+        "passphrase=PLANTEDvalue",
+        "private_key_passphrase: PLANTEDvalue",
+    ],
+)
+def test_scrub_text_covers_more_credential_shapes(text: str) -> None:
+    out = scrub_text(text, set())
+    # UExBTlRFRHZhbHVl is base64 of the planted value in the Basic header case.
+    assert "PLANTED" not in out and "UExBTlRFRHZhbHVl" not in out
+    assert "***" in out
+
+
+def test_scrub_text_masks_userinfo_up_to_the_last_at_sign() -> None:
+    assert scrub_text("http://u:p@ss@h/x", set()) == "http://***@h/x"
+
+
+@pytest.mark.parametrize(
+    "text, masked",
+    [
+        ("postgresql://svc:pa/ss@db.example/x", "postgresql://***@db.example/x"),
+        # Built from parts so a secret scanner does not read the fixture as a
+        # real connection string.
+        ("postgresql://svc:" + "p@a/ss@db.example/x", "postgresql://***@db.example/x"),
+        # The scan stops at the next URL, so its own userinfo is still found.
+        ("http://a:1/x,http://u:pa/ss@h/y", "http://a:1/x,http://***@h/y"),
+    ],
+)
+def test_scrub_text_masks_a_password_holding_a_slash(text: str, masked: str) -> None:
+    assert scrub_text(text, set()) == masked
+
+
+@pytest.mark.parametrize(
+    "text, masked",
+    [
+        # Built from parts so a secret scanner does not read the fixtures as
+        # real connection strings.
+        (
+            '{"url":"postgresql://svc:' + 'pw@db.example/x","owner":"ann@example.com"}',
+            '{"url":"postgresql://***@db.example/x","owner":"ann@example.com"}',
+        ),
+        ("'mysql://u:" + "p/q@h/db'", "'mysql://***@h/db'"),
+        ("`mysql://u:" + "p/q@h/db`", "`mysql://***@h/db`"),
+    ],
+)
+def test_scrub_text_keeps_a_url_password_match_inside_its_quotes(
+    text: str, masked: str
+) -> None:
+    assert scrub_text(text, set()) == masked
+
+
+def test_scrub_text_still_masks_a_password_holding_a_quote() -> None:
+    text = "postgresql://svc:" + 'pa"ss@db.example/x'
+    assert scrub_text(text, set()) == "postgresql://***@db.example/x"
+
+
+def test_scrub_text_over_masks_a_path_at_sign_after_a_port() -> None:
+    # `host:8080` reads as `user:password` once a password may hold `/`, so an
+    # `@` later in the path ends a userinfo. Over-masking is the safe side.
+    assert scrub_text("http://host:8080/u/x@y", set()) == "http://***@y"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "https://host/path",
+        "https://host:8080/path",
+        "https://host/u/x@y",
+        "https://host:8080/a:b/c",
+    ],
+)
+def test_scrub_text_keeps_a_url_without_userinfo(text: str) -> None:
+    assert scrub_text(text, set()) == text
+
+
+# Assembled, not written: a PEM header is a high-confidence signature for the
+# repo's secret scanner, which cannot tell a fixture from a leak.
+_LEGACY_BEGIN = "-----BEGIN RSA PRIVATE" + " KEY-----"
+_LEGACY_END = "-----END RSA PRIVATE" + " KEY-----"
+_LEGACY_ENCRYPTED_KEY_LINES = [
+    _LEGACY_BEGIN,
+    "Proc-Type: 4,ENCRYPTED",
+    "DEK-Info: AES-128-CBC,00112233445566778899AABBCCDDEEFF",
+    "",
+    "PLANTEDbody0123456789abcdefghijklmnopqrstuvwxyz+/ABCDEFGHIJKLMNOPQR",
+    "PLANTEDmore==",
+    _LEGACY_END,
+]
+
+
+def test_scrub_text_masks_a_legacy_encrypted_pem_body() -> None:
+    text = "key:\n" + "\n".join(_LEGACY_ENCRYPTED_KEY_LINES) + "\nnext line"
+    assert scrub_text(text, set()) == "key:\n***\nnext line"
+
+
+def test_scrub_text_masks_a_legacy_encrypted_pem_with_escaped_newlines() -> None:
+    # A key inside JSON or a log line reads `\n` for each newline.
+    text = 'material="' + "\\n".join(_LEGACY_ENCRYPTED_KEY_LINES) + '"'
+    assert scrub_text(text, set()) == 'material="***"'
+
+
+def test_scrub_text_masks_a_truncated_legacy_encrypted_pem() -> None:
+    text = "\n".join(_LEGACY_ENCRYPTED_KEY_LINES[:5])
+    assert scrub_text(text, set()) == "***"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Invalid password: authentication failed for user x",
+        "access_key: field required",
+        "Bearer token required",
+        "token: expired",
+    ],
+)
+def test_scrub_text_keeps_diagnostic_words_after_a_secret_keyword(text: str) -> None:
+    assert scrub_text(text, set()) == text
+
+
+def test_scrub_text_stays_linear_on_long_input() -> None:
+    import time
+
+    start = time.time()
+    for text in (
+        "a.a." * 50000,
+        "password" * 12500,
+        "x://" * 25000,
+        "http://u:p/" * 10000,
+        'x://u:"' * 15000,
+        "pwd={" * 20000,
+        "PWD={" + "a" * 100000,
+        "eyJaaaaa." * 11000,
+        "Authorization: Token " * 5000,
+        "basic " * 17000,
+        "input_value=" * 8000,
+        "-----BEGIN PRIVATE KEY-----" + "\\n" * 50000,
+        "-----BEGIN PRIVATE KEY-----" + "\nA:" * 33000,
+    ):
+        scrub_text(text, set())
+    # Generous on purpose: this catches catastrophic (quadratic or worse)
+    # backtracking on 100k-character inputs, not a slow CI machine.
+    assert time.time() - start < 10
+
+
+def test_credential_mapping_keys_with_other_suffixes_are_not_secrets() -> None:
+    cfg = {
+        "credential_source": "file",
+        "credentials_path": "/etc/key.json",
+        "credential_id": "abc",
+        "credential": "client:PLANTED",
+    }
+    assert collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS) == {"client:PLANTED"}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "DRIVER={ODBC Driver 18};SERVER=h;PWD={a;PLANTEDvalue};UID=u",
+        # Built from parts so a secret scanner does not read this file's
+        # fixtures as real credentials.
+        "token was " + "eyJ" + "hbGciOiJIUzI1NiJ9." + "eyJ" + "zdWIiOiJQTEFOVEVEIn0."
+        "PLANTEDsignature1",
+        "auth with ghp_PLANTEDvalue0123456789abcdef",
+        "posting with xoxb-1234-PLANTEDvalue-abc",
+        "Authorization: Token PLANTEDvalue",
+        "authorization=token PLANTEDvalue",
+        "Authorization: Basic dXNlcjpQTEFOVEVE",
+    ],
+)
+def test_scrub_text_masks_vendor_token_shapes(text: str) -> None:
+    out = scrub_text(text, set())
+    assert "PLANTED" not in out
+    assert "dXNlcjpQTEFOVEVE" not in out
+    assert "***" in out
+
+
+@pytest.mark.parametrize(
+    "text, masked",
+    [
+        # Lowercase-only base64 has none of the characters the bare `Basic`
+        # rule needs to tell a token from prose; the header settles it.
+        ("Authorization: Basic ajphamdh", "Authorization: Basic ***"),
+        ("authorization=basic ajphamdh", "authorization=basic ***"),
+    ],
+)
+def test_the_word_after_an_explicit_basic_header_is_masked(
+    text: str, masked: str
+) -> None:
+    assert scrub_text(text, set()) == masked
+
+
+def test_a_fine_grained_github_token_is_masked_whole() -> None:
+    # Built from parts so a secret scanner does not read the fixture as a
+    # token. The underscore inside the body is part of the format.
+    token = "github" + "_pat_" + "11PLANTED0123456789ab_" + "Zq9" * 19
+    assert scrub_text(f"clone failed with {token}", set()) == "clone failed with ***"
+
+
+def test_an_odbc_braced_value_is_masked_without_swallowing_its_neighbours() -> None:
+    out = scrub_text("SERVER=h;PWD={a;PLANTEDvalue};UID=u", set())
+    assert out == "SERVER=h;PWD=***;UID=u"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "basic connectivity failed for source x",
+        "Basic configuration is missing",
+        "Authorization: Token required",
+    ],
+)
+def test_scrub_text_keeps_prose_after_scheme_words(text: str) -> None:
+    assert scrub_text(text, set()) == text
+
+
+def test_scrub_strings_walks_json_shapes() -> None:
+    from datahub.ingestion.agent.redact import scrub_strings
+
+    payload = {
+        "a": ["client_secret=PLANTEDvalue", 3, None],
+        "b": {"c": "http://u:" + "PLANTEDvalue@h/x"},
+        "d": True,
+    }
+    out = scrub_strings(payload, set())
+    assert "PLANTED" not in str(out)
+    assert out == {
+        "a": ["client_secret=***", 3, None],
+        "b": {"c": "http://***@h/x"},
+        "d": True,
+    }

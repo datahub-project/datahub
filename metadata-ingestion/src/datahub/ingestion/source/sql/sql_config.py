@@ -1,23 +1,37 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Callable, Dict, FrozenSet, Optional, Sequence
+from dataclasses import dataclass, field, replace
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Mapping,
+    Optional,
+    Sequence,
+)
 
 import pydantic
 from pydantic import Field, model_validator
 from typing_extensions import Annotated
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.sql_gate import CatalogScope
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
-    SchemaMatch,
+    Verdict,
+    VerdictContext,
     ancestors_in,
+    parent_required,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -38,6 +52,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -75,14 +94,213 @@ class SQLFilterConfig(ConfigModel):
         return values
 
 
-# A `_NO_PARENT_WARNING` template lived here, shared by the
-# probe_filter_target overrides that each warned about an unnamed container --
-# "one string, because three near-identical ones is how they drift". It is
-# gone because the drift is now prevented a better way: no override emits that
-# warning any more, filter_check does, once, at the point that discovers the
-# container is missing. A single emitter cannot disagree with itself, and the
-# template had already fallen out of use while two variants grew in
-# filter_check -- an anti-drift device that had itself drifted.
+_NEEDS_PARENT_WARNING = (
+    "this source matches containers on a qualified name and could not tell "
+    "which one you mean, so these were judged on their bare names and will "
+    "mostly read as excluded; pass --parent to get the verdict ingestion "
+    "actually makes"
+)
+
+
+def _in_defaults(config: ConfigModel, hook: str, name: str) -> bool:
+    # Read by name: default_databases is declared only by sources that drop
+    # databases, and callers outside SQLCommonConfig pass their own configs.
+    defaults = getattr(config, hook, None)
+    return callable(defaults) and name.lower() in {d.lower() for d in defaults()}
+
+
+def _qualifying_container(
+    config: ConfigModel, parent_path: Sequence[str]
+) -> Optional[str]:
+    """The container a schema name is qualified with, or None.
+
+    A Qualifier(authoritative=True) field wins (the recipe reads that one
+    container whatever --parent says); then the caller's --parent, since a
+    recipe may span several; then a Qualifier field pinning a single one.
+    """
+    # lazy: agent.introspect is only needed once a probe runs
+    from datahub.ingestion.agent.introspect import declared_qualifier
+
+    declared, authoritative = declared_qualifier(config)
+    if authoritative and declared:
+        return declared
+    if parent_path:
+        return parent_path[-1]
+    return declared
+
+
+_NO_CONTAINER_WARNING = (
+    "no parent container given, so these were judged on "
+    "'schema.entity'; this source matches a fully qualified name, so "
+    "pass the containing database/project to get the verdict "
+    "ingestion actually makes"
+)
+
+
+def qualified_table_target(
+    container: Optional[str], schema: str, entity: str, warn: Callable[[str], None]
+) -> Optional[str]:
+    """`container.schema.entity`: what a source whose tables live under a
+    database or project matches table_pattern and view_pattern against.
+
+    None after warning when the container is unknown, leaving the shim to
+    judge `schema.entity`: an invented container would judge another
+    database's object. The warning names no object, so it shows once.
+    """
+    if container:
+        return f"{container}.{schema}.{entity}"
+    warn(_NO_CONTAINER_WARNING)
+    return None
+
+
+def _qualified_schema_verdict(
+    config: ConfigModel, ctx: VerdictContext
+) -> Optional[Verdict]:
+    """The verdict on `container.schema`, which is what ingestion matches
+    schema_pattern against once match_fully_qualified_names is on."""
+    if not getattr(config, "match_fully_qualified_names", False):
+        return None
+    container = _qualifying_container(config, ctx.parent_path)
+    if container is None:
+        # The bare name is judged against a pattern written for qualified
+        # names. Names no object, so it shows once.
+        ctx.warn(_NEEDS_PARENT_WARNING)
+        return None
+    if ctx.pattern_field is None:
+        return None
+    pattern = pattern_at(config, ctx.pattern_field)
+    if pattern is None:
+        return None
+    included = is_schema_allowed(pattern, ctx.name, container, True)
+    return Verdict(
+        included=included,
+        excluded_by=None if included else ctx.pattern_field,
+        matched_target=f"{container}.{ctx.name}",
+    )
+
+
+def sql_structural_verdict(
+    config: ConfigModel, ctx: VerdictContext
+) -> Optional[Verdict]:
+    """The SQL family's verdicts that no single allow/deny pattern states.
+
+    A database in default_databases() or a schema in default_schemas() is
+    dropped whatever the pattern says: ingestion never lists those system
+    catalogs. A schema on a source with match_fully_qualified_names on is
+    judged as `container.schema`, and the verdict reports that string as its
+    target. None leaves the pattern to decide.
+
+    SQLCommonConfig's probe_verdict_override; a config with rules of its own
+    returns this for the names those rules leave alone. A kind-switch
+    exclusion already in ctx.structural stands, so this returns None for it.
+    """
+    if ctx.structural is not None:
+        return None
+    if ctx.kind == DatasetContainerSubTypes.DATABASE:
+        if _in_defaults(config, "default_databases", ctx.name):
+            return Verdict(False, "default_database")
+        return None
+    if ctx.kind != DatasetContainerSubTypes.SCHEMA:
+        return None
+    if _in_defaults(config, "default_schemas", ctx.name):
+        return Verdict(False, "default_schema")
+    return _qualified_schema_verdict(config, ctx)
+
+
+@dataclass(frozen=True)
+class ProbeEngineSettings:
+    """What the probe adds to the engine it builds from a recipe.
+
+    Declared by SQLCommonConfig.probe_engine_settings: by default the URL's
+    wire protocol's (protocol_probe_settings), plus a connector's own engine
+    setup. A connect_arg the driver rejects stops the connection opening at
+    all.
+    """
+
+    # Merged over the recipe's connect_args key by key; a setting that defers
+    # to or extends the recipe's is composed by the config.
+    connect_args: Mapping[str, Any] = field(default_factory=dict)
+    # Run on the built engine, before the Inspector exists, for what
+    # connect_args cannot carry: a statement on each new connection, a
+    # credential listener, a replaced dialect.
+    prepare: Optional[Callable[["Engine"], None]] = None
+    # Whether these bound every probe statement by the budget's timeout. When
+    # False the probe reports no time ceiling rather than an unenforced one.
+    timeout_applies: bool = False
+
+    def followed_by(self, step: Callable[["Engine"], None]) -> "ProbeEngineSettings":
+        """These settings with `step` run on the engine after their own
+        prepare: how a connector adds its setup to its protocol's."""
+        first = self.prepare
+        if first is None:
+            return replace(self, prepare=step)
+
+        def prepare(engine: "Engine") -> None:
+            first(engine)
+            step(engine)
+
+        return replace(self, prepare=prepare)
+
+
+def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
+    """The connect_args the recipe passes create_engine, as ingestion does."""
+    return config.options.get("connect_args") or {}
+
+
+def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, str]:
+    """`{kwarg: PROBE_QUERY_LABEL}`, so probe traffic is told apart from
+    ingestion's in the server's own logs, or nothing when the recipe already
+    names its connection through `kwarg`, in connect_args or in the URL's
+    query: that name is the recipe's choice, and a connect_arg would replace
+    the URL's."""
+    if kwarg in recipe_connect_args(config):
+        return {}
+    # lazy: protocol_probe_settings imports this module
+    from datahub.ingestion.source.sql.protocol_probe_settings import probe_url_query
+
+    if kwarg in probe_url_query(config):
+        return {}
+    # lazy: ingestion importing this module does not need the probe framework
+    from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
+
+    return {kwarg: PROBE_QUERY_LABEL}
+
+
+# On the MySQL protocol, information_schema.processlist and innodb_trx hold
+# other sessions' SQL text. The SQL family withholds them from every scope:
+# SQLCommonConfig.probe_catalog_scope by default, and
+# SqlAlchemyMetadataProbe.for_config from a config's own, since a config's URL
+# can name a MySQL-protocol server whatever its type. Where the relations do
+# not exist, withholding them changes nothing.
+MYSQL_SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
+
+
+# The hooks source/sql/ reads off a SQLCommonConfig, beyond the framework's
+# own (probe_methods.CONFIG_HOOKS): the guide's SQL-family table, which
+# test_probe_contract checks against this list. Only a SQLCommonConfig
+# subclass may declare one.
+SQL_FAMILY_HOOKS: FrozenSet[str] = frozenset(
+    {
+        # sql_probe._identifier_target: the identifier for a source whose
+        # identifier the get_identifier shim cannot build.
+        "probe_filter_target",
+        # sqlalchemy_probe._container_normalizer: how a listed container is
+        # spelled for ingestion.
+        "probe_normalize_container",
+        # sqlalchemy_probe.for_config: the statement ceiling, client label and
+        # engine setup, the sqlglot dialect `probe sql` parses as, the URL
+        # the probe dials when it differs from get_sql_alchemy_url(), and
+        # what `probe sql` may read (CatalogScope, set as the provider's
+        # catalog_scope for the gate).
+        "probe_engine_settings",
+        "probe_sqlglot_dialect",
+        "probe_sql_alchemy_url",
+        "probe_catalog_scope",
+        # SQLCommonConfig: whether `containers` lists schemas or databases,
+        # which its probe_kind_overrides and ancestor chain follow.
+        "probe_container_kind",
+    }
+)
 
 
 class SQLCommonConfig(
@@ -161,27 +379,53 @@ class SQLCommonConfig(
     def get_sql_alchemy_url(self):
         pass
 
-    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
-    # Generic SQL sources are a 2-level namespace (schema -> table -> column).
-    # Database-aware sources (Snowflake, BigQuery) override these.
-    # Schemas the source drops regardless of schema_pattern (system catalogs like
-    # information_schema / pg_catalog). Empty by default; subclasses override to
-    # reuse their own list — see RedshiftConfig.default_schemas().
+    # --- Probe hooks: see docs/dev_guides/probe_interface.md ---
+    # Schemas the source drops whatever schema_pattern says (system catalogs).
+    # A subclass returns ingestion's own list.
     @classmethod
     def default_schemas(cls) -> FrozenSet[str]:
         return frozenset()
 
-    def probe_match_target(self, ctx: ClassifyContext) -> str:
-        """The exact string ingestion filters this node's pattern against.
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """The identifier ingestion matches a table or view against, or None
+        to judge the bare name.
 
-        Routes to sql_probe's get_identifier shim, so the connection-free
-        `probe filter` path and the hierarchy walk resolve the identifier the
-        same single way. Distinct from probe_filter_target below, which is the
-        per-connector *override* that shim consults first.
+        From the connector's own get_identifier through sql_probe's shim,
+        which consults probe_filter_target first. Containers and top-level
+        kinds keep the bare name (a qualified schema is
+        probe_verdict_override's, which reports its own target).
         """
+        if ctx.kind in (
+            DatasetContainerSubTypes.SCHEMA,
+            DatasetContainerSubTypes.DATABASE,
+        ):
+            return None
+        if self.probe_ancestor_kinds(kind=ctx.kind) == ():
+            return None
+        # Without the container the shim builds ".orders", which ingestion
+        # never matches.
+        if parent_required(ctx):
+            return None
+        # lazy: sql_probe imports sql_common, which imports this module
         from datahub.ingestion.source.sql.sql_probe import _identifier_target
 
-        return _identifier_target(ctx)
+        target = _identifier_target(ctx)
+        if not isinstance(target, str) or not target:
+            # Names no object, so it shows once.
+            ctx.warn(
+                "the connector's identifier resolver returned nothing usable, so "
+                "these were judged on their bare names; the verdict may not be "
+                "the one ingestion makes"
+            )
+            return None
+        if target.startswith(".") or ".." in target:
+            # A component is missing; per object, so it names the identifier.
+            ctx.warn(
+                f"could not build a complete identifier for '{ctx.name}' (got "
+                f"'{target}'); judged on its bare name instead"
+            )
+            return None
+        return target
 
     def probe_filter_target(
         self,
@@ -190,73 +434,51 @@ class SQLCommonConfig(
         warn: Callable[[str], None],
         database: Optional[str] = None,
     ) -> Optional[str]:
-        """Override point for a connector whose real Source doesn't extend
-        SQLAlchemySource, so sql_probe.py's generic get_identifier shim (see
-        sql_probe._identifier_target) has no get_identifier to call for it.
-        Return the exact string ingestion filters table_pattern/view_pattern
-        against, or None (the default) to let that shim keep resolving it.
-        Checked before the shim on every SQL Table-level node.
-        UnityCatalogSourceConfig is the only override left: where the container
-        is pinned by a config field, Qualifier states that declaratively and
-        the shim resolves the rest, which is how Redshift, Snowflake and
-        BigQuery stopped needing one.
+        """The exact string ingestion filters table_pattern/view_pattern
+        against, for a connector whose identifier the get_identifier shim
+        cannot build: its Source is not a SQLAlchemySource, or its
+        get_identifier reads state ingestion sets while it walks. None (the
+        default) lets the shim resolve it.
 
-        `database` is the container above the schema when the caller supplied
-        one -- parent_path[0] on a source whose hierarchy has a level above
-        the schema. Redshift and Unity Catalog take theirs from config
-        instead and ignore this; Snowflake and BigQuery cannot, because one
-        recipe spans several databases/projects and only the caller knows
-        which one the node came from.
-
-        `warn` reports a degrade -- an override that cannot return its exact
-        ingestion identifier and is falling back to something less precise
-        (see UnityCatalogSourceConfig's override, the only one that calls it
-        today) -- onto the same ProbeMethodResult.warnings list ProbeSoftError
-        feeds. It dedupes by message, so a connector-wide reason called once
-        per node classified in a level is only recorded once per probe call.
-        """
-        return None
-
-    def probe_schema_verdict_override(
-        self, schema: str, parent_path: Sequence[str] = ()
-    ) -> Optional["SchemaMatch"]:
-        """Override point for a connector whose schema-level container
-        classification isn't just "does schema_pattern allow the bare
-        `schema` name" -- e.g. Redshift's match_fully_qualified_names flag
-        makes ingestion check `database.schema` instead once enabled (see
-        is_schema_allowed, datahub.configuration.pattern_utils). Return None
-        (the default) to keep sql_probe.py's generic bare-name check; a
-        SchemaMatch reports both the verdict and the string it matched, so the
-        result can say what actually decided rather than the bare name.
-        Checked before the generic check on every SQL Schema-level node, so a
-        connector that declares one is not second-guessed by the shared
-        match_fully_qualified_names convention. No connector overrides it
-        today -- the hook stays because that convention is a convention, not a
-        guarantee.
+        `database` is the container above the schema when the caller gave
+        one; always passed by keyword. Where only the caller knows the
+        container, return qualified_table_target(database, ...). `warn`
+        reports a less precise fallback, deduplicated by message.
         """
         return None
 
     @classmethod
-    def probe_container_kind(cls) -> str:
-        """What `containers` returns on this source: Schema, or Database.
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        """Tables and views are emitted only while these are on. The other
+        include_* flags decide what is emitted about an object, not whether.
+        A subclass adds its own to super().probe_kind_switches()."""
+        return {
+            str(DatasetSubTypes.TABLE): "include_tables",
+            str(DatasetSubTypes.VIEW): "include_views",
+        }
 
-        The same Inspector call (get_schema_names) means different things per tier --
-        three-tier sources return schemas filtered by schema_pattern, two-tier ones
-        return databases filtered by database_pattern, where schema_pattern is
-        deprecated. One provider class serves both, so the class cannot say which;
-        the recipe's config can.
-        """
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """See sql_structural_verdict, which an override of this one calls
+        for the names its own rules leave alone."""
+        return sql_structural_verdict(self, ctx)
+
+    @classmethod
+    def probe_kind_overrides(cls) -> Mapping[str, str]:
+        """`containers` lists schemas or databases, by tier: see
+        probe_container_kind. A subclass adding a kind of its own adds it to
+        super().probe_kind_overrides()."""
+        return {"containers": str(cls.probe_container_kind())}
+
+    @classmethod
+    def probe_container_kind(cls) -> str:
+        """What `containers` (get_schema_names) returns on this source: Schema
+        on three-tier sources, Database on two-tier ones. Read by
+        probe_kind_overrides and probe_ancestor_kinds, so they agree."""
         return DatasetContainerSubTypes.SCHEMA
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
-        """The container kinds above `kind`, outermost first.
-
-        `probe filter` judges the --parent containers with these, because
-        ingestion never reaches a table whose schema or database its patterns
-        exclude -- judging the table's own pattern alone reported it included.
-        A three-tier source nests schemas in databases; a two-tier one has
-        databases only (see probe_container_kind).
-        """
+        """The container kinds above `kind`, outermost first: Database then
+        Schema on a three-tier source, Database alone on a two-tier one."""
         chain = (
             (DatasetContainerSubTypes.DATABASE, DatasetContainerSubTypes.SCHEMA)
             if self.probe_container_kind() == DatasetContainerSubTypes.SCHEMA
@@ -266,49 +488,44 @@ class SQLCommonConfig(
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
-        """What `probe sql` may read on this dialect.
+        """What `probe sql` may read on this dialect: information_schema only
+        by default. A dialect whose catalog lives elsewhere overrides it,
+        naming relations rather than whole schemas (see CatalogScope).
 
-        The default is `information_schema` and nothing else, which is correct for
-        the standard dialects and safe for the rest. A dialect whose catalog lives
-        elsewhere overrides this -- Oracle and Teradata have no information_schema
-        at all, so without an override their `sql` command can answer nothing.
-
-        Name relations rather than whole schemas for a vendor catalog: see
-        CatalogScope's docstring for why that is not merely stylistic.
-
-        Overridden by a provider that sets `catalog_scope` on itself, which is
-        what a bespoke per-connector provider does: Snowflake and BigQuery each
-        build their own client rather than going through the shared
-        SqlAlchemyMetadataProbe, so there is no generic adapter that needs to
-        read the value back off a config. The shared adapter serves ~15
-        dialects and therefore must, which is why the method exists here at all.
-
-        For Snowflake there is a second reason: SnowflakeSummaryConfig is not a
-        SQLCommonConfig, so it could not carry this method even if it wanted to.
-        That does not apply to BigQuery -- BigQueryV2Config is a SQLCommonConfig
-        -- and an earlier version of this comment wrongly gave it as the reason
-        for both.
-
-        Declaring it in both places means this one is dead; a contract test
-        refuses that rather than leaving it to be discovered.
+        Read only by SqlAlchemyMetadataProbe.for_config, as the provider's
+        `catalog_scope`. A connector with a provider of its own declares
+        `catalog_scope` on that class instead.
         """
-        return CatalogScope()
+        return CatalogScope(excluded_relations=MYSQL_SESSION_TEXT_RELATIONS)
 
-    def probe_prepare_engine(self, engine: Any) -> None:
-        """Apply connection-time setup that a bare create_engine() would miss.
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        """The statement ceiling, client label and engine setup of the
+        probe's engine.
 
-        The probe builds its own engine rather than constructing the connector's
-        Source, which fires ingestion telemetry and wants a PipelineContext. That
-        keeps the probe cheap and side-effect free, at the cost of skipping
-        whatever the Source does to its engine after building it -- and some
-        connectors do a lot. Athena replaces the dialect outright, because
-        PyAthena's own omits ICEBERG from get_table_names and mis-parses complex
-        column types.
-
-        A no-op by default, because most dialects need nothing. Override it where
-        the connector's own engine is not a plain one, and keep it to setup that
-        is safe without a report or a running pipeline.
+        By default the settings of the wire protocol the probe URL names
+        (protocol_probe_settings.probe_settings_for_url), so a config whose
+        sqlalchemy_uri names another protocol's dialect gets that one's. The
+        probe builds its own engine rather than the connector's Source, so
+        whatever the Source does to its engine (replacing the dialect, say)
+        is skipped unless added here: return
+        super().probe_engine_settings(budget).followed_by(step), keeping to
+        setup that is safe without a report or a running pipeline.
         """
+        # lazy: protocol_probe_settings imports this module for
+        # ProbeEngineSettings
+        from datahub.ingestion.source.sql.protocol_probe_settings import (
+            probe_settings_for_url,
+        )
+
+        return probe_settings_for_url(self, budget)
+
+    @classmethod
+    def probe_sqlglot_dialect(cls) -> Optional[str]:
+        """The sqlglot dialect `probe sql` parses this source's queries as,
+        or None (the default) for the engine dialect's own name, mapped where
+        SQLAlchemy and sqlglot spell it differently (sqlalchemy_probe). A
+        dialect that table does not name and sqlglot spells differently
+        declares it here; otherwise `sql` refuses every query."""
         return None
 
     @classmethod

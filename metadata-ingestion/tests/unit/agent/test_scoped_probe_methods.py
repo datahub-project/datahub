@@ -25,6 +25,7 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.sql_gate import SqlScopeError
 from datahub.ingestion.agent.sql_passthrough import sql_result
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
@@ -115,7 +116,7 @@ def test_a_provider_without_a_dialect_cannot_run_sql():
     # Falling back to a default dialect would parse against the wrong grammar and
     # clear references it had misread, so this refuses instead.
     provider = DialectlessProvider()
-    with pytest.raises(ValueError, match="no sql_dialect"):
+    with pytest.raises(ProbeInternalError, match="no sql_dialect"):
         _enforce_gates(_spec(provider, "sql"), provider, {"query": "SELECT 1"})
 
 
@@ -138,9 +139,8 @@ def test_a_provider_with_no_allowlist_at_all_is_a_provider_bug():
     # blame the caller ("not in this connector's allowlist") for a connector that
     # never listed anything, sending them to rewrite a path that cannot work.
     provider = AllowlistlessProvider()
-    with pytest.raises(ValueError, match="no api_allowlist") as caught:
+    with pytest.raises(ProbeInternalError, match="no api_allowlist"):
         _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
-    assert not isinstance(caught.value, ApiScopeError)
 
 
 def test_a_row_limit_beyond_the_maximum_is_clamped_before_the_fetch():
@@ -205,10 +205,9 @@ def test_a_listing_is_asked_for_one_past_its_limit():
 
 
 def test_an_omitted_row_limit_uses_the_getters_own_declared_default():
-    """It used to be left out entirely, which meant the framework did not know
-    the limit and so could not tell a truncated listing from a complete one --
-    and calling with no --limit is the common case. The default is read off the
-    signature rather than guessed, so it is still the getter's own number."""
+    """Without a --limit, the common case, the framework still needs the
+    limit to tell a truncated listing from a complete one. It is read off the
+    signature rather than guessed, so it is the getter's own number."""
     bounded = _bounded_kwargs(_spec(FakeListingProvider(), "containers"), {})
     assert bounded["limit"] == 201  # the getter's own 200, plus the probe row
 

@@ -34,6 +34,8 @@ from sqlalchemy.types import UserDefinedType
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+
 from typing_extensions import Annotated
 
 from datahub.configuration.common import AllowDenyPattern, Filters
@@ -69,7 +71,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    ProbeEngineSettings,
+)
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -312,19 +317,21 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
             "(https://truststore.pki.rds.amazonaws.com/)"
         )
 
-    def probe_prepare_engine(self, engine: Any) -> None:
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        settings = super().probe_engine_settings(budget)
         # Without this, an AWS_IAM recipe cannot be probed at all: the password
         # is a token injected per connection, so a bare create_engine() has no
         # credential to connect with.
-        self.install_rds_iam_auth(engine)
+        if self.rds_iam_enabled():
+            return settings.followed_by(self.install_rds_iam_auth)
+        return settings
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
-        # pg_catalog is named relation by relation, NOT allowed at schema level.
-        # It was a schema-level allow with three exclusions, and the comment
-        # beside it conceded the risk in as many words -- "the exclusions have to
-        # be complete, and nothing tells you when they are not". They were not,
-        # and the gap was worse than query text:
+        # pg_catalog is named relation by relation, NOT allowed at schema level:
+        # a schema-level allow needs a complete list of exclusions, nothing
+        # tells you when it is not, and what it would admit is worse than
+        # query text:
         #
         #   pg_stats, pg_statistic  -- most_common_vals and histogram_bounds are
         #     literal sampled values out of user columns. Not a WHERE-clause

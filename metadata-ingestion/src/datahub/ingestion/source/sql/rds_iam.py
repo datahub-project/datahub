@@ -26,11 +26,10 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
 
     It lives on the config rather than the Source because *both* ingestion and
     `datahub recipe probe` build such engines, and the config is the only object
-    both of them hold. While this setup lived on the Source, the probe could not
-    reach it at all: `probe_prepare_engine` is a config method, so an AWS_IAM
-    recipe either failed to connect or would have needed the probe to rebuild
-    the token manager itself -- a second implementation of a credential path,
-    which is precisely the drift the hook exists to prevent.
+    both of them hold: the probe's engine setup (`probe_engine_settings`) is a
+    config method, so a listener on the Source would leave an AWS_IAM recipe
+    unable to connect, or the probe rebuilding the token manager itself -- a
+    second implementation of a credential path.
 
     The token manager is cached rather than rebuilt per engine: it holds the
     current token and its expiry, so a fresh instance per engine would go back
