@@ -55,9 +55,13 @@ def _generate_assertion_std_parameters(
     max_value: Optional[Param] = None,
 ) -> AssertionStdParametersClass:
     return AssertionStdParametersClass(
-        value=_generate_assertion_std_parameter(value) if value else None,
-        minValue=_generate_assertion_std_parameter(min_value) if min_value else None,
-        maxValue=_generate_assertion_std_parameter(max_value) if max_value else None,
+        value=_generate_assertion_std_parameter(value) if value is not None else None,
+        minValue=_generate_assertion_std_parameter(min_value)
+        if min_value is not None
+        else None,
+        maxValue=_generate_assertion_std_parameter(max_value)
+        if max_value is not None
+        else None,
     )
 
 
