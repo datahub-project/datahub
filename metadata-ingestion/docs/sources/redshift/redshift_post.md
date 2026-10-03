@@ -112,7 +112,7 @@ extract_ownership: true
 
 This extracts owners for tables, views, and schemas from the Redshift catalog and emits them as `TECHNICAL_OWNER` in DataHub. If `email_domain` is configured, owner usernames are suffixed with `@{email_domain}` to produce consistent URNs with usage statistics. **Note:** ownership is applied in overwrite mode — any manually-set owners in DataHub will be replaced on each ingestion run.
 
-#### Probing a recipe
+#### Probe support
 
 `datahub recipe probe` checks a recipe against the cluster without running ingestion. For Redshift
 it offers `containers` (schemas), `tables`, `views`, `columns`, `view_definition` and `sql` (a
