@@ -147,17 +147,17 @@ class TestDirectEntityProcessingRelationships(unittest.TestCase):
     def test_build_relationship_mcps(self):
         """Test building relationship MCPs directly."""
         # Extract relationships independently using RelationshipExtractor
-        relationship_extractor = self.registry.get_extractor("relationship")
-        assert relationship_extractor is not None  # Type narrowing for mypy
-        relationship_converter = self.registry.get_converter("relationship")
-        assert relationship_converter is not None  # Type narrowing for mypy
+        from datahub.ingestion.source.rdf.ontology.resolver import resolve_ontology
 
-        rdf_relationships = relationship_extractor.extract_all(self.graph)
-        datahub_relationships = relationship_converter.convert_all(rdf_relationships)
+        relationship_extractor = self.registry.get_extractor("relationship")
+        assert relationship_extractor is not None
+        native, _, _ = relationship_extractor.extract_and_route(
+            self.graph, resolve_ontology("default")
+        )
 
         mcp_builder = self.registry.get_mcp_builder("relationship")
-        assert mcp_builder is not None  # Type narrowing for mypy
-        rel_mcps = mcp_builder.build_all_mcps(datahub_relationships)
+        assert mcp_builder is not None
+        rel_mcps = mcp_builder.build_all_mcps(native)
 
         # Should have 2 isRelatedTerms MCPs (one for each child inheriting from parent)
         self.assertEqual(len(rel_mcps), 2)
@@ -170,13 +170,13 @@ class TestDirectEntityProcessingRelationships(unittest.TestCase):
         datahub_terms = term_extractor.extract_all(self.graph)
 
         # Extract relationships independently
-        relationship_extractor = self.registry.get_extractor("relationship")
-        assert relationship_extractor is not None  # Type narrowing for mypy
-        relationship_converter = self.registry.get_converter("relationship")
-        assert relationship_converter is not None  # Type narrowing for mypy
+        from datahub.ingestion.source.rdf.ontology.resolver import resolve_ontology
 
-        rdf_relationships = relationship_extractor.extract_all(self.graph)
-        datahub_relationships = relationship_converter.convert_all(rdf_relationships)
+        relationship_extractor = self.registry.get_extractor("relationship")
+        assert relationship_extractor is not None
+        native, _, _ = relationship_extractor.extract_and_route(
+            self.graph, resolve_ontology("default")
+        )
 
         term_mcp_builder = self.registry.get_mcp_builder("glossary_term")
         assert term_mcp_builder is not None  # Type narrowing for mypy
@@ -184,7 +184,7 @@ class TestDirectEntityProcessingRelationships(unittest.TestCase):
 
         relationship_mcp_builder = self.registry.get_mcp_builder("relationship")
         assert relationship_mcp_builder is not None  # Type narrowing for mypy
-        rel_mcps = relationship_mcp_builder.build_all_mcps(datahub_relationships)
+        rel_mcps = relationship_mcp_builder.build_all_mcps(native)
 
         # Should have 3 term MCPs + 2 relationship MCPs (isRelatedTerms only)
         total_mcps = term_mcps + rel_mcps
