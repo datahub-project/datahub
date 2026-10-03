@@ -500,8 +500,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         ),
     )
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Connectors sit under a destination: both readers drop every
         connector on a destination destination_patterns denies, before
         connector_patterns is consulted."""

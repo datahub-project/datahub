@@ -13,7 +13,11 @@ import requests
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.source.fivetran.config import FivetranSourceConfig
 from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
 from datahub.ingestion.source.fivetran.fivetran_probe import FivetranMetadataProbe
@@ -560,3 +564,25 @@ def test_a_failing_log_warehouse_open_names_the_class_not_the_text() -> None:
         probe.connectors()
     assert _PLANTED not in str(raised.value)
     assert "ValueError" in str(raised.value)
+
+
+def test_a_connector_the_caller_misnamed_is_refused_with_its_name(
+    engine: MagicMock,
+) -> None:
+    # Through the framework: only a ProbeArgumentError's text reaches the
+    # caller, so this is what tells them which argument to fix.
+    with pytest.raises(ProbeArgumentError, match="nope"):
+        run_probe_method(
+            "fivetran", db_recipe(), "connector_tables", {"connector": "nope"}
+        )
+
+
+def test_a_destination_the_caller_named_that_is_gone_is_bad_input() -> None:
+    routes = {"/groups/dest_x/connections": _response(status=404)}
+    with (
+        _rest_api(routes),
+        pytest.raises(ProbeArgumentError, match="dest_x"),
+    ):
+        run_probe_method(
+            "fivetran", {"api_config": _API}, "connectors", {"destination": "dest_x"}
+        )

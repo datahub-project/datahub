@@ -7,11 +7,12 @@ import requests
 import sqlalchemy.exc
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, soft_listing
 from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
     ProbeConnectionError,
     ProbeReadFailed,
     ProbeSoftError,
-    soft_on_status,
 )
 from datahub.ingestion.source.fivetran.config import (
     FIVETRAN_CONNECTOR_KIND,
@@ -27,7 +28,10 @@ from datahub.ingestion.source.fivetran.fivetran_log_rest_reader import (
     FivetranLogRestReader,
 )
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
-from datahub.ingestion.source.fivetran.response_models import FivetranListedConnection
+from datahub.ingestion.source.fivetran.response_models import (
+    FivetranConnectionSchemas,
+    FivetranListedConnection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +74,7 @@ def _connector_from_listed(listed: FivetranListedConnection) -> Connector:
     )
 
 
-class FivetranMetadataProbe:
+class FivetranMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over the backend this recipe's ingestion reads.
 
     Which backend that is follows the resolved `log_source`, exactly as
@@ -83,8 +87,6 @@ class FivetranMetadataProbe:
     get_allowed_connectors_list applies both patterns itself, so delegating to
     it would make a denied connector vanish instead of being reported.
     """
-
-    warnings: List[str]
 
     def __init__(
         self, config: FivetranSourceConfig, api_client: Optional[FivetranAPIClient]
@@ -100,7 +102,6 @@ class FivetranMetadataProbe:
         # Groups whose connections could not be listed, so a lookup that
         # misses can say the connector may be on one of them.
         self._unlisted_groups: List[str] = []
-        self.warnings = []
 
     @classmethod
     def for_config(cls, config: FivetranSourceConfig) -> "FivetranMetadataProbe":
@@ -113,14 +114,12 @@ class FivetranMetadataProbe:
         )
         return cls(config, api_client)
 
-    def __enter__(self) -> "FivetranMetadataProbe":
-        return self
-
     def __exit__(self, *exc: object) -> None:
         if self._api_client is not None:
             self._api_client._session.close()
         if self._db_reader is not None:
             self._db_reader.engine.dispose()
+        super().__exit__(*exc)
 
     @property
     def probe_report(self) -> FivetranSourceReport:
@@ -132,10 +131,6 @@ class FivetranMetadataProbe:
     @property
     def _uses_rest(self) -> bool:
         return self._config.log_source == "rest_api"
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     def _db(self) -> FivetranLogDbReader:
         if self._db_reader is None:
@@ -220,13 +215,21 @@ class FivetranMetadataProbe:
             ) from None
 
     def _group_connections(self, group_id: str) -> List[FivetranListedConnection]:
-        with soft_on_status(
-            404, context=f"connections listing for destination '{group_id}'"
+        """One destination's connections. A 404 (the destination is gone) is
+        raised as a ProbeSoftError naming it, because the caller decides
+        what that means: a skipped group in a walk over all of them, a wrong
+        id when the caller named this one."""
+        reasons: List[str] = []
+        with soft_listing(
+            reasons.append,
+            404,
+            context=f"connections listing for destination '{group_id}'",
         ):
             return self._rest(
                 f"listing connections of destination '{group_id}'",
                 lambda: list(self._api().list_connections(group_id)),
             )
+        raise ProbeSoftError(reasons[0])
 
     def _rest_connectors(
         self, destination: Optional[str], stop_after: Optional[int]
@@ -246,7 +249,7 @@ class FivetranMetadataProbe:
                 listed = self._group_connections(group_id)
             except ProbeSoftError as exc:
                 if destination is not None:
-                    raise ValueError(
+                    raise ProbeArgumentError(
                         f"no Fivetran destination with id '{destination}'; list "
                         f"them with `probe run destinations`"
                     ) from exc
@@ -294,7 +297,7 @@ class FivetranMetadataProbe:
             c for c in listed if c.connector_name == connector
         ]
         if not matches and self._unlisted_groups:
-            # Not ValueError (exit 2): the name may be right and on a
+            # Not ProbeArgumentError (exit 2): the name may be right and on a
             # destination this key could not read.
             raise ProbeReadFailed(
                 f"no connector with id or name '{connector}' on the destinations "
@@ -302,13 +305,13 @@ class FivetranMetadataProbe:
                 f"({', '.join(self._unlisted_groups)})"
             )
         if not matches:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"no connector with id or name '{connector}'; list them with "
                 f"`probe run connectors`"
             )
         if len(matches) > 1:
             ids = ", ".join(sorted(c.connector_id for c in matches))
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"'{connector}' names {len(matches)} connectors ({ids}); pass "
                 f"the connector_id instead"
             )
@@ -349,16 +352,7 @@ class FivetranMetadataProbe:
             if from_log:
                 return from_log, "log_database"
         try:
-            with soft_on_status(
-                404, context=f"schemas for connector '{target.connector_id}'"
-            ):
-                schemas = self._rest(
-                    f"reading schemas of connector '{target.connector_id}'",
-                    lambda: self._api().get_connection_schemas(target.connector_id),
-                )
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
-            return [], "rest_schemas"
+            schemas = self._connection_schemas(target.connector_id)
         except (ProbeReadFailed, requests.RequestException) as exc:
             # The failures FivetranLogRestReader._fetch_lineage recovers from
             # (_RECOVERABLE_REST_ERRORS; ValueError arrives as ProbeReadFailed):
@@ -369,12 +363,28 @@ class FivetranMetadataProbe:
                 f"ingestion emits it without table or column lineage"
             )
             return [], "rest_schemas"
+        if schemas is None:
+            return [], "rest_schemas"
         return (
             self._rest_reader()._extract_lineage_from_schemas(
                 schemas, target.connector_id
             ),
             "rest_schemas",
         )
+
+    def _connection_schemas(
+        self, connector_id: str
+    ) -> Optional[FivetranConnectionSchemas]:
+        """A connector's schema config, or None with a warning when the
+        endpoint answers 404."""
+        with soft_listing(
+            self._warn, 404, context=f"schemas for connector '{connector_id}'"
+        ):
+            return self._rest(
+                f"reading schemas of connector '{connector_id}'",
+                lambda: self._api().get_connection_schemas(connector_id),
+            )
+        return None
 
     def _connector_record(self, connector: Connector) -> Dict[str, object]:
         return {
