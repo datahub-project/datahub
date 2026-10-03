@@ -28,6 +28,8 @@ class ConnectorConfigKeys:
     CONNECTION_URL: Final[str] = "connection.url"
     TABLE_INCLUDE_LIST: Final[str] = "table.include.list"
     TABLE_WHITELIST: Final[str] = "table.whitelist"
+    TABLE_EXCLUDE_LIST: Final[str] = "table.exclude.list"
+    TABLE_BLACKLIST: Final[str] = "table.blacklist"
     QUERY: Final[str] = "query"
     MODE: Final[str] = "mode"
 
@@ -67,6 +69,12 @@ class ConnectorConfigKeys:
     S3_PROXY_PASSWORD: Final[str] = "s3.proxy.password"
 
     # MongoDB configuration
+    # Debezium's MongoDB connector captures collections rather than tables, so it names
+    # its capture lists collection.include.list / collection.exclude.list. Values are
+    # fully-qualified "database.collection" Java regex patterns.
+    # https://debezium.io/documentation/reference/connectors/mongodb.html#mongodb-property-collection-include-list
+    COLLECTION_INCLUDE_LIST: Final[str] = "collection.include.list"
+    COLLECTION_EXCLUDE_LIST: Final[str] = "collection.exclude.list"
 
     # ClickHouse configuration
     CLICKHOUSE_HOSTNAME: Final[str] = "hostname"
