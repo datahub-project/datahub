@@ -778,10 +778,9 @@ def test_no_connector_leans_on_the_name_convention():
     because inverting the convention across undeclared ones would report
     `procedure_pattern` and `profile_pattern` as hierarchy levels. So a source
     with a pattern field for a level it does not declare is outside this
-    assertion -- `mssql` and `hive-metastore` both have an unannotated
-    `database_pattern` and declare no Database kind, and `probe filter --kind
-    Database` resolves it by name on both. That is what introspect's
-    _warn_convention exists to surface at runtime, since no test here can.
+    assertion: `probe filter --kind` on that level resolves the field by name.
+    That is what introspect's _warn_convention exists to surface at runtime,
+    since no test here can.
     """
     leaning = {}
     checked = 0
