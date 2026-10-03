@@ -19,6 +19,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import ItemNotFoundError
 from datahub.metadata import schema_classes as models
 from datahub.sdk import Document
 from datahub_agent_context.context import get_datahub_client
@@ -254,6 +255,9 @@ def _is_document_in_shared_folder(document_urn: str) -> Tuple[bool, Optional[str
             "Only documents in this folder can be updated."
         )
 
+    except ItemNotFoundError:
+        logger.debug(f"Document {document_urn} does not exist, allowing creation")
+        return True, None
     except Exception as e:
         logger.error(f"Failed to validate document hierarchy: {e}", exc_info=True)
         # Fail closed - if we can't validate, don't allow the update
