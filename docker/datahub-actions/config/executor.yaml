@@ -20,7 +20,6 @@ source:
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
-      pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
     enable_mcl_pre_deserialization_filter: true
 filters:
   - type: event_type
