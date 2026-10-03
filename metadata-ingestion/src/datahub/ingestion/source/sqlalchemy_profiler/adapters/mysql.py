@@ -1,7 +1,7 @@
 """MySQL-specific profiling adapter."""
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
@@ -64,6 +64,14 @@ class MySQLAdapter(PlatformAdapter):
     # =========================================================================
     # Row Count Estimation
     # =========================================================================
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[Tuple[str, str]]:
+        # max_execution_time is in milliseconds and caps read-only SELECTs,
+        # which is all profiling issues.
+        return (
+            f"SET SESSION max_execution_time = {seconds * 1000}",
+            "SET SESSION max_execution_time = DEFAULT",
+        )
 
     def supports_row_count_estimation(self) -> bool:
         """

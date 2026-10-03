@@ -76,6 +76,26 @@ Only single-aggregate-over-a-whole-table queries are flattened. Anything the pro
 
 `max_distinct_per_statement` (default 5) caps how many `COUNT(DISTINCT)` columns share one statement. The default is a starting point rather than a measured optimum.
 
+`max_queries_to_combine` (default 40) caps how many queries share one statement at all, so a table wider than that takes one statement, and one scan, per group of 40 columns. Raising it cuts scans further on wide tables; the trade is that a statement which fails is retried one query at a time, so a bigger batch means a bigger retry.
+
+### Skipping the exact row count
+
+An exact `COUNT(*)` costs a full scan of its own on a large table. `profiling.profile_table_row_count_estimate_only` reads the row count from the catalog instead — `information_schema.tables.table_rows` on MySQL, `pg_class.reltuples` on Postgres — which costs nothing. The count becomes an estimate, which for profiling is usually close enough.
+
+### Bounding how long one statement runs
+
+Combining and flattening reduce how many statements run, but not how long one of them takes, and a single aggregate over a very large table holds a read view for its whole duration — growing the InnoDB undo log on MySQL, blocking `VACUUM` on Postgres.
+
+`profiling.query_timeout_seconds` puts a server-side limit on each profiling statement (`max_execution_time` on MySQL, `statement_timeout` on Postgres). A statement that exceeds it fails, and that table is reported and left unprofiled rather than holding the read view open. The limit is set on the profiling connection and cleared when the table is done, so it never leaks to the connection pool that metadata extraction shares.
+
+Size it with the retry in mind. A failed statement is retried one query at a time, so the limit bounds a single statement, not a whole table — a table slow enough that many of its queries time out can spend several multiples of it. The row count runs first and is treated as a gate: if it fails or times out, the table's remaining queries are abandoned rather than retried one by one, so the common "this table is too slow or not readable" case costs about one limit rather than one per column. The `queries_skipped_after_gate` counter reports how many were abandoned this way.
+
+### Transactions
+
+`profiling.profiling_isolation_level: AUTOCOMMIT` makes each profiling statement self-contained, so no transaction spans a whole table's profile. Set this rather than `options.connect_args.autocommit` — the latter is a driver-level default that the connection pool resets, while `profiling_isolation_level` is applied to each profiling connection as it is checked out. Setting both is harmless but redundant.
+
+Reading a database audit log afterwards, expect to see the pool's cleanup, not the setup: SQLAlchemy restores a connection's default isolation level when it returns to the pool, which on MySQL emits `SET AUTOCOMMIT = 0` followed by `SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ`. Those appear _after_ a table's profiling queries, not around them. The matching `SET AUTOCOMMIT = 1` is often absent because drivers skip it when the connection is already in autocommit.
+
 #### Reading the report
 
 Flattening trades round trips for scans, so `combined_queries_issued` can rise while scans fall — read it together with `scans_avoided` rather than treating the rise as a regression.
@@ -89,6 +109,7 @@ Flattening trades round trips for scans, so `combined_queries_issued` can rise w
 | `flat_group_failures`         | flat statements that failed and fell back                                                          |
 | `flat_group_cte_recoveries`   | of those, how many the CTE path recovered in one round trip                                        |
 | `flat_group_serial_fallbacks` | of those, how many ended up one query per round trip                                               |
+| `queries_skipped_after_gate`  | queries never issued because the table's row count failed on its own, so it could not be read      |
 
 If `scans_avoided` is low, those last four say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
 

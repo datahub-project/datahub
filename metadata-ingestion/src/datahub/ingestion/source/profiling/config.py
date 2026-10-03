@@ -199,6 +199,18 @@ class ProfilingConfig(ProfilingBaseConfig):
         description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
+    # Duplicated from MAX_QUERIES_TO_COMBINE_AT_ONCE for the same reason as
+    # max_distinct_per_statement below.
+    max_queries_to_combine: pydantic.PositiveInt = Field(
+        default=40,
+        description="Only used when `query_combiner_enabled` is on. Maximum number of "
+        "profiling queries merged into one statement. A wide table needs one statement "
+        "per group of this many columns, so raising it cuts scans; but a statement that "
+        "fails is retried one query at a time, so a larger value also widens what a "
+        "single failure has to re-run. Note the retry is not itself capped by this "
+        "value: every query queued for the table that has not run yet is retried.",
+    )
+
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
     # because kafka / cassandra / excel configs import this module without
     # sqlalchemy. A drift test keeps the two in lockstep.
@@ -239,6 +251,26 @@ class ProfilingConfig(ProfilingBaseConfig):
             "InnoDB, REPEATABLE_READ keeps a consistent snapshot; on Postgres, "
             "READ COMMITTED already takes a fresh snapshot per statement, so "
             "AUTOCOMMIT loses no consistency there."
+        ),
+    )
+
+    query_timeout_seconds: Annotated[
+        Optional[pydantic.PositiveInt], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Server-side time limit for each profiling statement, in seconds. "
+            "Defaults to unset, so a statement runs as long as it takes. A single "
+            "aggregate over a very large table holds a read view for its whole "
+            "duration, growing the InnoDB undo log on MySQL and blocking VACUUM on "
+            "Postgres, which a limit here bounds. A statement that exceeds it fails, "
+            "and that table is reported and left unprofiled. The limit is set on the "
+            "profiling connection and cleared again when the table is done. This "
+            "bounds a single statement, not a whole table: a failed statement is "
+            "retried one query at a time, so a table slow enough that many of its "
+            "queries time out can spend several multiples of this limit. The row "
+            "count is tried first, so a table that is slow or unreadable outright "
+            "gives up after it rather than retrying every column."
         ),
     )
 

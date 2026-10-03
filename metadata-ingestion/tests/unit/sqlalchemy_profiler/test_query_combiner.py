@@ -26,6 +26,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     _ResultProxyFake,
     _RowProxyFake,
     flattenable_query,
+    gate_query,
     get_query_columns,
     is_single_row_query,
     single_row_query,
@@ -119,6 +120,7 @@ def _schedule(
     multiparams: Any = (),
     combinable: bool = True,
     flattenable: bool = True,
+    gate: bool = False,
 ) -> _Capture:
     """Schedule a query on the combiner.
 
@@ -131,6 +133,8 @@ def _schedule(
         query = single_row_query(query)
         if flattenable:
             query = flattenable_query(query)
+    if gate:
+        query = gate_query(query)
 
     def execute() -> None:
         try:
@@ -142,6 +146,63 @@ def _schedule(
 
     qc.run(execute)
     return cap
+
+
+class TestGateQueries:
+    """A table that cannot be read must not cost one failure per column."""
+
+    def test_failed_gate_abandons_the_rest(self, engine, test_table):
+        bad = sa.select(sa.func.count(sa.column("nope")).label("c")).select_from(
+            test_table
+        )
+        others = [
+            sa.select(sa.func.count(sa.column("nope")).label(f"c{i}")).select_from(
+                test_table
+            )
+            for i in range(5)
+        ]
+        # A cap of 2 splits this into several chunks, and only the first holds
+        # the gate: the rest must be abandoned too, not re-tried per chunk.
+        combiner = _make_combiner(max_queries_to_combine=2)
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, bad, gate=True)
+            caps = [_schedule(qc, conn, q) for q in others]
+            qc.flush()
+
+        assert gate.exc is not None
+        # Every one resolves, with the gate's error, but only the gate ran.
+        assert all(c.done and c.exc is not None for c in caps)
+        assert combiner.report.queries_skipped_after_gate == len(others)
+        assert combiner.report.uncombined_queries_issued == 1
+
+    def test_a_healthy_gate_does_not_suppress_anything(self, engine, test_table):
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, good, gate=True)
+            other = _schedule(qc, conn, good)
+            qc.flush()
+
+        assert gate.result.scalar() == 3
+        assert other.result.scalar() == 3
+        assert combiner.report.queries_skipped_after_gate == 0
+
+    def test_a_failed_gate_does_not_leak_into_the_next_flush(self, engine, test_table):
+        # One main greenlet profiles one table after another.
+        bad = sa.select(sa.func.count(sa.column("nope")).label("c")).select_from(
+            test_table
+        )
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            _schedule(qc, conn, bad, gate=True)
+            qc.flush()
+
+            later = _schedule(qc, conn, good)
+            qc.flush()
+
+        assert later.exc is None
+        assert later.result.scalar() == 3
 
 
 class TestBatchingAndPartitioning:
@@ -190,6 +251,38 @@ class TestBatchingAndPartitioning:
         assert combiner.report.uncombined_queries_issued == 0
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == n
+
+    def test_max_queries_to_combine_knob_splits_the_batch(self, engine, test_table):
+        # 4 queries with a cap of 2 take two statements; the module default of
+        # 40 would take one.
+        queries = [
+            sa.select(sa.func.count().label(f"rowcount_{i}")).select_from(test_table)
+            for i in range(4)
+        ]
+        combiner = _make_combiner(max_queries_to_combine=2)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.result.scalar() == 3 for c in caps)
+        assert combiner.report.combined_queries_issued == 2
+
+    def test_lone_query_is_not_cte_wrapped(self, engine, test_table):
+        # A one-member CTE buys nothing and makes the server materialize it.
+        statements = []
+        sa.event.listen(
+            engine,
+            "before_cursor_execute",
+            lambda conn, cursor, statement, *_: statements.append(statement),
+        )
+        query = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, query)
+            qc.flush()
+
+        assert cap.result.scalar() == 3
+        assert not any("WITH" in s.upper() for s in statements)
 
     def test_untagged_query_goes_uncombined(self, engine, test_table):
         # The single-row tag partitions the queue: an untagged query is NOT
@@ -348,12 +441,12 @@ class TestResultExtraction:
     def test_duplicate_labels_fallback_then_ambiguous_at_consumption(
         self, engine, test_table
     ):
-        # Two columns labeled 'v' in one query make the combined CTE fail to
-        # compile (SQLAlchemy raises while populating the CTE's column
-        # collection, before combined_queries_issued is incremented), so the
-        # combiner falls back to serial execution. Serial execution succeeds
-        # at the DB level and stores a real CursorResult; the ambiguity then
-        # surfaces at consumption (row['v']), not at flush().
+        # Two columns labeled 'v' in one query make the wrapper fail to compile
+        # (SQLAlchemy raises while populating the subquery's column collection,
+        # before combined_queries_issued is incremented), so the combiner falls
+        # back to serial execution. Serial execution succeeds at the DB level
+        # and stores a real CursorResult; the ambiguity then surfaces at
+        # consumption (row['v']), not at flush().
         query = sa.select(
             sa.func.min(test_table.c.value).label("v"),
             sa.func.max(test_table.c.value).label("v"),

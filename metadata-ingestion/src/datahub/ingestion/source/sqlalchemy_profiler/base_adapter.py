@@ -18,6 +18,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     flattenable_query,
+    gate_query,
     single_row_query,
 )
 
@@ -62,6 +63,7 @@ class ProfilingConnection:
         table: Any,
         expr: ColumnElement[Any],
         literal_is_aggregate: bool = False,
+        gate: bool = False,
     ) -> Any:
         """Execute one aggregate over a whole table.
 
@@ -92,7 +94,10 @@ class ProfilingConnection:
             )
             return self._conn.execute(query)
 
-        return self._conn.execute(flattenable_query(single_row_query(query)))
+        tagged = flattenable_query(single_row_query(query))
+        if gate:
+            tagged = gate_query(tagged)
+        return self._conn.execute(tagged)
 
     def execute_single_row(self, query: Any) -> Any:
         """Execute a query you built yourself that returns exactly one row.
@@ -403,7 +408,9 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        count_result: Any = conn.execute_aggregate(table, sa.func.count()).scalar()
+        count_result: Any = conn.execute_aggregate(
+            table, sa.func.count(), gate=True
+        ).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
@@ -487,35 +494,48 @@ class PlatformAdapter(ABC):
 
         return result
 
+    def get_query_timeout_statements(self, seconds: int) -> Optional[Tuple[str, str]]:
+        """
+        SQL to set a per-statement time limit on the session, and to clear it.
+
+        None means the platform has no session-level equivalent, in which case
+        the timeout option is ignored for it.
+        """
+        return None
+
+    def get_stdev_expr(self, column: str) -> ColumnElement[Any]:
+        """
+        Sample-stddev expression. Some dialects' bare `stddev()` is population
+        stddev (MySQL, Doris, ClickHouse), so name the sample variant explicitly.
+        """
+        return sa.func.stddev_samp(sa.column(column))
+
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting. We use
-        `stddev_samp` explicitly (some dialects' bare `stddev()` defaults to
-        population stddev). When the dialect returns NULL we disambiguate the cause:
-          - exactly one non-null value: stddev is mathematically undefined → return None
-          - multiple rows but all-equal: zero variance → return 0.0
-          - all-null column: dialect-specific (most return None, Redshift returns 0.0)
+        Returns the raw database result to preserve native type formatting. A NULL
+        result is ambiguous; resolve_stdev_null() settles it once the non-null count
+        is known, so no extra query is issued here.
         """
-        # Some dialects' bare `stddev()` defaults to STDDEV_POP (MySQL, Doris) —
-        # calling stddev_samp explicitly keeps semantics consistent across dialects.
-        result = conn.execute_aggregate(
-            table, sa.func.stddev_samp(sa.column(column))
-        ).scalar()
-        if result is None:
-            non_null_count = self.get_column_non_null_count(table, column, conn)
-            if non_null_count == 1:
-                # Single value: stddev is mathematically undefined.
-                return None
-            if non_null_count > 1:
-                # Multiple values, all equal: zero variance.
-                return 0.0
-            # No non-null values: defer to adapter-specific behavior.
-            return self.get_stdev_null_value()
-        return result
+        return conn.execute_aggregate(table, self.get_stdev_expr(column)).scalar()
+
+    def resolve_stdev_null(self, non_null_count: Optional[int]) -> Optional[Any]:
+        """
+        Interpret a NULL stddev now that the non-null count is known:
+          - exactly one non-null value: mathematically undefined → None
+          - several, so all equal: zero variance → 0.0
+          - all-null column: dialect-specific (most None, Redshift 0.0)
+        """
+        if non_null_count is None:
+            return None
+        if non_null_count == 1:
+            return None
+        if non_null_count > 1:
+            return 0.0
+        return self.get_stdev_null_value()
 
     def get_stdev_null_value(self) -> Optional[Any]:
         """
