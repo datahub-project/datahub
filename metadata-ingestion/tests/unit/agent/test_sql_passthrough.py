@@ -128,6 +128,14 @@ def test_a_missing_key_in_a_later_record_reads_as_null_not_a_shift():
             "BigQueryMetadataProbe",
         ),
         ("datahub.ingestion.source.sql.sqlalchemy_probe", "SqlAlchemyMetadataProbe"),
+        (
+            "datahub.ingestion.source.redshift.redshift_probe",
+            "RedshiftMetadataProbe",
+        ),
+        (
+            "datahub.ingestion.source.sql.mssql.mssql_probe",
+            "SqlServerMetadataProbe",
+        ),
     ],
 )
 def test_every_warehouse_probe_supplies_only_its_driver_adapter(
