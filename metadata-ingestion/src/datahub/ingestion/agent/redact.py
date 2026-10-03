@@ -208,8 +208,13 @@ def normalize_key(key: object) -> str:
 
 
 # Shapes that carry a secret whatever its value: an ADC or IAM-role recipe
-# registers no values to match. Userinfo runs to the last `@` of the authority.
-_URL_USERINFO = re.compile(r"(?<=://)[^/\s]*@")
+# registers no values to match. Userinfo runs to the last `@` of the authority,
+# or, after a `user:`, to the last `@` before whitespace or the next `://`: a
+# driver echoes a password unencoded, `/` and `@` included. The `:` keeps a
+# plain path's `@` (`https://host/u/x@y`) out; a path `@` after a port
+# (`http://host:8080/u/x@y`) is over-masked, the safe side. Stopping at `://`
+# keeps the scan linear.
+_URL_USERINFO = re.compile(r"(?<=://)(?:[^/\s:@]*:(?:[^\s:]|:(?!//))*@|[^/\s]*@)")
 # The optional key prefix lets `client_secret`, `auth_token` and camelCase
 # `secretKey` match, while the lookbehind keeps it from starting mid-word
 # (and keeps the scan linear on long inputs).
@@ -253,9 +258,13 @@ _PREFIXED_TOKEN = re.compile(
 # an escaped newline (a key inside JSON or a log line reads `\n`), so an
 # unterminated or truncated key is still masked without a lazy scan to a
 # missing END marker. The two branches share no character, so the scan stays
-# linear.
+# linear. A legacy encrypted key puts RFC 1421 header lines (`Proc-Type:
+# 4,ENCRYPTED`, `DEK-Info: ...`) and a blank line before its body; each header
+# starts a line and holds a `:`, which no body line does.
 _PEM_BLOCK = re.compile(
-    r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[A-Za-z0-9+/=\s]|\\+[rn])*"
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r"(?:(?:\s|\\+[rn])+[A-Za-z][A-Za-z0-9-]*:[^\r\n\\]*)*"
+    r"(?:[A-Za-z0-9+/=\s]|\\+[rn])*"
     r"(?:-----END [A-Z ]*PRIVATE KEY-----)?"
 )
 # pydantic's `input_value='...'` suffix, in text a source builds itself: its

@@ -472,6 +472,71 @@ def test_scrub_text_masks_userinfo_up_to_the_last_at_sign() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, masked",
+    [
+        ("postgresql://svc:pa/ss@db.example/x", "postgresql://***@db.example/x"),
+        # Built from parts so a secret scanner does not read the fixture as a
+        # real connection string.
+        ("postgresql://svc:" + "p@a/ss@db.example/x", "postgresql://***@db.example/x"),
+        # The scan stops at the next URL, so its own userinfo is still found.
+        ("http://a:1/x,http://u:pa/ss@h/y", "http://a:1/x,http://***@h/y"),
+    ],
+)
+def test_scrub_text_masks_a_password_holding_a_slash(text: str, masked: str) -> None:
+    assert scrub_text(text, set()) == masked
+
+
+def test_scrub_text_over_masks_a_path_at_sign_after_a_port() -> None:
+    # `host:8080` reads as `user:password` once a password may hold `/`, so an
+    # `@` later in the path ends a userinfo. Over-masking is the safe side.
+    assert scrub_text("http://host:8080/u/x@y", set()) == "http://***@y"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "https://host/path",
+        "https://host:8080/path",
+        "https://host/u/x@y",
+        "https://host:8080/a:b/c",
+    ],
+)
+def test_scrub_text_keeps_a_url_without_userinfo(text: str) -> None:
+    assert scrub_text(text, set()) == text
+
+
+# Assembled, not written: a PEM header is a high-confidence signature for the
+# repo's secret scanner, which cannot tell a fixture from a leak.
+_LEGACY_BEGIN = "-----BEGIN RSA PRIVATE" + " KEY-----"
+_LEGACY_END = "-----END RSA PRIVATE" + " KEY-----"
+_LEGACY_ENCRYPTED_KEY_LINES = [
+    _LEGACY_BEGIN,
+    "Proc-Type: 4,ENCRYPTED",
+    "DEK-Info: AES-128-CBC,00112233445566778899AABBCCDDEEFF",
+    "",
+    "PLANTEDbody0123456789abcdefghijklmnopqrstuvwxyz+/ABCDEFGHIJKLMNOPQR",
+    "PLANTEDmore==",
+    _LEGACY_END,
+]
+
+
+def test_scrub_text_masks_a_legacy_encrypted_pem_body() -> None:
+    text = "key:\n" + "\n".join(_LEGACY_ENCRYPTED_KEY_LINES) + "\nnext line"
+    assert scrub_text(text, set()) == "key:\n***\nnext line"
+
+
+def test_scrub_text_masks_a_legacy_encrypted_pem_with_escaped_newlines() -> None:
+    # A key inside JSON or a log line reads `\n` for each newline.
+    text = 'material="' + "\\n".join(_LEGACY_ENCRYPTED_KEY_LINES) + '"'
+    assert scrub_text(text, set()) == 'material="***"'
+
+
+def test_scrub_text_masks_a_truncated_legacy_encrypted_pem() -> None:
+    text = "\n".join(_LEGACY_ENCRYPTED_KEY_LINES[:5])
+    assert scrub_text(text, set()) == "***"
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "Invalid password: authentication failed for user x",
@@ -492,6 +557,7 @@ def test_scrub_text_stays_linear_on_long_input() -> None:
         "a.a." * 50000,
         "password" * 12500,
         "x://" * 25000,
+        "http://u:p/" * 10000,
         "pwd={" * 20000,
         "PWD={" + "a" * 100000,
         "eyJaaaaa." * 11000,
@@ -499,6 +565,7 @@ def test_scrub_text_stays_linear_on_long_input() -> None:
         "basic " * 17000,
         "input_value=" * 8000,
         "-----BEGIN PRIVATE KEY-----" + "\\n" * 50000,
+        "-----BEGIN PRIVATE KEY-----" + "\nA:" * 33000,
     ):
         scrub_text(text, set())
     # Generous on purpose: this catches catastrophic (quadratic or worse)
