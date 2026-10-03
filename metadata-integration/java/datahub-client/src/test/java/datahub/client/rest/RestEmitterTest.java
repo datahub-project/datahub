@@ -185,6 +185,52 @@ public class RestEmitterTest {
   }
 
   @Test
+  public void testGetDefaultsResponseCharsetToUtf8() throws Exception {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    String expectedContent = "{\"message\":\"\u4f60\u597d\uff0cDataHub \ud83d\ude80\"}";
+    testDataHubServer
+        .getMockServer()
+        .when(request().withMethod("GET").withPath("/utf8-response"))
+        .respond(
+            HttpResponse.response()
+                .withStatusCode(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(expectedContent.getBytes(StandardCharsets.UTF_8)));
+
+    try (RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port))) {
+      MetadataWriteResponse response =
+          emitter.get("http://localhost:" + port + "/utf8-response").get();
+
+      Assert.assertTrue(response.isSuccess());
+      Assert.assertEquals(expectedContent, response.getResponseContent());
+    }
+  }
+
+  @Test
+  public void testGetHonorsExplicitResponseCharset() throws Exception {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    String expectedContent = "{\"message\":\"ol\u00e1\"}";
+    testDataHubServer
+        .getMockServer()
+        .when(request().withMethod("GET").withPath("/latin1-response"))
+        .respond(
+            HttpResponse.response()
+                .withStatusCode(200)
+                .withHeader("Content-Type", "application/json; charset=ISO-8859-1")
+                .withBody(expectedContent.getBytes(StandardCharsets.ISO_8859_1)));
+
+    try (RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port))) {
+      MetadataWriteResponse response =
+          emitter.get("http://localhost:" + port + "/latin1-response").get();
+
+      Assert.assertTrue(response.isSuccess());
+      Assert.assertEquals(expectedContent, response.getResponseContent());
+    }
+  }
+
+  @Test
   public void multithreadedTestExecutors() throws Exception {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();

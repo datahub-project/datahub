@@ -18,6 +18,7 @@ import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
@@ -160,7 +161,12 @@ public class RestEmitter implements Emitter {
     }
     // Read response content
     try {
-      builder.responseContent(response.getBody().getBodyText());
+      ContentType contentType = response.getBody().getContentType();
+      Charset charset =
+          contentType != null && contentType.getCharset() != null
+              ? contentType.getCharset()
+              : StandardCharsets.UTF_8;
+      builder.responseContent(new String(response.getBody().getBodyBytes(), charset));
     } catch (Exception e) {
       // Catch all exceptions and still return a valid response object
       log.warn("Wasn't able to convert response into a string", e);
