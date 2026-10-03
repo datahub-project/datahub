@@ -1,0 +1,76 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,ds-alice,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Alice's dataset for ownership-filter smoke test",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "ownership_filter_test": "alice"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:alice.ownerfilter@smoke.datahub.test",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,ds-bob,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Bob's dataset for ownership-filter smoke test",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "ownership_filter_test": "bob"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:bob.ownerfilter@smoke.datahub.test",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]
