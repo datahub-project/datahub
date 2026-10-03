@@ -162,8 +162,7 @@ class AzureDataFactoryConfig(
         "unfiltered" rather than "unresolved"."""
         return {ADF_ACTIVITY_KIND}
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """Pipelines are fetched only for factories factory_pattern keeps, and
         activities only for pipelines pipeline_pattern keeps
         (AzureDataFactorySource.get_workunits_internal / _process_pipelines)."""

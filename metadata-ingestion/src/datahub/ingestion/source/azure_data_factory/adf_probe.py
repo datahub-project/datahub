@@ -1,10 +1,11 @@
 from typing import Callable, Dict, Iterable, List, Optional, TypeVar
 
-from azure.core.exceptions import ResourceNotFoundError
-from azure.mgmt.datafactory.models import Activity
+from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
+from azure.mgmt.datafactory.models import Activity, PipelineResource
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, soft_listing
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
@@ -81,7 +82,7 @@ def _unresolved_reason(
     return f"linked service type '{ls_type}' has no DataHub platform mapping"
 
 
-class AzureDataFactoryMetadataProbe:
+class AzureDataFactoryMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over Azure Data Factory's management API.
 
     Every record is an allowlist projection of the SDK model. ADF keeps
@@ -95,14 +96,11 @@ class AzureDataFactoryMetadataProbe:
     `probe filter` to explain rather than hidden.
     """
 
-    warnings: List[str]
-
     def __init__(self, source: AzureDataFactorySource, credential: object) -> None:
         self._source = source
         self._config: AzureDataFactoryConfig = source.config
         self._client: AzureDataFactoryClient = source.client
         self._credential = credential
-        self.warnings = []
 
     @classmethod
     def for_config(
@@ -117,8 +115,15 @@ class AzureDataFactoryMetadataProbe:
         )
         return cls(AzureDataFactorySource.for_probe(config, client), credential)
 
-    def __enter__(self) -> "AzureDataFactoryMetadataProbe":
-        return self
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """Azure's error code (`AuthorizationFailed`, `ResourceGroupNotFound`),
+        which names the refused part of the scope where the HTTP status alone
+        does not. None when the reply carried no ARM error body."""
+        if not isinstance(exc, HttpResponseError) or exc.error is None:
+            return None
+        code = exc.error.code
+        return code if isinstance(code, str) else None
 
     def __exit__(self, *exc: object) -> None:
         try:
@@ -129,16 +134,13 @@ class AzureDataFactoryMetadataProbe:
             close = getattr(self._credential, "close", None)
             if callable(close):
                 close()
+            super().__exit__(*exc)
 
     @property
     def probe_report(self) -> AzureDataFactorySourceReport:
         """_resolve_dataset_urn records unmapped platforms here with
         report.warning(); exposing it folds those into the result."""
         return self._source.report
-
-    def _warn(self, message: str) -> None:
-        if message not in self.warnings:
-            self.warnings.append(message)
 
     @probe_method(kind=FlowContainerSubTypes.ADF_DATA_FACTORY, row_limit_param="limit")
     def factories(self, limit: int = 200) -> List[Dict[str, object]]:
@@ -196,12 +198,12 @@ class AzureDataFactoryMetadataProbe:
                 if rg
                 else f"subscription '{self._config.subscription_id}'"
             )
-            raise ValueError(f"no data factory named '{factory}' in {where}")
+            raise ProbeArgumentError(f"no data factory named '{factory}' in {where}")
         groups = sorted(
             {self._source._extract_resource_group(f.id or "") for f in matches}
         )
         if len(groups) > 1:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"data factory name '{factory}' is in several resource groups "
                 f"({', '.join(groups)}); set resource_group in the recipe"
             )
@@ -214,28 +216,30 @@ class AzureDataFactoryMetadataProbe:
         limit: Optional[int],
     ) -> Optional[List[_T]]:
         """Named items from one per-factory listing, or None when it could not
-        be read.
-
-        The soft_on_status block wraps the iteration, not just the call: an
-        Azure pager raises HttpResponseError while being iterated. Nameless
-        items are skipped as ingestion skips them, and counted so the gap is
-        visible. A 403/404 becomes None plus a warning -- "could not look",
+        be read: a 403/404 becomes None plus a warning -- "could not look",
         never "nothing here".
+
+        The soft_listing block wraps the iteration, not just the call: an
+        Azure pager raises HttpResponseError while being iterated.
         """
+        with soft_listing(self._warn, 403, 404, context=context):
+            return self._named(context, items(), limit)
+        return None
+
+    def _named(
+        self, context: str, items: Iterable[_T], limit: Optional[int]
+    ) -> List[_T]:
+        """Items with a name, up to `limit`. Nameless items are skipped as
+        ingestion skips them, and counted so the gap is visible."""
         out: List[_T] = []
         nameless = 0
-        try:
-            with soft_on_status(403, 404, context=context):
-                for item in items():
-                    if not getattr(item, "name", None):
-                        nameless += 1
-                        continue
-                    out.append(item)
-                    if limit is not None and len(out) >= limit:
-                        break
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
-            return None
+        for item in items:
+            if not getattr(item, "name", None):
+                nameless += 1
+                continue
+            out.append(item)
+            if limit is not None and len(out) >= limit:
+                break
         if nameless:
             self._warn(
                 f"{context}: {nameless} item(s) had no name and were skipped, "
@@ -290,18 +294,8 @@ class AzureDataFactoryMetadataProbe:
         ingestion does not emit them. inputs/outputs are ADF dataset names;
         resolve them with `datasets`. Activity settings (URLs, headers, SQL,
         parameters) are withheld."""
-        rg = self._resource_group_of(factory)
-        try:
-            with soft_on_status(
-                403, context=f"pipeline '{pipeline}' in factory '{factory}'"
-            ):
-                resource = self._client.get_pipeline(rg, factory, pipeline)
-        except ResourceNotFoundError as exc:
-            raise ValueError(
-                f"no pipeline named '{pipeline}' in data factory '{factory}'"
-            ) from exc
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
+        resource = self._pipeline(factory, pipeline)
+        if resource is None:
             return []
         records = [_activity_record(a) for a in resource.activities or []]
         nested = sum(_nested_activity_count(a) for a in resource.activities or [])
@@ -313,6 +307,22 @@ class AzureDataFactoryMetadataProbe:
                 f"appear as DataJobs"
             )
         return records
+
+    def _pipeline(self, factory: str, pipeline: str) -> Optional[PipelineResource]:
+        """One pipeline by name, or None when reading it is forbidden (a 403
+        degrades with a warning). A pipeline the factory does not have is
+        the caller's error."""
+        rg = self._resource_group_of(factory)
+        try:
+            with soft_listing(
+                self._warn, 403, context=f"pipeline '{pipeline}' in factory '{factory}'"
+            ):
+                return self._client.get_pipeline(rg, factory, pipeline)
+        except ResourceNotFoundError as exc:
+            raise ProbeArgumentError(
+                f"no pipeline named '{pipeline}' in data factory '{factory}'"
+            ) from exc
+        return None
 
     def _note_lineage_off(self) -> None:
         if not self._config.include_lineage:
