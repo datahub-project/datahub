@@ -24,6 +24,16 @@ public class TraversalCoverage implements Serializable {
     return coverage != null && coverage.isExplored() && coverage.isComplete();
   }
 
+  /** True when a caller-signaled full walk was written back for {@code direction}. */
+  public boolean isTrustedFullWalk(@Nonnull TraversalDirection direction) {
+    DirectionCoverage coverage = directionFor(direction);
+    return coverage != null && coverage.isTrustedFullWalk();
+  }
+
+  public boolean hasTrustedFullWalk() {
+    return directions.stream().anyMatch(DirectionCoverage::isTrustedFullWalk);
+  }
+
   /**
    * True when this coverage strictly improves completeness over {@code other} for any direction.
    */
@@ -126,5 +136,17 @@ public class TraversalCoverage implements Serializable {
     int configuredMaxDepth;
     boolean complete;
     @Nullable String truncationReason;
+
+    /**
+     * Set only by a full-walk write-back. Builder-complete coverage leaves this false, so a
+     * depth-capped snapshot is not treated as an unlimited walk.
+     */
+    boolean trustedFullWalk;
+
+    /**
+     * Seeds whose closure in {@link #direction} was actually walked. Full-path reads trust only
+     * roots inside that closure, not every vertex that shares the component.
+     */
+    @Builder.Default @Nonnull List<String> trustedSeeds = List.of();
   }
 }

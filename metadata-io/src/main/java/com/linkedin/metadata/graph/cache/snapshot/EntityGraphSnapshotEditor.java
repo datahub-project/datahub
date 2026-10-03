@@ -1,6 +1,11 @@
 package com.linkedin.metadata.graph.cache.snapshot;
 
+import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot.DirectedEdge;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphView.ClosureReplacement;
+import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage.DirectionCoverage;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
@@ -38,5 +43,65 @@ public final class EntityGraphSnapshotEditor {
         true,
         false,
         EntityGraphSnapshotMaterializer.rebuildWithEdges(snapshot, updated.getEdges()));
+  }
+
+  @Value
+  public static class FullWalkEdit {
+    boolean containsAllSeeds;
+    int exploredDepth;
+
+    @Nullable EntityGraphSnapshot snapshot;
+  }
+
+  /**
+   * Replaces the directional closure and stamps that direction as a trusted full walk for {@code
+   * seeds}. The cache key comes from {@code existing} when editing. The other direction's coverage
+   * is kept.
+   */
+  @Nonnull
+  public static FullWalkEdit applyFullWalk(
+      @Nullable EntityGraphSnapshot existing,
+      @Nonnull String graphId,
+      @Nonnull String cacheKey,
+      @Nonnull String buildSource,
+      long builtAtMillis,
+      long generation,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> seeds,
+      @Nonnull List<DirectedEdge> walkedEdges,
+      int configuredMaxDepth) {
+    List<DirectedEdge> baseEdges =
+        existing != null && existing.getEdges() != null ? existing.getEdges() : List.of();
+    ClosureReplacement replacement =
+        new EntityGraphView(baseEdges).replacingClosure(direction, seeds, walkedEdges);
+    if (!replacement.isContainsAllSeeds()) {
+      return new FullWalkEdit(false, replacement.getExploredDepth(), null);
+    }
+    DirectionCoverage stamped =
+        DirectionCoverage.builder()
+            .direction(direction)
+            .explored(true)
+            .exploredDepth(replacement.getExploredDepth())
+            .configuredMaxDepth(configuredMaxDepth)
+            .complete(true)
+            .trustedFullWalk(true)
+            .trustedSeeds(List.copyOf(seeds))
+            .build();
+    TraversalCoverage prior = existing == null ? null : existing.getTraversalCoverage();
+    TraversalCoverage coverage =
+        prior == null
+            ? TraversalCoverage.builder().direction(stamped).build()
+            : prior.withDirection(stamped);
+    return new FullWalkEdit(
+        true,
+        replacement.getExploredDepth(),
+        EntityGraphSnapshotMaterializer.materializeFullWalk(
+            graphId,
+            cacheKey,
+            buildSource,
+            builtAtMillis,
+            generation,
+            replacement.getEdges(),
+            coverage));
   }
 }
