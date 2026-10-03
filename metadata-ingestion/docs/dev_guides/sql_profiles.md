@@ -88,7 +88,7 @@ Combining and flattening reduce how many statements run, but not how long one of
 
 `profiling.query_timeout_seconds` puts a server-side limit on each profiling statement (`max_execution_time` on MySQL, `statement_timeout` on Postgres). A statement that exceeds it fails, and that table is reported and left unprofiled rather than holding the read view open. The limit is set on the profiling connection and cleared when the table is done, so it never leaks to the connection pool that metadata extraction shares.
 
-Size it with the retry in mind: a failed combined statement is retried one query at a time, so a table that times out can spend up to `max_queries_to_combine` times the limit before it is given up on.
+Size it with the retry in mind. A failed statement is retried one query at a time, so the limit bounds a single statement, not a whole table — a table slow enough that many of its queries time out can spend several multiples of it. The row count runs first and is treated as a gate: if it fails or times out, the table's remaining queries are abandoned rather than retried one by one, so the common "this table is too slow or not readable" case costs about one limit rather than one per column. The `queries_skipped_after_gate` counter reports how many were abandoned this way.
 
 ### Transactions
 
@@ -109,6 +109,7 @@ Flattening trades round trips for scans, so `combined_queries_issued` can rise w
 | `flat_group_failures`         | flat statements that failed and fell back                                                          |
 | `flat_group_cte_recoveries`   | of those, how many the CTE path recovered in one round trip                                        |
 | `flat_group_serial_fallbacks` | of those, how many ended up one query per round trip                                               |
+| `queries_skipped_after_gate`  | queries never issued because the table's row count failed on its own, so it could not be read      |
 
 If `scans_avoided` is low, those last four say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
 

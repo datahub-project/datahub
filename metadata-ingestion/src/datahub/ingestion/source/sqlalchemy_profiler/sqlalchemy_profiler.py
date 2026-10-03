@@ -298,6 +298,7 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
+        self._query_timeout_warning_logged = False
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -956,6 +957,11 @@ class SQLAlchemyProfiler:
         apply, clear = statements
         try:
             conn.execute(sa.text(apply))
+            # Commit the SET itself. On Postgres a non-LOCAL SET belongs to the
+            # open transaction, and the serial fallback rolls back before every
+            # retry -- which would drop the limit exactly when a query has
+            # already proved slow enough to need it.
+            conn.commit()
         except Exception as e:
             self.report.warning(
                 title="Profiling: query timeout unavailable",
@@ -967,11 +973,38 @@ class SQLAlchemyProfiler:
                 ),
                 context=f"Asset: {pretty_name}; query_timeout_seconds={seconds}",
                 exc=e,
+                log=not self._query_timeout_warning_logged,
             )
+            self._query_timeout_warning_logged = True
             if not self.config.catch_exceptions:
                 raise
             return None
         return clear
+
+    def _clear_query_timeout(self, conn: Connection, clear: str) -> None:
+        """
+        Take the time limit back off the connection, whatever else went wrong.
+
+        Runs as the table's profile is finishing, when the transaction may be
+        aborted, so it rolls back first and never raises: the profile is already
+        built and must not be discarded over cleanup. If the limit cannot be
+        removed the connection is discarded instead of returned to the pool,
+        which metadata extraction shares.
+        """
+        try:
+            conn.rollback()
+            conn.execute(sa.text(clear))
+            conn.commit()
+        except Exception as e:
+            logger.warning(
+                f"Could not clear the profiling query timeout ({type(e).__name__}); "
+                f"discarding the connection so the limit cannot leak to the pool."
+            )
+            logger.debug("Could not clear the profiling query timeout", exc_info=e)
+            try:
+                conn.invalidate()
+            except Exception:
+                logger.debug("Could not invalidate the connection", exc_info=True)
 
     def _uses_row_count_estimate(self, adapter: PlatformAdapter) -> bool:
         return (
@@ -1230,7 +1263,7 @@ class SQLAlchemyProfiler:
         ],
     ]:
         """
-        Stage 2b: Extract cardinality results.
+        Extract cardinality results.
 
         Extracts non-null and unique counts, calculates null counts and proportions,
         and prepares column metadata for Stage 3.
@@ -1410,7 +1443,7 @@ class SQLAlchemyProfiler:
         pretty_name: str,
     ) -> None:
         """
-        Stage 3b: Extract numeric stats and process column stats.
+        Extract numeric stats and process column stats.
 
         Extracts min/max/mean/stdev/median from FutureResults and runs
         non-batchable complex queries (sample values, histograms, frequencies).
@@ -1596,7 +1629,7 @@ class SQLAlchemyProfiler:
                         # Cleared on the way out: the connection goes back to a
                         # pool shared with metadata extraction, which must not
                         # inherit a profiling limit.
-                        stack.callback(conn.execute, sa.text(clear_timeout))
+                        stack.callback(self._clear_query_timeout, conn, clear_timeout)
 
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
@@ -1659,31 +1692,28 @@ class SQLAlchemyProfiler:
                     # ================================================================
                     # QUERY BATCHING PATTERN
                     # ================================================================
-                    # Every flush point costs a scan, so there are as few as the
-                    # data dependencies allow:
+                    # Each flush is a round trip, and with flattening on it is
+                    # also a table scan, so there are as few as the data
+                    # dependencies allow:
                     #
-                    # STAGE 1: Row Count
-                    #   Helper: _profile_row_count()
-                    #   - Must come first: a zero count skips all column work
+                    # SETUP: columns to profile, their types, empty field
+                    #   profiles. All from the schema, so no queries.
                     #
-                    # SETUP: Field Profiles
-                    #   Helper: _create_field_profiles()
-                    #   - Creates empty field profiles for all columns
-                    #
-                    # STAGE 2: Column Cardinality + Numeric Stats
-                    #   Helpers: _schedule_cardinality_queries()
+                    # STAGE 1: Row count + cardinality + numeric stats
+                    #   Helpers: _schedule_row_count()
+                    #            + _schedule_cardinality_queries()
                     #            + _schedule_numeric_queries()
+                    #            + _extract_row_count()
                     #            + _extract_cardinality_results()
-                    #   - Both schedule into ONE batch: which stats a column needs
-                    #     follows from its schema type, not from the counts
+                    #   - All three schedule into ONE batch: which stats a column
+                    #     needs follows from its schema type, not from the counts,
+                    #     and over an empty table the column queries scan nothing
                     #   - Extracts results and calculates null counts, proportions
                     #
-                    # STAGE 3: Complex Queries
+                    # STAGE 2: Complex queries
                     #   Helper: _extract_and_process_stats()
                     #   - Runs the non-batchable ones (sample values, histograms,
                     #     frequencies) that need an earlier result to build
-                    #
-                    # Performance: Reduces 50-100+ queries down to 2-4 per table.
                     # ================================================================
 
                     # ----------------------------------------------------------------
@@ -1717,7 +1747,7 @@ class SQLAlchemyProfiler:
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 1: Row Count + Column Cardinality + Numeric Stats
+                    # STAGE 1: Row count + cardinality + numeric stats
                     # ----------------------------------------------------------------
                     column_types = self._resolve_column_types(
                         sql_table, columns_to_profile_set, platform
@@ -1787,7 +1817,7 @@ class SQLAlchemyProfiler:
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 3: Complex Queries
+                    # STAGE 2: Complex queries
                     # ----------------------------------------------------------------
                     self._extract_and_process_stats(
                         runner=runner,

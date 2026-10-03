@@ -207,7 +207,8 @@ class ProfilingConfig(ProfilingBaseConfig):
         "profiling queries merged into one statement. A wide table needs one statement "
         "per group of this many columns, so raising it cuts scans; but a statement that "
         "fails is retried one query at a time, so a larger value also widens what a "
-        "single failure has to re-run.",
+        "single failure has to re-run. Note the retry is not itself capped by this "
+        "value: every query queued for the table that has not run yet is retried.",
     )
 
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
@@ -264,10 +265,12 @@ class ProfilingConfig(ProfilingBaseConfig):
             "duration, growing the InnoDB undo log on MySQL and blocking VACUUM on "
             "Postgres, which a limit here bounds. A statement that exceeds it fails, "
             "and that table is reported and left unprofiled. The limit is set on the "
-            "profiling connection and cleared again when the table is done. Note that "
-            "a failed combined statement is retried one query at a time, so a table "
-            "that times out can spend up to `max_queries_to_combine` times this limit "
-            "before it is given up on."
+            "profiling connection and cleared again when the table is done. This "
+            "bounds a single statement, not a whole table: a failed statement is "
+            "retried one query at a time, so a table slow enough that many of its "
+            "queries time out can spend several multiples of this limit. The row "
+            "count is tried first, so a table that is slow or unreadable outright "
+            "gives up after it rather than retrying every column."
         ),
     )
 

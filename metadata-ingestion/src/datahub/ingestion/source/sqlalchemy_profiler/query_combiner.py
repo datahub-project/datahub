@@ -73,10 +73,30 @@ the tag cannot be attached to something carrying a clause. Absent means no flatt
 """
 
 
+GATE_EXECUTION_OPTION = "datahub_gate"
+"""Marks a statement whose failure makes the rest of its batch pointless.
+
+The row count is one: if a table cannot be counted it cannot be read at all, so
+retrying its columns one at a time just produces one failure per column. When a
+combined statement fails, _execute_futures_serially runs gates first and, if a
+gate still fails alone, gives the same error to the rest without issuing them.
+"""
+
+
 def flattenable_query(query: _StatementT) -> _StatementT:
     """Tag a statement as safe to merge into a flat SELECT."""
     return query.execution_options(  # type: ignore[attr-defined,no-any-return]
         **{FLATTENABLE_EXECUTION_OPTION: True}
+    )
+
+
+def gate_query(query: _StatementT) -> _StatementT:
+    """Tag a statement the rest of its batch is pointless without.
+
+    See GATE_EXECUTION_OPTION.
+    """
+    return query.execution_options(  # type: ignore[attr-defined,no-any-return]
+        **{GATE_EXECUTION_OPTION: True}
     )
 
 
@@ -257,6 +277,8 @@ class _QueryFuture:
     done: bool = False
     res: Optional[_ResultProxyFake] = None
     exc: Optional[Exception] = None
+    # See GATE_EXECUTION_OPTION.
+    is_gate: bool = False
 
 
 def get_query_columns(query: Any) -> List[Any]:
@@ -308,6 +330,10 @@ class SQLAlchemyQueryCombinerReport(Report):
     flat_group_cte_recoveries: int = 0
     flat_group_serial_fallbacks: int = 0
 
+    # Queries never issued because a gate in their batch failed alone, so the
+    # table could not be read at all. See GATE_EXECUTION_OPTION.
+    queries_skipped_after_gate: int = 0
+
     query_exceptions: int = 0
 
     # Rollbacks before a retry that raised. Non-zero means the retried queries
@@ -358,6 +384,13 @@ class SQLAlchemyQueryCombiner:
     )
     _greenlets_by_thread: Dict[greenlet.greenlet, Set[greenlet.greenlet]] = (
         dataclasses.field(default_factory=lambda: collections.defaultdict(set))
+    )
+    # The gate failure, if any, for the flush currently running on each main
+    # greenlet. Scoped to the flush and cleared at its start: a main greenlet
+    # profiles one table after another, and an unreadable table must not
+    # suppress the next one. See GATE_EXECUTION_OPTION.
+    _gate_failure_by_thread: Dict[greenlet.greenlet, Exception] = dataclasses.field(
+        default_factory=dict
     )
 
     @staticmethod
@@ -464,7 +497,15 @@ class SQLAlchemyQueryCombiner:
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
         query_id = SQLAlchemyQueryCombiner._generate_sql_safe_identifier()
-        query_future = _QueryFuture(conn, query, multiparams, params)
+        query_future = _QueryFuture(
+            conn,
+            query,
+            multiparams,
+            params,
+            is_gate=bool(
+                query.get_execution_options().get(GATE_EXECUTION_OPTION, False)
+            ),
+        )
         queue[query_id] = query_future
         self.report.queries_combined += 1
 
@@ -535,6 +576,18 @@ class SQLAlchemyQueryCombiner:
 
         pending_queue = {k: v for k, v in full_queue.items() if not v.done}
 
+        # A gate that already failed on its own means the table cannot be read
+        # at all, so the queries still queued for it would each fail in turn.
+        # The gate sits in the first chunk, and its future is gone from the
+        # queue by now, so the failure is remembered for the flush instead.
+        gate_exc = self._gate_failure_by_thread.get(main_greenlet)
+        if gate_exc is not None:
+            for fut in pending_queue.values():
+                fut.exc = gate_exc
+                fut.done = True
+                self.report.queries_skipped_after_gate += 1
+            return
+
         pending_queue = dict(
             itertools.islice(pending_queue.items(), self.max_queries_to_combine)
         )
@@ -543,7 +596,24 @@ class SQLAlchemyQueryCombiner:
             if self.flatten_enabled:
                 self._execute_queue_flattened(pending_queue)
             else:
-                self._execute_cte_combine(pending_queue)
+                try:
+                    self._execute_cte_combine(pending_queue)
+                except Exception as e:
+                    # Recover only this chunk, as the flatten path does. Letting
+                    # it reach flush() would fall back the whole queue, so one
+                    # bad column would serialize every other query for the table.
+                    if not self.serial_execution_fallback_enabled:
+                        raise
+                    self.report.query_exceptions += 1
+                    logger.warning(
+                        f"Failed to execute combined query of "
+                        f"{len(pending_queue)} queries ({type(e).__name__}); "
+                        f"will run them one at a time."
+                    )
+                    logger.debug("Failed to execute combined query", exc_info=e)
+                    self._execute_futures_serially(
+                        [fut for fut in pending_queue.values() if not fut.done]
+                    )
 
     def _execute_cte_combine(self, pending_queue: Dict[str, _QueryFuture]) -> None:
         # One CTE per query, cross-joined. Unchanged from before the flatten
@@ -682,6 +752,10 @@ class SQLAlchemyQueryCombiner:
         # Scoped, not the global _execute_queue_fallback, which would demote
         # futures never attempted (measured: scans_avoided 4 -> 0).
         for members in groups.values():
+            if self._gate_failure_by_thread.get(self._get_main_greenlet()) is not None:
+                # An earlier group's gate failed alone, so this table cannot be
+                # read; _execute_queue resolves what is left.
+                break
             # Precomputed: a diagnostic string must not be able to raise inside
             # the except and skip the recovery it is announcing.
             froms = members[0][1].query.get_final_froms()
@@ -856,8 +930,17 @@ class SQLAlchemyQueryCombiner:
         # own. The skip-done guard is load-bearing for the whole-queue caller,
         # which can be handed an already-done queue -- do not delete it as
         # redundant just because the flatten path pre-filters.
-        for query_future in futures:
+        # Gates first, so a table that cannot be read at all costs one failure
+        # per gate rather than one per column. See GATE_EXECUTION_OPTION.
+        gate_exc: Optional[Exception] = None
+        for query_future in sorted(futures, key=lambda f: not f.is_gate):
             if query_future.done:
+                continue
+
+            if gate_exc is not None:
+                query_future.exc = gate_exc
+                query_future.done = True
+                self.report.queries_skipped_after_gate += 1
                 continue
 
             query_id = SQLAlchemyQueryCombiner._generate_query_id()
@@ -887,6 +970,10 @@ class SQLAlchemyQueryCombiner:
                     )
                 except Exception as e:
                     query_future.exc = e
+                    if query_future.is_gate:
+                        # Nothing else queued for this table can succeed either.
+                        gate_exc = e
+                        self._gate_failure_by_thread[self._get_main_greenlet()] = e
                     logger.warning(
                         f"[{query_id}] Fallback query failed in {timer.elapsed_seconds():.3f}s "
                         f"({type(e).__name__})"
@@ -909,6 +996,7 @@ class SQLAlchemyQueryCombiner:
 
         main_greenlet = self._get_main_greenlet()
         pool = self._get_greenlet_pool(main_greenlet)
+        self._gate_failure_by_thread.pop(main_greenlet, None)
 
         while pool:
             try:
