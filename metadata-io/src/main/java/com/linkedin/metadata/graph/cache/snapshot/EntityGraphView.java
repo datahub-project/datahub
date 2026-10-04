@@ -108,24 +108,21 @@ public class EntityGraphView {
         kept.putIfAbsent(canonical.canonicalLine(), canonical);
       }
     }
-    List<DirectedEdge> walkedCanonical = new ArrayList<>();
-    List<String> trustedEdgeLines = new ArrayList<>();
+    Map<String, DirectedEdge> walkedByLine = new LinkedHashMap<>();
     for (DirectedEdge walked : walkedEdges) {
       DirectedEdge canonical = canonicalize(walked);
       if (canonical == null) {
         continue;
       }
       kept.put(canonical.canonicalLine(), canonical);
-      if (!trustedEdgeLines.contains(canonical.canonicalLine())) {
-        walkedCanonical.add(canonical);
-        trustedEdgeLines.add(canonical.canonicalLine());
-      }
+      walkedByLine.putIfAbsent(canonical.canonicalLine(), canonical);
     }
     List<DirectedEdge> result = List.copyOf(kept.values());
     EntityGraphView updated = new EntityGraphView(result);
-    int walkedDepth = new EntityGraphView(List.copyOf(walkedCanonical)).hopDepth(direction, seeds);
+    int walkedDepth =
+        new EntityGraphView(List.copyOf(walkedByLine.values())).hopDepth(direction, seeds);
     return new ClosureReplacement(
-        result, walkedDepth, updated.containsAllSeeds(seeds), List.copyOf(trustedEdgeLines));
+        result, walkedDepth, updated.containsAllSeeds(seeds), List.copyOf(walkedByLine.keySet()));
   }
 
   @Nonnull
