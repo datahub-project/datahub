@@ -532,6 +532,9 @@ ceiling.
       sources `tests/unit/agent/test_sql_filter_target.py`. Where the connector has selection rules
       of its own (a `probe_verdict_override` beyond the defaults), they live in
       `<connector>_selection.py`, called by the source and the override alike.
+- [ ] **Switches and rules have parity cases.** Each `Enables` field gets a case with it off
+      (`tests/unit/agent/test_sql_enables_parity.py`), each `FiltersByRule` field one whose rule
+      excludes something; a connector without a parity test adds these cases when it adds one.
 - [ ] **Gated commands.** Anything touching `sql_gate` has attack cases (a user table in a CTE,
       subquery, `UNION` branch or join; two statements; a vendor function in the projection) and
       false-positive cases (a trailing semicolon, a recursive CTE).
