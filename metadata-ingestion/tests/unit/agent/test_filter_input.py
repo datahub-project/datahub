@@ -1,6 +1,14 @@
+from dataclasses import replace
+from typing import Optional, Sequence
+
 import pytest
 
-from datahub.ingestion.agent.filter_input import listing_from_run
+from datahub.ingestion.agent.filter_input import (
+    FilterTargets,
+    RunListing,
+    filter_targets,
+    listing_from_run,
+)
 
 
 def test_record_entries_carry_their_scalar_fields_as_attributes() -> None:
@@ -137,3 +145,93 @@ def test_the_runs_warnings_travel_with_the_listing() -> None:
     # run recorded no failures.
     assert listing.run_warnings == ["could not list owners of x"]
     assert listing_from_run({"result": ["a"]}).run_warnings == []
+
+
+_LISTING = RunListing(
+    kind="Table",
+    source_type="postgres",
+    parent_path=["public"],
+    names=["orders", "users"],
+    attributes=[{"id": "1"}, {}],
+)
+
+
+def _targets(
+    *,
+    kind: Optional[str] = None,
+    parents: Sequence[str] = (),
+    names: Sequence[str] = (),
+    listing: Optional[RunListing] = None,
+) -> FilterTargets:
+    return filter_targets(
+        source_type="postgres",
+        kind=kind,
+        parents=parents,
+        names=names,
+        listing=listing,
+    )
+
+
+def test_bare_names_are_judged_under_the_given_kind_and_parent() -> None:
+    assert _targets(kind="Table", parents=("public",), names=("orders",)) == (
+        FilterTargets(
+            kind="Table",
+            parent_path=["public"],
+            names=["orders"],
+            attributes=None,
+            warnings=[],
+        )
+    )
+
+
+def test_no_names_and_no_listing_is_refused() -> None:
+    with pytest.raises(ValueError, match="nothing to judge"):
+        _targets(kind="Table")
+
+
+def test_bare_names_need_a_kind() -> None:
+    with pytest.raises(ValueError, match="pass --kind"):
+        _targets(names=("orders",))
+
+
+def test_a_listing_brings_its_kind_parent_names_and_facts() -> None:
+    targets = _targets(listing=_LISTING)
+    assert targets.kind == "Table"
+    assert targets.parent_path == ["public"]
+    assert targets.names == ["orders", "users"]
+    assert targets.attributes == [{"id": "1"}, {}]
+    assert targets.warnings == []
+
+
+def test_a_listing_caveat_travels_as_a_warning() -> None:
+    assert len(_targets(listing=replace(_LISTING, truncated=True)).warnings) == 1
+
+
+def test_a_restated_kind_is_kept_and_a_contradicting_one_refused() -> None:
+    assert _targets(kind="table", listing=_LISTING).kind == "table"
+    with pytest.raises(ValueError, match="contradicts the listing"):
+        _targets(kind="View", listing=_LISTING)
+
+
+def test_a_listing_without_a_kind_needs_one() -> None:
+    unkinded = replace(_LISTING, kind=None)
+    with pytest.raises(ValueError, match="does not say what kind it holds"):
+        _targets(listing=unkinded)
+    assert _targets(kind="Table", listing=unkinded).kind == "Table"
+
+
+def test_a_parent_replaces_the_listings() -> None:
+    targets = _targets(parents=("mydb", "sales"), listing=_LISTING)
+    assert targets.parent_path == ["mydb", "sales"]
+
+
+def test_a_redacted_parent_is_refused_unless_replaced() -> None:
+    redacted = replace(_LISTING, parent_path=["***"], parent_redacted=True)
+    with pytest.raises(ValueError, match="parent_path was redacted"):
+        _targets(listing=redacted)
+    assert _targets(parents=("public",), listing=redacted).parent_path == ["public"]
+
+
+def test_a_listing_from_another_source_is_refused() -> None:
+    with pytest.raises(ValueError, match="this listing came from mysql"):
+        _targets(listing=replace(_LISTING, source_type="mysql"))

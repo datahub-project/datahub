@@ -35,7 +35,7 @@ from datahub.ingestion.agent.error_policy import (
     police_trusted,
 )
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
+from datahub.ingestion.agent.filter_input import filter_targets, listing_from_run
 from datahub.ingestion.agent.introspect import describe_source, secret_field_values
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.probe_methods import (
@@ -210,20 +210,24 @@ def _exit_codes(
     # caller's set is empty at entry precisely because the secrets get collected
     # inside the block. The redaction would then silently do nothing.
     secrets = set() if secret_values is None else secret_values
+
+    def fail(exc: BaseException, code: int) -> NoReturn:
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), code)
+
     try:
         yield
     except ProbeConnectionError as exc:
         # Before _USER_ERRORS, and not in it: it wraps exception types that
         # list would otherwise read as bad input (Snowflake's ConfigurationError).
-        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_CONNECTION)
+        fail(exc, EXIT_CONNECTION)
     except ProbeInternalError as exc:
-        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
+        fail(exc, EXIT_INTERNAL)
     except _USER_ERRORS as exc:
-        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_USER)
+        fail(exc, EXIT_USER)
     except DEFECT_TYPES as exc:
-        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
+        fail(exc, EXIT_INTERNAL)
     except Exception as exc:
-        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), fallback)
+        fail(exc, fallback)
 
 
 def _with_stdin_secrets(secrets: Set[str]) -> Set[str]:
@@ -804,43 +808,6 @@ def _read_run_file(path: str) -> object:
     return json.loads(text)
 
 
-def listing_warnings(listing: RunListing) -> List[str]:
-    """What the caller must know about a listing judged as it stands.
-
-    Each is a warning, not a refusal: the names that are there still get a
-    correct verdict. What would be wrong is reading the result as covering
-    every object the source has.
-    """
-    warnings: List[str] = []
-    if listing.skipped:
-        warnings.append(
-            "not judged, because redaction masked their names: listing entries "
-            f"{', '.join(str(i) for i in listing.skipped)}. A name that collides "
-            "with a secret reads '***'; judge it with --name and the real name"
-        )
-    if listing.masked_attributes:
-        keys = ", ".join(f"`{k}`" for k in listing.masked_attributes)
-        warnings.append(
-            f"redaction masked {keys} on some entries, so those values were "
-            "left out of their verdicts; a source that filters on them judged "
-            "those names without them"
-        )
-    if listing.truncated:
-        warnings.append(
-            "that listing was truncated, so names beyond it were not judged"
-        )
-    if listing.incomplete:
-        warnings.append(
-            "the run that wrote that listing recorded failures, so the listing "
-            "is incomplete and names it could not read were not judged"
-        )
-    warnings.extend(
-        f"the run that wrote that listing warned, so it may be partial: {w}"
-        for w in listing.run_warnings
-    )
-    return warnings
-
-
 @probe_group.command(name="filter")
 @click.option("--recipe", "recipe_path", required=True)
 @click.option(
@@ -912,58 +879,33 @@ def probe_filter_cmd(
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
-        attributes = None
-        from_run_warnings: List[str] = []
-        if from_run is not None:
-            if names:
-                raise ValueError(
-                    "--name and --from-run both name the objects to judge; pass one"
-                )
-            listing = listing_from_run(_read_run_file(from_run))
-            if listing.source_type and listing.source_type != source_type:
-                raise ValueError(
-                    f"this listing came from {listing.source_type}, the recipe "
-                    f"is {source_type}"
-                )
-            if kind and listing.kind and kind.lower() != listing.kind.lower():
-                raise ValueError(
-                    f"--kind {kind} contradicts the listing, which holds "
-                    f"{listing.kind} names"
-                )
-            if not (kind or listing.kind):
-                raise ValueError(
-                    "the listing does not say what kind it holds; pass --kind"
-                )
-            if not parents and listing.parent_redacted:
-                raise ValueError(
-                    "that listing's parent_path was redacted, so its names "
-                    "cannot be judged against the right container; pass "
-                    "--parent with the real container names"
-                )
-            kind = kind or listing.kind
-            parents = parents or tuple(listing.parent_path)
-            names = tuple(listing.names)
-            attributes = listing.attributes
-            from_run_warnings = listing_warnings(listing)
-        elif not names:
+        if from_run is not None and names:
+            # Before the file is read, so a bad file cannot hide the conflict.
             raise ValueError(
-                "nothing to judge: pass --name, or --from-run with a `probe run` output"
+                "--name and --from-run both name the objects to judge; pass one"
             )
-        if not kind:
-            raise ValueError("pass --kind: it says what kind of object the names are")
-        _ping_probe("filter", source_type, kind=kind)
+        targets = filter_targets(
+            source_type=source_type,
+            kind=kind,
+            parents=parents,
+            names=names,
+            listing=(
+                None if from_run is None else listing_from_run(_read_run_file(from_run))
+            ),
+        )
+        _ping_probe("filter", source_type, kind=targets.kind)
         result = check_filters(
             source_type=source_type,
             config_dict=resolved,
-            kind=kind,
-            parent_path=list(parents),
-            names=list(names),
+            kind=targets.kind,
+            parent_path=targets.parent_path,
+            names=targets.names,
             try_allow=list(try_allow),
             try_deny=list(try_deny),
-            attributes=attributes,
+            attributes=targets.attributes,
         )
         # Before redaction, so these pass through it like every other warning.
-        result.warnings.extend(from_run_warnings)
+        result.warnings.extend(targets.warnings)
         payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)

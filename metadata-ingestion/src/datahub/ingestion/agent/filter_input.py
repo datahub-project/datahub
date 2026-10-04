@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Mapping, Optional, Sequence
 
 from datahub.ingestion.agent.redact import MASK
 
@@ -131,3 +131,127 @@ def _parent_path(parent: object) -> List[str]:
     if not isinstance(parent, list) or not all(isinstance(p, str) for p in parent):
         raise ValueError("not a `probe run` listing: its parent_path is malformed")
     return list(parent)
+
+
+def listing_warnings(listing: RunListing) -> List[str]:
+    """What the caller must know about a listing judged as it stands.
+
+    Each is a warning, not a refusal: the names that are there still get a
+    correct verdict. What would be wrong is reading the result as covering
+    every object the source has.
+    """
+    warnings: List[str] = []
+    if listing.skipped:
+        warnings.append(
+            "not judged, because redaction masked their names: listing entries "
+            f"{', '.join(str(i) for i in listing.skipped)}. A name that collides "
+            "with a secret reads '***'; judge it with --name and the real name"
+        )
+    if listing.masked_attributes:
+        keys = ", ".join(f"`{k}`" for k in listing.masked_attributes)
+        warnings.append(
+            f"redaction masked {keys} on some entries, so those values were "
+            "left out of their verdicts; a source that filters on them judged "
+            "those names without them"
+        )
+    if listing.truncated:
+        warnings.append(
+            "that listing was truncated, so names beyond it were not judged"
+        )
+    if listing.incomplete:
+        warnings.append(
+            "the run that wrote that listing recorded failures, so the listing "
+            "is incomplete and names it could not read were not judged"
+        )
+    warnings.extend(
+        f"the run that wrote that listing warned, so it may be partial: {w}"
+        for w in listing.run_warnings
+    )
+    return warnings
+
+
+@dataclass(frozen=True)
+class FilterTargets:
+    """What `probe filter` judges: its flags reconciled with a listing."""
+
+    kind: str
+    parent_path: List[str]
+    names: List[str]
+    # Aligned with names; None for names given bare, which carry no facts.
+    attributes: Optional[List[Dict[str, str]]]
+    # What the caller must know about the listing (listing_warnings).
+    warnings: List[str]
+
+
+def filter_targets(
+    *,
+    source_type: str,
+    kind: Optional[str],
+    parents: Sequence[str],
+    names: Sequence[str],
+    listing: Optional[RunListing],
+) -> FilterTargets:
+    """The kind, parent and names `probe filter` judges, from --kind,
+    --parent and either --name or a `probe run` listing (--from-run).
+
+    A listing brings its own names, kind and parent: --kind may restate its
+    kind but not contradict it, and --parent replaces its parent_path. The
+    caller refuses --name alongside a listing.
+    """
+    if listing is None:
+        if not names:
+            raise ValueError(
+                "nothing to judge: pass --name, or --from-run with a `probe run` output"
+            )
+        if not kind:
+            raise ValueError("pass --kind: it says what kind of object the names are")
+        return FilterTargets(
+            kind=kind,
+            parent_path=list(parents),
+            names=list(names),
+            attributes=None,
+            warnings=[],
+        )
+    return _listing_targets(
+        source_type=source_type, kind=kind, parents=parents, listing=listing
+    )
+
+
+def _listing_targets(
+    *,
+    source_type: str,
+    kind: Optional[str],
+    parents: Sequence[str],
+    listing: RunListing,
+) -> FilterTargets:
+    _refuse_other_listing(source_type=source_type, kind=kind, listing=listing)
+    judged_kind = kind or listing.kind
+    if not judged_kind:
+        raise ValueError("the listing does not say what kind it holds; pass --kind")
+    if not parents and listing.parent_redacted:
+        raise ValueError(
+            "that listing's parent_path was redacted, so its names "
+            "cannot be judged against the right container; pass "
+            "--parent with the real container names"
+        )
+    return FilterTargets(
+        kind=judged_kind,
+        parent_path=list(parents) if parents else list(listing.parent_path),
+        names=list(listing.names),
+        attributes=listing.attributes,
+        warnings=listing_warnings(listing),
+    )
+
+
+def _refuse_other_listing(
+    *, source_type: str, kind: Optional[str], listing: RunListing
+) -> None:
+    """Refuse a listing of another source's objects, or of another kind."""
+    if listing.source_type and listing.source_type != source_type:
+        raise ValueError(
+            f"this listing came from {listing.source_type}, the recipe is {source_type}"
+        )
+    if kind and listing.kind and kind.lower() != listing.kind.lower():
+        raise ValueError(
+            f"--kind {kind} contradicts the listing, which holds {listing.kind} names"
+        )

@@ -34,14 +34,17 @@ from typing import (
 
 from datahub._codegen.aspect import _Aspect
 from datahub.cli.recipe_cli import (
-    listing_warnings,
     probe_run_envelope,
     report_to_text,
     resolve_probe_recipe,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
+from datahub.ingestion.agent.filter_input import (
+    RunListing,
+    listing_from_run,
+    listing_warnings,
+)
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
