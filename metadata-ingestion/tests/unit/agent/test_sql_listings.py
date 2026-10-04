@@ -7,7 +7,7 @@ Vertica could not do it at all, because sqlglot has no dialect for either and `s
 therefore fails closed.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Type
 
 import pytest
 
@@ -21,6 +21,7 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.sql import sqlalchemy_probe
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 
@@ -47,12 +48,18 @@ class _FakeInspector:
         return ["orders_mv"] if schema == "analytics" else []
 
 
+def _sql_config_class(source_type: str) -> Type[SQLCommonConfig]:
+    config_cls = config_class_for(source_type)
+    assert config_cls is not None and issubclass(config_cls, SQLCommonConfig)
+    return config_cls
+
+
 def _probe(source_type: str = "postgres") -> SqlAlchemyMetadataProbe:
     # __new__ because __init__ builds an engine; these commands only touch the
     # Inspector, which is what ingestion enumerates through too.
     probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
     probe._insp = _FakeInspector()  # type: ignore[assignment]
-    probe.container_kind = str(config_class_for(source_type).probe_container_kind())
+    probe.container_kind = str(_sql_config_class(source_type).probe_container_kind())
     return probe
 
 
@@ -164,7 +171,7 @@ def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():
     declaration -- it comes from the config.
     """
     kinds: Dict[str, str] = {
-        source_type: str(config_class_for(source_type).probe_container_kind())
+        source_type: str(_sql_config_class(source_type).probe_container_kind())
         for source_type in ("postgres", "mssql", "snowflake", "mysql", "hive")
     }
     assert kinds["postgres"] == "Schema"
@@ -175,10 +182,10 @@ def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():
 
 
 def test_the_config_class_declares_the_kind_containers_reports():
-    assert config_class_for("postgres").probe_kind_overrides() == {
+    assert _sql_config_class("postgres").probe_kind_overrides() == {
         "containers": "Schema"
     }
-    assert config_class_for("mysql").probe_kind_overrides() == {
+    assert _sql_config_class("mysql").probe_kind_overrides() == {
         "containers": "Database"
     }
     # The spec itself declares none, because the provider class cannot know it.
@@ -223,7 +230,7 @@ def test_every_sql_connector_can_now_enumerate_without_a_query():
         commands = {
             c
             for c, _ in _iter_specs(
-                config_class_for(source_type).probe_provider_class()
+                _sql_config_class(source_type).probe_provider_class()
             )
         }
         assert {"containers", "tables", "views"} <= commands, source_type

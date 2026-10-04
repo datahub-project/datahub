@@ -5,6 +5,7 @@ import types
 import typing
 from functools import lru_cache
 from typing import (
+    Callable,
     Dict,
     FrozenSet,
     Iterable,
@@ -35,6 +36,7 @@ from datahub.ingestion.agent.models import (
     SourceSpec,
 )
 from datahub.ingestion.agent.probe_methods import (
+    config_class_for,
     config_hook,
     declared_kind_overrides,
     declared_mapping,
@@ -251,7 +253,7 @@ def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]
     when it does (iter_model_secret_values). A recipe failing validation is
     covered by the first. Raises as describe_source does for a source type
     that does not resolve."""
-    config_cls = _config_class(source_class_for(source_type), source_type)
+    config_cls = _declared_config_class(source_type)
     found = collect_secret_field_values(config_cls, config)
     try:
         validated = validate_source_config(config_cls, source_type, config)
@@ -350,16 +352,12 @@ def _pattern_field_for_config_class(
         return hinted
 
     fields = getattr(config_cls, "model_fields", {})
-    for name in _pattern_field_candidates(kind):
+
+    def declares_pattern(name: str) -> bool:
         field = fields.get(name)
-        if field is None or not is_pattern_field(field.annotation):
-            continue
-        if _is_hidden_field(config_cls, name):
-            # As in pattern_field_for_config: a hidden field is a deprecated alias.
-            continue
-        _warn_convention(config_cls, kind, name)
-        return name
-    return None
+        return field is not None and is_pattern_field(field.annotation)
+
+    return _convention_field(config_cls, kind, declares_pattern)
 
 
 def declared_unfiltered_kinds(config: object) -> Set[str]:
@@ -391,8 +389,23 @@ def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[st
     hinted = _hinted_pattern_field(config_cls, kind)
     if hinted is not None:
         return hinted
+    found = _convention_field(
+        config_cls,
+        kind,
+        lambda name: isinstance(getattr(config, name, None), AllowDenyPattern),
+    )
+    if found is not None:
+        return found
+    return _pattern_field_for_config_class(config_cls, kind)
+
+
+def _convention_field(
+    config_cls: type, kind: ProbeNodeKind, is_pattern: Callable[[str], bool]
+) -> Optional[str]:
+    """The first name-convention candidate for `kind` that `is_pattern`
+    accepts, warned about once; None when there is none."""
     for name in _pattern_field_candidates(kind):
-        if not isinstance(getattr(config, name, None), AllowDenyPattern):
+        if not is_pattern(name):
             continue
         if _is_hidden_field(config_cls, name):
             # A field hidden from the docs is a deprecated alias, already
@@ -402,7 +415,7 @@ def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[st
             continue
         _warn_convention(config_cls, kind, name)
         return name
-    return _pattern_field_for_config_class(config_cls, kind)
+    return None
 
 
 def _is_hidden_field(config_cls: type, name: str) -> bool:
@@ -525,18 +538,19 @@ def _classify(
     )
 
 
-def _config_class(source_cls: type, source_type: str) -> Type[ConfigModel]:
-    # Injected by @config_class at runtime, out of mypy's view.
-    get_config_class = getattr(source_cls, "get_config_class", None)
-    if get_config_class is None:
+def _declared_config_class(source_type: str) -> Type[ConfigModel]:
+    """config_class_for, refusing a source that declares no config class:
+    there is nothing to describe or to collect secrets from."""
+    config_cls = config_class_for(source_type)
+    if config_cls is None:
         raise TypeError(f"Source {source_type!r} does not define a config class")
-    return get_config_class()
+    return config_cls
 
 
 def describe_source(source_type: str) -> SourceSpec:
     # A source type that does not resolve is a ValueError; never returns None.
     source_cls = source_class_for(source_type)
-    config_cls = _config_class(source_cls, source_type)
+    config_cls = _declared_config_class(source_type)
     filter_kinds = _filter_kinds_by_field(source_type, config_cls)
     fields = [
         _classify(name, info, filter_kinds)

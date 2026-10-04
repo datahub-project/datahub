@@ -305,9 +305,16 @@ def test_an_annotated_connector_stays_silent(caplog):
     _pattern_field_for_config_class.cache_clear()
     _reset_convention_warnings()
     with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        config_cls = config_class_for("postgres")
+        assert config_cls is not None
         resolved = pattern_field_for_config(
-            config_class_for("postgres")(
-                host_port="localhost:5432", username="u", password="p", database="d"
+            config_cls.model_validate(
+                {
+                    "host_port": "localhost:5432",
+                    "username": "u",
+                    "password": "p",
+                    "database": "d",
+                }
             ),
             "Schema",
         )

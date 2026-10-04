@@ -278,6 +278,12 @@ REFUSED_USER_DATA: List[Tuple[str, str, str]] = [
 ]
 
 
+def _sql_config_class(source_type: str) -> Type[SQLCommonConfig]:
+    config_cls = config_class_for(source_type)
+    assert config_cls is not None and issubclass(config_cls, SQLCommonConfig)
+    return config_cls
+
+
 def _scope(source_type: str) -> CatalogScope:
     """Resolve the scope the way _enforce_gates does, which is off the provider.
 
@@ -294,7 +300,7 @@ def _scope(source_type: str) -> CatalogScope:
     declared = provider.__dict__.get("catalog_scope") if provider else None
     if isinstance(declared, CatalogScope):
         return declared
-    return config_class_for(source_type).probe_catalog_scope()
+    return _sql_config_class(source_type).probe_catalog_scope()
 
 
 @pytest.mark.parametrize("source_type,platform,query", PERMITTED)
@@ -410,7 +416,7 @@ def _declared_scopes() -> Iterator[Tuple[str, CatalogScope]]:
         scope = provider.__dict__.get("catalog_scope")
         if not isinstance(scope, CatalogScope):
             try:
-                scope = config_class_for(source_type).probe_catalog_scope()
+                scope = _sql_config_class(source_type).probe_catalog_scope()
             except Exception:
                 continue
         if isinstance(scope, CatalogScope):

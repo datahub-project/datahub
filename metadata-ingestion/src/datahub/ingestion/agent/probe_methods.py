@@ -52,7 +52,10 @@ from datahub.ingestion.agent.verdicts import (
 )
 
 if TYPE_CHECKING:
-    # Annotation only: the gates import sqlglot lazily (see _enforce_gates).
+    # Annotations only: configuration.common stays off this module's import
+    # path (see source_class_for), and the gates import sqlglot lazily (see
+    # _enforce_gates).
+    from datahub.configuration.common import ConfigModel
     from datahub.ingestion.agent.sql_gate import CatalogScope
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
@@ -422,8 +425,9 @@ def source_class_for(source_type: str) -> type:
         raise
 
 
-# Typed Any: @config_class injects get_config_class at runtime, out of mypy's view.
-def config_class_for(source_type: str) -> Any:
+def config_class_for(source_type: str) -> Optional[Type["ConfigModel"]]:
+    """The config class `source_type` validates its recipe with, or None for a
+    source that declares none. Raises as source_class_for does."""
     get_config_class = getattr(source_class_for(source_type), "get_config_class", None)
     return get_config_class() if get_config_class is not None else None
 

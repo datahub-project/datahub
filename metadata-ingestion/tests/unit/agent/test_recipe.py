@@ -134,7 +134,9 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults(source_type, fie
     )
     # And the connector's default really does carry denies worth keeping,
     # so the assertion above is protecting something.
-    model_field = config_class_for(source_type).model_fields[field]
+    config_cls = config_class_for(source_type)
+    assert config_cls is not None
+    model_field = config_cls.model_fields[field]
     default = model_field.get_default(call_default_factory=True)
     assert default.deny, f"{source_type}.{field} has no deny default"
 
