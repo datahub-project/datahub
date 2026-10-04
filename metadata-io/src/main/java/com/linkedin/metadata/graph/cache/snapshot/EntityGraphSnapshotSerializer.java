@@ -141,6 +141,11 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
         for (String seed : trustedSeeds) {
           out.writeString(seed);
         }
+        List<String> trustedEdgeLines = direction.getTrustedEdgeLines();
+        out.writeInt(trustedEdgeLines.size());
+        for (String edgeLine : trustedEdgeLines) {
+          out.writeString(edgeLine);
+        }
       }
     }
   }
@@ -161,6 +166,7 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
       boolean complete = in.readBoolean();
       String truncationReason = in.readBoolean() ? in.readString() : null;
       List<String> trustedSeeds = List.of();
+      List<String> trustedEdgeLines = List.of();
       if (version >= TRUSTED_FULL_WALK_VERSION) {
         int seedCount = in.readInt();
         if (seedCount > 0) {
@@ -169,6 +175,14 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
             seeds.add(in.readString());
           }
           trustedSeeds = List.copyOf(seeds);
+        }
+        int edgeCount = in.readInt();
+        if (edgeCount > 0) {
+          List<String> lines = new ArrayList<>(edgeCount);
+          for (int edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++) {
+            lines.add(in.readString());
+          }
+          trustedEdgeLines = List.copyOf(lines);
         }
       }
       builder.direction(
@@ -180,6 +194,7 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
               .complete(complete)
               .truncationReason(truncationReason)
               .trustedSeeds(trustedSeeds)
+              .trustedEdgeLines(trustedEdgeLines)
               .build());
     }
     return builder.build();

@@ -85,6 +85,9 @@ public class EntityGraphView {
     @Nonnull List<DirectedEdge> edges;
     int exploredDepth;
     boolean containsAllSeeds;
+
+    /** Canonical lines of {@code walkedEdges}. Full-path reads follow these and not leftovers. */
+    @Nonnull List<String> trustedEdgeLines;
   }
 
   /**
@@ -105,16 +108,24 @@ public class EntityGraphView {
         kept.putIfAbsent(canonical.canonicalLine(), canonical);
       }
     }
+    List<DirectedEdge> walkedCanonical = new ArrayList<>();
+    List<String> trustedEdgeLines = new ArrayList<>();
     for (DirectedEdge walked : walkedEdges) {
       DirectedEdge canonical = canonicalize(walked);
-      if (canonical != null) {
-        kept.put(canonical.canonicalLine(), canonical);
+      if (canonical == null) {
+        continue;
+      }
+      kept.put(canonical.canonicalLine(), canonical);
+      if (!trustedEdgeLines.contains(canonical.canonicalLine())) {
+        walkedCanonical.add(canonical);
+        trustedEdgeLines.add(canonical.canonicalLine());
       }
     }
     List<DirectedEdge> result = List.copyOf(kept.values());
     EntityGraphView updated = new EntityGraphView(result);
+    int walkedDepth = new EntityGraphView(List.copyOf(walkedCanonical)).hopDepth(direction, seeds);
     return new ClosureReplacement(
-        result, updated.hopDepth(direction, seeds), updated.containsAllSeeds(seeds));
+        result, walkedDepth, updated.containsAllSeeds(seeds), List.copyOf(trustedEdgeLines));
   }
 
   @Nonnull
@@ -126,6 +137,20 @@ public class EntityGraphView {
   @Nonnull
   public ExpandResult expandWithResult(
       @Nonnull TraversalDirection direction, @Nonnull Set<String> seeds, int limit, int maxDepth) {
+    return expandWithResult(direction, seeds, limit, maxDepth, null);
+  }
+
+  /**
+   * @param allowedEdgeLines when non-null, only these canonical lines are traversed. An empty set
+   *     follows no edges. Null follows every edge.
+   */
+  @Nonnull
+  public ExpandResult expandWithResult(
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> seeds,
+      int limit,
+      int maxDepth,
+      @Nullable Set<String> allowedEdgeLines) {
     Graph<String, DirectedEdge> graph =
         direction == TraversalDirection.FORWARD ? forwardGraph() : reverseGraph();
     Set<String> result = new LinkedHashSet<>();
@@ -151,6 +176,9 @@ public class EntityGraphView {
       String current = queue.poll();
       processedAtLevel++;
       for (DirectedEdge edge : graph.outgoingEdgesOf(current)) {
+        if (allowedEdgeLines != null && !allowedEdgeLines.contains(edge.canonicalLine())) {
+          continue;
+        }
         String neighbor = neighborUrn(edge, direction);
         if (visited.add(neighbor)) {
           result.add(neighbor);
@@ -305,12 +333,19 @@ public class EntityGraphView {
   public boolean coversRoots(
       @Nonnull TraversalDirection direction,
       @Nonnull Collection<String> trustedSeeds,
-      @Nonnull Set<String> roots) {
+      @Nonnull Set<String> roots,
+      @Nonnull Collection<String> trustedEdgeLines) {
     if (trustedSeeds.isEmpty() || roots.isEmpty()) {
       return false;
     }
     Set<String> closure =
-        expand(direction, new LinkedHashSet<>(trustedSeeds), Integer.MAX_VALUE, Integer.MAX_VALUE);
+        expandWithResult(
+                direction,
+                new LinkedHashSet<>(trustedSeeds),
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE,
+                new HashSet<>(trustedEdgeLines))
+            .getVertices();
     return closure.containsAll(roots);
   }
 

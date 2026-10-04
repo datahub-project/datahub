@@ -126,6 +126,8 @@ public class EntityGraphSnapshotSerializerTest {
                     .configuredMaxDepth(25)
                     .complete(true)
                     .trustedSeeds(List.of("urn:li:glossaryNode:seed"))
+                    .trustedEdgeLines(
+                        List.of("urn:li:glossaryTerm:child->urn:li:glossaryNode:seed:IsPartOf"))
                     .build())
             .direction(
                 DirectionCoverage.builder()
@@ -169,6 +171,18 @@ public class EntityGraphSnapshotSerializerTest {
     assertEquals(
         restored.getTraversalCoverage().getDirection(TraversalDirection.REVERSE).getTrustedSeeds(),
         List.of("urn:li:glossaryNode:seed"));
+    assertEquals(
+        restored
+            .getTraversalCoverage()
+            .getDirection(TraversalDirection.REVERSE)
+            .getTrustedEdgeLines(),
+        List.of("urn:li:glossaryTerm:child->urn:li:glossaryNode:seed:IsPartOf"));
+    assertEquals(
+        restored
+            .getTraversalCoverage()
+            .getDirection(TraversalDirection.FORWARD)
+            .getTrustedEdgeLines(),
+        List.of());
     assertFalse(restored.getTraversalCoverage().isTrustedFullWalk(TraversalDirection.FORWARD));
     assertEquals(
         restored.getTraversalCoverage().getDirection(TraversalDirection.REVERSE).getExploredDepth(),

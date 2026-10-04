@@ -281,6 +281,59 @@ public class EntityGraphSnapshotEditorTest {
   }
 
   @Test
+  public void fullWalkDepthIgnoresLeftoverEdgesBeyondTheWalk() {
+    String oldParent = "urn:li:glossaryNode:oldParent";
+    String newParent = "urn:li:glossaryNode:newParent";
+    String child = "urn:li:glossaryTerm:child";
+    String grandchild = "urn:li:glossaryTerm:grandchild";
+    EntityGraphSnapshot existing =
+        EntityGraphSnapshot.builder()
+            .graphId("glossary")
+            .cacheKey("glossary@graph:reparent")
+            .buildSource("graph")
+            .builtAtMillis(1L)
+            .generation(1L)
+            .edges(List.of(edge(child, oldParent), edge(grandchild, child)))
+            .traversalCoverage(
+                TraversalCoverage.builder()
+                    .direction(
+                        DirectionCoverage.builder()
+                            .direction(TraversalDirection.REVERSE)
+                            .explored(true)
+                            .exploredDepth(4)
+                            .configuredMaxDepth(25)
+                            .complete(true)
+                            .build())
+                    .build())
+            .build();
+
+    FullWalkEdit edit =
+        EntityGraphSnapshotEditor.applyFullWalk(
+            existing,
+            "glossary",
+            existing.getCacheKey(),
+            "graph",
+            2L,
+            2L,
+            TraversalDirection.REVERSE,
+            Set.of(newParent),
+            List.of(edge(child, newParent)),
+            25);
+
+    assertTrue(edit.isContainsAllSeeds());
+    assertEquals(edit.getExploredDepth(), 1);
+    EntityGraphSnapshot updated = edit.getSnapshot();
+    assertNotNull(updated);
+    assertTrue(hasEdge(updated, grandchild, child));
+    assertTrue(hasEdge(updated, child, newParent));
+    DirectionCoverage reverse =
+        updated.getTraversalCoverage().getDirection(TraversalDirection.REVERSE);
+    assertEquals(reverse.getExploredDepth(), 4);
+    assertEquals(reverse.getTrustedSeeds(), List.of(newParent));
+    assertEquals(reverse.getTrustedEdgeLines(), List.of(child + "->" + newParent + ":IsPartOf"));
+  }
+
+  @Test
   public void fullWalkKeepsTheDeeperExistingDirectionDepth() {
     String seed = "urn:li:glossaryNode:seed";
     String child = "urn:li:glossaryTerm:child";

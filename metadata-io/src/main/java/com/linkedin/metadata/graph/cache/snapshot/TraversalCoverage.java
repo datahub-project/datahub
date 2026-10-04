@@ -144,6 +144,12 @@ public class TraversalCoverage implements Serializable {
      */
     @Builder.Default @Nonnull List<String> trustedSeeds = List.of();
 
+    /**
+     * Canonical lines of the edges that walk produced. Full-path reads follow this set, so leftover
+     * component edges stay available to ordinary expands and are not part of the trusted closure.
+     */
+    @Builder.Default @Nonnull List<String> trustedEdgeLines = List.of();
+
     /** True when a full walk was written back for this direction. */
     public boolean isTrustedFullWalk() {
       return !trustedSeeds.isEmpty();

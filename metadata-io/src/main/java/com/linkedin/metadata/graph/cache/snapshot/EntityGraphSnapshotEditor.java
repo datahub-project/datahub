@@ -80,7 +80,10 @@ public final class EntityGraphSnapshotEditor {
     TraversalCoverage prior = existing == null ? null : existing.getTraversalCoverage();
     DirectionCoverage previous = prior == null ? null : prior.getDirection(direction);
     DirectionCoverage.DirectionCoverageBuilder stamped =
-        DirectionCoverage.builder().direction(direction).trustedSeeds(List.copyOf(seeds));
+        DirectionCoverage.builder()
+            .direction(direction)
+            .trustedSeeds(List.copyOf(seeds))
+            .trustedEdgeLines(replacement.getTrustedEdgeLines());
     if (previous != null) {
       stamped
           .explored(previous.isExplored())

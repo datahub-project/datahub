@@ -246,8 +246,33 @@ public class GraphReadBackend {
       int requestedMaxDepth,
       @Nonnull EntityGraphView view,
       int effectiveDepth) {
+    return expandAtDepth(
+        definition,
+        direction,
+        normalizedRoots,
+        limit,
+        requestedMaxDepth,
+        view,
+        effectiveDepth,
+        null);
+  }
+
+  /**
+   * Expands {@code view} at {@code effectiveDepth}. When {@code allowedEdgeLines} is non-null, only
+   * those canonical lines are followed.
+   */
+  @Nonnull
+  public GraphReadResult expandAtDepth(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> normalizedRoots,
+      int limit,
+      int requestedMaxDepth,
+      @Nonnull EntityGraphView view,
+      int effectiveDepth,
+      @Nullable Set<String> allowedEdgeLines) {
     EntityGraphView.ExpandResult expandResult =
-        view.expandWithResult(direction, normalizedRoots, limit, effectiveDepth);
+        view.expandWithResult(direction, normalizedRoots, limit, effectiveDepth, allowedEdgeLines);
 
     if (expandResult.isTruncatedByMaxDepth()
         && definition.getScope().getMode() == ScopeMode.PARTIAL

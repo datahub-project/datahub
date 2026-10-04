@@ -236,6 +236,33 @@ public class EntityGraphFullWalkWriteBackTest {
   }
 
   @Test
+  public void reparentWalkDoesNotTrustLeftoverDescendants() {
+    String oldParent = "urn:li:glossaryNode:oldParent";
+    String newParent = "urn:li:glossaryNode:newParent";
+    String cacheKey = EntityGraphCacheKeys.componentCacheKey(GLOSSARY, SOURCE, "reparent");
+    store.publish(
+        snapshot(
+            cacheKey,
+            GLOSSARY,
+            System.currentTimeMillis(),
+            List.of(directed(CHILD, oldParent), directed(GRANDCHILD, CHILD)),
+            directionCoverage(TraversalDirection.REVERSE, 1, 1, true, false)),
+        CacheStatus.ACTIVE);
+    assertEquals(
+        service.publishFullWalk(
+            writeBack(GLOSSARY, Set.of(newParent), List.of(walkEdge(CHILD, newParent)), false, 0L)),
+        FullWalkPublishResult.PUBLISHED);
+
+    Set<String> fullPath =
+        vertices(expandRoots(Set.of(newParent), true, EntityGraphCache.USE_DEFINITION_MAX_DEPTH));
+    assertTrue(fullPath.contains(CHILD));
+    assertFalse(fullPath.contains(GRANDCHILD));
+    Set<String> ordinaryChild =
+        vertices(expandRoots(Set.of(CHILD), false, EntityGraphCache.USE_DEFINITION_MAX_DEPTH));
+    assertTrue(ordinaryChild.contains(GRANDCHILD));
+  }
+
+  @Test
   public void builderCompleteSnapshotMissesFullPathAndStaysClamped() {
     String cacheKey = EntityGraphCacheKeys.componentCacheKey(GLOSSARY, SOURCE, "fp-builder");
     store.publish(
@@ -251,6 +278,10 @@ public class EntityGraphFullWalkWriteBackTest {
     GraphReadResult fullPath = expand(service, true, EntityGraphCache.USE_DEFINITION_MAX_DEPTH);
     assertTrue(fullPath.isMiss());
     assertEquals(((GraphReadResult.Miss) fullPath).reason(), ReadMissReason.INSUFFICIENT_COVERAGE);
+    Set<String> bounded = vertices(expand(service, true, 1));
+    assertTrue(bounded.contains(CHILD));
+    assertFalse(bounded.contains(GRANDCHILD));
+    assertMiss(expand(service, true, 3), ReadMissReason.INSUFFICIENT_COVERAGE);
 
     Set<String> clamped =
         vertices(expand(service, false, EntityGraphCache.USE_DEFINITION_MAX_DEPTH));

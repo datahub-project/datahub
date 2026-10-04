@@ -13,6 +13,7 @@ import com.linkedin.metadata.graph.cache.service.read.PartialGraphReadBackend;
 import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -56,9 +57,10 @@ public class PartialGraphScopeReadStrategy implements GraphScopeReadStrategy {
   }
 
   /**
-   * Serves a trusted full walk without calling {@code ensureFreshForRoot}. A builder-complete
-   * snapshot misses with {@link ReadMissReason#INSUFFICIENT_COVERAGE} and is left for the caller to
-   * walk.
+   * Serves a full-path read without calling {@code ensureFreshForRoot}. A trusted walk follows only
+   * the edges that walk stored. A positive depth the builder already explored completely is served
+   * from that limited walk. An unlimited read without a covering trusted walk misses and does not
+   * rebuild.
    */
   @Nonnull
   @Override
@@ -101,25 +103,42 @@ public class PartialGraphScopeReadStrategy implements GraphScopeReadStrategy {
     TraversalCoverage coverage = component.coverage();
     TraversalCoverage.DirectionCoverage stamped =
         coverage == null ? null : coverage.getDirection(direction);
-    if (stamped == null
-        || !stamped.isTrustedFullWalk()
-        || !component.view().coversRoots(direction, stamped.getTrustedSeeds(), normalizedRoots)) {
-      return GraphReadResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+    if (stamped != null
+        && stamped.isTrustedFullWalk()
+        && component
+            .view()
+            .coversRoots(
+                direction,
+                stamped.getTrustedSeeds(),
+                normalizedRoots,
+                stamped.getTrustedEdgeLines())) {
+      int effectiveDepth =
+          maxDepth == EntityGraphCache.USE_DEFINITION_MAX_DEPTH || maxDepth <= 0
+              ? Integer.MAX_VALUE
+              : maxDepth;
+      return partialBackend
+          .shared()
+          .expandAtDepth(
+              definition,
+              direction,
+              normalizedRoots,
+              limit,
+              maxDepth,
+              component.view(),
+              effectiveDepth,
+              new HashSet<>(stamped.getTrustedEdgeLines()));
     }
-    int effectiveDepth =
-        maxDepth == EntityGraphCache.USE_DEFINITION_MAX_DEPTH || maxDepth <= 0
-            ? Integer.MAX_VALUE
-            : maxDepth;
-    return partialBackend
-        .shared()
-        .expandAtDepth(
-            definition,
-            direction,
-            normalizedRoots,
-            limit,
-            maxDepth,
-            component.view(),
-            effectiveDepth);
+    if (maxDepth > 0
+        && stamped != null
+        && stamped.isExplored()
+        && stamped.isComplete()
+        && stamped.getExploredDepth() >= maxDepth) {
+      return partialBackend
+          .shared()
+          .expandAtDepth(
+              definition, direction, normalizedRoots, limit, maxDepth, component.view(), maxDepth);
+    }
+    return GraphReadResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
   }
 
   @Nonnull
