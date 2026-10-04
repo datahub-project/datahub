@@ -26,6 +26,7 @@ from datahub.configuration.common import (
     ConfigModel,
     Enables,
     Filters,
+    FiltersByRule,
 )
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
@@ -368,11 +369,9 @@ def test_attributes_must_align_with_names(monkeypatch: pytest.MonkeyPatch) -> No
 class _Rules(ConfigModel):
     """GCS's shape: path_specs decide Tables, and they are not a pattern."""
 
-    path_specs: List[str] = Field(default_factory=lambda: ["gs://b/data/*"])
-
-    @classmethod
-    def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
-        return {"Table": "path_specs"}
+    path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+        default_factory=lambda: ["gs://b/data/*"]
+    )
 
     @classmethod
     def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:

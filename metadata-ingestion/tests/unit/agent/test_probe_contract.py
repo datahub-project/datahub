@@ -15,18 +15,23 @@ lint whose failure path is never exercised is a lint nobody can trust.
 """
 
 import difflib
+import inspect
 import re
 from pathlib import Path
-from typing import Annotated, Dict, Iterator, List, Mapping, Optional, Set, Tuple
+from typing import Annotated, Dict, Iterator, List, Optional, Set, Tuple
 
 import pytest
 from pydantic import Field
+from pydantic.fields import FieldInfo
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     Enables,
     Filters,
+    FiltersByRule,
+    HiddenFromDocs,
+    Qualifier,
 )
 from datahub.ingestion.agent.probe_methods import (
     CLASS_CONFIG_HOOKS,
@@ -744,8 +749,8 @@ def _fields_leaning_on_the_name_convention(
 ) -> List[str]:
     """The fields `describe` maps to a kind only through the `<kind>_pattern` guess.
 
-    A rule field (probe_rule_filtered_kinds) counts as explicit: the connector
-    named it for that kind, which is the opposite of a guess.
+    A rule field (FiltersByRule) counts as explicit: the connector named it
+    for that kind, which is the opposite of a guess.
     """
     from datahub.ingestion.agent.introspect import (
         _declared_filter_kind,
@@ -857,8 +862,6 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     base behind, breaking `probe filter` on every other SQL source while the
     name-only check above passes.
     """
-    import inspect
-
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
     # Keyword arguments the framework passes, per hook. A hook must accept
@@ -927,8 +930,6 @@ def _class_hook_problems(config_cls: type) -> List[str]:
     classmethod or staticmethod. The framework calls them on the class, where
     an instance method fails for want of `self` -- and only when called, so
     `describe` or `probe methods` breaks while `probe filter` works."""
-    import inspect
-
     problems = []
     for hook in CLASS_CONFIG_HOOKS:
         try:
@@ -1188,30 +1189,28 @@ def test_the_enables_check_catches_a_misplaced_marker():
 
 
 def _rule_kind_problems(config_cls: type) -> List[str]:
-    """A rule-filtered kind is only answerable when the config has the rule
-    field, an override to judge it, and does not also call it unfiltered."""
+    """A rule-filtered kind is only answerable when its FiltersByRule marks a
+    top-level field (the only ones read), an override judges it, and nothing
+    else claims the kind: not probe_unfiltered_kinds, not a pattern field."""
     from datahub.ingestion.agent.introspect import (
         _pattern_field_for_config_class,
         declared_rule_filtered_kinds,
         declared_unfiltered_kinds,
+        iter_config_fields,
     )
 
+    problems: List[str] = [
+        f"{config_cls.__name__}.{path} declares FiltersByRule in a nested "
+        f"block, which the probe never reads"
+        for path, info in iter_config_fields(config_cls)
+        if "." in path and any(isinstance(m, FiltersByRule) for m in info.metadata)
+    ]
     rules = declared_rule_filtered_kinds(config_cls)
-    if not rules:
-        return []
-    problems: List[str] = []
-    fields = getattr(config_cls, "model_fields", {})
-    if not callable(getattr(config_cls, "probe_verdict_override", None)):
+    if rules and not callable(getattr(config_cls, "probe_verdict_override", None)):
         problems.append(
             f"{config_cls.__name__} declares rule-filtered kinds but no "
             f"probe_verdict_override to judge them"
         )
-    for kind, field_name in rules.items():
-        if field_name not in fields:
-            problems.append(
-                f"{config_cls.__name__}: '{kind}' is filtered by "
-                f"'{field_name}', which is not a field"
-            )
     for kind in sorted(set(rules) & declared_unfiltered_kinds(config_cls)):
         problems.append(
             f"{config_cls.__name__}: '{kind}' is declared both rule-filtered "
@@ -1240,24 +1239,33 @@ def test_every_rule_filtered_kind_is_answerable():
 
 def test_the_rule_kind_check_catches_a_missing_override():
     class _NoJudge(ConfigModel):
-        path_specs: List[str] = Field(default_factory=list)
-
-        @classmethod
-        def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
-            return {"Table": "path_specs"}
+        path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+            default_factory=list
+        )
 
     assert len(_rule_kind_problems(_NoJudge)) == 1
 
 
+def test_the_rule_kind_check_catches_a_nested_rule_field():
+    class _Block(ConfigModel):
+        path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+            default_factory=list
+        )
+
+    class _Nested(ConfigModel):
+        block: _Block = Field(default_factory=_Block)
+
+    problems = _rule_kind_problems(_Nested)
+    assert len(problems) == 1 and "block.path_specs" in problems[0]
+
+
 class _RulesAndPattern(ConfigModel):
-    path_specs: List[str] = Field(default_factory=list)
+    path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+        default_factory=list
+    )
     table_pattern: Annotated[AllowDenyPattern, Filters("Table")] = Field(
         default=AllowDenyPattern.allow_all()
     )
-
-    @classmethod
-    def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
-        return {"Table": "path_specs"}
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         return Verdict.include()
@@ -1284,16 +1292,106 @@ def test_a_rule_field_is_not_mistaken_for_the_name_guess(monkeypatch):
     from datahub.ingestion.agent import introspect
 
     class _RulesOnly(ConfigModel):
-        path_specs: List[str] = Field(default_factory=list)
-
-        @classmethod
-        def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
-            return {"Table": "path_specs"}
+        path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+            default_factory=list
+        )
 
     monkeypatch.setattr(
         introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}
     )
     assert _fields_leaning_on_the_name_convention("fake-source", _RulesOnly) == []
+
+
+_FIELD_MARKERS = (Filters, Enables, FiltersByRule, Qualifier)
+
+
+def _field_markers(info: FieldInfo) -> List[object]:
+    return [m for m in info.metadata if isinstance(m, _FIELD_MARKERS)]
+
+
+def _inherited_field(klass: type, name: str) -> Optional[FieldInfo]:
+    """`name` as klass would inherit it: from the nearest base declaring it."""
+    for base in klass.__mro__[1:]:
+        fields = getattr(base, "model_fields", None) or {}
+        if name in fields and name in inspect.get_annotations(base):
+            return fields[name]
+    return None
+
+
+def _dropped_markers(config_cls: type) -> List[str]:
+    """The markers a class in config_cls's MRO loses by redeclaring an
+    inherited field: pydantic replaces a redeclared field's metadata, so a
+    redeclaration that only changes a default drops the marker unseen.
+
+    A drop is deliberate where the class carries the marker on another field
+    (it moved) or hides the field from the docs (a deprecated alias that no
+    longer does the job).
+    """
+    from datahub.ingestion.agent.introspect import _is_hidden_field
+
+    problems = []
+    for klass in config_cls.__mro__:
+        fields = getattr(klass, "model_fields", None) or {}
+        for name in inspect.get_annotations(klass):
+            inherited = _inherited_field(klass, name)
+            if name not in fields or inherited is None:
+                continue
+            if _is_hidden_field(klass, name):
+                continue
+            kept = {
+                marker for info in fields.values() for marker in _field_markers(info)
+            }
+            lost = [m for m in _field_markers(inherited) if m not in kept]
+            if lost:
+                problems.append(
+                    f"{klass.__module__}.{klass.__qualname__}.{name} redeclares "
+                    f"an inherited field and drops {lost}"
+                )
+    return problems
+
+
+def test_no_config_drops_a_marker_by_redeclaring_its_field():
+    problems: Set[str] = set()
+    checked = 0
+    for _source_type, config_cls in _loaded_source_configs():
+        checked += 1
+        problems.update(_dropped_markers(config_cls))
+    assert sorted(problems) == [], (
+        "these fields lost a probe marker when redeclared. Repeat the marker "
+        "on the redeclaration, move it to the field that now does the job, or "
+        "hide the field (HiddenFromDocs) if it is a deprecated alias."
+    )
+    assert checked > 50, f"only {checked} configs reached"
+
+
+def test_the_redeclaration_check_catches_a_dropped_marker():
+    class _Base(ConfigModel):
+        include_things: Annotated[bool, Enables("Thing")] = True
+        thing_pattern: Annotated[AllowDenyPattern, Filters("Thing")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        legacy_pattern: Annotated[AllowDenyPattern, Filters("Box")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        old_pattern: Annotated[AllowDenyPattern, Filters("Crate")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    class _Redeclares(_Base):
+        include_things: bool = False
+        thing_pattern: Annotated[AllowDenyPattern, Filters("Thing")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        legacy_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
+        box_pattern: Annotated[AllowDenyPattern, Filters("Box")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        old_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    problems = _dropped_markers(_Redeclares)
+    assert len(problems) == 1 and "include_things" in problems[0]
 
 
 def test_the_framework_reads_no_config_hook_outside_its_list():

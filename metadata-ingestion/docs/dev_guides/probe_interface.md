@@ -213,8 +213,8 @@ These hold what providers would otherwise copy. None is a hook: the framework ne
 `ProbeProviderBase`, `resolve_name`, `take`, `PersonalWithholding`, `soft_listing` and `echoed` are
 in `datahub.ingestion.agent.provider_helpers`; `mask_identity_columns` in
 `datahub.ingestion.agent.redact`; `pattern_verdict`, `Verdict`, `parent_required`, `ancestors_in`
-and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filters`, `Enables`
-and `Qualifier` in `datahub.configuration.common`.
+and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filters`,
+`FiltersByRule`, `Enables` and `Qualifier` in `datahub.configuration.common`.
 
 | Helper                                                   | Use it for                                                                                                                   |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -296,45 +296,56 @@ with keyword arguments. `test_probe_contract.py` checks the names in this table 
 arguments. A hook is held to a provider call's rule: a trusted exception keeps its type and message,
 and anything else it raises is the connector's defect (exit 1), reported by class, hook and label.
 
-| Hook                        | Signature                                                       | Declare it when                                                                     |
-| --------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `probe_provider_class`      | classmethod `() -> type`                                        | always: it names the provider class                                                 |
-| `probe_validation_context`  | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts |
-| `probe_kind_overrides`      | classmethod `() -> Mapping[str, str]`                           | the config, not the provider, decides a command's kind (command → kind)             |
-| `probe_match_target`        | `(self, ctx: ClassifyContext) -> Optional[str]`                 | a pattern matches something other than the bare name (step 2)                       |
-| `probe_verdict_override`    | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                              |
-| `probe_rule_filtered_kinds` | classmethod `() -> Mapping[str, str]`                           | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)               |
-| `probe_unfiltered_kinds`    | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                  |
-| `probe_ancestor_kinds`      | `(self, kind: str) -> Optional[Sequence[str]]`                  | containers sit above a kind (step 6)                                                |
+| Hook                       | Signature                                                       | Declare it when                                                                     |
+| -------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `probe_provider_class`     | classmethod `() -> type`                                        | always: it names the provider class                                                 |
+| `probe_validation_context` | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts |
+| `probe_kind_overrides`     | classmethod `() -> Mapping[str, str]`                           | the config, not the provider, decides a command's kind (command → kind)             |
+| `probe_match_target`       | `(self, ctx: ClassifyContext) -> Optional[str]`                 | a pattern matches something other than the bare name (step 2)                       |
+| `probe_verdict_override`   | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                              |
+| `probe_unfiltered_kinds`   | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                  |
+| `probe_ancestor_kinds`     | `(self, kind: str) -> Optional[Sequence[str]]`                  | containers sit above a kind (step 6)                                                |
 
-Three field annotations complete it: `Filters(kind)` on the pattern field that filters a kind,
-`Enables(kind)` on the bool field that switches a kind off, and `Qualifier()` on a field naming the
-container a qualified name starts with. A new hook goes into `CONFIG_HOOKS` and this table in the
-same change (a SQL-family hook: `SQL_FAMILY_HOOKS` in `source/sql/sql_config.py` and
-[its table](#sql-family-hooks)).
+Four field annotations complete it: `Filters(kind)` on the pattern field that filters a kind,
+`FiltersByRule(kind)` on a field whose rules decide a kind instead, `Enables(kind)` on the bool field
+that switches a kind off, and `Qualifier()` on a field naming the container a qualified name starts
+with. A new hook goes into `CONFIG_HOOKS` and this table in the same change (a SQL-family hook:
+`SQL_FAMILY_HOOKS` in `source/sql/sql_config.py` and [its table](#sql-family-hooks)).
 
 ## Making verdicts match ingestion
 
 `probe filter` resolves a verdict in this order. Each step's default is right for most connectors,
 so implement a hook only where the default answers differently from ingestion.
 
-| Step | What it does                                                                     | Change it with                                                         |
-| ---- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1    | find the field that filters the kind                                             | `Filters(kind)`; `probe_rule_filtered_kinds`, `probe_unfiltered_kinds` |
-| 2    | build the string the pattern is matched against                                  | `probe_match_target`; `None` keeps the bare name                       |
-| 3    | a bool switch that turns the whole kind off                                      | `Enables(kind)`                                                        |
-| 4    | the connector's own verdict, told step 3's                                       | `probe_verdict_override`                                               |
-| 5    | match the pattern against the target, if steps 3 and 4 gave no verdict           | none                                                                   |
-| 6    | judge the immediate `--parent` the same way; inside an excluded container is out | `probe_ancestor_kinds`                                                 |
+| Step | What it does                                                                     | Change it with                                                   |
+| ---- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 1    | find the field that filters the kind                                             | `Filters(kind)`, `FiltersByRule(kind)`; `probe_unfiltered_kinds` |
+| 2    | build the string the pattern is matched against                                  | `probe_match_target`; `None` keeps the bare name                 |
+| 3    | a bool switch that turns the whole kind off                                      | `Enables(kind)`                                                  |
+| 4    | the connector's own verdict, told step 3's                                       | `probe_verdict_override`                                         |
+| 5    | match the pattern against the target, if steps 3 and 4 gave no verdict           | none                                                             |
+| 6    | judge the immediate `--parent` the same way; inside an excluded container is out | `probe_ancestor_kinds`                                           |
 
 **Step 1.** Declare `Filters(kind)` on every pattern field, nested ones included
 (`filter_config.entries.pattern` is reported under its dotted name, and `--try-*` reruns only its
 own block's validators). The `<kind>_pattern` name convention is a fallback for out-of-tree
 connectors, and the contract test refuses it in-tree. A kind nothing filters on purpose goes in
 `probe_unfiltered_kinds`, so `probe filter` reports `filtering: "unfiltered"` rather than
-`"unresolved"`, which is what a dropped annotation looks like. A kind decided by rules
-(`path_specs`) goes in `probe_rule_filtered_kinds`, and `probe_verdict_override` must return a
-`Verdict` for every name of it, with `excluded_by` naming the sub-rule (`path_specs[0].exclude`).
+`"unresolved"`, which is what a dropped annotation looks like. A subclass redeclaring a marked
+field repeats the marker, since pydantic replaces the field's metadata; the contract test refuses a
+dropped one.
+
+A kind decided by rules that are not an `AllowDenyPattern` carries `FiltersByRule(kind)` on that
+top-level field, whatever its type: a `path_specs` list, or a bool under which the kind follows from
+what else is ingested. `probe filter` reports `filtering: "by_rule"`, and `probe_verdict_override`
+must return a `Verdict` for every name of it, with `excluded_by` naming the sub-rule
+(`path_specs[0].exclude`).
+
+```python
+path_specs: Annotated[List[PathSpec], FiltersByRule(DatasetSubTypes.TABLE)] = Field(
+    description="Which paths are datasets, and how they are laid out."
+)
+```
 
 **Step 2.** The target decides the verdict: where ingestion matches `schema.table`, judging the
 bare name gives `^orders$` an answer ingestion never gives. Return the string ingestion matches,
@@ -502,8 +513,8 @@ ceiling.
 
 - [ ] **Hooks and methods.** `probe_provider_class()` on the config, `for_config` on the provider,
       optional hooks copied from the [hook reference](#hook-reference). `kind=` and
-      `row_limit_param=` on each listing, `Filters(...)` on each pattern field, `Enables(...)` on each
-      switch.
+      `row_limit_param=` on each listing, `Filters(...)` on each pattern field (`FiltersByRule(...)`
+      on a rule field), `Enables(...)` on each switch.
 - [ ] **The contract scan passes.** `pytest tests/unit/agent/test_probe_contract.py` covers a new
       connector the moment it registers. If you add a rule there, add a deliberately bad provider
       that proves it fires.

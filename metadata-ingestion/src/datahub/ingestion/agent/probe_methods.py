@@ -283,9 +283,6 @@ CONFIG_HOOKS: FrozenSet[str] = frozenset(
         "probe_unfiltered_kinds",
         # filter_check._parent_exclusion: the containers above a kind.
         "probe_ancestor_kinds",
-        # introspect.declared_rule_filtered_kinds: kinds decided by rules that
-        # are not an AllowDenyPattern, judged through probe_verdict_override.
-        "probe_rule_filtered_kinds",
         # declared_kind_overrides: the kind a command reports when the config
         # class, not the provider, decides it.
         "probe_kind_overrides",
@@ -305,7 +302,6 @@ CLASS_CONFIG_HOOKS: Tuple[str, ...] = (
     "probe_kind_overrides",
     # introspect._filter_kinds_by_field.
     "probe_unfiltered_kinds",
-    "probe_rule_filtered_kinds",
 )
 
 
@@ -324,16 +320,6 @@ def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
     if not callable(hook):
         return None
     return functools.partial(call_config_hook, config, name, hook)
-
-
-def declared_mapping(config: object, name: str) -> Dict[str, str]:
-    """What a mapping hook (probe_kind_overrides, probe_rule_filtered_kinds)
-    declares, keys and values as str; {} where the config declares none."""
-    hook = config_hook(config, name)
-    if hook is None:
-        return {}
-    declared = cast(Mapping[object, object], hook())
-    return {str(key): str(value) for key, value in declared.items()}
 
 
 # The optional attributes the framework reads off a provider by name, beyond the
@@ -502,7 +488,11 @@ def declared_kind_overrides(config: object) -> Dict[str, str]:
     family's `containers`: schemas or databases). A classmethod, so discovery
     answers without a recipe.
     """
-    return declared_mapping(config, "probe_kind_overrides")
+    hook = config_hook(config, "probe_kind_overrides")
+    if hook is None:
+        return {}
+    declared = cast(Mapping[object, object], hook())
+    return {str(key): str(value) for key, value in declared.items()}
 
 
 def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:

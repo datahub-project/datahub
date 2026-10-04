@@ -570,6 +570,32 @@ class Enables:
 
 
 @dataclasses.dataclass(frozen=True)
+class FiltersByRule:
+    """Declares that this field's rules, not an AllowDenyPattern, decide which
+    objects of a probe level are ingested.
+
+    Sibling of Filters, for a level no pattern states: a list of path rules,
+    or a bool under which the level follows from what else is ingested. The
+    field can be of any type, which is why this is not Enables: a bool can be
+    either. The probe reports the kind filtered by rule, naming this field,
+    and asks the config's probe_verdict_override to judge every name of it.
+
+        path_specs: Annotated[
+            List[PathSpec],
+            FiltersByRule(DatasetContainerSubTypes.FOLDER),
+            FiltersByRule(DatasetSubTypes.TABLE),
+        ] = Field(description="...")
+
+    One per kind, stacked as Filters stacks. A kind it marks has no pattern
+    field, so it carries no Filters.
+
+    `kind` is a DataHub subtype constant, typed str as Filters' is.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
 class Qualifier:
     """Declares that this field names the container a probe qualifies with.
 

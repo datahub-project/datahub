@@ -15,6 +15,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    Union,
     cast,
 )
 
@@ -27,6 +28,7 @@ from datahub.configuration.common import (
     ConfigModel,
     Enables,
     Filters,
+    FiltersByRule,
     Qualifier,
 )
 from datahub.ingestion.agent.config_validation import validate_source_config
@@ -40,7 +42,6 @@ from datahub.ingestion.agent.probe_methods import (
     config_class_for,
     config_hook,
     declared_kind_overrides,
-    declared_mapping,
     list_probe_methods,
     source_class_for,
 )
@@ -370,11 +371,12 @@ def declared_unfiltered_kinds(config: object) -> Set[str]:
 
 @lru_cache(maxsize=None)
 def _kind_marked_fields(
-    config_cls: type, marker: Type[Enables]
+    config_cls: type, marker: Union[Type[Enables], Type[FiltersByRule]]
 ) -> Tuple[Tuple[str, str], ...]:
-    """(kind, field) for every `marker(kind)` on the class's top-level fields.
-    A kind marked on two fields is the connector's defect: the probe could
-    only guess which one ingestion reads."""
+    """(kind, field) for every `marker(kind)` on the class's top-level fields:
+    the one reader Enables and FiltersByRule share. A kind marked on two fields
+    is the connector's defect: the probe could only guess which one ingestion
+    reads."""
     found: Dict[str, str] = {}
     fields = getattr(config_cls, "model_fields", None) or {}
     for name, info in fields.items():
@@ -391,17 +393,20 @@ def _kind_marked_fields(
     return tuple(found.items())
 
 
+def _class_of(config: object) -> type:
+    return config if isinstance(config, type) else type(config)
+
+
 def declared_kind_enablers(config: object) -> Dict[str, str]:
     """kind -> the bool field that enables it (Enables), on a config or its
     class."""
-    config_cls = config if isinstance(config, type) else type(config)
-    return dict(_kind_marked_fields(config_cls, Enables))
+    return dict(_kind_marked_fields(_class_of(config), Enables))
 
 
 def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:
-    """kind -> the config field whose rules (not an AllowDenyPattern) decide it
-    (probe_rule_filtered_kinds, such as `path_specs`)."""
-    return declared_mapping(config, "probe_rule_filtered_kinds")
+    """kind -> the field whose rules, not an AllowDenyPattern, decide it
+    (FiltersByRule, such as `path_specs`), on a config or its class."""
+    return dict(_kind_marked_fields(_class_of(config), FiltersByRule))
 
 
 def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[str]:

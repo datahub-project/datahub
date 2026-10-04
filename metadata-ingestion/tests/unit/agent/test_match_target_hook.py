@@ -4,12 +4,17 @@ The framework asks the hook and uses a non-empty string it returns, and the
 bare name otherwise. Everything else about the target belongs to the hook.
 """
 
-from typing import Annotated, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Annotated, List, Optional, Sequence, Tuple, Type
 
 import pytest
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    FiltersByRule,
+)
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import (
@@ -109,11 +114,9 @@ def test_a_rule_filtered_kind_is_matched_on_its_name_without_asking_the_hook(
     asked: List[str] = []
 
     class _Rules(ConfigModel):
-        path_specs: List[str] = Field(default_factory=list)
-
-        @classmethod
-        def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
-            return {"Folder": "path_specs"}
+        path_specs: Annotated[List[str], FiltersByRule("Folder")] = Field(
+            default_factory=list
+        )
 
         def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
             asked.append(ctx.name)
