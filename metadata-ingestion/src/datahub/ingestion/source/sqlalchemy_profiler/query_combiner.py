@@ -754,7 +754,8 @@ class SQLAlchemyQueryCombiner:
         for members in groups.values():
             if self._gate_failure_by_thread.get(self._get_main_greenlet()) is not None:
                 # An earlier group's gate failed alone, so this table cannot be
-                # read; _execute_queue resolves what is left.
+                # read. The unmatched block below and _execute_queue both read
+                # the same record, so what is left is resolved, not issued.
                 break
             # Precomputed: a diagnostic string must not be able to raise inside
             # the except and skip the recovery it is announcing.
@@ -931,8 +932,12 @@ class SQLAlchemyQueryCombiner:
         # which can be handed an already-done queue -- do not delete it as
         # redundant just because the flatten path pre-filters.
         # Gates first, so a table that cannot be read at all costs one failure
-        # per gate rather than one per column. See GATE_EXECUTION_OPTION.
-        gate_exc: Optional[Exception] = None
+        # per gate rather than one per column. Seeded from the flush's record,
+        # not None: a gate that failed in an earlier group or chunk must stop
+        # this call too. See GATE_EXECUTION_OPTION.
+        gate_exc: Optional[Exception] = self._gate_failure_by_thread.get(
+            self._get_main_greenlet()
+        )
         for query_future in sorted(futures, key=lambda f: not f.is_gate):
             if query_future.done:
                 continue

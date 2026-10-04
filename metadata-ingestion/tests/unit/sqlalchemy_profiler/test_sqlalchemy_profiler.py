@@ -19,6 +19,9 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+    GenericAdapter,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -1688,3 +1691,125 @@ class TestSampledPartitionSpec:
 
         assert spec.type == PartitionTypeClass.PARTITION
         assert spec.partition == "20230906 SAMPLE"
+
+
+class TestEndToEndFailureHandling:
+    """Driven through generate_profiles, so the wiring is covered, not just the
+    helpers. Unit tests on the helpers alone let a reverted fix pass."""
+
+    @staticmethod
+    def _db(tmp_path, columns=12, rows=10):
+        engine = sa.create_engine(f"sqlite:///{tmp_path}/probe.db")
+        meta = sa.MetaData()
+        table = sa.Table(
+            "probe", meta, *[sa.Column(f"c{i}", Integer) for i in range(columns)]
+        )
+        conn = engine.connect()
+        meta.create_all(conn)
+        if rows:
+            conn.execute(
+                table.insert(),
+                [{f"c{i}": n for i in range(columns)} for n in range(rows)],
+            )
+        conn.commit()
+        return engine, conn
+
+    @staticmethod
+    def _profile(conn, flatten, **overrides):
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_enabled=True,
+            query_combiner_flatten_enabled=flatten,
+            include_field_sample_values=False,
+            include_field_median_value=False,
+            **overrides,
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=conn,
+            report=SQLSourceReport(),
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        request = ProfilerRequest(
+            pretty_name="main.probe", batch_kwargs={"table": "probe"}
+        )
+        results = list(
+            profiler.generate_profiles([request], max_workers=1, platform="sqlite")
+        )
+        return profiler, results[0][1]
+
+    @staticmethod
+    def _deny_table(engine, seen):
+        def deny(c, cur, statement, *_):
+            text = " ".join(statement.split())
+            if "probe" in text and text.upper().startswith(("SELECT", "WITH")):
+                seen.append(text)
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny)
+
+    @pytest.mark.parametrize("flatten", [False, True])
+    def test_unreadable_table_does_not_retry_every_column(self, tmp_path, flatten):
+        # The row count is a gate: once it fails alone the table cannot be read,
+        # so the remaining queries are resolved rather than issued.
+        engine, conn = self._db(tmp_path)
+        attempted: List[str] = []
+        self._deny_table(engine, attempted)
+
+        profiler, profile = self._profile(conn, flatten)
+
+        assert len(attempted) <= 3, attempted
+        assert profile is not None
+        assert profile.rowCount is None
+        assert not profile.fieldProfiles
+        assert profiler.report.query_combiner.queries_skipped_after_gate > 0
+
+    def test_one_failing_column_does_not_serialize_the_whole_table(self, tmp_path):
+        # Recovery is scoped to the chunk that failed, so later chunks are still
+        # combined instead of going one query per round trip.
+        engine, conn = self._db(tmp_path, columns=6)
+        failed = []
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split())
+            if "count(c3)" in text.replace('"', "") and "count(c0)" not in text:
+                failed.append(text)
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        profiler, profile = self._profile(conn, False, max_queries_to_combine=3)
+        report = profiler.report.query_combiner
+
+        assert profile is not None
+        # A combined statement still ran after the failure; without scoping the
+        # whole queue is demoted to one query per round trip.
+        assert report.combined_queries_issued >= 2
+        assert report.uncombined_queries_issued < report.total_queries
+
+    def test_a_failing_timeout_clear_does_not_discard_the_profile(self, tmp_path):
+        # The clear runs as the table finishes, when the transaction may be
+        # aborted. The profile is already built and must survive.
+        engine, conn = self._db(tmp_path, columns=3)
+        cleared = []
+
+        def record(c, cur, statement, *_):
+            if "not_a_real_function" in statement:
+                cleared.append(statement)
+
+        sa.event.listen(engine, "before_cursor_execute", record)
+
+        with patch.object(
+            GenericAdapter,
+            "get_query_timeout_statements",
+            return_value=("SELECT 1", "SELECT not_a_real_function()"),
+        ):
+            profiler, profile = self._profile(conn, False, query_timeout_seconds=1)
+
+        # The clear was attempted (so it cannot simply be deleted) and failed...
+        assert cleared
+        # ...and the profile survived it.
+        assert profile is not None
+        assert profile.rowCount == 10
+        assert len(profile.fieldProfiles or []) == 3

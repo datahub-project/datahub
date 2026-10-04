@@ -88,7 +88,9 @@ Combining and flattening reduce how many statements run, but not how long one of
 
 `profiling.query_timeout_seconds` puts a server-side limit on each profiling statement (`max_execution_time` on MySQL, `statement_timeout` on Postgres). A statement that exceeds it fails, and that table is reported and left unprofiled rather than holding the read view open. The limit is set on the profiling connection and cleared when the table is done, so it never leaks to the connection pool that metadata extraction shares.
 
-Size it with the retry in mind. A failed statement is retried one query at a time, so the limit bounds a single statement, not a whole table — a table slow enough that many of its queries time out can spend several multiples of it. The row count runs first and is treated as a gate: if it fails or times out, the table's remaining queries are abandoned rather than retried one by one, so the common "this table is too slow or not readable" case costs about one limit rather than one per column. The `queries_skipped_after_gate` counter reports how many were abandoned this way.
+Size it with the retry in mind. A failed statement is retried one query at a time, so the limit bounds a single statement, not a whole table: a table whose columns are each slow enough to time out costs roughly the limit **per profiling query**, which on a wide table is many multiples of it.
+
+The row count runs first and is treated as a gate: if it fails or times out, the table's remaining queries are resolved with that error rather than issued, so a table too slow or unreadable to count at all stops after two statements — the combined one and the retried count — instead of one per column. The `queries_skipped_after_gate` counter reports how many were skipped this way. Note the gate only catches tables that cannot be counted; one whose `COUNT(*)` is fast but whose columns are slow still pays the limit per query.
 
 ### Transactions
 

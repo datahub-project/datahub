@@ -267,10 +267,13 @@ class ProfilingConfig(ProfilingBaseConfig):
             "and that table is reported and left unprofiled. The limit is set on the "
             "profiling connection and cleared again when the table is done. This "
             "bounds a single statement, not a whole table: a failed statement is "
-            "retried one query at a time, so a table slow enough that many of its "
-            "queries time out can spend several multiples of this limit. The row "
-            "count is tried first, so a table that is slow or unreadable outright "
-            "gives up after it rather than retrying every column."
+            "retried one query at a time, so a table whose columns are each slow "
+            "enough to time out costs roughly this limit per profiling query, "
+            "which on a wide table is many multiples of it. The row count is "
+            "tried first, so a table too slow or unreadable to count at all stops "
+            "after it, at two statements, instead of retrying every column -- but "
+            "a table whose count is fast and whose columns are slow does not hit "
+            "that case."
         ),
     )
 
