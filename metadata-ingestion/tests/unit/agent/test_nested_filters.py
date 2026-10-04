@@ -23,7 +23,7 @@ from datahub.ingestion.agent.pattern_path import (
     pattern_at,
     require_pattern_at,
 )
-from datahub.ingestion.agent.verdicts import pattern_verdict
+from datahub.ingestion.agent.verdicts import ProbeInternalError, pattern_verdict
 
 
 class _Widgets(ConfigModel):
@@ -73,7 +73,7 @@ def test_a_nested_declaration_resolves_to_its_dotted_path() -> None:
 
 def test_one_kind_declared_at_two_depths_is_refused() -> None:
     _hinted_pattern_field.cache_clear()
-    with pytest.raises(ValueError):
+    with pytest.raises(ProbeInternalError):
         _hinted_pattern_field(_Twice, "Widget")
 
 

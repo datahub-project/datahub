@@ -2,12 +2,22 @@ import io
 import json
 import pathlib
 import sys
-from typing import Annotated, Callable, Dict, FrozenSet, List, Sequence, Set, Tuple
+from typing import (
+    Annotated,
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import click
 import pytest
 from click.testing import CliRunner, Result
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from sqlalchemy import create_engine
 
 import datahub.cli.recipe_cli as rc
@@ -338,6 +348,60 @@ def test_a_malformed_try_pattern_is_a_bad_argument_not_a_traceback(tmp_path):
     )
     assert res.exit_code == 2, res.output
     assert '"error"' in res.output
+
+
+class _DoubledFilters(ConfigModel):
+    a_pattern: Annotated[AllowDenyPattern, Filters("Table")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+    b_pattern: Annotated[AllowDenyPattern, Filters("Table")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+    @classmethod
+    def probe_kind_overrides(cls) -> Mapping[str, str]:
+        return {"tables": "Table"}
+
+
+class _FiltersOnAString(ConfigModel):
+    table_name: Annotated[str, Filters("Table")] = "orders"
+
+    @classmethod
+    def probe_kind_overrides(cls) -> Mapping[str, str]:
+        return {"tables": "Table"}
+
+
+@pytest.mark.parametrize(
+    "config_cls",
+    [_DoubledFilters, _FiltersOnAString],
+    ids=["on-two-fields", "on-a-non-pattern"],
+)
+def test_a_misdeclared_filters_is_the_connectors_defect(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, config_cls: type
+) -> None:
+    """Nothing the caller passes can fix a connector declaring Filters wrong,
+    so both commands that resolve it exit 1, not 2."""
+    from datahub.ingestion.agent import filter_check, introspect
+
+    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: config_cls)
+    monkeypatch.setattr(introspect, "config_class_for", lambda _st: config_cls)
+    monkeypatch.setattr(introspect, "list_probe_methods", lambda _st: [])
+    filtered = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--name",
+            "t",
+        ],
+    )
+    described = CliRunner().invoke(recipe, ["describe", "postgres"])
+    assert filtered.exit_code == rc.EXIT_INTERNAL, filtered.output
+    assert described.exit_code == rc.EXIT_INTERNAL, described.output
 
 
 def test_a_connection_free_command_never_reports_an_unreachable_source(

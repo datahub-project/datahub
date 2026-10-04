@@ -311,7 +311,8 @@ def _warn_convention(config_cls: type, kind: ProbeNodeKind, name: str) -> None:
 @lru_cache(maxsize=None)
 def _hinted_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str]:
     """The field declaring Filters(kind), or None. Exact, so an ambiguous or
-    mistyped declaration is raised as the connector's bug rather than guessed."""
+    mistyped declaration is raised as the connector's defect (exit 1) rather
+    than guessed."""
     wanted = str(kind)
     fields = dict(iter_config_fields(config_cls))
     matches = sorted(
@@ -325,14 +326,14 @@ def _hinted_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str
     if not matches:
         return None
     if len(matches) > 1:
-        raise ValueError(
+        raise ProbeInternalError(
             f"{config_cls.__name__} declares Filters({wanted!r}) on more than one "
             f"field ({', '.join(matches)}); a level must resolve to exactly one "
             f"AllowDenyPattern"
         )
     name = matches[0]
     if not is_pattern_field(fields[name].annotation):
-        raise ValueError(
+        raise ProbeInternalError(
             f"{config_cls.__name__}.{name} declares Filters({wanted!r}) but is "
             f"not an AllowDenyPattern"
         )

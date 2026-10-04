@@ -20,6 +20,7 @@ from datahub.ingestion.agent.introspect import (
     pattern_field_for_config,
 )
 from datahub.ingestion.agent.probe_methods import config_class_for
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -138,7 +139,9 @@ def test_two_fields_hinting_the_same_kind_raise_naming_both():
             default=AllowDenyPattern.allow_all()
         )
 
-    with pytest.raises(ValueError, match="a_pattern.*b_pattern|b_pattern.*a_pattern"):
+    with pytest.raises(
+        ProbeInternalError, match="a_pattern.*b_pattern|b_pattern.*a_pattern"
+    ):
         _pattern_field_for_config_class(_Conflict, DatasetSubTypes.TABLE)
 
 
@@ -146,7 +149,7 @@ def test_a_hint_on_a_non_pattern_field_raises():
     class _Bad(ConfigModel):
         thing: Annotated[str, Filters(DatasetSubTypes.TABLE)] = "nope"
 
-    with pytest.raises(ValueError, match="not an AllowDenyPattern"):
+    with pytest.raises(ProbeInternalError, match="not an AllowDenyPattern"):
         _pattern_field_for_config_class(_Bad, DatasetSubTypes.TABLE)
 
 
