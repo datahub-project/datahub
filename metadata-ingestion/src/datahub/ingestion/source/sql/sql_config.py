@@ -31,7 +31,6 @@ from datahub.ingestion.agent.verdicts import (
     Verdict,
     VerdictContext,
     ancestors_in,
-    parent_required,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -388,44 +387,12 @@ class SQLCommonConfig(
 
     def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
         """The identifier ingestion matches a table or view against, or None
-        to judge the bare name.
-
-        From the connector's own get_identifier through sql_probe's shim,
-        which consults probe_filter_target first. Containers and top-level
-        kinds keep the bare name (a qualified schema is
-        probe_verdict_override's, which reports its own target).
-        """
-        if ctx.kind in (
-            DatasetContainerSubTypes.SCHEMA,
-            DatasetContainerSubTypes.DATABASE,
-        ):
-            return None
-        if self.probe_ancestor_kinds(kind=ctx.kind) == ():
-            return None
-        # Without the container the shim builds ".orders", which ingestion
-        # never matches.
-        if parent_required(ctx):
-            return None
+        to judge the bare name: the connector's own get_identifier, through
+        sql_probe's shim, which consults probe_filter_target first."""
         # lazy: sql_probe imports sql_common, which imports this module
-        from datahub.ingestion.source.sql.sql_probe import _identifier_target
+        from datahub.ingestion.source.sql.sql_probe import sql_table_match_target
 
-        target = _identifier_target(ctx)
-        if not isinstance(target, str) or not target:
-            # Names no object, so it shows once.
-            ctx.warn(
-                "the connector's identifier resolver returned nothing usable, so "
-                "these were judged on their bare names; the verdict may not be "
-                "the one ingestion makes"
-            )
-            return None
-        if target.startswith(".") or ".." in target:
-            # A component is missing; per object, so it names the identifier.
-            ctx.warn(
-                f"could not build a complete identifier for '{ctx.name}' (got "
-                f"'{target}'); judged on its bare name instead"
-            )
-            return None
-        return target
+        return sql_table_match_target(self, ctx)
 
     def probe_filter_target(
         self,

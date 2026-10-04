@@ -11,7 +11,8 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Protocol, Type, cast
 
-from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 
@@ -118,6 +119,54 @@ def _shim_inspector(
     return _StandInInspector(engine=_StandInEngine(url=url))
 
 
+def sql_table_match_target(
+    config: "SQLCommonConfig", ctx: ClassifyContext
+) -> Optional[str]:
+    """SQLCommonConfig.probe_match_target: the identifier ingestion matches a
+    table or view against (_identifier_target), or None to judge the bare
+    name."""
+    if not _judged_on_identifier(config, ctx):
+        return None
+    return _complete_target(_identifier_target(ctx), ctx)
+
+
+def _judged_on_identifier(config: "SQLCommonConfig", ctx: ClassifyContext) -> bool:
+    """Whether this node is matched on an identifier. Containers and
+    top-level kinds keep the bare name (a qualified schema is
+    probe_verdict_override's, which reports its own target)."""
+    if ctx.kind in (
+        DatasetContainerSubTypes.SCHEMA,
+        DatasetContainerSubTypes.DATABASE,
+    ):
+        return False
+    if config.probe_ancestor_kinds(kind=ctx.kind) == ():
+        return False
+    # Without the container the shim builds ".orders", which ingestion
+    # never matches.
+    return not parent_required(ctx)
+
+
+def _complete_target(target: object, ctx: ClassifyContext) -> Optional[str]:
+    """`target` when it is a whole identifier, else None after warning: a
+    resolver can hand back anything, or miss a component."""
+    if not isinstance(target, str) or not target:
+        # Names no object, so it shows once.
+        ctx.warn(
+            "the connector's identifier resolver returned nothing usable, so "
+            "these were judged on their bare names; the verdict may not be "
+            "the one ingestion makes"
+        )
+        return None
+    if target.startswith(".") or ".." in target:
+        # A component is missing; per object, so it names the identifier.
+        ctx.warn(
+            f"could not build a complete identifier for '{ctx.name}' (got "
+            f"'{target}'); judged on its bare name instead"
+        )
+        return None
+    return target
+
+
 def _identifier_target(ctx: ClassifyContext) -> str:
     """The string the connector's own get_identifier builds for this table or
     view, never a reimplementation of it.
@@ -133,24 +182,38 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     schema = ctx.parent_path[-1] if ctx.parent_path else ""
     # (database, schema) when a Database level is above the container.
     database = ctx.parent_path[-2] if len(ctx.parent_path) > 1 else None
+    declared = _declared_target(ctx, database=database, schema=schema)
+    if declared is not None:
+        return declared
+    return _get_identifier_target(ctx, database=database, schema=schema)
+
+
+def _declared_target(
+    ctx: ClassifyContext, database: Optional[str], schema: str
+) -> Optional[str]:
+    """The target the connector declares: probe_filter_target's, then its
+    Qualifier field's. None leaves it to the get_identifier shim."""
     # getattr: test doubles may be a bare SimpleNamespace.
     probe_filter_target = getattr(ctx.config, "probe_filter_target", None)
-    override = (
-        probe_filter_target(
+    if callable(probe_filter_target):
+        override = probe_filter_target(
             schema=schema, entity=ctx.name, warn=ctx.warn, database=database
         )
-        if callable(probe_filter_target)
-        else None
-    )
-    if override is not None:
-        return override
+        if override is not None:
+            return override
+    return _qualifier_target(ctx, database=database, schema=schema)
+
+
+def _qualifier_target(
+    ctx: ClassifyContext, database: Optional[str], schema: str
+) -> Optional[str]:
+    """`container.schema.entity` for a config whose Qualifier field names the
+    container, or None (after warning, when no container is known)."""
     # lazy: keeps introspect and SQLCommonConfig off this module's import path.
-    from datahub.ingestion.agent.introspect import (
-        declared_qualifier,
-        declares_qualifier,
-    )
+    from datahub.ingestion.agent.introspect import declares_qualifier
     from datahub.ingestion.source.sql.sql_config import (
         SQLCommonConfig,
+        _qualifying_container,
         qualified_table_target,
     )
 
@@ -159,14 +222,19 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         getattr(type(ctx.config), "probe_filter_target", None)
         is not SQLCommonConfig.probe_filter_target
     )
-    if not declared_own and declares_qualifier(ctx.config):
-        # The container is resolved as at the Schema level, so an
-        # authoritative Qualifier beats --parent at both levels.
-        declared, authoritative = declared_qualifier(ctx.config)
-        container = declared if (authoritative and declared) else (database or declared)
-        target = qualified_table_target(container, schema, ctx.name, ctx.warn)
-        if target is not None:
-            return target
+    if declared_own or not declares_qualifier(ctx.config):
+        return None
+    # Resolved as at the Schema level, so an authoritative Qualifier beats
+    # --parent at both levels. An empty --parent names no database.
+    container = _qualifying_container(ctx.config, [database] if database else [])
+    return qualified_table_target(container, schema, ctx.name, ctx.warn)
+
+
+def _get_identifier_target(
+    ctx: ClassifyContext, database: Optional[str], schema: str
+) -> str:
+    """The connector's get_identifier on config_only_source(config), or the
+    plain fqn, with a warning, when it needs state only ingestion sets."""
     shim = config_only_source(ctx.config)
     source_cls = type(shim)
     # Outside the try: an AttributeError building the URL is not missing
