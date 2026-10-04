@@ -19,6 +19,7 @@ from datahub.ingestion.agent.secrets import (
     SecretResolver,
     default_resolvers,
     is_variable_reference,
+    names_a_dotted_path,
     resolve_config_collecting,
 )
 from datahub.ingestion.source.source_registry import source_registry
@@ -43,18 +44,24 @@ def _unique_env_name(path: str, taken: Set[str]) -> str:
     return name
 
 
-def _literal_strings(node: object) -> Iterator[str]:
+def _string_values(node: object, path: str = "") -> Iterator[Tuple[str, str]]:
+    """(path, value) for every string a recipe's config holds, at any depth."""
+    if isinstance(node, str):
+        yield path, node
+    elif isinstance(node, dict):
+        for key, item in node.items():
+            yield from _string_values(item, f"{path}.{key}" if path else str(key))
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _string_values(item, f"{path}[{index}]")
+
+
+def _literal_strings(config: Dict[str, object]) -> Iterator[str]:
     """Every string value a recipe's config spells as text, not as a variable
     reference."""
-    if isinstance(node, str):
-        if not is_variable_reference(node):
-            yield node
-    elif isinstance(node, dict):
-        for item in node.values():
-            yield from _literal_strings(item)
-    elif isinstance(node, list):
-        for item in node:
-            yield from _literal_strings(item)
+    for _path, value in _string_values(config):
+        if not is_variable_reference(value):
+            yield value
 
 
 def _plaintext_warning(path: str, env: str) -> str:
@@ -232,6 +239,21 @@ def _nested_secret_warnings(
     ]
 
 
+def _dotted_reference_warnings(config: Dict[str, object]) -> List[str]:
+    """A `${a.b}` reads as a dotted path, ~/.datahubenv style, but ingestion
+    looks up `a` and substitutes an empty string unless it is set. Named by
+    path only: the value may hold more than the reference."""
+    return [
+        f"'{path}' holds a variable reference whose name contains a dot. "
+        f"`datahub ingest` reads `${{a.b}}` as `${{a}}` followed by a modifier, "
+        f"which is an empty string unless `a` itself is set, and the probe "
+        f"does the same. For the DataHub server and token use "
+        f"${{DATAHUB_GMS_URL}} and ${{DATAHUB_GMS_TOKEN}}"
+        for path, value in _string_values(config)
+        if names_a_dotted_path(value)
+    ]
+
+
 def validate_recipe(
     recipe: Dict[str, object], resolvers: Optional[List[SecretResolver]] = None
 ) -> RecipeValidation:
@@ -254,7 +276,9 @@ def validate_recipe(
         errors.append(str(exc))
     else:
         _validated_secrets(validated, source.config, plaintext)
-    warnings = plaintext.warnings + _nested_secret_warnings(
-        source.config, plaintext.values
-    )
+    warnings = [
+        *plaintext.warnings,
+        *_nested_secret_warnings(source.config, plaintext.values),
+        *_dotted_reference_warnings(source.config),
+    ]
     return RecipeValidation(valid=not errors, errors=errors, warnings=warnings)

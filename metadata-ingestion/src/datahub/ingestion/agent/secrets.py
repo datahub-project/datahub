@@ -160,15 +160,30 @@ def resolve_config_collecting(
     return ResolvedConfig(config=resolved, secret_values=environ.supplied)
 
 
+def _names_ingest_reads(value: str) -> Optional[Set[str]]:
+    """The variable names ingestion's EnvResolver looks up for this string;
+    None when expandvars cannot parse it."""
+    try:
+        return EnvResolver.list_referenced_variables({"value": value})
+    except ExpandvarsException:
+        return None
+
+
 def is_variable_reference(value: str) -> bool:
     """Whether ingestion reads this recipe string as a variable reference
     (resolved from the environment) rather than as literal text."""
-    try:
-        return bool(EnvResolver.list_referenced_variables({"value": value}))
-    except ExpandvarsException:
-        # Malformed (`${}`, or an unclosed `${X` leading the value): resolving
-        # it fails, and that failure is reported, so it is not plaintext too.
-        return True
+    names = _names_ingest_reads(value)
+    # Malformed (`${}`, or an unclosed `${X` leading the value): resolving it
+    # fails, and that failure is reported, so it is not plaintext too.
+    return names is None or bool(names)
+
+
+def names_a_dotted_path(value: str) -> bool:
+    """Whether a `${a.b}` in this string names a dotted path, which ingestion
+    reads as `${a}` followed by a modifier: the name it looks up stops where
+    the written one goes on with a dot."""
+    names = _names_ingest_reads(value) or set()
+    return any(f"${{{name}." in value for name in names)
 
 
 def resolve_config(

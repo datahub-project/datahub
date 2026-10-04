@@ -101,6 +101,56 @@ def test_a_dollar_inside_the_value_is_plaintext(monkeypatch):
     assert any("'password' contains" in w for w in result["warnings"])
 
 
+def _pg_with(extra: Dict[str, object]) -> Dict[str, object]:
+    recipe = _pg_with_password("${PROBE_T_PG_PW}")
+    source = recipe["source"]
+    assert isinstance(source, dict)
+    source["config"] = {**source["config"], **extra}
+    return recipe
+
+
+def _warnings_naming(result: RecipeValidation, path: str) -> List[str]:
+    return [w for w in result["warnings"] if f"'{path}'" in w]
+
+
+@pytest.mark.parametrize(
+    ("extra", "path"),
+    [
+        ({"host_port": "${gms.server}"}, "host_port"),
+        (
+            {"options": {"connect_args": {"application_name": "pre-${gms.server}"}}},
+            "options.connect_args.application_name",
+        ),
+        ({"schema_pattern": {"allow": ["${a.b}"]}}, "schema_pattern.allow[0]"),
+    ],
+)
+def test_a_reference_naming_a_dotted_path_is_warned_about_by_path(
+    monkeypatch: pytest.MonkeyPatch, extra: Dict[str, object], path: str
+) -> None:
+    """Ingestion reads `${gms.server}` as `${gms}` plus a modifier and
+    substitutes an empty string, so the caller is told where, never what."""
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    result = validate_recipe(_pg_with(extra))
+    named = _warnings_naming(result, path)
+    assert len(named) == 1, result["warnings"]
+    assert "gms.server" not in named[0]
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["${DATAHUB_GMS_URL}", "${PROBE_T_UNSET:-a.b}", "a.b"],
+)
+def test_no_dotted_path_warning_without_a_dotted_name(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    """A dot only in a default, or in literal text, reads as written."""
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    monkeypatch.delenv("PROBE_T_UNSET", raising=False)
+    result = validate_recipe(_pg_with({"host_port": value}))
+    assert _warnings_naming(result, "host_port") == []
+
+
 def test_validate_bad_config_reports_errors():
     # A recipe missing required fields must be reported invalid, not crash.
     pytest.importorskip("snowflake.connector")
