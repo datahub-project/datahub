@@ -1765,6 +1765,21 @@ class TestEndToEndFailureHandling:
         assert not profile.fieldProfiles
         assert profiler.report.query_combiner.queries_skipped_after_gate > 0
 
+    def test_a_single_column_unreadable_table_skips_the_unmatched_group(self, tmp_path):
+        # One column means one flatten group plus a lone distinct count, which
+        # lands in the unmatched set. Both the group loop and the unmatched
+        # block must honour the gate, and the serial retry must read the
+        # flush's record rather than starting from None.
+        engine, conn = self._db(tmp_path, columns=1)
+        attempted: List[str] = []
+        self._deny_table(engine, attempted)
+
+        profiler, profile = self._profile(conn, True)
+
+        assert len(attempted) <= 3, attempted
+        assert profile is not None
+        assert not profile.fieldProfiles
+
     def test_one_failing_column_does_not_serialize_the_whole_table(self, tmp_path):
         # Recovery is scoped to the chunk that failed, so later chunks are still
         # combined instead of going one query per round trip.
@@ -1779,14 +1794,22 @@ class TestEndToEndFailureHandling:
 
         sa.event.listen(engine, "before_cursor_execute", deny_one)
 
-        profiler, profile = self._profile(conn, False, max_queries_to_combine=3)
+        # stddev_samp does not exist on SQLite, so leaving it on would fail
+        # every chunk and the assertion below would be met by the chunks that
+        # ran before the failure rather than by the scoping.
+        profiler, profile = self._profile(
+            conn,
+            False,
+            max_queries_to_combine=3,
+            include_field_stddev_value=False,
+        )
         report = profiler.report.query_combiner
 
         assert profile is not None
-        # A combined statement still ran after the failure; without scoping the
-        # whole queue is demoted to one query per round trip.
-        assert report.combined_queries_issued >= 2
-        assert report.uncombined_queries_issued < report.total_queries
+        # Only the chunk holding c3 goes one query per round trip. Without
+        # scoping the whole queue is demoted and this is an order of magnitude
+        # larger.
+        assert report.uncombined_queries_issued <= 3
 
     def test_a_failing_timeout_clear_does_not_discard_the_profile(self, tmp_path):
         # The clear runs as the table finishes, when the transaction may be

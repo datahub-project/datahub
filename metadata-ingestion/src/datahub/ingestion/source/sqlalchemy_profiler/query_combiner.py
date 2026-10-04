@@ -774,8 +774,8 @@ class SQLAlchemyQueryCombiner:
         for members in groups.values():
             if self._gate_failure_by_thread.get(self._get_main_greenlet()) is not None:
                 # An earlier group's gate failed alone, so this table cannot be
-                # read. The unmatched block below and _execute_queue both read
-                # the same record, so what is left is resolved, not issued.
+                # read. The unmatched block below checks the same record and is
+                # skipped too; _execute_queue then resolves what is left.
                 break
             # Precomputed: a diagnostic string must not be able to raise inside
             # the except and skip the recovery it is announcing.
@@ -820,7 +820,10 @@ class SQLAlchemyQueryCombiner:
                             [fut for _, fut in members if not fut.done]
                         )
 
-        if unmatched:
+        if (
+            unmatched
+            and self._gate_failure_by_thread.get(self._get_main_greenlet()) is None
+        ):
             try:
                 self._execute_cte_combine(unmatched)
             except Exception as e:
@@ -958,12 +961,12 @@ class SQLAlchemyQueryCombiner:
         # which can be handed an already-done queue -- do not delete it as
         # redundant just because the flatten path pre-filters.
         # Gates first, so a table that cannot be read at all costs one failure
-        # per gate rather than one per column. Seeded from the flush's record,
-        # not None: a gate that failed in an earlier group or chunk must stop
-        # this call too. See GATE_EXECUTION_OPTION.
-        gate_exc: Optional[Exception] = self._gate_failure_by_thread.get(
-            self._get_main_greenlet()
-        )
+        # per gate rather than one per column. Only this call's own gate is
+        # tracked: a gate that failed earlier in the flush stops every caller
+        # before it gets here -- _execute_queue checks the record on entry, the
+        # flatten group loop breaks on it, and the unmatched block skips on it.
+        # See GATE_EXECUTION_OPTION.
+        gate_exc: Optional[Exception] = None
         for query_future in sorted(futures, key=lambda f: not f.is_gate):
             if query_future.done:
                 continue
