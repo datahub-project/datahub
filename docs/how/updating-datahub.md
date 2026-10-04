@@ -29,6 +29,8 @@ description: "Release notes and breaking change history for upgrading DataHub be
 
 ### Other Notable Changes
 
+- [#20180](https://github.com/datahub-project/datahub/pull/20180) **(Ingestion / Sigma)** A Sigma Data Model column whose formula reads a sibling element that Sigma's element lineage does not list now gets column lineage when that sibling has the referenced column; the sibling is also added as an upstream of the element. Previously the edge was dropped. A column whose upstream element came back with no columns is now reported as `data_model_element_fgl_upstream_schema_unavailable`, with a warning naming the upstream, instead of as an unknown column. **Action:** none. Expect more column lineage on Sigma Data Models after the next run; if the new warning appears, check for a failed `/columns` fetch on that Data Model.
+
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 - #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
