@@ -14,27 +14,26 @@ from datahub.ingestion.source.mode import (
 
 
 class ModeProbeSource(RestApiPassthrough, ModeSource):
-    """Exists because ModeSource's inherited Closeable.__exit__ closes only the
-    report, deliberately not the session -- a real ingestion run's session lives
-    for the whole pipeline and must not close early. Pipeline.run() calls
-    __exit__ on every source, so putting this override on ModeSource itself
-    would change ingestion (it broke 4 integration tests when tried). The
-    probe's ad hoc session (for_probe) should close when this short-lived `with`
-    block exits."""
+    """Mode's probe provider: the probe methods, the `api` passthrough, and the
+    closing of the probe's own session.
+
+    The probe opens its session for one short `with` block (for_config), so
+    this __exit__ closes it. That override cannot live on ModeSource: a
+    pipeline calls __exit__ on every source, and an ingestion run's session
+    must live for the whole pipeline, which is why ModeSource's inherited
+    Closeable.__exit__ closes only the report."""
 
     @property
     def probe_report(self) -> object:
         """The ingestion report these commands write into, so its failures reach
         the caller.
 
-        Several probe methods are @probe_method directly on ModeSource and reuse
-        its fetchers verbatim -- `data_sources` and `definitions` among them. On
-        a ModeRequestError those call self.report.failure() and return {}, which
-        is right for an ingestion run. Nothing read report.failures, so a 403 on
-        data_sources came back as an empty dict at exit 0, indistinguishable
-        from a workspace with no warehouse connections -- and that dict is the
-        "so no lineage" diagnosis, the most consequential answer this probe
-        gives.
+        `data_sources` and `definitions` call ModeSource's fetchers verbatim,
+        which on a ModeRequestError record self.report.failure() and return
+        {}: right for an ingestion run. Unless the report is read back, a 403
+        on data_sources is an empty dict at exit 0, indistinguishable from a
+        workspace with no warehouse connections -- the "so no lineage"
+        diagnosis, the most consequential answer this probe gives.
         """
         return self.report
 
@@ -78,6 +77,9 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
 
     def __exit__(self, *exc: object) -> None:
         self.session.close()
+        # Stops at ProbeProviderBase, which does not chain on: ModeSource's
+        # Closeable.__exit__ (closing an ingestion report) is never reached.
+        super().__exit__(*exc)
 
     @classmethod
     def for_config(cls, config: ModeConfig) -> "ModeProbeSource":

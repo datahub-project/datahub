@@ -74,6 +74,7 @@ class HexMetadataProbe(RestApiPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._api.session.close()
+        super().__exit__(*exc)
 
     def api_headers(self) -> Dict[str, str]:
         # HexApi's own header builder rather than restating "Bearer {token}":

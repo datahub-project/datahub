@@ -520,24 +520,22 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
             )
         return self
 
-    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     def list_databases(self, conn: Connection) -> List[str]:
-        # Raw database listing shared with get_inspectors() below -- no
-        # database_pattern applied here; callers (get_inspectors() and the
-        # Database-level agent probe below) apply that themselves, so the two
-        # paths query the exact same rows instead of each re-deriving the
-        # listing SQL.
+        # The raw listing, before database_pattern, which the caller applies.
+        # PostgresQuery holds the listing SQL and the system databases it
+        # leaves out, so default_databases() below cannot drift from it.
         return PostgresQuery.list_databases(conn)
 
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     @classmethod
     def default_databases(cls) -> FrozenSet[str]:
         # Databases this source drops regardless of database_pattern -- Postgres
         # template databases and AWS RDS's internal admin database. Same shape
-        # as SQLCommonConfig.default_schemas() one level down: lets the
-        # Database-level probe below report one of these as
-        # excluded_by: "default_database" instead of it silently never
-        # appearing. Reuses PostgresQuery's own exclusion list so the probe
-        # and the query it mirrors cannot drift apart.
+        # as SQLCommonConfig.default_schemas() one level down: `probe filter`
+        # reports one of these as excluded_by: "default_database" rather than
+        # judging it against a pattern ingestion never applies to it. Reuses
+        # PostgresQuery's own exclusion list so the probe and the query it
+        # mirrors cannot drift apart.
         return frozenset(POSTGRES_SYSTEM_DATABASES)
 
 

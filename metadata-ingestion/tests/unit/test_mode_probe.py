@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import Any, Dict
+from typing import Any, Dict, List
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -532,6 +532,20 @@ def test_probe_source_context_manager_closes_session():
     with probe:
         pass
     assert session.closed
+
+
+def test_probe_source_exit_closes_what_it_opened_and_not_the_ingestion_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A client opened with _open_once is ProbeProviderBase's to close; the
+    # chain stops there, short of ModeSource.close (Closeable.__exit__), which
+    # would close a report on a source the probe never initialised.
+    closed: List[str] = []
+    monkeypatch.setattr(ModeSource, "close", lambda self: closed.append("report"))
+    probe = _method_probe()
+    with probe:
+        probe._open_once("client", object, close=lambda _c: closed.append("client"))
+    assert closed == ["client"]
 
 
 @pytest.mark.parametrize("status_code", [404, 403, 401, 500])
