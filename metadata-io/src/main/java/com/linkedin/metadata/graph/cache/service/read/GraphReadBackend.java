@@ -274,9 +274,16 @@ public class GraphReadBackend {
     EntityGraphView.ExpandResult expandResult =
         view.expandWithResult(direction, normalizedRoots, limit, effectiveDepth, allowedEdgeLines);
 
-    if (expandResult.isTruncatedByMaxDepth()
-        && definition.getScope().getMode() == ScopeMode.PARTIAL
-        && effectiveDepth == definition.getScope().getMaxDepth()) {
+    // A definition-depth read that stops at scope.maxDepth still returns the prefix. The hit is
+    // marked scope-truncated so a caller that needs the full closure can miss, and a caller that
+    // wants the in-cap vertices can keep them. An explicit positive depth is the bounded walk the
+    // caller asked for and is not marked.
+    boolean scopeTruncated =
+        expandResult.isTruncatedByMaxDepth()
+            && definition.getScope().getMode() == ScopeMode.PARTIAL
+            && effectiveDepth == definition.getScope().getMaxDepth()
+            && requestedMaxDepth <= 0;
+    if (scopeTruncated) {
       log.warn(
           "Entity graph PARTIAL expand reached configured scope.maxDepth: graphId={} direction={} roots={} maxDepth={} resultSize={}",
           definition.getGraphId(),
@@ -306,12 +313,12 @@ public class GraphReadBackend {
 
     Set<String> expanded = expandResult.getVertices();
     if (expanded.isEmpty()) {
-      return GraphReadResult.fromVertices(Collections.emptySet());
+      return GraphReadResult.fromVertices(Collections.emptySet(), scopeTruncated);
     }
     if (direction == TraversalDirection.REVERSE && expanded.equals(normalizedRoots)) {
-      return GraphReadResult.fromVertices(Collections.emptySet());
+      return GraphReadResult.fromVertices(Collections.emptySet(), scopeTruncated);
     }
-    return GraphReadResult.fromVertices(expanded);
+    return GraphReadResult.fromVertices(expanded, scopeTruncated);
   }
 
   private static int resolveExpandDepth(
