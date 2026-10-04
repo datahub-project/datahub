@@ -97,6 +97,26 @@ _CASES: List[_Case] = [
         "orders",
         [_MALFORMED.format(got="db..orders")],
     ),
+    # A quoted name may itself hold dots; ingestion matches the identifier as
+    # built, so the probe does too.
+    _Case(
+        "postgres",
+        _PG,
+        "Table",
+        ["db", "public"],
+        "a..b",
+        "Table",
+        "db.public.a..b",
+    ),
+    _Case(
+        "postgres",
+        _PG,
+        "Table",
+        ["db", "public"],
+        "orders.",
+        "Table",
+        "db.public.orders.",
+    ),
     _Case("mysql", _MY, "Table", ["shop"], "orders", "Table", "shop.orders"),
     _Case("mysql", _MY, "Table", [], "orders", "Table", "orders", [_NO_PARENT]),
     _Case("mysql", _MY, "View", ["shop"], "v1", "View", "shop.v1"),
@@ -282,3 +302,20 @@ def test_unity_containers_are_matched_on_their_ids(
         == target
     )
     assert messages == warnings
+
+
+def test_a_resolver_dropping_the_final_component_is_judged_on_the_bare_name() -> None:
+    from datahub.ingestion.source.sql.sql_probe import _complete_target
+
+    warnings: List[str] = []
+    ctx = ClassifyContext(
+        config=None,
+        name="orders",
+        fqn="db.public.orders",
+        pattern_field="table_pattern",
+        parent_path=("db", "public"),
+        warn=warnings.append,
+        kind="Table",
+    )
+    assert _complete_target("db.public.", ctx) is None
+    assert warnings == [_MALFORMED.format(got="db.public.")]

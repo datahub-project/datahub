@@ -157,8 +157,16 @@ def _complete_target(target: object, ctx: ClassifyContext) -> Optional[str]:
             "the one ingestion makes"
         )
         return None
-    if target.startswith(".") or ".." in target:
-        # A component is missing; per object, so it names the identifier.
+    # A component is missing: an empty container, or nothing before the first
+    # dot or after the last one that the name itself does not explain. Not
+    # any `..`: a quoted name may hold dots, and ingestion matches the
+    # identifier as built.
+    if (
+        any(not segment for segment in ctx.parent_path)
+        or target.startswith(".")
+        or (target.endswith(".") and not ctx.name.endswith("."))
+    ):
+        # Per object, so it names the identifier.
         ctx.warn(
             f"could not build a complete identifier for '{ctx.name}' (got "
             f"'{target}'); judged on its bare name instead"

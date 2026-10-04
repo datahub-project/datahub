@@ -235,3 +235,11 @@ def test_a_redacted_parent_is_refused_unless_replaced() -> None:
 def test_a_listing_from_another_source_is_refused() -> None:
     with pytest.raises(ValueError, match="this listing came from mysql"):
         _targets(listing=replace(_LISTING, source_type="mysql"))
+
+
+def test_a_listing_without_a_source_type_is_judged_as_the_recipes() -> None:
+    # A masked source_type reads as absent: nothing to compare, so the
+    # listing is judged as this recipe's source.
+    targets = _targets(listing=replace(_LISTING, source_type=None))
+    assert targets.kind == "Table"
+    assert targets.names == ["orders", "users"]
