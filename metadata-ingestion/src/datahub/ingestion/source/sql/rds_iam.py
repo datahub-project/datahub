@@ -10,7 +10,10 @@ from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
+from datahub.ingestion.source.sql.sql_config import (
+    ProbeEngineSettings,
+    SQLAlchemyConnectionConfig,
+)
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 
 logger = logging.getLogger(__name__)
@@ -213,6 +216,16 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             self._warn_if_token_rides_unverified_tls(cparams)
 
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+
+    def with_rds_iam(self, settings: ProbeEngineSettings) -> ProbeEngineSettings:
+        """`settings`, followed by install_rds_iam_auth when this recipe
+        selected IAM auth."""
+        # Without this, an AWS_IAM recipe cannot be probed at all: the password
+        # is a token injected per connection, so a bare create_engine() has no
+        # credential to connect with.
+        if self.rds_iam_enabled():
+            return settings.followed_by(self.install_rds_iam_auth)
+        return settings
 
     def _warn_if_token_rides_unverified_tls(self, cparams: Dict[str, Any]) -> None:
         """Say so when the token is about to cross an unauthenticated channel.

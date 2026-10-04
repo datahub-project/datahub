@@ -318,13 +318,7 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
         )
 
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
-        settings = super().probe_engine_settings(budget)
-        # Without this, an AWS_IAM recipe cannot be probed at all: the password
-        # is a token injected per connection, so a bare create_engine() has no
-        # credential to connect with.
-        if self.rds_iam_enabled():
-            return settings.followed_by(self.install_rds_iam_auth)
-        return settings
+        return self.with_rds_iam(super().probe_engine_settings(budget))
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
