@@ -16,6 +16,7 @@ def _source() -> SigmaSource:
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
+    source._upstream_schema_unavailable_warned = set()
     return source
 
 
@@ -77,6 +78,7 @@ def _build(
     elementId_to_dataset_urn: Dict[str, str] | None = None,
     entity_level_upstream_urns: Set[str] | None = None,
     upstream_elements: List[SigmaDataModelElement] | None = None,
+    discovered_upstreams: Set[str] | None = None,
 ) -> list:
     all_elements = [element] + (upstream_elements or [])
     return source._build_dm_element_fine_grained_lineages(
@@ -87,6 +89,9 @@ def _build(
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_data_model(all_elements),
         warehouse_url_id_map={},
+        discovered_upstreams=set()
+        if discovered_upstreams is None
+        else discovered_upstreams,
     )
 
 
@@ -843,7 +848,9 @@ def test_orphan_branch_not_rescued_without_cross_dm_sources() -> None:
         [_column("c1", "x", "[Shared/x]")],
         # source_ids=[] — no cross-DM refs
     )
-    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+    # Sibling does NOT own "x", so orphan recovery does not fire and the
+    # cross-DM guard is still what this exercises.
+    sibling = _upstream_element("sibling-eid", "Shared", ["other"])
 
     lineages = _build(
         source,
@@ -885,7 +892,9 @@ def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
         # Intra-DM source IDs only — no "/" separator, not cross-DM shaped.
         source_ids=["some-intra-dm-eid"],
     )
-    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+    # Sibling does NOT own "x", so orphan recovery does not fire and the
+    # cross-DM guard is still what this exercises.
+    sibling = _upstream_element("sibling-eid", "Shared", ["other"])
 
     lineages = _build(
         source,
@@ -956,7 +965,9 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
         # inode-shaped entry has '/' but is NOT a cross-DM source ID.
         source_ids=["inode-abc123/some-suffix"],
     )
-    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+    # Sibling does NOT own "x", so orphan recovery does not fire and the
+    # cross-DM guard is still what this exercises.
+    sibling = _upstream_element("sibling-eid", "Shared", ["other"])
 
     lineages = _build(
         source,
@@ -977,3 +988,149 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+# ---------------------------------------------------------------------------
+# Orphan recovery: a sibling Sigma's /lineage did not list
+# ---------------------------------------------------------------------------
+
+
+def test_orphan_ref_recovered_when_sibling_owns_the_column() -> None:
+    """/lineage omitting an intra-DM sibling is a reporting gap, not evidence.
+
+    Where the named sibling owns the referenced column, the ref is trustworthy:
+    the edge is emitted and the sibling is reported as a discovered upstream.
+    """
+    source = _source()
+    sibling_urn = _urn("sibling-eid")
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": sibling_urn},
+        # Sigma did not list the sibling as an upstream.
+        entity_level_upstream_urns=set(),
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["x"])],
+        discovered_upstreams=discovered,
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(sibling_urn, "x")]
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert discovered == {sibling_urn}
+
+
+def test_orphan_ref_still_dropped_when_sibling_lacks_the_column() -> None:
+    """Recovery is earned by the schema, not assumed from the name match."""
+    source = _source()
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["other"])],
+        discovered_upstreams=discovered,
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert discovered == set()
+
+
+def test_a_recovered_sibling_is_an_entity_level_upstream() -> None:
+    """A column edge to a Dataset missing from ``upstreams`` is not rendered."""
+    source = _source()
+    listed_urn = _urn("listed-eid")
+    sibling_urn = _urn("sibling-eid")
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column("c1", "x", "[Shared/x]")],
+        source_ids=["listed-eid"],
+    )
+    data_model = _data_model(
+        [
+            element,
+            _upstream_element("listed-eid", "Listed", ["y"]),
+            _upstream_element("sibling-eid", "Shared", ["x"]),
+        ]
+    )
+
+    lineage = source._gen_data_model_element_upstream_lineage(
+        element,
+        data_model,
+        _urn("consumer"),
+        elementId_to_dataset_urn={
+            "listed-eid": listed_urn,
+            "sibling-eid": sibling_urn,
+        },
+        element_name_to_eids={"listed": ["listed-eid"], "shared": ["sibling-eid"]},
+        warehouse_url_id_map={},
+    )
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == sorted([listed_urn, sibling_urn])
+    assert lineage.fineGrainedLineages is not None
+    assert lineage.fineGrainedLineages[0].upstreams == [
+        builder.make_schema_field_urn(sibling_urn, "x")
+    ]
+
+
+# ---------------------------------------------------------------------------
+# An upstream element whose column list came back empty
+# ---------------------------------------------------------------------------
+
+
+def test_empty_upstream_schema_is_counted_separately() -> None:
+    """An upstream element with no columns is a fetch problem, not a name
+    mismatch, so it is not folded into dropped_unknown_upstream_column."""
+    source = _source()
+    upstream_urn = _urn("a")
+    element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 1
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+
+def test_empty_upstream_schema_warns_once_per_upstream() -> None:
+    """A partial /columns abort leaves many refs pointing at the same empty
+    element; one warning per upstream, not per referencing column."""
+    source = _source()
+    upstream_urn = _urn("a")
+    element = _element(
+        "b",
+        "B",
+        [_column("b-x", "x", "[A/x]"), _column("b-y", "y", "[A/y]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 2
+    # The report groups warnings by title, so count the contexts too.
+    assert len(source.reporter.warnings) == 1
+    assert len(source.reporter.warnings[0].context) == 1
