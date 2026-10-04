@@ -1137,6 +1137,8 @@ def test_empty_upstream_schema_warns_once_per_upstream() -> None:
     # The report groups warnings by title, so count the contexts too.
     assert len(source.reporter.warnings) == 1
     assert len(source.reporter.warnings[0].context) == 1
+    # Names the Data Model, so it can be matched to a pagination-abort warning.
+    assert "data_model=dm-1" in str(source.reporter.warnings[0].context)
 
 
 def _collision_build(

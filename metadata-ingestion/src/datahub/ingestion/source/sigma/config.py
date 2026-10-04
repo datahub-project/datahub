@@ -335,9 +335,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
-    # /lineage, does not own the column, and whose cross-DM rescue
-    # (_try_emit_self_named_cross_dm_fgl) also found no match; dropped to avoid
-    # orphan FGL the UI silently rejects.
+    # /lineage, whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl) found
+    # no match, and that orphan recovery did not take: no sibling owns the
+    # column, two do, or the element reads another DM. Dropped to avoid orphan
+    # FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
