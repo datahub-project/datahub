@@ -439,9 +439,11 @@ these commands resolves the same way and joins `_RESOLVES_ITS_OWN` in
 auto-checked.
 
 `SQLCommonConfig` also declares the verdict hooks: `include_tables`/`include_views` carry
-`Enables`, and its `probe_verdict_override` is `sql_structural_verdict(self, ctx)`, which excludes a
-database in `default_databases()` or a schema in `default_schemas()` and, with
-`match_fully_qualified_names`, judges a schema as `<container>.<schema>`. A subclass marks a switch
+`Enables`, and its `probe_verdict_override`, inherited from `SQLFilterConfig` so that a config
+filtering like the family without being a `SQLCommonConfig` (`snowflake-queries`, say) gets it
+too, is `sql_structural_verdict(self, ctx)`, which excludes a database in `default_databases()` or
+a schema in `default_schemas()` and, with `match_fully_qualified_names`, judges a schema as
+`<container>.<schema>`. A subclass marks a switch
 of its own on its own field, and one with rules of its own returns `sql_structural_verdict(self, ctx)`
 for the names its rules leave alone.
 

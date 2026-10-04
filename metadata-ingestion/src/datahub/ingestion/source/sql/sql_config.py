@@ -98,6 +98,12 @@ class SQLFilterConfig(ConfigModel):
             values["view_pattern"] = table_pattern
         return values
 
+    # --- Probe hooks: see docs/dev_guides/probe_interface.md ---
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """See sql_structural_verdict, which an override of this one calls
+        for the names its own rules leave alone."""
+        return sql_structural_verdict(self, ctx)
+
 
 _NEEDS_PARENT_WARNING = (
     "this source matches containers on a qualified name and could not tell "
@@ -192,7 +198,7 @@ def sql_structural_verdict(
     judged as `container.schema`, and the verdict reports that string as its
     target. None leaves the pattern to decide.
 
-    SQLCommonConfig's probe_verdict_override; a config with rules of its own
+    SQLFilterConfig's probe_verdict_override; a config with rules of its own
     returns this for the names those rules leave alone. A kind-switch
     exclusion already in ctx.structural stands, so this returns None for it.
     """
@@ -359,11 +365,6 @@ class SQLCommonConfig(
         reports a less precise fallback, deduplicated by message.
         """
         return None
-
-    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        """See sql_structural_verdict, which an override of this one calls
-        for the names its own rules leave alone."""
-        return sql_structural_verdict(self, ctx)
 
     @classmethod
     def probe_kind_overrides(cls) -> Mapping[str, str]:

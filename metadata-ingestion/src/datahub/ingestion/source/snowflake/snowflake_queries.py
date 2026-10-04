@@ -20,7 +20,6 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
     get_time_bucket,
 )
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
@@ -54,7 +53,6 @@ from datahub.ingestion.source.snowflake.stored_proc_lineage import (
     StoredProcLineageReport,
     StoredProcLineageTracker,
 )
-from datahub.ingestion.source.sql.sql_config import sql_structural_verdict
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
@@ -202,11 +200,6 @@ class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
 ):
     connection: SnowflakeConnectionConfig
-
-    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        # Not a SQLCommonConfig, but it filters schemas through the same
-        # match_fully_qualified_names rule as the snowflake source.
-        return sql_structural_verdict(self, ctx)
 
 
 @dataclass

@@ -6,7 +6,6 @@ from pydantic import Field
 from typing_extensions import Self
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -35,7 +34,6 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
 )
-from datahub.ingestion.source.sql.sql_config import sql_structural_verdict
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +53,6 @@ class BigQueryQueriesSourceConfig(
     connection: BigQueryConnectionConfig = Field(
         default_factory=BigQueryConnectionConfig
     )
-
-    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        # Not a SQLCommonConfig, but it filters datasets through the same
-        # match_fully_qualified_names rule as the bigquery source.
-        return sql_structural_verdict(self, ctx)
 
 
 @support_status(SupportStatus.GA)
