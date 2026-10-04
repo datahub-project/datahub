@@ -336,6 +336,19 @@ class _CustomSqlRegistration:
     label: str  # "DM element" or "workbook chart"
 
 
+def _cross_dm_source_url_ids(element: SigmaDataModelElement) -> Set[str]:
+    """The url ids of other Data Models this element reads.
+
+    Cross-DM source_ids are ``<dm-url-id>/<suffix>``; intra-DM ones are bare
+    elementIds and warehouse ones start with ``inode-``.
+    """
+    return {
+        sid.partition("/")[0]
+        for sid in element.source_ids
+        if "/" in sid and not sid.startswith("inode-")
+    }
+
+
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.GA)
@@ -2489,9 +2502,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         the two counters measure independent dimensions (cross-DM attempt outcome
         vs. warehouse-passthrough gate), and operators should not sum them.
         """
-        if not any(
-            "/" in sid and not sid.startswith("inode-") for sid in element.source_ids
-        ):
+        if not _cross_dm_source_url_ids(element):
             logger.debug(
                 "element %s: no cross-DM source_ids — skipping self-named cross-DM FGL",
                 element.elementId,
@@ -2544,13 +2555,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         assert (
             ref.column is not None
         )  # callers guard on ref.column is None before dispatching
-        # Cross-DM source_ids use the shape <dm-url-id>/<suffix>; intra-DM
-        # source_ids are bare elementIds (no "/"). Filter accordingly.
-        source_dm_url_ids = {
-            sid.partition("/")[0]
-            for sid in element.source_ids
-            if "/" in sid and not sid.startswith("inode-")
-        }
+        source_dm_url_ids = _cross_dm_source_url_ids(element)
         cross_dm_candidate_urns = sorted(
             {
                 urn
@@ -2652,12 +2657,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Sigma's /lineage does not always list a sibling a formula reads.
             # A sibling that owns the referenced column makes the ref
             # trustworthy, so emit it and promote the sibling to an upstream.
-            owning = [
-                u
-                for u in candidate_urns
-                if urn_to_cols.get(u, {}).get(ref.column.lower()) is not None
-            ]
-            if not owning:
+            # Not when the element reads another Data Model: /lineage then
+            # pointed elsewhere, and a same-named sibling is a name collision
+            # the cross-DM rescue above failed to resolve. Not when two
+            # siblings own the column either: nothing breaks the tie.
+            owning = (
+                []
+                if _cross_dm_source_url_ids(element)
+                else [
+                    u
+                    for u in candidate_urns
+                    if urn_to_cols.get(u, {}).get(ref.column.lower()) is not None
+                ]
+            )
+            if len(owning) != 1:
                 self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
                 return
             chosen = owning[0]
@@ -2670,6 +2683,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 emitted_pairs=emitted_pairs,
             )
             discovered_upstreams.add(chosen)
+            self.reporter.data_model_element_fgl_orphan_recovered += 1
             return
 
         # Collision handling: multiple siblings passed /lineage filter.
@@ -2697,7 +2711,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # The column cannot be checked; told apart from a missing column
             # because the fix is a /columns fetch, not the formula.
             self.reporter.data_model_element_fgl_upstream_schema_unavailable += 1
-            self._warn_upstream_schema_unavailable(chosen_upstream_urn, element)
+            self._warn_upstream_schema_unavailable(
+                chosen_upstream_urn, element, data_model
+            )
             return
         canonical_col = source_cols.get(ref.column.lower())
         if canonical_col is None:
@@ -2745,7 +2761,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _warn_upstream_schema_unavailable(
-        self, upstream_urn: str, element: SigmaDataModelElement
+        self,
+        upstream_urn: str,
+        element: SigmaDataModelElement,
+        data_model: SigmaDataModel,
     ) -> None:
         """Warn once per upstream element whose column list came back empty."""
         if upstream_urn in self._upstream_schema_unavailable_warned:
@@ -2761,7 +2780,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 "fetch failed partway through, and if none is present the "
                 "upstream element genuinely has no columns."
             ),
-            context=f"upstream={upstream_urn}, element={element.elementId}",
+            context=(
+                f"upstream={upstream_urn}, element={element.elementId}, "
+                f"data_model={data_model.dataModelId}"
+            ),
         )
 
     def _build_dm_element_fine_grained_lineages(

@@ -342,6 +342,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Refs to an intra-DM sibling Sigma's /lineage did not list, emitted because
+    # that sibling alone owns the referenced column. Inferred, not reported by
+    # Sigma, so counted apart from the edges /lineage backs.
+    data_model_element_fgl_orphan_recovered: int = 0
     # Refs whose upstream element came back with no columns, so the column
     # could not be checked; usually a /columns fetch that failed partway.
     data_model_element_fgl_upstream_schema_unavailable: int = 0

@@ -1,6 +1,8 @@
 import datetime as dt
 from typing import Dict, List, Set
 
+import pytest
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.source.sigma.config import SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
@@ -169,10 +171,10 @@ def test_cross_dm_ref_is_counted_unresolved() -> None:
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 1
 
 
-def test_orphan_upstream_genuinely_dropped_when_lineage_api_gap_exists() -> None:
+def test_orphan_ref_dropped_when_the_siblings_schema_is_unknown() -> None:
     # Element IS in this DM (found in element_name_to_eids) but /lineage does
-    # not report it as an upstream (entity_level_upstream_urns is empty).
-    # This is the rare case where /lineage genuinely omits an intra-DM edge.
+    # not report it as an upstream, and its columns are unknown, so nothing
+    # shows it owns the column and orphan recovery does not apply.
     source = _source()
     upstream_urn = _urn("a")
     element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
@@ -1020,6 +1022,7 @@ def test_orphan_ref_recovered_when_sibling_owns_the_column() -> None:
     assert len(lineages) == 1
     assert lineages[0].upstreams == [builder.make_schema_field_urn(sibling_urn, "x")]
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 1
     assert discovered == {sibling_urn}
 
 
@@ -1134,3 +1137,80 @@ def test_empty_upstream_schema_warns_once_per_upstream() -> None:
     # The report groups warnings by title, so count the contexts too.
     assert len(source.reporter.warnings) == 1
     assert len(source.reporter.warnings[0].context) == 1
+
+
+def _collision_build(
+    source: SigmaSource, producer_cols: Dict[str, str] | None
+) -> tuple:
+    """Two elements named "Custom SQL": the consumer reads another model's
+    "Custom SQL", and an unlisted sibling of the same name has the column."""
+    producer_urn = _urn("producer-custom-sql")
+    sibling_urn = _urn("sibling-custom-sql")
+    consumer_urn = _urn("consumer-custom-sql")
+    consumer = _element(
+        "consumer-eid",
+        "Custom SQL",
+        [_column("c1", "Visit Id", "[Custom SQL/Visit Id]")],
+        source_ids=["dm-b/s1"],
+    )
+    if producer_cols is not None:
+        source.dm_element_urn_by_name = {"dm-b": {"custom sql": [producer_urn]}}
+        source.dm_element_urn_to_cols = {producer_urn: producer_cols}
+    discovered: Set[str] = set()
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        element_name_to_eids={"custom sql": ["sibling-eid", "consumer-eid"]},
+        elementId_to_dataset_urn={
+            "sibling-eid": sibling_urn,
+            "consumer-eid": consumer_urn,
+        },
+        entity_level_upstream_urns={producer_urn},
+        upstream_elements=[
+            _upstream_element("sibling-eid", "Custom SQL", ["Visit Id"])
+        ],
+        discovered_upstreams=discovered,
+    )
+    return lineages, discovered
+
+
+@pytest.mark.parametrize(
+    "producer_cols",
+    [{}, None],
+    ids=["producer-columns-empty", "producer-model-not-ingested"],
+)
+def test_no_recovery_when_the_element_reads_another_model(
+    producer_cols: Dict[str, str] | None,
+) -> None:
+    """A same-named sibling is a name collision when /lineage points at another
+    Data Model, even after the cross-DM rescue fails."""
+    source = _source()
+    lineages, discovered = _collision_build(source, producer_cols)
+    assert lineages == []
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_when_two_unlisted_siblings_own_the_column() -> None:
+    """With no /lineage signal, nothing breaks the tie."""
+    source = _source()
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sib-1", "sib-2"]},
+        elementId_to_dataset_urn={"sib-1": _urn("sib-1"), "sib-2": _urn("sib-2")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[
+            _upstream_element("sib-1", "Shared", ["x"]),
+            _upstream_element("sib-2", "Shared", ["x"]),
+        ],
+        discovered_upstreams=discovered,
+    )
+
+    assert lineages == []
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
