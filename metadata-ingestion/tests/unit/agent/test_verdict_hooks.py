@@ -3,8 +3,7 @@
 Each fake is registered through the same two seams test_filter_check's
 fixtures use, so nothing here depends on a real connector -- with one
 exception: the SQL default-switch test runs the real registered MySQL source
-on purpose, to pin the behaviour a source with no probe_kind_switches already
-had.
+on purpose, to pin the switch it inherits from SQLCommonConfig's fields.
 """
 
 from typing import (
@@ -22,7 +21,12 @@ from typing import (
 import pytest
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Enables,
+    Filters,
+)
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import (
@@ -65,14 +69,12 @@ def _judge(
 
 
 class _Switched(ConfigModel):
-    extract_lakehouses: bool = True
+    extract_lakehouses: Annotated[
+        bool, Enables(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
+    ] = True
     lakehouse_pattern: Annotated[
         AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
     ] = Field(default=AllowDenyPattern.allow_all())
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        return {str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE): "extract_lakehouses"}
 
 
 def test_a_declared_switch_that_is_off_excludes_the_kind(
@@ -101,8 +103,33 @@ def test_a_declared_switch_that_is_on_leaves_the_pattern_in_charge(
     assert [r.included for r in result.results] == [True, False]
 
 
+def test_an_optional_switch_left_unset_leaves_the_kind_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _OptionalSwitch(ConfigModel):
+        include_things: Annotated[Optional[bool], Enables("Thing")] = None
+
+    _register(monkeypatch, _OptionalSwitch)
+    assert _judge("Thing", ["t"]).results[0].included is True
+    off = _judge("Thing", ["t"], config_dict={"include_things": False})
+    assert off.results[0].excluded_by == "include_things"
+
+
+def test_a_kind_enabled_by_two_fields_is_a_connector_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Twice(ConfigModel):
+        include_things: Annotated[bool, Enables("Thing")] = True
+        extract_things: Annotated[bool, Enables("Thing")] = True
+
+    _register(monkeypatch, _Twice)
+    with pytest.raises(ProbeInternalError):
+        _judge("Thing", ["t"])
+
+
 def test_the_sql_default_switches_still_apply_without_a_declaration() -> None:
-    # MySQL declares no probe_kind_switches; include_views must keep working.
+    # MySQL declares no switch of its own; the inherited include_views must
+    # keep working.
     result = check_filters(
         source_type="mysql",
         config_dict={

@@ -283,8 +283,6 @@ CONFIG_HOOKS: FrozenSet[str] = frozenset(
         "probe_unfiltered_kinds",
         # filter_check._parent_exclusion: the containers above a kind.
         "probe_ancestor_kinds",
-        # filter_check._switch_verdict: the bool field that switches a kind off.
-        "probe_kind_switches",
         # introspect.declared_rule_filtered_kinds: kinds decided by rules that
         # are not an AllowDenyPattern, judged through probe_verdict_override.
         "probe_rule_filtered_kinds",
@@ -329,9 +327,8 @@ def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
 
 
 def declared_mapping(config: object, name: str) -> Dict[str, str]:
-    """What a mapping hook (probe_kind_overrides, probe_kind_switches,
-    probe_rule_filtered_kinds) declares, keys and values as str; {} where the
-    config declares none."""
+    """What a mapping hook (probe_kind_overrides, probe_rule_filtered_kinds)
+    declares, keys and values as str; {} where the config declares none."""
     hook = config_hook(config, name)
     if hook is None:
         return {}

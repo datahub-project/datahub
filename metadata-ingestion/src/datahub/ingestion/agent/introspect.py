@@ -25,6 +25,7 @@ from pydantic_core import PydanticUndefined
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
+    Enables,
     Filters,
     Qualifier,
 )
@@ -43,7 +44,7 @@ from datahub.ingestion.agent.probe_methods import (
     list_probe_methods,
     source_class_for,
 )
-from datahub.ingestion.agent.verdicts import UNFILTERED
+from datahub.ingestion.agent.verdicts import UNFILTERED, ProbeInternalError
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +366,36 @@ def declared_unfiltered_kinds(config: object) -> Set[str]:
     (probe_unfiltered_kinds), read by name on any config."""
     hook = config_hook(config, "probe_unfiltered_kinds")
     return set() if hook is None else {str(k) for k in cast(Iterable[object], hook())}
+
+
+@lru_cache(maxsize=None)
+def _kind_marked_fields(
+    config_cls: type, marker: Type[Enables]
+) -> Tuple[Tuple[str, str], ...]:
+    """(kind, field) for every `marker(kind)` on the class's top-level fields.
+    A kind marked on two fields is the connector's defect: the probe could
+    only guess which one ingestion reads."""
+    found: Dict[str, str] = {}
+    fields = getattr(config_cls, "model_fields", None) or {}
+    for name, info in fields.items():
+        for meta in info.metadata:
+            if not isinstance(meta, marker):
+                continue
+            kind = str(meta.kind)
+            if found.setdefault(kind, name) != name:
+                raise ProbeInternalError(
+                    f"{config_cls.__name__} declares {marker.__name__}({kind!r}) "
+                    f"on both {found[kind]} and {name}; a kind must resolve to "
+                    f"exactly one field"
+                )
+    return tuple(found.items())
+
+
+def declared_kind_enablers(config: object) -> Dict[str, str]:
+    """kind -> the bool field that enables it (Enables), on a config or its
+    class."""
+    config_cls = config if isinstance(config, type) else type(config)
+    return dict(_kind_marked_fields(config_cls, Enables))
 
 
 def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:

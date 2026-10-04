@@ -102,7 +102,8 @@ class VerdictContext:
     parent_path: Tuple[str, ...]
     # The field filtering this kind, possibly dotted; None when there is none.
     pattern_field: Optional[str]
-    # A kind switch's exclusion (probe_kind_switches), to keep or overrule.
+    # A kind switch's exclusion (an Enables field set False), to keep or
+    # overrule.
     structural: Optional[Verdict]
     # Per-name facts from `probe filter --from-run` (an id a pattern matches).
     # Empty for bare names: an override needing one degrades with a warning.

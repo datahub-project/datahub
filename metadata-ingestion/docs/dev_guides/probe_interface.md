@@ -213,8 +213,8 @@ These hold what providers would otherwise copy. None is a hook: the framework ne
 `ProbeProviderBase`, `resolve_name`, `take`, `PersonalWithholding`, `soft_listing` and `echoed` are
 in `datahub.ingestion.agent.provider_helpers`; `mask_identity_columns` in
 `datahub.ingestion.agent.redact`; `pattern_verdict`, `Verdict`, `parent_required`, `ancestors_in`
-and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filters` and
-`Qualifier` in `datahub.configuration.common`.
+and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filters`, `Enables`
+and `Qualifier` in `datahub.configuration.common`.
 
 | Helper                                                   | Use it for                                                                                                                   |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -302,16 +302,16 @@ and anything else it raises is the connector's defect (exit 1), reported by clas
 | `probe_validation_context`  | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts |
 | `probe_kind_overrides`      | classmethod `() -> Mapping[str, str]`                           | the config, not the provider, decides a command's kind (command → kind)             |
 | `probe_match_target`        | `(self, ctx: ClassifyContext) -> Optional[str]`                 | a pattern matches something other than the bare name (step 2)                       |
-| `probe_kind_switches`       | classmethod `() -> Mapping[str, str]`                           | a bool field switches a whole kind off (step 3)                                     |
 | `probe_verdict_override`    | `(self, ctx: VerdictContext) -> Optional[Verdict]`              | no single pattern states ingestion's decision (step 4)                              |
 | `probe_rule_filtered_kinds` | classmethod `() -> Mapping[str, str]`                           | rules that are not an `AllowDenyPattern` decide a kind (`path_specs`)               |
 | `probe_unfiltered_kinds`    | classmethod `() -> Set[str]`                                    | nothing filters a kind, on purpose                                                  |
 | `probe_ancestor_kinds`      | `(self, kind: str) -> Optional[Sequence[str]]`                  | containers sit above a kind (step 6)                                                |
 
-Two field annotations complete it: `Filters(kind)` on the pattern field that filters a kind, and
-`Qualifier()` on a field naming the container a qualified name starts with. A new hook goes into
-`CONFIG_HOOKS` and this table in the same change (a SQL-family hook: `SQL_FAMILY_HOOKS` in
-`source/sql/sql_config.py` and [its table](#sql-family-hooks)).
+Three field annotations complete it: `Filters(kind)` on the pattern field that filters a kind,
+`Enables(kind)` on the bool field that switches a kind off, and `Qualifier()` on a field naming the
+container a qualified name starts with. A new hook goes into `CONFIG_HOOKS` and this table in the
+same change (a SQL-family hook: `SQL_FAMILY_HOOKS` in `source/sql/sql_config.py` and
+[its table](#sql-family-hooks)).
 
 ## Making verdicts match ingestion
 
@@ -322,7 +322,7 @@ so implement a hook only where the default answers differently from ingestion.
 | ---- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | 1    | find the field that filters the kind                                             | `Filters(kind)`; `probe_rule_filtered_kinds`, `probe_unfiltered_kinds` |
 | 2    | build the string the pattern is matched against                                  | `probe_match_target`; `None` keeps the bare name                       |
-| 3    | a bool switch that turns the whole kind off                                      | `probe_kind_switches`                                                  |
+| 3    | a bool switch that turns the whole kind off                                      | `Enables(kind)`                                                        |
 | 4    | the connector's own verdict, told step 3's                                       | `probe_verdict_override`                                               |
 | 5    | match the pattern against the target, if steps 3 and 4 gave no verdict           | none                                                                   |
 | 6    | judge the immediate `--parent` the same way; inside an excluded container is out | `probe_ancestor_kinds`                                                 |
@@ -340,6 +340,17 @@ connectors, and the contract test refuses it in-tree. A kind nothing filters on 
 bare name gives `^orders$` an answer ingestion never gives. Return the string ingestion matches,
 built by ingestion's own code; never re-derive it. A target that needs the container calls
 `parent_required(ctx)` first.
+
+**Step 3.** Mark a bool field whose `False` stops ingestion emitting a kind at all with
+`Enables(kind)`, one per kind it switches off. `True` must mean the kind is emitted, so a field whose
+`True` means skip must not carry it; an `Optional[bool]` left unset reads as enabled. A flag deciding
+what is emitted about an object (lineage, profiling) is not a switch.
+
+```python
+include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
+    default=True, description="Whether views should be ingested."
+)
+```
 
 **Step 4.** The escape hatch, for decisions no single pattern states: a view that must pass
 `table_pattern` too, a pinned database, an id the pattern matches. `ctx.structural` is step 3's
@@ -416,12 +427,12 @@ these commands resolves the same way and joins `_RESOLVES_ITS_OWN` in
 `test_sql_identifier_hostile_input.py` after review. A new identifier-taking command is not
 auto-checked.
 
-`SQLCommonConfig` also declares the verdict hooks: `include_tables`/`include_views` are its kind
-switches, and its `probe_verdict_override` is `sql_structural_verdict(self, ctx)`, which excludes a
+`SQLCommonConfig` also declares the verdict hooks: `include_tables`/`include_views` carry
+`Enables`, and its `probe_verdict_override` is `sql_structural_verdict(self, ctx)`, which excludes a
 database in `default_databases()` or a schema in `default_schemas()` and, with
-`match_fully_qualified_names`, judges a schema as `<container>.<schema>`. A subclass with rules of
-its own merges `super().probe_kind_switches()` and returns `sql_structural_verdict(self, ctx)` for
-the names its rules leave alone.
+`match_fully_qualified_names`, judges a schema as `<container>.<schema>`. A subclass marks a switch
+of its own on its own field, and one with rules of its own returns `sql_structural_verdict(self, ctx)`
+for the names its rules leave alone.
 
 ### SQL-family hooks
 
@@ -491,7 +502,8 @@ ceiling.
 
 - [ ] **Hooks and methods.** `probe_provider_class()` on the config, `for_config` on the provider,
       optional hooks copied from the [hook reference](#hook-reference). `kind=` and
-      `row_limit_param=` on each listing, `Filters(...)` on each pattern field.
+      `row_limit_param=` on each listing, `Filters(...)` on each pattern field, `Enables(...)` on each
+      switch.
 - [ ] **The contract scan passes.** `pytest tests/unit/agent/test_probe_contract.py` covers a new
       connector the moment it registers. If you add a rule there, add a deliberately bad provider
       that proves it fires.
@@ -521,6 +533,6 @@ ceiling.
 
 Configs are pydantic models, so a test cannot set a hook on an instance (`ValueError`, and
 `object.__setattr__` silently tests an unvalidated object). Patch the hook on the class with
-`monkeypatch.setattr(MySourceConfig, "probe_kind_switches", classmethod(...))`, or on a small
+`monkeypatch.setattr(MySourceConfig, "probe_unfiltered_kinds", classmethod(...))`, or on a small
 subclass when the class is shared. Build a new config with `model_validate` to change a field:
 `model_copy(update=...)` skips the validators that normalize patterns.

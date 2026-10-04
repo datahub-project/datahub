@@ -1,8 +1,8 @@
-from typing import Dict, List, Mapping, Optional
+from typing import Annotated, Dict, List, Optional
 
 from pydantic import Field, SecretStr, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Enables
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -84,19 +84,12 @@ class InformixSourceConfig(
         "to table_pattern if not specified. Specify regex to match the entire view "
         "name in database.owner.view format.",
     )
-    include_tables: bool = Field(
+    include_tables: Annotated[bool, Enables(DatasetSubTypes.TABLE)] = Field(
         default=True, description="Whether tables should be ingested."
     )
-    include_views: bool = Field(
+    include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
         default=True, description="Whether views should be ingested."
     )
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        return {
-            str(DatasetSubTypes.TABLE): "include_tables",
-            str(DatasetSubTypes.VIEW): "include_views",
-        }
 
     domain: Dict[str, AllowDenyPattern] = Field(
         default_factory=dict,

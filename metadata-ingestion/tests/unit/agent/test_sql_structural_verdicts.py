@@ -5,14 +5,20 @@ asserted on the whole result a caller reads: verdict, excluded_by, target and
 warnings.
 """
 
-from typing import Annotated, Dict, FrozenSet, List, Mapping, Optional, Tuple, Type
+from typing import Annotated, Dict, FrozenSet, List, Optional, Tuple, Type
 
 import pytest
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Enables,
+    Filters,
+)
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
+from datahub.ingestion.agent.introspect import declared_kind_enablers
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -64,7 +70,7 @@ def _register(monkeypatch: pytest.MonkeyPatch, config_cls: Type[ConfigModel]) ->
 
 
 def test_sql_configs_declare_the_table_and_view_switches() -> None:
-    assert dict(SQLCommonConfig.probe_kind_switches()) == {
+    assert declared_kind_enablers(SQLCommonConfig) == {
         "Table": "include_tables",
         "View": "include_views",
     }
@@ -233,14 +239,7 @@ def test_a_subclass_override_can_keep_the_family_rules(
 
 
 class _SchemasSwitch(RedshiftConfig):
-    include_schemas: bool = True
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        return {
-            **super().probe_kind_switches(),
-            str(DatasetContainerSubTypes.SCHEMA): "include_schemas",
-        }
+    include_schemas: Annotated[bool, Enables(DatasetContainerSubTypes.SCHEMA)] = True
 
 
 def test_a_kind_switch_stands_over_the_family_rules(

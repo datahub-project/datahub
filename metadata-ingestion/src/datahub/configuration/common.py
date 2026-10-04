@@ -537,6 +537,39 @@ class Filters:
 
 
 @dataclasses.dataclass(frozen=True)
+class Enables:
+    """Declares that this bool field enables a probe level: True, ingestion
+    emits that kind; False, it emits none of it, whatever its pattern says.
+
+    Sibling of Filters, attached the same way, at the field:
+
+        include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
+            default=True, description="Whether views should be ingested."
+        )
+
+    The polarity is fixed: True enables. A field whose True means skip
+    (`skip_views`) must not carry it, since the probe would then report the
+    kind excluded exactly when ingestion emits it. Only False switches the
+    kind off, so an Optional[bool] left unset reads as enabled.
+
+    Declare it only where False stops the kind being emitted at all; a flag
+    deciding what is emitted about an object (lineage, profiling) is not one.
+    A field enabling more than one kind stacks one Enables per kind, as
+    Filters does:
+
+        include_views: Annotated[
+            bool,
+            Enables(DatasetSubTypes.VIEW),
+            Enables(DatasetSubTypes.SEMANTIC_MODEL),
+        ] = Field(default=True, description="...")
+
+    `kind` is a DataHub subtype constant, typed str as Filters' is.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
 class Qualifier:
     """Declares that this field names the container a probe qualifies with.
 

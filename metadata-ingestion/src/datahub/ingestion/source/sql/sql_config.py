@@ -16,7 +16,12 @@ import pydantic
 from pydantic import Field, model_validator
 from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Enables,
+    Filters,
+)
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -324,10 +329,12 @@ class SQLCommonConfig(
         description='Attach domains to databases, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
-    include_views: bool = Field(
+    # Tables and views are emitted only while these are on. The other
+    # include_* flags decide what is emitted about an object, not whether.
+    include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
         default=True, description="Whether views should be ingested."
     )
-    include_tables: bool = Field(
+    include_tables: Annotated[bool, Enables(DatasetSubTypes.TABLE)] = Field(
         default=True, description="Whether tables should be ingested."
     )
 
@@ -413,16 +420,6 @@ class SQLCommonConfig(
         reports a less precise fallback, deduplicated by message.
         """
         return None
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        """Tables and views are emitted only while these are on. The other
-        include_* flags decide what is emitted about an object, not whether.
-        A subclass adds its own to super().probe_kind_switches()."""
-        return {
-            str(DatasetSubTypes.TABLE): "include_tables",
-            str(DatasetSubTypes.VIEW): "include_views",
-        }
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """See sql_structural_verdict, which an override of this one calls

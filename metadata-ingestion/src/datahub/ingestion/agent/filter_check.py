@@ -2,8 +2,8 @@
 
 Connection-free. Per name: find the kind's field (Filters, the name convention,
 or a declared rule field), build the match target (probe_match_target), apply a
-kind switch (probe_kind_switches), ask the connector (probe_verdict_override),
-else match the pattern. Then judge the immediate --parent the same way
+kind switch (the field marked Enables), ask the connector
+(probe_verdict_override), else match the pattern. Then judge the immediate --parent the same way
 (probe_ancestor_kinds): nothing inside an excluded container is ingested.
 """
 
@@ -16,6 +16,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import foreign_label
 from datahub.ingestion.agent.introspect import (
+    declared_kind_enablers,
     declared_rule_filtered_kinds,
     pattern_field_for_config,
 )
@@ -31,7 +32,6 @@ from datahub.ingestion.agent.probe_methods import (
     config_class_for,
     config_hook,
     declared_kind_overrides,
-    declared_mapping,
     list_probe_methods,
 )
 from datahub.ingestion.agent.verdicts import (
@@ -115,13 +115,12 @@ def _match_target(config: object, ctx: ClassifyContext) -> str:
 
 
 def _switch_verdict(config: object, kind: str) -> Optional[Verdict]:
-    """The exclusion a switched-off kind makes, or None: probe_kind_switches
-    names the bool field that, when False, stops ingestion emitting the kind
-    whatever the pattern says."""
-    flag = declared_mapping(config, "probe_kind_switches").get(kind)
-    # A config without the field never switches the kind off.
-    if flag is not None and getattr(config, flag, True) is False:
-        return Verdict(False, flag)
+    """The exclusion a switched-off kind makes, or None: the field marked
+    Enables(kind), when False, stops ingestion emitting the kind whatever the
+    pattern says."""
+    field = declared_kind_enablers(config).get(kind)
+    if field is not None and getattr(config, field) is False:
+        return Verdict(False, field)
     return None
 
 

@@ -22,7 +22,12 @@ from typing import Annotated, Dict, Iterator, List, Mapping, Optional, Set, Tupl
 import pytest
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Enables,
+    Filters,
+)
 from datahub.ingestion.agent.probe_methods import (
     CLASS_CONFIG_HOOKS,
     CONFIG_HOOKS,
@@ -462,7 +467,7 @@ def test_only_the_hook_reference_table_counts_as_documentation():
             "",
             "### A subsection",
             "",
-            "| `probe_kind_switches` | `(cls) -> Mapping[str, str]` |",
+            "| `probe_unfiltered_kinds` | `(cls) -> Set[str]` |",
             "",
             "## Next section",
             "",
@@ -471,7 +476,7 @@ def test_only_the_hook_reference_table_counts_as_documentation():
     )
     assert _documented_config_hooks(markdown) == {
         "probe_provider_class",
-        "probe_kind_switches",
+        "probe_unfiltered_kinds",
     }
     with pytest.raises(ValueError):
         _documented_config_hooks("# Guide\n\nNo reference here.\n")
@@ -1123,43 +1128,63 @@ def test_containers_reports_the_tier_every_sql_config_declares():
     )
 
 
-def _kind_switch_problems(config_cls: type) -> List[str]:
-    """Every field a probe_kind_switches map names must be a bool on the
-    config: a misspelled one reads as "never switched off", which reports
-    included a kind ingestion never emits."""
-    declared = getattr(config_cls, "probe_kind_switches", None)
-    if not callable(declared):
-        return []
-    fields = getattr(config_cls, "model_fields", {})
+def _enables_problems(config_cls: type) -> List[str]:
+    """Enables must mark a top-level bool field (Optional allowed). The
+    switch verdict compares the value with False, so on another type it never
+    fires, and the reader reads top-level fields only: either way the probe
+    reports included a kind ingestion never emits."""
+    from datahub.ingestion.agent.introspect import (
+        _unwrap_optional,
+        iter_config_fields,
+    )
+
     problems = []
-    for kind, field_name in declared().items():
-        info = fields.get(field_name)
-        if info is None or info.annotation is not bool:
+    for path, info in iter_config_fields(config_cls):
+        kinds = sorted(str(m.kind) for m in info.metadata if isinstance(m, Enables))
+        if not kinds:
+            continue
+        if "." in path:
             problems.append(
-                f"{config_cls.__name__}: switch for '{kind}' names "
-                f"'{field_name}', which is not a bool field"
+                f"{config_cls.__name__}.{path} declares Enables for {kinds} in "
+                f"a nested block, which the probe never reads"
+            )
+        elif _unwrap_optional(info.annotation) != [bool]:
+            problems.append(
+                f"{config_cls.__name__}.{path} declares Enables for {kinds} "
+                f"but is not a bool field"
             )
     return problems
 
 
-def test_every_kind_switch_names_a_bool_field():
-    problems = [
-        problem
-        for _source_type, config_cls in _probe_capable_configs()
-        for problem in _kind_switch_problems(config_cls)
-    ]
-    assert problems == []
+def test_every_enables_marks_a_top_level_bool_field():
+    from datahub.ingestion.agent.introspect import declared_kind_enablers
+
+    problems: Set[str] = set()
+    declaring = 0
+    for _source_type, config_cls in _loaded_source_configs():
+        if declared_kind_enablers(config_cls):
+            declaring += 1
+        problems.update(_enables_problems(config_cls))
+    assert sorted(problems) == []
+    # The SQL family alone declares two: an emptied scan must not pass.
+    assert declaring > 20, f"only {declaring} configs declare Enables"
 
 
-def test_the_kind_switch_check_catches_a_misspelled_field():
-    class _Typo(ConfigModel):
-        include_notebooks: bool = True
+def test_the_enables_check_catches_a_misplaced_marker():
+    class _NotABool(ConfigModel):
+        include_notebooks: Annotated[str, Enables("Notebook")] = "yes"
+        include_views: Annotated[Optional[bool], Enables("View")] = None
 
-        @classmethod
-        def probe_kind_switches(cls) -> Mapping[str, str]:
-            return {"Notebook": "include_notebook"}
+    class _Block(ConfigModel):
+        include_jobs: Annotated[bool, Enables("Job")] = True
 
-    assert len(_kind_switch_problems(_Typo)) == 1
+    class _Nested(ConfigModel):
+        block: _Block = Field(default_factory=_Block)
+
+    not_a_bool = _enables_problems(_NotABool)
+    assert len(not_a_bool) == 1 and "include_notebooks" in not_a_bool[0]
+    nested = _enables_problems(_Nested)
+    assert len(nested) == 1 and "block.include_jobs" in nested[0]
 
 
 def _rule_kind_problems(config_cls: type) -> List[str]:
