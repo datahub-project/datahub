@@ -131,49 +131,18 @@ class ProbeMethodSpec:
         parent_params: Tuple[str, ...] = (),
         shapes_own_result: bool = False,
     ) -> "ProbeMethodSpec":
-        sig = inspect.signature(fn)
-        params: List[ProbeParam] = []
-        for pname, p in sig.parameters.items():
-            if pname == "self":
-                continue
-            if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
-                raise TypeError(
-                    f"probe method '{fn.__name__}' may not take *args/**kwargs "
-                    f"(parameter '{pname}')"
-                )
-            type_name, required = _resolve_annotation(fn.__name__, pname, p)
-            params.append(
-                ProbeParam(
-                    name=pname,
-                    type=type_name,
-                    required=required,
-                    default=None if p.default is inspect.Parameter.empty else p.default,
-                )
-            )
-        doc = inspect.getdoc(fn)
-        if not doc:
-            raise ValueError(
-                f"probe method '{fn.__name__}' must have a docstring — it is the "
-                f"help text shown to users and to the agent"
-            )
-        declared = {p.name for p in params}
-        for parent_param in parent_params:
-            if parent_param not in declared:
-                raise ValueError(
-                    f"probe method '{fn.__name__}' declares parent_params "
-                    f"'{parent_param}' but has no such parameter"
-                )
-        for label, scoped in (
-            ("scoped_sql_param", scoped_sql_param),
-            ("scoped_path_param", scoped_path_param),
-            ("row_limit_param", row_limit_param),
-        ):
-            if scoped is not None and scoped not in declared:
-                raise ValueError(
-                    f"probe method '{fn.__name__}' declares {label}='{scoped}' "
-                    f"but has no such parameter; the framework would have "
-                    f"nothing to check"
-                )
+        params = _probe_params(fn)
+        doc = _required_doc(fn)
+        _check_named_params(
+            fn_name=fn.__name__,
+            declared={p.name for p in params},
+            parent_params=parent_params,
+            gates={
+                "scoped_sql_param": scoped_sql_param,
+                "scoped_path_param": scoped_path_param,
+                "row_limit_param": row_limit_param,
+            },
+        )
         return cls(
             command=name or fn.__name__,
             params=params,
@@ -185,6 +154,62 @@ class ProbeMethodSpec:
             shapes_own_result=shapes_own_result,
             parent_params=tuple(parent_params),
         )
+
+
+def _probe_params(fn: Callable) -> List[ProbeParam]:
+    """The CLI flags a probe method takes: every parameter but `self`."""
+    params: List[ProbeParam] = []
+    for pname, p in inspect.signature(fn).parameters.items():
+        if pname == "self":
+            continue
+        if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
+            raise TypeError(
+                f"probe method '{fn.__name__}' may not take *args/**kwargs "
+                f"(parameter '{pname}')"
+            )
+        type_name, required = _resolve_annotation(fn.__name__, pname, p)
+        params.append(
+            ProbeParam(
+                name=pname,
+                type=type_name,
+                required=required,
+                default=None if p.default is inspect.Parameter.empty else p.default,
+            )
+        )
+    return params
+
+
+def _required_doc(fn: Callable) -> str:
+    doc = inspect.getdoc(fn)
+    if not doc:
+        raise ValueError(
+            f"probe method '{fn.__name__}' must have a docstring — it is the "
+            f"help text shown to users and to the agent"
+        )
+    return doc
+
+
+def _check_named_params(
+    fn_name: str,
+    declared: Set[str],
+    parent_params: Tuple[str, ...],
+    gates: Mapping[str, Optional[str]],
+) -> None:
+    """Refuse a parent or gate parameter the method does not take: the
+    framework would have nothing to echo or check."""
+    for parent_param in parent_params:
+        if parent_param not in declared:
+            raise ValueError(
+                f"probe method '{fn_name}' declares parent_params "
+                f"'{parent_param}' but has no such parameter"
+            )
+    for label, scoped in gates.items():
+        if scoped is not None and scoped not in declared:
+            raise ValueError(
+                f"probe method '{fn_name}' declares {label}='{scoped}' "
+                f"but has no such parameter; the framework would have "
+                f"nothing to check"
+            )
 
 
 def _resolve_annotation(
@@ -231,13 +256,13 @@ def probe_method(
             "__probe_command__",
             ProbeMethodSpec.from_func(
                 fn,
-                name,
-                scoped_sql_param,
-                scoped_path_param,
-                kind,
-                row_limit_param,
-                parent_params,
-                shapes_own_result,
+                name=name,
+                scoped_sql_param=scoped_sql_param,
+                scoped_path_param=scoped_path_param,
+                kind=kind,
+                row_limit_param=row_limit_param,
+                parent_params=parent_params,
+                shapes_own_result=shapes_own_result,
             ),
         )
         return fn
@@ -901,6 +926,111 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     )
 
 
+@dataclass(frozen=True)
+class _PreparedCall:
+    """A command checked and its provider ready to build: everything that can
+    refuse the call without reaching the source has run."""
+
+    call: _ProviderCall
+    config_cls: Type["ConfigModel"]
+    # The caller's arguments typed, before _bounded_kwargs asks one past the
+    # limit: truncation is judged against these.
+    coerced_kwargs: Dict[str, object]
+
+
+def _spec_for(provider_cls: type, source_type: str, command: str) -> ProbeMethodSpec:
+    specs = dict(_iter_specs(provider_cls))
+    if command not in specs:
+        raise ProbeArgumentError(
+            f"unknown probe method '{command}' for source '{source_type}'; "
+            f"available: {', '.join(sorted(specs)) or '(none)'}"
+        )
+    return specs[command]
+
+
+def _prepare_call(
+    source_type: str,
+    config_dict: Dict[str, object],
+    command: str,
+    kwargs: Dict[str, object],
+) -> _PreparedCall:
+    provider_cls = _provider_class(source_type)
+    if provider_cls is None:
+        raise ProbeArgumentError(f"source '{source_type}' has no probe methods")
+    spec = _spec_for(provider_cls, source_type, command)
+    coerced_kwargs = _coerce_kwargs(spec, kwargs)
+    call_kwargs = _bounded_kwargs(spec, coerced_kwargs)
+    # Before the config is built: the operator's switch must not depend on the
+    # source being reachable.
+    _refuse_withheld_passthrough(spec, source_type)
+    config_cls = require_config_class(source_type)
+    config = validate_source_config(config_cls, source_type, config_dict)
+    builder = getattr(provider_cls, "for_config", None)
+    if not callable(builder):
+        raise ProbeArgumentError(
+            f"probe provider '{provider_cls.__name__}' for source "
+            f"'{source_type}' has no for_config(config) classmethod, so it "
+            f"cannot be built from the recipe"
+        )
+    return _PreparedCall(
+        call=_ProviderCall(
+            builder=builder,
+            config=config,
+            spec=spec,
+            call_kwargs=call_kwargs,
+            provider_cls=provider_cls,
+            source_type=source_type,
+        ),
+        config_cls=config_cls,
+        coerced_kwargs=coerced_kwargs,
+    )
+
+
+@dataclass(frozen=True)
+class _CappedResult:
+    result: object
+    truncated: bool
+    # The arguments echoed back: the limit that applies, not the +1 asked of
+    # the getter.
+    params: Dict[str, object]
+
+
+def _cap_result(
+    spec: ProbeMethodSpec,
+    result: object,
+    coerced_kwargs: Dict[str, object],
+    call_kwargs: Dict[str, object],
+) -> _CappedResult:
+    """The result cut to the limit that applies, and whether that cut it."""
+    params = dict(call_kwargs)
+    if spec.shapes_own_result:
+        # Mirror the envelope's flag, so every command answers in one field.
+        truncated = isinstance(result, dict) and bool(result.get("truncated"))
+        return _CappedResult(result=result, truncated=truncated, params=params)
+    limit = _effective_row_limit(spec, coerced_kwargs)
+    if limit is not None and spec.row_limit_param is not None:
+        params[spec.row_limit_param] = limit
+        # The getter was asked for one past the limit.
+        if isinstance(result, list) and len(result) > limit:
+            return _CappedResult(result=result[:limit], truncated=True, params=params)
+        return _CappedResult(result=result, truncated=False, params=params)
+    return _capped_to_max_items(result, params)
+
+
+def _capped_to_max_items(result: object, params: Dict[str, object]) -> _CappedResult:
+    """A command with no row_limit_param is still capped, and says so. This
+    bounds what reaches the caller, not what was fetched (only a declared limit
+    reaches the fetcher). A mapping keeps its first entries."""
+    if isinstance(result, dict) and len(result) > MAX_PROBE_ITEMS:
+        capped = dict(list(result.items())[:MAX_PROBE_ITEMS])
+        return _CappedResult(result=capped, truncated=True, params=params)
+    if isinstance(result, list) and len(result) > MAX_PROBE_ITEMS:
+        return _CappedResult(
+            result=result[:MAX_PROBE_ITEMS], truncated=True, params=params
+        )
+    return _CappedResult(result=result, truncated=False, params=params)
+
+
 def run_probe_method(
     source_type: str,
     config_dict: Dict[str, object],
@@ -918,83 +1048,30 @@ def run_probe_method(
             "`recipe scaffold`, `recipe validate`, `probe methods` and "
             "`probe filter`"
         )
-    provider_cls = _provider_class(source_type)
-    if provider_cls is None:
-        raise ProbeArgumentError(f"source '{source_type}' has no probe methods")
-    specs = dict(_iter_specs(provider_cls))
-    if command not in specs:
-        raise ProbeArgumentError(
-            f"unknown probe method '{command}' for source '{source_type}'; "
-            f"available: {', '.join(sorted(specs)) or '(none)'}"
-        )
-    # Truncation is judged against the coerced limit: `kwargs` holds raw strings.
-    coerced_kwargs = _coerce_kwargs(specs[command], kwargs)
-    call_kwargs = _bounded_kwargs(specs[command], coerced_kwargs)
-    # Before the config is built: the operator's switch must not depend on the
-    # source being reachable.
-    _refuse_withheld_passthrough(specs[command], source_type)
-    config_cls = require_config_class(source_type)
-    config = validate_source_config(config_cls, source_type, config_dict)
-    builder = getattr(provider_cls, "for_config", None)
-    if not callable(builder):
-        raise ProbeArgumentError(
-            f"probe provider '{provider_cls.__name__}' for source "
-            f"'{source_type}' has no for_config(config) classmethod, so it "
-            f"cannot be built from the recipe"
-        )
+    prepared = _prepare_call(source_type, config_dict, command, kwargs)
+    call = prepared.call
     # Outermost, so the guard also covers __exit__. No secrets here: the CLI's
     # own guard holds the recipe's, and credential shapes are scrubbed regardless.
-    with quiet_reused_logs(set(), silenced=_silenced_loggers(provider_cls)):
-        outcome = _open_call_close(
-            _ProviderCall(
-                builder=builder,
-                config=config,
-                spec=specs[command],
-                call_kwargs=call_kwargs,
-                provider_cls=provider_cls,
-                source_type=source_type,
-            )
-        )
-    result = outcome.result
-    spec = specs[command]
-    kind = declared_kind_overrides(config_cls).get(command, spec.kind)
-    # `params` echoes the limit that applies, not the +1 asked of the getter.
-    truncated = False
-    if spec.shapes_own_result:
-        # Mirror the envelope's flag, so every command answers in one field.
-        if isinstance(result, dict):
-            truncated = bool(result.get("truncated"))
-    limit = (
-        None if spec.shapes_own_result else _effective_row_limit(spec, coerced_kwargs)
+    with quiet_reused_logs(set(), silenced=_silenced_loggers(call.provider_cls)):
+        outcome = _open_call_close(call)
+    capped = _cap_result(
+        spec=call.spec,
+        result=outcome.result,
+        coerced_kwargs=prepared.coerced_kwargs,
+        call_kwargs=call.call_kwargs,
     )
-    reported_kwargs = dict(call_kwargs)
-    if limit is not None:
-        if spec.row_limit_param is not None:
-            reported_kwargs[spec.row_limit_param] = limit
-        if isinstance(result, list) and len(result) > limit:
-            result = result[:limit]
-            truncated = True
-    elif not spec.shapes_own_result and isinstance(result, (list, dict)):
-        # A command with no row_limit_param is still capped, and says so. This
-        # bounds what reaches the caller, not what was fetched (only a declared
-        # limit reaches the fetcher). A mapping keeps its first entries.
-        if len(result) > MAX_PROBE_ITEMS:
-            result = (
-                dict(list(result.items())[:MAX_PROBE_ITEMS])
-                if isinstance(result, dict)
-                else result[:MAX_PROBE_ITEMS]
-            )
-            truncated = True
     return ProbeMethodResult(
         source_type=source_type,
         command=command,
-        params=reported_kwargs,
-        kind=kind,
+        params=capped.params,
+        kind=declared_kind_overrides(prepared.config_cls).get(command, call.spec.kind),
         parent_path=[
-            str(call_kwargs[p]) for p in spec.parent_params if p in call_kwargs
+            str(call.call_kwargs[p])
+            for p in call.spec.parent_params
+            if p in call.call_kwargs
         ],
-        result=result,
-        truncated=truncated,
+        result=capped.result,
+        truncated=capped.truncated,
         warnings=sorted(outcome.warnings),
         failures=sorted(outcome.failures),
     )
