@@ -105,7 +105,9 @@ module and delegate to the connector's fetchers. Declare commands on the provide
 
 `probe_provider_class()` is the config's only statement about its provider: `probe methods` describes
 that class and `probe run` builds it with `for_config`, so the two cannot disagree. Build clients in a
-command (`_open_once`), not in `for_config`, so a bad credential is that command's failure. Never
+command (`_open_once`), not in `for_config`, so a bad credential is that command's failure. The SQL
+family is the exception: `SqlAlchemyMetadataProbe.__init__` builds the Inspector, which connects,
+so there a bad credential reads `opening source '<type>' failed (<label>)`, still exit 3. Never
 construct the `Source`: its `__init__` opens connections and emits telemetry. A provider that needs
 connector methods builds an uninitialised instance with `__new__` and primes only what they touch.
 
@@ -154,16 +156,10 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
 1. **Metadata only.** Names, types, constraints, DDL, counts. Never rows, cell values or payloads.
 2. **Raise `ProbeArgumentError` to show a message.** Exception text is shown by type only:
    `ProbeArgumentError` and `ProbeSoftError` (exit 2), `ProbeConnectionError` and `ProbeReadFailed`
-   (exit 3), `ProbeInternalError` (exit 1), and the gates' refusals. Anything else, your own plain
-   `ValueError` included, keeps its exit code but is reported as a label: its class and at most one
-   short code, such as `'tables' failed (ProgrammingError; SQLSTATE 42P01)`. While opening or closing
-   the provider that is exit 3; during a command, Python defects (`TypeError`, `KeyError`,
-   `AttributeError`, `AssertionError`, `IndexError`, `NameError`) exit 1; a failure reading what the
-   source sent (`OSError`, `UnicodeError`, `binascii.Error`, `json.JSONDecodeError`, a pydantic
-   `ValidationError`) exits 3; the rest of the `ValueError` family and `re.error` exit 2; everything
-   else exits 3.
-   After recorded failures it is `ProbeReadFailed` (exit 3), and `NotImplementedError` reads as
-   "does not support this command" (exit 2).
+   (exit 3), `ProbeInternalError` (exit 1), and the gates' refusals (exit 2). Anything else, your own
+   plain `ValueError` included, is reported as a label, its class and at most one short code
+   (`'tables' failed (ProgrammingError; SQLSTATE 42P01)`), on the exit code
+   [Exit codes by phase](#exit-codes-by-phase) gives.
 3. **Never interpolate an exception you did not raise.**
    `ProbeConnectionError(f"login failed: {exc}")` would carry a driver's text out under a trusted
    type. Name the operation and the class.
@@ -206,6 +202,52 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    or without the switch.
 9. **Exit codes are a contract.** 2 for the caller's input, 3 for the source, 1 for a defect. Test
    every code your provider can produce.
+
+### Exit codes by phase
+
+What a provider raises becomes this exit code and message (`classify_foreign` in
+`agent/error_policy.py`, and the open, call and close path in `agent/probe_methods.py`). `<label>` is
+the class and at most one short code.
+
+| Raised                                                                                                                                    | Opening or closing the provider               | During a command                                                 | After the provider recorded failures                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
+| a trusted type above, or a gate's refusal                                                                                                 | its own code and message                      | its own code and message                                         | 3, its message, then `; the connector recorded: <failures>` |
+| a Python defect: `TypeError`, `KeyError`, `AttributeError`, `AssertionError`, `IndexError`, `NameError`                                   | 3, `opening source '<type>' failed (<label>)` | 1, `'<command>' failed (<label>)`                                | 3, `<label>; the connector recorded: <failures>`            |
+| a failure reading what the source sent: `OSError`, `UnicodeError`, `binascii.Error`, `json.JSONDecodeError`, a pydantic `ValidationError` | 3, as above                                   | 3, as above                                                      | 3, as above                                                 |
+| the rest of the `ValueError` family, and `re.error`                                                                                       | 3, as above                                   | 2, as above                                                      | 3, as above                                                 |
+| `NotImplementedError`                                                                                                                     | 3, as above                                   | 2, `source '<type>' does not support the '<command>' command...` | 2, as during a command                                      |
+| anything else: a driver's, an SDK's or an HTTP error, `SystemExit`                                                                        | 3, as above                                   | 3, as above                                                      | 3, as above                                                 |
+
+Closing reads `closing source '<type>' failed (<label>)`, and only when the command succeeded: a
+command's own failure is never replaced by its close's. A command that returns with failures
+recorded prints its result, then exits 3 with `'<command>' could not be completed: <failures>`. A
+hook from the [hook reference](#hook-reference) or a provider attribute raising anything untrusted
+is the connector's defect (exit 1), named by class and label.
+
+## Secrets
+
+The CLI collects every secret a recipe holds before a command prints anything, and masks them on the
+way out; a connector's part is to type each credential field `SecretStr`. Secrets are found
+(`_resolved_recipe` in `cli/recipe_cli.py`; `_secrets_in_recipe`, best-effort, for `validate`) as:
+
+- every value a `${REF}` resolves to, a host included (`agent/secrets.resolve_config_collecting`);
+- every `SecretStr` field's value at any depth, as written and as the source validates the config,
+  which adds a renamed field's value or a file a validator read (`introspect.secret_field_values`);
+- strings under credential-looking keys in free-form dicts such as Kafka's `consumer_config`
+  (`redact.collect_nested_secret_values`);
+- every value in a stdin envelope's `__secrets__`, registered before the YAML is parsed.
+
+Four barriers keep them out of the output:
+
+- **Payload redaction.** Collected values become `***`, and free text is scrubbed of credential
+  shapes (`redact.redact`, `redact.scrub_text`); `probe filter` and `probe run` warn when that
+  changed the result.
+- **The masking registry.** `SecretRegistry`, whose stdout wrapper, logging filter and excepthook
+  the `recipe` group installs, masks stdout and `--report-to` as a structure.
+- **Error labels.** A foreign exception is named by its label, never its text, and each error line
+  is scrubbed like the payload.
+- **The log guard.** Other code's log records are scrubbed while a probe or `test-connection` runs
+  (rule 7).
 
 ## Helpers
 
@@ -326,7 +368,12 @@ so implement a hook only where the default answers differently from ingestion.
 | 5    | match the pattern against the target, if steps 3 and 4 gave no verdict           | none                                                             |
 | 6    | judge the immediate `--parent` the same way; inside an excluded container is out | `probe_ancestor_kinds`                                           |
 
-**Step 1.** Declare `Filters(kind)` on every pattern field, nested ones included
+**Step 1.** The field is chosen in this order: a top-level `FiltersByRule(kind)` field
+(`filtering: "by_rule"`); else a kind in `probe_unfiltered_kinds` (`"unfiltered"`); else the
+`Filters(kind)` field (`"by_pattern"`); else the name convention below. A `by_rule` kind is judged
+on its bare name, so step 2 is skipped, and `--try-allow`/`--try-deny` are ignored with a warning.
+
+Declare `Filters(kind)` on every pattern field, nested ones included
 (`filter_config.entries.pattern` is reported under its dotted name, and `--try-*` reruns only its
 own block's validators). The `<kind>_pattern` name convention is a fallback for out-of-tree
 connectors, and the contract test refuses it in-tree. A kind nothing filters on purpose goes in
@@ -481,7 +528,9 @@ sqlglot leaves a path's dots inside one identifier slot and an identifier cannot
 
 **Qualification.** `SQLCommonConfig.probe_match_target` matches tables and views on the connector's
 own `get_identifier`, called on an uninitialised `Source` (see `source/sql/sql_probe.py`), and
-containers on their bare name. Where tables match `container.schema.entity`, declare it: mark the
+containers on their bare name. That `Source` is found by name (`_source_class_for`): `FooConfig`'s
+is `FooSource` in the config's own module when that is a `SQLAlchemySource`, else
+`SQLAlchemySource` itself. Where tables match `container.schema.entity`, declare it: mark the
 config field that pins the container with `Qualifier()` (a list field qualifies only when it pins
 one value; `Qualifier(authoritative=True)` makes it beat `--parent`), or, where only the caller knows
 the container, return `qualified_table_target(database, schema, entity, warn)` from
@@ -505,11 +554,11 @@ its drivers are known to accept. A ceiling set by a statement in `prepare` may c
 `timeout_applies` only if a refused statement fails the connection (Redshift's does; MySQL's is
 best effort and claims nothing).
 
-`ProbeEngineSettings`, `recipe_connect_args(config)` (to extend the recipe's own connect_args) and
-`probe_label_connect_arg(config, kwarg)` (the client label, unless the recipe names its connection
-itself) are in `source/sql/sql_config.py`. `QueryBudget` is in `agent/sql_passthrough.py`:
-`timeout_seconds` (30 by default) and `max_bytes_billed` (none by default), where `None` means no
-ceiling.
+`ProbeEngineSettings` (also importable from `source/sql/sql_config.py`), `recipe_connect_args(config)`
+(to extend the recipe's own connect_args) and `probe_label_connect_arg(config, kwarg)` (the client
+label, unless the recipe names its connection itself) are in `source/sql/protocol_probe_settings.py`.
+`QueryBudget` is in `agent/sql_passthrough.py`: `timeout_seconds` (30 by default) and
+`max_bytes_billed` (none by default), where `None` means no ceiling.
 
 ## Testing and docs checklist
 
