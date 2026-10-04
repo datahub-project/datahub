@@ -209,6 +209,21 @@ class _RowProxyFake(collections.OrderedDict):
         return super().__getitem__(k)
 
 
+class _EmptyTableSkip(Exception):
+    """A gate reported an exact row count of 0, so its batch was not issued.
+
+    Not a failure: the profiler emits no field profiles for an empty table, so
+    the column queries it had queued would have been thrown away. Kept distinct
+    from a real gate failure, which means the table could not be read at all.
+    """
+
+
+def _buffer_one_row(res: Any) -> "_ResultProxyFake":
+    """Read a single-row result into memory so it can be read again."""
+    rows = res.fetchall()
+    return _ResultProxyFake([_RowProxyFake(dict(row._mapping)) for row in rows])
+
+
 class _ResultProxyFake:
     # This imitates the subset of sqlalchemy.engine.CursorResult that the
     # profiler reads from combined-query results.
@@ -333,6 +348,11 @@ class SQLAlchemyQueryCombinerReport(Report):
     # Queries never issued because a gate in their batch failed alone, so the
     # table could not be read at all. See GATE_EXECUTION_OPTION.
     queries_skipped_after_gate: int = 0
+
+    # Queries never issued because the table's exact row count came back 0, so
+    # their results would have been discarded. Not a failure; counted apart
+    # from queries_skipped_after_gate, which means "could not be read".
+    queries_skipped_empty_table: int = 0
 
     query_exceptions: int = 0
 
@@ -585,7 +605,7 @@ class SQLAlchemyQueryCombiner:
             for fut in pending_queue.values():
                 fut.exc = gate_exc
                 fut.done = True
-                self.report.queries_skipped_after_gate += 1
+                self._count_skip(gate_exc)
             return
 
         pending_queue = dict(
@@ -903,6 +923,12 @@ class SQLAlchemyQueryCombiner:
         # N queued aggregates collapsed into one scan over the same table.
         self.report.scans_avoided += len(members) - 1
 
+    def _count_skip(self, exc: Exception) -> None:
+        if isinstance(exc, _EmptyTableSkip):
+            self.report.queries_skipped_empty_table += 1
+        else:
+            self.report.queries_skipped_after_gate += 1
+
     def _rollback_quietly(self, conn: Connection) -> None:
         # SA 2.0 has no autocommit, so after a failed statement e.g. Postgres/
         # Redshift return 25P02 ("current transaction is aborted") for every
@@ -945,7 +971,7 @@ class SQLAlchemyQueryCombiner:
             if gate_exc is not None:
                 query_future.exc = gate_exc
                 query_future.done = True
-                self.report.queries_skipped_after_gate += 1
+                self._count_skip(gate_exc)
                 continue
 
             query_id = SQLAlchemyQueryCombiner._generate_query_id()
@@ -967,8 +993,24 @@ class SQLAlchemyQueryCombiner:
                         **query_future.params,
                     )
 
-                    # CursorResult's interface is shimmed by _ResultProxyFake.
-                    query_future.res = cast(_ResultProxyFake, res)
+                    if query_future.is_gate:
+                        # Buffer rather than read through: the profiler reads
+                        # this same result afterwards, and a consumed
+                        # CursorResult either yields None -- which get_row_count
+                        # turns into 0, silently dropping every field profile --
+                        # or raises ResourceClosedError.
+                        buffered = _buffer_one_row(res)
+                        query_future.res = buffered
+                        if buffered.scalar() == 0:
+                            # An exact count of 0 means the profiler discards the
+                            # column results anyway, so do not issue them.
+                            gate_exc = _EmptyTableSkip()
+                            self._gate_failure_by_thread[self._get_main_greenlet()] = (
+                                gate_exc
+                            )
+                    else:
+                        # CursorResult's interface is shimmed by _ResultProxyFake.
+                        query_future.res = cast(_ResultProxyFake, res)
 
                     logger.info(
                         f"[{query_id}] Fallback query executed in {timer.elapsed_seconds():.3f}s"
