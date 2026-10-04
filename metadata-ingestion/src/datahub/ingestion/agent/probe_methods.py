@@ -37,10 +37,10 @@ from datahub.ingestion.agent.error_policy import (
     classify_foreign,
     foreign_label,
     is_trusted,
+    label_foreign_text,
     name_foreign,
     police_trusted,
-    withheld_text,
-    withhold_foreign_text,
+    verbose_detail,
 )
 from datahub.ingestion.agent.log_guard import FRAMEWORK_LOGGERS, quiet_reused_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -740,9 +740,9 @@ def _raise_call_failure(
     if recorded:
         # The recorded failure explains the miss, whatever was raised after it.
         detail = (
-            scrub_text(withhold_foreign_text(exc, provider_cls, own_values), set())
+            scrub_text(label_foreign_text(exc, provider_cls, own_values), set())
             if is_trusted(exc)
-            else foreign_label(exc, provider_cls) + withheld_text(exc)
+            else foreign_label(exc, provider_cls) + verbose_detail(exc)
         )
         raise ProbeReadFailed(
             f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))

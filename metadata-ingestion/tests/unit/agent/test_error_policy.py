@@ -20,8 +20,8 @@ from datahub.ingestion.agent.error_policy import (
     _foreign_in_chain,
     classify_foreign,
     is_trusted,
+    label_foreign_text,
     police_trusted,
-    withhold_foreign_text,
 )
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
@@ -772,7 +772,7 @@ def _quoting(raiser: Callable[[], object], own_values: Set[str]) -> str:
         except LookupError as exc:
             raise ProbeArgumentError(f"lookup said {exc}") from exc
     except ProbeArgumentError as wrapper:
-        return withhold_foreign_text(wrapper, own_values=own_values)
+        return label_foreign_text(wrapper, own_values=own_values)
     raise AssertionError("raiser raised nothing")
 
 
@@ -926,7 +926,7 @@ def test_a_short_foreign_text_is_not_searched_for() -> None:
         except RuntimeError:
             raise ProbeArgumentError("no thing named 'x'")  # noqa: B904
     except ProbeArgumentError as wrapper:
-        assert withhold_foreign_text(wrapper) == "no thing named 'x'"
+        assert label_foreign_text(wrapper) == "no thing named 'x'"
 
 
 def test_the_backstop_reads_the_context_as_well_as_the_cause() -> None:
@@ -936,7 +936,7 @@ def test_the_backstop_reads_the_context_as_well_as_the_cause() -> None:
         except RuntimeError as exc:
             raise ProbeConnectionError(f"fetch said {exc}")  # noqa: B904
     except ProbeConnectionError as wrapper:
-        assert withhold_foreign_text(wrapper) == "fetch said (RuntimeError)"
+        assert label_foreign_text(wrapper) == "fetch said (RuntimeError)"
         replacement = police_trusted(wrapper)
     assert isinstance(replacement, ProbeConnectionError)
     assert str(replacement) == "fetch said (RuntimeError)"
@@ -954,7 +954,7 @@ def test_the_backstop_reads_an_exception_groups_children() -> None:
         except Exception:
             raise ProbeConnectionError(f"login failed: {child}")  # noqa: B904
     except ProbeConnectionError as wrapper:
-        assert withhold_foreign_text(wrapper) == "login failed: (RuntimeError)"
+        assert label_foreign_text(wrapper) == "login failed: (RuntimeError)"
 
 
 def test_the_backstop_walks_a_bounded_number_of_an_exception_groups_children() -> None:
@@ -1009,7 +1009,7 @@ def test_the_backstop_shows_the_scrubbed_text_under_verbose(
         except RuntimeError as exc:
             raise ProbeConnectionError(f"fetch said {exc}") from exc
     except ProbeConnectionError as wrapper:
-        message = withhold_foreign_text(wrapper)
+        message = label_foreign_text(wrapper)
     assert message.startswith("fetch said (RuntimeError): fetcher gave up on https://")
     assert SENTINEL not in message
 

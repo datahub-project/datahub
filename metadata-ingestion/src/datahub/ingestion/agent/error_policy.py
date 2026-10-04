@@ -230,7 +230,7 @@ def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> st
         return name
 
 
-def withheld_text(exc: BaseException) -> str:
+def verbose_detail(exc: BaseException) -> str:
     """`: <scrubbed text>` under DATAHUB_PROBE_VERBOSE_LOGS, else empty. Never
     raises."""
     if not get_probe_verbose_logs():
@@ -247,7 +247,7 @@ def name_foreign(exc: BaseException, provider_cls: Optional[type] = None) -> str
     """`(label)`, how an untrusted exception appears in a message, with its
     withheld text after the parenthesis under the verbose switch: inside, a
     masked value would swallow the closing parenthesis."""
-    return f"({foreign_label(exc, provider_cls)}){withheld_text(exc)}"
+    return f"({foreign_label(exc, provider_cls)}){verbose_detail(exc)}"
 
 
 def classify_foreign(
@@ -318,7 +318,7 @@ def _is_own_argument(exc: BaseException, own_values: AbstractSet[str]) -> bool:
         return False
 
 
-def withhold_foreign_text(
+def label_foreign_text(
     exc: BaseException,
     provider_cls: Optional[type] = None,
     own_values: AbstractSet[str] = frozenset(),
@@ -389,8 +389,8 @@ def police_trusted(
     """A replacement for a trusted exception whose message quotes an untrusted
     one, or None. It keeps the type, so the exit code does not move; a
     subclass that cannot be rebuilt with a plain message becomes the trusted
-    type it derives from. `own_values` as for withhold_foreign_text."""
-    message = withhold_foreign_text(exc, provider_cls, own_values)
+    type it derives from. `own_values` as for label_foreign_text."""
+    message = label_foreign_text(exc, provider_cls, own_values)
     if message == str(exc):
         return None
     try:

@@ -31,7 +31,7 @@ from typing import (
 
 from typing_extensions import Self
 
-from datahub.ingestion.agent.error_policy import withhold_foreign_text
+from datahub.ingestion.agent.error_policy import label_foreign_text
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeInternalError,
@@ -288,7 +288,7 @@ class soft_listing:
                 soft.__cause__ = exc
         if soft is None:
             return False
-        self._warn(withhold_foreign_text(soft))
+        self._warn(label_foreign_text(soft))
         return True
 
 
