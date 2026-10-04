@@ -1,10 +1,11 @@
 import copy
 import os
-import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Protocol, Set
+from typing import Dict, Iterator, List, MutableMapping, Optional, Protocol, Set
 
-_REF = re.compile(r"\$\{([^}]+)\}")
+from expandvars import ExpandvarsException, UnboundVariable
+
+from datahub.configuration.config_loader import EnvResolver
 
 
 @dataclass
@@ -68,7 +69,7 @@ class DatahubEnvResolver:
 
 
 def _lookup_path(data: object, path: str) -> Optional[object]:
-    """Resolve a dotted path, so a recipe may name `${gms.server}` directly."""
+    """Resolve a dotted path into the file, where the aliases above point."""
     node: object = data
     for part in path.split("."):
         if not isinstance(node, dict):
@@ -81,40 +82,93 @@ def default_resolvers() -> List[SecretResolver]:
     return [EnvVarResolver(), DatahubEnvResolver()]
 
 
-def _resolve_str(
-    value: str, resolvers: List[SecretResolver], collected: Set[str]
-) -> str:
-    def replace(match: "re.Match[str]") -> str:
-        ref = match.group(1)
-        for resolver in resolvers:
-            resolved = resolver.resolve(ref)
-            if resolved is not None:
-                # Every ${ref} value is masked, a non-secret one (a host) too.
-                if resolved:
-                    collected.add(resolved)
-                return resolved
-        raise ValueError(f"Could not resolve secret reference ${{{ref}}}")
+class _ResolverEnviron(MutableMapping[str, str]):
+    """The resolvers, in order, as the environment EnvResolver expands
+    against, recording each value one supplies.
 
-    return _REF.sub(replace, value)
+    Only the resolvers' answers are recorded: an inline `${X:-default}` is
+    recipe text, not a secret. `${X:=default}` assigns, which ingestion does
+    to os.environ; here it lands in an overlay for the rest of this recipe.
+    Iteration lists only that overlay, since resolvers can be asked for a
+    name but not enumerated; expansion never iterates.
+    """
+
+    def __init__(self, resolvers: List[SecretResolver]) -> None:
+        self._resolvers = resolvers
+        self._assigned: Dict[str, str] = {}
+        self.supplied: Set[str] = set()
+
+    def __getitem__(self, name: str) -> str:
+        if name in self._assigned:
+            return self._assigned[name]
+        for resolver in self._resolvers:
+            value = resolver.resolve(name)
+            if value is not None:
+                # Every resolved value is masked, a non-secret one (a host) too.
+                if value:
+                    self.supplied.add(value)
+                return value
+        raise KeyError(name)
+
+    def __setitem__(self, name: str, value: str) -> None:
+        self._assigned[name] = value
+
+    def __delitem__(self, name: str) -> None:
+        del self._assigned[name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._assigned)
+
+    def __len__(self) -> int:
+        return len(self._assigned)
+
+
+_UNBOUND_SUFFIX = ": unbound variable"
 
 
 def resolve_config_collecting(
     config_dict: Dict[str, object], resolvers: List[SecretResolver]
 ) -> ResolvedConfig:
-    collected: Set[str] = set()
+    """The config with its variable references resolved exactly as
+    `datahub ingest` resolves them (EnvResolver: `${X}` anywhere, `$X` when it
+    starts the value, `${X:-default}`), each looked up through `resolvers` in
+    order, and the values they supplied.
 
-    def walk(node: object) -> object:
-        if isinstance(node, str):
-            return _resolve_str(node, resolvers, collected)
-        if isinstance(node, dict):
-            return {k: walk(v) for k, v in node.items()}
-        if isinstance(node, list):
-            return [walk(v) for v in node]
-        return node
+    A reference nothing resolves and no default covers fails ingestion too;
+    here it is a ValueError naming it, as is any other reference expandvars
+    cannot parse, so it reads as the caller's input (exit 2)."""
+    environ = _ResolverEnviron(resolvers)
+    resolver = EnvResolver(environ=environ, register_secrets=False)
+    try:
+        resolved = resolver.resolve(copy.deepcopy(config_dict))
+    except UnboundVariable as exc:
+        # expandvars words it "<name>: unbound variable", naming only the
+        # reference, never its value.
+        message = str(exc.args[0]) if exc.args else ""
+        if message.endswith(_UNBOUND_SUFFIX):
+            name = message[: -len(_UNBOUND_SUFFIX)]
+            raise ValueError(
+                f"Could not resolve secret reference ${{{name}}}"
+            ) from None
+        raise ValueError("Could not resolve a secret reference") from None
+    except ExpandvarsException as exc:
+        # Not its text: it quotes the recipe's value around the reference.
+        raise ValueError(
+            f"Could not resolve a variable reference in the recipe "
+            f"({type(exc).__name__})"
+        ) from None
+    return ResolvedConfig(config=resolved, secret_values=environ.supplied)
 
-    result = walk(copy.deepcopy(config_dict))
-    assert isinstance(result, dict)
-    return ResolvedConfig(config=result, secret_values=collected)
+
+def is_variable_reference(value: str) -> bool:
+    """Whether ingestion reads this recipe string as a variable reference
+    (resolved from the environment) rather than as literal text."""
+    try:
+        return bool(EnvResolver.list_referenced_variables({"value": value}))
+    except ExpandvarsException:
+        # Malformed (`${}`, or an unclosed `${X` leading the value): resolving
+        # it fails, and that failure is reported, so it is not plaintext too.
+        return True
 
 
 def resolve_config(

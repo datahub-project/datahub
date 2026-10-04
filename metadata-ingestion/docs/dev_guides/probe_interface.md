@@ -230,7 +230,9 @@ The CLI collects every secret a recipe holds before a command prints anything, a
 way out; a connector's part is to type each credential field `SecretStr`. Secrets are found
 (`_resolved_recipe` in `cli/recipe_cli.py`; `_secrets_in_recipe`, best-effort, for `validate`) as:
 
-- every value a `${REF}` resolves to, a host included (`agent/secrets.resolve_config_collecting`);
+- every value a variable reference resolves to, a host included (`agent/secrets.resolve_config_collecting`,
+  which resolves `${REF}`, a leading `$REF` and `${REF:-default}` exactly as `datahub ingest` does; an
+  inline default is recipe text, not a secret);
 - every `SecretStr` field's value at any depth, as written and as the source validates the config,
   which adds a renamed field's value or a file a validator read (`introspect.secret_field_values`);
 - strings under credential-looking keys in free-form dicts such as Kafka's `consumer_config`

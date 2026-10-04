@@ -71,6 +71,36 @@ def test_validate_ref_secret_no_warning():
     assert not any("plaintext" in w.lower() for w in warnings)
 
 
+def _pg_with_password(password: str) -> Dict[str, object]:
+    return {
+        "source": {
+            "type": "postgres",
+            "config": {
+                "host_port": "h:5432",
+                "database": "d",
+                "username": "u",
+                "password": password,
+            },
+        }
+    }
+
+
+def test_a_reference_leading_the_value_is_not_a_plaintext_secret(monkeypatch):
+    """Ingestion resolves `$NAME` when it starts the value, so validate must
+    not tell the caller to move it into a ${REF}."""
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    result = validate_recipe(_pg_with_password("$PROBE_T_PG_PW"))
+    assert result == {"valid": True, "errors": [], "warnings": []}
+
+
+def test_a_dollar_inside_the_value_is_plaintext(monkeypatch):
+    """Ingestion leaves `pre-$NAME` as text, so it is the secret itself."""
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    result = validate_recipe(_pg_with_password("pre-$PROBE_T_PG_PW"))
+    assert result["valid"]
+    assert any("'password' contains" in w for w in result["warnings"])
+
+
 def test_validate_bad_config_reports_errors():
     # A recipe missing required fields must be reported invalid, not crash.
     pytest.importorskip("snowflake.connector")

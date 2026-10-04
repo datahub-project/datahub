@@ -18,11 +18,10 @@ from datahub.ingestion.agent.redact import (
 from datahub.ingestion.agent.secrets import (
     SecretResolver,
     default_resolvers,
+    is_variable_reference,
     resolve_config_collecting,
 )
 from datahub.ingestion.source.source_registry import source_registry
-
-_REF = re.compile(r"\$\{[^}]+\}")
 
 
 def _env_name(path: str) -> str:
@@ -45,9 +44,10 @@ def _unique_env_name(path: str, taken: Set[str]) -> str:
 
 
 def _literal_strings(node: object) -> Iterator[str]:
-    """Every string value a recipe's config spells without a ${REF}."""
+    """Every string value a recipe's config spells as text, not as a variable
+    reference."""
     if isinstance(node, str):
-        if not _REF.search(node):
+        if not is_variable_reference(node):
             yield node
     elif isinstance(node, dict):
         for item in node.values():
@@ -162,7 +162,7 @@ def _recipe_secrets(
     """Every SecretStr field the recipe writes inline, at any depth, by path:
     the walk the redactor masks with. dict() drops a path a union read twice."""
     for path, value in dict(iter_secret_field_values(config_cls, config)).items():
-        if _REF.search(value):
+        if is_variable_reference(value):
             plaintext.paths.add(path)
         else:
             plaintext.note(path, value)
@@ -220,7 +220,7 @@ def _nested_secret_warnings(
     segment, so `sasl.mechanism` is not flagged."""
     nested = collect_nested_credential_values(config, SENSITIVE_KEY_HINTS)
     plaintext_nested = sorted(
-        v for v in nested if not _REF.search(v) and v not in already_warned
+        v for v in nested if not is_variable_reference(v) and v not in already_warned
     )
     if not plaintext_nested:
         return []
