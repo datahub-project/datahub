@@ -39,10 +39,10 @@ from datahub.ingestion.agent.models import (
     SourceSpec,
 )
 from datahub.ingestion.agent.probe_methods import (
-    config_class_for,
     config_hook,
     declared_kind_overrides,
     list_probe_methods,
+    require_config_class,
     source_class_for,
 )
 from datahub.ingestion.agent.verdicts import UNFILTERED, ProbeInternalError
@@ -255,7 +255,7 @@ def secret_field_values(source_type: str, config: Dict[str, object]) -> Set[str]
     when it does (iter_model_secret_values). A recipe failing validation is
     covered by the first. Raises as describe_source does for a source type
     that does not resolve."""
-    config_cls = _declared_config_class(source_type)
+    config_cls = require_config_class(source_type)
     found = collect_secret_field_values(config_cls, config)
     try:
         validated = validate_source_config(config_cls, source_type, config)
@@ -575,19 +575,10 @@ def _classify(
     )
 
 
-def _declared_config_class(source_type: str) -> Type[ConfigModel]:
-    """config_class_for, refusing a source that declares no config class:
-    there is nothing to describe or to collect secrets from."""
-    config_cls = config_class_for(source_type)
-    if config_cls is None:
-        raise TypeError(f"Source {source_type!r} does not define a config class")
-    return config_cls
-
-
 def describe_source(source_type: str) -> SourceSpec:
     # A source type that does not resolve is a ValueError; never returns None.
     source_cls = source_class_for(source_type)
-    config_cls = _declared_config_class(source_type)
+    config_cls = require_config_class(source_type)
     filter_kinds = _filter_kinds_by_field(source_type, config_cls)
     fields = [
         _classify(name, info, filter_kinds)

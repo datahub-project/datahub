@@ -110,7 +110,7 @@ def test_a_missing_segment_reads_as_no_pattern() -> None:
 
 @pytest.fixture
 def _registered_outer(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: _Outer)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: _Outer)
     monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
 
 
@@ -145,7 +145,7 @@ def test_try_deny_reaches_a_nested_pattern() -> None:
 
 @pytest.fixture
 def _registered_opt_outer(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: _OptOuter)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: _OptOuter)
     monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
 
 

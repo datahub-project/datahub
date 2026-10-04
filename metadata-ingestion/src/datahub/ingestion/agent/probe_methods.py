@@ -416,6 +416,16 @@ def config_class_for(source_type: str) -> Optional[Type["ConfigModel"]]:
     return get_config_class() if get_config_class is not None else None
 
 
+def require_config_class(source_type: str) -> Type["ConfigModel"]:
+    """config_class_for, refusing a source that declares no config class. A
+    TypeError, so exit 1: a registered source with nothing to validate its
+    recipe against is the connector's defect, not the caller's input."""
+    config_cls = config_class_for(source_type)
+    if config_cls is None:
+        raise TypeError(f"Source {source_type!r} does not define a config class")
+    return config_cls
+
+
 def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
     """The provider's `silenced_loggers` (see log_guard.quiet_reused_logs).
 
@@ -923,7 +933,7 @@ def run_probe_method(
     # Before the config is built: the operator's switch must not depend on the
     # source being reachable.
     _refuse_withheld_passthrough(specs[command], source_type)
-    config_cls = config_class_for(source_type)
+    config_cls = require_config_class(source_type)
     config = validate_source_config(config_cls, source_type, config_dict)
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):

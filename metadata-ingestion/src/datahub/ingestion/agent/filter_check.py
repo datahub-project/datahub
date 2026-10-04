@@ -29,10 +29,10 @@ from datahub.ingestion.agent.pattern_path import (
     validate_pattern_at,
 )
 from datahub.ingestion.agent.probe_methods import (
-    config_class_for,
     config_hook,
     declared_kind_overrides,
     list_probe_methods,
+    require_config_class,
 )
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
@@ -483,10 +483,9 @@ def check_filters(
     (from `probe sql`, or from anywhere else). `try_allow`/`try_deny` answer
     the "what if I changed the pattern" question without editing the recipe.
     """
-    config_cls = config_class_for(source_type)
-    if config_cls is None:
-        raise ValueError(f"unknown source type '{source_type}'")
-    config = validate_source_config(config_cls, source_type, config_dict)
+    config = validate_source_config(
+        require_config_class(source_type), source_type, config_dict
+    )
     if attributes is not None and len(attributes) != len(names):
         raise ValueError(
             f"{len(attributes)} attribute sets for {len(names)} names; each "

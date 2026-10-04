@@ -214,7 +214,7 @@ def test_a_resolver_with_nothing_usable_is_judged_on_the_bare_name(
         ) -> Optional[str]:
             return ""
 
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: _Blank)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: _Blank)
     result = check_filters(
         source_type="postgres",
         config_dict=_PG,

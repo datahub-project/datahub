@@ -383,8 +383,8 @@ def test_a_misdeclared_filters_is_the_connectors_defect(
     so both commands that resolve it exit 1, not 2."""
     from datahub.ingestion.agent import filter_check, introspect
 
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: config_cls)
-    monkeypatch.setattr(introspect, "config_class_for", lambda _st: config_cls)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: config_cls)
+    monkeypatch.setattr(introspect, "require_config_class", lambda _st: config_cls)
     monkeypatch.setattr(introspect, "list_probe_methods", lambda _st: [])
     filtered = CliRunner().invoke(
         recipe,
@@ -2701,15 +2701,14 @@ def test_a_config_hook_raising_in_probe_filter_is_policed_like_a_provider(
 ) -> None:
     """A hook is the connector's code: an untrusted exception from it is the
     connector's defect, named by label; a trusted one keeps its type and text."""
-    from datahub.ingestion.agent import filter_check, probe_methods
+    from datahub.ingestion.agent import probe_methods
 
     monkeypatch.setattr(_HookFailure, "raised", raised)
     monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
     monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
-    for module in (filter_check, probe_methods):
-        monkeypatch.setattr(
-            module, "config_class_for", lambda _st: _OverrideRaisingConfig
-        )
+    monkeypatch.setattr(
+        probe_methods, "config_class_for", lambda _st: _OverrideRaisingConfig
+    )
     res = CliRunner().invoke(
         recipe,
         [

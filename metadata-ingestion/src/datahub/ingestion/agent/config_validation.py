@@ -1,13 +1,16 @@
-from typing import Any, Mapping
+from typing import Mapping, Type, TypeVar
 
 import pydantic
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.error_policy import call_config_hook
+
+_ConfigT = TypeVar("_ConfigT", bound=ConfigModel)
 
 
 def validate_source_config(
-    config_cls: Any, source_type: str, config_dict: Mapping[str, object]
-) -> Any:
+    config_cls: Type[_ConfigT], source_type: str, config_dict: Mapping[str, object]
+) -> _ConfigT:
     """Build `config_cls` from a recipe the way the source's own create() does.
 
     Registered names sharing one config class may validate with different

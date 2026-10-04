@@ -65,7 +65,7 @@ def _rows(result: FilterCheckResult) -> List[_Row]:
 
 
 def _register(monkeypatch: pytest.MonkeyPatch, config_cls: Type[ConfigModel]) -> None:
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: config_cls)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: config_cls)
     monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
 
 

@@ -165,6 +165,29 @@ def test_an_unknown_kind_still_answers_but_says_it_is_unrecognised():
     assert "Table" in result.warnings[0]
 
 
+class _ConfiglessSource:
+    """A registered source that declares no config class."""
+
+
+def test_a_source_without_a_config_class_is_the_connectors_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The type resolved, so the caller named it right: a TypeError (exit 1),
+    # not the "unknown source type" a caller would go and fix.
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda _st: _ConfiglessSource,
+    )
+    with pytest.raises(TypeError, match="config class"):
+        check_filters(
+            source_type="fake",
+            config_dict={},
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=[],
+            names=["orders"],
+        )
+
+
 def test_a_table_with_no_parent_is_judged_on_its_bare_name_with_a_warning():
     # Without the container the shim would build ".orders" for MySQL (or
     # "db..orders" for Postgres) -- a string ingestion never evaluates. Reporting

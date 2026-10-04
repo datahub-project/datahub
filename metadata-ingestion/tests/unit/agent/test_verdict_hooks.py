@@ -44,7 +44,7 @@ from datahub.ingestion.source.sql.sql_config import sql_structural_verdict
 
 
 def _register(monkeypatch: pytest.MonkeyPatch, config_cls: Type[ConfigModel]) -> None:
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: config_cls)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: config_cls)
     monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
 
 

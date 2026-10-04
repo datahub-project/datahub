@@ -50,7 +50,7 @@ def test_a_config_declaring_no_context_validates_as_before() -> None:
 def test_probe_filter_validates_with_the_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: _Contextual)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: _Contextual)
     monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
     result = check_filters(
         source_type="fake-flavoured",
