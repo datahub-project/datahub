@@ -10,7 +10,6 @@ bounded and labelled by the config's probe_engine_settings.
 
 from dataclasses import replace
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -23,7 +22,7 @@ from typing import (
     Tuple,
 )
 
-from sqlalchemy import inspect
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 
@@ -48,17 +47,17 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
+from datahub.ingestion.source.sql.protocol_probe_settings import (
+    ProbeEngineSettings,
+    probe_url,
+)
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import (
     MYSQL_SESSION_TEXT_RELATIONS,
-    ProbeEngineSettings,
     SQLCommonConfig,
 )
 from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
 from datahub.ingestion.source.sql.sql_probe import config_only_source
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names: the family's
 # default spelling for these, under any config that declares none of its own
@@ -197,7 +196,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # The connector's own Source, set in for_config (see
     # sql_probe.config_only_source): `views` returns its _get_view_names.
     # None lists get_view_names alone.
-    _view_source: Optional["SQLAlchemySource"] = None
+    _view_source: Optional[SQLAlchemySource] = None
 
     # Listing caches. Created on first use, not in __init__: tests build this
     # class with __new__ and subclasses may bring their own constructor. One
@@ -312,9 +311,6 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
         """Build over an engine of this recipe's own making."""
-        # lazy: keep sqlalchemy engine construction off the config import path
-        from sqlalchemy import create_engine
-
         # On the engine, so the Inspector's listings are bounded as well as
         # `sql`; how is the config's to declare.
         settings = config.probe_engine_settings(cls.query_budget)

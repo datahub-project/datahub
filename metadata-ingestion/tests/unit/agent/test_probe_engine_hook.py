@@ -69,9 +69,7 @@ def test_for_config_runs_the_declared_setup_on_the_engine_it_built(monkeypatch):
             return super().probe_engine_settings(budget).followed_by(prepared.append)
 
     engine = _Engine()
-    # create_engine is imported lazily inside for_config, so it is patched on
-    # sqlalchemy; inspect is bound at module import, so it is patched there.
-    monkeypatch.setattr(sqlalchemy, "create_engine", lambda url, **kw: engine)
+    monkeypatch.setattr(sqlalchemy_probe, "create_engine", lambda url, **kw: engine)
     monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda target: object())
 
     SqlAlchemyMetadataProbe.for_config(_Config())
@@ -166,7 +164,7 @@ def _capture_engine(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
         captured["kwargs"] = kwargs
         return _Engine()
 
-    monkeypatch.setattr(sqlalchemy, "create_engine", _create_engine)
+    monkeypatch.setattr(sqlalchemy_probe, "create_engine", _create_engine)
     monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda target: object())
     return captured
 

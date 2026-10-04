@@ -9,15 +9,21 @@ get_identifier needs state only ingestion sets.
 
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Protocol, Type, cast
+from typing import Optional, Protocol, Type, cast
 
+from sqlalchemy.engine import make_url
+from sqlalchemy.engine.reflection import Inspector
+
+from datahub.ingestion.agent.introspect import declares_qualifier
 from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    _qualifying_container,
+    qualified_table_target,
+)
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 # FooConfig -> FooSource (see _source_class_for).
 _CONFIG_CLASS_SUFFIX = "Config"
@@ -26,13 +32,6 @@ _SOURCE_CLASS_SUFFIX = "Source"
 # The stable part of the degrade warning. A contract test imports it to tell a
 # degraded source from one whose identifier really is the bare name.
 IDENTIFIER_DEGRADE_MARKER = "needs source state the probe doesn't have"
-
-
-class _SqlAlchemyUrlConfig(Protocol):
-    """The one method _shim_inspector needs, without importing SQLCommonConfig
-    for a type hint."""
-
-    def get_sql_alchemy_url(self) -> str: ...
 
 
 def _source_class_for(config: object) -> Type[SQLAlchemySource]:
@@ -56,7 +55,7 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     return SQLAlchemySource
 
 
-def config_only_source(config: "SQLCommonConfig") -> SQLAlchemySource:
+def config_only_source(config: SQLCommonConfig) -> SQLAlchemySource:
     """This config's Source class (_source_class_for), built with __new__,
     since its __init__ opens connections and emits telemetry. It carries the
     config and a fresh report, and nothing else: state __init__ sets belongs
@@ -104,23 +103,20 @@ class _StandInInspector:
 
 
 def _shim_inspector(
-    config: _SqlAlchemyUrlConfig, database: Optional[str] = None
+    config: SQLCommonConfig, database: Optional[str] = None
 ) -> _StandInInspector:
     """A stand-in Inspector exposing only `engine.url.database`: the given
     database (a Database ancestor), else the one in the connector's own URL,
     parsed without connecting."""
     if database is not None:
         return _StandInInspector(engine=_StandInEngine(url=_StandInUrl(database)))
-    # lazy: sqlalchemy is only needed once a probe actually runs
-    from sqlalchemy.engine import make_url
-
     # A real SQLAlchemy URL already satisfies _HasDatabase.
     url = make_url(config.get_sql_alchemy_url())
     return _StandInInspector(engine=_StandInEngine(url=url))
 
 
 def sql_table_match_target(
-    config: "SQLCommonConfig", ctx: ClassifyContext
+    config: SQLCommonConfig, ctx: ClassifyContext
 ) -> Optional[str]:
     """SQLCommonConfig.probe_match_target: the identifier ingestion matches a
     table or view against (_identifier_target), or None to judge the bare
@@ -130,7 +126,7 @@ def sql_table_match_target(
     return _complete_target(_identifier_target(ctx), ctx)
 
 
-def _judged_on_identifier(config: "SQLCommonConfig", ctx: ClassifyContext) -> bool:
+def _judged_on_identifier(config: SQLCommonConfig, ctx: ClassifyContext) -> bool:
     """Whether this node is matched on an identifier. Containers and
     top-level kinds keep the bare name (a qualified schema is
     probe_verdict_override's, which reports its own target)."""
@@ -217,14 +213,6 @@ def _qualifier_target(
 ) -> Optional[str]:
     """`container.schema.entity` for a config whose Qualifier field names the
     container, or None (after warning, when no container is known)."""
-    # lazy: keeps introspect and SQLCommonConfig off this module's import path.
-    from datahub.ingestion.agent.introspect import declares_qualifier
-    from datahub.ingestion.source.sql.sql_config import (
-        SQLCommonConfig,
-        _qualifying_container,
-        qualified_table_target,
-    )
-
     # An override returning None reported its own degrade; do not warn twice.
     declared_own = (
         getattr(type(ctx.config), "probe_filter_target", None)
@@ -248,9 +236,6 @@ def _get_identifier_target(
     # Outside the try: an AttributeError building the URL is not missing
     # source state.
     inspector = _shim_inspector(ctx.config, database=database)
-    # lazy: sqlalchemy only once a probe runs
-    from sqlalchemy.engine.reflection import Inspector
-
     try:
         target = source_cls.get_identifier(
             shim,

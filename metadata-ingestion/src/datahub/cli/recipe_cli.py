@@ -20,6 +20,7 @@ from typing import (
 
 import click
 import yaml
+from pydantic import SecretBytes, SecretStr, ValidationError
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.config_loader import (
@@ -64,7 +65,11 @@ from datahub.ingestion.agent.verdicts import (
     ProbeConnectionError,
     ProbeInternalError,
 )
+from datahub.ingestion.api.source import TestableSource
+from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
+from datahub.telemetry import telemetry
 
 EXIT_OK = 0
 EXIT_INTERNAL = 1
@@ -93,8 +98,6 @@ class _AgentAwareGroup(click.Group):
 def _masked(payload: object) -> object:
     """`payload` as pure JSON types with every string masked against the
     registry. Normalized first so no object reaches the masker unconverted."""
-    from datahub.masking.masking_filter import SecretMaskingFilter
-
     plain = json.loads(json.dumps(payload, default=_json_default))
     return SecretMaskingFilter().mask_structure(plain)
 
@@ -118,8 +121,6 @@ def _json_default(o: object) -> object:
     unregistered credential nested three attributes deep went out in the
     clear. str(o) is bounded and is what the caller can act on anyway.
     """
-    from pydantic import SecretBytes, SecretStr  # local: pydantic types only here
-
     if isinstance(o, (SecretStr, SecretBytes)):
         return "***"
     return str(o)
@@ -476,8 +477,6 @@ def recipe() -> None:
     # anyway is masked too -- `datahub ingest` has had it since it was written
     # (ingest_cli.py) and the recipe path did not, which left the commands that
     # had no catch-all printing raw connection strings.
-    from datahub.masking.bootstrap import initialize_secret_masking
-
     initialize_secret_masking()
 
     # SECURITY: start each invocation with no envelope. These are module
@@ -507,8 +506,6 @@ def _ping_probe(command: str, source_type: str, **dims: object) -> None:
     function-call event for the command. Nothing here is customer data -- a
     connector name, a command name, a filter kind.
     """
-    from datahub.telemetry import telemetry
-
     props: Dict[str, object] = {"command": command, "source_type": source_type}
     props.update({k: v for k, v in dims.items() if v is not None})
     telemetry.telemetry_instance.ping("recipe-probe", props)
@@ -623,8 +620,6 @@ def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
     Except a ValidationError: test_connection is handed the recipe's config
     unvalidated, so one it raises is the recipe failing the source's model
     (exit 2), where a provider call's is a response failing its own (3)."""
-    from pydantic import ValidationError  # local: pydantic types only here
-
     context = f"source '{source_type}' test_connection"
     if isinstance(exc, ValidationError):
         return ProbeArgumentError(f"{context} failed {name_foreign(exc)}")
@@ -679,10 +674,6 @@ def test_connection(recipe_path: str) -> None:
         # The guard also covers looking the source up, which imports its
         # module, as `probe run`'s does.
         with quiet_reused_logs(secret_values):
-            # Lazy import: keeps TestableSource / source_registry out of this
-            # module's import-time surface until test-connection is invoked.
-            from datahub.ingestion.api.source import TestableSource
-
             source_cls = source_class_for(source_type)
             if not issubclass(source_cls, TestableSource):
                 _fail(

@@ -470,9 +470,7 @@ def test_a_failed_connection_test_does_not_exit_zero(monkeypatch, tmp_path):
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _Failing,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _Failing)
     res = CliRunner().invoke(
         recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
     )
@@ -639,9 +637,7 @@ def test_an_internal_failure_with_no_connectivity_report_does_not_exit_zero(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _Failing,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _Failing)
     res = CliRunner().invoke(
         recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
     )
@@ -1269,9 +1265,7 @@ def test_test_connection_masks_an_inline_secret_in_a_nested_block(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _EchoingSource,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _EchoingSource, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _EchoingSource)
     p = tmp_path / "r.yml"
     p.write_text(
         "source:\n  type: echoing\n  config:\n    repository:\n"
@@ -1876,9 +1870,7 @@ def test_test_connection_scrubs_credential_shapes_from_driver_text(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _Failing,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _Failing)
     res = CliRunner().invoke(
         recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
     )
@@ -2050,11 +2042,7 @@ def test_test_connection_keeps_reused_logs_scrubbed(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _LoggingTestableSource,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource",
-        _LoggingTestableSource,
-        raising=False,
-    )
+    monkeypatch.setattr(rc, "TestableSource", _LoggingTestableSource)
     if not debug:
         # tests/conftest.py turns DATAHUB_DEBUG on for the whole run.
         monkeypatch.delenv("DATAHUB_DEBUG", raising=False)
@@ -2086,11 +2074,7 @@ def test_test_connection_scrubs_logs_from_resolving_the_source(
         "datahub.ingestion.source.source_registry.source_registry.get",
         _importing_get,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource",
-        _LoggingTestableSource,
-        raising=False,
-    )
+    monkeypatch.setattr(rc, "TestableSource", _LoggingTestableSource)
     res = CliRunner().invoke(
         _real_cli_logging,
         ["recipe", "test-connection", "--recipe", _recipe_file(tmp_path)],
@@ -2212,9 +2196,7 @@ def test_test_connection_scrubs_every_reused_log_channel(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _Source,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Source, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _Source)
     if not debug:
         monkeypatch.delenv("DATAHUB_DEBUG", raising=False)
     args = ["--debug"] if debug else []
@@ -2259,9 +2241,7 @@ def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _Failing,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _Failing)
     res = CliRunner().invoke(
         recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
     )
@@ -2281,9 +2261,7 @@ def _test_connection_of(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: source_cls,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", source_cls, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", source_cls)
     return CliRunner().invoke(
         recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
     )
@@ -2637,9 +2615,7 @@ def test_the_recipes_secrets_reach_the_masking_registry_for_the_verbose_switch(
         "datahub.ingestion.source.source_registry.source_registry.get",
         lambda st: _Source,
     )
-    monkeypatch.setattr(
-        "datahub.ingestion.api.source.TestableSource", _Source, raising=False
-    )
+    monkeypatch.setattr(rc, "TestableSource", _Source)
     recipe_file = tmp_path / "r.yml"
     recipe_file.write_text(
         "source:\n  type: postgres\n  config:\n    host_port: h:5432\n"

@@ -10,27 +10,22 @@ SQLCommonConfig.probe_engine_settings defaults to probe_settings_for_url. Each
 protocol names only connect arguments its drivers accept, since a driver
 handed one it does not know refuses to connect.
 
-SQL-family knowledge only: no connector module is imported here.
+SQL-family knowledge only: no connector module is imported here. Nor is
+sql_config at runtime: it imports this module for ProbeEngineSettings.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping, Optional
 
 from sqlalchemy import event
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import Engine, make_url
 
-from datahub.ingestion.source.sql.sql_config import (
-    ProbeEngineSettings,
-    SQLCommonConfig,
-    probe_label_connect_arg,
-    recipe_connect_args,
-)
+from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
 from datahub.ingestion.source.sql.sqlalchemy_uri import url_dialect_and_driver
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
-
-    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +52,65 @@ _MYSQL_TIMEOUT_STATEMENTS = (
 )
 
 
-def probe_url(config: SQLCommonConfig) -> str:
+@dataclass(frozen=True)
+class ProbeEngineSettings:
+    """What the probe adds to the engine it builds from a recipe.
+
+    Declared by SQLCommonConfig.probe_engine_settings: by default the URL's
+    wire protocol's (probe_settings_for_url), plus a connector's own engine
+    setup. A connect_arg the driver rejects stops the connection opening at
+    all.
+    """
+
+    # Merged over the recipe's connect_args key by key; a setting that defers
+    # to or extends the recipe's is composed by the config.
+    connect_args: Mapping[str, Any] = field(default_factory=dict)
+    # Run on the built engine, before the Inspector exists, for what
+    # connect_args cannot carry: a statement on each new connection, a
+    # credential listener, a replaced dialect.
+    prepare: Optional[Callable[[Engine], None]] = None
+    # Whether these bound every probe statement by the budget's timeout. When
+    # False the probe reports no time ceiling rather than an unenforced one.
+    timeout_applies: bool = False
+
+    def followed_by(self, step: Callable[[Engine], None]) -> "ProbeEngineSettings":
+        """These settings with `step` run on the engine after their own
+        prepare: how a connector adds its setup to its protocol's."""
+        first = self.prepare
+        if first is None:
+            return replace(self, prepare=step)
+
+        def prepare(engine: Engine) -> None:
+            first(engine)
+            step(engine)
+
+        return replace(self, prepare=prepare)
+
+
+def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
+    """The connect_args the recipe passes create_engine, as ingestion does."""
+    return config.options.get("connect_args") or {}
+
+
+def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, str]:
+    """`{kwarg: PROBE_QUERY_LABEL}`, so probe traffic is told apart from
+    ingestion's in the server's own logs, or nothing when the recipe already
+    names its connection through `kwarg`, in connect_args or in the URL's
+    query: that name is the recipe's choice, and a connect_arg would replace
+    the URL's."""
+    if kwarg in recipe_connect_args(config) or kwarg in probe_url_query(config):
+        return {}
+    return {kwarg: PROBE_QUERY_LABEL}
+
+
+def probe_url(config: "SQLCommonConfig") -> str:
     """The URL the probe dials: probe_sql_alchemy_url where the connector
     declares one, else get_sql_alchemy_url()."""
     declared = getattr(config, "probe_sql_alchemy_url", None)
     return str(declared() if callable(declared) else config.get_sql_alchemy_url())
 
 
-def probe_url_query(config: SQLCommonConfig) -> Mapping[str, object]:
+def probe_url_query(config: "SQLCommonConfig") -> Mapping[str, object]:
     """The probe URL's query arguments, which the dialect hands the driver
     as connect kwargs. create_engine lets connect_args override them, so a
     probe connect_arg with the same name replaces the recipe's value."""
@@ -72,7 +118,7 @@ def probe_url_query(config: SQLCommonConfig) -> Mapping[str, object]:
 
 
 def probe_settings_for_url(
-    config: SQLCommonConfig, budget: "QueryBudget"
+    config: "SQLCommonConfig", budget: QueryBudget
 ) -> ProbeEngineSettings:
     """The settings of the protocol the config's probe URL names.
 
@@ -89,7 +135,7 @@ def probe_settings_for_url(
 
 
 def _libpq_settings(
-    config: SQLCommonConfig, budget: "QueryBudget"
+    config: "SQLCommonConfig", budget: QueryBudget
 ) -> ProbeEngineSettings:
     """The session's application_name, and statement_timeout in libpq's
     options string.
@@ -114,7 +160,7 @@ def _libpq_settings(
     return ProbeEngineSettings(connect_args=connect_args, timeout_applies=bool(seconds))
 
 
-def _recipe_libpq_options(config: SQLCommonConfig) -> object:
+def _recipe_libpq_options(config: "SQLCommonConfig") -> object:
     """The libpq options ingestion's engine hands the driver: connect_args'
     when the recipe sets them there, else the probe URL's query string's, as
     create_engine lets connect_args override the URL."""
@@ -149,7 +195,7 @@ def set_redshift_statement_timeout(dbapi_connection: Any, seconds: int) -> None:
 
 
 def _redshift_settings(
-    config: SQLCommonConfig, budget: "QueryBudget"
+    config: "SQLCommonConfig", budget: QueryBudget
 ) -> ProbeEngineSettings:
     """application_name, and statement_timeout set on each new connection.
 
@@ -179,7 +225,7 @@ def _redshift_statement_timeout(seconds: int) -> Callable[[Any, Any], None]:
 
 
 def _mysql_protocol_settings(
-    config: SQLCommonConfig, budget: "QueryBudget", *, dialect: str, driver: str
+    config: "SQLCommonConfig", budget: QueryBudget, *, dialect: str, driver: str
 ) -> ProbeEngineSettings:
     """PyMySQL's program_name, and a best-effort ceiling that is not claimed.
 
@@ -237,10 +283,10 @@ def _mysql_statement_timeout(seconds: int) -> Callable[[Any, Any], None]:
 
 def _on_each_connection(
     listener: Callable[[Any, Any], None],
-) -> Callable[["Engine"], None]:
+) -> Callable[[Engine], None]:
     """A prepare step running `listener` on each new DB-API connection."""
 
-    def install(engine: "Engine") -> None:
+    def install(engine: Engine) -> None:
         # event.listen rather than the @event.listens_for decorator: the
         # decorator is untyped, so applying it would make the listener untyped.
         event.listen(engine, "connect", listener)

@@ -1,8 +1,6 @@
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass, field, replace
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -29,8 +27,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.introspect import declared_qualifier
 from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.sql_gate import CatalogScope
+from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
     Verdict,
@@ -48,6 +48,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.profiling.config import ProfilingConfig
+
+# Re-exported: connectors import ProbeEngineSettings from this module.
+from datahub.ingestion.source.sql.protocol_probe_settings import (
+    ProbeEngineSettings as ProbeEngineSettings,
+    probe_settings_for_url,
+)
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -56,11 +62,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-
-if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
-
-    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -122,9 +123,6 @@ def _qualifying_container(
     container whatever --parent says); then the caller's --parent, since a
     recipe may span several; then a Qualifier field pinning a single one.
     """
-    # lazy: agent.introspect is only needed once a probe runs
-    from datahub.ingestion.agent.introspect import declared_qualifier
-
     declared, authoritative = declared_qualifier(config)
     if authoritative and declared:
         return declared
@@ -209,65 +207,6 @@ def sql_structural_verdict(
     if _in_defaults(config, "default_schemas", ctx.name):
         return Verdict(False, "default_schema")
     return _qualified_schema_verdict(config, ctx)
-
-
-@dataclass(frozen=True)
-class ProbeEngineSettings:
-    """What the probe adds to the engine it builds from a recipe.
-
-    Declared by SQLCommonConfig.probe_engine_settings: by default the URL's
-    wire protocol's (protocol_probe_settings), plus a connector's own engine
-    setup. A connect_arg the driver rejects stops the connection opening at
-    all.
-    """
-
-    # Merged over the recipe's connect_args key by key; a setting that defers
-    # to or extends the recipe's is composed by the config.
-    connect_args: Mapping[str, Any] = field(default_factory=dict)
-    # Run on the built engine, before the Inspector exists, for what
-    # connect_args cannot carry: a statement on each new connection, a
-    # credential listener, a replaced dialect.
-    prepare: Optional[Callable[["Engine"], None]] = None
-    # Whether these bound every probe statement by the budget's timeout. When
-    # False the probe reports no time ceiling rather than an unenforced one.
-    timeout_applies: bool = False
-
-    def followed_by(self, step: Callable[["Engine"], None]) -> "ProbeEngineSettings":
-        """These settings with `step` run on the engine after their own
-        prepare: how a connector adds its setup to its protocol's."""
-        first = self.prepare
-        if first is None:
-            return replace(self, prepare=step)
-
-        def prepare(engine: "Engine") -> None:
-            first(engine)
-            step(engine)
-
-        return replace(self, prepare=prepare)
-
-
-def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
-    """The connect_args the recipe passes create_engine, as ingestion does."""
-    return config.options.get("connect_args") or {}
-
-
-def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, str]:
-    """`{kwarg: PROBE_QUERY_LABEL}`, so probe traffic is told apart from
-    ingestion's in the server's own logs, or nothing when the recipe already
-    names its connection through `kwarg`, in connect_args or in the URL's
-    query: that name is the recipe's choice, and a connect_arg would replace
-    the URL's."""
-    if kwarg in recipe_connect_args(config):
-        return {}
-    # lazy: protocol_probe_settings imports this module
-    from datahub.ingestion.source.sql.protocol_probe_settings import probe_url_query
-
-    if kwarg in probe_url_query(config):
-        return {}
-    # lazy: ingestion importing this module does not need the probe framework
-    from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
-
-    return {kwarg: PROBE_QUERY_LABEL}
 
 
 # On the MySQL protocol, information_schema.processlist and innodb_trx hold
@@ -462,7 +401,7 @@ class SQLCommonConfig(
         """
         return CatalogScope(excluded_relations=MYSQL_SESSION_TEXT_RELATIONS)
 
-    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+    def probe_engine_settings(self, budget: QueryBudget) -> ProbeEngineSettings:
         """The statement ceiling, client label and engine setup of the
         probe's engine.
 
@@ -475,12 +414,6 @@ class SQLCommonConfig(
         super().probe_engine_settings(budget).followed_by(step), keeping to
         setup that is safe without a report or a running pipeline.
         """
-        # lazy: protocol_probe_settings imports this module for
-        # ProbeEngineSettings
-        from datahub.ingestion.source.sql.protocol_probe_settings import (
-            probe_settings_for_url,
-        )
-
         return probe_settings_for_url(self, budget)
 
     @classmethod
@@ -494,6 +427,7 @@ class SQLCommonConfig(
 
     @classmethod
     def probe_provider_class(cls) -> type:
+        # lazy: sqlalchemy_probe imports this module
         from datahub.ingestion.source.sql.sqlalchemy_probe import (
             SqlAlchemyMetadataProbe,
         )
