@@ -17,8 +17,8 @@ from datahub.configuration.common import (
     Filters,
 )
 from datahub.ingestion.agent import filter_check
+from datahub.ingestion.agent.declarations import declared_kind_enablers
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
-from datahub.ingestion.agent.introspect import declared_kind_enablers
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,

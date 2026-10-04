@@ -14,12 +14,12 @@ from pydantic import BaseModel, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.config_validation import validate_source_config
-from datahub.ingestion.agent.error_policy import foreign_label
-from datahub.ingestion.agent.introspect import (
+from datahub.ingestion.agent.declarations import (
     declared_kind_enablers,
     declared_rule_filtered_kinds,
-    pattern_field_for_config,
 )
+from datahub.ingestion.agent.error_policy import foreign_label
+from datahub.ingestion.agent.introspect import pattern_field_for_config
 from datahub.ingestion.agent.models import Filtering
 from datahub.ingestion.agent.pattern_path import (
     copy_with_pattern_at,

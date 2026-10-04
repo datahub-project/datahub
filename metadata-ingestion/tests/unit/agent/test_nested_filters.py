@@ -12,12 +12,10 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent import filter_check
+from datahub.ingestion.agent.config_fields import iter_config_fields
+from datahub.ingestion.agent.declarations import filters_field
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.introspect import (
-    _hinted_pattern_field,
-    _pattern_field_for_config_class,
-    iter_config_fields,
-)
+from datahub.ingestion.agent.introspect import _pattern_field_for_config_class
 from datahub.ingestion.agent.pattern_path import (
     copy_with_pattern_at,
     pattern_at,
@@ -72,9 +70,8 @@ def test_a_nested_declaration_resolves_to_its_dotted_path() -> None:
 
 
 def test_one_kind_declared_at_two_depths_is_refused() -> None:
-    _hinted_pattern_field.cache_clear()
     with pytest.raises(ProbeInternalError):
-        _hinted_pattern_field(_Twice, "Widget")
+        filters_field(_Twice, "Widget")
 
 
 def test_the_walk_does_not_descend_into_a_pattern() -> None:

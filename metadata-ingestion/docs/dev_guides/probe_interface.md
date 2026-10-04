@@ -354,6 +354,14 @@ that switches a kind off, and `Qualifier()` on a field naming the container a qu
 with. A new hook goes into `CONFIG_HOOKS` and this table in the same change (a SQL-family hook:
 `SQL_FAMILY_HOOKS` in `source/sql/sql_config.py` and [its table](#sql-family-hooks)).
 
+The probe checks a config class's markers the first time it reads one, and refuses a misdeclared
+class as the connector's defect (exit 1), every problem listed. `Filters` must mark an
+`AllowDenyPattern`, nested or not; `Enables` a top-level bool; `FiltersByRule` and `Qualifier` a
+top-level field. A kind is marked on one field per marker, the container on one `Qualifier` field,
+and a `FiltersByRule` kind is neither `Filters`-declared nor unfiltered and is judged by
+`probe_verdict_override`. The rules live in `agent/declarations.py` (`marker_problems`), which the
+contract test runs over every registered config.
+
 ## Making verdicts match ingestion
 
 `probe filter` resolves a verdict in this order. Each step's default is right for most connectors,

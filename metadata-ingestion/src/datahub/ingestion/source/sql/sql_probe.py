@@ -14,7 +14,7 @@ from typing import Optional, Protocol, Type, cast
 from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.ingestion.agent.introspect import declares_qualifier
+from datahub.ingestion.agent.declarations import declares_qualifier
 from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource

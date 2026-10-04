@@ -27,7 +27,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.agent.introspect import declared_qualifier
+from datahub.ingestion.agent.declarations import declared_qualifier
 from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.sql_gate import CatalogScope
 from datahub.ingestion.agent.sql_passthrough import QueryBudget

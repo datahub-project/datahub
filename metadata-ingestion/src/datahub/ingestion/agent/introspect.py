@@ -1,7 +1,6 @@
 import collections.abc
 import logging
 import re
-import types
 import typing
 from functools import lru_cache
 from typing import (
@@ -15,23 +14,30 @@ from typing import (
     Set,
     Tuple,
     Type,
-    Union,
-    cast,
 )
 
 from pydantic import AliasChoices, BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    Enables,
-    Filters,
-    FiltersByRule,
-    Qualifier,
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.config_fields import (
+    field_kind,
+    is_pattern_field,
+    iter_config_fields,
+    unwrap_optional,
 )
 from datahub.ingestion.agent.config_validation import validate_source_config
+
+# The two `as` names are re-exported: connectors import them from this module.
+from datahub.ingestion.agent.declarations import (
+    declared_filter_kind,
+    declared_qualifier as declared_qualifier,
+    declared_rule_filtered_kinds,
+    declared_unfiltered_kinds,
+    declares_qualifier as declares_qualifier,
+    filters_field,
+)
 from datahub.ingestion.agent.models import (
     FieldKind,
     FieldSpec,
@@ -39,86 +45,14 @@ from datahub.ingestion.agent.models import (
     SourceSpec,
 )
 from datahub.ingestion.agent.probe_methods import (
-    config_hook,
     declared_kind_overrides,
     list_probe_methods,
     require_config_class,
     source_class_for,
 )
-from datahub.ingestion.agent.verdicts import UNFILTERED, ProbeInternalError
+from datahub.ingestion.agent.verdicts import UNFILTERED
 
 logger = logging.getLogger(__name__)
-
-
-def _strip_annotated(annotation: object) -> object:
-    # Annotated[SecretStr, PlainSerializer(...)] and the like: classify the type.
-    if typing.get_origin(annotation) is typing.Annotated:
-        return typing.get_args(annotation)[0]
-    return annotation
-
-
-def _unwrap_optional(annotation: object) -> List[object]:
-    # The non-None members of an Optional/Union (or [annotation]). "X | None"
-    # reports types.UnionType where Optional[X] reports typing.Union. Annotated
-    # comes off the union too: pydantic lifts it off a field's own annotation
-    # but not off a container's argument (Dict[str, Annotated[Union[...]]]).
-    annotation = _strip_annotated(annotation)
-    origin = typing.get_origin(annotation)
-    if origin is typing.Union or origin is types.UnionType:
-        return [
-            _strip_annotated(a)
-            for a in typing.get_args(annotation)
-            if a is not type(None)
-        ]
-    return [_strip_annotated(annotation)]
-
-
-def _kind_for(annotation: object) -> FieldKind:
-    for member in _unwrap_optional(annotation):
-        if isinstance(member, type):
-            if issubclass(member, SecretStr):
-                return FieldKind.SECRET
-            if issubclass(member, AllowDenyPattern):
-                return FieldKind.PATTERN
-            if issubclass(member, ConfigModel):
-                return FieldKind.NESTED
-    return FieldKind.PLAIN
-
-
-def is_pattern_field(annotation: object) -> bool:
-    """True when a config field's annotation is an AllowDenyPattern."""
-    return _kind_for(annotation) == FieldKind.PATTERN
-
-
-def _model_members(annotation: object) -> List[type]:
-    """The ConfigModel types a field holds directly, Optional unwrapped, apart
-    from AllowDenyPattern (a ConfigModel that cannot hold a Filters field)."""
-    return [
-        member
-        for member in _unwrap_optional(annotation)
-        if isinstance(member, type)
-        and issubclass(member, ConfigModel)
-        and not issubclass(member, AllowDenyPattern)
-    ]
-
-
-def iter_config_fields(
-    config_cls: type,
-    _prefix: str = "",
-    _active: FrozenSet[type] = frozenset(),
-) -> Iterator[Tuple[str, FieldInfo]]:
-    """Every field on this config and its nested config blocks, as
-    (dotted path, FieldInfo). Top-level fields keep their bare names."""
-    fields = getattr(config_cls, "model_fields", None) or {}
-    # Only classes on the current descent are excluded: a self-referencing
-    # config stops, while two sibling blocks of one type are both walked.
-    active = _active | {config_cls}
-    for name, info in fields.items():
-        path = f"{_prefix}{name}"
-        yield path, info
-        for member in _model_members(info.annotation):
-            if member not in active:
-                yield from iter_config_fields(member, f"{path}.", active)
 
 
 # Far deeper than any registered config nests a secret (four levels): a bound,
@@ -178,7 +112,7 @@ def _secrets_in_value(
 ) -> Iterator[Tuple[str, str]]:
     if depth > _MAX_SECRET_DEPTH:
         return
-    for member in _unwrap_optional(annotation):
+    for member in unwrap_optional(annotation):
         origin = typing.get_origin(member)
         if origin is None:
             if not isinstance(member, type):
@@ -309,38 +243,6 @@ def _warn_convention(config_cls: type, kind: ProbeNodeKind, name: str) -> None:
 
 
 @lru_cache(maxsize=None)
-def _hinted_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str]:
-    """The field declaring Filters(kind), or None. Exact, so an ambiguous or
-    mistyped declaration is raised as the connector's defect (exit 1) rather
-    than guessed."""
-    wanted = str(kind)
-    fields = dict(iter_config_fields(config_cls))
-    matches = sorted(
-        path
-        for path, field in fields.items()
-        if any(
-            isinstance(meta, Filters) and str(meta.kind) == wanted
-            for meta in field.metadata
-        )
-    )
-    if not matches:
-        return None
-    if len(matches) > 1:
-        raise ProbeInternalError(
-            f"{config_cls.__name__} declares Filters({wanted!r}) on more than one "
-            f"field ({', '.join(matches)}); a level must resolve to exactly one "
-            f"AllowDenyPattern"
-        )
-    name = matches[0]
-    if not is_pattern_field(fields[name].annotation):
-        raise ProbeInternalError(
-            f"{config_cls.__name__}.{name} declares Filters({wanted!r}) but is "
-            f"not an AllowDenyPattern"
-        )
-    return name
-
-
-@lru_cache(maxsize=None)
 def _pattern_field_for_config_class(
     config_cls: type, kind: ProbeNodeKind
 ) -> Optional[str]:
@@ -350,7 +252,7 @@ def _pattern_field_for_config_class(
     The fallback for pattern_field_for_config when an instance holds an Optional
     pattern field as None. Memoized per (class, kind).
     """
-    hinted = _hinted_pattern_field(config_cls, kind)
+    hinted = filters_field(config_cls, kind)
     if hinted is not None:
         return hinted
 
@@ -361,53 +263,6 @@ def _pattern_field_for_config_class(
         return field is not None and is_pattern_field(field.annotation)
 
     return _convention_field(config_cls, kind, declares_pattern)
-
-
-def declared_unfiltered_kinds(config: object) -> Set[str]:
-    """Levels this source says it deliberately does not filter
-    (probe_unfiltered_kinds), read by name on any config."""
-    hook = config_hook(config, "probe_unfiltered_kinds")
-    return set() if hook is None else {str(k) for k in cast(Iterable[object], hook())}
-
-
-@lru_cache(maxsize=None)
-def _kind_marked_fields(
-    config_cls: type, marker: Union[Type[Enables], Type[FiltersByRule]]
-) -> Tuple[Tuple[str, str], ...]:
-    """(kind, field) for every `marker(kind)` on the class's top-level fields:
-    the one reader Enables and FiltersByRule share. A kind marked on two fields
-    is the connector's defect: the probe could only guess which one ingestion
-    reads."""
-    found: Dict[str, str] = {}
-    fields = getattr(config_cls, "model_fields", None) or {}
-    for name, info in fields.items():
-        for meta in info.metadata:
-            if not isinstance(meta, marker):
-                continue
-            kind = str(meta.kind)
-            if found.setdefault(kind, name) != name:
-                raise ProbeInternalError(
-                    f"{config_cls.__name__} declares {marker.__name__}({kind!r}) "
-                    f"on both {found[kind]} and {name}; a kind must resolve to "
-                    f"exactly one field"
-                )
-    return tuple(found.items())
-
-
-def _class_of(config: object) -> type:
-    return config if isinstance(config, type) else type(config)
-
-
-def declared_kind_enablers(config: object) -> Dict[str, str]:
-    """kind -> the bool field that enables it (Enables), on a config or its
-    class."""
-    return dict(_kind_marked_fields(_class_of(config), Enables))
-
-
-def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:
-    """kind -> the field whose rules, not an AllowDenyPattern, decide it
-    (FiltersByRule, such as `path_specs`), on a config or its class."""
-    return dict(_kind_marked_fields(_class_of(config), FiltersByRule))
 
 
 def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[str]:
@@ -423,7 +278,7 @@ def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[st
     config_cls: type = type(config)
     if str(kind) in declared_unfiltered_kinds(config):
         return UNFILTERED
-    hinted = _hinted_pattern_field(config_cls, kind)
+    hinted = filters_field(config_cls, kind)
     if hinted is not None:
         return hinted
 
@@ -467,54 +322,14 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
     return any(isinstance(m, SkipJsonSchema) for m in fields[name].metadata)
 
 
-def _qualifier_fields(config: object) -> Iterator[Tuple[str, Qualifier]]:
-    """Every Qualifier-marked field on this config's class, with its marker; the
-    one scan both callers below share."""
-    fields = getattr(type(config), "model_fields", None) or {}
-    for name, info in fields.items():
-        marker = next(
-            (m for m in info.metadata if isinstance(m, Qualifier)),
-            None,
-        )
-        if marker is not None:
-            yield name, marker
-
-
-def declares_qualifier(config: object) -> bool:
-    """Whether any field carries Qualifier, whatever its value: a statement about
-    the connector, where declared_qualifier() answers for one recipe."""
-    return any(True for _ in _qualifier_fields(config))
-
-
-def declared_qualifier(config: object) -> Tuple[Optional[str], bool]:
-    """(container, authoritative) from the first Qualifier-marked field. A list
-    field names a container only when it pins exactly one value."""
-    for name, marker in _qualifier_fields(config):
-        value = getattr(config, name, None)
-        if isinstance(value, str) and value:
-            return value, marker.authoritative
-        if isinstance(value, (list, tuple)) and len(value) == 1:
-            return str(value[0]), marker.authoritative
-        return None, marker.authoritative
-    return None, False
-
-
 def _type_name(annotation: object) -> str:
-    members = _unwrap_optional(annotation)
+    members = unwrap_optional(annotation)
     names = [getattr(m, "__name__", str(m)) for m in members]
     return names[0] if len(names) == 1 else "Union[" + ", ".join(names) + "]"
 
 
 def _is_json_safe(value: object) -> bool:
     return isinstance(value, (str, int, float, bool)) or value is None
-
-
-def _declared_filter_kind(field_info: FieldInfo) -> Optional[str]:
-    """The level this field filters, per an explicit Filters(...) annotation."""
-    for meta in field_info.metadata:
-        if isinstance(meta, Filters):
-            return str(meta.kind)
-    return None
 
 
 def declared_kinds_for_class(source_type: str, config_cls: type) -> Set[str]:
@@ -556,7 +371,7 @@ def _filter_kinds_by_field(source_type: str, config_cls: type) -> Dict[str, str]
 def _classify(
     name: str, field_info: FieldInfo, filter_kinds: Optional[Dict[str, str]] = None
 ) -> FieldSpec:
-    kind = _kind_for(field_info.annotation)
+    kind = field_kind(field_info.annotation)
     required = field_info.is_required()
     default: Optional[object] = None
     # Never surface a secret's default value.
@@ -571,7 +386,7 @@ def _classify(
         type_name=_type_name(field_info.annotation),
         default=default,
         description=field_info.description,
-        filters=_declared_filter_kind(field_info) or (filter_kinds or {}).get(name),
+        filters=declared_filter_kind(field_info) or (filter_kinds or {}).get(name),
     )
 
 
@@ -590,7 +405,7 @@ def describe_source(source_type: str) -> SourceSpec:
     fields.extend(
         _classify(path, info, filter_kinds)
         for path, info in iter_config_fields(config_cls)
-        if "." in path and _declared_filter_kind(info) is not None
+        if "." in path and declared_filter_kind(info) is not None
     )
     capabilities: List[Dict[str, object]] = []
     get_caps = getattr(source_cls, "get_capabilities", None)

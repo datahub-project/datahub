@@ -279,7 +279,7 @@ CONFIG_HOOKS: FrozenSet[str] = frozenset(
         # filter_check._override_verdict: the connector's verdict for one name
         # when no single pattern states it; see VerdictContext.
         "probe_verdict_override",
-        # introspect.declared_unfiltered_kinds: kinds nothing filters, on purpose.
+        # declarations.declared_unfiltered_kinds: kinds nothing filters, on purpose.
         "probe_unfiltered_kinds",
         # filter_check._parent_exclusion: the containers above a kind.
         "probe_ancestor_kinds",

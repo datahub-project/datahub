@@ -638,11 +638,13 @@ def test_every_declared_kind_either_filters_or_says_it_does_not():
     was which. A source can now say `probe_unfiltered_kinds()`, so the list is
     replaced by the rule it was standing in for.
     """
+    from datahub.ingestion.agent.declarations import (
+        declared_rule_filtered_kinds,
+        declared_unfiltered_kinds,
+    )
     from datahub.ingestion.agent.introspect import (
         _pattern_field_for_config_class,
         declared_kinds_for_class,
-        declared_rule_filtered_kinds,
-        declared_unfiltered_kinds,
     )
 
     silent: Dict[str, List[str]] = {}
@@ -672,10 +674,8 @@ def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
     """Declaring "nothing filters this" while holding a field the resolver
     would find is a contradiction, and resolving it silently is how the two
     halves of this feature came to disagree in the first place."""
-    from datahub.ingestion.agent.introspect import (
-        _pattern_field_for_config_class,
-        declared_unfiltered_kinds,
-    )
+    from datahub.ingestion.agent.declarations import declared_unfiltered_kinds
+    from datahub.ingestion.agent.introspect import _pattern_field_for_config_class
 
     contradictions = []
     checked = 0
@@ -752,17 +752,17 @@ def _fields_leaning_on_the_name_convention(
     A rule field (FiltersByRule) counts as explicit: the connector named it
     for that kind, which is the opposite of a guess.
     """
-    from datahub.ingestion.agent.introspect import (
-        _declared_filter_kind,
-        _filter_kinds_by_field,
+    from datahub.ingestion.agent.config_fields import iter_config_fields
+    from datahub.ingestion.agent.declarations import (
+        declared_filter_kind,
         declared_rule_filtered_kinds,
-        iter_config_fields,
     )
+    from datahub.ingestion.agent.introspect import _filter_kinds_by_field
 
     explicit = {
         path
         for path, info in iter_config_fields(config_cls)
-        if _declared_filter_kind(info) is not None
+        if declared_filter_kind(info) is not None
     } | set(declared_rule_filtered_kinds(config_cls).values())
     return sorted(set(_filter_kinds_by_field(source_type, config_cls)) - explicit)
 
@@ -1129,96 +1129,41 @@ def test_containers_reports_the_tier_every_sql_config_declares():
     )
 
 
-def _enables_problems(config_cls: type) -> List[str]:
-    """Enables must mark a top-level bool field (Optional allowed). The
-    switch verdict compares the value with False, so on another type it never
-    fires, and the reader reads top-level fields only: either way the probe
-    reports included a kind ingestion never emits."""
-    from datahub.ingestion.agent.introspect import (
-        _unwrap_optional,
-        iter_config_fields,
+def test_every_config_declares_its_markers_as_the_probe_reads_them():
+    """The probe refuses a misdeclared config when it first reads it; this
+    finds one in-tree before a user's `probe filter` does."""
+    from datahub.ingestion.agent.declarations import (
+        declared_kind_enablers,
+        marker_problems,
     )
 
-    problems = []
-    for path, info in iter_config_fields(config_cls):
-        kinds = sorted(str(m.kind) for m in info.metadata if isinstance(m, Enables))
-        if not kinds:
-            continue
-        if "." in path:
-            problems.append(
-                f"{config_cls.__name__}.{path} declares Enables for {kinds} in "
-                f"a nested block, which the probe never reads"
-            )
-        elif _unwrap_optional(info.annotation) != [bool]:
-            problems.append(
-                f"{config_cls.__name__}.{path} declares Enables for {kinds} "
-                f"but is not a bool field"
-            )
-    return problems
-
-
-def test_every_enables_marks_a_top_level_bool_field():
-    from datahub.ingestion.agent.introspect import declared_kind_enablers
-
-    problems: Set[str] = set()
+    problems: Dict[str, List[str]] = {}
     declaring = 0
-    for _source_type, config_cls in _loaded_source_configs():
-        if declared_kind_enablers(config_cls):
+    for source_type, config_cls in _loaded_source_configs():
+        found = marker_problems(config_cls)
+        if found:
+            problems[source_type] = found
+        elif declared_kind_enablers(config_cls):
             declaring += 1
-        problems.update(_enables_problems(config_cls))
-    assert sorted(problems) == []
+    assert problems == {}, (
+        "these configs misdeclare a probe marker, so the probe refuses them "
+        "(exit 1). Fix each declaration as its message says; the rules are "
+        f"in declarations.marker_problems:\n  {problems}"
+    )
     # The SQL family alone declares two: an emptied scan must not pass.
     assert declaring > 20, f"only {declaring} configs declare Enables"
 
 
-def test_the_enables_check_catches_a_misplaced_marker():
-    class _NotABool(ConfigModel):
-        include_notebooks: Annotated[str, Enables("Notebook")] = "yes"
-        include_views: Annotated[Optional[bool], Enables("View")] = None
+def _rule_kinds_a_pattern_is_found_for(config_cls: type) -> List[str]:
+    """Rule-filtered kinds the `<kind>_pattern` name guess also finds a field
+    for. probe filter judges a rule kind by its rules and ignores any pattern,
+    so that field, which ingestion may well apply, never reaches a verdict. A
+    Filters-declared one is marker_problems' to refuse."""
+    from datahub.ingestion.agent.declarations import declared_rule_filtered_kinds
+    from datahub.ingestion.agent.introspect import _pattern_field_for_config_class
 
-    class _Block(ConfigModel):
-        include_jobs: Annotated[bool, Enables("Job")] = True
-
-    class _Nested(ConfigModel):
-        block: _Block = Field(default_factory=_Block)
-
-    not_a_bool = _enables_problems(_NotABool)
-    assert len(not_a_bool) == 1 and "include_notebooks" in not_a_bool[0]
-    nested = _enables_problems(_Nested)
-    assert len(nested) == 1 and "block.include_jobs" in nested[0]
-
-
-def _rule_kind_problems(config_cls: type) -> List[str]:
-    """A rule-filtered kind is only answerable when its FiltersByRule marks a
-    top-level field (the only ones read), an override judges it, and nothing
-    else claims the kind: not probe_unfiltered_kinds, not a pattern field."""
-    from datahub.ingestion.agent.introspect import (
-        _pattern_field_for_config_class,
-        declared_rule_filtered_kinds,
-        declared_unfiltered_kinds,
-        iter_config_fields,
-    )
-
-    problems: List[str] = [
-        f"{config_cls.__name__}.{path} declares FiltersByRule in a nested "
-        f"block, which the probe never reads"
-        for path, info in iter_config_fields(config_cls)
-        if "." in path and any(isinstance(m, FiltersByRule) for m in info.metadata)
-    ]
-    rules = declared_rule_filtered_kinds(config_cls)
-    if rules and not callable(getattr(config_cls, "probe_verdict_override", None)):
-        problems.append(
-            f"{config_cls.__name__} declares rule-filtered kinds but no "
-            f"probe_verdict_override to judge them"
-        )
-    for kind in sorted(set(rules) & declared_unfiltered_kinds(config_cls)):
-        problems.append(
-            f"{config_cls.__name__}: '{kind}' is declared both rule-filtered "
-            f"and unfiltered"
-        )
-    for kind in sorted(rules):
-        # probe filter judges a rule kind by its rules and ignores the
-        # pattern, so a pattern declared for it filters nothing the probe sees.
+    problems = []
+    for kind in sorted(declared_rule_filtered_kinds(config_cls)):
         pattern_field = _pattern_field_for_config_class(config_cls, kind)
         if pattern_field is not None:
             problems.append(
@@ -1228,51 +1173,31 @@ def _rule_kind_problems(config_cls: type) -> List[str]:
     return problems
 
 
-def test_every_rule_filtered_kind_is_answerable():
+def test_no_rule_filtered_kind_also_resolves_to_a_pattern():
     problems = [
         problem
         for _source_type, config_cls in _probe_capable_configs()
-        for problem in _rule_kind_problems(config_cls)
+        for problem in _rule_kinds_a_pattern_is_found_for(config_cls)
     ]
-    assert problems == []
-
-
-def test_the_rule_kind_check_catches_a_missing_override():
-    class _NoJudge(ConfigModel):
-        path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
-            default_factory=list
-        )
-
-    assert len(_rule_kind_problems(_NoJudge)) == 1
-
-
-def test_the_rule_kind_check_catches_a_nested_rule_field():
-    class _Block(ConfigModel):
-        path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
-            default_factory=list
-        )
-
-    class _Nested(ConfigModel):
-        block: _Block = Field(default_factory=_Block)
-
-    problems = _rule_kind_problems(_Nested)
-    assert len(problems) == 1 and "block.path_specs" in problems[0]
+    assert problems == [], (
+        "declare Filters on the pattern if ingestion applies it (and drop "
+        "FiltersByRule for that kind), or rename it off the `<kind>_pattern` "
+        f"convention if it filters something else:\n  {problems}"
+    )
 
 
 class _RulesAndPattern(ConfigModel):
     path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
         default_factory=list
     )
-    table_pattern: Annotated[AllowDenyPattern, Filters("Table")] = Field(
-        default=AllowDenyPattern.allow_all()
-    )
+    table_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         return Verdict.include()
 
 
-def test_a_rule_kind_that_also_resolves_to_a_pattern_is_refused():
-    problems = _rule_kind_problems(_RulesAndPattern)
+def test_the_rule_kind_check_catches_a_pattern_found_by_name():
+    problems = _rule_kinds_a_pattern_is_found_for(_RulesAndPattern)
     assert len(problems) == 1
     assert "table_pattern" in problems[0]
 
@@ -1295,6 +1220,9 @@ def test_a_rule_field_is_not_mistaken_for_the_name_guess(monkeypatch):
         path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
             default_factory=list
         )
+
+        def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+            return Verdict.include()
 
     monkeypatch.setattr(
         introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}

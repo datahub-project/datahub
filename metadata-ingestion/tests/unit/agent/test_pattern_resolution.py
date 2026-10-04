@@ -11,12 +11,12 @@ from pydantic import Field
 
 import datahub.ingestion.source as srcpkg
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent.config_fields import is_pattern_field
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import (
     _pattern_field_for_config_class,
     _reset_convention_warnings,
     describe_source,
-    is_pattern_field,
     pattern_field_for_config,
 )
 from datahub.ingestion.agent.probe_methods import config_class_for
