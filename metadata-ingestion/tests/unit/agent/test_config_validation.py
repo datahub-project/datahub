@@ -148,7 +148,7 @@ def test_probe_run_never_echoes_a_config_input_under_debug(
         def probe_provider_class(cls) -> type:
             return _Provider
 
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(rc, "_stdin_secrets", {})
     monkeypatch.setattr(
         rc,
         "_resolve_for_probe",

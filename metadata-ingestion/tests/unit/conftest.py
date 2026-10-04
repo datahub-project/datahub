@@ -43,7 +43,7 @@ def _isolate_secret_registry(monkeypatch):
     # from the `recipe` group callback too; the ones calling
     # rc._load_recipe("-") directly bypass the group, so the fixture is what
     # covers them.
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(rc, "_stdin_secrets", {})
 
     yield
     SecretRegistry.get_instance().clear()
