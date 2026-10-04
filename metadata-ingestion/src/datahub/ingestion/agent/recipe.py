@@ -114,6 +114,9 @@ def validate_recipe(
         }
 
     try:
+        # The registry, not probe_methods.config_class_for: source_class_for
+        # already words its failure as "unknown or unloadable source type",
+        # which the error below would then repeat.
         source_cls = source_registry.get(source_type)
         # Injected by @config_class at runtime, out of mypy's view.
         get_config_class = getattr(source_cls, "get_config_class", None)

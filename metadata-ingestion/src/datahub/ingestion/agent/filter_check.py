@@ -198,6 +198,9 @@ def _canonical_kind(source_type: str, config: object, kind: str) -> str:
 def _declared_kinds(source_type: str, config: object) -> Set[str]:
     """The kinds the probe methods and probe_kind_overrides name, without a
     connection. Incomplete, so used only to canonicalise and to warn."""
+    # Not introspect.declared_kinds_for_class, which swallows a provider that
+    # fails to load so `describe` still answers: here that failure is the
+    # connector's defect and must surface, not make every kind look unknown.
     kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
     return kinds | set(declared_kind_overrides(config).values())
 

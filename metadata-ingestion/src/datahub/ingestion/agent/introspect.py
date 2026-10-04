@@ -426,11 +426,11 @@ def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[st
     hinted = _hinted_pattern_field(config_cls, kind)
     if hinted is not None:
         return hinted
-    found = _convention_field(
-        config_cls,
-        kind,
-        lambda name: isinstance(getattr(config, name, None), AllowDenyPattern),
-    )
+
+    def holds_pattern(name: str) -> bool:
+        return isinstance(getattr(config, name, None), AllowDenyPattern)
+
+    found = _convention_field(config_cls, kind, holds_pattern)
     if found is not None:
         return found
     return _pattern_field_for_config_class(config_cls, kind)
