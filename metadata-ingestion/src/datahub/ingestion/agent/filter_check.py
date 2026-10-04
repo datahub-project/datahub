@@ -19,6 +19,7 @@ from datahub.ingestion.agent.introspect import (
     declared_rule_filtered_kinds,
     pattern_field_for_config,
 )
+from datahub.ingestion.agent.models import Filtering
 from datahub.ingestion.agent.pattern_path import (
     copy_with_pattern_at,
     pattern_at,
@@ -85,10 +86,7 @@ class FilterCheckResult:
     results: List[FilterVerdict]
     tried: Optional[Dict[str, List[str]]] = None
     warnings: List[str] = field(default_factory=list)
-    # What decided: "by_pattern" (pattern_field), "by_rule" (a rule field the
-    # override judges), "unfiltered" (declared so), or "unresolved" (no field
-    # found and none declared absent: what a dropped annotation looks like).
-    filtering: str = "by_pattern"
+    filtering: Filtering = Filtering.BY_PATTERN
     # The verdicts come from an excluded --parent, so the level below does not
     # report the exclusion twice. Not serialized: `warnings` says it.
     excluded_by_container: bool = False
@@ -99,7 +97,7 @@ class FilterCheckResult:
             "kind": self.kind,
             "parent_path": self.parent_path,
             "pattern_field": self.pattern_field,
-            "filtering": self.filtering,
+            "filtering": str(self.filtering),
             "tried": self.tried,
             "results": [r.to_dict() for r in self.results],
             "warnings": self.warnings,
@@ -166,7 +164,7 @@ def _parent_exclusion(
         parent_path=parent_path[:-1],
         names=[parent_path[-1]],
     )
-    if parent.filtering not in ("by_pattern", "by_rule"):
+    if parent.filtering not in (Filtering.BY_PATTERN, Filtering.BY_RULE):
         # Nothing filters that level; its warnings would be noise here.
         return None
     for message in parent.warnings:
@@ -231,24 +229,23 @@ def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
 
 @dataclass(frozen=True)
 class _Resolution:
-    resolved: Optional[str]
     pattern_field: Optional[str]
-    filtering: str
+    filtering: Filtering
 
 
 def _resolve_filtering(config: object, kind: str) -> _Resolution:
     rule_field = declared_rule_filtered_kinds(config).get(kind)
     if rule_field is not None:
         # Rules, not a pattern: the override judges each name.
-        return _Resolution(rule_field, rule_field, "by_rule")
+        return _Resolution(rule_field, Filtering.BY_RULE)
     resolved = pattern_field_for_config(config, kind)
     # Both report every name included; `filtering` says whether that is the
     # source's design or a gap.
     if resolved == UNFILTERED:
-        return _Resolution(resolved, None, "unfiltered")
+        return _Resolution(None, Filtering.UNFILTERED)
     if resolved is None:
-        return _Resolution(None, None, "unresolved")
-    return _Resolution(resolved, resolved, "by_pattern")
+        return _Resolution(None, Filtering.UNRESOLVED)
+    return _Resolution(resolved, Filtering.BY_PATTERN)
 
 
 @dataclass(frozen=True)
@@ -263,14 +260,14 @@ class _Judged:
 def _pattern_to_judge(
     config: BaseModel,
     pattern_field: Optional[str],
-    filtering: str,
+    filtering: Filtering,
     try_allow: Optional[Sequence[str]],
     try_deny: Optional[Sequence[str]],
     warn: Callable[[str], None],
 ) -> _Judged:
     """The recipe's pattern, or the --try-* hypothetical applied to a copy."""
     trying = bool(try_allow or try_deny)
-    if filtering == "by_rule":
+    if filtering is Filtering.BY_RULE:
         if trying:
             warn(
                 f"'{pattern_field}' holds rules, not an allow/deny pattern, so "
@@ -428,7 +425,7 @@ def _judge_name(
         kind=kind,
     )
     structural = _switch_verdict(config, kind)
-    by_rule = resolution.filtering == "by_rule"
+    by_rule = resolution.filtering is Filtering.BY_RULE
     target = name if by_rule else _match_target(config, ctx)
     # Told the switch verdict, to keep or overrule; None leaves the switch,
     # then the pattern, in charge.
@@ -507,7 +504,8 @@ def check_filters(
 
     kind = _canonical_kind(source_type, config, kind)
     resolution = _resolve_filtering(config, kind)
-    if resolution.resolved is None:
+    unresolved = resolution.filtering is Filtering.UNRESOLVED
+    if unresolved:
         _warn_if_undeclared(source_type, config, kind, warn)
     judged = _pattern_to_judge(
         config,
@@ -525,7 +523,7 @@ def check_filters(
     # Not for a kind nothing resolves: the warning above already says so.
     parent_excluded_by = (
         None
-        if resolution.resolved is None
+        if unresolved
         else _parent_exclusion(
             source_type, config_dict, judged.config, kind, parent_path, warn
         )

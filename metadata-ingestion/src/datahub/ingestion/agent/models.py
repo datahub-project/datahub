@@ -11,6 +11,20 @@ class FieldKind(StrEnum):
     PLAIN = "plain"
 
 
+class Filtering(StrEnum):
+    """What decided `probe filter`'s verdicts for a kind."""
+
+    # A pattern field; the result's pattern_field names it.
+    BY_PATTERN = "by_pattern"
+    # A rule field, not a pattern, that probe_verdict_override judges.
+    BY_RULE = "by_rule"
+    # The source declares that nothing filters this kind.
+    UNFILTERED = "unfiltered"
+    # No field found and none declared absent: what a dropped annotation
+    # looks like.
+    UNRESOLVED = "unresolved"
+
+
 # The subtype a probe command says its names are: a member of
 # datahub.ingestion.source.common.subtypes where one exists, so probe output
 # speaks ingestion's vocabulary, else any string. Marks intent at signatures.
