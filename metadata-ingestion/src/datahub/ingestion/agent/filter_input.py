@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence, cast
 
+from datahub.ingestion.agent.models import ProbeRunEnvelopeView
 from datahub.ingestion.agent.redact import MASK
 
 
@@ -42,16 +43,30 @@ def _as_attribute(value: object) -> Optional[str]:
     return None
 
 
-def listing_from_run(envelope: object) -> RunListing:
-    """Read a `probe run` result envelope as a listing to judge. Refuses
-    rather than guesses: a result that is not a list holds no names."""
+def run_envelope_view(envelope: object) -> ProbeRunEnvelopeView:
+    """Parsed `probe run` JSON as the envelope's keys, None for one it lacks.
+    Refuses anything that is not a mapping; every value is left for the reader
+    to check."""
     if not isinstance(envelope, Mapping):
         raise ValueError(
             "that file is not a `probe run` output: it holds "
             f"{type(envelope).__name__}, not a result envelope. Pass the JSON "
             "`probe run` printed, or --name instead."
         )
-    result = envelope.get("result")
+    # cast: mypy cannot type a comprehension over a TypedDict's keys as that
+    # TypedDict. It claims only what is built here, every declared key with an
+    # unchecked `object` value; the JSON is trusted for nothing more.
+    return cast(
+        ProbeRunEnvelopeView,
+        {key: envelope.get(key) for key in ProbeRunEnvelopeView.__annotations__},
+    )
+
+
+def listing_from_run(envelope: object) -> RunListing:
+    """Read a `probe run` result envelope as a listing to judge. Refuses
+    rather than guesses: a result that is not a list holds no names."""
+    run = run_envelope_view(envelope)
+    result = run["result"]
     if not isinstance(result, list):
         raise ValueError(
             "that `probe run` output is not a listing: its `result` is not a "
@@ -95,11 +110,11 @@ def listing_from_run(envelope: object) -> RunListing:
             kept[key] = text
         names.append(name)
         attributes.append(kept)
-    kind = _unmasked(envelope.get("kind"))
-    source_type = _unmasked(envelope.get("source_type"))
-    failures = envelope.get("failures")
-    warnings = envelope.get("warnings")
-    parent_path = _parent_path(envelope.get("parent_path"))
+    kind = _unmasked(run["kind"])
+    source_type = _unmasked(run["source_type"])
+    failures = run["failures"]
+    warnings = run["warnings"]
+    parent_path = _parent_path(run["parent_path"])
     return RunListing(
         kind=kind,
         source_type=source_type,
@@ -109,7 +124,7 @@ def listing_from_run(envelope: object) -> RunListing:
         skipped=skipped,
         masked_attributes=masked_keys,
         parent_redacted=any(MASK in segment for segment in parent_path),
-        truncated=envelope.get("truncated") is True,
+        truncated=run["truncated"] is True,
         incomplete=isinstance(failures, list) and len(failures) > 0,
         run_warnings=[w for w in warnings if isinstance(w, str)]
         if isinstance(warnings, list)

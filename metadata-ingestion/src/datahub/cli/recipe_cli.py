@@ -564,7 +564,10 @@ def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
 
 def probe_run_envelope(result: ProbeMethodResult, secret_values: Set[str]) -> object:
     """The payload `probe run` emits and writes to --report-to, before the
-    registry masking both of those apply on output (see report_to_text)."""
+    registry masking both of those apply on output (see report_to_text).
+
+    A ProbeRunEnvelope, redacted, so `object` like everything the redactor
+    returns; a reader takes it back through filter_input.run_envelope_view."""
     # SECURITY: normalize to pure JSON types before redacting, so a raw
     # exception/driver object nested in the result cannot smuggle a secret
     # past the redactor (which only inspects str/dict/list values).

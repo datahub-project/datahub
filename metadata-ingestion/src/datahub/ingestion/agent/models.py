@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TypedDict
 
 from datahub.utilities.str_enum import StrEnum
 
@@ -23,6 +23,42 @@ class Filtering(StrEnum):
     # No field found and none declared absent: what a dropped annotation
     # looks like.
     UNRESOLVED = "unresolved"
+
+
+class ProbeRunEnvelope(TypedDict):
+    """What `probe run` prints and writes to --report-to
+    (ProbeMethodResult.to_dict), and what `probe filter --from-run` reads back
+    through ProbeRunEnvelopeView."""
+
+    source_type: str
+    command: str
+    params: Dict[str, object]
+    kind: Optional[str]
+    parent_path: List[str]
+    # The command's answer: for a listing, names, each bare or a record whose
+    # "name" key holds it.
+    result: object
+    truncated: bool
+    warnings: List[str]
+    failures: List[str]
+
+
+class ProbeRunEnvelopeView(TypedDict):
+    """A ProbeRunEnvelope as read from JSON the caller supplies
+    (filter_input.run_envelope_view): the same keys, None where the JSON has
+    none, and every value `object` because nothing has checked it yet. A reader
+    indexes it, so mypy checks the key, and narrows the value it gets.
+    test_models keeps the two key sets equal."""
+
+    source_type: object
+    command: object
+    params: object
+    kind: object
+    parent_path: object
+    result: object
+    truncated: object
+    warnings: object
+    failures: object
 
 
 # The subtype a probe command says its names are: a member of

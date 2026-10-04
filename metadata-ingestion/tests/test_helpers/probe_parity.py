@@ -44,7 +44,9 @@ from datahub.ingestion.agent.filter_input import (
     RunListing,
     listing_from_run,
     listing_warnings,
+    run_envelope_view,
 )
+from datahub.ingestion.agent.models import ProbeRunEnvelopeView
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
@@ -304,11 +306,11 @@ def _envelope(
     secrets: Set[str],
     command: str,
     kwargs: Mapping[str, object],
-) -> Dict[str, object]:
+) -> ProbeRunEnvelopeView:
     run = run_probe_method(source_type, dict(resolved), command, dict(kwargs))
-    envelope = json.loads(report_to_text(probe_run_envelope(run, secrets)))
-    assert isinstance(envelope, dict), f"`probe run {command}` wrote no envelope"
-    return envelope
+    return run_envelope_view(
+        json.loads(report_to_text(probe_run_envelope(run, secrets)))
+    )
 
 
 def report_envelope(
@@ -316,7 +318,7 @@ def report_envelope(
     recipe: Mapping[str, object],
     command: str,
     kwargs: Mapping[str, object],
-) -> Dict[str, object]:
+) -> ProbeRunEnvelopeView:
     """The JSON `probe run <command> --report-to` writes for this recipe, as
     the harness reads it."""
     resolved, secrets = _resolve(source_type, recipe)
@@ -342,7 +344,7 @@ def _listing(
     if listing.incomplete:
         raise AssertionError(
             f"{where} recorded failures, so part of the fixture was never "
-            f"listed: {envelope.get('failures')}"
+            f"listed: {envelope['failures']}"
         )
     if listing.skipped or listing.masked_attributes or listing.parent_redacted:
         raise AssertionError(

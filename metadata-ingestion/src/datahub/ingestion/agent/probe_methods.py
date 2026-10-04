@@ -43,6 +43,7 @@ from datahub.ingestion.agent.error_policy import (
     verbose_detail,
 )
 from datahub.ingestion.agent.log_guard import FRAMEWORK_LOGGERS, quiet_reused_logs
+from datahub.ingestion.agent.models import ProbeRunEnvelope
 from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -382,7 +383,7 @@ class ProbeMethodResult:
     # must never stand in for "could not read".
     failures: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self) -> ProbeRunEnvelope:
         return {
             "source_type": self.source_type,
             "command": self.command,
