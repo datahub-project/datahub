@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import patch
 
@@ -506,6 +507,15 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
+    # Every Data Model's /spec: a valid document with no joins or unions, so
+    # tests that do not exercise /spec see no fetch failure. Registered first,
+    # so an exact /spec URL in override_data takes precedence.
+    request_mock.register_uri(
+        "GET",
+        re.compile(r"^https://aws-api\.sigmacomputing\.com/v2/dataModels/[^/]+/spec$"),
+        json={"schemaVersion": 1, "pages": []},
+        status_code=200,
+    )
     for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
@@ -1338,6 +1348,11 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 
     pipeline.run()
     pipeline.raise_from_status()
+    # One /spec call per Data Model, served by register_mock_api.
+    spec_calls = [r for r in requests_mock.request_history if r.path.endswith("/spec")]
+    assert len(spec_calls) == 1
+    report = _sigma_report(pipeline)
+    assert report.data_model_spec_fetch_failed == 0
     golden_file = "golden_test_sigma_ingest_data_models.json"
 
     mce_helpers.check_golden_file(

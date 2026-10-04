@@ -318,6 +318,8 @@ class SigmaAPI:
         self.config = config
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
+        # A token without access fails /spec for every Data Model; warn once.
+        self._spec_unavailable_warned = False
         # Two sets, like the file-path walk: a transient failure is not
         # remembered as dead, but its loss is still counted once.
         self._workspace_lookup_failed: Set[str] = set()
@@ -2498,6 +2500,39 @@ class SigmaAPI:
                 context=f"workbook_id={workbook_id}",
                 exc=e,
             )
+            return None
+
+    def get_data_model_spec(self, data_model_id: str) -> Optional[Dict[str, Any]]:
+        """The Data Model's ``/spec`` document, or None if it cannot be read.
+
+        A failure costs only the lineage /spec adds, so it is counted and
+        reported, never raised.
+        """
+        url = f"{self.config.api_url}/dataModels/{quote(data_model_id, safe='')}/spec"
+        try:
+            response = self._get_api_call(url)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            self.report.data_model_spec_fetch_failed += 1
+            detail = self._log_http_error(
+                message=f"Unable to fetch /spec for data model {data_model_id!r}. "
+                f"Exception: {e}",
+                report_warning=False,
+            )
+            if not self._spec_unavailable_warned:
+                self._spec_unavailable_warned = True
+                self.report.warning(
+                    title="Sigma Data Model spec unavailable",
+                    message=(
+                        "Could not fetch a Data Model's /spec, so its union "
+                        "elements get column lineage only to the branch each "
+                        "formula names. Reported once per run; "
+                        "data_model_spec_fetch_failed counts the models. Set "
+                        "extract_data_model_spec_lineage to False to stop the call."
+                    ),
+                    context=f"data_model={data_model_id}, {detail}",
+                )
             return None
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
