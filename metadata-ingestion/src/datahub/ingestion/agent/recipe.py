@@ -10,7 +10,7 @@ from datahub.ingestion.agent.introspect import (
 )
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.redact import (
-    _SENSITIVE_KEY_HINTS,
+    SENSITIVE_KEY_HINTS,
     collect_nested_credential_values,
 )
 from datahub.ingestion.agent.secrets import (
@@ -186,7 +186,7 @@ def validate_recipe(
     # counted without naming the value or its path, which would put it in the
     # transcript. The detecting collector judges a dotted key on its last
     # segment, so `sasl.mechanism` is not flagged.
-    nested = collect_nested_credential_values(config, _SENSITIVE_KEY_HINTS)
+    nested = collect_nested_credential_values(config, SENSITIVE_KEY_HINTS)
     # Minus values the sweeps above already reported.
     plaintext_nested = sorted(
         v for v in nested if not _REF.search(v) and v not in already_named

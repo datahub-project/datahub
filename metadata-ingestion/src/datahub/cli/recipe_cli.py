@@ -36,7 +36,7 @@ from datahub.ingestion.agent.error_policy import (
     police_trusted,
 )
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.filter_input import filter_targets, listing_from_run
+from datahub.ingestion.agent.filter_input import filter_request, listing_from_run
 from datahub.ingestion.agent.introspect import describe_source, secret_field_values
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.probe_methods import (
@@ -48,7 +48,7 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
-    _SENSITIVE_KEY_HINTS,
+    SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
     redact,
     scrub_strings,
@@ -407,7 +407,7 @@ def _resolved_recipe(
     # Defense-in-depth: catch secrets living in free-form dict config fields
     # (e.g. Kafka's consumer_config) that aren't typed SecretStr and so aren't
     # covered by either collection above.
-    secret_values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
+    secret_values |= collect_nested_secret_values(resolved.config, SENSITIVE_KEY_HINTS)
     # Anything piped in is a secret by declaration, so mask it whether or not
     # the recipe happened to reference it (it may have arrived already
     # substituted). Mirrors what load_config_file does for `ingest -c -`.
@@ -451,7 +451,7 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
     # Floor: inline literals recognisable by key name, straight off the raw
     # recipe, so a later failure cannot cost us these.
-    values |= collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    values |= collect_nested_secret_values(config, SENSITIVE_KEY_HINTS)
     try:
         resolved = resolve_config_collecting(config, _stdin_aware_resolvers())
     except Exception:
@@ -459,7 +459,7 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
         # produced no value, so there is nothing further to mask.
         return values
     values |= resolved.secret_values
-    values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
+    values |= collect_nested_secret_values(resolved.config, SENSITIVE_KEY_HINTS)
     try:
         values |= secret_field_values(str(source.get("type")), resolved.config)
     except Exception:
@@ -878,7 +878,7 @@ def probe_filter_cmd(
             raise ValueError(
                 "--name and --from-run both name the objects to judge; pass one"
             )
-        targets = filter_targets(
+        request = filter_request(
             source_type=source_type,
             kind=kind,
             parents=parents,
@@ -887,19 +887,19 @@ def probe_filter_cmd(
                 None if from_run is None else listing_from_run(_read_run_file(from_run))
             ),
         )
-        _ping_probe("filter", source_type, kind=targets.kind)
+        _ping_probe("filter", source_type, kind=request.kind)
         result = check_filters(
             source_type=source_type,
             config_dict=resolved,
-            kind=targets.kind,
-            parent_path=targets.parent_path,
-            names=targets.names,
+            kind=request.kind,
+            parent_path=request.parent_path,
+            names=request.names,
             try_allow=list(try_allow),
             try_deny=list(try_deny),
-            attributes=targets.attributes,
+            attributes=request.attributes,
         )
         # Before redaction, so these pass through it like every other warning.
-        result.warnings.extend(targets.warnings)
+        result.warnings.extend(request.warnings)
         payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)

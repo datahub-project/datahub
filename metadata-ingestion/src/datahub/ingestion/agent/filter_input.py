@@ -186,7 +186,7 @@ def listing_warnings(listing: RunListing) -> List[str]:
 
 
 @dataclass(frozen=True)
-class FilterTargets:
+class FilterRequest:
     """What `probe filter` judges: its flags reconciled with a listing."""
 
     kind: str
@@ -198,14 +198,14 @@ class FilterTargets:
     warnings: List[str]
 
 
-def filter_targets(
+def filter_request(
     *,
     source_type: str,
     kind: Optional[str],
     parents: Sequence[str],
     names: Sequence[str],
     listing: Optional[RunListing],
-) -> FilterTargets:
+) -> FilterRequest:
     """The kind, parent and names `probe filter` judges, from --kind,
     --parent and either --name or a `probe run` listing (--from-run).
 
@@ -220,25 +220,25 @@ def filter_targets(
             )
         if not kind:
             raise ValueError("pass --kind: it says what kind of object the names are")
-        return FilterTargets(
+        return FilterRequest(
             kind=kind,
             parent_path=list(parents),
             names=list(names),
             attributes=None,
             warnings=[],
         )
-    return _listing_targets(
+    return _listing_request(
         source_type=source_type, kind=kind, parents=parents, listing=listing
     )
 
 
-def _listing_targets(
+def _listing_request(
     *,
     source_type: str,
     kind: Optional[str],
     parents: Sequence[str],
     listing: RunListing,
-) -> FilterTargets:
+) -> FilterRequest:
     _refuse_other_listing(source_type=source_type, kind=kind, listing=listing)
     judged_kind = kind or listing.kind
     if not judged_kind:
@@ -249,7 +249,7 @@ def _listing_targets(
             "cannot be judged against the right container; pass "
             "--parent with the real container names"
         )
-    return FilterTargets(
+    return FilterRequest(
         kind=judged_kind,
         parent_path=list(parents) if parents else list(listing.parent_path),
         names=list(listing.names),

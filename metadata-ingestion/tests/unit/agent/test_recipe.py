@@ -309,7 +309,7 @@ def _nested_warnings(result: Dict[str, object]) -> List[str]:
 def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
     """`sasl.mechanism: PLAIN` is a mechanism name, not a credential.
 
-    The detector reused _SENSITIVE_KEY_HINTS, which is a REDACTION denylist:
+    The detector reused SENSITIVE_KEY_HINTS, which is a REDACTION denylist:
     masking everything under a `sasl`-ish key is the right call on the way out,
     because over-masking is safe. Reading the same list as a classifier is not
     -- `sasl.mechanism` matches the `sasl` hint, so a recipe that correctly

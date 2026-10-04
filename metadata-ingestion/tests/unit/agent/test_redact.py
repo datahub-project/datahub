@@ -1,7 +1,7 @@
 import pytest
 
 from datahub.ingestion.agent.redact import (
-    _SENSITIVE_KEY_HINTS,
+    SENSITIVE_KEY_HINTS,
     collect_nested_credential_values,
     collect_nested_secret_values,
     redact,
@@ -124,7 +124,7 @@ def test_a_nested_private_key_is_collected():
     them or an inline key reaches the transcript unmasked."""
     key = "-----BEGIN PRIVATE KEY-----\nabc\n"
     cfg = {"credential": {"private_key": key, "project_id": "proj"}}
-    values = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    values = collect_nested_secret_values(cfg, SENSITIVE_KEY_HINTS)
     assert key in values
     assert "proj" not in values
     assert key not in str(redact(cfg, values))
@@ -176,7 +176,7 @@ def test_an_identifier_or_a_path_is_not_a_credential():
             "private_key_path": "/etc/gcp/key.json",
         }
     }
-    found = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+    found = collect_nested_credential_values(cfg, SENSITIVE_KEY_HINTS)
 
     assert pem in found, found
     assert "abc123keyid" not in found, found
@@ -189,7 +189,7 @@ def test_an_identifier_suffix_still_wins_under_a_sensitive_parent():
     # `token` is the sensitive parent here -- `credential` matches no hint on
     # its own, which is why the test above nests private_key under it.
     cfg = {"token": {"access_id": "abc123keyid", "value": "t0k3nvalue"}}
-    flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+    flagged = collect_nested_credential_values(cfg, SENSITIVE_KEY_HINTS)
     assert "t0k3nvalue" in flagged, flagged
     assert "abc123keyid" not in flagged, flagged
 
@@ -280,11 +280,11 @@ def test_a_credential_nested_under_a_sensitive_key_is_collected():
         }
     }
 
-    masked = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    masked = collect_nested_secret_values(cfg, SENSITIVE_KEY_HINTS)
     assert "acc3ssvalue" in masked, masked
     assert "p3mvalue" in masked, masked
 
-    flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+    flagged = collect_nested_credential_values(cfg, SENSITIVE_KEY_HINTS)
     assert "acc3ssvalue" in flagged, flagged
     assert "p3mvalue" in flagged, flagged
 
@@ -301,8 +301,6 @@ def test_a_credential_named_api_key_is_collected_as_a_secret():
     hint the typed registry does not cover them either. An encrypted private
     key's passphrase (`passphrase`, `ssh_passphrase`) is collected the same
     way."""
-    from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
-
     for key in (
         "api_key",
         "apikey",
@@ -323,8 +321,6 @@ def test_the_widened_hints_do_not_swallow_structural_fields():
     and masking them would corrupt ordinary output. Same reason "credential"
     is absent: it names a mixed object whose secret child is already matched.
     """
-    from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
-
     for key in ("partition_key", "primary_key", "key_path", "sort_key", "project_id"):
         found = collect_nested_secret_values({key: "structural"}, SENSITIVE_KEY_HINTS)
         assert found == set(), f"{key} is not a credential"
@@ -379,7 +375,7 @@ def test_hyphenated_and_dotted_keys_are_treated_as_secrets() -> None:
         },
         "client_id": "PLANTED-client-id",
     }
-    found = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    found = collect_nested_secret_values(config, SENSITIVE_KEY_HINTS)
     assert {
         "AKIAPLANTED000000000",
         "PLANTED-account-key",
@@ -400,13 +396,13 @@ def test_a_dotted_hint_matches_its_key_in_a_free_form_client_config() -> None:
             "consumer_config": {"ssl.key.pem": "PLANTED-pem-body", "group.id": "g1"},
         }
     }
-    found = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    found = collect_nested_secret_values(config, SENSITIVE_KEY_HINTS)
     assert found == {"PLANTED-user:PLANTED-pw", "PLANTED-pem-body"}
 
 
 def test_credential_mapping_does_not_mask_sibling_identifiers() -> None:
     cfg = {"credential": {"project_id": "proj", "private_key": "PLANTED-key"}}
-    found = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    found = collect_nested_secret_values(cfg, SENSITIVE_KEY_HINTS)
     assert "PLANTED-key" in found
     assert "proj" not in found
 
@@ -656,7 +652,7 @@ def test_credential_mapping_keys_with_other_suffixes_are_not_secrets() -> None:
         "credential_id": "abc",
         "credential": "client:PLANTED",
     }
-    assert collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS) == {"client:PLANTED"}
+    assert collect_nested_secret_values(cfg, SENSITIVE_KEY_HINTS) == {"client:PLANTED"}
 
 
 @pytest.mark.parametrize(

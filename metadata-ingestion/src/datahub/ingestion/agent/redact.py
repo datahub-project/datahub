@@ -73,7 +73,10 @@ def mask_identity_columns(
     return out
 
 
-# Key fragments that mark a config value as a credential.
+# Key fragments that mark a config value as a credential. A name heuristic
+# because it runs over the raw recipe, before any config class has typed a
+# field and whether or not a field is SecretStr. ConfigModel's SecretStr set is
+# a second source, not a replacement.
 SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "password",
     "sasl",
@@ -100,11 +103,6 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "client_id",
     # Not "credential": see _SCALAR_ONLY_KEY_HINTS.
 )
-
-# A name heuristic because it runs over the raw recipe, before any config class
-# has typed a field and whether or not a field is SecretStr. ConfigModel's
-# SecretStr set is a second source, not a replacement.
-_SENSITIVE_KEY_HINTS = SENSITIVE_KEY_HINTS
 
 # Hints that count only when the value is a string: a service-account
 # `credential` object holds project_id beside private_key (caught by its own
