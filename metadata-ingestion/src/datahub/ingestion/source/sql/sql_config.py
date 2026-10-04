@@ -114,7 +114,7 @@ def _in_defaults(config: ConfigModel, hook: str, name: str) -> bool:
     return callable(defaults) and name.lower() in {d.lower() for d in defaults()}
 
 
-def _qualifying_container(
+def qualifying_container(
     config: ConfigModel, parent_path: Sequence[str]
 ) -> Optional[str]:
     """The container a schema name is qualified with, or None.
@@ -162,7 +162,7 @@ def _qualified_schema_verdict(
     schema_pattern against once match_fully_qualified_names is on."""
     if not getattr(config, "match_fully_qualified_names", False):
         return None
-    container = _qualifying_container(config, ctx.parent_path)
+    container = qualifying_container(config, ctx.parent_path)
     if container is None:
         # The bare name is judged against a pattern written for qualified
         # names. Names no object, so it shows once.

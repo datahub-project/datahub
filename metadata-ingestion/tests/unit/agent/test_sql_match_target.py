@@ -230,6 +230,27 @@ def test_a_resolver_with_nothing_usable_is_judged_on_the_bare_name(
     ]
 
 
+def test_a_resolver_answering_with_a_non_string_is_judged_on_the_bare_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # As unusable as an empty answer: the connector did answer, so the shim
+    # does not overrule it.
+    class _NotAString(PostgresConfig):
+        pass
+
+    monkeypatch.setattr(_NotAString, "probe_filter_target", lambda self, **_kw: 42)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: _NotAString)
+    result = check_filters(
+        source_type="postgres",
+        config_dict=_PG,
+        kind="Table",
+        parent_path=["db", "public"],
+        names=["orders"],
+    )
+    assert [r.target for r in result.results] == ["orders"]
+    assert any("returned nothing usable" in w for w in result.warnings)
+
+
 def _ctx(
     config: object,
     kind: str,

@@ -20,8 +20,8 @@ from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
-    _qualifying_container,
     qualified_table_target,
+    qualifying_container,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 
@@ -142,10 +142,10 @@ def _judged_on_identifier(config: SQLCommonConfig, ctx: ClassifyContext) -> bool
     return not parent_required(ctx)
 
 
-def _complete_target(target: object, ctx: ClassifyContext) -> Optional[str]:
+def _complete_target(target: str, ctx: ClassifyContext) -> Optional[str]:
     """`target` when it is a whole identifier, else None after warning: a
-    resolver can hand back anything, or miss a component."""
-    if not isinstance(target, str) or not target:
+    resolver can hand back nothing usable, or miss a component."""
+    if not target:
         # Names no object, so it shows once.
         ctx.warn(
             "the connector's identifier resolver returned nothing usable, so "
@@ -175,13 +175,14 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     """The string the connector's own get_identifier builds for this table or
     view, never a reimplementation of it.
 
-    A declaration wins: probe_filter_target, then a Qualifier field
-    (`container.schema.entity`). Which provider a connector brings is never
-    read as one. Otherwise the connector's get_identifier is called on
-    config_only_source(config), so overrides calling super() resolve as on a
-    real instance; state ingestion sets while walking belongs in
-    probe_filter_target. Without either, the node degrades to its plain fqn
-    with a warning.
+    A declaration wins (_declared_target): an overridden probe_filter_target,
+    else a Qualifier field (`container.schema.entity`). Which provider a
+    connector brings is never read as one. Otherwise the connector's
+    get_identifier is called on config_only_source(config), so overrides
+    calling super() resolve as on a real instance; state ingestion sets while
+    walking belongs in probe_filter_target. Without either, the node degrades
+    to its plain fqn with a warning. A hook's answer that is not a string
+    comes back as "", which _complete_target refuses.
     """
     schema = ctx.parent_path[-1] if ctx.parent_path else ""
     # (database, schema) when a Database level is above the container.
@@ -195,35 +196,37 @@ def _identifier_target(ctx: ClassifyContext) -> str:
 def _declared_target(
     ctx: ClassifyContext, database: Optional[str], schema: str
 ) -> Optional[str]:
-    """The target the connector declares: probe_filter_target's, then its
-    Qualifier field's. None leaves it to the get_identifier shim."""
-    # getattr: test doubles may be a bare SimpleNamespace.
-    probe_filter_target = getattr(ctx.config, "probe_filter_target", None)
-    if callable(probe_filter_target):
-        override = probe_filter_target(
-            schema=schema, entity=ctx.name, warn=ctx.warn, database=database
-        )
-        if override is not None:
-            return override
-    return _qualifier_target(ctx, database=database, schema=schema)
-
-
-def _qualifier_target(
-    ctx: ClassifyContext, database: Optional[str], schema: str
-) -> Optional[str]:
-    """`container.schema.entity` for a config whose Qualifier field names the
-    container, or None (after warning, when no container is known)."""
-    # An override returning None reported its own degrade; do not warn twice.
-    declared_own = (
-        getattr(type(ctx.config), "probe_filter_target", None)
-        is not SQLCommonConfig.probe_filter_target
-    )
-    if declared_own or not declares_qualifier(ctx.config):
+    """The target the connector declares, or None to leave it to the
+    get_identifier shim: an overridden probe_filter_target's answer, else a
+    Qualifier field's `container.schema.entity`, else None."""
+    if _overrides_filter_target(ctx.config):
+        # getattr: test doubles may be a bare SimpleNamespace. An override
+        # answering None reported its own degrade, so no Qualifier is tried.
+        hook = getattr(ctx.config, "probe_filter_target", None)
+        if not callable(hook):
+            return None
+        answer = hook(schema=schema, entity=ctx.name, warn=ctx.warn, database=database)
+        if answer is None or isinstance(answer, str):
+            return answer
+        # Not a string: unusable, as an empty one is, which _complete_target
+        # refuses with a warning rather than letting the shim overrule a
+        # connector that did answer.
+        return ""
+    if not declares_qualifier(ctx.config):
         return None
     # Resolved as at the Schema level, so an authoritative Qualifier beats
     # --parent at both levels. An empty --parent names no database.
-    container = _qualifying_container(ctx.config, [database] if database else [])
+    container = qualifying_container(ctx.config, [database] if database else [])
     return qualified_table_target(container, schema, ctx.name, ctx.warn)
+
+
+def _overrides_filter_target(config: object) -> bool:
+    """Whether the config's class replaces SQLCommonConfig's
+    probe_filter_target, which always leaves the target to the shim."""
+    return (
+        getattr(type(config), "probe_filter_target", None)
+        is not SQLCommonConfig.probe_filter_target
+    )
 
 
 def _get_identifier_target(
