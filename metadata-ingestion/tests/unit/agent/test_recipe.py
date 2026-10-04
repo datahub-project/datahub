@@ -5,7 +5,11 @@ from typing import Callable, Dict, List
 import pytest
 
 from datahub.cli.recipe_cli import resolve_probe_recipe
-from datahub.ingestion.agent.recipe import scaffold, validate_recipe
+from datahub.ingestion.agent.recipe import (
+    RecipeValidation,
+    scaffold,
+    validate_recipe,
+)
 from datahub.ingestion.agent.secrets import MappingResolver
 
 
@@ -296,14 +300,8 @@ def _kafka(consumer_config):
     }
 
 
-def _warnings_of(result: Dict[str, object]) -> List[str]:
-    got = result["warnings"]
-    assert isinstance(got, list)
-    return got
-
-
-def _nested_warnings(result: Dict[str, object]) -> List[str]:
-    return [w for w in _warnings_of(result) if "sit under" in w]
+def _nested_warnings(result: RecipeValidation) -> List[str]:
+    return [w for w in result["warnings"] if "sit under" in w]
 
 
 def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
@@ -320,7 +318,7 @@ def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
     result = validate_recipe(
         _kafka({"sasl.mechanism": "PLAIN", "sasl.password": "${KAFKA_PASSWORD}"})
     )
-    assert _nested_warnings(result) == [], _warnings_of(result)
+    assert _nested_warnings(result) == [], result["warnings"]
 
 
 def test_a_nested_plaintext_secret_is_still_reported():
@@ -328,7 +326,7 @@ def test_a_nested_plaintext_secret_is_still_reported():
     result = validate_recipe(
         _kafka({"sasl.mechanism": "PLAIN", "sasl.password": _PLAINTEXT})
     )
-    assert len(_nested_warnings(result)) == 1, _warnings_of(result)
+    assert len(_nested_warnings(result)) == 1, result["warnings"]
     assert "1 plaintext secret" in _nested_warnings(result)[0]
 
 
@@ -352,9 +350,9 @@ def test_a_top_level_plaintext_secret_is_reported_once_not_twice():
             }
         }
     )
-    named = [w for w in _warnings_of(result) if "'password' contains" in w]
-    assert len(named) == 1, _warnings_of(result)
-    assert _nested_warnings(result) == [], _warnings_of(result)
+    named = [w for w in result["warnings"] if "'password' contains" in w]
+    assert len(named) == 1, result["warnings"]
+    assert _nested_warnings(result) == [], result["warnings"]
 
 
 def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch):
@@ -434,7 +432,7 @@ def test_a_plaintext_secret_in_a_nested_config_block_is_reported_by_path(
     too, and say where they are."""
     _require_connector(source_type)
     result = validate_recipe({"source": {"type": source_type, "config": config}})
-    found = _warnings_of(result)
+    found = result["warnings"]
     assert any(path in w and "plaintext secret" in w for w in found), found
     assert not any(_PLAINTEXT in w for w in found)
 
@@ -449,7 +447,7 @@ def test_a_referenced_secret_in_a_nested_config_block_is_not_reported() -> None:
             }
         }
     )
-    assert not any("git_info.deploy_key" in w for w in _warnings_of(result))
+    assert not any("git_info.deploy_key" in w for w in result["warnings"])
 
 
 @pytest.mark.parametrize(
@@ -477,7 +475,7 @@ def test_a_plaintext_secret_under_a_renamed_field_is_reported(deploy_key: str) -
             }
         }
     )
-    found = _warnings_of(result)
+    found = result["warnings"]
     assert any(
         "'git_info.deploy_key' contains a plaintext secret" in w for w in found
     ), found
@@ -533,7 +531,7 @@ def test_a_deploy_key_read_from_its_file_is_not_reported_as_plaintext(
     result = validate_recipe(recipe)
 
     assert result["valid"], result
-    assert not any("plaintext" in w for w in _warnings_of(result)), result
+    assert not any("plaintext" in w for w in result["warnings"]), result
     _, _, secret_values = resolve_probe_recipe(recipe)
     assert _KEY_FILE_CONTENT in secret_values
 
@@ -563,7 +561,7 @@ def test_a_reference_elsewhere_does_not_hide_a_plaintext_secret() -> None:
         ),
         [MappingResolver({"DEP_KEY": _PLAINTEXT})],
     )
-    found = _warnings_of(result)
+    found = result["warnings"]
     assert any(
         "'git_info.deploy_key' contains a plaintext secret" in w for w in found
     ), found
@@ -576,7 +574,7 @@ def test_a_composed_reference_under_a_renamed_field_is_not_plaintext() -> None:
         _renamed_lookml(github_info=_git_info("${KEY_HEAD}${KEY_TAIL}")),
         [MappingResolver({"KEY_HEAD": "abcd", "KEY_TAIL": "efgh"})],
     )
-    assert not any("deploy_key" in w for w in _warnings_of(result))
+    assert not any("deploy_key" in w for w in result["warnings"])
 
 
 def test_each_suggested_environment_variable_is_named_once() -> None:
@@ -599,6 +597,6 @@ def test_each_suggested_environment_variable_is_named_once() -> None:
             }
         }
     )
-    exports = re.findall(r"export (\w+)=", " ".join(_warnings_of(result)))
-    assert len(exports) == 2, _warnings_of(result)
+    exports = re.findall(r"export (\w+)=", " ".join(result["warnings"]))
+    assert len(exports) == 2, result["warnings"]
     assert len(set(exports)) == 2, exports

@@ -607,7 +607,7 @@ def recipe_validate(path: str) -> None:
         # a key no hint marks secret, so they are scrubbed for credential
         # shapes too. The warnings are this module's own text, whose
         # `password: ${PASSWORD}` advice a shape scrub would mask.
-        report["errors"] = scrub_strings(report["errors"], secret_values)
+        report["errors"] = [scrub_text(e, secret_values) for e in report["errors"]]
         _emit(redact(report, secret_values))
 
 
