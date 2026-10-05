@@ -347,6 +347,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # that sibling alone owns the referenced column. Inferred, not reported by
     # Sigma, so counted apart from the edges /lineage backs.
     data_model_element_fgl_orphan_recovered: int = 0
+    # Union output-column edges read from /spec, one per branch.
+    data_model_element_fgl_union_resolved: int = 0
+    # Union branch edges /spec named that could not be matched to an ingested
+    # element and column; and branches that are a warehouse table or another
+    # Data Model's element, which are not mapped yet.
+    data_model_element_fgl_union_unresolved: int = 0
+    data_model_element_fgl_union_branch_unmapped: int = 0
+    # Data Models whose /spec could not be fetched (see the warning for why),
+    # and those whose /spec did not match the shape the parser expects, so
+    # their union edges may be incomplete until the connector is updated.
+    data_model_spec_fetch_failed: int = 0
+    data_model_spec_drift_detected: int = 0
     # Refs whose upstream element came back with no columns, so the column
     # could not be checked; usually a /columns fetch that failed partway.
     data_model_element_fgl_upstream_schema_unavailable: int = 0
@@ -671,6 +683,17 @@ class SigmaSourceConfig(
         "only issued when ``extract_lineage`` is also ``True`` (so users who opt out "
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
+    )
+    extract_data_model_spec_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to read each Data Model's ``/dataModels/{id}/spec`` "
+        "for column lineage a formula cannot express. A union's output column "
+        "names at most one branch in its formula, so without ``/spec`` every "
+        "other branch is invisible; with it, each output column gets an edge "
+        "from every branch in the same Data Model. Costs one API call per Data "
+        "Model, which needs the same access as reading its elements. A failed "
+        "call is counted and reported, with each model's status, and never "
+        "fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import patch
 
@@ -506,6 +507,15 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
+    # Every Data Model's /spec: a valid document with no joins or unions, so
+    # tests that do not exercise /spec see no fetch failure. Registered first,
+    # so an exact /spec URL in override_data takes precedence.
+    request_mock.register_uri(
+        "GET",
+        re.compile(r"^https://aws-api\.sigmacomputing\.com/v2/dataModels/[^/]+/spec$"),
+        json={"schemaVersion": 1, "pages": []},
+        status_code=200,
+    )
     for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
@@ -1338,6 +1348,11 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 
     pipeline.run()
     pipeline.raise_from_status()
+    # One /spec call per Data Model, served by register_mock_api.
+    spec_calls = [r for r in requests_mock.request_history if r.path.endswith("/spec")]
+    assert len(spec_calls) == 1
+    report = _sigma_report(pipeline)
+    assert report.data_model_spec_fetch_failed == 0
     golden_file = "golden_test_sigma_ingest_data_models.json"
 
     mce_helpers.check_golden_file(
@@ -8271,4 +8286,199 @@ def test_sigma_dataset_opt_out_is_silent_when_nothing_is_lost(tmp_path, requests
     assert "workspace_pattern" not in messages
     assert "ingestion disabled" not in "".join(
         entry.title or "" for entry in report.infos
+    )
+
+
+def _get_mock_union_dm_api() -> Dict[str, Dict]:
+    """A DM whose union reads two branch elements. /spec element ids are the
+    REST elementIds, as a read-only probe of a test tenant showed."""
+    dm_id = "aa000000-0000-0000-0000-000000000002"
+    ws_id = "bb000000-0000-0000-0000-000000000002"
+    branch_a, branch_b, union = "unionBranchA", "unionBranchB", "unionElem01"
+    base = "https://aws-api.sigmacomputing.com/v2"
+
+    def column(element_id: str, column_id: str, formula: Optional[str]) -> dict:
+        return {
+            "columnId": column_id,
+            "elementId": element_id,
+            "name": "Order Id",
+            "label": "Order Id",
+            "formula": formula,
+        }
+
+    def listing(entries: List[dict]) -> Dict[str, Any]:
+        return {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": entries, "total": len(entries), "nextPage": None},
+        }
+
+    return {
+        f"{base}/workspaces?limit=50": listing(
+            [
+                {
+                    "workspaceId": ws_id,
+                    "name": "Test Workspace",
+                    "createdBy": "test-user",
+                    "updatedBy": "test-user",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-01T00:00:00.000Z",
+                }
+            ]
+        ),
+        f"{base}/files?typeFilters=data-model": listing(
+            [
+                {
+                    "id": dm_id,
+                    "urlId": "union-dm-urlid",
+                    "name": "Union DM",
+                    "type": "data-model",
+                    "parentId": ws_id,
+                    "parentUrlId": "test-ws-urlid",
+                    "permission": "edit",
+                    "path": "Test Workspace",
+                    "badge": None,
+                    "createdBy": "test-user",
+                    "updatedBy": "test-user",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "isArchived": False,
+                }
+            ]
+        ),
+        f"{base}/dataModels": listing(
+            [
+                {
+                    "dataModelId": dm_id,
+                    "urlId": "union-dm-urlid",
+                    "name": "Union DM",
+                    "createdBy": "test-user",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "workspaceId": ws_id,
+                    "path": "Test Workspace",
+                }
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/elements": listing(
+            [
+                {
+                    "elementId": branch_a,
+                    "name": "Orders A",
+                    "type": "table",
+                    "columns": [],
+                },
+                {
+                    "elementId": branch_b,
+                    "name": "Orders B",
+                    "type": "table",
+                    "columns": [],
+                },
+                {
+                    "elementId": union,
+                    "name": "All Orders",
+                    "type": "table",
+                    "columns": [],
+                },
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/columns": listing(
+            [
+                column(branch_a, "colA", None),
+                column(branch_b, "colB", None),
+                # Sigma writes a union output's formula against one branch.
+                column(union, "colU", "[Orders A/Order Id]"),
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/lineage": listing(
+            [
+                {
+                    "elementId": union,
+                    "type": "element",
+                    "sourceIds": [branch_a, branch_b],
+                },
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/spec": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "schemaVersion": 1,
+                "dataModelId": dm_id,
+                "pages": [
+                    {
+                        "id": "p1",
+                        "elements": [
+                            {
+                                "id": branch_a,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "warehouse-table",
+                                    "connectionId": "conn-union",
+                                    "path": ["DB", "SCH", "ORDERS_A"],
+                                },
+                            },
+                            {
+                                "id": branch_b,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "warehouse-table",
+                                    "connectionId": "conn-union",
+                                    "path": ["DB", "SCH", "ORDERS_B"],
+                                },
+                            },
+                            {
+                                "id": union,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "union",
+                                    "sources": [
+                                        {"kind": "table", "elementId": branch_a},
+                                        {"kind": "table", "elementId": branch_b},
+                                    ],
+                                    "matches": [
+                                        {
+                                            "outputColumnName": "Order Id",
+                                            "sourceColumns": [
+                                                "[Order Id]",
+                                                "[Order Id]",
+                                            ],
+                                        }
+                                    ],
+                                },
+                            },
+                        ],
+                    }
+                ],
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_union_branches(pytestconfig, tmp_path, requests_mock):
+    """A union output column whose formula names branch A also gets branch B's
+    column, from /spec."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+    register_mock_api(
+        request_mock=requests_mock, override_data=_get_mock_union_dm_api()
+    )
+
+    output_path = f"{tmp_path}/sigma_union_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_spec_fetch_failed == 0
+    assert report.data_model_spec_drift_detected == 0
+    assert report.data_model_element_fgl_union_resolved == 1
+    assert report.data_model_element_fgl_union_unresolved == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_union_branches.json",
     )

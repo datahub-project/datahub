@@ -57,6 +57,70 @@ def _create_sigma_api() -> SigmaAPI:
     return api
 
 
+class TestGetDataModelSpec:
+    def test_a_spec_is_returned(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"schemaVersion": 1, "pages": []}
+        with patch.object(api, "_get_api_call", return_value=response) as call:
+            assert api.get_data_model_spec("dm 1") == {"schemaVersion": 1, "pages": []}
+        assert call.call_args[0][0].endswith("/dataModels/dm%201/spec")
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            MagicMock(
+                status_code=403,
+                raise_for_status=MagicMock(
+                    side_effect=requests.exceptions.HTTPError(
+                        response=MagicMock(status_code=403)
+                    )
+                ),
+            ),
+            requests.exceptions.ConnectionError("down"),
+        ],
+        ids=["http-403", "network"],
+    )
+    def test_failures_are_counted_and_grouped_under_one_warning(
+        self, failure: Any
+    ) -> None:
+        """Every model's failure stays visible as a context, so a 403 on every
+        model is not hidden behind the first model's transient error."""
+        api = _create_sigma_api()
+        kwargs = (
+            {"side_effect": failure}
+            if isinstance(failure, Exception)
+            else {"return_value": failure}
+        )
+        with patch.object(api, "_get_api_call", **kwargs):
+            assert api.get_data_model_spec("dm-1") is None
+            assert api.get_data_model_spec("dm-2") is None
+        assert api.report.data_model_spec_fetch_failed == 2
+        spec_warnings = [
+            w
+            for w in api.report.warnings
+            if w.title == "Sigma Data Model spec unavailable"
+        ]
+        assert len(spec_warnings) == 1
+        assert [c.split(",")[0] for c in spec_warnings[0].context] == [
+            "data_model=dm-1",
+            "data_model=dm-2",
+        ]
+
+
+def test_only_the_first_spec_failure_is_logged(caplog: Any) -> None:
+    """A token without /spec access fails every model; the report keeps each
+    one, but the log gets one line, not one per Data Model."""
+    api = _create_sigma_api()
+    with patch.object(
+        api, "_get_api_call", side_effect=requests.exceptions.ConnectionError("x")
+    ):
+        for dm in ("dm-1", "dm-2", "dm-3"):
+            api.get_data_model_spec(dm)
+    logged = [r for r in caplog.records if "spec unavailable" in r.getMessage()]
+    assert len(logged) == 1
+
+
 class TestTokenRefreshOn401:
     def test_refreshes_token_and_retries_on_401(self) -> None:
         api = _create_sigma_api()

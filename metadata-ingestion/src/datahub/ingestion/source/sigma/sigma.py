@@ -1,6 +1,6 @@
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
@@ -67,6 +67,10 @@ from datahub.ingestion.source.sigma.formula_parser import (
     extract_bracket_refs,
 )
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.ingestion.source.sigma.spec_parser import (
+    DataModelSpecIndex,
+    parse_data_model_spec,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -134,6 +138,9 @@ _FGL_CONFIDENCE_SQL_PARSED: float = (
     0.2  # aggregator-derived; matches SqlParsingAggregator
 )
 _FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula refs
+# Confidence that a union branch feeds the output column, which /spec states;
+# not that the values are equal, since a branch may transform its column.
+_FGL_CONFIDENCE_UNION_BRANCH: float = 1.0
 
 
 def _dm_column_ranks_above(
@@ -336,6 +343,29 @@ class _CustomSqlRegistration:
     label: str  # "DM element" or "workbook chart"
 
 
+@dataclass
+class _ColumnLookup:
+    """An element's columns by display name, column id and folded name.
+
+    /spec names a column without saying whether it used the id or the name.
+    An id can equal another column's lowercased name, so they are kept apart
+    and tried in order, and a case-insensitive match that is ambiguous claims
+    nothing.
+    """
+
+    exact: Set[str] = field(default_factory=set)
+    by_id: Dict[str, str] = field(default_factory=dict)
+    folded: Dict[str, List[str]] = field(default_factory=dict)
+
+    def resolve(self, name: str) -> Optional[str]:
+        if name in self.exact:
+            return name
+        if name in self.by_id:
+            return self.by_id[name]
+        matches = self.folded.get(name.strip().lower(), [])
+        return matches[0] if len(matches) == 1 else None
+
+
 def _cross_dm_source_url_ids(element: SigmaDataModelElement) -> Set[str]:
     """The url ids of other Data Models this element reads.
 
@@ -434,6 +464,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_registered_urns: Set[str] = set()
         # Upstream DM elements already warned about for an empty column list.
         self._upstream_schema_unavailable_warned: Set[str] = set()
+        # Per Data Model id, so each model's /spec is fetched once per run.
+        self._dm_spec_index_cache: Dict[str, DataModelSpecIndex] = {}
+        # (data model id, element id -> column lookup) for the model in hand.
+        self._dm_column_lookup_cache: Optional[Tuple[str, Dict[str, _ColumnLookup]]] = (
+            None
+        )
         # chart_urn → formula-derived InputField list stashed at emit time.
         # Merged at drain time so warehouse-resolved fields supplement
         # (not replace) formula-derived column entries.
@@ -2760,6 +2796,145 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _get_dm_spec_index(self, data_model: SigmaDataModel) -> DataModelSpecIndex:
+        """The Data Model's /spec index, fetched once per run.
+
+        Empty when the flag is off or the fetch failed; the API client counts
+        and reports a failure. A read the parser flags as drift is counted and
+        reported per model; _add_union_fgls decides what of it to trust.
+        """
+        dm_id = data_model.dataModelId
+        cached = self._dm_spec_index_cache.get(dm_id)
+        if cached is not None:
+            return cached
+        index = DataModelSpecIndex()
+        if self.config.extract_data_model_spec_lineage:
+            spec = self.sigma_api.get_data_model_spec(dm_id)
+            if spec is not None:
+                index = parse_data_model_spec(spec)
+                if index.drift_detected:
+                    self.reporter.data_model_spec_drift_detected += 1
+                    self.reporter.warning(
+                        title="Sigma Data Model spec not fully read",
+                        message=(
+                            "A Data Model's /spec did not match the shape this "
+                            "connector expects, so "
+                            + (
+                                "some of its union column lineage may be missing."
+                                if index.is_supported_schema
+                                else "its union column lineage is skipped: the "
+                                "schemaVersion is not one this connector reads."
+                            )
+                            + " Upgrading the connector usually fixes this."
+                        ),
+                        context=(
+                            f"data_model={dm_id}, schema_version={index.schema_version}"
+                        ),
+                    )
+        self._dm_spec_index_cache[dm_id] = index
+        return index
+
+    @staticmethod
+    def _dm_element_column_lookup(element: SigmaDataModelElement) -> "_ColumnLookup":
+        winners, _ = _dedup_dm_element_columns(element.columns)
+        lookup = _ColumnLookup()
+        for col in winners.values():
+            lookup.exact.add(col.name)
+            if col.columnId:
+                lookup.by_id[col.columnId] = col.name
+            lookup.folded.setdefault(col.name.strip().lower(), []).append(col.name)
+        return lookup
+
+    def _dm_column_lookups(
+        self, data_model: SigmaDataModel
+    ) -> Dict[str, "_ColumnLookup"]:
+        """Per-element column lookups for one Data Model, built once per model:
+        every union element of the model asks for them."""
+        dm_id = data_model.dataModelId
+        cached = self._dm_column_lookup_cache
+        if cached is not None and cached[0] == dm_id:
+            return cached[1]
+        lookups = {
+            dm_el.elementId: self._dm_element_column_lookup(dm_el)
+            for dm_el in data_model.elements
+        }
+        self._dm_column_lookup_cache = (dm_id, lookups)
+        return lookups
+
+    def _add_union_fgls(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
+    ) -> None:
+        """One edge per branch for every output column of a union element.
+
+        A union's output column has an upstream in every branch, but its
+        /columns formula names at most one, so the others are reachable only
+        from /spec. Not from a read the parser distrusts: an unknown schema
+        version, or a union whose branches and column slots do not line up,
+        where pairing a slot with a branch is a guess.
+        """
+        index = self._get_dm_spec_index(data_model)
+        if (
+            not index.is_supported_schema
+            or element.elementId in index.unreadable_union_element_ids
+        ):
+            return
+        outputs = [u for u in index.unions if u.union_element_id == element.elementId]
+        if not outputs:
+            return
+        own_columns = self._dm_element_column_lookup(element)
+        branch_columns = self._dm_column_lookups(data_model)
+        for output in outputs:
+            downstream_name = own_columns.resolve(output.output_column)
+            if downstream_name is None:
+                # Seen on a real model: /spec keeps a union output that is not
+                # one of the element's columns.
+                for branch in output.branches:
+                    if branch.element_id is None or branch.data_model_id is not None:
+                        self.reporter.data_model_element_fgl_union_branch_unmapped += 1
+                    else:
+                        self.reporter.data_model_element_fgl_union_unresolved += 1
+                continue
+            downstream_field = builder.make_schema_field_urn(
+                element_dataset_urn, downstream_name
+            )
+            for branch in output.branches:
+                if branch.element_id is None or branch.data_model_id is not None:
+                    # A warehouse table or another Data Model's element.
+                    self.reporter.data_model_element_fgl_union_branch_unmapped += 1
+                    continue
+                branch_urn = elementId_to_dataset_urn.get(branch.element_id)
+                lookup = branch_columns.get(branch.element_id)
+                upstream_name = lookup.resolve(branch.column) if lookup else None
+                if branch_urn is None or upstream_name is None:
+                    self.reporter.data_model_element_fgl_union_unresolved += 1
+                    continue
+                upstream_field = builder.make_schema_field_urn(
+                    branch_urn, upstream_name
+                )
+                pair = (downstream_field, upstream_field)
+                if pair in emitted_pairs or downstream_field == upstream_field:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[upstream_field],
+                        confidenceScore=_FGL_CONFIDENCE_UNION_BRANCH,
+                    )
+                )
+                discovered_upstreams.add(branch_urn)
+                self.reporter.data_model_element_fgl_union_resolved += 1
+
     def _warn_upstream_schema_unavailable(
         self,
         upstream_urn: str,
@@ -2949,8 +3124,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     emitted_pairs=emitted_pairs,
                     discovered_upstreams=discovered_upstreams,
                 )
-        # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
-        # FGL (both appended to `fgls`). Cross-DM is tracked separately via
+        self._add_union_fgls(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            fgls=fgls,
+            emitted_pairs=emitted_pairs,
+            discovered_upstreams=discovered_upstreams,
+        )
+        # fgl_emitted is the umbrella count for intra-DM, warehouse-passthrough
+        # and union FGL (all appended to `fgls`). Cross-DM is tracked separately via
         # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
         # fgl_warehouse_resolved (overlap intentional for independent triage).
         self.reporter.data_model_element_fgl_emitted += len(fgls)
@@ -4739,6 +4923,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
         self._upstream_schema_unavailable_warned.clear()
+        self._dm_spec_index_cache.clear()
+        self._dm_column_lookup_cache = None
         self._workbook_customsql_formula_fields.clear()
         self.sigma_api.fill_workspaces()
 
