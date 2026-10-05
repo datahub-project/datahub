@@ -8409,8 +8409,24 @@ def _get_mock_union_dm_api() -> Dict[str, Dict]:
                     {
                         "id": "p1",
                         "elements": [
-                            {"id": branch_a, "kind": "table"},
-                            {"id": branch_b, "kind": "table"},
+                            {
+                                "id": branch_a,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "warehouse-table",
+                                    "connectionId": "conn-union",
+                                    "path": ["DB", "SCH", "ORDERS_A"],
+                                },
+                            },
+                            {
+                                "id": branch_b,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "warehouse-table",
+                                    "connectionId": "conn-union",
+                                    "path": ["DB", "SCH", "ORDERS_B"],
+                                },
+                            },
                             {
                                 "id": union,
                                 "kind": "table",
@@ -8457,6 +8473,7 @@ def test_sigma_ingest_data_models_union_branches(pytestconfig, tmp_path, request
 
     report = _sigma_report(pipeline)
     assert report.data_model_spec_fetch_failed == 0
+    assert report.data_model_spec_drift_detected == 0
     assert report.data_model_element_fgl_union_resolved == 1
     assert report.data_model_element_fgl_union_unresolved == 0
 

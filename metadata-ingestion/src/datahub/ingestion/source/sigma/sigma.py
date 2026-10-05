@@ -2800,8 +2800,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """The Data Model's /spec index, fetched once per run.
 
         Empty when the flag is off or the fetch failed; the API client counts
-        and reports a failure. A read the parser flags as drift is still used
-        for what it did read, and reported once per model.
+        and reports a failure. A read the parser flags as drift is counted and
+        reported per model; _add_union_fgls decides what of it to trust.
         """
         dm_id = data_model.dataModelId
         cached = self._dm_spec_index_cache.get(dm_id)
@@ -2891,9 +2891,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if downstream_name is None:
                 # Seen on a real model: /spec keeps a union output that is not
                 # one of the element's columns.
-                self.reporter.data_model_element_fgl_union_unresolved += len(
-                    output.branches
-                )
+                for branch in output.branches:
+                    if branch.element_id is None or branch.data_model_id is not None:
+                        self.reporter.data_model_element_fgl_union_branch_unmapped += 1
+                    else:
+                        self.reporter.data_model_element_fgl_union_unresolved += 1
                 continue
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, downstream_name

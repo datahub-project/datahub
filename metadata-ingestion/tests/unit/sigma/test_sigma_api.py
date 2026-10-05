@@ -108,6 +108,19 @@ class TestGetDataModelSpec:
         ]
 
 
+def test_only_the_first_spec_failure_is_logged(caplog: Any) -> None:
+    """A token without /spec access fails every model; the report keeps each
+    one, but the log gets one line, not one per Data Model."""
+    api = _create_sigma_api()
+    with patch.object(
+        api, "_get_api_call", side_effect=requests.exceptions.ConnectionError("x")
+    ):
+        for dm in ("dm-1", "dm-2", "dm-3"):
+            api.get_data_model_spec(dm)
+    logged = [r for r in caplog.records if "spec unavailable" in r.getMessage()]
+    assert len(logged) == 1
+
+
 class TestTokenRefreshOn401:
     def test_refreshes_token_and_retries_on_401(self) -> None:
         api = _create_sigma_api()

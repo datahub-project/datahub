@@ -1441,3 +1441,20 @@ def test_an_output_that_is_not_a_column_of_the_union_is_counted() -> None:
 
     assert len(_build_union(source)) == 1
     assert source.reporter.data_model_element_fgl_union_unresolved == 2
+
+
+def test_an_absent_output_counts_each_branch_by_kind() -> None:
+    source = _source()
+    warehouse = {
+        "kind": "warehouse-table",
+        "connectionId": "c",
+        "path": ["D", "S", "T"],
+    }
+    spec = _union_spec([_BRANCH_A, warehouse], ["[a]", "[b]"])
+    spec["pages"][0]["elements"][0]["source"]["matches"][0]["outputColumnName"] = "Gone"
+    _with_spec(source, spec)
+
+    _build_union(source)
+
+    assert source.reporter.data_model_element_fgl_union_unresolved == 1
+    assert source.reporter.data_model_element_fgl_union_branch_unmapped == 1

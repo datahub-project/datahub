@@ -318,6 +318,8 @@ class SigmaAPI:
         self.config = config
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
+        # A token without /spec access fails every model: log the first only.
+        self._spec_failure_logged = False
         # Two sets, like the file-path walk: a transient failure is not
         # remembered as dead, but its loss is still counted once.
         self._workspace_lookup_failed: Set[str] = set()
@@ -2530,7 +2532,9 @@ class SigmaAPI:
                     "set extract_data_model_spec_lineage to False to stop the call."
                 ),
                 context=f"data_model={data_model_id}, {detail}",
+                log=not self._spec_failure_logged,
             )
+            self._spec_failure_logged = True
             return None
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:

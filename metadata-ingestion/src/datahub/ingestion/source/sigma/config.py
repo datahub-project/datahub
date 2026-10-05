@@ -692,8 +692,8 @@ class SigmaSourceConfig(
         "other branch is invisible; with it, each output column gets an edge "
         "from every branch in the same Data Model. Costs one API call per Data "
         "Model, which needs the same access as reading its elements. A failed "
-        "call is counted and warned about once per run, and never fails the "
-        "run. Requires ``ingest_data_models`` and ``extract_lineage``.",
+        "call is counted and reported, with each model's status, and never "
+        "fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
