@@ -25,7 +25,7 @@ jobs:
   test-quickstart-pr:
     name: Quickstart Smoke Tests
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Free up disk space
         run: |
@@ -84,7 +84,7 @@ jobs:
   test-quickstart-pr-compatiblity-checks:
     name: Quickstart compatiliby Tests
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Free up disk space
         run: |
@@ -161,7 +161,7 @@ jobs:
   test-quickstart-regression:
     name: Verify upgrades work with latest CLI
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # TODO: once more supported versions are added, this should become list last n versions
@@ -204,7 +204,7 @@ jobs:
   test-quickstart-regression-unsupported-versions:
     name: Verifiy handling of unsupported older versions
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # TODO: last n unsupported versions to be added here
@@ -237,7 +237,7 @@ jobs:
   test-quickstart-regression-old-cli:
     name: Verify migration from old-cli deployments
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # TODO: once more supported versions are aded, this should become list last n versions
@@ -283,7 +283,7 @@ jobs:
   test-docker-compose-version-compatibility:
     name: Docker Compose Version Compatibility
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:

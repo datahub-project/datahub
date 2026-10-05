@@ -25,10 +25,10 @@ source smoke-test/venv/bin/activate
 
 There are **two** equivalent entry points — both construct the same `ZDUTestRunner` and run the same pipeline. They differ only in how results are surfaced:
 
-| Entry point                            | When to use                                                                               | Result format                                                                            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `python -m tests.zdu` (recommended)    | CLI / CI / scripted runs                                                                  | Printed report + JSON at `smoke-test/build/zdu-test-report.json` + non-zero exit on FAIL |
-| `pytest tests/zdu/test_zdu_upgrade.py` | When you want per-phase + per-scenario pytest output (xfail/skip native, IDE integration) | pytest UI; same JSON report                                                              |
+| Entry point                                   | When to use                                                                               | Result format                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `python -m tests.zdu.framework` (recommended) | CLI / CI / scripted runs                                                                  | Printed report + JSON at `smoke-test/build/zdu-test-report.json` + non-zero exit on FAIL |
+| `pytest tests/zdu/test_zdu_upgrade.py`        | When you want per-phase + per-scenario pytest output (xfail/skip native, IDE integration) | pytest UI; same JSON report                                                              |
 
 Running both in the same invocation is not supported — they each build their own `ZDUTestRunner`. Pick one.
 
@@ -39,7 +39,7 @@ cd "$(git rev-parse --show-toplevel)"  # cd to the datahub repo root
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_GMS_TOKEN=<token> \
 DATAHUB_LOCAL_COMMON_ENV=zdu-test.env \
-smoke-test/venv/bin/python -m tests.zdu
+smoke-test/venv/bin/python -m tests.zdu.framework
 ```
 
 **Pytest entry (per-test reporting):**
@@ -83,7 +83,7 @@ DATAHUB_VERSION=v1.5.0 scripts/dev/datahub-dev.sh start
 ZDU_OLD_IMAGE_TAG=v1.5.0 \
 ZDU_NEW_IMAGE_TAG=v1.6.0 \
 DATAHUB_GMS_TOKEN="$(grep '  token:' ~/.datahubenv | awk '{print $2}')" \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 Behaviour:
@@ -129,15 +129,15 @@ If neither env var is set, both default to `debug` — matching the existing sin
 ```bash
 # Default — Phase 0 builds, Phase 0.5 redeploys onto OLD
 DATAHUB_GMS_TOKEN="$(grep '  token:' ~/.datahubenv | awk '{print $2}')" \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Build OLD from a specific release tag
 ZDU_OLD_REF=v1.5.0 \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Iterating on Python-only changes — skip both phases, reuse existing stack
 ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 ### Phase 5: Inject Traffic Pre
@@ -306,7 +306,7 @@ ZDU_SKIP_PHASES=upgrade_nonblocking \
 smoke-test/venv/bin/python -m pytest smoke-test/tests/zdu/test_zdu_upgrade.py -v
 
 # CLI equivalent
-python -m tests.zdu --skip upgrade_nonblocking
+python -m tests.zdu.framework --skip upgrade_nonblocking
 ```
 
 Available phase names: `build_images`, `prepare_old_stack`, `discovery`, `seed`, `snapshot_t0`, `upgrade_blocking`, `inject_traffic_pre`, `rolling_restart`, `inject_traffic_dual`, `upgrade_nonblocking`, `runtime_migration`, `validation`
@@ -319,7 +319,7 @@ Filter by TC number using `ZDU_SKIP_TC` or `--only-tc`:
 
 ```bash
 # Run only TC-001 through TC-006 (single-hop and multi-hop basic cases)
-python -m tests.zdu --only-tc 1 2 3 4 5 6
+python -m tests.zdu.framework --only-tc 1 2 3 4 5 6
 
 # Via pytest (parametrized, use -k to filter by TC ID)
 smoke-test/venv/bin/python -m pytest \

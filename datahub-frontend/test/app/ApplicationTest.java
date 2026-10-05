@@ -1631,7 +1631,11 @@ public class ApplicationTest extends WithBrowser {
       // Mock GracefulShutdownModule for the test
       GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
       return new controllers.Application(
-          mockHttpClient, mockEnvironment, config, mockShutdownModule);
+          mockHttpClient,
+          mockEnvironment,
+          config,
+          mockShutdownModule,
+          new controllers.ProxyAdmission(controllers.ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
     }
 
     @Provides

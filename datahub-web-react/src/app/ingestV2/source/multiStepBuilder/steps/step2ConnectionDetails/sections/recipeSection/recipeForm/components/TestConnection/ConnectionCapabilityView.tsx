@@ -1,8 +1,7 @@
-import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Icon, Text, spacing } from '@components';
+import { Icon, Text, Tooltip, spacing } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -22,8 +21,8 @@ const CapabilityInfo = styled.div`
     flex-direction: column;
 `;
 
-const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: ${({ theme }) => theme.colors.overlayHeavy};
+const StyledQuestion = styled(Question)`
+    color: ${({ theme }) => theme.colors.icon};
     margin-left: 4px;
 `;
 
@@ -40,9 +39,9 @@ export function ConnectionCapabilityView({ success, capability, displayMessage, 
         <Container>
             <IconWrapper>
                 {success ? (
-                    <Icon icon={Check} size="2xl" color="green" colorLevel={1000} />
+                    <Icon icon={Check} size="2xl" color="iconSuccess" />
                 ) : (
-                    <Icon icon={X} size="2xl" color="red" colorLevel={1000} />
+                    <Icon icon={X} size="2xl" color="iconError" />
                 )}
             </IconWrapper>
 
@@ -53,7 +52,7 @@ export function ConnectionCapabilityView({ success, capability, displayMessage, 
                 <Text size="sm">
                     {displayMessage}
                     {tooltipMessage && (
-                        <Tooltip overlay={tooltipMessage}>
+                        <Tooltip title={tooltipMessage}>
                             <StyledQuestion />
                         </Tooltip>
                     )}
