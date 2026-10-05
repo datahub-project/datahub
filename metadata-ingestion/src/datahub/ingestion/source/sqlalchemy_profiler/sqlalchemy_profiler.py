@@ -2,6 +2,7 @@
 
 import collections
 import concurrent.futures
+import contextlib
 import dataclasses
 import json
 import logging
@@ -297,6 +298,7 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
+        self._query_timeout_warning_logged = False
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -860,6 +862,7 @@ class SQLAlchemyProfiler:
                 serial_execution_fallback_enabled=True,
                 flatten_enabled=self.config.query_combiner_flatten_enabled,
                 max_distinct_per_statement=self.config.max_distinct_per_statement,
+                max_queries_to_combine=self.config.max_queries_to_combine,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.
@@ -927,6 +930,79 @@ class SQLAlchemyProfiler:
             profiler_args=profiler_args,
             **request.batch_kwargs,
         )
+
+    def _apply_query_timeout(
+        self,
+        conn: Connection,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> Optional[str]:
+        """
+        Put a per-statement time limit on the profiling connection.
+
+        Returns the statement that clears it again, or None when no limit was
+        applied — either unconfigured or unsupported by the platform.
+        """
+        seconds = self.config.query_timeout_seconds
+        if seconds is None:
+            return None
+        timeout = adapter.get_query_timeout_statements(seconds)
+        if timeout is None:
+            return None
+        try:
+            # Put back what was there, not the server default: the session may
+            # already carry a limit from init_command or a connect listener.
+            previous = conn.execute(sa.text(timeout.read)).scalar()
+            clear = timeout.restore.format(value=previous)
+            conn.execute(sa.text(timeout.apply))
+            # Commit the SET itself. On Postgres a non-LOCAL SET belongs to the
+            # open transaction, and the serial fallback rolls back before every
+            # retry -- which would drop the limit exactly when a query has
+            # already proved slow enough to need it.
+            conn.commit()
+        except Exception as e:
+            self.report.warning(
+                title="Profiling: query timeout unavailable",
+                message=(
+                    "The database did not accept the requested statement "
+                    "timeout. Profiling will run without one, so a single "
+                    "aggregate over a large table can hold a read view for as "
+                    "long as it takes."
+                ),
+                context=f"Asset: {pretty_name}; query_timeout_seconds={seconds}",
+                exc=e,
+                log=not self._query_timeout_warning_logged,
+            )
+            self._query_timeout_warning_logged = True
+            if not self.config.catch_exceptions:
+                raise
+            return None
+        return clear
+
+    def _clear_query_timeout(self, conn: Connection, clear: str) -> None:
+        """
+        Take the time limit back off the connection, whatever else went wrong.
+
+        Runs as the table's profile is finishing, when the transaction may be
+        aborted, so it rolls back first and never raises: the profile is already
+        built and must not be discarded over cleanup. If the limit cannot be
+        removed the connection is discarded instead of returned to the pool,
+        which metadata extraction shares.
+        """
+        try:
+            conn.rollback()
+            conn.execute(sa.text(clear))
+            conn.commit()
+        except Exception as e:
+            logger.warning(
+                f"Could not clear the profiling query timeout ({type(e).__name__}); "
+                f"discarding the connection so the limit cannot leak to the pool."
+            )
+            logger.debug("Could not clear the profiling query timeout", exc_info=e)
+            try:
+                conn.invalidate()
+            except Exception:
+                logger.debug("Could not invalidate the connection", exc_info=True)
 
     def _profile_row_count(
         self,
@@ -1506,7 +1582,8 @@ class SQLAlchemyProfiler:
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
-                with self.base_engine.connect() as conn:
+                with contextlib.ExitStack() as stack:
+                    conn = stack.enter_context(self.base_engine.connect())
                     isolation_level = self._profiling_isolation_level
                     if isolation_level is not None:
                         # Must be the first operation on this connection — the
@@ -1550,6 +1627,15 @@ class SQLAlchemyProfiler:
                             self._isolation_level_warning_logged = True
                             if not self.config.catch_exceptions:
                                 raise
+
+                    clear_timeout = self._apply_query_timeout(
+                        conn, adapter, pretty_name
+                    )
+                    if clear_timeout is not None:
+                        # Cleared on the way out: the connection goes back to a
+                        # pool shared with metadata extraction, which must not
+                        # inherit a profiling limit.
+                        stack.callback(self._clear_query_timeout, conn, clear_timeout)
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     # Takes the real Connection: setup does DDL and reflection
