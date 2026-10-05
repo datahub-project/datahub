@@ -334,10 +334,16 @@ externalPrettierConfigs.each { config ->
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
-    // Get the list of changed Markdown files using Git
+    dependsOn(tasks.named('yarnInstall'))
+    // At pre-push everything is committed, so diffing against HEAD finds nothing.
+    // pre-commit exports the pushed range; diff that instead when present.
+    // Three-dot (as pre-commit itself does) so files changed only on the remote side are skipped.
+    def fromRef = System.getenv('PRE_COMMIT_FROM_REF')
+    def toRef = System.getenv('PRE_COMMIT_TO_REF')
+    def diffRange = (fromRef && toRef) ? ["${fromRef}...${toRef}".toString()] : ['HEAD']
     def changedFiles = new ByteArrayOutputStream()
     execOps.exec {
-      commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
+      commandLine(['git', 'diff', '--name-only', '--diff-filter=ACMRT'] + diffRange)
       standardOutput = changedFiles
     }
     def allChangedFiles = changedFiles.toString().trim().split('\n').findAll { it != '' }
