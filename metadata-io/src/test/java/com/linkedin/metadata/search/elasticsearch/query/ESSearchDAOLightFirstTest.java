@@ -59,9 +59,16 @@ public class ESSearchDAOLightFirstTest {
   }
 
   @Test
-  public void testLightSourceQueryWithoutBoolRoot() {
-    // Fails closed: the caller runs the full query
+  public void testLightSourceQueryFailsClosed() {
+    // The caller runs the full query
     assertNull(ESSearchDAO.buildLightSourceQuery(FULL, LIGHT));
+    // A root clause the light query would drop
+    assertNull(
+        ESSearchDAO.buildLightSourceQuery(
+            QueryBuilders.boolQuery().must(FULL).should(FILTER), LIGHT));
+    assertNull(
+        ESSearchDAO.buildLightSourceQuery(
+            QueryBuilders.boolQuery().must(FULL).must(FILTER), LIGHT));
   }
 
   @Test

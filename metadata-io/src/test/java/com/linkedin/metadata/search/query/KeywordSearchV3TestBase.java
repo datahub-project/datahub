@@ -192,10 +192,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   // A one-word title that a query only matches as a substring
   private static final Urn LIFETIME_DASHBOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,ltv)");
   // Letter and digit runs in titles, next to a title sharing their letters
-  private static final Urn CARGO_REPORT = UrnUtils.getUrn("urn:li:dashboard:(looker,cargo_report)");
-  private static final Urn CARGO_OVERVIEW =
-      UrnUtils.getUrn("urn:li:dashboard:(looker,cargo_overview)");
-  private static final Urn MANIFEST = UrnUtils.getUrn("urn:li:dashboard:(looker,manifest)");
+  private static final Urn CARGO_REPORT = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_one)");
+  private static final Urn CARGO_OVERVIEW = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_two)");
+  private static final Urn MANIFEST = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_three)");
+  private static final Urn FREIGHT_BOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_four)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -436,18 +436,28 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     CARGO_REPORT,
                     new DashboardInfo()
                         .setTitle("Cargo2017 Report")
+                        .setDescription("Harbor figures")
                         .setLastModified(new ChangeAuditStamps())),
                 CARGO_OVERVIEW,
                 events(
                     CARGO_OVERVIEW,
                     new DashboardInfo()
                         .setTitle("Cargo Overview")
+                        .setDescription("Harbor figures")
                         .setLastModified(new ChangeAuditStamps())),
                 MANIFEST,
                 events(
                     MANIFEST,
                     new DashboardInfo()
                         .setTitle("Manifest20240101")
+                        .setDescription("Harbor figures")
+                        .setLastModified(new ChangeAuditStamps())),
+                FREIGHT_BOARD,
+                events(
+                    FREIGHT_BOARD,
+                    new DashboardInfo()
+                        .setTitle("Freight Board")
+                        .setDescription("Berth plan for cargo2018 vessels")
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
@@ -1214,11 +1224,17 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         search.apply(DATASET_ENTITY_NAME, "orderz_aa_bb_cc").getNumEntities().intValue(), 0);
     assertUrns(search.apply(DATASET_ENTITY_NAME, "orderz_aa").getEntities(), ORDERS);
 
-    // The light query keeps letter and digit runs whole: "Cargo Overview" matching "cargo" must
-    // not hide "Cargo2017 Report", and a 6-digit run held in a title is found, not stopped
+    // A letter and digit run matches whole or by all its parts on the light query. "Cargo
+    // Overview" holds only "cargo", so it neither hides "Cargo2017 Report" nor keeps the full query
+    // from finding "cargo2018" in a description. A 6-digit run held in a title is found, not
+    // stopped
     assertTrue(
         search.apply(DASHBOARD_ENTITY_NAME, "cargo2017").getEntities().stream()
             .anyMatch(entity -> entity.getEntity().equals(CARGO_REPORT)));
+    SearchEntityArray splitRun = search.apply(DASHBOARD_ENTITY_NAME, "cargo2018").getEntities();
+    assertTrue(
+        splitRun.stream().anyMatch(entity -> entity.getEntity().equals(FREIGHT_BOARD)),
+        splitRun.toString());
     assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "manifest20240101").getEntities(), MANIFEST);
     // A search with includeExplain explains the light query that served it
     SearchEntityArray explained =

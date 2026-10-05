@@ -1543,18 +1543,24 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 CustomSearchConfiguration.class);
     SearchQueryBuilder builder = new SearchQueryBuilder(testQueryConfig, config, true);
     EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
-    for (String query : List.of("orders", "my_db.sales.orders", "orders placed by each customer")) {
-      List<QueryBuilder> clauses = new ArrayList<>();
-      collectClauses(
-          builder.buildQuery(operationContext, List.of(datasetSpec), query, true), clauses);
-      assertTrue(
-          clauses.stream()
-              .noneMatch(
-                  clause ->
-                      clause instanceof WildcardQueryBuilder
-                          || clause instanceof MatchQueryBuilder
-                          || clause instanceof SimpleQueryStringBuilder),
-          query + ": " + clauses);
+    for (String query :
+        List.of("orders", "orders2017", "my_db.sales.orders", "orders placed by each customer")) {
+      for (boolean light : List.of(false, true)) {
+        List<QueryBuilder> clauses = new ArrayList<>();
+        collectClauses(
+            builder.buildQuery(operationContext, List.of(datasetSpec), query, true, light),
+            clauses);
+        assertTrue(
+            clauses.stream()
+                .noneMatch(
+                    clause ->
+                        clause instanceof WildcardQueryBuilder
+                            || clause instanceof MatchQueryBuilder
+                            || clause instanceof MultiMatchQueryBuilder
+                            || clause instanceof SimpleQueryStringBuilder
+                            || clause instanceof TermQueryBuilder),
+            query + ", light " + light + ": " + clauses);
+      }
     }
   }
 
@@ -1788,6 +1794,39 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .anyMatch(
                 term -> term.fieldName().equals("name.keyword") && "stg".equals(term.value())),
         clauses.toString());
+  }
+
+  @Test
+  public void testV3LightQueryKeepsSplitWordsWhole() {
+    // "cargo2017" splits into "cargo 2017": no multi_match takes a name holding only one part,
+    // and the whole run is re-queried on the identity fields
+    List<MultiMatchQueryBuilder> split = v3LightMultiMatches("cargo2017");
+    assertEquals(split.size(), 1, split.toString());
+    assertEquals(split.get(0).value(), "cargo2017");
+    assertEquals(split.get(0).operator(), Operator.AND);
+    // Escaping alone keeps matching any part, and re-queries the hyphenated identifier whole
+    List<MultiMatchQueryBuilder> escaped = v3LightMultiMatches("load-job");
+    assertTrue(
+        escaped.stream().anyMatch(m -> "load job".equals(m.value()) && m.operator() == Operator.OR),
+        escaped.toString());
+    assertTrue(
+        escaped.stream()
+            .anyMatch(m -> "load-job".equals(m.value()) && m.operator() == Operator.AND),
+        escaped.toString());
+    // An unchanged word adds no re-query
+    assertEquals(v3LightMultiMatches("cargo").size(), 1);
+  }
+
+  private List<MultiMatchQueryBuilder> v3LightMultiMatches(String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), query, true, true),
+        clauses);
+    return clauses.stream()
+        .filter(MultiMatchQueryBuilder.class::isInstance)
+        .map(MultiMatchQueryBuilder.class::cast)
+        .collect(Collectors.toList());
   }
 
   @Test

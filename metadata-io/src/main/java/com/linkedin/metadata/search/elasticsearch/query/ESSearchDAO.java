@@ -497,24 +497,25 @@ public class ESSearchDAO {
     } finally {
       searchRequest.source().query(fullQuery);
     }
-    if (hasHits(lightResponse)) {
-      countLightFirst(opContext, "light");
-      return lightResponse;
-    }
-    if (skipsFullQuery(input)) {
-      countLightFirst(opContext, "stopped");
-      return lightResponse;
-    }
-    countLightFirst(opContext, "full");
     if (lightResponse.getFailedShards() > 0) {
       log.warn(
-          "Light query failed on {} of {} shards, running the full query: {}",
+          "Light query failed on {} of {} shards: {}",
           lightResponse.getFailedShards(),
           lightResponse.getTotalShards(),
           lightResponse.getShardFailures().length > 0
               ? lightResponse.getShardFailures()[0].reason()
               : "");
     }
+    if (hasHits(lightResponse)) {
+      countLightFirst(opContext, "light");
+      return lightResponse;
+    }
+    // An empty result stands only when every shard answered
+    if (skipsFullQuery(input) && lightResponse.getFailedShards() == 0) {
+      countLightFirst(opContext, "stopped");
+      return lightResponse;
+    }
+    countLightFirst(opContext, "full");
     log.debug("Light query matched nothing, running the full query for \"{}\"", input);
     return searchClient(opContext, searchRequest)
         .search(opContext, searchRequest, RequestOptions.DEFAULT);
@@ -557,8 +558,11 @@ public class ESSearchDAO {
       boolCarrier = originalFunctionScoreQuery.query();
     }
 
-    if (!(boolCarrier instanceof BoolQueryBuilder)) {
-      // Unknown shape: fail closed, the caller runs the full query
+    // Only the one must clause is replaced and the filters copied. Any other shape fails closed:
+    // the caller runs the full query
+    if (!(boolCarrier instanceof BoolQueryBuilder)
+        || ((BoolQueryBuilder) boolCarrier).must().size() != 1
+        || !((BoolQueryBuilder) boolCarrier).should().isEmpty()) {
       return null;
     }
 

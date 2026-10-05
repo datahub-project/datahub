@@ -469,14 +469,25 @@ public class SearchQueryBuilder {
               || customQueryConfig.isSimpleQuery()
               || customQueryConfig.isPrefixMatchQuery()
               || customQueryConfig.isExactMatchQuery();
-      getSimpleQueryV2_5(
-              opContext,
-              customQueryConfig,
-              entitySpecs,
-              lightSanitizedQuery,
-              skipExpensiveClauses,
-              intent)
-          .ifPresent(disMaxQuery::add);
+      // A single word split at letter/digit boundaries ("cargo2017") is a light match only where
+      // a name holds it whole (the identity re-query below) or holds all of its parts (the
+      // all-terms bonus). The multi_match would also take a name holding only "cargo": the
+      // .delimited search analyzers split "cargo 2017" inside one token, where an AND operator
+      // does not require every part.
+      final boolean splitWord =
+          skipExpensiveClauses
+              && intent == QueryIntent.EXACT_NAME
+              && splitsLetterDigitRun(operatorEscaped);
+      if (!splitWord) {
+        getSimpleQueryV2_5(
+                opContext,
+                customQueryConfig,
+                entitySpecs,
+                lightSanitizedQuery,
+                skipExpensiveClauses,
+                intent)
+            .ifPresent(disMaxQuery::add);
+      }
       // Synonym recall: the light multi_match reads the mapping's search analyzers, so add
       // queries for the synonyms the analyzers would not expand, such as multi-word ones.
       if (skipExpensiveClauses) {
@@ -499,7 +510,9 @@ public class SearchQueryBuilder {
       if (skipExpensiveClauses) {
         // Light path: two constant_score clauses (name.keyword, title.keyword) so exact name
         // matches still rank first regardless of cross-entity IDF disparities.
-        getLightweightExactMatchBoost(colonStripped, getSynonymMap()).ifPresent(disMaxQuery::add);
+        if (customQueryConfig == null || customQueryConfig.isExactMatchQuery()) {
+          getLightweightExactMatchBoost(colonStripped, getSynonymMap()).ifPresent(disMaxQuery::add);
+        }
       } else {
         // Exact/prefix match with term queries, phrase prefixes, synonyms and word grams.
         getPrefixAndExactMatchQueryV2_5(
@@ -520,8 +533,7 @@ public class SearchQueryBuilder {
             .ifPresent(disMaxQuery::add);
         // splitAlphanumericTokens turned "orders2017" into "orders 2017", but the analyzers index
         // such a run as one token, so also match the unsplit query, without fuzziness
-        if (LETTER_DIGIT_BOUNDARY.matcher(operatorEscaped).find()
-            || DIGIT_LETTER_BOUNDARY.matcher(operatorEscaped).find()) {
+        if (splitsLetterDigitRun(operatorEscaped)) {
           getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, operatorEscaped)
               .ifPresent(disMaxQuery::add);
         }
@@ -571,6 +583,13 @@ public class SearchQueryBuilder {
                 opContext.getAspectRetriever())
             .ifPresent(disMaxQuery::add);
       }
+    }
+
+    if (skipExpensiveClauses && disMaxQuery.innerQueries().isEmpty()) {
+      // A custom configuration left no light clause: the light query would match every entity and
+      // stop the cascade, so build the full query instead
+      return buildInternalQueryV2_5(
+          opContext, customQueryConfig, entitySpecs, query, fulltext, false, intent);
     }
 
     // Check if dis_max has any queries (it requires at least one sub-query)
@@ -766,6 +785,12 @@ public class SearchQueryBuilder {
       }
     }
     return result.toString();
+  }
+
+  /** Whether {@link #splitAlphanumericTokens} splits a letter/digit run of {@code query}. */
+  private static boolean splitsLetterDigitRun(@Nonnull String query) {
+    return LETTER_DIGIT_BOUNDARY.matcher(query).find()
+        || DIGIT_LETTER_BOUNDARY.matcher(query).find();
   }
 
   /**
@@ -1313,7 +1338,13 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String rawQuery) {
     Map<String, Float> identityFields = new LinkedHashMap<>();
-    getStandardFields(opContext.getEntityRegistry(), entitySpecs).stream()
+    customizedQueryHandler
+        .applySearchFieldConfiguration(
+            getStandardFields(opContext.getEntityRegistry(), entitySpecs),
+            customizedQueryHandler.resolveFieldConfiguration(
+                opContext.getSearchContext().getSearchFlags(),
+                CustomConfiguration::getSearchFieldConfigDefault))
+        .stream()
         .filter(SearchFieldConfig::isQueryByDefault)
         .filter(cfg -> DELIMITED_IDENTITY_FIELDS.contains(cfg.fieldName()))
         .forEach(cfg -> identityFields.merge(cfg.fieldName(), cfg.boost(), Math::max));
