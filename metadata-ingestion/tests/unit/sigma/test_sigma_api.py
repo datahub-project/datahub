@@ -81,8 +81,11 @@ class TestGetDataModelSpec:
         ],
         ids=["http-403", "network"],
     )
-    def test_a_failure_is_counted_and_warned_once(self, failure: Any) -> None:
-        """A token without access fails /spec for every model."""
+    def test_failures_are_counted_and_grouped_under_one_warning(
+        self, failure: Any
+    ) -> None:
+        """Every model's failure stays visible as a context, so a 403 on every
+        model is not hidden behind the first model's transient error."""
         api = _create_sigma_api()
         kwargs = (
             {"side_effect": failure}
@@ -99,7 +102,10 @@ class TestGetDataModelSpec:
             if w.title == "Sigma Data Model spec unavailable"
         ]
         assert len(spec_warnings) == 1
-        assert len(spec_warnings[0].context) == 1
+        assert [c.split(",")[0] for c in spec_warnings[0].context] == [
+            "data_model=dm-1",
+            "data_model=dm-2",
+        ]
 
 
 class TestTokenRefreshOn401:

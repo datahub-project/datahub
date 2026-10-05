@@ -1333,6 +1333,7 @@ def test_a_branch_outside_this_model_is_not_mapped(branch: dict) -> None:
         builder.make_schema_field_urn(_urn("a"), "a")
     ]
     assert source.reporter.data_model_element_fgl_union_resolved == 0
+    assert source.reporter.data_model_element_fgl_union_branch_unmapped == 1
 
 
 def test_no_spec_call_when_the_flag_is_off() -> None:
@@ -1355,13 +1356,15 @@ def test_a_failed_fetch_is_not_drift() -> None:
     assert source.reporter.data_model_spec_drift_detected == 0
 
 
-def test_drift_is_reported_and_what_was_read_is_used() -> None:
+def test_an_unsupported_schema_is_reported_and_adds_no_union_edges() -> None:
+    """The parser's contract: distrust a read whose schemaVersion differs."""
     source = _source()
     spec = _union_spec([_BRANCH_A, _BRANCH_B], ["[a]", "[b]"])
     spec["schemaVersion"] = 2
     _with_spec(source, spec)
 
-    assert len(_build_union(source)) == 2
+    assert len(_build_union(source)) == 1
+    assert source.reporter.data_model_element_fgl_union_resolved == 0
     assert source.reporter.data_model_spec_drift_detected == 1
     assert "data_model=dm-1" in str(source.reporter.warnings[0].context)
 
@@ -1374,3 +1377,67 @@ def test_the_spec_is_fetched_once_per_data_model() -> None:
     _build_union(source)
 
     api.get_data_model_spec.assert_called_once_with("dm-1")
+
+
+def test_a_misaligned_union_adds_no_union_edges() -> None:
+    """More column slots than branches: pairing a slot with a branch is a
+    guess, so the parser marks the union unreadable and nothing is emitted."""
+    source = _source()
+    _with_spec(source, _union_spec([_BRANCH_A, _BRANCH_B], ["[a]", "[b]", "[c]"]))
+
+    assert len(_build_union(source)) == 1
+    assert source.reporter.data_model_element_fgl_union_resolved == 0
+    assert source.reporter.data_model_spec_drift_detected == 1
+
+
+def _build_union_with_branch_b(source: SigmaSource, b_columns: List[tuple]) -> list:
+    union = _element("u", "U", [_column("u-out", "Out", "[A/a]")])
+    branch_b = _element(
+        "b", "B", [_column(col_id, name, None) for col_id, name in b_columns]
+    )
+    return _build(
+        source,
+        union,
+        element_name_to_eids={"a": ["a"], "b": ["b"]},
+        elementId_to_dataset_urn={"a": _urn("a"), "b": _urn("b")},
+        entity_level_upstream_urns={_urn("a")},
+        upstream_elements=[_upstream_element("a", "A", ["a"]), branch_b],
+    )
+
+
+@pytest.mark.parametrize("name_first", [True, False], ids=["name-first", "id-first"])
+def test_a_column_id_is_not_mistaken_for_another_columns_name(name_first: bool) -> None:
+    """Branch B has "Name" and another column whose author-chosen id is
+    "Name" (Sigma's as-code examples use ids like this): the name wins."""
+    source = _source()
+    _with_spec(source, _union_spec([_BRANCH_A, _BRANCH_B], ["[a]", "[Name]"]))
+    columns = [("x1", "Name"), ("Name", "Full Name")]
+
+    lineages = _build_union_with_branch_b(
+        source, columns if name_first else columns[::-1]
+    )
+
+    assert builder.make_schema_field_urn(_urn("b"), "Name") in [
+        lin.upstreams[0] for lin in lineages
+    ]
+
+
+def test_an_ambiguous_case_insensitive_match_claims_nothing() -> None:
+    source = _source()
+    _with_spec(source, _union_spec([_BRANCH_A, _BRANCH_B], ["[a]", "[key]"]))
+
+    lineages = _build_union_with_branch_b(source, [("k1", "Key"), ("k2", "KEY")])
+
+    assert len(lineages) == 1
+    assert source.reporter.data_model_element_fgl_union_unresolved == 1
+
+
+def test_an_output_that_is_not_a_column_of_the_union_is_counted() -> None:
+    """Seen on a real model: /spec keeps an output the element does not have."""
+    source = _source()
+    spec = _union_spec([_BRANCH_A, _BRANCH_B], ["[a]", "[b]"])
+    spec["pages"][0]["elements"][0]["source"]["matches"][0]["outputColumnName"] = "Gone"
+    _with_spec(source, spec)
+
+    assert len(_build_union(source)) == 1
+    assert source.reporter.data_model_element_fgl_union_unresolved == 2

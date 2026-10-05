@@ -349,6 +349,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_orphan_recovered: int = 0
     # Union output-column edges read from /spec, one per branch.
     data_model_element_fgl_union_resolved: int = 0
+    # Union branch edges /spec named that could not be matched to an ingested
+    # element and column; and branches that are a warehouse table or another
+    # Data Model's element, which are not mapped yet.
+    data_model_element_fgl_union_unresolved: int = 0
+    data_model_element_fgl_union_branch_unmapped: int = 0
     # Data Models whose /spec could not be fetched (see the warning for why),
     # and those whose /spec did not match the shape the parser expects, so
     # their union edges may be incomplete until the connector is updated.
