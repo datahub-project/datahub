@@ -211,12 +211,25 @@ class PathSpec(ConfigModel):
                 # A recognised format: keep it only if this path_spec wants it.
                 if fmt not in self.file_types:
                     return False
-            elif self.default_extension is None:
-                # No real format extension (empty, or a fake one from a dotted stem
-                # like ``foo.bar.baz-<hash>``) and no default to fall back on.
+            elif self.default_extension is None or self._is_disabled_compression(path):
+                # Nothing to go on: either no real format extension (empty, or a fake
+                # one from a dotted stem like ``foo.bar.baz-<hash>``) with no default
+                # to fall back on, or a compression suffix while ``enable_compression``
+                # is off. In the latter case the file can't be read as its inner
+                # format, so the ``default_extension`` fallback must not admit it.
                 return False
 
         return True
+
+    def _is_disabled_compression(self, path: str) -> bool:
+        """True if ``path`` ends in a compression suffix but compression is disabled.
+
+        Such a file cannot be decompressed to read its inner format, so it must not
+        be admitted via the ``default_extension`` fallback in ``allowed()``.
+        """
+        if self.enable_compression:
+            return False
+        return os.path.splitext(path)[1].strip(".").lower() in SUPPORTED_COMPRESSIONS
 
     def _recognised_format(self, path: str) -> Optional[str]:
         """Return the file's format from its name (compression stripped), or None.

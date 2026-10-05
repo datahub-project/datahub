@@ -256,7 +256,7 @@ We are working on using iterator-based JSON parsers to avoid reading in the enti
 
 ##### File type detection
 
-The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types listed above. For files compressed with `.gz`, `.gzip`, or `.bz2`, the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON).
+The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types listed above. For files compressed with `.gz`, `.gzip`, or `.bz2` (when `enable_compression` is enabled on the path_spec, which is the default), the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON).
 
 This means file names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. Such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise.
 
