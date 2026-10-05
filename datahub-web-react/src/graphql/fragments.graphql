@@ -1318,7 +1318,13 @@ fragment parentContainerFields on Container {
 }
 
 fragment domainEntitiesFields on Domain {
-    entities(input: { start: 0, count: 0 }) {
+    entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+        }
+    ) {
         total
     }
     dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {

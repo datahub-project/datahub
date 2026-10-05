@@ -254,7 +254,14 @@ fragment searchResultCardFields on Entity {
         displayProperties {
             ...displayPropertiesFields
         }
-        entities(input: { start: 0, count: 0 }) {
+        # DomainMiniPreview shows asset count — keep only the total used by EntityCount.
+        entities(
+            input: {
+                start: 0
+                count: 0
+                filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+            }
+        ) {
             total
         }
         deprecation {
@@ -779,6 +786,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
         }
         ownership {
             ...ownershipFields
@@ -855,6 +863,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
             created {
                 time
             }
@@ -1159,7 +1168,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         subTypes {
             typeNames
         }
-        entities(input: {}) {
+        entities(input: { count: 0 }) {
             total
         }
         deprecation {
