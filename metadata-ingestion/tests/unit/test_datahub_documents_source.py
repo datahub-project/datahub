@@ -4896,7 +4896,11 @@ class TestCheckpointPruning:
         return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
 
     def _make_source(
-        self, ctx: PipelineContext, backend: str, **config: Any
+        self,
+        ctx: PipelineContext,
+        backend: str,
+        scroll_urns: tuple[str, ...] = (LIVE,),
+        **config: Any,
     ) -> DataHubDocumentsSource:
         with patch(
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
@@ -4945,10 +4949,17 @@ class TestCheckpointPruning:
                 return {
                     "scrollAcrossEntities": {
                         "nextScrollId": None,
-                        "searchResults": [{"entity": {"urn": self.LIVE}}],
+                        "searchResults": [{"entity": {"urn": u}} for u in scroll_urns],
                     }
                 }
-            return {"entities": [live_doc]}
+            # Only the live document resolves; any other listed URN is an orphan
+            # (an index entry whose entity is gone), as GMS returns it.
+            assert variables is not None
+            return {
+                "entities": [
+                    live_doc if u == self.LIVE else None for u in variables["urns"]
+                ]
+            }
 
         source.graph.execute_graphql.side_effect = _graphql
         return source
@@ -4980,6 +4991,36 @@ class TestCheckpointPruning:
 
         assert self._tracked_urns(source) == {self.LIVE, self.DELETED}
         assert source.report.num_documents_pruned_from_state == 0
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_orphaned_index_entry_is_pruned(self, ctx, backend):
+        # The deleted document's search entry outlived it: listed, but unresolvable.
+        source = self._make_source(ctx, backend, scroll_urns=(self.LIVE, self.DELETED))
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE}
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_empty_enumeration_keeps_state(self, ctx, backend):
+        # Zero listed documents is far likelier an index problem than an empty
+        # catalog; pruning against it would re-embed everything next run.
+        source = self._make_source(ctx, backend, scroll_urns=())
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE, self.DELETED}
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_state_written_earlier_in_the_run_survives_prune(self, ctx, backend):
+        # E.g. a document embedded from an event before the event-mode fallback to
+        # batch: it may not be searchable yet, but its new hash must not be dropped.
+        source = self._make_source(ctx, backend)
+        source._update_document_state("urn:li:document:just-created", "fresh body")
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE, "urn:li:document:just-created"}
 
 
 def test_datahub_documents_does_not_embed_when_only_v3_enabled():

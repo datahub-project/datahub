@@ -224,8 +224,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
         self.state_file_path: Optional[Path] = None
-        # Every URN of the last fully enumerated document set; None until a scroll completes.
-        self._complete_enumeration: Optional[set[str]] = None
+        # Documents known to exist in this run: listed by the batch scroll (minus orphans)
+        # or written to state. Pruning against them is only safe after a scroll that
+        # listed every live document.
+        self._live_document_urns: set[str] = set()
+        self._enumeration_complete = False
 
         if self.config.incremental.enabled:
             self._initialize_state_tracking()
@@ -424,8 +427,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         # State is carried forward between runs, so without this every document ever
         # embedded keeps an entry and the checkpoint grows until it can't be committed.
-        if self.config.incremental.enabled and self._complete_enumeration is not None:
-            self._prune_document_state(self._complete_enumeration)
+        # An empty listing is far likelier an index problem than an empty catalog.
+        if (
+            self.config.incremental.enabled
+            and self._enumeration_complete
+            and self._live_document_urns
+        ):
+            self._prune_document_state(self._live_document_urns)
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
         """Bootstrap event mode by capturing current offsets BEFORE batch mode.
@@ -1165,8 +1173,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if self._supports_non_global_context_documents():
             search_flags["includeNonGlobalContextDocuments"] = True
 
-        self._complete_enumeration = None
-        enumerated: set[str] = set()
+        self._enumeration_complete = False
         truncated = False
         scroll_id: Optional[str] = None
         first_iter = True
@@ -1226,14 +1233,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 entity = result.get("entity") or {}
                 urn = entity.get("urn")
                 if urn:
-                    enumerated.add(urn)
+                    self._live_document_urns.add(urn)
                     yield urn
 
         # Only a scroll that ran to the end without truncating lists every live
         # document, which is what makes it safe to prune state against it. The
         # checkpoint commits even when the run fails, so this can't rely on that.
-        if not truncated:
-            self._complete_enumeration = enumerated
+        self._enumeration_complete = not truncated
 
     def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
@@ -1422,6 +1428,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _skip_orphaned(self, urn: str) -> None:
         """Record an orphaned index entry (a URN with no resolvable entity)."""
+        # The document is gone even though its index entry outlived it.
+        self._live_document_urns.discard(urn)
         self.report.report_document_skipped_orphaned()
         self.report.warning(
             title="Skipped orphaned document",
@@ -1565,6 +1573,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Update state after processing document."""
         content_hash = self._calculate_text_hash(text)
         last_processed = datetime.utcnow().isoformat()
+        # Written this run, so it exists even if search can't list it yet.
+        self._live_document_urns.add(document_urn)
 
         # Use state_handler if available (proper stateful ingestion)
         if self.state_handler and self.state_handler.is_checkpointing_enabled():
