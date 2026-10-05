@@ -214,11 +214,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             embedding=self.config.embedding,
             max_documents=self.config.max_documents,
         )
+        # A failed config lookup must stop the run: treating it as "semantic search
+        # off" would re-hash every document unembedded, then re-embed them all.
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
             config=chunking_config,
             standalone=False,
             graph=self.graph,
+            fail_on_config_lookup_error=True,
         )
 
         # Initialize state tracking for incremental mode
@@ -1472,8 +1475,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Returns:
             Dictionary of config values that affect processing output.
         """
-        # Chunking/embedding is enabled when embedding provider is configured
-        embedding_enabled = self.config.embedding.provider is not None
+        # Read the config the chunking source resolved, not self.config.embedding: with
+        # no local embedding block (the managed recipe) the provider comes from the
+        # server, so the recipe copy stays empty and server changes would never re-hash.
+        embedding = self.chunking_source.config.embedding
+        embedding_enabled = embedding.provider is not None
 
         fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
@@ -1492,12 +1498,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             else None,
             # Embedding affects vector embeddings on chunks
             "embedding_enabled": embedding_enabled,
-            "embedding_provider": self.config.embedding.provider
-            if embedding_enabled
-            else None,
-            "embedding_model": self.config.embedding.model
-            if embedding_enabled
-            else None,
+            "embedding_provider": embedding.provider if embedding_enabled else None,
+            "embedding_model": embedding.model if embedding_enabled else None,
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
@@ -1512,6 +1514,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             fingerprint["chunking_max_chunks_per_document"] = (
                 self.config.chunking.max_chunks_per_document
             )
+        # cls and mean pooling give different vectors from the same onnx model. Like
+        # the chunk cap, only a non-default value is fingerprinted (normalized as the
+        # provider does), so onnx documents hashed before this knob are not re-embedded.
+        if embedding.provider == "onnx":
+            pooling = (embedding.onnx_pooling or "cls").lower()
+            if pooling != "cls":
+                fingerprint["onnx_pooling"] = pooling
         return fingerprint
 
     @staticmethod
