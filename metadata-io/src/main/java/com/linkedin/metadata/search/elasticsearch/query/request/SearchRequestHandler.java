@@ -477,10 +477,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   /**
    * Build the query, optionally the light Stage 1 query without its expensive clauses (fuzzy,
-   * wildcard).
+   * wildcard). Null for a light query that a custom configuration leaves without any clause.
    *
    * @see SearchQueryBuilder#buildQuery(OperationContext, List, String, boolean, boolean)
    */
+  @Nullable
   public QueryBuilder getQuery(
       @Nonnull OperationContext opContext,
       @Nonnull String query,

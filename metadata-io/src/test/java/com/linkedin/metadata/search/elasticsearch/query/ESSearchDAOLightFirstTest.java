@@ -1,12 +1,29 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import org.apache.lucene.search.TotalHits;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.client.RequestOptions;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -14,6 +31,9 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.testng.annotations.Test;
 
 public class ESSearchDAOLightFirstTest {
@@ -69,6 +89,60 @@ public class ESSearchDAOLightFirstTest {
     assertNull(
         ESSearchDAO.buildLightSourceQuery(
             QueryBuilders.boolQuery().must(FULL).must(FILTER), LIGHT));
+  }
+
+  @Test
+  public void testLightResultWithFailedShardsNeverStops() throws Exception {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), client);
+    ESSearchDAO dao =
+        new ESSearchDAO(
+            false,
+            TEST_OS_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchRequest request =
+        new SearchRequest(
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getEntityIndexName(opContext, "dashboard"))
+            .source(new SearchSourceBuilder().query(QueryBuilders.boolQuery().must(FULL)));
+    // An ID lookup the light query does not find stops there
+    SearchResponse cleanEmpty = response(0, 0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(cleanEmpty);
+    assertSame(dao.searchLightFirst(opContext, request, LIGHT, "run_20240101"), cleanEmpty);
+    // Unless a shard failed, which can hide the matches: the full query runs
+    SearchResponse failedEmpty = response(0, 1);
+    SearchResponse full = response(3, 0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(failedEmpty, full);
+    assertSame(dao.searchLightFirst(opContext, request, LIGHT, "run_20240101"), full);
+    // Hits are served even when a shard failed
+    SearchResponse failedHits = response(2, 1);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(failedHits);
+    assertSame(dao.searchLightFirst(opContext, request, LIGHT, "orders"), failedHits);
+    // One query for the stop and for the served hits, two for the fall-through
+    verify(client, times(4)).search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+    // The request keeps the full query for the caller
+    assertSame(((BoolQueryBuilder) request.source().query()).must().get(0), FULL);
+  }
+
+  private static SearchResponse response(long totalHits, int failedShards) {
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(
+            new SearchHits(
+                new SearchHit[0], new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO), 0f));
+    when(response.getFailedShards()).thenReturn(failedShards);
+    when(response.getTotalShards()).thenReturn(2);
+    when(response.getShardFailures()).thenReturn(new ShardSearchFailure[0]);
+    return response;
   }
 
   @Test

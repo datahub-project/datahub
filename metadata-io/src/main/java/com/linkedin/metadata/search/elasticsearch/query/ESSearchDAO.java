@@ -476,7 +476,8 @@ public class ESSearchDAO {
    * clauses) and runs the full query only when the light query matches nothing. The response comes
    * from a single query, so its hits, total and facets all describe the query that was served.
    */
-  private SearchResponse searchLightFirst(
+  @VisibleForTesting
+  SearchResponse searchLightFirst(
       @Nonnull OperationContext opContext,
       @Nonnull SearchRequest searchRequest,
       @Nonnull QueryBuilder lightQuery,

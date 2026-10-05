@@ -298,8 +298,10 @@ public class SearchQueryBuilder {
    *     fuzzy simple queries, and no wildcard, synonym-priority or full exact/prefix clauses.
    *     Callers run the full query (false) when the light query matches nothing. V2 queries ignore
    *     it.
+   * @return the query, or null for a light query that a custom configuration leaves without any
+   *     clause
    */
-  @Nonnull
+  @Nullable
   public QueryBuilder buildQuery(
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
@@ -342,6 +344,9 @@ public class SearchQueryBuilder {
                   intent);
     } else {
       queryBuilder = buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    }
+    if (queryBuilder == null) {
+      return null;
     }
     return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
@@ -473,7 +478,9 @@ public class SearchQueryBuilder {
       // a name holds it whole (the identity re-query below) or holds all of its parts (the
       // all-terms bonus). The multi_match would also take a name holding only "cargo": the
       // .delimited search analyzers split "cargo 2017" inside one token, where an AND operator
-      // does not require every part.
+      // does not require every part. A word that also holds "_" or "-" ("fleet_v2") still
+      // matches a name holding one of those parts, as in DataHub Cloud: the analyzers emit them
+      // at one position.
       final boolean splitWord =
           skipExpensiveClauses
               && intent == QueryIntent.EXACT_NAME
@@ -522,8 +529,9 @@ public class SearchQueryBuilder {
                 colonStripped,
                 opContext.getAspectRetriever())
             .ifPresent(disMaxQuery::add);
-        // Wildcard contains query for substring matching.
-        if (anyTextMatch) {
+        // Wildcard contains query for substring matching, except for a quoted query, which asks
+        // for the words as they are
+        if (anyTextMatch && !isQuoted(colonStripped)) {
           getWildcardContainsQuery(opContext.getEntityRegistry(), entitySpecs, colonStripped)
               .ifPresent(disMaxQuery::add);
         }
@@ -586,10 +594,9 @@ public class SearchQueryBuilder {
     }
 
     if (skipExpensiveClauses && disMaxQuery.innerQueries().isEmpty()) {
-      // A custom configuration left no light clause: the light query would match every entity and
-      // stop the cascade, so build the full query instead
-      return buildInternalQueryV2_5(
-          opContext, customQueryConfig, entitySpecs, query, fulltext, false, intent);
+      // A custom configuration left no light clause, so a light query would match every entity:
+      // there is none, and the caller runs the full query
+      return null;
     }
 
     // Check if dis_max has any queries (it requires at least one sub-query)
@@ -1150,7 +1157,11 @@ public class SearchQueryBuilder {
                   CustomConfiguration::getSearchFieldConfigDefault));
 
       if (skipExpensiveClauses) {
-        return getLightSimpleQuery(configuredFields, sanitizedQuery, intent);
+        return getLightSimpleQuery(
+            configuredFields,
+            sanitizedQuery,
+            intent,
+            customQueryConfig == null || customQueryConfig.isExactMatchQuery());
       }
 
       DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
@@ -1229,7 +1240,8 @@ public class SearchQueryBuilder {
   private Optional<QueryBuilder> getLightSimpleQuery(
       @Nonnull Set<SearchFieldConfig> configuredFields,
       @Nonnull String sanitizedQuery,
-      @Nonnull QueryIntent intent) {
+      @Nonnull QueryIntent intent,
+      boolean exactMatch) {
     // Quoted queries are not searching for the quote characters
     String matchQuery =
         intent == QueryIntent.EXACT_NAME ? stripSurroundingQuotes(sanitizedQuery) : sanitizedQuery;
@@ -1265,7 +1277,7 @@ public class SearchQueryBuilder {
     }
     fieldBoosts.forEach(multiMatch::field);
 
-    if (!useNameFocusedFields) {
+    if (!useNameFocusedFields || !exactMatch) {
       return Optional.of(multiMatch);
     }
     // Exact name hits score above multi_match results
@@ -1327,11 +1339,12 @@ public class SearchQueryBuilder {
 
   /**
    * Multi-match over the {@code .delimited} identity fields ({@code name}, {@code title}, {@code
-   * urn}) queried with the pre-escape string, so a hyphenated identifier whose hyphen {@link
-   * #escapeSimpleQueryStringOperators} replaced with a space still matches: the {@code .delimited}
-   * analyzer keeps e.g. {@code load_job-0001} as one token. AND-matched so a multi-token query only
-   * restores the intact-identifier match rather than broadening recall. Empty when none of these
-   * fields is queried.
+   * urn}) queried with the pre-escape string, so an identifier that {@link
+   * #escapeSimpleQueryStringOperators} or {@link #splitAlphanumericTokens} broke up ({@code
+   * load_job-0001}, {@code orders2017}) still matches the whole token the {@code .delimited}
+   * analyzer indexes. Every term is required, but that analyzer also emits the {@code _} and {@code
+   * -} separated parts of an identifier at the same position, so for such an identifier a name
+   * holding one part matches as well. Empty when none of these fields is queried.
    */
   private Optional<QueryBuilder> getDelimitedIdentityQuery(
       @Nonnull OperationContext opContext,

@@ -1545,22 +1545,21 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     for (String query :
         List.of("orders", "orders2017", "my_db.sales.orders", "orders placed by each customer")) {
-      for (boolean light : List.of(false, true)) {
-        List<QueryBuilder> clauses = new ArrayList<>();
-        collectClauses(
-            builder.buildQuery(operationContext, List.of(datasetSpec), query, true, light),
-            clauses);
-        assertTrue(
-            clauses.stream()
-                .noneMatch(
-                    clause ->
-                        clause instanceof WildcardQueryBuilder
-                            || clause instanceof MatchQueryBuilder
-                            || clause instanceof MultiMatchQueryBuilder
-                            || clause instanceof SimpleQueryStringBuilder
-                            || clause instanceof TermQueryBuilder),
-            query + ", light " + light + ": " + clauses);
-      }
+      List<QueryBuilder> clauses = new ArrayList<>();
+      collectClauses(
+          builder.buildQuery(operationContext, List.of(datasetSpec), query, true), clauses);
+      assertTrue(
+          clauses.stream()
+              .noneMatch(
+                  clause ->
+                      clause instanceof WildcardQueryBuilder
+                          || clause instanceof MatchQueryBuilder
+                          || clause instanceof MultiMatchQueryBuilder
+                          || clause instanceof SimpleQueryStringBuilder
+                          || clause instanceof TermQueryBuilder),
+          query + ": " + clauses);
+      // No light query either, so the full query serves the search
+      assertNull(builder.buildQuery(operationContext, List.of(datasetSpec), query, true, true));
     }
   }
 

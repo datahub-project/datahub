@@ -196,6 +196,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final Urn CARGO_OVERVIEW = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_two)");
   private static final Urn MANIFEST = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_three)");
   private static final Urn FREIGHT_BOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_four)");
+  private static final Urn FLEET_OVERVIEW = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_five)");
+  private static final Urn FLEET_NOTES = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_six)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -458,6 +460,20 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DashboardInfo()
                         .setTitle("Freight Board")
                         .setDescription("Berth plan for cargo2018 vessels")
+                        .setLastModified(new ChangeAuditStamps())),
+                FLEET_OVERVIEW,
+                events(
+                    FLEET_OVERVIEW,
+                    new DashboardInfo()
+                        .setTitle("Fleet Overview")
+                        .setDescription("Harbor figures")
+                        .setLastModified(new ChangeAuditStamps())),
+                FLEET_NOTES,
+                events(
+                    FLEET_NOTES,
+                    new DashboardInfo()
+                        .setTitle("Engineering notes")
+                        .setDescription("Built on fleet_v2")
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
@@ -1228,14 +1244,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // Overview" holds only "cargo", so it neither hides "Cargo2017 Report" nor keeps the full query
     // from finding "cargo2018" in a description. A 6-digit run held in a title is found, not
     // stopped
-    assertTrue(
-        search.apply(DASHBOARD_ENTITY_NAME, "cargo2017").getEntities().stream()
-            .anyMatch(entity -> entity.getEntity().equals(CARGO_REPORT)));
+    assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "cargo2017").getEntities(), CARGO_REPORT);
     SearchEntityArray splitRun = search.apply(DASHBOARD_ENTITY_NAME, "cargo2018").getEntities();
     assertTrue(
         splitRun.stream().anyMatch(entity -> entity.getEntity().equals(FREIGHT_BOARD)),
         splitRun.toString());
     assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "manifest20240101").getEntities(), MANIFEST);
+    // A word that also holds "_" matches a name holding one of its parts, as in DataHub Cloud: the
+    // analyzers emit those parts at one position, so "Fleet Overview" hides the description holder
+    assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "fleet_v2").getEntities(), FLEET_OVERVIEW);
     // A search with includeExplain explains the light query that served it
     SearchEntityArray explained =
         searchService
