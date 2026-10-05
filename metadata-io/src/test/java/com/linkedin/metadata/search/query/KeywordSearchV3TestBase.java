@@ -1032,12 +1032,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   /** A match in a field with a higher @Searchable boostScore ranks first, as on V2. */
   @Test
   public void testSearchableBoostsRankResults() {
+    // Multi-word, so the light query searches every field, not only the names
     assertEquals(
         searchService
             .search(
                 opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                 List.of(DASHBOARD_ENTITY_NAME),
-                "archive",
+                "quarterly archive",
                 null,
                 null,
                 0,
@@ -1104,6 +1105,70 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities();
     assertFalse(hits.isEmpty(), query);
     assertEquals(hits.get(0).getEntity(), expected, query + ": " + hits);
+  }
+
+  /**
+   * The light query runs first and the full query only when it matches nothing. A single word
+   * searches the names first, so a word that a dashboard title holds hides the dashboard holding it
+   * only in its description, in the hits, the total and explain alike.
+   */
+  @Test
+  public void testLightFirstRelaxation() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    BiFunction<String, String, SearchResult> search =
+        (entityType, query) ->
+            searchService.search(fulltext, List.of(entityType), query, null, null, 0, 10);
+
+    SearchResult nameMatch = search.apply(DASHBOARD_ENTITY_NAME, "archive");
+    assertUrns(nameMatch.getEntities(), TITLE_MATCH);
+    assertEquals(nameMatch.getNumEntities().intValue(), 1);
+    assertTrue(explain("archive", TITLE_MATCH).isMatch());
+    assertFalse(explain("archive", DESCRIPTION_MATCH).isMatch());
+
+    // A typo matches nothing on the light query, so the full fuzzy query runs. Fuzzy matching
+    // reaches the stemmed token ("archiv"); 7 characters allow two edits
+    assertUrns(
+        search.apply(DASHBOARD_ENTITY_NAME, "archiev").getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+    assertTrue(explain("archiev", DESCRIPTION_MATCH).isMatch());
+
+    // The full query would fuzzy-match "orders", but an ID lookup or a long name the light query
+    // does not find has no partial matches worth showing
+    assertEquals(
+        search.apply(DATASET_ENTITY_NAME, "orderz_20240101").getNumEntities().intValue(), 0);
+    assertEquals(
+        search.apply(DATASET_ENTITY_NAME, "orderz_aa_bb_cc").getNumEntities().intValue(), 0);
+    assertUrns(search.apply(DATASET_ENTITY_NAME, "orderz_aa").getEntities(), ORDERS);
+
+    // A search with includeExplain explains the light query that served it
+    SearchEntityArray explained =
+        searchService
+            .search(
+                fulltext.withSearchFlags(flags -> flags.setIncludeExplain(true)),
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities();
+    assertUrns(explained, TITLE_MATCH);
+    assertTrue(explained.get(0).getExtraFields().containsKey("_explain"));
+  }
+
+  private ExplainResponse explain(String query, Urn urn) {
+    return searchService.explain(
+        opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+        query,
+        urn.toString(),
+        urn.getEntityType(),
+        null,
+        null,
+        null,
+        null,
+        10,
+        List.of());
   }
 
   /** The function scores of the custom search configuration rank an explore-all query. */
