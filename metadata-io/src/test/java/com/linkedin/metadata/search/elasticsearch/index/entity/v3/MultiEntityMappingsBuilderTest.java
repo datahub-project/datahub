@@ -1675,4 +1675,27 @@ public class MultiEntityMappingsBuilderTest {
 
     assertEquals(v3Mappings.keySet(), Set.of("certification_status"));
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEagerGlobalOrdinalsOnUrnFieldGoToKeywordSubfield() {
+    SearchableAnnotation annotation = mock(SearchableAnnotation.class);
+    when(annotation.getFieldType()).thenReturn(FieldType.URN);
+    when(annotation.getFieldName()).thenReturn("owners");
+    when(annotation.getEagerGlobalOrdinals()).thenReturn(Optional.of(true));
+    SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
+    when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
+
+    Map<String, Object> owners =
+        (Map<String, Object>)
+            MultiEntityMappingsBuilder.getMappingsForField(fieldSpec, "ownership", false)
+                .get("owners");
+
+    // Facets aggregate the .keyword subfield; the analyzed text root has no global ordinals
+    assertEquals(owners.get("type"), "text");
+    assertFalse(owners.containsKey("eager_global_ordinals"));
+    Map<String, Object> keyword =
+        (Map<String, Object>) ((Map<String, Object>) owners.get("fields")).get("keyword");
+    assertEquals(keyword.get("eager_global_ordinals"), true);
+  }
 }

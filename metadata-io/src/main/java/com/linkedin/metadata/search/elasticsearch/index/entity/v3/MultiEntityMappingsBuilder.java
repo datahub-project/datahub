@@ -1112,8 +1112,27 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                         && isEagerGlobalOrdinalsSupported(
                             fieldSpec.getSearchableAnnotation().getFieldType()));
     if (hasEagerGlobalOrdinals) {
-      rootFieldMapping.put("eager_global_ordinals", true);
+      putEagerGlobalOrdinals(rootFieldMapping);
     }
+  }
+
+  /**
+   * Turns on eager global ordinals on the field that facets aggregate: the field itself, or the
+   * {@code .keyword} subfield of a URN field, whose root is analyzed text as on V2.
+   */
+  @SuppressWarnings("unchecked")
+  private static void putEagerGlobalOrdinals(@Nonnull Map<String, Object> fieldMapping) {
+    if (ESUtils.TEXT_FIELD_TYPE.equals(fieldMapping.get(TYPE))
+        && fieldMapping.get(ESUtils.FIELDS) instanceof Map<?, ?> subfields
+        && subfields.get(ESUtils.KEYWORD) instanceof Map<?, ?> keyword) {
+      Map<String, Object> keywordMapping = new HashMap<>((Map<String, Object>) keyword);
+      keywordMapping.put("eager_global_ordinals", true);
+      Map<String, Object> subfieldMappings = new HashMap<>((Map<String, Object>) subfields);
+      subfieldMappings.put(ESUtils.KEYWORD, keywordMapping);
+      fieldMapping.put(ESUtils.FIELDS, subfieldMappings);
+      return;
+    }
+    fieldMapping.put("eager_global_ordinals", true);
   }
 
   private static boolean isEagerGlobalOrdinalsSupported(@Nonnull final FieldType fieldType) {
@@ -1271,7 +1290,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                 if (fieldType == FieldType.KEYWORD
                     || fieldType == FieldType.URN
                     || fieldType == FieldType.URN_PARTIAL) {
-                  mappingForField.put("eager_global_ordinals", true);
+                  putEagerGlobalOrdinals(mappingForField);
                   log.debug("Setting eager_global_ordinals=true for field '{}'", baseFieldName);
                 } else {
                   log.debug(
