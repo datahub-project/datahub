@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * V2.5 Query Understanding layer. Analyzes the raw query string to determine user intent and
@@ -82,32 +83,27 @@ public final class QueryUnderstanding {
     for (int i = 0; i < tokens.length; i++) {
       Set<String> synonyms = synonymMap.get(tokens[i].toLowerCase());
       if (synonyms != null && synonyms.size() > 1) {
-        // Only normalize spelling variants — skip semantic synonyms (abbreviations, expansions).
-        // Spelling variants have similar length (e.g., "monetisation"/"monetization").
-        // Semantic synonyms have very different lengths (e.g., "arr"/"annual recurring revenue").
-        // Heuristic: all synonyms in the group must be single words and within 3 chars of each
-        // other. Multi-word synonyms (containing spaces) are always semantic, not spelling.
-        boolean allSingleWord = true;
-        int minLen = Integer.MAX_VALUE;
-        int maxLen = 0;
+        // Only normalize spelling variants (e.g., "monetisation"/"monetization"), not semantic
+        // synonyms such as abbreviations, expansions or related names ("glue"/"athena"): every
+        // synonym in the group must be a single word within two edits of the canonical form, the
+        // alphabetically first synonym. Multi-word synonyms are always semantic.
         String canonical = null;
+        boolean allSingleWord = true;
         for (String s : synonyms) {
           if (s.contains(" ")) {
             allSingleWord = false;
             break;
           }
-          int len = s.length();
-          if (len < minLen) {
-            minLen = len;
-          }
-          if (len > maxLen) {
-            maxLen = len;
-          }
           if (canonical == null || s.compareTo(canonical) < 0) {
             canonical = s;
           }
         }
-        boolean isSpellingVariant = allSingleWord && (maxLen - minLen) <= 3;
+        final String canonicalForm = canonical;
+        boolean isSpellingVariant =
+            allSingleWord
+                && canonicalForm != null
+                && synonyms.stream()
+                    .allMatch(s -> StringUtils.getLevenshteinDistance(s, canonicalForm, 2) >= 0);
 
         if (isSpellingVariant && canonical != null) {
           if (!tokens[i].equalsIgnoreCase(canonical)) {

@@ -1007,6 +1007,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // Fully qualified name, here the dataset key id
     assertTopHit(ENTITY_TYPES, "sales.orders", ORDERS);
     assertTopHit(ENTITY_TYPES, ORDERS.toString(), ORDERS);
+    // A URN that differs in case or is cut short still matches, as on V2
+    assertTopHit(ENTITY_TYPES, ORDERS.toString().replace("sales.orders", "SALES.ORDERS"), ORDERS);
+    assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
+    // A long description pasted as the query
+    assertTopHit(List.of(DATASET_ENTITY_NAME), CUSTOMERS_DESCRIPTION, CUSTOMERS);
     // One edit away from "customers"
     assertTopHit(List.of(DATASET_ENTITY_NAME), "custmers", CUSTOMERS);
     // "staging" expands to its synonym "stg", an exact title, ahead of the title holding "staging"

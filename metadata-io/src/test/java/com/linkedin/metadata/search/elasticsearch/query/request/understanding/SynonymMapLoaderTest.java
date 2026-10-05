@@ -17,9 +17,10 @@ public class SynonymMapLoaderTest {
     // An equivalence line maps every term to the whole group
     assertEquals(synonyms.get("stg"), Set.of("stg", "staging"));
     assertEquals(synonyms.get("staging"), Set.of("stg", "staging"));
-    // An explicit mapping expands only its left-hand terms
-    assertEquals(synonyms.get("big query"), Set.of("bigquery", "big", "query"));
-    assertFalse(synonyms.containsKey("big"));
+    // Explicit mappings split phrases into tokens; as whole-term synonyms they would give "cac"
+    // matches on names such as "customer" or "cost"
+    assertFalse(synonyms.containsKey("cac"));
+    assertFalse(synonyms.containsKey("big query"));
   }
 
   @Test

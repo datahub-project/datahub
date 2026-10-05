@@ -175,6 +175,14 @@ public class QueryUnderstandingTest {
   }
 
   @Test
+  public void testNormalizeSkipsRelatedNames() {
+    // Single words of similar length that are not spellings of one another
+    Map<String, Set<String>> related =
+        Map.of("glue", Set.of("glue", "athena"), "athena", Set.of("glue", "athena"));
+    assertEquals(QueryUnderstanding.normalizeSynonyms("glue", related), "glue");
+  }
+
+  @Test
   public void testAnalyzeReturnsBothIntentAndNormalized() {
     QueryUnderstanding.Result result = QueryUnderstanding.analyze("ad monetization", TEST_SYNONYMS);
     assertEquals(result.intent(), QueryIntent.KEYWORD);

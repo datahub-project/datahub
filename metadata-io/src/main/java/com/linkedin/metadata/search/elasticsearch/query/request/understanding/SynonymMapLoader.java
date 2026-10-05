@@ -26,9 +26,9 @@ public final class SynonymMapLoader {
 
   /**
    * Loads {@code resource} from the classpath. Equivalence lines ({@code a, b, c}) map every term
-   * to the whole group; explicit mappings ({@code a, b => x, y}) map only the left-hand terms to
-   * the right-hand ones, as Elasticsearch applies them. Returns an empty map when the file is
-   * missing or unreadable, which only turns synonym expansion off.
+   * to the whole group. Explicit mappings ({@code a, b => x, y}) are skipped: they split phrases
+   * into tokens for the analyzers and are not whole-term synonyms. Returns an empty map when the
+   * file is missing or unreadable, which only turns synonym expansion off.
    */
   @Nonnull
   public static Map<String, Set<String>> loadFromClasspath(@Nonnull final String resource) {
@@ -48,17 +48,13 @@ public final class SynonymMapLoader {
             continue;
           }
           if (line.contains("=>")) {
-            String[] parts = line.split("=>", 2);
-            Set<String> lhsTerms = parseTerms(parts[0]);
-            Set<String> rhsTerms = parseTerms(parts[1]);
-            for (String term : lhsTerms) {
-              synonymMap.computeIfAbsent(term, k -> new HashSet<>()).addAll(rhsTerms);
-            }
-          } else {
-            Set<String> allTerms = parseTerms(line);
-            for (String term : allTerms) {
-              synonymMap.computeIfAbsent(term, k -> new HashSet<>()).addAll(allTerms);
-            }
+            // Explicit mappings expand a phrase into tokens for the analyzers ("big query =>
+            // bigquery, big, query"); as whole-term synonyms they would match unrelated names
+            continue;
+          }
+          Set<String> allTerms = parseTerms(line);
+          for (String term : allTerms) {
+            synonymMap.computeIfAbsent(term, k -> new HashSet<>()).addAll(allTerms);
           }
         }
       }

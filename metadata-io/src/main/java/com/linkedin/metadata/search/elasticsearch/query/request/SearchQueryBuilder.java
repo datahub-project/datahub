@@ -65,9 +65,10 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 /**
  * Builds the keyword search query. V2 entity indices get the V2 query: per-analyzer simple query
  * strings with AND semantics plus exact and prefix matches, summed under a bool query. Search V3
- * keyword reads get the Stage 1 query, a port of the fork's V2.5 Stage 1: OR retrieval with fuzzy,
- * synonym and wildcard recall under a DisMax root, so the best matching clause sets the score. The
- * Stage 1 methods keep the fork's {@code V2_5} names so both trees stay easy to merge.
+ * keyword reads get the Stage 1 query, a port of DataHub Cloud's Search V2.5 Stage 1: OR retrieval
+ * with fuzzy, synonym and wildcard recall under a DisMax root, so the best matching clause sets the
+ * score. The Stage 1 methods keep DataHub Cloud's {@code V2_5} names so the code stays easy to
+ * merge.
  */
 @Slf4j
 public class SearchQueryBuilder {
@@ -154,14 +155,13 @@ public class SearchQueryBuilder {
 
   /**
    * Stage 1: Multiplier on exact and prefix match boosts so an exact or prefix hit outscores a
-   * fuzzy-only hit under the DisMax root. The fork's SEARCH_V2_5_EXACT_MATCH_BOOST_MULTIPLIER
-   * default.
+   * fuzzy-only hit under the DisMax root. DataHub Cloud's default.
    */
   private static final float EXACT_MATCH_BOOST_MULTIPLIER = 6.0f;
 
   /**
    * Stage 1: Multiplier on field boosts in the synonym-priority query so a synonym match outscores
-   * a fuzzy match. The fork's SEARCH_V2_5_SYNONYM_BOOST_MULTIPLIER default.
+   * a fuzzy match. DataHub Cloud's default.
    */
   private static final float SYNONYM_BOOST_MULTIPLIER = 1.5f;
 
@@ -248,11 +248,20 @@ public class SearchQueryBuilder {
             normalizedQuery.equals(query) ? "" : " (was: \"" + query + "\")");
       }
 
-      // URN and storage-path lookups get a focused query on the identity fields
+      // URN and storage-path lookups get a focused query on the identity fields, plus V2's
+      // all-terms match on the delimited urn and id, so a URN that differs in case or is cut short
+      // and a path stored without its scheme still match, as on V2
       QueryBuilder strategyQuery = buildStrategyQuery(intent, normalizedQuery);
       queryBuilder =
           strategyQuery != null
-              ? strategyQuery
+              ? QueryBuilders.boolQuery()
+                  .should(strategyQuery)
+                  .should(
+                      QueryBuilders.simpleQueryStringQuery(normalizedQuery)
+                          .field("urn.delimited")
+                          .field("id.delimited")
+                          .defaultOperator(Operator.AND))
+                  .minimumShouldMatch(1)
               : buildInternalQueryV2_5(
                   opContext, customQueryConfig, entitySpecs, normalizedQuery, fulltext);
     } else {

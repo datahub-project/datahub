@@ -1466,12 +1466,15 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testV3UrnQueryTargetsIdentityFields() {
     String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.orders,PROD)";
-    QueryBuilder query =
-        ((FunctionScoreQueryBuilder)
-                TEST_V3_BUILDER.buildQuery(
-                    opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), urn, true))
-            .query();
-    BoolQueryBuilder identity = (BoolQueryBuilder) query;
+    BoolQueryBuilder query =
+        (BoolQueryBuilder)
+            ((FunctionScoreQueryBuilder)
+                    TEST_V3_BUILDER.buildQuery(
+                        opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), urn, true))
+                .query();
+    assertEquals(query.minimumShouldMatch(), "1");
+    // The identity query: an exact urn term among its clauses
+    BoolQueryBuilder identity = (BoolQueryBuilder) query.should().get(0);
     assertTrue(
         identity.should().stream()
             .anyMatch(
@@ -1480,7 +1483,11 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         && ((TermQueryBuilder) clause).fieldName().equals("urn")
                         && urn.equals(((TermQueryBuilder) clause).value())),
         identity.toString());
-    assertTrue(identity.should().stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
+    // V2's all-terms match on the delimited urn and id, for URNs that differ in case or are cut
+    // short
+    SimpleQueryStringBuilder allTerms = (SimpleQueryStringBuilder) query.should().get(1);
+    assertEquals(allTerms.defaultOperator(), Operator.AND);
+    assertEquals(allTerms.fields().keySet(), Set.of("urn.delimited", "id.delimited"));
   }
 
   @Test(expectedExceptions = ValidationException.class)
