@@ -102,9 +102,9 @@ _SELECT_QUERY_KIND = "Select"
 
 _MIN_TIMESTAMP = datetime.min.replace(tzinfo=timezone.utc)
 
-# Separator for the query_log arrays, joined server-side. A newline cannot appear
-# in a ClickHouse identifier unless it is backtick-quoted, and those entries are
-# dropped anyway because they match no table we built a URN for.
+# Newlines are legal only in backtick-quoted identifiers. Splitting such names
+# produces fragments, but query-log references are later restricted to datasets
+# accepted during schema discovery, so those fragments are discarded.
 _ARRAY_SEP = "\n"
 _ARRAY_SEP_SQL = "\\n"
 
