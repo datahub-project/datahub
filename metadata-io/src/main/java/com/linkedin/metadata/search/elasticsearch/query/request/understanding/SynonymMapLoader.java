@@ -22,21 +22,26 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 @Slf4j
 public final class SynonymMapLoader {
 
-  /** The synonym rules the default search analyzers apply, so both sides expand alike. */
-  public static final String DEFAULT_SYNONYMS_RESOURCE = "elasticsearch/synonyms/default.txt";
-
   /** The synonym files the search analyzers load. */
   private static final String SYNONYM_FILES = "classpath*:elasticsearch/synonyms/*.txt";
 
   private SynonymMapLoader() {}
 
-  /** Loads and merges every synonym file the search analyzers apply. */
+  /**
+   * Loads and merges every synonym file the search analyzers apply. Equivalence lines ({@code a, b,
+   * c}) map every term to the whole group. Explicit mappings ({@code a, b => x, y}) are skipped:
+   * they split phrases into tokens for the analyzers and are not whole-term synonyms. Returns an
+   * empty map when no file loads, which only turns synonym expansion off.
+   */
   @Nonnull
   public static Map<String, Set<String>> loadDefault() {
     Map<String, Set<String>> synonymMap = new HashMap<>();
     try {
-      for (Resource resource :
-          new PathMatchingResourcePatternResolver().getResources(SYNONYM_FILES)) {
+      Resource[] resources = new PathMatchingResourcePatternResolver().getResources(SYNONYM_FILES);
+      if (resources.length == 0) {
+        log.warn("No synonym files match {}; synonym expansion disabled", SYNONYM_FILES);
+      }
+      for (Resource resource : resources) {
         try (InputStream is = resource.getInputStream()) {
           read(is)
               .forEach(
@@ -46,28 +51,6 @@ public final class SynonymMapLoader {
       }
     } catch (Exception e) {
       log.warn("Failed to load synonym files {}; synonym expansion disabled", SYNONYM_FILES, e);
-    }
-    return synonymMap;
-  }
-
-  /**
-   * Loads {@code resource} from the classpath. Equivalence lines ({@code a, b, c}) map every term
-   * to the whole group. Explicit mappings ({@code a, b => x, y}) are skipped: they split phrases
-   * into tokens for the analyzers and are not whole-term synonyms. Returns an empty map when the
-   * file is missing or unreadable, which only turns synonym expansion off.
-   */
-  @Nonnull
-  public static Map<String, Set<String>> loadFromClasspath(@Nonnull final String resource) {
-    Map<String, Set<String>> synonymMap = new HashMap<>();
-    try {
-      InputStream is = SynonymMapLoader.class.getClassLoader().getResourceAsStream(resource);
-      if (is == null) {
-        log.info("Synonym file {} not found on classpath; synonym expansion disabled", resource);
-        return synonymMap;
-      }
-      return read(is);
-    } catch (Exception e) {
-      log.warn("Failed to load synonym file {}; synonym expansion disabled", resource, e);
     }
     return synonymMap;
   }

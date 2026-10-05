@@ -386,7 +386,8 @@ public class SearchQueryBuilder {
           .ifPresent(disMaxQuery::add);
       // splitAlphanumericTokens turned "orders2017" into "orders 2017", but the analyzers index
       // such a run as one token, so also match the unsplit query, without fuzziness
-      if (!operatorEscaped.equals(sanitizedQuery)) {
+      if (LETTER_DIGIT_BOUNDARY.matcher(operatorEscaped).find()
+          || DIGIT_LETTER_BOUNDARY.matcher(operatorEscaped).find()) {
         getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, operatorEscaped)
             .ifPresent(disMaxQuery::add);
       }

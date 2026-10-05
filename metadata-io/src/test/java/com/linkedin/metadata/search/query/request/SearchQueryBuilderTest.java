@@ -1527,6 +1527,53 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     }
   }
 
+  @Test
+  public void testV3CustomConfigWithoutTextMatchesAddsNoBonusClauses() throws IOException {
+    CustomSearchConfiguration config =
+        new YAMLMapper()
+            .readValue(
+                """
+                queryConfigurations:
+                  - queryRegex: .*
+                    simpleQuery: false
+                    prefixMatchQuery: false
+                    exactMatchQuery: false
+                """,
+                CustomSearchConfiguration.class);
+    SearchQueryBuilder builder = new SearchQueryBuilder(testQueryConfig, config, true);
+    EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
+    for (String query : List.of("orders", "my_db.sales.orders", "orders placed by each customer")) {
+      List<QueryBuilder> clauses = new ArrayList<>();
+      collectClauses(
+          builder.buildQuery(operationContext, List.of(datasetSpec), query, true), clauses);
+      assertTrue(
+          clauses.stream()
+              .noneMatch(
+                  clause ->
+                      clause instanceof WildcardQueryBuilder
+                          || clause instanceof MatchQueryBuilder
+                          || clause instanceof SimpleQueryStringBuilder),
+          query + ": " + clauses);
+    }
+  }
+
+  @Test
+  public void testV3UnsplitQueryOnlyForLetterDigitRuns() {
+    // "orders2017" also matches as the one token the analyzers index; an escaped operator does
+    // not change any token, so it adds no copy
+    assertTrue(v3SimpleQueryCount("orders2017") > v3SimpleQueryCount("orders 2017"));
+    assertEquals(v3SimpleQueryCount("revenue -archive"), v3SimpleQueryCount("revenue archive"));
+  }
+
+  private long v3SimpleQueryCount(String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), query, true),
+        clauses);
+    return clauses.stream().filter(SimpleQueryStringBuilder.class::isInstance).count();
+  }
+
   @Test(expectedExceptions = ValidationException.class)
   public void testV3ValidatesUrnQueries() {
     // Urn queries skip the general query, so validation must run before the dispatch
