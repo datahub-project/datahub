@@ -366,7 +366,6 @@ jobs:
           DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
           printf '%s\n' "$DATAHUB_IMAGES"
-          # Setup already rejected anything that is not a registry/name:tag.
           # Split on whitespace; do not eval the list.
           read -r -a image_refs <<< "$DATAHUB_IMAGES"
           if [[ ${#image_refs[@]} -eq 0 ]]; then
@@ -606,7 +605,6 @@ jobs:
         env:
           DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
-          # Setup already rejected anything that is not a registry/name:tag.
           # Split on whitespace; do not eval the list.
           read -r -a image_refs <<< "$DATAHUB_IMAGES"
           if [[ ${#image_refs[@]} -eq 0 ]]; then
@@ -632,8 +630,6 @@ jobs:
           DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
           # Tag all images with nightly and daily tags
-
-          # Setup already rejected anything that is not a registry/name:tag.
           # Split on whitespace; do not eval the list.
           read -r -a image_refs <<< "$DATAHUB_IMAGES"
           if [[ ${#image_refs[@]} -eq 0 ]]; then
