@@ -8,6 +8,7 @@ import { EntityCapabilityType } from '@app/entityV2/Entity';
 import PreviewContext from '@app/entityV2/shared/PreviewContext';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
+import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
@@ -21,7 +22,10 @@ const searchResult = {
     matchedFields: [],
 };
 
-function renderFooter(previewData: Record<string, unknown> | null, { asSearchResult = true } = {}) {
+function renderFooter(
+    previewData: Record<string, unknown> | null,
+    { asSearchResult = true, lineageCountsFailed = false } = {},
+) {
     const entityRegistry = getTestEntityRegistry();
     const footer = (
         <DefaultPreviewCardFooter
@@ -35,10 +39,13 @@ function renderFooter(previewData: Record<string, unknown> | null, { asSearchRes
     const withPreview = (
         <PreviewContext.Provider value={{ previewData: previewData as any }}>{footer}</PreviewContext.Provider>
     );
+    const withLineageStatus = (
+        <SearchResultLineageStatusProvider failed={lineageCountsFailed}>{withPreview}</SearchResultLineageStatusProvider>
+    );
     const withSearch = asSearchResult ? (
-        <SearchResultProvider searchResult={searchResult as any}>{withPreview}</SearchResultProvider>
+        <SearchResultProvider searchResult={searchResult as any}>{withLineageStatus}</SearchResultProvider>
     ) : (
-        withPreview
+        withLineageStatus
     );
 
     return render(
@@ -106,5 +113,12 @@ describe('DefaultPreviewCardFooter lineage badge', () => {
 
         expect(screen.queryByTestId('lineage-badge-placeholder')).not.toBeInTheDocument();
         expect(document.querySelector('svg')).toBeTruthy();
+    });
+
+    it('clears the reserved lineage badge slot when the deferred count batch fails', () => {
+        renderFooter({ urn: URN, type: EntityType.Dataset }, { lineageCountsFailed: true });
+
+        expect(screen.queryByTestId('lineage-badge-placeholder')).not.toBeInTheDocument();
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
     });
 });

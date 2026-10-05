@@ -15,7 +15,12 @@ function uniqueUrns(urns: string[]): string[] {
  */
 export function useSearchResultLineageCounts(urns: string[]) {
     const hideLineage = useHideLineageInSearchCards();
-    const queryUrns = uniqueUrns(urns);
+    // Stabilize identity so the counts memo is not invalidated every parent render.
+    const queryUrnsKey = uniqueUrns(urns).join('\0');
+    const queryUrns = useMemo(
+        () => (queryUrnsKey.length > 0 ? queryUrnsKey.split('\0') : []),
+        [queryUrnsKey],
+    );
     const skip = hideLineage || queryUrns.length === 0;
 
     const { data, loading, error } = useGetSearchResultLineageCountsQuery({
@@ -25,12 +30,20 @@ export function useSearchResultLineageCounts(urns: string[]) {
     });
 
     const countsByUrn = useMemo(() => {
-        // On query failure leave the map empty so the sidebar can fall back to getLineageCounts.
-        if (!data) {
+        // On query failure leave the map empty so the sidebar can fall back to getLineageCounts
+        // and search cards can drop the reserved badge slot.
+        if (error || !data) {
             return lineageCountsByUrn(undefined);
         }
-        return lineageCountsByUrn(data.entities as LineageCountEntity[] | undefined, queryUrns);
-    }, [data, queryUrns]);
+        const entities = data.entities as LineageCountEntity[] | undefined;
+        // While loading, Apollo may still expose the prior page's `data`. Index complete
+        // pairs from that payload, but do not settle against the current URN set — that
+        // would write zeros for new URNs and flash "no lineage" badges until the refetch lands.
+        if (loading) {
+            return lineageCountsByUrn(entities);
+        }
+        return lineageCountsByUrn(entities, queryUrns);
+    }, [data, queryUrns, loading, error]);
 
     return {
         countsByUrn,

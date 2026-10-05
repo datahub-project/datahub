@@ -58,7 +58,7 @@ describe('useSearchResultLineageCounts', () => {
         expect(result.current.countsByUrn.size).toBe(0);
     });
 
-    it('keeps loading true while refetching even when prior counts are cached', () => {
+    it('keeps prior counts while refetching but does not zero-settle new URNs', () => {
         useCountsQueryMock.mockReturnValue({
             loading: true,
             error: undefined,
@@ -71,6 +71,27 @@ describe('useSearchResultLineageCounts', () => {
 
         expect(result.current.loading).toBe(true);
         expect(result.current.countsByUrn.has(URN)).toBe(true);
+        // Stale Apollo `data` must not settle pagination URNs as zero while loading.
+        expect(result.current.countsByUrn.has(OTHER_URN)).toBe(false);
+        expect(result.current.countsByUrn.size).toBe(1);
+    });
+
+    it('does not settle new page URNs from a prior batch while loading', () => {
+        useCountsQueryMock.mockReturnValue({
+            loading: true,
+            error: undefined,
+            data: {
+                entities: [{ urn: URN, upstream: { filtered: 0, total: 2 }, downstream: { filtered: 1, total: 5 } }],
+            },
+        });
+
+        // Page turn: visible URNs no longer include the cached entity.
+        const { result } = renderHook(() => useSearchResultLineageCounts([OTHER_URN]));
+
+        expect(result.current.loading).toBe(true);
+        expect(result.current.countsByUrn.has(OTHER_URN)).toBe(false);
+        // Stale cached entity may still be indexed, but must not zero-fill the new page.
+        expect(result.current.countsByUrn.get(OTHER_URN)).toBeUndefined();
     });
 
     it('maps returned totals by urn and settles missing URNs', () => {
@@ -110,6 +131,21 @@ describe('useSearchResultLineageCounts', () => {
         const { result } = renderHook(() => useSearchResultLineageCounts([URN]));
 
         expect(result.current.loading).toBe(false);
+        expect(result.current.countsByUrn.size).toBe(0);
+        expect(result.current.error).toBeTruthy();
+    });
+
+    it('ignores stale data when the deferred query fails', () => {
+        useCountsQueryMock.mockReturnValue({
+            loading: false,
+            error: new Error('lineage counts failed'),
+            data: {
+                entities: [{ urn: URN, upstream: { filtered: 0, total: 2 }, downstream: { filtered: 1, total: 5 } }],
+            },
+        });
+
+        const { result } = renderHook(() => useSearchResultLineageCounts([URN, OTHER_URN]));
+
         expect(result.current.countsByUrn.size).toBe(0);
         expect(result.current.error).toBeTruthy();
     });
