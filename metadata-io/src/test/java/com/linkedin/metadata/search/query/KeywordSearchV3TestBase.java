@@ -15,9 +15,12 @@ import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertEqualsNoOrder;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
@@ -611,6 +614,39 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         ORDERS,
         CUSTOMERS,
         ORDERS_CHART);
+  }
+
+  @Test
+  public void testIncludeExplainAndSearchType() throws IOException {
+    OperationContext explained =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setIncludeExplain(true)
+                    .setSearchType("DFS_QUERY_THEN_FETCH"));
+    SearchEntityArray searched =
+        searchService
+            .search(explained, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
+            .getEntities();
+    assertUrns(searched, ORDERS);
+    assertExplained(searched.get(0));
+
+    SearchEntityArray scrolled =
+        searchService
+            .fullTextScroll(
+                explained, ENTITY_TYPES, "orders", null, null, null, null, 10, List.of())
+            .getEntities();
+    assertUrns(scrolled, ORDERS, ORDERS_CHART);
+    for (SearchEntity entity : scrolled) {
+      assertExplained(entity);
+    }
+  }
+
+  private static void assertExplained(SearchEntity entity) throws IOException {
+    JsonNode explanation = new ObjectMapper().readTree(entity.getExtraFields().get("_explain"));
+    assertTrue(explanation.get("value").floatValue() > 0);
+    assertFalse(explanation.get("description").asText().isEmpty());
   }
 
   @Test

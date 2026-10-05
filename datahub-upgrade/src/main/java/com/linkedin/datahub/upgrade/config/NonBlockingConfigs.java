@@ -88,11 +88,15 @@ public class NonBlockingConfigs {
   public NonBlockingSystemUpgrade resyncDataProductAssets(
       final OperationContext opContext,
       EntityService<?> entityService,
-      SearchService searchService,
-      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}") final boolean reprocessEnabled,
-      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize) {
+      AspectDao aspectDao,
+      @Value("${systemUpdate.dataProductAssets.enabled}") final boolean enabled,
+      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.dataProductAssets.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.dataProductAssets.limit}") final Integer limit,
+      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}")
+          final boolean reprocessEnabled) {
     return new ResyncDataProductAssets(
-        opContext, entityService, searchService, reprocessEnabled, batchSize);
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit, reprocessEnabled);
   }
 
   @Bean

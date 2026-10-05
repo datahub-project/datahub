@@ -11,9 +11,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
@@ -338,6 +342,50 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
+  }
+
+  @Test
+  public void testIncludeExplain() throws Exception {
+    Urn urn = new TestEntityUrn("test", "explained", "VALUE_1");
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("explained"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+    syncAfterWrite(getBulkProcessor());
+
+    OperationContext explainContext =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipCache(true)
+                    .setIncludeExplain(true)
+                    .setSearchType("DFS_QUERY_THEN_FETCH"));
+    SearchResult searchResult =
+        searchService.searchAcrossEntities(
+            explainContext, ImmutableList.of(ENTITY_NAME), "explained", null, null, 0, 10);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+    JsonNode explanation =
+        new ObjectMapper()
+            .readTree(searchResult.getEntities().get(0).getExtraFields().get("_explain"));
+    assertTrue(explanation.get("value").floatValue() > 0);
+    assertFalse(explanation.get("description").asText().isEmpty());
+
+    // A scroll over a point in time returns explanations too
+    ScrollResult scrollResult =
+        pitSearchService.scrollAcrossEntities(
+            explainContext,
+            ImmutableList.of(ENTITY_NAME),
+            "explained",
+            null,
+            null,
+            null,
+            "2m",
+            10,
+            null);
+    assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
+    assertTrue(scrollResult.getEntities().get(0).getExtraFields().containsKey("_explain"));
   }
 
   @Test
