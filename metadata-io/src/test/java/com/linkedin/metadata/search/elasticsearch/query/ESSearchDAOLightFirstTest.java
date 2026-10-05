@@ -122,13 +122,19 @@ public class ESSearchDAOLightFirstTest {
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(failedEmpty, full);
     assertSame(dao.searchLightFirst(opContext, request, LIGHT, "run_20240101"), full);
+    // So does a light query that timed out
+    SearchResponse timedOutEmpty = response(0, 0);
+    when(timedOutEmpty.isTimedOut()).thenReturn(true);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(timedOutEmpty, full);
+    assertSame(dao.searchLightFirst(opContext, request, LIGHT, "run_20240101"), full);
     // Hits are served even when a shard failed
     SearchResponse failedHits = response(2, 1);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(failedHits);
     assertSame(dao.searchLightFirst(opContext, request, LIGHT, "orders"), failedHits);
-    // One query for the stop and for the served hits, two for the fall-through
-    verify(client, times(4)).search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+    // One query for the stop and for the served hits, two for each fall-through
+    verify(client, times(6)).search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
     // The request keeps the full query for the caller
     assertSame(((BoolQueryBuilder) request.source().query()).must().get(0), FULL);
   }

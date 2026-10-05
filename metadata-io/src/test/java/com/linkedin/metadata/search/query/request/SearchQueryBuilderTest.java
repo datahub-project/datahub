@@ -1829,6 +1829,22 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testV3LightQuerySearchesDocumentBodies() {
+    EntitySpec documentSpec = operationContext.getEntityRegistry().getEntitySpec("document");
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext, List.of(documentSpec), "quarterly revenue", true, true),
+        clauses);
+    assertTrue(
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .anyMatch(multiMatch -> multiMatch.fields().containsKey("text.delimited")),
+        clauses.toString());
+  }
+
+  @Test
   public void testV2IgnoresLightQueryFlag() {
     QueryBuilder full =
         TEST_BUILDER.buildQuery(

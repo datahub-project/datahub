@@ -427,8 +427,12 @@ public class ESSearchDAO {
         searchRequestComponents.getMiddle(),
         from,
         size,
-        lightFirstQuery(
-            opContext, searchRequestComponents.getRight(), input, sortCriteria, postFilters),
+        // A count without hits (size 0, such as the sidebar's aggregations) runs the full query, as
+        // browse does, so the counts shown together agree
+        size != null && size == 0
+            ? null
+            : lightFirstQuery(
+                opContext, searchRequestComponents.getRight(), input, sortCriteria, postFilters),
         input);
   }
 
@@ -486,6 +490,7 @@ public class ESSearchDAO {
     QueryBuilder fullQuery = searchRequest.source().query();
     QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
     if (lightSourceQuery == null) {
+      countLightFirst(opContext, "direct");
       return searchClient(opContext, searchRequest)
           .search(opContext, searchRequest, RequestOptions.DEFAULT);
     }
@@ -511,8 +516,10 @@ public class ESSearchDAO {
       countLightFirst(opContext, "light");
       return lightResponse;
     }
-    // An empty result stands only when every shard answered
-    if (skipsFullQuery(input) && lightResponse.getFailedShards() == 0) {
+    // An empty result stands only when every shard answered in time
+    if (skipsFullQuery(input)
+        && lightResponse.getFailedShards() == 0
+        && !lightResponse.isTimedOut()) {
       countLightFirst(opContext, "stopped");
       return lightResponse;
     }
@@ -596,7 +603,10 @@ public class ESSearchDAO {
     return lightFunctionScoreQuery;
   }
 
-  /** Counts which query served a light-first search: light, full (fell through) or stopped. */
+  /**
+   * Counts which query served a light-first search: light, full (fell through), stopped, or direct
+   * (a request shape the light query cannot replace).
+   */
   private static void countLightFirst(@Nonnull OperationContext opContext, @Nonnull String served) {
     opContext
         .getMetricUtils()

@@ -1188,6 +1188,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10,
                 List.of())
             .isMatch());
+    // A count without hits runs the full query, as browse does
+    assertEquals(
+        searchService
+            .search(fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 0, 0)
+            .getNumEntities()
+            .intValue(),
+        2);
     // The total decides, so a later page of a light result stays on the light query
     SearchResult secondPage =
         searchService.search(

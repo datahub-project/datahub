@@ -187,12 +187,13 @@ public class SearchQueryBuilder {
 
   /**
    * Fields excluded from the light path multi_match. These fields either have very low search
-   * relevance (ldap, flowId, jobId, cluster) or are free-text fields whose broad token overlap
-   * causes false positives and latency on the focused light path (definition, text). The full query
-   * still searches them when the light query finds nothing.
+   * relevance (ldap, flowId, jobId, cluster) or are free text whose broad token overlap causes
+   * false positives and latency on the focused light path (glossary term definitions). The full
+   * query still searches them when the light query finds nothing. Document bodies ({@code text})
+   * stay searched, as DataHub Cloud exempts them.
    */
   private static final Set<String> LIGHT_PATH_EXCLUDED_FIELDS =
-      Set.of("ldap", "flowId", "jobId", "cluster", "definition", "text");
+      Set.of("ldap", "flowId", "jobId", "cluster", "definition");
 
   /**
    * Matches queries that are truly a single word — no spaces, underscores, hyphens, dots, or
