@@ -186,10 +186,20 @@ class TestS3SlimNoPySpark:
             ctx,
         )
 
-        aspect_names = _collect_aspect_names(source.get_workunits())
+        workunits = list(source.get_workunits())
+        aspect_names = _collect_aspect_names(workunits)
         # Schema must not be emitted, but the rest of the dataset metadata still is.
         assert "schemaMetadata" not in aspect_names
         assert "datasetProperties" in aspect_names
+
+        # With inference off, no file is opened, so the dataset must not name a
+        # source file it never read.
+        dataset_props = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if getattr(wu.metadata, "aspectName", None) == "datasetProperties"
+        )
+        assert "schema_inferred_from" not in dataset_props.customProperties
 
     def test_schema_inference_enabled_empty_file_skips_schema_metadata(
         self, tmp_path: Path

@@ -437,7 +437,8 @@ def test_ingest_table_drops_schema_inferred_from_on_extraction_failure(s3_resour
     )
 
     # Simulate a read failure during schema inference while listing still works.
-    source.get_fields = Mock(side_effect=OSError("cannot read object"))
+    get_fields_mock = Mock(side_effect=OSError("cannot read object"))
+    source.get_fields = get_fields_mock  # type: ignore[method-assign]
 
     full_path = "s3://my-bucket/my-folder/table1/data.csv"
     table_data = TableData(
@@ -458,7 +459,7 @@ def test_ingest_table_drops_schema_inferred_from_on_extraction_failure(s3_resour
     ]
 
     assert not any(isinstance(a, SchemaMetadataClass) for a in aspects)
-    source.get_fields.assert_called_once()
+    get_fields_mock.assert_called_once()
 
     dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
     assert "schema_inferred_from" not in dataset_props.customProperties

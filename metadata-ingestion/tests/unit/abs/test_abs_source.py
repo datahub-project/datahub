@@ -1,3 +1,4 @@
+from typing import Any, List, Tuple
 from unittest.mock import Mock, patch
 
 import pytest
@@ -427,12 +428,13 @@ def test_connection_string_account_check_handles_base64_key_padding():
 
 def _ingest_single_abs_table(
     enable_schema_inference: bool, get_fields_raises: bool = False
-):
-    """Build an ABSSource and run ingest_table once, returning the emitted aspect
-    class names. The BlobServiceClient is mocked so no network/file I/O happens;
-    schema inference (when enabled) is stubbed via get_fields. When
-    get_fields_raises is True, the stubbed get_fields raises to exercise the
-    schema-extraction-failure except block."""
+) -> Tuple[Any, Mock, List[Any]]:
+    """Build an ABSSource and run ingest_table once, returning the source, the
+    get_fields mock, and the emitted aspects. The BlobServiceClient is mocked so
+    no network/file I/O happens; schema inference (when enabled) is stubbed via
+    get_fields. When get_fields_raises is True, the stubbed get_fields raises to
+    exercise the schema-extraction-failure except block. The mock is returned so
+    callers assert on it directly rather than on the typed method attribute."""
     import datetime
 
     from datahub.ingestion.source.abs.config import DataLakeSourceConfig
@@ -475,11 +477,9 @@ def _ingest_single_abs_table(
     # Avoid real file reads when inference is on; the branch under test is whether
     # schemaMetadata is emitted at all, not the inferred field values.
     if get_fields_raises:
-        source.get_fields = Mock(  # type: ignore[method-assign]
-            side_effect=OSError("cannot read object")
-        )
+        get_fields_mock = Mock(side_effect=OSError("cannot read object"))
     else:
-        source.get_fields = Mock(  # type: ignore[method-assign]
+        get_fields_mock = Mock(
             return_value=[
                 SchemaFieldClass(
                     fieldPath="id",
@@ -488,6 +488,7 @@ def _ingest_single_abs_table(
                 )
             ]
         )
+    source.get_fields = get_fields_mock  # type: ignore[method-assign]
 
     base = "https://testaccount.blob.core.windows.net/testcontainer/test"
     table_data = TableData(
@@ -508,7 +509,7 @@ def _ingest_single_abs_table(
         for wu in workunits
         if hasattr(wu.metadata, "aspect") and wu.metadata.aspect is not None
     ]
-    return source, aspects
+    return source, get_fields_mock, aspects
 
 
 @patch("datahub.ingestion.source.azure.azure_common.BlobServiceClient")
@@ -520,10 +521,12 @@ def test_abs_ingest_table_emits_schema_when_inference_enabled(mock_blob_client):
         SchemaMetadataClass,
     )
 
-    source, aspects = _ingest_single_abs_table(enable_schema_inference=True)
+    source, get_fields_mock, aspects = _ingest_single_abs_table(
+        enable_schema_inference=True
+    )
 
     assert any(isinstance(a, SchemaMetadataClass) for a in aspects)
-    source.get_fields.assert_called_once()
+    get_fields_mock.assert_called_once()
 
     dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
     assert "schema_inferred_from" in dataset_props.customProperties
@@ -539,10 +542,12 @@ def test_abs_ingest_table_skips_schema_when_inference_disabled(mock_blob_client)
         SchemaMetadataClass,
     )
 
-    source, aspects = _ingest_single_abs_table(enable_schema_inference=False)
+    source, get_fields_mock, aspects = _ingest_single_abs_table(
+        enable_schema_inference=False
+    )
 
     assert not any(isinstance(a, SchemaMetadataClass) for a in aspects)
-    source.get_fields.assert_not_called()
+    get_fields_mock.assert_not_called()
 
     dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
     assert "schema_inferred_from" not in dataset_props.customProperties
@@ -561,12 +566,12 @@ def test_abs_ingest_table_drops_schema_inferred_from_on_extraction_failure(
         SchemaMetadataClass,
     )
 
-    source, aspects = _ingest_single_abs_table(
+    source, get_fields_mock, aspects = _ingest_single_abs_table(
         enable_schema_inference=True, get_fields_raises=True
     )
 
     assert not any(isinstance(a, SchemaMetadataClass) for a in aspects)
-    source.get_fields.assert_called_once()
+    get_fields_mock.assert_called_once()
 
     dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
     assert "schema_inferred_from" not in dataset_props.customProperties
