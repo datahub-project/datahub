@@ -19,7 +19,7 @@ public class JdbcUrlParser {
     /**
      * PostgreSQL JDBC {@code currentSchema} query parameter when present (optional client {@code
      * search_path}); parsed for diagnostics and tests. Application DDL uses {@code postgres.schema}
-     * (default {@code public}), not this value.
+     * / {@code DATAHUB_POSTGRES_SCHEMA} (default {@code public}), not this value.
      */
     public final String currentSchema;
 
