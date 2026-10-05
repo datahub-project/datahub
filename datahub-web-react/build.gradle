@@ -142,6 +142,7 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   def test_sentinel = "${buildDir}/.yarn-test-sentinel"
   outputs.file(test_sentinel)
   inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  inputs.files(project.fileTree(dir: 'vite-plugins'))
   doLast {
     // touch a file with name yarn-lint.txt in the build directory
     def file = file(test_sentinel)
@@ -160,6 +161,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   if (targetFile.isEmpty()) {
     // Run on all files
     inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
+    inputs.files(project.fileTree(dir: 'vite-plugins'))
     args = ['run', 'lint']
   } else {
     // Run on specific file - run lint, format-check, and type-check
@@ -279,6 +281,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
     file('.env'),
     file('vite.config.ts'),
     file('tsconfig.json'),
+    project.fileTree(dir: "vite-plugins"),
   )
   outputs.dir('dist')
 }
@@ -331,10 +334,16 @@ externalPrettierConfigs.each { config ->
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
-    // Get the list of changed Markdown files using Git
+    dependsOn(tasks.named('yarnInstall'))
+    // At pre-push everything is committed, so diffing against HEAD finds nothing.
+    // pre-commit exports the pushed range; diff that instead when present.
+    // Three-dot (as pre-commit itself does) so files changed only on the remote side are skipped.
+    def fromRef = System.getenv('PRE_COMMIT_FROM_REF')
+    def toRef = System.getenv('PRE_COMMIT_TO_REF')
+    def diffRange = (fromRef && toRef) ? ["${fromRef}...${toRef}".toString()] : ['HEAD']
     def changedFiles = new ByteArrayOutputStream()
     execOps.exec {
-      commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
+      commandLine(['git', 'diff', '--name-only', '--diff-filter=ACMRT'] + diffRange)
       standardOutput = changedFiles
     }
     def allChangedFiles = changedFiles.toString().trim().split('\n').findAll { it != '' }

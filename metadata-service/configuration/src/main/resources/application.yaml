@@ -1596,10 +1596,14 @@ systemUpdate:
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
   dataProductAssets:
-    # First-time population of asset-side dataProducts is driven by dataProductProperties
-    # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
-    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
+    # First-time (and repair) population of asset-side dataProducts: scan stored
+    # dataProductProperties and invoke DataProductAssetsSideEffect via RESTATE MCLs
+    # (not a no-op parent upsert). Skips once the versioned upgrade marker SUCCEEDED
+    # unless reprocess.enabled is set.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT:0}
     reprocess:
       enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
   browsePathsV2Iceberg:

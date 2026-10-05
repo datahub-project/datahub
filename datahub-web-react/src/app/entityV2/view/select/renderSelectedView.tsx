@@ -1,145 +1,123 @@
-import { Tooltip } from '@components';
-import CloseIcon from '@mui/icons-material/Close';
-import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
-import { Button } from 'antd';
+import { Button, Tooltip } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ViewLabel } from '@app/entityV2/view/select/styledComponents';
-
-const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => {
-        if (props.$isShowNavBarRedesign) {
-            return props.$selectedViewName ? props.theme.colors.bgSurfaceBrand : 'transparent';
-        }
-        return props.$selectedViewName ? props.theme.colors.buttonFillBrand : 'transparent';
-    }};
-    border-color: ${(props) => {
-        if (props.$isShowNavBarRedesign) {
-            return props.$selectedViewName ? 'transparent' : props.theme.colors.border;
-        }
-        return props.$selectedViewName ? props.theme.colors.borderBrand : 'transparent';
-    }};
-    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textBrand : props.theme.colors.bg)};
-    max-width: ${(props) => (props.$isShowNavBarRedesign ? '120px' : '150px')};
-
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        height: 28px;
-        padding: 3px 8px;
-        display: flex;
-        box-shadow: none;
-        line-height: 20px;
-
-        & svg {
-            color: ${props.theme.colors.textTertiary};
-            transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
-        }
-    `}
-
-    &: hover {
-        background: ${(props) => {
-            if (props.$isShowNavBarRedesign) {
-                return props.$selectedViewName ? props.theme.colors.bgSurfaceBrand : 'transparent';
-            }
-            return props.theme.colors.buttonFillBrand;
-        }};
-        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textHover : props.theme.colors.bg)};
-
-        border-color: ${(props) => {
-            if (props.$isShowNavBarRedesign) return props.theme.colors.borderBrand;
-            return props.$selectedViewName ? props.theme.colors.borderBrand : 'transparent';
-        }};
-    }
-
-    &: focus {
-        background-color: ${(props) => (props.$selectedViewName ? props.theme.colors.buttonFillBrand : 'transparent')};
-        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textBrand : props.theme.colors.bg)};
-        border-color: ${(props) => (props.$selectedViewName ? props.theme.colors.borderBrand : 'transparent')};
-
-        ${(props) =>
-            props.$isShowNavBarRedesign &&
-            `
-            background-color: ${props.theme.colors.bgSurfaceBrand};
-
-            & svg {
-                color: ${props.theme.colors.textTertiary};
-            }
-        `}
-    }
-`;
+import { radius } from '@components/theme';
 
 const SelectButtonContainer = styled.div`
-    position: relative;
+    display: flex;
+    align-items: center;
+    align-self: center;
+    max-width: 160px;
+`;
 
-    &&&& .close-container {
-        display: none;
+const SelectedViewGroup = styled.div`
+    display: inline-flex;
+    align-items: center;
+    max-width: 160px;
+    border-radius: ${radius.sm};
+    background-color: ${({ theme }) => theme.colors.bgSurfaceBrand};
+    color: ${({ theme }) => theme.colors.textBrand};
+
+    &:hover {
+        background-color: ${({ theme }) =>
+            theme.colors.buttonSurfaceSecondaryHover ?? theme.colors.bgSurfaceBrandHover};
     }
+`;
 
-    &:hover,
-    &:focus {
-        &&&& .close-container {
-            display: flex;
+const SelectedLabel = styled.span`
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const NameButton = styled(Button)`
+    && {
+        background: transparent;
+        color: inherit;
+        padding-right: 4px;
+
+        &:hover {
+            background: transparent;
+            box-shadow: none;
         }
     }
 `;
 
-const CloseButtonContainer = styled.div`
-    position: absolute;
-    top: -10px;
-    right: -5px;
-    background-color: ${(props) => props.theme.colors.bg};
-    display: flex;
-    align-items: center;
-    border-radius: 100%;
-    padding: 5px;
-`;
+const ClearButton = styled(Button)`
+    && {
+        background: transparent;
+        color: inherit;
+        padding: 0 8px 0 2px;
+        min-width: auto;
 
-const CloseIconStyle = styled(CloseIcon)`
-    font-size: 10px !important;
-    color: ${(props) => props.theme.colors.iconBrand};
-`;
-
-const StyledViewIcon = styled(FadersHorizontal)<{ $isShowNavBarRedesign?: boolean }>`
-    font-size: ${(props) => (props.$isShowNavBarRedesign ? '20px' : '18px')} !important;
-    color: ${(props) => props.theme.colors.bg};
+        &:hover {
+            background: transparent;
+            box-shadow: none;
+        }
+    }
 `;
 
 type Props = {
     selectedViewName: string;
-    isShowNavBarRedesign?: boolean;
     onClear: () => void;
     onClick?: () => void;
 };
 
-export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onClear, onClick }: Props) => {
+export function SelectedViewButton({ selectedViewName, onClear, onClick }: Props) {
+    const { t } = useTranslation('entity.views');
+    const isSelected = Boolean(selectedViewName);
+
     return (
         <SelectButtonContainer data-testid="views-button-container">
-            <SelectButton
-                $selectedViewName={selectedViewName}
-                $isShowNavBarRedesign={isShowNavBarRedesign}
-                onClick={() => onClick?.()}
-                data-testid="views-button"
-            >
-                <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
-                    <ViewLabel data-testid="views-icon">
-                        {selectedViewName || <StyledViewIcon $isShowNavBarRedesign={isShowNavBarRedesign} />}
-                    </ViewLabel>
-                </Tooltip>
-            </SelectButton>
-            {selectedViewName && (
-                <CloseButtonContainer
-                    className="close-container"
-                    data-testid="views-clear-button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onClear();
-                    }}
-                >
-                    <CloseIconStyle />
-                </CloseButtonContainer>
-            )}
+            <Tooltip showArrow={false} title={selectedViewName || t('viewSelect.buttonLabel')} placement="bottom">
+                {isSelected ? (
+                    <SelectedViewGroup>
+                        <NameButton
+                            type="button"
+                            variant="secondary"
+                            color="primary"
+                            size="sm"
+                            onClick={() => onClick?.()}
+                            data-testid="views-button"
+                        >
+                            <SelectedLabel data-testid="views-icon">{selectedViewName}</SelectedLabel>
+                        </NameButton>
+                        <ClearButton
+                            type="button"
+                            variant="text"
+                            color="primary"
+                            size="sm"
+                            icon={{ icon: X, size: 'md', weight: 'bold' }}
+                            aria-label={t('viewSelect.clearView')}
+                            data-testid="views-clear-button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClear();
+                            }}
+                        />
+                    </SelectedViewGroup>
+                ) : (
+                    <Button
+                        type="button"
+                        variant="text"
+                        color="gray"
+                        size="sm"
+                        icon={{ icon: Funnel }}
+                        onClick={() => onClick?.()}
+                        data-testid="views-button"
+                    >
+                        <span data-testid="views-icon">{t('viewSelect.buttonLabel')}</span>
+                    </Button>
+                )}
+            </Tooltip>
         </SelectButtonContainer>
     );
-};
+}
+
+/** @deprecated Prefer `SelectedViewButton` — kept for existing call sites. */
+export const renderSelectedView = (props: Props) => <SelectedViewButton {...props} />;
