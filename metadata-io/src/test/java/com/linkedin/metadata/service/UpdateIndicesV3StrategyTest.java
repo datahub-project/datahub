@@ -17,6 +17,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -1638,6 +1639,31 @@ public class UpdateIndicesV3StrategyTest {
 
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_UnchangedBatchStillRunsMappingHook() throws Exception {
+    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status status = new Status().setRemoved(false);
+    when(event.getRecordTemplate()).thenReturn(status);
+    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    stubTransform(status, Map.of("removed", "false"));
+    UpdateIndicesV3Strategy spiedStrategy = spy(strategy);
+
+    spiedStrategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(event)), true);
+
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    // Re-saving an unchanged property definition is how a failed mapping update is repaired
+    verify(spiedStrategy)
+        .updateIndexMappings(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockEntitySpec),
+            any(AspectSpec.class),
+            eq(status),
+            any());
   }
 
   @Test

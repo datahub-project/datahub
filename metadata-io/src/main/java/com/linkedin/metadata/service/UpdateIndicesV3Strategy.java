@@ -342,6 +342,29 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     // Build the combined V3 document with _aspect structure
     ObjectNode combinedDocument = buildV3SearchDocument(opContext, urn, events, throttleSummary);
 
+    // As on V2, the structured property mapping hook runs even when no aspect changed
+    if (structuredPropertiesHookEnabled) {
+      for (MCLItem event : events) {
+        try {
+          EntitySpec entitySpec = event.getEntitySpec();
+          AspectSpec aspectSpec = event.getAspectSpec();
+          updateIndexMappings(
+              opContext,
+              event.getUrn(),
+              entitySpec,
+              aspectSpec,
+              event.getRecordTemplate(),
+              event.getPreviousRecordTemplate());
+        } catch (RuntimeException e) {
+          log.error(
+              "Error updating V3 index mappings for aspect {} of URN {}",
+              event.getAspectName(),
+              urn,
+              e);
+        }
+      }
+    }
+
     if (combinedDocument == null) {
       log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
       return;
@@ -357,19 +380,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     String finalDocument = combinedDocument.toString();
 
-    if (structuredPropertiesHookEnabled) {
-      for (MCLItem event : events) {
-        EntitySpec entitySpec = event.getEntitySpec();
-        AspectSpec aspectSpec = event.getAspectSpec();
-        updateIndexMappings(
-            opContext,
-            event.getUrn(),
-            entitySpec,
-            aspectSpec,
-            event.getRecordTemplate(),
-            event.getPreviousRecordTemplate());
-      }
-    }
     elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
     log.debug(
         "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
