@@ -1023,6 +1023,21 @@ separate span rather than nesting under the batch span.
 that batch's span links to the same request as the original, so a change can be followed through
 its retries.
 
+**Memory and metrics.** To link a batch back to its requests, each document's originating span is
+remembered from the moment it is added until its batch is sent, and a rejected document's until it
+is retried or given up on. This bookkeeping never keeps a document alive: it is keyed by weak
+references, so a document that is dropped before it is sent (for example when the bulk processor
+shuts down) is forgotten once it is garbage collected. It is also capped at 20,000 documents waiting
+to be sent, 20,000 waiting to be retried and 1,024 batches in flight (about 2 MB for each
+20,000-document cap when full); past a cap the oldest entries are dropped, so the newest documents
+are always linked. A batch that never completes (dropped at the cap, or still in flight at shutdown)
+has its span ended with `datahub.bulk.abandoned=true` and an error status. Each bulk processor
+publishes the gauges `datahub.bulk.telemetry.pending`, `datahub.bulk.telemetry.carried` and
+`datahub.bulk.telemetry.open_batches` and the counters `datahub.bulk.telemetry.origins_dropped` and
+`datahub.bulk.telemetry.batches_abandoned`, tagged with `processor`, the batch id prefix; a steadily
+growing count of dropped origins means documents are being added faster than they are flushed, or
+are being lost before they are sent.
+
 **Using it.** Filter spans named `index bulk` by duration or by `datahub.bulk.failures` to find the
 slow or failing flushes; group by `datahub.bulk.indices` to see which indices they hit; follow the
 links to the changes in a batch. Two things to know when turning it on: each batch span is the

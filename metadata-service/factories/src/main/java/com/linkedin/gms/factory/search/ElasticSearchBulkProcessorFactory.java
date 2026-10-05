@@ -65,11 +65,14 @@ public class ElasticSearchBulkProcessorFactory {
   /**
    * Bulk-write attribution settings from {@code telemetry.requestAttribution}: batch spans when
    * {@code enabled} (and a tracer is available), the batch id header when {@code
-   * opensearchOpaqueId} too. {@link BulkTelemetryConfig#DISABLED} when {@code attribution} is null.
+   * opensearchOpaqueId} too, and the bookkeeping gauges on {@code metricUtils}' registry when
+   * given. {@link BulkTelemetryConfig#DISABLED} when {@code attribution} is null.
    */
   @Nonnull
   static BulkTelemetryConfig bulkTelemetry(
-      @Nullable RequestAttributionConfiguration attribution, @Nullable Tracer tracer) {
+      @Nullable RequestAttributionConfiguration attribution,
+      @Nullable Tracer tracer,
+      @Nullable MetricUtils metricUtils) {
     if (attribution == null) {
       return BulkTelemetryConfig.DISABLED;
     }
@@ -78,12 +81,14 @@ public class ElasticSearchBulkProcessorFactory {
         .batchSpans(attribution.isEnabled())
         .opaqueId(attribution.isEnabled() && attribution.isOpensearchOpaqueId())
         .serviceName(attribution.getServiceName())
+        .meterRegistry(metricUtils != null ? metricUtils.getRegistry() : null)
         .build();
   }
 
   /**
    * As {@link #build(SearchClientShim, BulkProcessorConfiguration, int, MetricUtils)}, with
-   * bulk-write attribution per {@link #bulkTelemetry(RequestAttributionConfiguration, Tracer)}.
+   * bulk-write attribution per {@link #bulkTelemetry(RequestAttributionConfiguration, Tracer,
+   * MetricUtils)}.
    */
   @Nonnull
   static ESBulkProcessor build(
@@ -108,7 +113,7 @@ public class ElasticSearchBulkProcessorFactory {
         .ackAfterTransfer(config.isAckAfterTransfer())
         .ackAfterTransferTimeoutSeconds(config.getAckAfterTransferTimeoutSeconds())
         .byQueryRequestOptions(byQueryOpts)
-        .bulkTelemetry(bulkTelemetry(attribution, tracer))
+        .bulkTelemetry(bulkTelemetry(attribution, tracer, metricUtils))
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(config.getRefreshPolicy()))
         .build();
   }

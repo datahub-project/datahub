@@ -74,7 +74,9 @@ public abstract class AbstractBulkProcessorShim<T> {
   }
 
   public void configureBulkTelemetry(@Nonnull BulkTelemetryConfig config) {
+    BulkTelemetry previous = this.bulkTelemetry;
     this.bulkTelemetry = BulkTelemetry.create(config);
+    previous.close();
   }
 
   /**
@@ -121,12 +123,13 @@ public abstract class AbstractBulkProcessorShim<T> {
    * Close all bulk processors. Subclasses must implement the actual processor-specific close logic.
    */
   public void closeBulkProcessor() {
-    if (bulkProcessors == null) {
-      return;
+    if (bulkProcessors != null) {
+      for (T processor : bulkProcessors) {
+        closeProcessor(processor);
+      }
     }
-    for (T processor : bulkProcessors) {
-      closeProcessor(processor);
-    }
+    // After the processors: a batch still open now will never complete.
+    bulkTelemetry.close();
   }
 
   /** Requeue without {@code recordEnqueued} — item is already pending from the original add. */

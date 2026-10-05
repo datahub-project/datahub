@@ -2,6 +2,10 @@ package com.linkedin.metadata.search.elasticsearch.update;
 
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
+import io.micrometer.core.instrument.FunctionCounter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -59,6 +63,18 @@ import org.opensearch.client.RequestOptions;
  * successful action once its batch ends, and nothing depends on how many other batches complete
  * between a failure and its requeue.
  *
+ * <p>Memory is bounded and nothing here keeps a request alive. {@code pending}, {@code carried} and
+ * the open batches are {@link WeakIdentityTable}s: keyed by identity through weak references, so an
+ * action that never reaches a batch (its add was rejected, its processor closed) or a batch whose
+ * {@code afterBulk} never runs is purged once the client lets go of it, and the source documents
+ * are never retained by this class. Each table also has a fixed size; at the limit the oldest entry
+ * is evicted, so tracking degrades for the oldest origins instead of stopping. At {@value
+ * #MAX_PENDING} entries an origin table costs roughly 2 MB (a weak key and a map entry each; the
+ * span contexts are shared by all actions added under the same span). A batch dropped that way, or
+ * still open at {@link #close}, has its span ended with {@code datahub.bulk.abandoned=true}. With a
+ * meter registry the table sizes and drop counts are published as gauges and counters (see {@link
+ * #METRIC_PREFIX}).
+ *
  * <p>Everything is off unless {@code telemetry.requestAttribution.enabled} is set (span) and {@code
  * telemetry.requestAttribution.opensearchOpaqueId} is set (header). When disabled every method is a
  * no-op and allocates nothing. Nothing here logs, blocks or throws.
@@ -75,6 +91,16 @@ public final class BulkTelemetry {
       AttributeKey.stringArrayKey("datahub.bulk.indices");
   public static final AttributeKey<Long> TOOK_MS = AttributeKey.longKey("datahub.bulk.took_ms");
   public static final AttributeKey<Long> FAILURES = AttributeKey.longKey("datahub.bulk.failures");
+  public static final AttributeKey<Boolean> ABANDONED =
+      AttributeKey.booleanKey("datahub.bulk.abandoned");
+
+  /**
+   * Prefix of the meters published when a registry is configured, each tagged {@code
+   * processor=<batch id prefix>}: gauges {@code .pending}, {@code .carried}, {@code .open_batches}
+   * and counters {@code .origins_dropped} (origins evicted at the size limit or purged because the
+   * action was collected unflushed) and {@code .batches_abandoned}.
+   */
+  public static final String METRIC_PREFIX = "datahub.bulk.telemetry";
 
   /**
    * Most span links on one batch span: one per distinct trace id (the first span seen for a trace),
@@ -87,36 +113,80 @@ public final class BulkTelemetry {
 
   /**
    * Bound on actions whose originating span is remembered between add and flush ({@code pending}),
-   * and separately on failed actions whose origin is held for a requeue ({@code carried}).
+   * and separately on failed actions whose origin is held for a requeue ({@code carried}). At the
+   * limit the oldest entry is evicted.
    */
   static final int MAX_PENDING = 20_000;
 
-  private static final BulkTelemetry DISABLED = new BulkTelemetry(null, false, DEFAULT_SERVICE);
+  /**
+   * Bound on batches started and not yet ended. In-flight batches number at most the processors'
+   * thread count times their concurrent requests; this only matters if {@code afterBulk} is lost.
+   */
+  static final int MAX_OPEN_BATCHES = 1_024;
+
+  private static final BulkTelemetry DISABLED =
+      new BulkTelemetry(null, false, DEFAULT_SERVICE, null);
 
   @Nullable private final Tracer tracer;
   private final boolean opaqueIdEnabled;
   private final String service;
   private final String prefix;
   private final AtomicLong seq = new AtomicLong();
+  private final AtomicLong abandoned = new AtomicLong();
 
-  // Identity maps: DocWriteRequest and BulkRequest do not define equals, and we want the exact
-  // instances the processor hands back in beforeBulk / afterBulk.
-  private final Map<Object, SpanContext> pending =
-      Collections.synchronizedMap(new IdentityHashMap<>());
-  private final Map<Object, Batch> batches = Collections.synchronizedMap(new IdentityHashMap<>());
+  // Weak identity tables: DocWriteRequest and BulkRequest do not define equals, we want the exact
+  // instances the processor hands back in beforeBulk / afterBulk, and we must not keep them alive.
+  private final WeakIdentityTable<SpanContext> pending = new WeakIdentityTable<>(MAX_PENDING, null);
+  private final WeakIdentityTable<Batch> batches =
+      new WeakIdentityTable<>(MAX_OPEN_BATCHES, this::abandon);
 
   /**
    * Origins of failed actions between the end of their batch and the listener's decision to requeue
    * ({@link #onRequeue}) or give up ({@link #forget}). Only populated when spans are on.
    */
-  private final Map<Object, SpanContext> carried =
-      Collections.synchronizedMap(new IdentityHashMap<>());
+  private final WeakIdentityTable<SpanContext> carried = new WeakIdentityTable<>(MAX_PENDING, null);
 
-  private BulkTelemetry(@Nullable Tracer tracer, boolean opaqueIdEnabled, @Nonnull String service) {
+  @Nullable private final MeterRegistry meterRegistry;
+  private final List<Meter> meters = new ArrayList<>();
+
+  private BulkTelemetry(
+      @Nullable Tracer tracer,
+      boolean opaqueIdEnabled,
+      @Nonnull String service,
+      @Nullable MeterRegistry meterRegistry) {
     this.tracer = tracer;
     this.opaqueIdEnabled = opaqueIdEnabled;
     this.service = service;
     this.prefix = String.format("%08x", ThreadLocalRandom.current().nextInt());
+    this.meterRegistry = tracer != null ? meterRegistry : null;
+    if (this.meterRegistry != null) {
+      registerMeters(this.meterRegistry);
+    }
+  }
+
+  private void registerMeters(@Nonnull MeterRegistry registry) {
+    meters.add(
+        Gauge.builder(METRIC_PREFIX + ".pending", this, BulkTelemetry::pendingCount)
+            .tag("processor", prefix)
+            .register(registry));
+    meters.add(
+        Gauge.builder(METRIC_PREFIX + ".carried", this, BulkTelemetry::carriedCount)
+            .tag("processor", prefix)
+            .register(registry));
+    meters.add(
+        Gauge.builder(METRIC_PREFIX + ".open_batches", this, BulkTelemetry::openBatches)
+            .tag("processor", prefix)
+            .register(registry));
+    meters.add(
+        FunctionCounter.builder(
+                METRIC_PREFIX + ".origins_dropped", this, BulkTelemetry::droppedOrigins)
+            .tag("processor", prefix)
+            .register(registry));
+    meters.add(
+        FunctionCounter.builder(
+                METRIC_PREFIX + ".batches_abandoned", this, BulkTelemetry::abandonedBatches)
+            .tag("processor", prefix)
+            .register(registry));
   }
 
   /** The no-op instance used when attribution is off. */
@@ -137,7 +207,10 @@ public final class BulkTelemetry {
     String service = config.getServiceName();
     String svc = service == null || service.isBlank() ? DEFAULT_SERVICE : service.trim();
     return new BulkTelemetry(
-        config.spansEnabled() ? config.getTracer() : null, config.isOpaqueId(), svc);
+        config.spansEnabled() ? config.getTracer() : null,
+        config.isOpaqueId(),
+        svc,
+        config.getMeterRegistry());
   }
 
   public boolean isEnabled() {
@@ -186,17 +259,7 @@ public final class BulkTelemetry {
   }
 
   private void remember(@Nonnull Object action, @Nonnull SpanContext ctx) {
-    put(pending, action, ctx);
-  }
-
-  private static void put(
-      @Nonnull Map<Object, SpanContext> map, @Nonnull Object action, @Nonnull SpanContext ctx) {
-    // Collections.synchronizedMap locks on the map itself, so this makes check-and-put atomic.
-    synchronized (map) {
-      if (map.size() < MAX_PENDING) {
-        map.put(action, ctx);
-      }
-    }
+    pending.put(action, ctx);
   }
 
   /**
@@ -307,7 +370,7 @@ public final class BulkTelemetry {
       for (Object action : failedActions) {
         SpanContext ctx = batch.origins.get(action); // identity map: a null action finds nothing
         if (ctx != null) {
-          put(carried, action, ctx);
+          carried.put(action, ctx);
         }
       }
     }
@@ -329,7 +392,7 @@ public final class BulkTelemetry {
       return;
     }
     for (Map.Entry<Object, SpanContext> origin : batch.origins.entrySet()) {
-      put(carried, origin.getKey(), origin.getValue());
+      carried.put(origin.getKey(), origin.getValue());
     }
     batch.span.setAttribute(FAILURES, (long) batch.actions);
     batch.span.recordException(failure);
@@ -350,6 +413,43 @@ public final class BulkTelemetry {
     return batch;
   }
 
+  /**
+   * Ends the span of a batch that will never see {@code afterBulk}: evicted at {@value
+   * #MAX_OPEN_BATCHES}, collected without ending, or still open at {@link #close}.
+   */
+  private void abandon(@Nonnull Batch batch) {
+    abandoned.incrementAndGet();
+    if (batch.span != null) {
+      batch.span.setAttribute(ABANDONED, true);
+      batch.span.setStatus(StatusCode.ERROR, "batch abandoned before completion");
+      batch.span.end();
+    }
+  }
+
+  /**
+   * Releases everything this instance holds: forgets pending and carried origins, ends any batch
+   * still open as abandoned and unregisters the meters. Call after the bulk processors are closed;
+   * later calls are harmless no-ops.
+   */
+  public void close() {
+    if (!isEnabled()) {
+      return;
+    }
+    pending.clear();
+    carried.clear();
+    for (Batch batch : batches.clear()) {
+      abandon(batch);
+    }
+    if (meterRegistry != null) {
+      synchronized (meters) {
+        for (Meter meter : meters) {
+          meterRegistry.remove(meter);
+        }
+        meters.clear();
+      }
+    }
+  }
+
   /** Number of actions whose origin span is remembered but not yet flushed (tests, diagnostics). */
   public int pendingCount() {
     return pending.size();
@@ -368,6 +468,19 @@ public final class BulkTelemetry {
     return batches.size();
   }
 
+  /**
+   * Origins dropped without being linked: evicted at {@value #MAX_PENDING} or purged because their
+   * action was collected before reaching a batch (rejected add, closed processor).
+   */
+  public long droppedOrigins() {
+    return pending.dropped() + carried.dropped();
+  }
+
+  /** Batches whose span was ended without {@code afterBulk}; see {@link #close}. */
+  public long abandonedBatches() {
+    return abandoned.get();
+  }
+
   private static final class Batch {
     private final String batchId;
     private final int actions;
@@ -375,7 +488,8 @@ public final class BulkTelemetry {
 
     /**
      * Origin span per action (identity), carried for failed actions at the end; empty when spans
-     * are off.
+     * are off. Strong keys are fine here: they are the batch's own actions, which the bulk request
+     * holds anyway until the batch ends, and the batch itself is weakly keyed by that request.
      */
     private final Map<Object, SpanContext> origins;
 
