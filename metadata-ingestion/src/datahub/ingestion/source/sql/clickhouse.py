@@ -152,6 +152,12 @@ def _split_joined(value: Optional[str]) -> List[str]:
     return [part for part in (value or "").split(_ARRAY_SEP) if part]
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _is_valid_username(value: str) -> bool:
     """Check if value is a safe username (alphanumeric, underscores, hyphens)."""
     if not value:
@@ -263,13 +269,24 @@ class _DeduplicatedQueries(Generic[_Query]):
             counted.query.timestamp = query.timestamp
 
     def grouped_by_query(self) -> Iterable[List[_CountedQuery[_Query]]]:
-        """Each query's records together, ordered by their latest execution.
+        """Each query's records together, ordered for authoritative metadata.
 
-        Together keeps the parser's cache warm. The order matters because the
-        aggregator takes the last add() as authoritative, and records are built
-        in order of their first execution, not their last.
+        Keeping each group contiguous preserves the parser cache. Groups sharing
+        a hash are ordered by their latest execution because the aggregator uses
+        the hash without the database and treats the last add as authoritative.
         """
-        for records in self._by_query.values():
+        ordered_groups = sorted(
+            self._by_query.items(),
+            key=lambda item: (
+                item[0].query_hash or "",
+                max(
+                    record.query.timestamp or _MIN_TIMESTAMP
+                    for record in item[1].values()
+                ),
+                item[0].database,
+            ),
+        )
+        for _, records in ordered_groups:
             yield sorted(
                 records.values(),
                 key=lambda counted: counted.query.timestamp or _MIN_TIMESTAMP,
@@ -1082,7 +1099,7 @@ ORDER BY event_time ASC
         try:
             event_time = row["event_time"]
             if isinstance(event_time, datetime):
-                event_time = event_time.astimezone(timezone.utc)
+                event_time = _as_utc(event_time)
 
             # ClickHouse reports tables as db.table, which is already the dataset
             # name this two-tier source uses.
@@ -1134,7 +1151,7 @@ ORDER BY event_time ASC
         try:
             event_time = row["event_time"]
             if isinstance(event_time, datetime):
-                event_time = event_time.astimezone(timezone.utc)
+                event_time = _as_utc(event_time)
 
             query = row["query"]
             user = row.get("user", "")

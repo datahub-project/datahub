@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -13,6 +14,7 @@ from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
+    QueryPropertiesClass,
     UpstreamLineageClass,
 )
 
@@ -592,6 +594,7 @@ def test_query_log_query_skips_rows_that_touch_no_real_table():
         "INFORMATION_SCHEMA.",
     ):
         assert f"NOT startsWith(t, '{prefix}')" in sql
+    assert "positionCaseInsensitive" not in sql
 
 
 def _select_row(
@@ -601,16 +604,18 @@ def _select_row(
     database: str = "my_db",
     hash_value: Optional[int] = 54321,
     day: int = 14,
+    hour: int = 6,
     tables: Tuple[str, ...] = ("my_db.raw_events",),
     columns: Tuple[str, ...] = ("my_db.raw_events.col_a",),
+    query: str = "SELECT col_a FROM raw_events WHERE col_b = 'x'",
 ) -> _FakeRow:
     return _FakeRow(
         {
             "query_id": query_id,
-            "query": "SELECT col_a FROM raw_events WHERE col_b = 'x'",
+            "query": query,
             "query_kind": "Select",
             "user": user,
-            "event_time": datetime(2020, 4, day, 6, 0, 0, tzinfo=timezone.utc),
+            "event_time": datetime(2020, 4, day, hour, 0, 0, tzinfo=timezone.utc),
             "current_database": database,
             "normalized_query_hash": hash_value,
             # Joined, as the fetch asks ClickHouse to return them - the HTTP
@@ -676,10 +681,11 @@ def test_usage_counts_columns_the_parser_would_miss(monkeypatch):
     source = _query_log_source()
     rows = [
         _select_row(
+            query="SELECT * FROM raw_events WHERE col_filtered_on = 'x'",
             columns=(
                 "my_db.raw_events.col_a",
                 "my_db.raw_events.col_filtered_on",
-            )
+            ),
         )
     ]
     monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
@@ -759,9 +765,9 @@ def test_usage_skips_clickhouse_temporary_tables(monkeypatch):
 
 
 def test_operation_reports_the_newest_execution(monkeypatch):
-    # The aggregator overwrites timestamp and actor on every add, so the last
-    # split emitted decides both. Splitting one shape across users orders the
-    # splits by their first execution, not their last.
+    # The aggregator overwrites timestamp and actor on every add, so records must
+    # be emitted by their latest execution time. Alice's 08:00 record must follow
+    # Bob's 07:00 record even though Alice's group was created first.
     config = ClickHouseConfig.model_validate(
         {
             "host_port": "localhost:8123",
@@ -791,6 +797,79 @@ def test_operation_reports_the_newest_execution(monkeypatch):
     assert ops[0].lastUpdatedTimestamp == int(
         datetime(2020, 4, 14, 8, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
     )
+
+
+def test_query_metadata_reports_newest_execution_across_databases(monkeypatch):
+    source = _query_log_source()
+    rows = [
+        _insert_row(query_id="a6", user="alice", database="db_a", hour=6),
+        _insert_row(query_id="b7", user="bob", database="db_b", hour=7),
+        _insert_row(query_id="a8", user="carol", database="db_a", hour=8),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    query_properties = [
+        wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, QueryPropertiesClass)
+    ]
+
+    assert len(query_properties) == 1
+    assert query_properties[0].lastModified.time == int(
+        datetime(2020, 4, 14, 8, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+    )
+    assert query_properties[0].lastModified.actor == "urn:li:corpuser:carol"
+
+
+def test_select_metadata_reports_newest_execution_across_databases(monkeypatch):
+    source = _query_log_source()
+    rows = [
+        _select_row(query_id="a6", user="alice", database="db_a", hour=6),
+        _select_row(query_id="b7", user="bob", database="db_b", hour=7),
+        _select_row(query_id="a8", user="carol", database="db_a", hour=8),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    query_properties = [
+        wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, QueryPropertiesClass)
+    ]
+
+    assert len(query_properties) == 1
+    assert query_properties[0].lastModified.time == int(
+        datetime(2020, 4, 14, 8, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+    )
+    assert query_properties[0].lastModified.actor == "urn:li:corpuser:carol"
+
+
+def test_query_log_naive_timestamps_are_interpreted_as_utc(monkeypatch):
+    if not hasattr(time, "tzset"):
+        pytest.skip("requires time.tzset")
+
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    try:
+        source = _query_log_source()
+        naive_timestamp = datetime(2020, 4, 14, 6, 0, 0)
+        select_row = _select_row()
+        select_row._mapping["event_time"] = naive_timestamp
+        insert_row = _insert_row(query_id="i1")
+        insert_row._mapping["event_time"] = naive_timestamp
+
+        preparsed = source._usage_row_to_preparsed(dict(select_row._mapping))
+        observed = source._parse_query_log_row(dict(insert_row._mapping))
+
+        expected = naive_timestamp.replace(tzinfo=timezone.utc)
+        assert preparsed is not None
+        assert preparsed.timestamp == expected
+        assert observed is not None
+        assert observed.timestamp == expected
+    finally:
+        monkeypatch.undo()
+        time.tzset()
 
 
 def test_report_subclass_stays_wired_to_subsystems():
