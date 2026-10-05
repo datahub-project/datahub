@@ -189,8 +189,7 @@ public class SearchQueryBuilder {
     if (synonymMap == null) {
       synchronized (this) {
         if (synonymMap == null) {
-          synonymMap =
-              SynonymMapLoader.loadFromClasspath(SynonymMapLoader.DEFAULT_SYNONYMS_RESOURCE);
+          synonymMap = SynonymMapLoader.loadDefault();
         }
       }
     }
@@ -376,16 +375,33 @@ public class SearchQueryBuilder {
               opContext.getAspectRetriever())
           .ifPresent(disMaxQuery::add);
       // Wildcard contains query for substring matching.
-      getWildcardContainsQuery(opContext.getEntityRegistry(), entitySpecs, colonStripped)
-          .ifPresent(disMaxQuery::add);
+      if (customQueryConfig == null
+          || customQueryConfig.isSimpleQuery()
+          || customQueryConfig.isPrefixMatchQuery()
+          || customQueryConfig.isExactMatchQuery()) {
+        getWildcardContainsQuery(opContext.getEntityRegistry(), entitySpecs, colonStripped)
+            .ifPresent(disMaxQuery::add);
+      }
       getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(disMaxQuery::add);
+      // splitAlphanumericTokens turned "orders2017" into "orders 2017", but the analyzers index
+      // such a run as one token, so also match the unsplit query, without fuzziness
+      if (!operatorEscaped.equals(sanitizedQuery)) {
+        getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, operatorEscaped)
+            .ifPresent(disMaxQuery::add);
+      }
       // These conditional clauses provide recall and scoring for specific query patterns.
-      // They only fire when the query matches their activation criteria.
-      getAllTermsMatchBonus(opContext.getEntityRegistry(), entitySpecs, sanitizedQuery)
-          .ifPresent(disMaxQuery::add);
-      getFqnMatchQuery(colonStripped).ifPresent(disMaxQuery::add);
-      getDescriptionPhraseMatchQuery(sanitizedQuery).ifPresent(disMaxQuery::add);
+      // They only fire when the query matches their activation criteria, and not when a custom
+      // query configuration turns every text match off.
+      if (customQueryConfig == null
+          || customQueryConfig.isSimpleQuery()
+          || customQueryConfig.isPrefixMatchQuery()
+          || customQueryConfig.isExactMatchQuery()) {
+        getAllTermsMatchBonus(opContext.getEntityRegistry(), entitySpecs, sanitizedQuery)
+            .ifPresent(disMaxQuery::add);
+        getFqnMatchQuery(colonStripped).ifPresent(disMaxQuery::add);
+        getDescriptionPhraseMatchQuery(sanitizedQuery).ifPresent(disMaxQuery::add);
+      }
     } else {
       // Structured query path: uses raw query (no splitAlphanumericTokens) because
       // QueryStringQueryBuilder has its own tokenization via the analyzer chain.

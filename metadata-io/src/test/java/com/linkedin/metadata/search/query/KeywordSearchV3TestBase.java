@@ -410,7 +410,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     STG_DASHBOARD,
                     new DashboardInfo()
                         .setTitle("stg")
-                        .setDescription("Load checks")
+                        .setDescription("Load checks for batch2017")
                         .setLastModified(new ChangeAuditStamps())),
                 STAGING_DASHBOARD,
                 events(
@@ -1026,6 +1026,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities()
             .stream()
             .anyMatch(entity -> entity.getEntity().equals(TITLE_MATCH)));
+    // A letter and digit run held only in a description, indexed as one token
+    assertTopHit(List.of(DASHBOARD_ENTITY_NAME), "batch2017", STG_DASHBOARD);
     // A long description pasted as the query
     assertTopHit(List.of(DATASET_ENTITY_NAME), CUSTOMERS_DESCRIPTION, CUSTOMERS);
     // One edit away from "customers"

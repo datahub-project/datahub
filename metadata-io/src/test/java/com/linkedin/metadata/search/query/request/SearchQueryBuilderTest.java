@@ -1493,6 +1493,40 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         allTerms.toString());
   }
 
+  @Test
+  public void testV3CustomBoolQueryWrapsStage1AndIdentityQueries() throws IOException {
+    CustomSearchConfiguration config =
+        new YAMLMapper()
+            .readValue(
+                """
+                queryConfigurations:
+                  - queryRegex: .*
+                    simpleQuery: true
+                    prefixMatchQuery: true
+                    exactMatchQuery: true
+                    boolQuery:
+                      must_not:
+                        - term:
+                            deprecated: true
+                """,
+                CustomSearchConfiguration.class);
+    SearchQueryBuilder builder = new SearchQueryBuilder(testQueryConfig, config, true);
+    for (String query :
+        List.of("orders", "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.orders,PROD)")) {
+      BoolQueryBuilder root =
+          (BoolQueryBuilder)
+              ((FunctionScoreQueryBuilder)
+                      builder.buildQuery(
+                          opContext,
+                          ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                          query,
+                          true))
+                  .query();
+      assertEquals(root.mustNot().size(), 1, query);
+      assertEquals(root.must().size(), 1, query);
+    }
+  }
+
   @Test(expectedExceptions = ValidationException.class)
   public void testV3ValidatesUrnQueries() {
     // Urn queries skip the general query, so validation must run before the dispatch
