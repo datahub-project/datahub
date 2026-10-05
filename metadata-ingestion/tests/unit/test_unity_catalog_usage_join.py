@@ -2023,8 +2023,8 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     query_sql = captured["query"]
     assert "tl2.statement_id" in query_sql
     assert "system.access.table_lineage tl2" in query_sql
-    assert "UPPER(tl2.source_table_catalog) RLIKE %s" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE %s" in query_sql
+    assert "UPPER(tl2.source_table_catalog) RLIKE ?" in query_sql
+    assert "UPPER(tl2.target_table_catalog) RLIKE ?" in query_sql
     assert "^MAIN$" not in query_sql
     assert len(captured["params"]) == 8
     assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
@@ -2057,7 +2057,7 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
         )
 
     query_sql = captured["query"]
-    assert "NOT RLIKE %s" in query_sql
+    assert "NOT RLIKE ?" in query_sql
     assert "^SYSTEM$" not in query_sql
     assert captured["params"][6:] == ("^SYSTEM$", "^SYSTEM$")
 
@@ -2479,7 +2479,7 @@ def test_build_catalog_column_filter_binds_patterns_with_special_chars() -> None
         "tl2.source_table_catalog",
         AllowDenyPattern(allow=["^main'catalog$"], deny=[], ignoreCase=False),
     )
-    assert "RLIKE %s" in sql
+    assert "RLIKE ?" in sql
     assert "^main'catalog$" not in sql
     assert params == ["^main'catalog$"]
 
@@ -2511,7 +2511,7 @@ def test_get_query_history_catalog_pushdown_binds_pattern_params() -> None:
         )
 
     assert malicious_pattern not in captured["query"]
-    assert "RLIKE %s" in captured["query"]
+    assert "RLIKE ?" in captured["query"]
     assert malicious_pattern.upper() in captured["params"]
 
 
@@ -2771,7 +2771,7 @@ def test_build_catalog_column_filter_respects_ignore_case_false() -> None:
         AllowDenyPattern(allow=["^Main$"], deny=[], ignoreCase=False),
     )
     assert "UPPER" not in sql
-    assert "RLIKE %s" in sql
+    assert "RLIKE ?" in sql
     assert params == ["^Main$"]
 
 
@@ -2800,8 +2800,8 @@ def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
         )
 
     query_sql = captured["query"]
-    assert "UPPER(tl2.source_table_catalog) RLIKE %s" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE %s" in query_sql
+    assert "UPPER(tl2.source_table_catalog) RLIKE ?" in query_sql
+    assert "UPPER(tl2.target_table_catalog) RLIKE ?" in query_sql
     assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
 
 
