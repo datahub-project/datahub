@@ -1565,6 +1565,48 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertEquals(v3SimpleQueryCount("revenue -archive"), v3SimpleQueryCount("revenue archive"));
   }
 
+  @Test
+  public void testV3LongQueriesStayUnderTheClauseLimit() {
+    EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
+    // One word gets every expansion; more words share a budget of expanded terms
+    assertTrue(
+        v3SimpleQueries(datasetSpec, "revenue").stream()
+            .anyMatch(sqs -> sqs.value().contains("~") && sqs.fuzzyMaxExpansions() == 10));
+    List<SimpleQueryStringBuilder> threeWords =
+        v3SimpleQueries(datasetSpec, "quarterly revenue forecast");
+    assertTrue(threeWords.stream().anyMatch(sqs -> sqs.value().contains("~")));
+    assertTrue(
+        threeWords.stream()
+            .filter(sqs -> sqs.value().contains("~"))
+            .allMatch(sqs -> sqs.fuzzyMaxExpansions() < 10));
+    // Past the budget the words are matched without fuzziness
+    assertTrue(
+        v3SimpleQueries(
+                datasetSpec,
+                "quarterly revenue forecast regional breakdown customer retention analysis monthly"
+                    + " pipeline inventory")
+            .stream()
+            .noneMatch(sqs -> sqs.value().contains("~")));
+    // A pasted paragraph is matched on its first 16 words
+    List<SimpleQueryStringBuilder> paragraph =
+        v3SimpleQueries(
+            datasetSpec,
+            "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november"
+                + " oscar papa quebec romeo sierra tango");
+    assertTrue(paragraph.stream().anyMatch(sqs -> sqs.value().contains("papa")));
+    assertTrue(paragraph.stream().noneMatch(sqs -> sqs.value().contains("quebec")));
+  }
+
+  private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(operationContext, List.of(spec), query, true), clauses);
+    return clauses.stream()
+        .filter(SimpleQueryStringBuilder.class::isInstance)
+        .map(SimpleQueryStringBuilder.class::cast)
+        .collect(Collectors.toList());
+  }
+
   private long v3SimpleQueryCount(String query) {
     List<QueryBuilder> clauses = new ArrayList<>();
     collectClauses(
@@ -1613,6 +1655,13 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .map(SimpleQueryStringBuilder.class::cast)
             .noneMatch(sqs -> sqs.value().contains("~")),
         clauses.toString());
+    // Nor a substring match of a quoted word
+    List<QueryBuilder> quotedWord = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "\"testQuery\"", true),
+        quotedWord);
+    assertTrue(quotedWord.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
   }
 
   @Test

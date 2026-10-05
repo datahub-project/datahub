@@ -855,6 +855,59 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTrue(matchedFields.contains("name"), matchedFields.toString());
   }
 
+  /**
+   * A long query over an index rich in similar words stays under OpenSearch's default limit of 1024
+   * clauses: fuzzy terms share a budget of expansions, and only the first 16 words are matched.
+   */
+  @Test
+  public void testLongQueryStaysUnderClauseLimit() throws Exception {
+    String[] words = {
+      "zorbel", "quintax", "valdrin", "morphex", "brintel", "caldris", "fenwold", "glarvon",
+      "hestrin", "jorvald", "kelstor", "lumbrix", "nervant", "orzelle", "pyxtral", "quorvex",
+      "rendalt", "sylvorn", "tarquel", "umbrisk"
+    };
+    // Close neighbours of every word give each fuzzy term its full expansions in the title and the
+    // description
+    StringBuilder vocabulary = new StringBuilder();
+    for (String word : words) {
+      vocabulary.append(word).append(' ');
+      for (char last : "bcdfghjkmnp".toCharArray()) {
+        vocabulary.append(word, 0, word.length() - 1).append(last).append(' ');
+      }
+    }
+    Urn vocabularyDashboard = UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
+    new UpdateIndicesV3Strategy(
+            config.getEntityIndex().getV3(),
+            searchService,
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
+            mock(TimeseriesAspectService.class),
+            null)
+        .processBatch(
+            opContext,
+            Map.of(
+                vocabularyDashboard,
+                events(
+                    vocabularyDashboard,
+                    new DashboardInfo()
+                        .setTitle(vocabulary.toString().trim())
+                        .setDescription(vocabulary.toString().trim())
+                        .setLastModified(new ChangeAuditStamps()))),
+            false);
+    syncAfterWrite(getBulkProcessor());
+
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    for (int length : new int[] {3, 8, 20}) {
+      String query = String.join(" ", Arrays.copyOf(words, length));
+      assertTrue(
+          searchService
+              .search(fulltext, List.of(DASHBOARD_ENTITY_NAME), query, null, null, 0, 10)
+              .getEntities()
+              .stream()
+              .anyMatch(entity -> entity.getEntity().equals(vocabularyDashboard)),
+          query);
+    }
+  }
+
   /** Every field queried by default is searched, with or without a searchTier annotation. */
   @Test
   public void testSearchFieldWithoutSearchTier() {

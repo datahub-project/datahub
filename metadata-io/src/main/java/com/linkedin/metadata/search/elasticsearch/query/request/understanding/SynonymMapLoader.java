@@ -22,8 +22,8 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 @Slf4j
 public final class SynonymMapLoader {
 
-  /** The synonym files the search analyzers load. */
-  private static final String SYNONYM_FILES = "classpath*:elasticsearch/synonyms/*.txt";
+  /** The synonym files the search analyzers load, resolved the same way. */
+  private static final String SYNONYM_FILES = "classpath:elasticsearch/synonyms/*.txt";
 
   private SynonymMapLoader() {}
 
