@@ -57,9 +57,9 @@ def _rows(run: ProbeMethodResult) -> List[Dict[str, Any]]:
 
 def _run(command: str, params: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
     with fake_looker():
-        return run_probe_method(
-            "looker", recipe(**overrides), command, params
-        ).to_dict()
+        return dict(
+            run_probe_method("looker", recipe(**overrides), command, params).to_dict()
+        )
 
 
 def test_building_the_provider_opens_no_connection() -> None:

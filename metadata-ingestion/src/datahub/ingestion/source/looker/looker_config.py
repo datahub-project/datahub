@@ -6,7 +6,6 @@ from typing import (
     ClassVar,
     Dict,
     List,
-    Mapping,
     Optional,
     Sequence,
     Tuple,
@@ -22,6 +21,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigurationError,
     Filters,
+    FiltersByRule,
     HiddenFromDocs,
 )
 from datahub.configuration.source_common import (
@@ -327,7 +327,12 @@ class LookerDashboardSourceConfig(
         description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion "
         "should also be enabled.",
     )
-    emit_used_explores_only: bool = Field(
+    # Explores and their LookML models follow from what dashboards and looks
+    # query (_make_explore_containers), not from a pattern. Not Enables: True
+    # narrows these kinds rather than emitting them.
+    emit_used_explores_only: Annotated[
+        bool, FiltersByRule(MODEL_KIND), FiltersByRule(EXPLORE_KIND)
+    ] = Field(
         True,
         description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
     )
@@ -358,15 +363,6 @@ class LookerDashboardSourceConfig(
         from datahub.ingestion.source.looker.looker_probe import LookerMetadataProbe
 
         return LookerMetadataProbe
-
-    @classmethod
-    def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
-        """Explores and their LookML models follow from what dashboards and
-        looks query (_make_explore_containers), not from a pattern."""
-        return {
-            MODEL_KIND: "emit_used_explores_only",
-            EXPLORE_KIND: "emit_used_explores_only",
-        }
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """None of these kinds declares a container for the framework to
