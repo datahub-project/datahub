@@ -1532,6 +1532,26 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testProcessBatch_CreateThenUpdateNullsNoFieldTheIndexNeverHeld() throws Exception {
+    MCLItem create = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem update = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate created = create.getRecordTemplate();
+    RecordTemplate updated = update.getRecordTemplate();
+    when(update.getPreviousRecordTemplate()).thenReturn(created);
+    stubTransform(created, Map.of("name", "a", "description", "dropped by the update"));
+    stubTransform(updated, Map.of("name", "b"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(create, update)), false);
+
+    // The index held no value of the aspect, so a null here could only clear a root field that
+    // another aspect supplies
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "b");
+    assertFalse(written.has("description"));
+  }
+
+  @Test
   public void testProcessBatch_WritesCreatedAspectFollowedByNoOp() throws Exception {
     MCLItem create = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
     MCLItem noOp = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);

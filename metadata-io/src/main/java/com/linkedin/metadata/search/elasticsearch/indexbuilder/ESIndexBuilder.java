@@ -831,8 +831,7 @@ public class ESIndexBuilder {
           indexState.name(),
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
-      if (opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
-          && replacesRootAlias(indexState)) {
+      if (v3IndexNeedsRebuild(opContext, indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
         // engine rejects writes to an alias, so this index stops taking V3 writes. Other unapplied
         // changes keep only the warning above: Elasticsearch 8 can report spurious mapping drift on
@@ -860,12 +859,7 @@ public class ESIndexBuilder {
    */
   private void failIfV3IndexServingReadsNeedsRebuild(
       @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
-    if (!indexState.isPureMappingsAddition()
-        && !indexState.isPureStructuredPropertyAddition()
-        && !indexState.isInPlaceMappingParameterUpdate()
-        && opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
-        && replacesRootAlias(indexState)
-        && servesV3Reads(config.getEntityIndex())) {
+    if (v3IndexNeedsRebuild(opContext, indexState) && servesV3Reads(config.getEntityIndex())) {
       throw new IllegalStateException(
           String.format(
               "Search V3 index %s serves reads but keeps its previous mapping. Run system-update"
@@ -873,6 +867,19 @@ public class ESIndexBuilder {
                   + " or turn V3 keyword and semantic reads off, with V2 on, until it is rebuilt.",
               indexState.name()));
     }
+  }
+
+  /**
+   * Whether applyMappings leaves a Search V3 index declaring as aliases root fields that are real
+   * fields now, which only a rebuild fixes.
+   */
+  private static boolean v3IndexNeedsRebuild(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
+    return !indexState.isPureMappingsAddition()
+        && !indexState.isPureStructuredPropertyAddition()
+        && !indexState.isInPlaceMappingParameterUpdate()
+        && opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
+        && replacesRootAlias(indexState);
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {

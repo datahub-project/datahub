@@ -919,6 +919,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         continue;
       }
 
+      // Only an object field has no root field, and an engine alias cannot point at an object
+      log.warn(
+          "Field name alias '{}' names '{}', which has no root field, so filters on the alias match"
+              + " nothing",
+          alias,
+          aliasedField);
       createProjectedRootFieldMapping(
           rootFields, alias, allPaths, entitySpecs, false, partialNgramConfig);
     }

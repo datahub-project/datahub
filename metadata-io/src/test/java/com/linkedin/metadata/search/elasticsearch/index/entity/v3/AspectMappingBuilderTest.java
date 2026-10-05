@@ -156,20 +156,22 @@ public class AspectMappingBuilderTest {
     Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
 
     // Full-text search reads the root fields, so the aspect copies are not analyzed a second time
+    Map<String, Object> unanalyzedString =
+        Map.of(
+            TYPE,
+            "keyword",
+            "normalizer",
+            "keyword_normalizer",
+            "ignore_above",
+            8191,
+            "fields",
+            Map.of("keyword", Map.of(TYPE, "keyword", "ignore_above", 8191)));
     for (String stringField : List.of("description", "name", "browsePathV2")) {
-      Map<String, Object> mapping = (Map<String, Object>) fields.get(stringField);
-      assertEquals(mapping.get(TYPE), "keyword", stringField);
-      assertEquals(mapping.get("ignore_above"), 8191, stringField);
-      assertEquals(
-          ((Map<String, Object>) mapping.get("fields")).keySet(), Set.of("keyword"), stringField);
+      assertEquals(fields.get(stringField), unanalyzedString, stringField);
     }
     assertEquals(fields.get("platform"), Map.of(TYPE, "keyword", "ignore_above", 255));
     assertEquals(fields.get("lastModified"), Map.of(TYPE, "date"));
     assertEquals(fields.get("removed"), Map.of(TYPE, "boolean"));
-    String mapping = fields.toString();
-    for (String analysis : List.of("analyzer", "=text", "search_as_you_type", "token_count")) {
-      assertFalse(mapping.contains(analysis), mapping);
-    }
   }
 
   private static SearchableFieldSpec mockField(String fieldName, FieldType fieldType) {

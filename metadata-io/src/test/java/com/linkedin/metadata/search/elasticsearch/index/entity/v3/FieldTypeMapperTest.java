@@ -24,7 +24,7 @@ public class FieldTypeMapperTest {
     assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
     Map<String, Object> fields = getFields(mapping);
     assertTrue(fields.containsKey("delimited"));
-    assertTrue(fields.containsKey("keyword"));
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -34,7 +34,7 @@ public class FieldTypeMapperTest {
     assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
     Map<String, Object> fields = getFields(mapping);
     assertTrue(fields.containsKey("delimited"));
-    assertTrue(fields.containsKey("keyword"));
+    assertKeywordSubfieldPresent(mapping);
     assertEquals(((Map<String, Object>) fields.get("ngram")).get("analyzer"), "partial");
   }
 
@@ -105,6 +105,7 @@ public class FieldTypeMapperTest {
     assertEquals(mapping.get("type"), "keyword");
     // Configured value is UTF-8 bytes; ignore_above is character-based and byte-safe (/ 4).
     assertEquals(mapping.get("ignore_above"), 256);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -114,6 +115,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.STRING, 2048);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), 512);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -171,6 +173,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.STRING);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -180,6 +183,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.RICH_TEXT);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -241,6 +245,19 @@ public class FieldTypeMapperTest {
     when(spec.getSearchableAnnotation()).thenReturn(annotation);
     when(spec.getPath()).thenReturn(new PathSpec(path.split("/")));
     return spec;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertKeywordSubfieldPresent(Map<String, Object> mapping) {
+    assertTrue(mapping.containsKey("fields"), "STRING/RICH_TEXT/TEXT mappings need .keyword");
+    Map<String, Object> fields = (Map<String, Object>) mapping.get("fields");
+    assertTrue(fields.containsKey("keyword"), "Must expose .keyword multi-field for exact match");
+    Map<String, Object> keyword = (Map<String, Object>) fields.get("keyword");
+    assertEquals(keyword.get("type"), "keyword");
+    assertEquals(
+        keyword.get("ignore_above"),
+        mapping.get("ignore_above"),
+        ".keyword subfield must mirror parent ignore_above");
   }
 
   @SuppressWarnings("unchecked")
