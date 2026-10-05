@@ -1563,6 +1563,18 @@ class TestSourceTypeFiltering:
             )
             assert should_process_external is True
 
+            # SYSTEM (platform-managed) documents are DataHub-owned, like NATIVE
+            entity_system: dict[str, Any] = {
+                "urn": "urn:li:document:system1",
+                "info": {"source": {"sourceType": "SYSTEM"}},
+            }
+            assert source._should_process_by_source_type(
+                entity_system, entity_system["info"]
+            )
+            assert source._should_process_by_source_type_event(
+                "SYSTEM", {}, "urn:li:document:system1"
+            )
+
     def test_external_skipped_when_include_external_disabled(self, ctx, mock_graph):
         """EXTERNAL documents are skipped when include_external_documents is False."""
         config = DataHubDocumentsSourceConfig(
@@ -3318,20 +3330,46 @@ class TestFetchDocumentsPagination:
             assert mock_execute.call_count == 1
             assert not source.report.failures
 
-    def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
-        """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
+    @pytest.mark.parametrize(
+        "schema_check_kwargs,expect_flag",
+        [
+            ({"return_value": True}, True),
+            ({"return_value": False}, False),
+            # Schema check failed: fail closed, but surface it in the report.
+            ({"side_effect": GraphError("introspection failed")}, False),
+        ],
+    )
+    def test_search_flags_reach_hidden_documents(
+        self, ctx, config, mock_graph, schema_check_kwargs, expect_flag
+    ):
+        """Hidden-lifecycle docs are always requested; non-global-context docs only when
+        the server supports the flag, since older servers reject unknown search flags."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
             response = self._make_scroll_page(0, 0, next_scroll_id=None)
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=response
-            ) as mock_execute:
+            with (
+                patch.object(
+                    source.graph,
+                    "_graphql_input_type_has_field",
+                    **schema_check_kwargs,
+                ) as mock_schema_check,
+                patch.object(
+                    source.graph, "execute_graphql", return_value=response
+                ) as mock_execute,
+            ):
                 list(source._scroll_document_urns())
 
-            query = mock_execute.call_args[0][0]
-            assert "includeHiddenLifecycleStages: true" in query
+            mock_schema_check.assert_called_once_with(
+                "SearchFlags", "includeNonGlobalContextDocuments"
+            )
+            flags = mock_execute.call_args[0][1]["searchFlags"]
+            assert flags["includeHiddenLifecycleStages"] is True
+            assert ("includeNonGlobalContextDocuments" in flags) is expect_flag
+            assert bool(source.report.warnings) is (
+                "side_effect" in schema_check_kwargs
+            )
 
     def test_empty_result_set(self, ctx, config, mock_graph):
         """Zero documents yields no URNs after one call."""
