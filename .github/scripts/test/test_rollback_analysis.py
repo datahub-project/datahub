@@ -1215,6 +1215,52 @@ class TestNestedChanges:
         assert gap.risk == ra.SAFE
 
 
+_INNER_V1 = """
+namespace com.linkedin.test
+@Aspect = { "name": "innerAspect", "schemaVersion": 2 }
+record InnerAspect {
+  @Relationship = { "/*": { "name": "On", "entityTypes": [ "dataset" ] } }
+  entities: array[string]
+}
+"""
+_INNER_V2 = _INNER_V1.replace('"schemaVersion": 2', '"schemaVersion": 3').replace(
+    '[ "dataset" ]', '[ "dataset", "chart" ]'
+)
+_OUTER = """
+namespace com.linkedin.test
+@Aspect = { "name": "outerAspect", "schemaVersion": 3 }
+record OuterAspect {
+  info: InnerAspect
+}
+"""
+
+
+class TestEmbeddedAspectChanges:
+    def test_aspect_change_explains_embedding_aspect_version_gap(self):
+        inner, outer = _P + "InnerAspect.pdl", _P + "OuterAspect.pdl"
+        files = {
+            ("N", inner): _INNER_V2, ("N-1", inner): _INNER_V1,
+            ("N", outer): _OUTER, ("N-1", outer): _OUTER.replace('"schemaVersion": 3', '"schemaVersion": 2'),
+        }
+        with patch.object(ra.rac, "file_at", lambda ref, path: files.get((ref, path), "")), \
+             patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None), \
+             patch.object(ra.rac, "_git", return_value=f"{inner}\n{outer}\n"), \
+             patch.object(ra, "_read_files_at", return_value={inner: _INNER_V2, outer: _OUTER}):
+            findings = ra.classify_pdl_for_rollback(inner, "N", "N-1")
+            ra.attribute_embedded_aspect_changes(findings, "N", "N-1", [inner, outer])
+            findings.extend(ra.analyze_schema_version_gaps("N", "N-1", [inner, outer]))
+        ra._flag_unexplained_version_gaps(findings)
+
+        rel = [f for f in findings if f.summary.startswith("Graph relationship changed on `entities`")]
+        assert len(rel) == 1
+        assert rel[0].aspect_name == "innerAspect"
+        assert rel[0].affected_aspects == ["outerAspect"]
+        assert "Also embedded in: outerAspect." in rel[0].detail
+        gap = next(f for f in findings if f.dimension == ra.DIM_SCHEMA_VERSION and f.aspect_name == "outerAspect")
+        assert gap.risk == ra.SAFE and gap.read_impact != "not analysed"
+
+
 class TestRelationshipAndIncludes:
     def test_relationship_change_requires_attention(self):
         n1 = _ASPECT_V1.replace("bar: int", '@Relationship = { "name": "OwnedBy", "entityTypes": [ "corpuser" ] }\n  bar: int')

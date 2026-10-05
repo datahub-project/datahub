@@ -545,6 +545,15 @@ def _aspects_using(
     return result
 
 
+def _aspects_using_at(ref: str, fqns: set[str]) -> dict[str, set[str]]:
+    """`_aspects_using` over every PDL file at `ref`."""
+    all_paths = [
+        p for p in rac._git("ls-tree", "-r", "--name-only", ref, "--", rac.PDL_PREFIX).split()
+        if p.endswith(".pdl")
+    ]
+    return _aspects_using(fqns, _read_files_at(ref, all_paths))
+
+
 def analyze_nested_changes(
     current: str, target: str, pdl_paths: list[str]
 ) -> list[RollbackFinding]:
@@ -557,11 +566,7 @@ def analyze_nested_changes(
             changed[_fqn(path)] = (cur, tgt)
     if not changed:
         return []
-    all_paths = [
-        p for p in rac._git("ls-tree", "-r", "--name-only", current, "--", rac.PDL_PREFIX).split()
-        if p.endswith(".pdl")
-    ]
-    users = _aspects_using(set(changed), _read_files_at(current, all_paths))
+    users = _aspects_using_at(current, set(changed))
 
     findings: list[RollbackFinding] = []
     for fqn, (cur, tgt) in sorted(changed.items()):
@@ -595,6 +600,37 @@ def analyze_nested_changes(
             f.detail = f"{f.detail} {used_by}" if f.detail else used_by
         findings.extend(record_findings)
     return findings
+
+
+def attribute_embedded_aspect_changes(
+    findings: list[RollbackFinding], current: str, target: str, pdl_paths: list[str]
+) -> None:
+    """An aspect record can also be embedded as a field of another aspect (e.g.
+    `IncidentInfo` inside `IncidentActivityEvent`). `analyze_nested_changes`
+    skips aspect records, so attribute the aspect's own field and annotation
+    changes to every aspect that embeds it; otherwise the embedding aspect's
+    version bump looks unexplained."""
+    changed: dict[str, str] = {}
+    for path in pdl_paths:
+        cur, tgt = rac.file_at(current, path), rac.file_at(target, path)
+        meta = rac.aspect_meta(cur) if cur and tgt else None
+        if meta and meta.get("name"):
+            changed[path] = meta["name"]
+    by_path: dict[str, list[RollbackFinding]] = {}
+    for f in findings:
+        if f.dimension == DIM_PDL_SCHEMA and f.path in changed and f.aspect_name == changed[f.path]:
+            by_path.setdefault(f.path, []).append(f)
+    if not by_path:
+        return
+    users = _aspects_using_at(current, {_fqn(p) for p in by_path})
+    for path, own in by_path.items():
+        embedders = sorted(users.get(_fqn(path), set()) - {changed[path]})
+        if not embedders:
+            continue
+        also = f"Also embedded in: {', '.join(embedders)}."
+        for f in own:
+            f.affected_aspects = sorted(set(f.affected_aspects) | set(embedders))
+            f.detail = f"{f.detail} {also}" if f.detail else also
 
 
 # ---------------------------------------------------------------------------
@@ -1462,6 +1498,7 @@ def run(
     for path in pdl_paths:
         findings.extend(classify_pdl_for_rollback(path, current, target))
     findings.extend(analyze_nested_changes(current, target, pdl_paths))
+    attribute_embedded_aspect_changes(findings, current, target, pdl_paths)
 
     findings.extend(classify_mutators_for_rollback(current, target))
     findings.extend(classify_upgrade_steps_for_rollback(current, target))
