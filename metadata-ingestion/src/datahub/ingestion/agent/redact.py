@@ -4,10 +4,13 @@ from typing import (
     Dict,
     FrozenSet,
     List,
+    Optional,
     Sequence,
     Set,
     Tuple,
 )
+
+from datahub.ingestion.agent.config_fields import recipe_entry, recipe_items
 
 # Public so a reader of redacted output (filter_input) can recognise it.
 MASK = "***"
@@ -119,28 +122,56 @@ def _is_scalar_only_secret_key(key: object) -> bool:
 
 
 def collect_nested_secret_values(
-    obj: object, hints: Tuple[str, ...], under_sensitive: bool = False
+    obj: object,
+    hints: Tuple[str, ...],
+    under_sensitive: bool = False,
+    *,
+    config_cls: Optional[type] = None,
 ) -> Set[str]:
     """String values under a key holding a sensitive hint, recursively: free-form
     dict fields (a client's consumer config) are not typed SecretStr.
     `under_sensitive` carries a parent's verdict down, since everything beneath a
     sensitive key (`credential: {private_key: {pem: ...}}`) is the secret.
+
+    Given `config_cls`, the class `obj` validates as, the verdict is carried
+    only into free-form values: a Dict[str, Any] field, or a key no config
+    block declares. A block's fields have names of their own, each judged by
+    its name (`get_token: {request_type: post}` does not make "post" a secret),
+    and its SecretStr fields are collected by type
+    (introspect.iter_secret_field_values). With no class every mapping is
+    free-form, the raw recipe's reading.
     """
+    return _secret_values(obj, hints, under_sensitive, _typed_as(config_cls))
+
+
+def _typed_as(config_cls: Optional[type]) -> Tuple[object, ...]:
+    return () if config_cls is None else (config_cls,)
+
+
+def _secret_values(
+    obj: object,
+    hints: Tuple[str, ...],
+    under_sensitive: bool,
+    annotations: Tuple[object, ...],
+) -> Set[str]:
     found: Set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
             # Both sides normalized: a dotted hint (`basic.auth.user.info`)
             # never appears in a key whose dots normalize_key has rewritten.
             key = normalize_key(k)
-            sensitive = under_sensitive or any(normalize_key(h) in key for h in hints)
+            entry = recipe_entry(annotations, k)
+            inherited = under_sensitive and not entry.declared
+            sensitive = inherited or any(normalize_key(h) in key for h in hints)
             if isinstance(v, str):
                 if v and (sensitive or _is_scalar_only_secret_key(k)):
                     found.add(v)
             else:
-                found |= collect_nested_secret_values(v, hints, sensitive)
+                found |= _secret_values(v, hints, sensitive, entry.annotations)
     elif isinstance(obj, list):
+        items = recipe_items(annotations)
         for item in obj:
-            found |= collect_nested_secret_values(item, hints, under_sensitive)
+            found |= _secret_values(item, hints, under_sensitive, items)
     return found
 
 
@@ -150,34 +181,51 @@ _NOT_THE_SECRET_SUFFIXES = ("_id", "_path", "_file", "_filename", "_url", "_uri"
 
 
 def collect_nested_credential_values(
-    obj: object, hints: Tuple[str, ...], under_sensitive: bool = False
+    obj: object,
+    hints: Tuple[str, ...],
+    under_sensitive: bool = False,
+    *,
+    config_cls: Optional[type] = None,
 ) -> Set[str]:
     """Like collect_nested_secret_values, but for detecting a plaintext secret,
     where a false positive sends an author to fix a correct recipe. A dotted key
     is judged on its last segment (`sasl.mechanism` no, `sasl.password` yes);
-    a dotted hint (`ssl.key`) is matched against the whole key.
+    a dotted hint (`ssl.key`) is matched against the whole key. `config_cls`
+    stops a parent's verdict at a config block, as there.
     """
+    return _credential_values(obj, hints, under_sensitive, _typed_as(config_cls))
+
+
+def _credential_values(
+    obj: object,
+    hints: Tuple[str, ...],
+    under_sensitive: bool,
+    annotations: Tuple[object, ...],
+) -> Set[str]:
     found: Set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
             key = str(k).lower()
             leaf = key.rsplit(".", 1)[-1]
+            entry = recipe_entry(annotations, k)
+            inherited = under_sensitive and not entry.declared
             # The suffix rule applies to the leaf even under a sensitive parent:
             # `credential.private_key_id` is an identifier wherever it sits.
             named = any((h in key) if "." in h else (h in leaf) for h in hints)
-            sensitive = (under_sensitive or named) and not leaf.endswith(
+            sensitive = (inherited or named) and not leaf.endswith(
                 _NOT_THE_SECRET_SUFFIXES
             )
             if isinstance(v, str):
                 if v and sensitive:
                     found.add(v)
             else:
-                found |= collect_nested_credential_values(
-                    v, hints, under_sensitive or named
+                found |= _credential_values(
+                    v, hints, inherited or named, entry.annotations
                 )
     elif isinstance(obj, list):
+        items = recipe_items(annotations)
         for item in obj:
-            found |= collect_nested_credential_values(item, hints, under_sensitive)
+            found |= _credential_values(item, hints, under_sensitive, items)
     return found
 
 

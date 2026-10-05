@@ -1,14 +1,17 @@
 """A config class's fields and what their annotations hold.
 
-Below both readers of a config: `declarations` (the probe's field markers) and
-`introspect` (describe, secret discovery), which imports the former.
+Below every reader of a config: `declarations` (the probe's field markers),
+`introspect` (describe, secret discovery), which imports the former, and
+`redact`, whose nested walk reads a recipe against its class.
 """
 
+import collections.abc
 import types
 import typing
-from typing import FrozenSet, Iterator, List, Tuple
+from dataclasses import dataclass
+from typing import FrozenSet, Iterator, List, Set, Tuple, Type
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -85,3 +88,69 @@ def iter_config_fields(
         for member in _model_members(info.annotation):
             if member not in active:
                 yield from iter_config_fields(member, f"{path}.", active)
+
+
+def recipe_keys(name: str, info: FieldInfo) -> Set[str]:
+    """The keys a recipe can hold this field under. Validation reads the alias
+    (or each AliasChoices string) when there is one, else the name; the name is
+    read regardless, since over-collecting is the safe side for masking."""
+    alias = info.validation_alias or info.alias
+    if isinstance(alias, AliasChoices):
+        keys = {choice for choice in alias.choices if isinstance(choice, str)}
+    elif isinstance(alias, str):
+        keys = {alias}
+    else:
+        keys = set()
+    return keys | {name}
+
+
+@dataclass(frozen=True)
+class RecipeEntry:
+    """How a recipe mapping, read against the annotations that type it, holds
+    one key."""
+
+    # A config block declares the key as a field, and nothing else in the
+    # union could read the mapping (no Mapping, Any or object).
+    declared: bool
+    # What types the key's value; empty when nothing does.
+    annotations: Tuple[object, ...]
+
+
+def recipe_entry(annotations: Tuple[object, ...], key: object) -> RecipeEntry:
+    """`key` of a recipe mapping typed by `annotations` (empty: untyped)."""
+    models: List[Type[BaseModel]] = []
+    values: List[object] = []
+    free_form = False
+    for member in (m for a in annotations for m in unwrap_optional(a)):
+        cls = typing.get_origin(member) or member
+        if member is typing.Any or member is object:
+            free_form = True
+        elif isinstance(cls, type) and issubclass(cls, collections.abc.Mapping):
+            free_form = True
+            values.extend(typing.get_args(member)[-1:])
+        elif cls is member and isinstance(cls, type) and issubclass(cls, BaseModel):
+            models.append(cls)
+    declared = [
+        info.annotation
+        for model in models
+        for name, info in model.model_fields.items()
+        if key in recipe_keys(name, info)
+    ]
+    return RecipeEntry(
+        declared=bool(declared) and not free_form,
+        annotations=tuple(values + declared),
+    )
+
+
+def recipe_items(annotations: Tuple[object, ...]) -> Tuple[object, ...]:
+    """What types the items of a recipe list typed by `annotations`."""
+    items: List[object] = []
+    for member in (m for a in annotations for m in unwrap_optional(a)):
+        origin = typing.get_origin(member)
+        if (
+            isinstance(origin, type)
+            and issubclass(origin, (collections.abc.Sequence, collections.abc.Set))
+            and not issubclass(origin, (str, bytes))
+        ):
+            items.extend(a for a in typing.get_args(member) if a is not Ellipsis)
+    return tuple(items)

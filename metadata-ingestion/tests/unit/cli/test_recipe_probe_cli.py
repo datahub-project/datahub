@@ -1233,6 +1233,103 @@ def test_an_inline_secret_in_a_nested_config_block_is_collected(
     assert _NESTED_SENTINEL in collect(recipe_doc)
 
 
+@pytest.mark.parametrize(
+    "collect",
+    [_probe_secrets, rc._secrets_in_recipe],
+    ids=["probe", "validate"],
+)
+@pytest.mark.parametrize(
+    "source_type, config, registered, not_registered",
+    [
+        # A typed block of request settings under a key holding "token".
+        (
+            "openapi",
+            {
+                "name": "n",
+                "url": "https://api.example",
+                "swagger_file": "s.json",
+                "get_token": {"request_type": "post", "url_complement": "api/login"},
+            },
+            set(),
+            {"post", "api/login"},
+        ),
+        # A free-form client config: beneath a sensitive key, all of it.
+        (
+            "kafka",
+            {
+                "connection": {
+                    "bootstrap": "b:9092",
+                    "consumer_config": {"sasl": {"username": "PLANTED-sasl-user"}},
+                }
+            },
+            {"PLANTED-sasl-user"},
+            set(),
+        ),
+        # A config block's field named for a credential, typed plain str.
+        (
+            "snowflake",
+            {
+                "account_id": "a",
+                "oauth_config": {
+                    "provider": "okta",
+                    "authority_url": "https://idp.example",
+                    "client_id": "PLANTED-client-id",
+                    "scopes": ["s"],
+                },
+            },
+            {"PLANTED-client-id"},
+            set(),
+        ),
+    ],
+)
+def test_a_keys_secret_verdict_reaches_only_free_form_values(
+    collect: Callable[[Dict[str, object]], Set[str]],
+    source_type: str,
+    config: Dict[str, object],
+    registered: Set[str],
+    not_registered: Set[str],
+) -> None:
+    _require_connector(source_type)
+    found = collect({"source": {"type": source_type, "config": config}})
+    assert registered <= found, found
+    assert not_registered.isdisjoint(found), found
+
+
+_TOKEN_REQUEST_RECIPE = (
+    "source:\n  type: openapi\n  config:\n    name: n\n"
+    "    url: https://api.example\n    swagger_file: s.json\n"
+    "    username: u\n    password: ${PROBE_TEST_PW}\n"
+    "    get_token:\n      request_type: post\n      url_complement: api/login\n"
+)
+
+
+def test_a_token_request_setting_leaves_ordinary_output_intact(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """`post` registered as a secret masked every word holding it, and
+    validate told the author two request settings were plaintext secrets."""
+    _require_connector("openapi")
+    monkeypatch.setenv("PROBE_TEST_PW", "PLANTED-api-pw")
+    p = tmp_path / "r.yml"
+    p.write_text(_TOKEN_REQUEST_RECIPE)
+    text = "postgresql://h/x; got posts"
+
+    def fake_run(st, cfg, cmd, kwargs):
+        return ProbeMethodResult(
+            st, cmd, kwargs, {"note": text, "auth": f"as {cfg['password']}"}
+        )
+
+    monkeypatch.setattr(rc, "run_probe_method", fake_run)
+    res = CliRunner().invoke(recipe, ["probe", "run", "tables", "--recipe", str(p)])
+    assert res.exit_code == 0, res.output
+    assert text in res.output
+    assert "PLANTED-api-pw" not in res.output
+
+    res = CliRunner().invoke(recipe, ["validate", str(p)])
+    assert res.exit_code == 0, res.output
+    assert json.loads(res.output)["warnings"] == []
+
+
 class _RepositoryBlock(ConfigModel):
     repo: str
     deploy_key: SecretStr

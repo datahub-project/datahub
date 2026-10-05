@@ -219,13 +219,18 @@ def _validated_secrets(
 
 
 def _nested_secret_warnings(
-    config: Dict[str, object], already_warned: Set[str]
+    config_cls: Type[ConfigModel],
+    config: Dict[str, object],
+    already_warned: Set[str],
 ) -> List[str]:
     """Secrets nested in free-form dicts (`consumer_config['sasl.password']`),
     counted without naming the value or its path, which would put it in the
     transcript. The detecting collector judges a dotted key on its last
-    segment, so `sasl.mechanism` is not flagged."""
-    nested = collect_nested_credential_values(config, SENSITIVE_KEY_HINTS)
+    segment, so `sasl.mechanism` is not flagged, and a config block's fields by
+    their own names."""
+    nested = collect_nested_credential_values(
+        config, SENSITIVE_KEY_HINTS, config_cls=config_cls
+    )
     plaintext_nested = sorted(
         v for v in nested if not is_variable_reference(v) and v not in already_warned
     )
@@ -278,7 +283,7 @@ def validate_recipe(
         _validated_secrets(validated, source.config, plaintext)
     warnings = [
         *plaintext.warnings,
-        *_nested_secret_warnings(source.config, plaintext.values),
+        *_nested_secret_warnings(config_cls, source.config, plaintext.values),
         *_dotted_reference_warnings(source.config),
     ]
     return RecipeValidation(valid=not errors, errors=errors, warnings=warnings)

@@ -16,7 +16,7 @@ from typing import (
     Type,
 )
 
-from pydantic import AliasChoices, BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
@@ -25,6 +25,7 @@ from datahub.ingestion.agent.config_fields import (
     field_kind,
     is_pattern_field,
     iter_config_fields,
+    recipe_keys,
     unwrap_optional,
 )
 from datahub.ingestion.agent.config_validation import validate_source_config
@@ -60,20 +61,6 @@ logger = logging.getLogger(__name__)
 _MAX_SECRET_DEPTH = 16
 
 
-def _recipe_keys(name: str, info: FieldInfo) -> Set[str]:
-    """The keys a recipe can hold this field under. Validation reads the alias
-    (or each AliasChoices string) when there is one, else the name; the name is
-    read regardless, since over-collecting is the safe side for masking."""
-    alias = info.validation_alias or info.alias
-    if isinstance(alias, AliasChoices):
-        keys = {choice for choice in alias.choices if isinstance(choice, str)}
-    elif isinstance(alias, str):
-        keys = {alias}
-    else:
-        keys = set()
-    return keys | {name}
-
-
 def iter_secret_field_values(
     config_cls: Type[BaseModel], config: Dict[str, object]
 ) -> Iterator[Tuple[str, str]]:
@@ -100,7 +87,7 @@ def _secrets_in_model(
     model: Type[BaseModel], config: Dict[str, object], prefix: str, depth: int
 ) -> Iterator[Tuple[str, str]]:
     for name, info in model.model_fields.items():
-        for key in _recipe_keys(name, info):
+        for key in recipe_keys(name, info):
             if key in config:
                 yield from _secrets_in_value(
                     info.annotation, config[key], f"{prefix}{key}", depth + 1

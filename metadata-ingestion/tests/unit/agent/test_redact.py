@@ -1,5 +1,8 @@
+from typing import Any, Callable, Dict, Optional, Set
+
 import pytest
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.redact import (
     SENSITIVE_KEY_HINTS,
     collect_nested_credential_values,
@@ -292,6 +295,71 @@ def test_a_credential_nested_under_a_sensitive_key_is_collected():
     # simply widened everything.
     assert "analytics" not in masked, masked
     assert "analytics" not in flagged, flagged
+
+
+class _TokenRequest(ConfigModel):
+    request_type: str = "get"
+    url_complement: str = ""
+    client_secret: Optional[str] = None
+
+
+class _TypedConfig(ConfigModel):
+    get_token: Optional[_TokenRequest] = None
+    consumer_config: Dict[str, Any] = {}
+
+
+_COLLECTORS = pytest.mark.parametrize(
+    "collect",
+    [collect_nested_secret_values, collect_nested_credential_values],
+    ids=["mask", "detect"],
+)
+
+
+@_COLLECTORS
+def test_a_typed_block_under_a_sensitive_key_is_judged_by_its_own_field_names(
+    collect: Callable[..., Set[str]],
+) -> None:
+    """A key holding "token" made every value beneath it a secret, typed block
+    or not: `get_token.request_type: post` registered "post", and output text
+    `postgresql://h/x; got posts` read `***gresql://h/x; got ***s`. A config
+    block's fields have names of their own to be judged by."""
+    cfg = {
+        "get_token": {
+            "request_type": "post",
+            "url_complement": "api/login",
+            "client_secret": "PLANTED-client-secret",
+            "not_declared": "PLANTED-undeclared",
+        }
+    }
+
+    found = collect(cfg, SENSITIVE_KEY_HINTS, config_cls=_TypedConfig)
+
+    assert "post" not in found, found
+    assert "api/login" not in found, found
+    # Named for a credential, so collected though typed plain str.
+    assert "PLANTED-client-secret" in found, found
+    # The block does not declare it, so nothing types it: free-form.
+    assert "PLANTED-undeclared" in found, found
+    # With no class to read the walk stays on the safe side.
+    assert "post" in collect(cfg, SENSITIVE_KEY_HINTS), found
+
+
+@_COLLECTORS
+def test_a_free_form_value_under_a_sensitive_key_still_inherits(
+    collect: Callable[..., Set[str]],
+) -> None:
+    """A client config typed Dict[str, Any] has no field names to judge, so
+    everything beneath a sensitive key in it is still the secret. So is a key
+    the config does not declare at all."""
+    cfg = {
+        "consumer_config": {"sasl": {"username": "PLANTED-sasl-user"}},
+        "token": {"value": "PLANTED-token-value"},
+    }
+
+    found = collect(cfg, SENSITIVE_KEY_HINTS, config_cls=_TypedConfig)
+
+    assert "PLANTED-sasl-user" in found, found
+    assert "PLANTED-token-value" in found, found
 
 
 def test_a_credential_named_api_key_is_collected_as_a_secret():

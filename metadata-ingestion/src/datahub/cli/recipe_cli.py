@@ -42,7 +42,9 @@ from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
     ProbeMethodResult,
+    config_class_for,
     list_probe_methods,
+    require_config_class,
     run_probe_method,
     source_class_for,
 )
@@ -406,8 +408,13 @@ def _resolved_recipe(
     )
     # Defense-in-depth: catch secrets living in free-form dict config fields
     # (e.g. Kafka's consumer_config) that aren't typed SecretStr and so aren't
-    # covered by either collection above.
-    secret_values |= collect_nested_secret_values(resolved.config, SENSITIVE_KEY_HINTS)
+    # covered by either collection above. secret_field_values has resolved the
+    # class already, so this does not raise.
+    secret_values |= collect_nested_secret_values(
+        resolved.config,
+        SENSITIVE_KEY_HINTS,
+        config_cls=require_config_class(source_type),
+    )
     # Anything piped in is a secret by declaration, so mask it whether or not
     # the recipe happened to reference it (it may have arrived already
     # substituted). Mirrors what load_config_file does for `ingest -c -`.
@@ -449,9 +456,12 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     source: Dict[str, object] = raw_source if isinstance(raw_source, dict) else {}
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
+    config_cls = _config_class_if_any(str(source.get("type")))
     # Floor: inline literals recognisable by key name, straight off the raw
     # recipe, so a later failure cannot cost us these.
-    values |= collect_nested_secret_values(config, SENSITIVE_KEY_HINTS)
+    values |= collect_nested_secret_values(
+        config, SENSITIVE_KEY_HINTS, config_cls=config_cls
+    )
     try:
         resolved = resolve_config_collecting(config, _stdin_aware_resolvers())
     except Exception:
@@ -459,13 +469,25 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
         # produced no value, so there is nothing further to mask.
         return values
     values |= resolved.secret_values
-    values |= collect_nested_secret_values(resolved.config, SENSITIVE_KEY_HINTS)
+    values |= collect_nested_secret_values(
+        resolved.config, SENSITIVE_KEY_HINTS, config_cls=config_cls
+    )
     try:
         values |= secret_field_values(str(source.get("type")), resolved.config)
     except Exception:
         # Unknown or uninstalled source type: keep the refs already resolved.
         pass
     return values
+
+
+def _config_class_if_any(source_type: str) -> Optional[type]:
+    """The source's config class, or None when the type does not resolve or
+    declares none: the nested walk then reads every mapping as free-form, the
+    safe side. Never raises, for _secrets_in_recipe."""
+    try:
+        return config_class_for(source_type)
+    except Exception:
+        return None
 
 
 @click.group(cls=_AgentAwareGroup, name="recipe")
