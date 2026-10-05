@@ -139,6 +139,11 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
         .thenReturn(mockSearchResponse);
     List<String> nullBrowsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(nullBrowsePaths.size(), 0);
+
+    // Test the case of a removed browsePaths aspect, which leaves the field null
+    sourceMap.put("browsePaths", null);
+    when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
+    assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
   }
 
   @Test
@@ -269,7 +274,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
         .thenReturn(mockGroupsResponse);
 
     new ESBrowseDAO(
-            v3KeywordReadConfig(),
+            v3Config(true),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG)
@@ -286,7 +291,47 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testLegacyBrowseStaysOnV2WhenKeywordReadEnabled() throws Exception {
+  public void testLegacyBrowseReadsV2WhileKeywordReadsAreOff() throws Exception {
+    for (SearchRequest request : legacyBrowseRequests(v3Config(false))) {
+      assertTrue(request.indices()[0].endsWith("datasetindex_v2"), request.indices()[0]);
+      assertFalse(request.source().query().toString().contains("_entityType"));
+    }
+  }
+
+  @Test
+  public void testLegacyBrowseReadsV3WhenKeywordReadEnabled() throws Exception {
+    List<SearchRequest> requests = legacyBrowseRequests(v3Config(true));
+    for (SearchRequest request : requests) {
+      assertTrue(request.indices()[0].endsWith("datasetindex_v3"), request.indices()[0]);
+      // Scoped to the entity type, as browseV2 is on V3
+      assertTrue(request.source().query().toString().contains("_entityType"));
+      // Legacy browse reads the root fields, as on V2, never the _aspects copies
+      assertFalse(request.source().query().toString().contains("_aspects."));
+    }
+    assertTrue(
+        requests.stream()
+            .anyMatch(r -> r.source().query().toString().contains("\"browsePaths.length\"")));
+  }
+
+  @Test
+  public void testLegacyBrowseReadsV3WhenV2IsOff() throws Exception {
+    ElasticSearchConfiguration v3Only =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .build())
+            .build();
+    for (SearchRequest request : legacyBrowseRequests(v3Only)) {
+      assertTrue(request.indices()[0].endsWith("datasetindex_v3"), request.indices()[0]);
+      assertTrue(request.source().query().toString().contains("_entityType"));
+    }
+  }
+
+  /** The requests of one legacy browse (groups, then entities) and one getBrowsePaths. */
+  private List<SearchRequest> legacyBrowseRequests(ElasticSearchConfiguration config)
+      throws Exception {
     SearchResponse mockGroupsResponse = mock(SearchResponse.class);
     SearchHits mockGroupsHits = mock(SearchHits.class);
     when(mockGroupsResponse.getHits()).thenReturn(mockGroupsHits);
@@ -307,51 +352,23 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
         .thenReturn(mockGroupsResponse)
         .thenReturn(mockEntitiesResponse);
 
-    ESBrowseDAO v3ReadBrowseDao =
+    ESBrowseDAO dao =
         new ESBrowseDAO(
-            v3KeywordReadConfig(),
+            config,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    v3ReadBrowseDao.browse(opContext, "dataset", "/test/path", null, 0, 10);
+    dao.browse(opContext, "dataset", "/test/path", null, 0, 10);
+    dao.getBrowsePaths(opContext, "dataset", makeUrn(0));
 
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient, times(2))
+    verify(mockClient, times(3))
         .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
-    for (SearchRequest request : requestCaptor.getAllValues()) {
-      assertEquals(request.indices().length, 1);
-      assertTrue(request.indices()[0].endsWith("datasetindex_v2"), request.indices()[0]);
-    }
+    return requestCaptor.getAllValues();
   }
 
-  @Test
-  public void testGetBrowsePathsStaysOnV2WhenKeywordReadEnabled() throws Exception {
-    SearchResponse mockSearchResponse = mock(SearchResponse.class);
-    SearchHits mockSearchHits = mock(SearchHits.class);
-    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {});
-    when(mockClient.search(
-            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockSearchResponse);
-
-    ESBrowseDAO v3ReadBrowseDao =
-        new ESBrowseDAO(
-            v3KeywordReadConfig(),
-            customSearchConfiguration,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    v3ReadBrowseDao.getBrowsePaths(opContext, "dataset", makeUrn(0));
-
-    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient)
-        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
-    assertTrue(
-        requestCaptor.getValue().indices()[0].endsWith("datasetindex_v2"),
-        requestCaptor.getValue().indices()[0]);
-    assertFalse(requestCaptor.getValue().source().query().toString().contains("_entityType"));
-  }
-
-  private static ElasticSearchConfiguration v3KeywordReadConfig() {
+  /** V2 and V3 both written; V3 keyword reads as given. */
+  private static ElasticSearchConfiguration v3Config(boolean keywordReadEnabled) {
     return TEST_OS_SEARCH_CONFIG.toBuilder()
         .entityIndex(
             EntityIndexConfiguration.builder()
@@ -359,7 +376,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 .v3(
                     EntityIndexVersionConfiguration.builder()
                         .enabled(true)
-                        .keywordReadEnabled(true)
+                        .keywordReadEnabled(keywordReadEnabled)
                         .build())
                 .build())
         .build();

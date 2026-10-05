@@ -607,11 +607,9 @@ public class ESSearchDAO {
     // an empty indices array makes Elasticsearch search ALL indices, letting aggregates span
     // prefixes. Mirror the null handling of the entitySpec branch above.
     if (entityNames == null || entityNames.isEmpty()) {
-      List<String> indexPatterns =
-          EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-              ? indexConvention.getV3EntityIndexPatterns(opContext)
-              : indexConvention.getAllEntityIndicesPatterns(opContext);
-      searchRequest.indices(indexPatterns.toArray(new String[0]));
+      searchRequest.indices(
+          EntitySearchIndexResolver.allEntityIndexPattern(
+              opContext, searchConfiguration.getEntityIndex()));
     } else {
       searchRequest.indices(entityIndexNames(opContext, entityNames));
     }

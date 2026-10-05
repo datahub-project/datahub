@@ -369,9 +369,7 @@ public class MultiEntityMappingsBuilderTest {
             "structuredPropertyAttributionActors",
             "structured property attribution is kept with the structuredProperties aspect",
             "structuredPropertyAttributionDates",
-            "structured property attribution is kept with the structuredProperties aspect",
-            "browsePaths",
-            "legacy browse is not served from V3 yet");
+            "structured property attribution is kept with the structuredProperties aspect");
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Map<String, Map<String, Object>> v3PropertiesByIndex = new HashMap<>();
@@ -1283,7 +1281,12 @@ public class MultiEntityMappingsBuilderTest {
     }
     assertTrue(
         allReferencedAnalyzers.containsAll(
-            List.of("urn_component", "word_delimited", "browse_path_v2_hierarchy")),
+            List.of(
+                "urn_component",
+                "word_delimited",
+                "browse_path_hierarchy",
+                "slash_pattern",
+                "browse_path_v2_hierarchy")),
         allReferencedAnalyzers.toString());
     assertTrue(allReferencedNormalizers.contains("keyword_normalizer"));
   }

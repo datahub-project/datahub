@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
@@ -28,6 +29,7 @@ import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
+import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.GlobalTags;
@@ -43,6 +45,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetProperties;
@@ -50,6 +53,9 @@ import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultEntity;
+import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
@@ -59,6 +65,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -114,12 +121,15 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -129,6 +139,7 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -140,9 +151,6 @@ import org.testng.annotations.Test;
  * would fail with index_not_found, or come back empty through a V2 wildcard. With V2 enabled (see
  * {@link #isV2Enabled()}) the V2 indices exist but stay empty, so a read routed to V2 finds
  * nothing.
- *
- * <p>Legacy browse ({@code browse}, {@code getBrowsePaths}) is not covered: it reads browsePaths
- * fields that only exist on V2 mappings.
  */
 public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContextTests {
 
@@ -171,6 +179,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final String CUSTOMERS_DESCRIPTION =
       "Customer master data joined from the billing, support and marketing systems, refreshed"
           + " nightly and kept for seven years";
+  // Dashboards holding the same words, one in its title (boostScore 10) and one in its
+  // description (boostScore 1). The urn tie-break alone would put the description match first
+  private static final Urn TITLE_MATCH = UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_title)");
+  private static final Urn DESCRIPTION_MATCH =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_description)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -180,6 +193,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private SettingsBuilder settingsBuilder;
   private IndexConfiguration indexConfiguration;
   private OperationContext opContext;
+  private ElasticSearchConfiguration config;
   private ElasticSearchService searchService;
 
   @Nonnull
@@ -203,8 +217,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .keywordReadEnabled(true)
                     .build())
             .build();
-    ElasticSearchConfiguration config =
-        TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
+    config = TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -288,7 +301,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
     for (String entityType :
-        Stream.of(ENTITY_TYPES, List.of(EMPTY_ENTITY_TYPE), EXTRA_ENTITY_TYPES)
+        Stream.of(
+                ENTITY_TYPES,
+                List.of(EMPTY_ENTITY_TYPE),
+                EXTRA_ENTITY_TYPES,
+                List.of(DASHBOARD_ENTITY_NAME))
             .flatMap(List::stream)
             .collect(Collectors.toList())) {
       List<String> indexNames = new ArrayList<>();
@@ -326,6 +343,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     // Mixed case: keyword roots are normalized, so facets must read .keyword
                     new SubTypes().setTypeNames(new StringArray("Table")),
                     browsePaths("prod", "sales"),
+                    legacyBrowsePaths("/prod/sales"),
                     new StructuredProperties()
                         .setProperties(
                             new StructuredPropertyValueAssignmentArray(
@@ -349,7 +367,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                 new Owner()
                                     .setOwner(CUSTOMERS_OWNER)
                                     .setType(OwnershipType.DATAOWNER))),
-                    browsePaths("prod", "marketing")),
+                    browsePaths("prod", "marketing"),
+                    legacyBrowsePaths("/prod/marketing", "/shared/crm")),
                 ORDERS_CHART,
                 events(
                     ORDERS_CHART,
@@ -364,7 +383,21 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                 new TagAssociation().setTag(new TagUrn("Confidential")))),
                     browsePaths("prod", "sales")),
                 NIGHTLY_JOB,
-                events(NIGHTLY_JOB)),
+                events(NIGHTLY_JOB),
+                TITLE_MATCH,
+                events(
+                    TITLE_MATCH,
+                    new DashboardInfo()
+                        .setTitle("Quarterly revenue archive")
+                        .setDescription("Revenue totals")
+                        .setLastModified(new ChangeAuditStamps())),
+                DESCRIPTION_MATCH,
+                events(
+                    DESCRIPTION_MATCH,
+                    new DashboardInfo()
+                        .setTitle("Revenue totals")
+                        .setDescription("Quarterly revenue archive")
+                        .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -602,6 +635,47 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.aggregateByValue(
             opContext, List.of(DATASET_ENTITY_NAME), "typeNames", null, 10),
         Map.of("Table", 1L));
+  }
+
+  /**
+   * With V2 and V3 both written and keyword reads off, an aggregation without an entity list reads
+   * V2 only, so an entity held by both counts once.
+   */
+  @Test
+  public void testAggregateAcrossEntitiesWhileDualWriting() throws Exception {
+    if (!isV2Enabled()) {
+      throw new SkipException("Needs the V2 entity indices");
+    }
+    EntityIndexConfiguration dualWrite =
+        config.getEntityIndex().toBuilder()
+            .v3(config.getEntityIndex().getV3().toBuilder().keywordReadEnabled(false).build())
+            .build();
+    ESSearchDAO dualWriteSearchDAO =
+        new ESSearchDAO(
+            false,
+            config.toBuilder().entityIndex(dualWrite).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    // ORDERS as V2 holds it, next to its V3 document
+    String v2DocId = URLEncoder.encode(ORDERS.toString(), StandardCharsets.UTF_8);
+    searchService.upsertDocument(
+        opContext,
+        DATASET_ENTITY_NAME,
+        String.format("{\"urn\":\"%s\",\"platform\":\"%s\"}", ORDERS, HIVE),
+        v2DocId);
+    syncAfterWrite(getBulkProcessor());
+    try {
+      Map<String, Long> v2Counts =
+          dualWriteSearchDAO.aggregateByValue(
+              opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10);
+      assertEquals(v2Counts, Map.of(HIVE.toString(), 1L));
+      assertEquals(
+          dualWriteSearchDAO.aggregateByValue(opContext, null, "platform", null, 10), v2Counts);
+    } finally {
+      searchService.deleteDocument(opContext, DATASET_ENTITY_NAME, v2DocId);
+      syncAfterWrite(getBulkProcessor());
+    }
   }
 
   @Test
@@ -870,6 +944,91 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         explain.getExplanation().toString());
   }
 
+  /** A match in a field with a higher @Searchable boostScore ranks first, as on V2. */
+  @Test
+  public void testSearchableBoostsRankResults() {
+    assertEquals(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList()),
+        List.of(TITLE_MATCH, DESCRIPTION_MATCH));
+  }
+
+  /** The function scores of the custom search configuration rank an explore-all query. */
+  @Test
+  public void testCustomSearchConfigRanksResults() {
+    // CUSTOMERS has a description and an owner, which the production configuration boosts. ORDERS
+    // matches no scoring function, and the urn tie-break alone would put it first
+    assertEquals(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "*",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList()),
+        List.of(CUSTOMERS, ORDERS));
+  }
+
+  /** The fieldConfiguration search flag picks the fields a custom search configuration queries. */
+  @Test
+  public void testFieldConfigurationSelectsSearchedFields() throws IOException {
+    // Only the simple query runs, so the field configuration decides which fields can match
+    CustomSearchConfiguration nameOnlyConfiguration =
+        new YAMLMapper()
+            .readValue(
+                """
+                fieldConfigurations:
+                  nameOnly:
+                    searchFields:
+                      replace:
+                        - name
+                queryConfigurations:
+                  - queryRegex: .*
+                    simpleQuery: true
+                    prefixMatchQuery: false
+                    exactMatchQuery: false
+                """,
+                CustomSearchConfiguration.class);
+    ESSearchDAO searchDAO =
+        new ESSearchDAO(
+            false,
+            config,
+            nameOnlyConfiguration,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    BiFunction<OperationContext, String, SearchEntityArray> search =
+        (context, query) ->
+            searchDAO
+                .search(
+                    context, List.of(DATASET_ENTITY_NAME), query, null, List.of(), 0, 10, List.of())
+                .getEntities();
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    OperationContext nameOnly =
+        fulltext.withSearchFlags(flags -> flags.setFieldConfiguration("nameOnly"));
+
+    // Only the CUSTOMERS description holds "billing"
+    assertUrns(search.apply(fulltext, "billing"), CUSTOMERS);
+    assertUrns(search.apply(nameOnly, "billing"));
+    assertUrns(search.apply(nameOnly, "orders"), ORDERS);
+  }
+
   @Test
   @SuppressWarnings("unchecked")
   public void testSearchWithEmptyIndex() throws IOException {
@@ -1049,6 +1208,40 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(groups(acrossEntities), Map.of("sales", 2L, "marketing", 1L));
   }
 
+  /** Legacy browse on the browsePaths aspect returns what V2 returns for the same paths. */
+  @Test
+  public void testBrowse() {
+    BrowseResult root = searchService.browse(opContext, DATASET_ENTITY_NAME, "", null, 0, 10);
+    assertEquals(root.getMetadata().getTotalNumEntities().longValue(), 2L);
+    assertEquals(groups(root), Map.of("prod", 2L, "shared", 1L));
+    assertEquals(root.getNumEntities().intValue(), 0);
+
+    assertEquals(
+        groups(searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod", null, 0, 10)),
+        Map.of("sales", 1L, "marketing", 1L));
+
+    // An entity is listed at the full depth of its path
+    BrowseResult sales =
+        searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod/sales", null, 0, 10);
+    assertEquals(groups(sales), Map.of());
+    assertEquals(
+        sales.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()),
+        List.of(ORDERS));
+  }
+
+  @Test
+  public void testGetBrowsePaths() {
+    assertEquals(
+        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, ORDERS),
+        List.of("/prod/sales"));
+    assertEquals(
+        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, CUSTOMERS),
+        List.of("/prod/marketing", "/shared/crm"));
+    // No browsePaths aspect
+    assertEquals(
+        searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
+  }
+
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     AuditStamp auditStamp =
@@ -1084,6 +1277,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .collect(Collectors.toList())));
   }
 
+  private static BrowsePaths legacyBrowsePaths(String... paths) {
+    return new BrowsePaths().setPaths(new StringArray(Arrays.asList(paths)));
+  }
+
   private static List<Urn> urns(AutoCompleteResult result) {
     return result.getEntities().stream()
         .map(AutoCompleteEntity::getUrn)
@@ -1093,6 +1290,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static Map<String, Long> groups(BrowseResultV2 result) {
     return result.getGroups().stream()
         .collect(Collectors.toMap(BrowseResultGroupV2::getName, BrowseResultGroupV2::getCount));
+  }
+
+  private static Map<String, Long> groups(BrowseResult result) {
+    return result.getGroups().stream()
+        .collect(Collectors.toMap(BrowseResultGroup::getName, BrowseResultGroup::getCount));
   }
 
   @SuppressWarnings("unchecked")
