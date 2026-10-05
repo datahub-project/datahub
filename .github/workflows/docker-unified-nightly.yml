@@ -366,8 +366,8 @@ jobs:
           DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
           printf '%s\n' "$DATAHUB_IMAGES"
-          # Split on whitespace. Do not eval the list: tags come from a build artifact.
-          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          # Setup already rejected anything that is not a registry/name:tag.
+          # Split on whitespace; do not eval the list.
           read -r -a image_refs <<< "$DATAHUB_IMAGES"
           if [[ ${#image_refs[@]} -eq 0 ]]; then
             echo "Error: no images to pull" >&2
@@ -375,10 +375,6 @@ jobs:
           fi
           failed_pulls=0
           for image in "${image_refs[@]}"; do
-            if [[ ! "$image" =~ $image_ref_re ]]; then
-              echo "Error: invalid image reference: ${image}" >&2
-              exit 1
-            fi
             echo "Pulling $image"
             if ! docker pull "$image"; then
               echo "Failed to pull $image"
@@ -610,7 +606,8 @@ jobs:
         env:
           DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
-          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          # Setup already rejected anything that is not a registry/name:tag.
+          # Split on whitespace; do not eval the list.
           read -r -a image_refs <<< "$DATAHUB_IMAGES"
           if [[ ${#image_refs[@]} -eq 0 ]]; then
             echo "Error: no images to pull" >&2
@@ -618,10 +615,6 @@ jobs:
           fi
           failed_pulls=0
           for image in "${image_refs[@]}"; do
-            if [[ ! "$image" =~ $image_ref_re ]]; then
-              echo "Error: invalid image reference: ${image}" >&2
-              exit 1
-            fi
             echo "Pulling $image"
             if ! docker pull "$image"; then
               echo "Failed to pull $image"
@@ -640,7 +633,8 @@ jobs:
         run: |
           # Tag all images with nightly and daily tags
 
-          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          # Setup already rejected anything that is not a registry/name:tag.
+          # Split on whitespace; do not eval the list.
           read -r -a image_refs <<< "$DATAHUB_IMAGES"
           if [[ ${#image_refs[@]} -eq 0 ]]; then
             echo "Error: no images to tag" >&2
@@ -649,10 +643,6 @@ jobs:
           failed_tags=0
           failed_pushes=0
           for image in "${image_refs[@]}"; do
-            if [[ ! "$image" =~ $image_ref_re ]]; then
-              echo "Error: invalid image reference: ${image}" >&2
-              exit 1
-            fi
             imageWithNightlyTag="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
             echo "Tagging $image as $imageWithNightlyTag"
             if ! docker tag "$image" "$imageWithNightlyTag"; then
