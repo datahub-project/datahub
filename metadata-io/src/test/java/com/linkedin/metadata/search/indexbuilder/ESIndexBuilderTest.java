@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -399,6 +401,61 @@ public class ESIndexBuilderTest {
     assertEquals(
         rebuildErrors("datasetindex_v3", Map.of("type", "keyword"), Map.of("type", "text")), 0);
     assertEquals(rebuildErrors("datasetindex_v2", rootAlias, Map.of("type", "keyword")), 0);
+  }
+
+  /** system-update stops on such an index only while V3 serves reads. */
+  @Test
+  void testBuildIndex_FailsWhenV3IndexThatNeedsRebuildServesReads() throws IOException {
+    Map<String, Object> rootAlias =
+        Map.of("type", "alias", "path", "_aspects.datasetProperties.name");
+    EntityIndexVersionConfiguration on =
+        EntityIndexVersionConfiguration.builder().enabled(true).build();
+    EntityIndexVersionConfiguration off =
+        EntityIndexVersionConfiguration.builder().enabled(false).build();
+
+    when(elasticSearchConfiguration.getEntityIndex())
+        .thenReturn(EntityIndexConfiguration.builder().v2(on).v3(on).build());
+    assertEquals(
+        indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v3", rootAlias)),
+        ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+
+    for (EntityIndexConfiguration v3Reads :
+        List.of(
+            EntityIndexConfiguration.builder()
+                .v2(on)
+                .v3(on.toBuilder().keywordReadEnabled(true).build())
+                .build(),
+            EntityIndexConfiguration.builder()
+                .v2(on)
+                .v3(on.toBuilder().semanticReadEnabled(true).build())
+                .build(),
+            EntityIndexConfiguration.builder().v2(off).v3(on).build())) {
+      when(elasticSearchConfiguration.getEntityIndex()).thenReturn(v3Reads);
+      assertThrows(
+          IllegalStateException.class,
+          () -> indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v3", rootAlias)));
+      // Other unapplied changes, and V2 indices, keep only the warning
+      assertEquals(
+          indexBuilder.buildIndex(
+              opContext, staleIndexState("datasetindex_v3", Map.of("type", "text"))),
+          ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+      assertEquals(
+          indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v2", rootAlias)),
+          ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+    }
+  }
+
+  private static ReindexConfig staleIndexState(String index, Object currentName) {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(index);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(
+            Map.<String, Object>of("properties", Map.of("name", Map.of("type", "keyword"))));
+    return indexState;
   }
 
   private long rebuildErrors(String index, Object currentName, Object targetName)

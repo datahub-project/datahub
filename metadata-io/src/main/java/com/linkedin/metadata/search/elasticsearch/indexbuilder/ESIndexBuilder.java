@@ -9,9 +9,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
@@ -597,6 +599,7 @@ public class ESIndexBuilder {
 
       // Just update the additional mappings
       applyMappings(opContext, indexState, true);
+      failIfV3IndexServingReadsNeedsRebuild(opContext, indexState);
 
       if (indexState.requiresApplySettings()) {
         UpdateSettingsRequest request = new UpdateSettingsRequest(indexState.name());
@@ -847,6 +850,37 @@ public class ESIndexBuilder {
             indexState.targetMappings());
       }
     }
+  }
+
+  /**
+   * Stops system-update when a Search V3 index that serves reads still declares as aliases root
+   * fields that are real fields now. Its writes are rejected and its reads miss those fields, so
+   * search would quietly return wrong results. While V2 serves reads, the error applyMappings logs
+   * is enough and the upgrade continues.
+   */
+  private void failIfV3IndexServingReadsNeedsRebuild(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
+    if (!indexState.isPureMappingsAddition()
+        && !indexState.isPureStructuredPropertyAddition()
+        && !indexState.isInPlaceMappingParameterUpdate()
+        && opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
+        && replacesRootAlias(indexState)
+        && servesV3Reads(config.getEntityIndex())) {
+      throw new IllegalStateException(
+          String.format(
+              "Search V3 index %s serves reads but keeps its previous mapping. Run system-update"
+                  + " with ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices,"
+                  + " or turn V3 keyword and semantic reads off, with V2 on, until it is rebuilt.",
+              indexState.name()));
+    }
+  }
+
+  private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
+    return EntitySearchIndexResolver.shouldReadV3(entityIndex)
+        || (entityIndex != null
+            && entityIndex.getV3() != null
+            && entityIndex.getV3().isEnabled()
+            && entityIndex.getV3().isSemanticReadEnabled());
   }
 
   /** Whether a root field that the current mapping declares as an alias is a real field now. */
