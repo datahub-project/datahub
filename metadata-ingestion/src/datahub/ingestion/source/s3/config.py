@@ -1,10 +1,11 @@
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, FiltersByRule
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -22,6 +23,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -42,6 +44,18 @@ class DataLakeSourceConfig(
     PathSpecsConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    # Redeclared from PathSpecsConfigMixin to mark it: path_specs, not an
+    # AllowDenyPattern, decide every level this source emits, and the bucket
+    # kind differs per source (ABS shares the mixin).
+    path_specs: Annotated[
+        List[PathSpec],
+        FiltersByRule(DatasetContainerSubTypes.S3_BUCKET),
+        FiltersByRule(DatasetContainerSubTypes.FOLDER),
+        FiltersByRule(DatasetSubTypes.TABLE),
+    ] = Field(
+        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
+    )
+
     platform: str = Field(
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
@@ -136,15 +150,6 @@ class DataLakeSourceConfig(
         from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
 
         return S3MetadataProbe
-
-    @classmethod
-    def probe_rule_filtered_kinds(cls) -> Dict[str, str]:
-        """path_specs, not an AllowDenyPattern, decide every level this source emits."""
-        return {
-            str(DatasetContainerSubTypes.S3_BUCKET): "path_specs",
-            str(DatasetContainerSubTypes.FOLDER): "path_specs",
-            str(DatasetSubTypes.TABLE): "path_specs",
-        }
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """Judge one name with the PathSpec calls S3Source makes; see path_spec_verdict."""

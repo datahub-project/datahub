@@ -506,8 +506,9 @@ class GlueSourceConfig(
         same glue_selection functions GlueSource calls.
 
         - A Glue job is emitted only when extract_transforms is truthy
-          (get_workunits_internal). The field is Optional[bool], so it cannot
-          be a probe_kind_switches entry, and `null` switches jobs off too.
+          (get_workunits_internal). The field is Optional[bool] and Glue
+          reads `null` as off too, while an Enables marker reads only False
+          as off, so jobs are judged here rather than by marking the field.
         - A database is dropped when ignore_resource_links hides it, by
           database_pattern, or -- with catalog_id set -- when its CatalogId
           names another catalog (get_all_databases).

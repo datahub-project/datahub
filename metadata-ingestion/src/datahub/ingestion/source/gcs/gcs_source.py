@@ -4,7 +4,6 @@ from dataclasses import replace
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Iterable,
     List,
     Optional,
@@ -18,8 +17,9 @@ import google.auth.exceptions
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import Field, PrivateAttr, field_validator, model_validator
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, FiltersByRule
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -184,6 +184,18 @@ class GCSSourceConfig(
     PathSpecsConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    # Redeclared from PathSpecsConfigMixin to mark it: path_specs, not an
+    # AllowDenyPattern, decide every level this source emits, and the bucket
+    # kind differs per source (ABS shares the mixin).
+    path_specs: Annotated[
+        List[PathSpec],
+        FiltersByRule(DatasetContainerSubTypes.GCS_BUCKET),
+        FiltersByRule(DatasetContainerSubTypes.FOLDER),
+        FiltersByRule(DatasetSubTypes.TABLE),
+    ] = Field(
+        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
+    )
+
     auth_type: GCSAuthType = Field(
         default=GCSAuthType.HMAC,
         description=(
@@ -277,15 +289,6 @@ class GCSSourceConfig(
         from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
 
         return GCSMetadataProbe
-
-    @classmethod
-    def probe_rule_filtered_kinds(cls) -> Dict[str, str]:
-        """path_specs, not an AllowDenyPattern, decide every level this source emits."""
-        return {
-            str(DatasetContainerSubTypes.GCS_BUCKET): "path_specs",
-            str(DatasetContainerSubTypes.FOLDER): "path_specs",
-            str(DatasetSubTypes.TABLE): "path_specs",
-        }
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """Judge one name the way GCSSource does: with the s3:// specs
