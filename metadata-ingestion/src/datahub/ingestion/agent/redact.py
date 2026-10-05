@@ -205,24 +205,48 @@ def normalize_key(key: object) -> str:
     return re.sub(r"[-.]", "_", str(key).lower())
 
 
-# Shapes that carry a secret whatever its value: an ADC or IAM-role recipe
-# registers no values to match. Userinfo runs to the last `@` of the authority,
-# or, after a `user:`, to the last `@` before whitespace, a closing quote or
-# the next `://`: a driver echoes a password unencoded, `/` and `@` included.
-# The `:` keeps a plain path's `@` (`https://host/u/x@y`) out; a path `@` after
-# a port (`http://host:8080/u/x@y`) is over-masked, the safe side. Stopping at
-# `://` keeps the scan linear.
-#
-# A quote is the password's unless it closes a quoted field: followed by
-# whitespace or a delimiter, with no `@` before the next quote. That keeps the
-# next JSON field (`","owner":"ann@example.com"`) out of the match.
-_USERINFO_QUOTE = r"[\"'`](?:(?![\s,:;}\])>])|(?=[^\s\"'`]*@))"
+# Credential shapes are a backstop for values the recipe never registered (an
+# ADC or IAM-role recipe registers none); registered values are masked by
+# value first. Only a high-confidence shape belongs here, and a new one needs a
+# real leak and a test. A token with no shape is kept out by naming an
+# untrusted exception instead of quoting it (error_policy.foreign_label) and by
+# a provider's `silenced_loggers`, not by a regex. Over-masking is the safe
+# side, but a shape must not mangle ordinary prose.
+
+# A quote is the userinfo's unless it closes a quoted field. Verbose, like the
+# pattern it is spliced into.
+_USERINFO_QUOTE = r"""
+    ["'`]
+    (?:
+        # Not followed by whitespace or a delimiter, so it closes nothing.
+        (?![\s,:;}\])>])
+        # Or an `@` follows before the next quote or space: still userinfo.
+        # That keeps the next JSON field (`","owner":"ann@example.com"`) out.
+      | (?=[^\s"'`]*@)
+    )
+"""
 _URL_USERINFO = re.compile(
-    r"(?<=://)(?:"
-    rf"(?:[^/\s:@\"'`]|{_USERINFO_QUOTE})*:"
-    rf"(?:[^\s:\"'`]|:(?!//)|{_USERINFO_QUOTE})*@"
-    rf"|(?:[^/\s\"'`]|{_USERINFO_QUOTE})*@"
-    r")"
+    rf"""
+    (?<=://)
+    (?:
+        # `user:password@`. A driver echoes the password unencoded, `/` and `@`
+        # included, so it runs to the last `@` before whitespace, a closing
+        # quote or the next `://`. The user holds no `/`, so a plain path's `@`
+        # (`https://host/u/x@y`) is left alone; a path `@` after a port
+        # (`http://host:8080/u/x@y`) is over-masked, the safe side.
+        (?: [^/\s:@"'`] | {_USERINFO_QUOTE} )* :
+        (?:
+            [^\s:"'`]
+            # A `:` that does not start the next `://`. Stopping there keeps
+            # the scan linear and leaves the next URL's userinfo to its match.
+          | :(?!//)
+          | {_USERINFO_QUOTE}
+        )* @
+        # Plain `user@`, no `user:` before it: to the last `@` before a `/`.
+      | (?: [^/\s"'`] | {_USERINFO_QUOTE} )* @
+    )
+    """,
+    re.VERBOSE,
 )
 # The optional key prefix lets `client_secret`, `auth_token` and camelCase
 # `secretKey` match, while the lookbehind keeps it from starting mid-word
