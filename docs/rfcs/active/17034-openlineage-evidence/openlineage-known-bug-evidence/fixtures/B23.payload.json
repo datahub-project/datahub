@@ -1,0 +1,13 @@
+
+      {"eventTime":"2026-04-14T10:00:00Z","producer":"https://example.com/producer",
+       "schemaURL":"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+       "dataset":{"namespace":"snowflake","name":"my_db.my_schema.events_23bbd76f","facets":{
+         "dataQualityMetrics":{
+           "_producer":"https://example.com/producer",
+           "_schemaURL":"https://openlineage.io/spec/facets/1-0-0/DataQualityMetricsDatasetFacet.json",
+           "rowCount":1000.0,"columnMetrics":{"col_a":{
+             "nullCount":1.0,"min":9007199254740993,"max":1e400,
+             "sum":27021597764222979,"count":3,
+             "quantiles":{"0.5":0.123456789012345678901}}}
+         }}}}
+    

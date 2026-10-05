@@ -1,0 +1,197 @@
+{
+  "bug_id": "B13",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-dependency-ownership.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "run-a-first",
+      "payload": {
+        "eventTime": "2026-10-01T06:11:19.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "a7a28afa-d698-4907-a226-c69524f33a63",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [
+                {
+                  "job": {
+                    "namespace": "ol_dependency_23fa65eb",
+                    "name": "extract.events"
+                  }
+                }
+              ],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_dependency_23fa65eb",
+                "name": "parent_0.events"
+              },
+              "run": {
+                "runId": "ab087675-66e4-4ef8-83a0-7430ed152cdf"
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "run-b-same-dependency",
+      "payload": {
+        "eventTime": "2026-10-01T06:11:20.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [
+                {
+                  "job": {
+                    "namespace": "ol_dependency_23fa65eb",
+                    "name": "extract.events"
+                  }
+                }
+              ],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "run-a-replace",
+      "payload": {
+        "eventTime": "2026-10-01T06:11:21.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "a7a28afa-d698-4907-a226-c69524f33a63",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [
+                {
+                  "job": {
+                    "namespace": "ol_dependency_23fa65eb",
+                    "name": "validate.events"
+                  }
+                }
+              ],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_dependency_23fa65eb",
+                "name": "parent_1.events"
+              },
+              "run": {
+                "runId": "79fcf983-58e3-4f88-99d8-79eb5ca897e3"
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "run-a-empty",
+      "payload": {
+        "eventTime": "2026-10-01T06:11:22.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "a7a28afa-d698-4907-a226-c69524f33a63",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 5,
+      "label": "run-b-empty",
+      "payload": {
+        "eventTime": "2026-10-01T06:11:23.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-dependency-ownership.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

@@ -1,0 +1,138 @@
+{
+  "bug_id": "B30",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-hierarchy.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "create",
+      "payload": {
+        "eventTime": "2026-10-01T05:27:40.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                },
+                {
+                  "type": "SCHEMA",
+                  "name": "schema"
+                },
+                {
+                  "type": "TABLE",
+                  "name": "table"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "replace-with-one-level",
+      "payload": {
+        "eventTime": "2026-10-01T05:27:41.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "recreate",
+      "payload": {
+        "eventTime": "2026-10-01T05:27:42.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                },
+                {
+                  "type": "SCHEMA",
+                  "name": "schema"
+                },
+                {
+                  "type": "TABLE",
+                  "name": "table"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "delete",
+      "payload": {
+        "eventTime": "2026-10-01T05:27:43.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                },
+                {
+                  "type": "SCHEMA",
+                  "name": "schema"
+                },
+                {
+                  "type": "TABLE",
+                  "name": "table"
+                }
+              ],
+              "_deleted": true
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-hierarchy.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

@@ -1,0 +1,76 @@
+{
+  "bug_id": "B26",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-schema-properties.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "populated",
+      "payload": {
+        "eventTime": "2026-10-01T05:32:36.732993Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_schema_68db59aa.table",
+          "facets": {
+            "schema": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+              "fields": [
+                {
+                  "name": "old_column",
+                  "type": "int"
+                }
+              ]
+            },
+            "storage": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/StorageDatasetFacet.json#/$defs/StorageDatasetFacet",
+              "storageLayer": "iceberg",
+              "fileFormat": "parquet"
+            },
+            "version": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasetVersionDatasetFacet.json#/$defs/DatasetVersionDatasetFacet",
+              "datasetVersion": "v1"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "empty-replacement",
+      "payload": {
+        "eventTime": "2026-10-01T05:32:37.732993Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_schema_68db59aa.table",
+          "facets": {
+            "schema": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet"
+            },
+            "storage": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/StorageDatasetFacet.json#/$defs/StorageDatasetFacet",
+              "storageLayer": ""
+            },
+            "version": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasetVersionDatasetFacet.json#/$defs/DatasetVersionDatasetFacet",
+              "datasetVersion": ""
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-schema-properties.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

@@ -1,0 +1,22 @@
+package io.datahubproject.openlineage.converter;
+
+import com.linkedin.data.template.StringMap;
+import io.openlineage.client.OpenLineage;
+
+/** Retains complete named facets alongside native mappings. */
+final class OpenLineageFacetProperties {
+  private OpenLineageFacetProperties() {}
+
+  static void add(StringMap properties, Object facets) {
+    boolean supportsDeletion =
+        facets instanceof OpenLineage.JobFacets || facets instanceof OpenLineage.DatasetFacets;
+    OpenLineageMappingUtils.facetJson(facets)
+        .fields()
+        .forEachRemaining(
+            facet -> {
+              if (!supportsDeletion || !facet.getValue().path("_deleted").asBoolean(false)) {
+                properties.put("openlineage.facet." + facet.getKey(), facet.getValue().toString());
+              }
+            });
+  }
+}

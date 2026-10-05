@@ -1,0 +1,128 @@
+{
+  "bug_id": "B22",
+  "provenance": "captured_from_existing_smoke_test",
+  "test_result_artifact": "../capture-group-c1-results.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage-assertions-f886c5e5",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "5d217376-0f38-4c0c-9b07-7f0a6c4da7eb"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_022f150c",
+            "inputFacets": {
+              "dataQualityAssertions": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/DataQualityAssertionsDatasetFacet.json",
+                "assertions": [
+                  {
+                    "assertion": "custom_sql",
+                    "name": "range",
+                    "content": "col_a > limit",
+                    "params": {
+                      "limit": 0,
+                      "options": {
+                        "a": 1,
+                        "b": 2
+                      }
+                    },
+                    "success": true
+                  },
+                  {
+                    "assertion": "custom_sql",
+                    "name": "range",
+                    "content": "col_a > limit",
+                    "params": {
+                      "limit": 1,
+                      "options": {
+                        "a": 1,
+                        "b": 2
+                      }
+                    },
+                    "success": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-04-14T10:01:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage-assertions-f886c5e5",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "d0e1195f-393d-4ac2-9157-063ecb0783f7"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_022f150c",
+            "inputFacets": {
+              "dataQualityAssertions": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/DataQualityAssertionsDatasetFacet.json",
+                "assertions": [
+                  {
+                    "assertion": "custom_sql",
+                    "name": "range",
+                    "content": "col_a > limit",
+                    "params": {
+                      "options": {
+                        "b": 2,
+                        "a": 1
+                      },
+                      "limit": 0
+                    },
+                    "success": false,
+                    "actual": "changed result"
+                  },
+                  {
+                    "assertion": "custom_sql",
+                    "name": "range",
+                    "content": "col_a > limit",
+                    "params": {
+                      "options": {
+                        "b": 2,
+                        "a": 1
+                      },
+                      "limit": 1
+                    },
+                    "success": false,
+                    "actual": "changed result"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "note": "These exact request bodies were captured during a passing existing smoke test. The test asserts native readback; its full read API bodies were not separately retained in this capture. No master or PR-head execution is claimed.",
+  "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+  "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_assertion_definitions_keep_separate_history"
+}

@@ -1,0 +1,26 @@
+{
+  "exit_status": 0,
+  "total": 3,
+  "passed": 3,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_symlink_replacement_preserves_dataset_identity[DatasetEvent]",
+      "outcome": "passed",
+      "duration": 39.987
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_hierarchy_identity_preserves_literal_names",
+      "outcome": "passed",
+      "duration": 23.55
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_connection_namespaces_keep_separate_datasets[object-keys]",
+      "outcome": "passed",
+      "duration": 26.391
+    }
+  ]
+}

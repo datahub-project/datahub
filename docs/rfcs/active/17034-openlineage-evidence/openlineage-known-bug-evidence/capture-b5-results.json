@@ -1,0 +1,21 @@
+{
+  "exit_status": 0,
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_typed_facet_deletion[dataset]",
+      "outcome": "passed",
+      "duration": 30.101
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_typed_facet_deletion[job]",
+      "outcome": "passed",
+      "duration": 29.833
+    }
+  ]
+}

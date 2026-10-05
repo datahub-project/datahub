@@ -1,0 +1,45 @@
+{
+  "bug_id": "B18",
+  "provenance": "constructed_from_checked_in_test_unexecuted_payload",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "schema-with-independent-flags",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events",
+          "facets": {
+            "schema": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json",
+              "fields": [
+                {
+                  "name": "col_a",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": null
+    }
+  ],
+  "note": "Payload reconstructed from the servlet flag-matrix test. The checked-in test inspected converter proposals; no live configuration-switch readback was captured.",
+  "configuration_variants": [
+    {
+      "includeSchemaMetadata": true,
+      "materializeDataset": false
+    },
+    {
+      "includeSchemaMetadata": true,
+      "materializeDataset": true
+    }
+  ],
+  "source_test_file": "../../../metadata-service/openapi-servlet/src/test/java/io/datahubproject/openapi/openlineage/controller/LineageApiImplTest.java",
+  "source_test_line": 2785
+}

@@ -1,0 +1,155 @@
+package io.datahubproject.openlineage.converter;
+
+import static io.datahubproject.openlineage.converter.OpenLineageAspectPatch.MAPPER;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.openlineage.OpenLineageLineage;
+import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.openlineage.client.OpenLineage;
+import io.openlineage.client.OpenLineageClientUtils;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Job metadata replacement and deletion are decided before proposals are constructed. */
+final class OpenLineageJobUpdates {
+  private OpenLineageJobUpdates() {}
+
+  static List<MetadataChangeProposal> map(
+      DatahubJob mapped,
+      OpenLineage.Job job,
+      JsonNode lineage,
+      ZonedDateTime time,
+      DatahubOpenlineageConfig config) {
+    List<MetadataChangeProposal> changes = new ArrayList<>();
+    var flow = mapped.getFlowUrn();
+    var urn = mapped.getJobUrn();
+    var facets = job.getFacets();
+    var flowInfo = new OpenLineageAspectPatch();
+    flowInfo.addFields(mapped.getDataFlowInfo());
+    changes.add(OpenLineageMcpFactory.patch(flow, "dataFlow", "dataFlowInfo", flowInfo.value()));
+    changes.add(OpenLineageMcpFactory.upsert(flow, "dataFlow", new Status().setRemoved(false)));
+    if (mapped.getFlowPlatformInstance() != null)
+      changes.add(OpenLineageMcpFactory.upsert(flow, "dataFlow", mapped.getFlowPlatformInstance()));
+    if (mapped.getJobPlatformInstance() != null)
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataJob", mapped.getJobPlatformInstance()));
+    if (mapped.getFlowVersionInfo() != null)
+      changes.add(OpenLineageMcpFactory.upsert(flow, "dataFlow", mapped.getFlowVersionInfo()));
+    if (mapped.getFlowOwnership() != null)
+      changes.add(OpenLineageMcpFactory.upsert(flow, "dataFlow", mapped.getFlowOwnership()));
+    if (mapped.getFlowGlobalTags() != null)
+      changes.add(
+          OpenLineageMcpFactory.tags(
+              flow, "dataFlow", mapped.getFlowGlobalTags(), config.isUsePatch()));
+    if (mapped.getFlowDomains() != null && !mapped.getFlowDomains().getDomains().isEmpty())
+      changes.add(OpenLineageMcpFactory.upsert(flow, "dataFlow", mapped.getFlowDomains()));
+    if (mapped.getJobDomains() != null && !mapped.getJobDomains().getDomains().isEmpty())
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataJob", mapped.getJobDomains()));
+    changes.add(
+        OpenLineageMcpFactory.patch(
+            urn, "dataJob", "dataJobInfo", properties(mapped, facets, lineage)));
+    changes.add(OpenLineageMcpFactory.upsert(urn, "dataJob", new Status().setRemoved(false)));
+    if (facets == null) return changes;
+    if (facets.getOwnership() != null) {
+      var ownership = mapped.getJobOwnership();
+      if (ownership == null)
+        ownership =
+            new Ownership()
+                .setOwners(new OwnerArray())
+                .setLastModified(OpenLineageMappingUtils.createAuditStamp(time));
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataJob", ownership));
+    }
+    if (facets.getTags() != null) {
+      var tags = mapped.getJobGlobalTags();
+      if (tags == null) tags = new GlobalTags().setTags(new TagAssociationArray());
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataJob", tags));
+    }
+    if (facets.getJobType() != null) {
+      var subTypes = mapped.getJobSubTypes();
+      if (subTypes == null) subTypes = new SubTypes().setTypeNames(new StringArray());
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataJob", subTypes));
+    }
+    if (facets.getSql() != null || facets.getSourceCode() != null)
+      changes.add(
+          OpenLineageMcpFactory.patch(urn, "dataJob", "dataTransformLogic", transforms(facets)));
+    return changes;
+  }
+
+  private static ObjectNode properties(
+      DatahubJob mapped, OpenLineage.JobFacets facets, JsonNode lineage) {
+    var patch = new OpenLineageAspectPatch();
+    ObjectNode value = MAPPER.valueToTree(mapped.getJobInfo().data());
+    var properties = value.withObject("/customProperties");
+    var supplied = OpenLineageMappingUtils.facetJson(facets);
+    if (!supplied.has("jobType")) {
+      patch.value().withObject("/defaultValues").set("type", value.remove("type"));
+    } else {
+      patch.removeProperties(
+          OpenLineageLineage.EMISSION_PATTERN, "openlineage.jobType.integration");
+      var type = facets.getJobType();
+      if (!Boolean.TRUE.equals(type.get_deleted())) {
+        if (type.getIntegration() != null)
+          properties.put("openlineage.jobType.integration", type.getIntegration());
+        if (type.getEmissionPattern() != null)
+          properties.put(
+              OpenLineageLineage.EMISSION_PATTERN,
+              OpenLineageClientUtils.toJson(type.getEmissionPattern()));
+      }
+    }
+    if (supplied.has("sourceCode")) patch.removeProperties("openlineage.sourceCodeLanguage");
+    if (supplied.has("sourceCodeLocation")) {
+      patch.remove("/externalUrl");
+      patch.removeProperties(
+          "openlineage.pullRequestNumber",
+          "openlineage.sourceCodeLocation.type",
+          "openlineage.sourceCodeLocation.url",
+          "openlineage.sourceCodeLocation.repoUrl",
+          "openlineage.sourceCodeLocation.path",
+          "openlineage.sourceCodeLocation.version",
+          "openlineage.sourceCodeLocation.tag",
+          "openlineage.sourceCodeLocation.branch");
+    }
+    if (supplied.has("documentation")) patch.remove("/description");
+    if (!lineage.isMissingNode()) {
+      patch.removeProperties("openlineage.lineage");
+      if (!lineage.path("_deleted").asBoolean(false))
+        properties.put("openlineage.lineage", lineage.toString());
+    }
+    patch.removeRetainedTombstones(supplied);
+    patch.addFields(value);
+    return patch.value();
+  }
+
+  private static ObjectNode transforms(OpenLineage.JobFacets facets) {
+    var patch = new OpenLineageAspectPatch();
+    patch
+        .value()
+        .putObject("arrayPrimaryKeys")
+        .putArray("transforms")
+        .add("queryStatement␟language");
+    patch.value().putObject("defaultValues").putArray("transforms");
+    var supplied = OpenLineageMappingUtils.facetJson(facets);
+    for (String name : List.of("sql", "sourceCode")) {
+      if (!supplied.has(name)) continue;
+      String language = name.equals("sql") ? "SQL" : "UNKNOWN";
+      patch.remove("/transforms/" + language);
+      var facet = supplied.path(name);
+      var code = facet.get(name.equals("sql") ? "query" : "sourceCode");
+      if (code == null || facet.path("_deleted").asBoolean(false)) continue;
+      var transform = MAPPER.createObjectNode();
+      transform.putObject("queryStatement").put("language", language).set("value", code);
+      patch.add("/transforms/" + language, transform);
+    }
+    return patch.value();
+  }
+}

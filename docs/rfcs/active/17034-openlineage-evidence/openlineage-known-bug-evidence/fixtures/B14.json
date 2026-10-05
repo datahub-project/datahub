@@ -1,0 +1,289 @@
+{
+  "bug_id": "B14",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-forwarded-authority.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "own-parent",
+      "payload": {
+        "eventTime": "2026-10-01T06:12:54.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.parent",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own parent"
+            }
+          }
+        },
+        "run": {
+          "runId": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own parent",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "child-forwarded",
+      "payload": {
+        "eventTime": "2026-10-01T06:12:55.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.child",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own child"
+            }
+          }
+        },
+        "run": {
+          "runId": "76386160-7052-43a7-b27c-29b1b8b28a52",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own child",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_forwarded_c2fe3dea",
+                "name": "load.parent",
+                "facets": {
+                  "documentation": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                    "description": "forwarded parent"
+                  }
+                }
+              },
+              "run": {
+                "runId": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                "facets": {
+                  "tags": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                    "tags": [
+                      {
+                        "key": "forwarded parent",
+                        "value": "true",
+                        "source": "audit"
+                      }
+                    ]
+                  }
+                }
+              },
+              "root": {
+                "job": {
+                  "namespace": "ol_forwarded_c2fe3dea",
+                  "name": "load.root",
+                  "facets": {
+                    "documentation": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                      "description": "forwarded root"
+                    }
+                  }
+                },
+                "run": {
+                  "runId": "c377ef4d-2805-444a-9e54-28f176ad8342",
+                  "facets": {
+                    "tags": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                      "tags": [
+                        {
+                          "key": "forwarded root",
+                          "value": "true",
+                          "source": "audit"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "own-root",
+      "payload": {
+        "eventTime": "2026-10-01T06:12:56.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.root",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own root"
+            }
+          }
+        },
+        "run": {
+          "runId": "c377ef4d-2805-444a-9e54-28f176ad8342",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own root",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "child-replay",
+      "payload": {
+        "eventTime": "2026-10-01T06:12:57.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.child",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own child"
+            }
+          }
+        },
+        "run": {
+          "runId": "76386160-7052-43a7-b27c-29b1b8b28a52",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own child",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_forwarded_c2fe3dea",
+                "name": "load.parent",
+                "facets": {
+                  "documentation": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                    "description": "forwarded parent"
+                  }
+                }
+              },
+              "run": {
+                "runId": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                "facets": {
+                  "tags": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                    "tags": [
+                      {
+                        "key": "forwarded parent",
+                        "value": "true",
+                        "source": "audit"
+                      }
+                    ]
+                  }
+                }
+              },
+              "root": {
+                "job": {
+                  "namespace": "ol_forwarded_c2fe3dea",
+                  "name": "load.root",
+                  "facets": {
+                    "documentation": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                      "description": "forwarded root"
+                    }
+                  }
+                },
+                "run": {
+                  "runId": "c377ef4d-2805-444a-9e54-28f176ad8342",
+                  "facets": {
+                    "tags": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                      "tags": [
+                        {
+                          "key": "forwarded root",
+                          "value": "true",
+                          "source": "audit"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-forwarded-authority.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

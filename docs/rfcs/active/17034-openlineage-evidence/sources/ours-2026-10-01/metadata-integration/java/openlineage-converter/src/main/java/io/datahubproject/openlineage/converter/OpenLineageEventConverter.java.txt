@@ -1,0 +1,119 @@
+package io.datahubproject.openlineage.converter;
+
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.openlineage.client.OpenLineage;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/** Stateless conversion of a validated event to final ordered native changes. */
+public final class OpenLineageEventConverter {
+  private OpenLineageEventConverter() {}
+
+  public static List<MetadataChangeProposal> map(
+      OpenLineageEvent event, DatahubOpenlineageConfig config) throws IOException {
+    return map(event, config, Map.of());
+  }
+
+  public static List<MetadataChangeProposal> map(
+      OpenLineageEvent event,
+      DatahubOpenlineageConfig config,
+      Map<DatasetUrn, SchemaMetadata> storedSchemas)
+      throws IOException {
+    var identities =
+        new IdentityHashMap<
+            OpenLineage.Dataset, OpenLineagePlatformResolver.ResolvedDatasetIdentity>();
+    var references = new OpenLineageDatasetReferences(config, storedSchemas);
+    Map<DatasetUrn, DatasetMetadata> metadata = new LinkedHashMap<>();
+    for (var occurrence : event.datasets()) {
+      var dataset = occurrence.model();
+      var identity = OpenLineagePlatformResolver.resolveDatasetIdentityOrUnknown(dataset, config);
+      identities.put(dataset, identity);
+      var target =
+          metadata.computeIfAbsent(
+              identity.urn(),
+              ignored ->
+                  new DatasetMetadata(dataset, identity, new OpenLineage.DatasetFacetsBuilder()));
+      OpenLineageDatasetUpdates.mergeSuppliedFacets(target.facets(), dataset.getFacets());
+      references.register(dataset, identity.urn());
+    }
+    DatahubJob job = null;
+    OpenLineage.RunEvent jobContext = null;
+    var changes = new ArrayList<MetadataChangeProposal>();
+    if (event.model() instanceof OpenLineage.RunEvent run) {
+      jobContext = run;
+      job = OpenLineageJobMapper.mapRunMetadata(run, config, true);
+      changes.addAll(
+          OpenLineageJobUpdates.map(
+              job, run.getJob(), event.jobLineage(), run.getEventTime(), config));
+      changes.addAll(OpenLineageRunUpdates.map(job, run));
+    } else if (event.model() instanceof OpenLineage.JobEvent definition) {
+      jobContext = OpenLineageJobMapper.jobEventAsRun(definition);
+      job = OpenLineageJobMapper.mapJobMetadata(definition, config);
+      changes.addAll(
+          OpenLineageJobUpdates.map(
+              job, definition.getJob(), event.jobLineage(), definition.getEventTime(), config));
+    }
+    for (var target : metadata.values()) {
+      var dataset =
+          new OpenLineage.StaticDatasetBuilder()
+              .namespace(target.source().getNamespace())
+              .name(target.source().getName())
+              .facets(target.facets().build())
+              .build();
+      changes.addAll(
+          OpenLineageDatasetUpdates.metadata(
+              dataset, target.identity(), event.model(), jobContext, references, config));
+    }
+    var inputs = new ArrayList<DatasetUrn>();
+    var outputs = new ArrayList<DatasetUrn>();
+    for (var occurrence : event.datasets()) {
+      var dataset = occurrence.model();
+      var identity = identities.get(dataset);
+      var urn = identity.urn();
+      changes.addAll(
+          OpenLineageDatasetUpdates.occurrence(
+              occurrence,
+              urn,
+              event.model(),
+              jobContext,
+              references.fields(urn),
+              job == null
+                  ? null
+                  : event.model() instanceof OpenLineage.RunEvent
+                      ? job.getDataProcessInstanceUrn()
+                      : job.getJobUrn()));
+      if (dataset instanceof OpenLineage.InputDataset input) {
+        inputs.add(urn);
+        if (job != null)
+          OpenLineageRunMapper.processDataQualityAssertions(
+              job, jobContext, input, urn, references.fields(urn));
+      } else if (dataset instanceof OpenLineage.OutputDataset) outputs.add(urn);
+    }
+    if (job != null) {
+      changes.addAll(job.getExtraMcps());
+      changes.addAll(OpenLineageIoUpdates.map(job, event, ordered(inputs), ordered(outputs)));
+    }
+    changes.addAll(
+        OpenLineageExplicitLineageMapper.map(
+            event, config, job == null ? null : job.getJobUrn(), identities, references));
+    return List.copyOf(changes);
+  }
+
+  private record DatasetMetadata(
+      OpenLineage.Dataset source,
+      OpenLineagePlatformResolver.ResolvedDatasetIdentity identity,
+      OpenLineage.DatasetFacetsBuilder facets) {}
+
+  private static List<DatasetUrn> ordered(List<DatasetUrn> urns) {
+    return urns.stream().distinct().sorted(Comparator.comparing(DatasetUrn::toString)).toList();
+  }
+}

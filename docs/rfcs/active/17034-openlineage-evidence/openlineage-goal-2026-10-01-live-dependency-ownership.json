@@ -1,0 +1,1002 @@
+{
+  "source": "current local working tree",
+  "job_urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+  "run_urns": [
+    "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+    "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4"
+  ],
+  "stages": [
+    {
+      "label": "run-a-first",
+      "request": {
+        "eventTime": "2026-10-01T06:11:19.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "a7a28afa-d698-4907-a226-c69524f33a63",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [
+                {
+                  "job": {
+                    "namespace": "ol_dependency_23fa65eb",
+                    "name": "extract.events"
+                  }
+                }
+              ],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_dependency_23fa65eb",
+                "name": "parent_0.events"
+              },
+              "run": {
+                "runId": "ab087675-66e4-4ef8-83a0-7430ed152cdf"
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:11:19.635094+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "job": {
+              "status": 404,
+              "body": "",
+              "observed_at": "2026-10-01T06:11:19.640496+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "parentInstance": "urn:li:dataProcessInstance:ab087675-66e4-4ef8-83a0-7430ed152cdf",
+                    "upstreamInstances": []
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "schemaVersion": 1,
+                    "version": "1",
+                    "lastObserved": 1790835079616,
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148c50578626cae701266cc0c"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835079582
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:19.644918+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [],
+            "parent_instance": "urn:li:dataProcessInstance:ab087675-66e4-4ef8-83a0-7430ed152cdf",
+            "run_urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63"
+          }
+        },
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835079538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "schemaVersion": 2,
+                    "version": "1",
+                    "lastObserved": 1790835079640,
+                    "properties": {
+                      "telemetryTraceId": "00065cc148c50578626cae701266cc0c"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835079637
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:20.654021+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "parentInstance": "urn:li:dataProcessInstance:ab087675-66e4-4ef8-83a0-7430ed152cdf",
+                    "upstreamInstances": []
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "schemaVersion": 1,
+                    "version": "1",
+                    "lastObserved": 1790835079616,
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148c50578626cae701266cc0c"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835079582
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:20.659126+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+            ],
+            "parent_instance": "urn:li:dataProcessInstance:ab087675-66e4-4ef8-83a0-7430ed152cdf",
+            "run_urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63"
+          }
+        }
+      ],
+      "expected_edges": [
+        "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+      ],
+      "expected_parent": "urn:li:dataProcessInstance:ab087675-66e4-4ef8-83a0-7430ed152cdf",
+      "matched": true
+    },
+    {
+      "label": "run-b-same-dependency",
+      "request": {
+        "eventTime": "2026-10-01T06:11:20.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [
+                {
+                  "job": {
+                    "namespace": "ol_dependency_23fa65eb",
+                    "name": "extract.events"
+                  }
+                }
+              ],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:11:20.708743+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835079538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "schemaVersion": 2,
+                    "version": "1",
+                    "lastObserved": 1790835079640,
+                    "properties": {
+                      "telemetryTraceId": "00065cc148c50578626cae701266cc0c"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835079637
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:20.713800+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": []
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080664
+                    },
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080664
+                    },
+                    "schemaVersion": 1,
+                    "version": "1",
+                    "lastObserved": 1790835080697,
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d58bf0cb6f17ca39fc692e"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080664
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:20.717765+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+            ],
+            "parent_instance": null,
+            "run_urn": "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4"
+          }
+        }
+      ],
+      "expected_edges": [
+        "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+      ],
+      "expected_parent": null,
+      "matched": true
+    },
+    {
+      "label": "run-a-replace",
+      "request": {
+        "eventTime": "2026-10-01T06:11:21.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "a7a28afa-d698-4907-a226-c69524f33a63",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [
+                {
+                  "job": {
+                    "namespace": "ol_dependency_23fa65eb",
+                    "name": "validate.events"
+                  }
+                }
+              ],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_dependency_23fa65eb",
+                "name": "parent_1.events"
+              },
+              "run": {
+                "runId": "79fcf983-58e3-4f88-99d8-79eb5ca897e3"
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:11:20.755328+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835080538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "runId": "no-run-id-provided",
+                    "schemaVersion": 2,
+                    "lastObserved": 1790835080713,
+                    "version": "2",
+                    "properties": {
+                      "telemetryTraceId": "00065cc148d58bf0cb6f17ca39fc692e",
+                      "isNoOp": "false"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835080710
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:20.759688+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": [],
+                    "parentInstance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3"
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "schemaVersion": 1,
+                    "lastObserved": 1790835080742,
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080722
+                    },
+                    "runId": "no-run-id-provided",
+                    "version": "2",
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "isNoOp": "false",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d67268ac60d78075511931"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080722
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:20.763476+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+            ],
+            "parent_instance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3",
+            "run_urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63"
+          }
+        },
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835080538
+                        }
+                      },
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,validate,ol_dependency_23fa65eb),validate.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"validate.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835081538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "lastRunId": "no-run-id-provided",
+                    "schemaVersion": 2,
+                    "runId": "no-run-id-provided",
+                    "version": "3",
+                    "lastObserved": 1790835080759,
+                    "properties": {
+                      "telemetryTraceId": "00065cc148d67268ac60d78075511931",
+                      "isNoOp": "false"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835080756
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:21.771094+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": [],
+                    "parentInstance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3"
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "schemaVersion": 1,
+                    "lastObserved": 1790835080742,
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080722
+                    },
+                    "runId": "no-run-id-provided",
+                    "version": "2",
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "isNoOp": "false",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d67268ac60d78075511931"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080722
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:21.781261+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,validate,ol_dependency_23fa65eb),validate.events)"
+            ],
+            "parent_instance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3",
+            "run_urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63"
+          }
+        }
+      ],
+      "expected_edges": [
+        "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+        "urn:li:dataJob:(urn:li:dataFlow:(unknown,validate,ol_dependency_23fa65eb),validate.events)"
+      ],
+      "expected_parent": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3",
+      "matched": true
+    },
+    {
+      "label": "run-a-empty",
+      "request": {
+        "eventTime": "2026-10-01T06:11:22.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "a7a28afa-d698-4907-a226-c69524f33a63",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:11:21.820191+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835080538
+                        }
+                      },
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,validate,ol_dependency_23fa65eb),validate.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"validate.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835081538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "lastRunId": "no-run-id-provided",
+                    "schemaVersion": 2,
+                    "runId": "no-run-id-provided",
+                    "version": "3",
+                    "lastObserved": 1790835080759,
+                    "properties": {
+                      "telemetryTraceId": "00065cc148d67268ac60d78075511931",
+                      "isNoOp": "false"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835080756
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:21.825510+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": [],
+                    "parentInstance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3"
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "schemaVersion": 1,
+                    "lastObserved": 1790835080742,
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080722
+                    },
+                    "runId": "no-run-id-provided",
+                    "version": "2",
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "isNoOp": "false",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d67268ac60d78075511931"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080722
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:21.833154+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,validate,ol_dependency_23fa65eb),validate.events)"
+            ],
+            "parent_instance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3",
+            "run_urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63"
+          }
+        },
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835080538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "lastRunId": "no-run-id-provided",
+                    "runId": "no-run-id-provided",
+                    "schemaVersion": 2,
+                    "lastObserved": 1790835081825,
+                    "version": "4",
+                    "properties": {
+                      "telemetryTraceId": "00065cc148e6aea868e4b3190c82491b",
+                      "isNoOp": "false"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835081822
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:22.846483+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": [],
+                    "parentInstance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3"
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835079582
+                    },
+                    "schemaVersion": 1,
+                    "lastObserved": 1790835080742,
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080722
+                    },
+                    "runId": "no-run-id-provided",
+                    "version": "2",
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "isNoOp": "false",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d67268ac60d78075511931"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080722
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:22.851640+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+            ],
+            "parent_instance": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3",
+            "run_urn": "urn:li:dataProcessInstance:a7a28afa-d698-4907-a226-c69524f33a63"
+          }
+        }
+      ],
+      "expected_edges": [
+        "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+      ],
+      "expected_parent": "urn:li:dataProcessInstance:79fcf983-58e3-4f88-99d8-79eb5ca897e3",
+      "matched": true
+    },
+    {
+      "label": "run-b-empty",
+      "request": {
+        "eventTime": "2026-10-01T06:11:23.538679Z",
+        "eventType": "RUNNING",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_dependency_23fa65eb",
+          "name": "load.events"
+        },
+        "run": {
+          "runId": "8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+          "facets": {
+            "jobDependencies": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+              "upstream": [],
+              "downstream": [],
+              "trigger_rule": "ALL_SUCCESS"
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:11:22.891992+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [
+                      {
+                        "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)",
+                        "properties": {
+                          "openlineage.jobDependency": "{\"job\":{\"namespace\":\"ol_dependency_23fa65eb\",\"name\":\"extract.events\"}}"
+                        },
+                        "lastModified": {
+                          "actor": "urn:li:corpuser:datahub",
+                          "time": 1790835080538
+                        }
+                      }
+                    ],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "lastRunId": "no-run-id-provided",
+                    "runId": "no-run-id-provided",
+                    "schemaVersion": 2,
+                    "lastObserved": 1790835081825,
+                    "version": "4",
+                    "properties": {
+                      "telemetryTraceId": "00065cc148e6aea868e4b3190c82491b",
+                      "isNoOp": "false"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835081822
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:22.897804+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": []
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080664
+                    },
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080664
+                    },
+                    "schemaVersion": 1,
+                    "version": "1",
+                    "lastObserved": 1790835080697,
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d58bf0cb6f17ca39fc692e"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080664
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:22.901744+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [
+              "urn:li:dataJob:(urn:li:dataFlow:(unknown,extract,ol_dependency_23fa65eb),extract.events)"
+            ],
+            "parent_instance": null,
+            "run_urn": "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4"
+          }
+        },
+        {
+          "responses": {
+            "job": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                "dataJobInputOutput": {
+                  "value": {
+                    "inputDatajobEdges": [],
+                    "inputDatasets": [],
+                    "outputDatasets": []
+                  },
+                  "systemMetadata": {
+                    "lastRunId": "no-run-id-provided",
+                    "schemaVersion": 2,
+                    "runId": "no-run-id-provided",
+                    "version": "5",
+                    "lastObserved": 1790835082896,
+                    "properties": {
+                      "telemetryTraceId": "00065cc148f702582393213c66b450db",
+                      "isNoOp": "false"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "time": 1790835082893
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:23.909237+00:00"
+            },
+            "run": {
+              "status": 200,
+              "body": {
+                "urn": "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4",
+                "dataProcessInstanceRelationships": {
+                  "value": {
+                    "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_dependency_23fa65eb),load.events)",
+                    "upstreamInstances": []
+                  },
+                  "systemMetadata": {
+                    "aspectCreated": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080664
+                    },
+                    "aspectModified": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835080664
+                    },
+                    "schemaVersion": 1,
+                    "version": "1",
+                    "lastObserved": 1790835080697,
+                    "properties": {
+                      "eventSource": "OPENAPI",
+                      "sourceIP": "172.18.0.1",
+                      "telemetryTraceId": "00065cc148d58bf0cb6f17ca39fc692e"
+                    }
+                  },
+                  "auditStamp": {
+                    "actor": "urn:li:corpuser:datahub",
+                    "time": 1790835080664
+                  }
+                }
+              },
+              "observed_at": "2026-10-01T06:11:23.913971+00:00"
+            }
+          },
+          "projection": {
+            "job_upstreams": [],
+            "parent_instance": null,
+            "run_urn": "urn:li:dataProcessInstance:8234b457-daed-4f96-bc3a-0cc8d0016dd4"
+          }
+        }
+      ],
+      "expected_edges": [],
+      "expected_parent": null,
+      "matched": true
+    }
+  ],
+  "credentials_stored": false,
+  "finished_at": "2026-10-01T06:11:23.913996+00:00"
+}

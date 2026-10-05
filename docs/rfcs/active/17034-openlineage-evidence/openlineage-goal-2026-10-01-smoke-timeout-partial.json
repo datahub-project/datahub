@@ -1,0 +1,28 @@
+{
+  "command": "AGENT_MODE=1 UV_CACHE_DIR=/private/tmp/uv-openlineage-goal mise exec -- scripts/dev/datahub-dev.sh test tests/openapi/test_openapi.py -- -k openlineage",
+  "selection": 42,
+  "result": "wrapper_timeout_after_600_seconds",
+  "reported_passes_before_timeout": 16,
+  "agent_report_written": false,
+  "evidence_level": "observed_terminal_output_in_active_session; no pytest final summary",
+  "last_active_case_at_timeout": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[DatasetEvent-empty-owners]",
+  "passed_test_ids": [
+    "tests/openapi/test_openapi.py::test_openlineage_job_event_empty_directions_preserve_dataset_lineage",
+    "tests/openapi/test_openapi.py::test_openlineage_event_time_does_not_invent_job_creation",
+    "tests/openapi/test_openapi.py::test_openlineage_job_type_deletion_preserves_documentation",
+    "tests/openapi/test_openapi.py::test_openlineage_observation_deletion_preserves_history",
+    "tests/openapi/test_openapi.py::test_openlineage_materialization_preserves_lifecycle_status",
+    "tests/openapi/test_openapi.py::test_openlineage_symlink_replacement_preserves_dataset_identity[DatasetEvent]",
+    "tests/openapi/test_openapi.py::test_openlineage_symlink_replacement_preserves_dataset_identity[RunEvent]",
+    "tests/openapi/test_openapi.py::test_openlineage_hierarchy_identity_preserves_literal_names",
+    "tests/openapi/test_openapi.py::test_openlineage_hierarchy_deletion_preserves_shared_container[deleted]",
+    "tests/openapi/test_openapi.py::test_openlineage_hierarchy_deletion_preserves_shared_container[empty]",
+    "tests/openapi/test_openapi.py::test_openlineage_hierarchy_deletion_preserves_shared_container[dataset-only]",
+    "tests/openapi/test_openapi.py::test_openlineage_job_identity_survives_optional_metadata",
+    "tests/openapi/test_openapi.py::test_openlineage_column_lineage_replacement_and_deletion",
+    "tests/openapi/test_openapi.py::test_openlineage_column_lineage_deletion_preserves_explicit_lineage",
+    "tests/openapi/test_openapi.py::test_openlineage_explicit_job_source_is_dataset_output[existing-target]",
+    "tests/openapi/test_openapi.py::test_openlineage_explicit_job_source_is_dataset_output[new-target]"
+  ],
+  "interpretation": "These 16 passed before timeout. The remaining 26 selected cases were rerun in focused groups with structured agent reports. This artifact is a transcription of terminal output, not a completed suite report."
+}

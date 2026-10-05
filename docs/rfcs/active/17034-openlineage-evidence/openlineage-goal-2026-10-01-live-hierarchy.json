@@ -1,0 +1,365 @@
+{
+  "source": "current local working tree",
+  "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,ol_hierarchy_af1928b7.table,PROD)",
+  "stages": [
+    {
+      "label": "create",
+      "request": {
+        "eventTime": "2026-10-01T05:27:40.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                },
+                {
+                  "type": "SCHEMA",
+                  "name": "schema"
+                },
+                {
+                  "type": "TABLE",
+                  "name": "table"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T05:27:40.552837+00:00"
+      },
+      "readbacks": [
+        {
+          "status": 200,
+          "body": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,ol_hierarchy_af1928b7.table,PROD)",
+            "container": {
+              "value": {
+                "container": "urn:li:container:7d9bafeb0b3334f1915259e6b2f0bd8d"
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "aspectModified": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "schemaVersion": 1,
+                "version": "1",
+                "lastObserved": 1790832460508,
+                "properties": {
+                  "eventSource": "OPENAPI",
+                  "sourceIP": "172.18.0.1",
+                  "telemetryTraceId": "00065cc0aca90c20be111e59a6ce7e8d"
+                }
+              },
+              "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "time": 1790832460505
+              }
+            },
+            "datasetProperties": {
+              "value": {
+                "customProperties": {
+                  "openlineage.facet.hierarchy": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet\",\"hierarchy\":[{\"type\":\"DATABASE\",\"name\":\"ol_hierarchy_af1928b7\"},{\"type\":\"SCHEMA\",\"name\":\"schema\"},{\"type\":\"TABLE\",\"name\":\"table\"}]}"
+                },
+                "tags": []
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "aspectModified": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "schemaVersion": 1,
+                "version": "1",
+                "lastObserved": 1790832460527,
+                "properties": {
+                  "eventSource": "OPENAPI",
+                  "sourceIP": "172.18.0.1",
+                  "telemetryTraceId": "00065cc0aca90c20be111e59a6ce7e8d"
+                }
+              },
+              "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "time": 1790832460505
+              }
+            }
+          },
+          "observed_at": "2026-10-01T05:27:40.563338+00:00"
+        }
+      ]
+    },
+    {
+      "label": "replace-with-one-level",
+      "request": {
+        "eventTime": "2026-10-01T05:27:41.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T05:27:40.660912+00:00"
+      },
+      "readbacks": [
+        {
+          "status": 200,
+          "body": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,ol_hierarchy_af1928b7.table,PROD)",
+            "datasetProperties": {
+              "value": {
+                "customProperties": {
+                  "openlineage.facet.hierarchy": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet\",\"hierarchy\":[{\"type\":\"DATABASE\",\"name\":\"ol_hierarchy_af1928b7\"}]}"
+                },
+                "tags": []
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "schemaVersion": 1,
+                "lastObserved": 1790832460643,
+                "aspectModified": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460575
+                },
+                "runId": "no-run-id-provided",
+                "version": "2",
+                "properties": {
+                  "eventSource": "OPENAPI",
+                  "isNoOp": "false",
+                  "sourceIP": "172.18.0.1",
+                  "telemetryTraceId": "00065cc0acaa15c0d61184e2a026c8aa"
+                }
+              },
+              "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "time": 1790832460575
+              }
+            }
+          },
+          "observed_at": "2026-10-01T05:27:40.682939+00:00"
+        }
+      ]
+    },
+    {
+      "label": "recreate",
+      "request": {
+        "eventTime": "2026-10-01T05:27:42.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                },
+                {
+                  "type": "SCHEMA",
+                  "name": "schema"
+                },
+                {
+                  "type": "TABLE",
+                  "name": "table"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T05:27:40.771568+00:00"
+      },
+      "readbacks": [
+        {
+          "status": 200,
+          "body": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,ol_hierarchy_af1928b7.table,PROD)",
+            "container": {
+              "value": {
+                "container": "urn:li:container:7d9bafeb0b3334f1915259e6b2f0bd8d"
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460695
+                },
+                "aspectModified": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460695
+                },
+                "schemaVersion": 1,
+                "version": "1",
+                "lastObserved": 1790832460698,
+                "properties": {
+                  "eventSource": "OPENAPI",
+                  "sourceIP": "172.18.0.1",
+                  "telemetryTraceId": "00065cc0acabfa20a0df0ce9df8faf61"
+                }
+              },
+              "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "time": 1790832460695
+              }
+            },
+            "datasetProperties": {
+              "value": {
+                "customProperties": {
+                  "openlineage.facet.hierarchy": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet\",\"hierarchy\":[{\"type\":\"DATABASE\",\"name\":\"ol_hierarchy_af1928b7\"},{\"type\":\"SCHEMA\",\"name\":\"schema\"},{\"type\":\"TABLE\",\"name\":\"table\"}]}"
+                },
+                "tags": []
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "schemaVersion": 1,
+                "lastObserved": 1790832460739,
+                "lastRunId": "no-run-id-provided",
+                "aspectModified": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460695
+                },
+                "runId": "no-run-id-provided",
+                "version": "3",
+                "properties": {
+                  "eventSource": "OPENAPI",
+                  "isNoOp": "false",
+                  "sourceIP": "172.18.0.1",
+                  "telemetryTraceId": "00065cc0acabfa20a0df0ce9df8faf61"
+                }
+              },
+              "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "time": 1790832460695
+              }
+            }
+          },
+          "observed_at": "2026-10-01T05:27:40.796549+00:00"
+        }
+      ]
+    },
+    {
+      "label": "delete",
+      "request": {
+        "eventTime": "2026-10-01T05:27:43.495970Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_hierarchy_af1928b7.table",
+          "facets": {
+            "hierarchy": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+              "hierarchy": [
+                {
+                  "type": "DATABASE",
+                  "name": "ol_hierarchy_af1928b7"
+                },
+                {
+                  "type": "SCHEMA",
+                  "name": "schema"
+                },
+                {
+                  "type": "TABLE",
+                  "name": "table"
+                }
+              ],
+              "_deleted": true
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T05:27:40.908500+00:00"
+      },
+      "readbacks": [
+        {
+          "status": 200,
+          "body": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,ol_hierarchy_af1928b7.table,PROD)",
+            "datasetProperties": {
+              "value": {
+                "customProperties": {},
+                "tags": []
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460505
+                },
+                "schemaVersion": 1,
+                "lastObserved": 1790832460869,
+                "lastRunId": "no-run-id-provided",
+                "aspectModified": {
+                  "actor": "urn:li:corpuser:datahub",
+                  "time": 1790832460808
+                },
+                "runId": "no-run-id-provided",
+                "version": "4",
+                "properties": {
+                  "eventSource": "OPENAPI",
+                  "isNoOp": "false",
+                  "sourceIP": "172.18.0.1",
+                  "telemetryTraceId": "00065cc0acadabb89b82f351810e95fb"
+                }
+              },
+              "auditStamp": {
+                "actor": "urn:li:corpuser:datahub",
+                "time": 1790832460808
+              }
+            }
+          },
+          "observed_at": "2026-10-01T05:27:40.927246+00:00"
+        }
+      ]
+    }
+  ],
+  "credentials_stored": false,
+  "finished_at": "2026-10-01T05:27:40.927266+00:00"
+}

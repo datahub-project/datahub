@@ -1,0 +1,51 @@
+{
+  "bug_id": "B33",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-09-30-live-known-bugs.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-09-30T17:31:18.504518Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_audit_5f8b61da.lifecycle",
+          "facets": {
+            "lifecycleStateChange": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LifecycleStateChangeDatasetFacet.json#/$defs/LifecycleStateChangeDatasetFacet",
+              "lifecycleStateChange": "DROP"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-09-30T17:31:19.504518Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_audit_5f8b61da.lifecycle",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationDatasetFacet.json#/$defs/DocumentationDatasetFacet",
+              "description": "metadata only"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-09-30-live-known-bugs.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

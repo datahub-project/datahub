@@ -1,0 +1,51 @@
+{
+  "bug_id": "B7",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-identity.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-10-01T05:30:15.146472Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "postgresql://db-a.example.invalid:5432",
+          "name": "ol_identity_f1c1b793.same_table",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationDatasetFacet.json#/$defs/DocumentationDatasetFacet",
+              "description": "source A"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-10-01T05:30:16.146472Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "postgresql://db-b.example.invalid:5432",
+          "name": "ol_identity_f1c1b793.same_table",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationDatasetFacet.json#/$defs/DocumentationDatasetFacet",
+              "description": "source B"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-identity.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

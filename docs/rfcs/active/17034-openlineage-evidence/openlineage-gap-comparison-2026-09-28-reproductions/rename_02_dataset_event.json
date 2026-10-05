@@ -1,0 +1,20 @@
+{
+  "eventTime": "2026-09-28T10:01:00Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+  "dataset": {
+    "namespace": "snowflake",
+    "name": "my_db.my_schema.events_new",
+    "facets": {
+      "lifecycleStateChange": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/LifecycleStateChangeDatasetFacet.json",
+        "lifecycleStateChange": "RENAME",
+        "previousIdentifier": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_old"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+package io.datahubproject.openlineage.converter;
+
+import static io.datahubproject.openlineage.converter.OpenLineageAspectPatch.MAPPER;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.openlineage.OpenLineageLineage.OwnUpdate;
+import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.openlineage.client.OpenLineage;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Run observations and relationships; I/O accumulation is handled by the lineage contract. */
+final class OpenLineageRunUpdates {
+  private OpenLineageRunUpdates() {}
+
+  static List<MetadataChangeProposal> map(DatahubJob mapped, OpenLineage.RunEvent event) {
+    var patch = new OpenLineageAspectPatch();
+    var facets = OpenLineageMappingUtils.facetJson(event.getRun().getFacets());
+    if (facets.has("nominalTime")) patch.removeProperties("nominalStartTime", "nominalEndTime");
+    if (facets.has("errorMessage"))
+      patch.removeProperties("errorMessage", "programmingLanguage", "stackTrace");
+    if (facets.has("extractionError"))
+      patch.removeProperties(
+          "extractionError.totalTasks", "extractionError.failedTasks", "extractionError.errors");
+    if (facets.has("test")) patch.removeProperties("openlineage.tests");
+    if (facets.has("environmentVariables")) patch.removePrefix("env.");
+    patch.addFields(mapped.getDataProcessInstanceProperties());
+    var changes = new ArrayList<MetadataChangeProposal>();
+    changes.add(
+        OpenLineageMcpFactory.patch(
+            mapped.getDataProcessInstanceUrn(),
+            "dataProcessInstance",
+            "dataProcessInstanceProperties",
+            patch.value()));
+    if (mapped.getDataProcessInstanceRunEvent() != null) {
+      changes.add(
+          OpenLineageMcpFactory.upsert(
+              mapped.getDataProcessInstanceUrn(),
+              "dataProcessInstance",
+              mapped.getDataProcessInstanceRunEvent()));
+    }
+    return List.copyOf(changes);
+  }
+
+  static OwnUpdate relationships(DatahubJob mapped, OpenLineage.RunEvent event) {
+    var patch = new OpenLineageAspectPatch();
+    patch.value().putObject("arrayPrimaryKeys").putArray("upstreamInstances");
+    if (event.getRun().getFacets() != null && event.getRun().getFacets().getParent() != null)
+      patch.remove("/parentInstance");
+    ObjectNode value = MAPPER.valueToTree(mapped.getDataProcessInstanceRelationships().data());
+    var upstreams = value.remove("upstreamInstances");
+    patch.addFields(value);
+    if (upstreams != null)
+      for (var upstream : upstreams)
+        patch.add(
+            "/upstreamInstances/" + OpenLineageAspectPatch.escape(upstream.asText()), upstream);
+    return new OwnUpdate("dataProcessInstanceRelationships", ChangeType.PATCH, patch.value());
+  }
+}

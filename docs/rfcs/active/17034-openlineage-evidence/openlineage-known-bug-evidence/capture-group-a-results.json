@@ -1,0 +1,51 @@
+{
+  "exit_status": 0,
+  "total": 8,
+  "passed": 8,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_job_event_empty_directions_preserve_dataset_lineage",
+      "outcome": "passed",
+      "duration": 20.008
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_event_time_does_not_invent_job_creation",
+      "outcome": "passed",
+      "duration": 13.757
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_column_lineage_replacement_and_deletion",
+      "outcome": "passed",
+      "duration": 76.603
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_column_lineage_deletion_preserves_explicit_lineage",
+      "outcome": "passed",
+      "duration": 23.31
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[DatasetEvent-empty-owners]",
+      "outcome": "passed",
+      "duration": 26.528
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[DatasetEvent-tombstone]",
+      "outcome": "passed",
+      "duration": 29.882
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[JobEvent-empty-owners]",
+      "outcome": "passed",
+      "duration": 30.045
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[JobEvent-tombstone]",
+      "outcome": "passed",
+      "duration": 29.85
+    }
+  ]
+}

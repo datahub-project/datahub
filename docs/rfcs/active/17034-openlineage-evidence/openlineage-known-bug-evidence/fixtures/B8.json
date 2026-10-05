@@ -1,0 +1,49 @@
+{
+  "bug_id": "B8",
+  "provenance": "constructed_from_checked_in_test_unexecuted_payload",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "tuple-a",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "START",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "run": {
+          "runId": "legacy"
+        },
+        "job": {
+          "namespace": "a.b",
+          "name": "c"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": null
+    },
+    {
+      "step": 2,
+      "label": "tuple-b",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "START",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "run": {
+          "runId": "legacy"
+        },
+        "job": {
+          "namespace": "a",
+          "name": "b.c"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "observed_http_status": null
+    }
+  ],
+  "note": "Compatibility replay only: non-UUID runId is outside strict OpenLineage 1.53. The checked-in deserializer test passed; these JSON requests were not submitted to a live receiver.",
+  "source_test_file": "../../../metadata-service/openapi-servlet/src/test/java/io/datahubproject/openapi/openlineage/controller/LineageApiImplTest.java",
+  "source_test_line": 375
+}

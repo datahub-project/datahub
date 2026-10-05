@@ -1,0 +1,46 @@
+{
+  "bug_id": "B4",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-09-30-live-known-bugs.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-09-30T17:31:20.504518Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "ol_audit_5f8b61da",
+          "name": "ol_audit_5f8b61da.explicit_lineage",
+          "facets": {
+            "lineage": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageJobFacet.json#/$defs/LineageJobFacet",
+              "entries": [
+                {
+                  "namespace": "postgresql://warehouse:5432",
+                  "name": "ol_audit_5f8b61da.produced",
+                  "type": "DATASET",
+                  "inputs": [],
+                  "fields": {
+                    "total": {
+                      "inputs": [
+                        {
+                          "type": "JOB"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-09-30-live-known-bugs.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

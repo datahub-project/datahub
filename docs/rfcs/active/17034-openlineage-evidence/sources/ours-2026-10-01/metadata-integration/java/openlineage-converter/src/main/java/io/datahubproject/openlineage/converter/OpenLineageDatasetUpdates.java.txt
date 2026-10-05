@@ -1,0 +1,353 @@
+package io.datahubproject.openlineage.converter;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Siblings;
+import com.linkedin.common.SubTypes;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.TagUrn;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.openlineage.OpenLineageLineage;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.OtherSchema;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.openlineage.client.OpenLineage;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
+
+/** Maps supplied dataset facets directly to their final native updates and owned contributions. */
+public final class OpenLineageDatasetUpdates {
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  private OpenLineageDatasetUpdates() {}
+
+  static List<MetadataChangeProposal> metadata(
+      OpenLineage.Dataset dataset,
+      OpenLineagePlatformResolver.ResolvedDatasetIdentity identity,
+      OpenLineage.BaseEvent event,
+      OpenLineage.RunEvent jobContext,
+      OpenLineageDatasetReferences references,
+      DatahubOpenlineageConfig config)
+      throws IOException {
+    DatasetUrn urn = identity.urn();
+    var mapped =
+        OpenLineageDatasetMapper.mapDataset(dataset, identity, config, jobContext, references);
+    var facets = dataset.getFacets();
+    List<MetadataChangeProposal> changes = new ArrayList<>();
+    if (event instanceof OpenLineage.DatasetEvent || config.isMaterializeDataset()) {
+      changes.add(OpenLineageMcpFactory.convert(DatahubJob.materializeDataset(urn)));
+      changes.add(OpenLineageMcpFactory.datasetStatus(urn, mapped.getStatus()));
+    } else if (mapped.getStatus() != null) {
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", mapped.getStatus()));
+    }
+    if (mapped.getDataPlatformInstance() != null) {
+      changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", mapped.getDataPlatformInstance()));
+    }
+    if (facets != null) {
+
+      if (facets.getSchema() != null && config.isIncludeSchemaMetadata()) {
+        var schema =
+            Boolean.TRUE.equals(facets.getSchema().get_deleted())
+                ? emptySchema(urn)
+                : mapped.getSchemaMetadata();
+        changes.add(OpenLineageMcpFactory.schemaProposal(urn, schema, facets.getTags() == null));
+      }
+      if (facets.getOwnership() != null) {
+        Ownership ownership = mapped.getOwnership();
+        if (ownership == null) {
+          ownership =
+              new Ownership()
+                  .setOwners(new OwnerArray())
+                  .setLastModified(OpenLineageMappingUtils.createAuditStamp(event.getEventTime()));
+        }
+        changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", ownership));
+      }
+      if (facets.getTags() != null) {
+        changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", tags(facets.getTags())));
+        if (facets.getSchema() == null && config.isIncludeSchemaMetadata()) {
+          changes.add(fieldTags(urn, facets.getTags(), references.fields(urn)));
+        }
+      }
+      if (facets.getDatasetType() != null) {
+        SubTypes types = mapped.getSubTypes();
+        if (types == null) types = new SubTypes().setTypeNames(new StringArray());
+        changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", types));
+      }
+      if (facets.getSymlinks() != null) {
+        Siblings siblings = mapped.getSiblings();
+        if (siblings == null)
+          siblings = new Siblings().setPrimary(true).setSiblings(new UrnArray());
+        changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", siblings));
+      }
+      if (facets.getHierarchy() != null) {
+        var hierarchy = facets.getHierarchy();
+        if (Boolean.TRUE.equals(hierarchy.get_deleted())
+            || hierarchy.getHierarchy() == null
+            || hierarchy.getHierarchy().size() <= 1) {
+          changes.add(
+              new MetadataChangeProposal()
+                  .setEntityUrn(urn)
+                  .setEntityType("dataset")
+                  .setAspectName("container")
+                  .setChangeType(ChangeType.DELETE));
+        } else {
+          OpenLineageDatasetMapper.addHierarchyMcps(changes, dataset, urn);
+        }
+      }
+      if (facets.getColumnLineage() != null && config.isCaptureColumnLevelLineage()) {
+        var patch = OpenLineageLineage.propertiesPatch();
+        String projection =
+            Boolean.TRUE.equals(facets.getColumnLineage().get_deleted())
+                ? "null"
+                : MAPPER.valueToTree(mapped.getLineage().data()).toString();
+        OpenLineageLineage.putProperty(
+            patch.withArray("/patch"), OpenLineageLineage.COLUMN_LINEAGE, projection);
+        changes.add(OpenLineageMcpFactory.patch(urn, "dataset", "datasetProperties", patch));
+      }
+    }
+    return List.copyOf(changes);
+  }
+
+  static List<MetadataChangeProposal> occurrence(
+      OpenLineageEvent.Dataset occurrence,
+      DatasetUrn urn,
+      OpenLineage.BaseEvent event,
+      OpenLineage.RunEvent jobContext,
+      Map<String, String> fieldPaths,
+      com.linkedin.common.urn.Urn observationOwner) {
+    var changes = new ArrayList<MetadataChangeProposal>();
+    var dataset = occurrence.model();
+    var qualityMetrics = occurrence.qualityMetrics();
+    if (!qualityMetrics.isMissingNode() && !qualityMetrics.path("_deleted").asBoolean(false)) {
+      var profile =
+          OpenLineageDatasetMapper.getDatasetProfile(
+              qualityMetrics, event.getEventTime(), fieldPaths);
+      if (profile != null) changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", profile));
+    }
+    var operation =
+        dataset instanceof OpenLineage.InputDataset input
+            ? OpenLineageDatasetMapper.getInputOperation(input, event.getEventTime())
+            : dataset instanceof OpenLineage.OutputDataset output && jobContext != null
+                ? OpenLineageDatasetMapper.getOutputOperation(output, jobContext)
+                : OpenLineageDatasetMapper.getLifecycleOperation(dataset, event.getEventTime());
+    if (operation != null) changes.add(OpenLineageMcpFactory.upsert(urn, "dataset", operation));
+    var properties = properties(dataset, qualityMetrics, occurrence.observations());
+    if (properties != null) {
+      changes.add(OpenLineageMcpFactory.patch(urn, "dataset", "datasetProperties", properties));
+    }
+    changes.addAll(observations(occurrence, urn, observationOwner));
+    return List.copyOf(changes);
+  }
+
+  static void mergeSuppliedFacets(
+      OpenLineage.DatasetFacetsBuilder target, OpenLineage.DatasetFacets supplied) {
+    if (supplied == null) return;
+    if (supplied.getHierarchy() != null) target.hierarchy(supplied.getHierarchy());
+    if (supplied.getDataSource() != null) target.dataSource(supplied.getDataSource());
+    if (supplied.getVersion() != null) target.version(supplied.getVersion());
+    if (supplied.getDatasetType() != null) target.datasetType(supplied.getDatasetType());
+    if (supplied.getStorage() != null) target.storage(supplied.getStorage());
+    if (supplied.getColumnLineage() != null) target.columnLineage(supplied.getColumnLineage());
+    if (supplied.getLifecycleStateChange() != null)
+      target.lifecycleStateChange(supplied.getLifecycleStateChange());
+    if (supplied.getDataQualityMetrics() != null)
+      target.dataQualityMetrics(supplied.getDataQualityMetrics());
+    if (supplied.getTags() != null) target.tags(supplied.getTags());
+    if (supplied.getDocumentation() != null) target.documentation(supplied.getDocumentation());
+    if (supplied.getSchema() != null) target.schema(supplied.getSchema());
+    if (supplied.getOwnership() != null) target.ownership(supplied.getOwnership());
+    if (supplied.getCatalog() != null) target.catalog(supplied.getCatalog());
+    if (supplied.getSymlinks() != null) target.symlinks(supplied.getSymlinks());
+    if (supplied.getLineage() != null) target.lineage(supplied.getLineage());
+    supplied.getAdditionalProperties().forEach(target::put);
+  }
+
+  private static ObjectNode properties(
+      OpenLineage.Dataset dataset, JsonNode qualityMetrics, JsonNode observations) {
+    var mapped = OpenLineageDatasetMapper.getDatasetProperties(dataset);
+    JsonNode facets = OpenLineageMappingUtils.facetJson(dataset.getFacets());
+    boolean deleted = false;
+    for (JsonNode facet : facets) deleted |= facet.path("_deleted").asBoolean(false);
+    if (mapped == null && !deleted && !facets.has("storage") && !facets.has("version")) return null;
+    ObjectNode value =
+        mapped == null ? MAPPER.createObjectNode() : MAPPER.valueToTree(mapped.data());
+    if (!qualityMetrics.isMissingNode() && !qualityMetrics.path("_deleted").asBoolean(false)) {
+      value
+          .withObject("/customProperties")
+          .put("openlineage.facet.dataQualityMetrics", qualityMetrics.toString());
+    }
+    if (observations.has("dataQualityMetrics"))
+      value
+          .withObject("/customProperties")
+          .put(
+              "openlineage.inputFacet.dataQualityMetrics",
+              observations.get("dataQualityMetrics").toString());
+    ObjectNode patch = MAPPER.createObjectNode().put("forceGenericPatch", true);
+    ArrayNode operations = patch.putArray("patch");
+    if (facets.has("catalog")) {
+      patch
+          .putObject("removeKeysByPrefix")
+          .putArray("/customProperties")
+          .add("openlineage.catalog.");
+      for (String key :
+          List.of(
+              "catalogFramework",
+              "catalogType",
+              "catalogName",
+              "catalogMetadataUri",
+              "catalogWarehouseUri",
+              "catalogSource")) {
+        remove(operations, "/customProperties/" + key);
+      }
+    }
+    if (facets.has("storage")) {
+      remove(operations, "/customProperties/storageLayer");
+      remove(operations, "/customProperties/fileFormat");
+    }
+    if (facets.has("version")) remove(operations, "/customProperties/openlineage.datasetVersion");
+    if (facets.has("documentation")) remove(operations, "/description");
+    facets
+        .fields()
+        .forEachRemaining(
+            facet -> {
+              if (facet.getValue().path("_deleted").asBoolean(false)) {
+                remove(operations, "/customProperties/openlineage.facet." + escape(facet.getKey()));
+              }
+            });
+    if (facets.has("dataSource")) remove(operations, "/externalUrl");
+    value
+        .fields()
+        .forEachRemaining(
+            field -> {
+              if (field.getKey().equals("customProperties")) {
+                field
+                    .getValue()
+                    .fields()
+                    .forEachRemaining(
+                        property ->
+                            add(
+                                operations,
+                                "/customProperties/" + escape(property.getKey()),
+                                property.getValue()));
+              } else add(operations, "/" + escape(field.getKey()), field.getValue());
+            });
+    return patch;
+  }
+
+  static SchemaMetadata emptySchema(DatasetUrn urn) {
+    var platformSchema = new SchemaMetadata.PlatformSchema();
+    platformSchema.setOtherSchema(new OtherSchema().setRawSchema("[]"));
+    return new SchemaMetadata()
+        .setSchemaName("")
+        .setVersion(1)
+        .setHash("")
+        .setPlatform(urn.getPlatformEntity())
+        .setFields(new SchemaFieldArray())
+        .setPlatformSchema(platformSchema);
+  }
+
+  private static GlobalTags tags(OpenLineage.TagsDatasetFacet facet) {
+    var names = new TreeSet<String>();
+    if (!Boolean.TRUE.equals(facet.get_deleted()) && facet.getTags() != null) {
+      for (var tag : facet.getTags()) {
+        if (tag.getField() != null) continue;
+        String name = tag.getKey() != null ? tag.getKey() : tag.getValue();
+        if (name != null && !name.isEmpty()) names.add(name);
+      }
+    }
+    return new GlobalTags()
+        .setTags(
+            new TagAssociationArray(
+                names.stream()
+                    .map(name -> new TagAssociation().setTag(new TagUrn(name)))
+                    .toList()));
+  }
+
+  static MetadataChangeProposal fieldTags(
+      DatasetUrn urn, OpenLineage.TagsDatasetFacet tags, Map<String, String> fieldPaths) {
+    ObjectNode patch = MAPPER.createObjectNode().put("forceGenericPatch", true);
+    patch.set("defaultValues", MAPPER.valueToTree(emptySchema(urn).data()));
+    patch.putObject("removeKeysByPrefix").putArray("/fields").add("globalTags");
+    patch.putObject("arrayPrimaryKeys").putArray("fields").add("fieldPath");
+    patch.putArray("patch");
+    ObjectNode updates = patch.putObject("existingItemUpdates").putObject("fields");
+    if (!Boolean.TRUE.equals(tags.get_deleted()) && tags.getTags() != null) {
+      for (var tag : tags.getTags()) {
+        if (tag.getField() == null) continue;
+        String name = tag.getKey() != null ? tag.getKey() : tag.getValue();
+        if (name == null || name.isEmpty()) continue;
+        String field = tag.getField();
+        updates
+            .withObject("/" + escape(fieldPaths.getOrDefault(field, field)))
+            .withObject("/globalTags")
+            .withArray("/tags")
+            .addObject()
+            .put("tag", new TagUrn(name).toString());
+      }
+    }
+    return OpenLineageMcpFactory.patch(urn, "dataset", "schemaMetadata", patch);
+  }
+
+  static List<MetadataChangeProposal> observations(
+      OpenLineageEvent.Dataset occurrence,
+      DatasetUrn urn,
+      com.linkedin.common.urn.Urn observationOwner) {
+    var changes = new ArrayList<MetadataChangeProposal>();
+    var datasetPatch = new OpenLineageAspectPatch();
+    var observationPatch = new OpenLineageAspectPatch();
+    boolean input = occurrence.model() instanceof OpenLineage.InputDataset;
+    String prefix = input ? "openlineage.inputFacet." : "openlineage.outputFacet.";
+    occurrence
+        .observations()
+        .fields()
+        .forEachRemaining(
+            facet -> {
+              var value = MAPPER.getNodeFactory().textNode(facet.getValue().toString());
+              if (facet.getKey().equals("subset") || facet.getKey().startsWith("iceberg"))
+                datasetPatch.add("/customProperties/" + prefix + facet.getKey(), value);
+              String key =
+                  prefix + MAPPER.createArrayNode().add(urn.toString()).add(facet.getKey());
+              observationPatch.add("/customProperties/" + escape(key), value);
+            });
+    if (!datasetPatch.value().path("patch").isEmpty())
+      changes.add(
+          OpenLineageMcpFactory.patch(urn, "dataset", "datasetProperties", datasetPatch.value()));
+    if (observationOwner != null && !observationPatch.value().path("patch").isEmpty())
+      changes.add(
+          OpenLineageMcpFactory.patch(
+              observationOwner,
+              observationOwner.getEntityType(),
+              observationOwner.getEntityType().equals("dataJob")
+                  ? "dataJobInfo"
+                  : "dataProcessInstanceProperties",
+              observationPatch.value()));
+    return changes;
+  }
+
+  private static String escape(String value) {
+    return value.replace("~", "~0").replace("/", "~1");
+  }
+
+  private static void remove(ArrayNode operations, String path) {
+    operations.addObject().put("op", "remove").put("path", path);
+  }
+
+  private static void add(ArrayNode operations, String path, JsonNode value) {
+    operations.addObject().put("op", "add").put("path", path).set("value", value);
+  }
+}

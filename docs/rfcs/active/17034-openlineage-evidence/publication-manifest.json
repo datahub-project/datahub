@@ -1,0 +1,458 @@
+{
+  "published_on": "2026-10-05",
+  "comparison_captured_on": "2026-10-01",
+  "rfc_pr": 17034,
+  "implementation_pr": 19257,
+  "implementation_branch": "feat/openlineage-conformance-combined",
+  "upstream_runtime_executed": false,
+  "raw_json_policy": "Payload and result JSON bytes are preserved; original absolute locator fields are historical metadata, not public links. Markdown links are relocated.",
+  "sources": [
+    {
+      "original_path": "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/validation/OpenLineageSchemaCatalog.java",
+      "git_blob": "9c5998aaa1cbd30075ab14497627c53c0a425ecb",
+      "sha256": "6a09ad4a30a04bc3a886e80a3a5d0c2d0b5d679d21c5a32f302987c3d46981e7",
+      "published_path": "sources/ours-2026-10-01/metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/validation/OpenLineageSchemaCatalog.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageEventConverter.java",
+      "git_blob": "e5674d238397700b0c10e65c849ca2f4d621f027",
+      "sha256": "8122294edda7578c57d48f4f4f7c4ab46ba0ec2f582a1fb0b69d2ef7aa1f26e5",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageEventConverter.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageFacetProperties.java",
+      "git_blob": "8209c75bf600befc78b1c1d6791a21645056a4e0",
+      "sha256": "4e122bf2108a1d2d3cff4d9f81f9db8cc6b5997523e319345a11e2ef91ab6c85",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageFacetProperties.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageDatasetUpdates.java",
+      "git_blob": "0bb7a5255a083868c336b5e5247afcdd02081001",
+      "sha256": "cc9b90301391f2ba01b635a10b0766fbf7e3426278b61b7c29ec3f2608d34b72",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageDatasetUpdates.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobUpdates.java",
+      "git_blob": "94af0c93d4d0de2b3259eaefb86ec4fe6cdfde22",
+      "sha256": "c2c97c8c88f68d45c9e63007823e0779220ee5e5559fdfc9e8dbf105fbb74856",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobUpdates.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageRunUpdates.java",
+      "git_blob": "3cba4b66033a86e9354542ee24952f002f46cf7e",
+      "sha256": "34eaf8cf671e77e0927ec4863417d78f54eda525e14500d583722c71f6447eae",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageRunUpdates.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageRunMapper.java",
+      "git_blob": "22d1afa4924e7fc20331863ec18cf08cca0ceb9d",
+      "sha256": "a89b56a26741db0aa34e14668ecabd5877cef3527e1e6de27febd2790e08aeaf",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageRunMapper.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageDatasetMapper.java",
+      "git_blob": "d4c6391f61faa0a60a77b2c02955527ba191ff09",
+      "sha256": "ce7aec24649c747c2e7625a3b7f381a8bcfebbb43efaf971e4b0cb9a8739f62f",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageDatasetMapper.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobDependencies.java",
+      "git_blob": "ded58b66b8aa76b59aa1ec9cc658e0de55320cb1",
+      "sha256": "dcbce0fecc0654997472c68d91bd5ef796c63a05b27aff8ad2e80562adbed823",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobDependencies.java.txt"
+    },
+    {
+      "original_path": "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobMapper.java",
+      "git_blob": "ee16adcf36f65f9f5dac8110e892d24e3a2a406e",
+      "sha256": "c486f51ac2ad45083305943bd2d4025202568615a7ec727cf8530cbad04d898d",
+      "published_path": "sources/ours-2026-10-01/metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobMapper.java.txt"
+    }
+  ],
+  "unavailable_source_captures": [],
+  "references_outside_publication": [
+    "research/openlineage-gap-comparison-2026-09-28-matrix.md"
+  ],
+  "artifacts": [
+    {
+      "original_path": "research/openlineage-153-contract-inventory-2026-09-30.json",
+      "published_path": "openlineage-153-contract-inventory-2026-09-30.json",
+      "sha256": "6dd20f5baa0e2a2e41b1c42086962d530d6196973819df3316d9ddc80a7d335f"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-09-30.snapshot.json",
+      "published_path": "openlineage-goal-2026-09-30.snapshot.json",
+      "sha256": "7662bd5c116e1a099d959c67ed35c75e154af0f022b8ae513cbe4aaed2aec7b7"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01.snapshot.json",
+      "published_path": "openlineage-goal-2026-10-01.snapshot.json",
+      "sha256": "aef0c279ef3170c349d66839022c75daccf1dd0498376d1aef5e968aef4f04d6"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-09-30-live-run-io.json",
+      "published_path": "openlineage-goal-2026-09-30-live-run-io.json",
+      "sha256": "4d70c5dcb588e18ec4747d287b6e309df47ce50b91c7b7276087f47a2e319182"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-facet-semantics.json",
+      "published_path": "openlineage-goal-2026-10-01-live-facet-semantics.json",
+      "sha256": "65292c0c29e613f1a5a1993b3387fe9ac929313f50de1fd584bdf18c1b2e7184"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-schema-properties.json",
+      "published_path": "openlineage-goal-2026-10-01-live-schema-properties.json",
+      "sha256": "7a9042000bbd1379155249023b479f2861a41eb5167891862218ecc6ea10d273"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-identity.json",
+      "published_path": "openlineage-goal-2026-10-01-live-identity.json",
+      "sha256": "97b9ad4622bf37a16e56e82732c00a8e9f3c4ca4007e368d567c6a693d1eeb53"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-complete-snapshot.json",
+      "published_path": "openlineage-goal-2026-10-01-live-complete-snapshot.json",
+      "sha256": "ac133179a963a44755caeda4dce5f5242932de1a6cbfa703a57e844f09ee435e"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-09-30-live-known-bugs.json",
+      "published_path": "openlineage-goal-2026-09-30-live-known-bugs.json",
+      "sha256": "707fcec265bec8cb55fdda0f75abb0c7c6d5f11d7652897a6b4e954d88815688"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-dependency-ownership.json",
+      "published_path": "openlineage-goal-2026-10-01-live-dependency-ownership.json",
+      "sha256": "3032b0ef625d9fdb324a643f89d75ea2825cabb05bd95c3a3621815094e3121d"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-forwarded-authority.json",
+      "published_path": "openlineage-goal-2026-10-01-live-forwarded-authority.json",
+      "sha256": "2c655b3565e4edefc3373fdd43d15806e642cf8430e7cc764d034e898dcdb158"
+    },
+    {
+      "original_path": "research/openlineage-153-facet-target-audit-2026-10-01.json",
+      "published_path": "openlineage-153-facet-target-audit-2026-10-01.json",
+      "sha256": "8870569fbe910fab3126bbf06ce87639ab8fa8f9c8c63a2ff34c4c1f3cfabcbb"
+    },
+    {
+      "original_path": "research/openlineage-gap-comparison-2026-09-28-reproductions/rename_02_dataset_event.json",
+      "published_path": "openlineage-gap-comparison-2026-09-28-reproductions/rename_02_dataset_event.json",
+      "sha256": "11b6150060bf8ec84fc4fa1b70d27d2c01316d46b4d1a9415efa433b0f25e0d6"
+    },
+    {
+      "original_path": "research/openlineage-153-independent-pr-facet-provenance-2026-10-01.json",
+      "published_path": "openlineage-153-independent-pr-facet-provenance-2026-10-01.json",
+      "sha256": "58ce929b62438599d011727a3fe77e9842202c5cdcaef28426059adf15e21a5f"
+    },
+    {
+      "original_path": "research/openlineage-evidence/2026-09-18-live/fixtures/OL-039/request.json",
+      "published_path": "openlineage-evidence/2026-09-18-live/fixtures/OL-039/request.json",
+      "sha256": "28c794cd8dcad7351ad25495578bec2ab43b3fe7722a2836278bebe94a849fb3"
+    },
+    {
+      "original_path": "research/openlineage-evidence/2026-09-18-live/fixtures/OL-039/storage.json",
+      "published_path": "openlineage-evidence/2026-09-18-live/fixtures/OL-039/storage.json",
+      "sha256": "22848e4b89b7b1e719c02fd211ca444674fcf2f2a7fb03ac13a6a4c3a7517a9b"
+    },
+    {
+      "original_path": "research/openlineage-evidence/2026-09-18-live/fixtures/OL-039/api.json",
+      "published_path": "openlineage-evidence/2026-09-18-live/fixtures/OL-039/api.json",
+      "sha256": "ee65a60fb05817891941c8093f61b90a16bd0c56e7053cce6f6ec50511685883"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-history-index-2026-10-01.json",
+      "published_path": "openlineage-known-bug-history-index-2026-10-01.json",
+      "sha256": "0c60e63159ada3476c5dee8677258d54de640eead888086c099d4a4c945ed94b"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-crosswalk-2026-09-30.json",
+      "published_path": "openlineage-known-bug-crosswalk-2026-09-30.json",
+      "sha256": "cf08e8464c146491bfc0915f322b83abbe3b7c62a29f3cd2d2938bc4ccf8b46c"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-smoke-group1.json",
+      "published_path": "openlineage-goal-2026-10-01-smoke-group1.json",
+      "sha256": "3707c964164fb5002a1835c8841c410b6ea8d70bfc96c21ef767e8c9f93391bd"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-smoke-group2.json",
+      "published_path": "openlineage-goal-2026-10-01-smoke-group2.json",
+      "sha256": "da88972c6f0961bc18e2cb42a6c08b0c83336ebe503a019f3649663478ac94bf"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-smoke-group3.json",
+      "published_path": "openlineage-goal-2026-10-01-smoke-group3.json",
+      "sha256": "81327c7c87dad96b8bad1c43b2de5366b13a28a9027a92bfa7c455ebed36950a"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-smoke-group4a.json",
+      "published_path": "openlineage-goal-2026-10-01-smoke-group4a.json",
+      "sha256": "1ba2e91a954c724e29acaf459ad7f3edc62cc1de24146c979652056201b3d810"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-smoke-group4b.json",
+      "published_path": "openlineage-goal-2026-10-01-smoke-group4b.json",
+      "sha256": "a33c89105206089249bf5889d5dfd15da78167e2c64aadab0ab419ee36208d20"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-smoke-timeout-partial.json",
+      "published_path": "openlineage-goal-2026-10-01-smoke-timeout-partial.json",
+      "sha256": "8f8ad909633b6e50102a0b874f7306cddc78b7c55db797e87d3931edf5d739db"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-09-30-live-graphql.json",
+      "published_path": "openlineage-goal-2026-09-30-live-graphql.json",
+      "sha256": "56e512701a2aeb2ee087070ccbf1bad75cb4efebdb95180593e550711dd8bfab"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-hierarchy.json",
+      "published_path": "openlineage-goal-2026-10-01-live-hierarchy.json",
+      "sha256": "03ddd14b3a458cb7fdbc3e1646187ce714ca96e336214e8c3519c2bd934dae04"
+    },
+    {
+      "original_path": "research/openlineage-goal-2026-10-01-live-profile.json",
+      "published_path": "openlineage-goal-2026-10-01-live-profile.json",
+      "sha256": "747a00d4ddbe844d108d3d97db3143ea4d22f397c9aa437ba265c962b0214a19"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-head-matrix-2026-10-01.json",
+      "published_path": "openlineage-known-bug-head-matrix-2026-10-01.json",
+      "sha256": "342579458db9d08e3a12344344b13546269c25e09467cfcb192c7f455ab73e50"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixture-validation.json",
+      "published_path": "openlineage-known-bug-evidence/fixture-validation.json",
+      "sha256": "6e9f01c4a16983bf3acb550dba46607b92f884919f4c49794d836d2d168a7b42"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B1.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B1.json",
+      "sha256": "ce201ad79284d52b11beb5137b9338b06569e3578e4ab9a5badddde656ee3688"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B2.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B2.json",
+      "sha256": "859516c7bbfa9a87a8ea72510914905040974fc41e00f8157d69c1f135360f7f"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B3.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B3.json",
+      "sha256": "e757e3b63283d4cbabbae428771dd37249dede97d6466c8170b61a28f2ac4690"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B4.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B4.json",
+      "sha256": "c06c8ad512ab2303f3e2dbbc8a0ca4a4c2e33e2dcd987e720fd65fc6878ad7ca"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B5.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B5.json",
+      "sha256": "9afe6409579855d955bc0be48cba381f795c6ce8cc395c76d76fcbb2a37f36a3"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B6.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B6.json",
+      "sha256": "195bfd322e5966dc0d0c7611e8d21e72dc021939df979de1ec1f38707bbdc715"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B7.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B7.json",
+      "sha256": "a25a126313ae34a57000c16762c95de98d6ce84a5d73921067aa545b0f14f6c1"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B8.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B8.json",
+      "sha256": "eca48edae23e8d9110bb57405f2f4005b0ef74159719faf8ad2a4495ec7bfafb"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B9.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B9.json",
+      "sha256": "69bf64b419d234d3188e0cc86f2ea61acadb7099b652321981764da5227647ba"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B10.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B10.json",
+      "sha256": "f209a952c7d0b2c6e2e41a564d556f7b06e3558d4644d8bf9c0850cfcd853774"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B11.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B11.json",
+      "sha256": "a895e0d225100142678926f14c4ae37e895bb0136a3474ce82c5508cce875115"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B12.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B12.json",
+      "sha256": "32c3a205c2c23911ae583efb925d74c3ba661f3db47cc8beb55cb52f3be668ac"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B13.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B13.json",
+      "sha256": "3c910f18d5212e6ddc4e8b0396e537a8a4ab21cc289571de4e0ae5d3245f3ba6"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B14.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B14.json",
+      "sha256": "ef381148cf755f369198518805ef219e1f45b0e0c482a1664b513352c1a5a92e"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B15.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B15.json",
+      "sha256": "576e6c96e49b61307f10d41394b2741ca67e8684ae417f0cd60301d788147394"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B16.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B16.json",
+      "sha256": "3439ddf0269c7c611222650d52c83865d6a6d66d6736141685ee6bc5b2f741c5"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B17.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B17.json",
+      "sha256": "8ccdf697f60ea31b9a2809c58f280db0b2e9644312ea9df1682af208a6f90261"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B18.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B18.json",
+      "sha256": "3e300a4d7f1d34e275d6d434778e84cc66077e0c1560032c92acc12368a68669"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B19.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B19.json",
+      "sha256": "324f9d0b3af44c83b949da58707d990366a1a6f2f9385f35d8844f135bf89e43"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B20.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B20.json",
+      "sha256": "94b8bf44af018581a5797093dad6815d32f80fa6d04cfc5adb3ab239a664e073"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B21.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B21.json",
+      "sha256": "6f661cc043bf07a066099b79bb0fe53b880cd0dd111ca225a74a11c144a3d9ce"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B22.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B22.json",
+      "sha256": "e7d570a532b64a57de95fbe8189fc670a9e34b2e560aaff812bd32190445f8fa"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B23.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B23.json",
+      "sha256": "e7d807240ad9241c967e4e8476c2470bec3213f0055c832871a4e96d07e019ab"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B23.payload.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B23.payload.json",
+      "sha256": "227c87203d48df995b19827249793b1e8c738008563a2e4fa8ffa34d749cccf6"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B24.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B24.json",
+      "sha256": "deb2c432a60e8004ed2e23ccb6532ff3393bfda39464a00a3f9d8a877d1f3473"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B25.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B25.json",
+      "sha256": "a928002e7a6e74454094102f5318cb5cec1f2ee42521e5c8c105817926db68a4"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B26.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B26.json",
+      "sha256": "8104fef2f03b495c01e3f6d818ac440330cd059bd9f86adb2da89a828430d71c"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B27.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B27.json",
+      "sha256": "d4c79877f91ca2d74badd3cef5c515271431e7c05569d8fd1aad2719ef9242e5"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B28.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B28.json",
+      "sha256": "743f9168cd892cbe20b00e578fd56b0e6a8fe4952f2961bd56b74647407e5202"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B29.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B29.json",
+      "sha256": "3ebe370c83e980d74d1e003338c09b0703c1b54c14819a058af16faece43863e"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B30.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B30.json",
+      "sha256": "e8285d0219da415b286709f32c9debb4ac58eb9c85264e46ce15e3ae19b8da17"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B31.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B31.json",
+      "sha256": "920dd2f39130687ca0a2c037180e7066644ffa938a38ad305a200b3637087f7d"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B32.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B32.json",
+      "sha256": "b3f7140ae7f91d0cc2a2ed90d65cdb9b21aaa25130a495fee440dcef7dd4c79e"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B33.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B33.json",
+      "sha256": "653bf7170f467f18d891b2c0d851f5789eaa2edaf644aa593e8d1809b28c49d0"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/fixtures/B34.json",
+      "published_path": "openlineage-known-bug-evidence/fixtures/B34.json",
+      "sha256": "91d76d85e791791d853a246b32c24fbdf68004770ceaf32d0621516fb2ea8745"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/capture-group-a-results.json",
+      "published_path": "openlineage-known-bug-evidence/capture-group-a-results.json",
+      "sha256": "37091eaddba12a66c78f737093c24a92a8cfe4a8ace4f6b01e3c702b01595bc4"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/capture-group-b-results.json",
+      "published_path": "openlineage-known-bug-evidence/capture-group-b-results.json",
+      "sha256": "5caabadd423dd30b65025a7f580185a04d867f2c8e441c636fdbed0a2e095901"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/capture-group-c1-results.json",
+      "published_path": "openlineage-known-bug-evidence/capture-group-c1-results.json",
+      "sha256": "d15ab813362857bec652458b30d76de2ba71917a42004aa59d226d05eaedcfc0"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/capture-b23-results.json",
+      "published_path": "openlineage-known-bug-evidence/capture-b23-results.json",
+      "sha256": "32ee9495e46277fa981956d266b27d1dbeb80295548707e3581fd81c86b67da8"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/capture-group-c2-results.json",
+      "published_path": "openlineage-known-bug-evidence/capture-group-c2-results.json",
+      "sha256": "aa2078dd9d95ccd4f2dee87248587cf066f0a1a08b48755939e989a905aa32e2"
+    },
+    {
+      "original_path": "research/openlineage-gap-comparison-2026-09-28-reproductions/sourcecode-graphql.json",
+      "published_path": "openlineage-gap-comparison-2026-09-28-reproductions/sourcecode-graphql.json",
+      "sha256": "550411d99e54e7fbc7ee68b7c2222b8647843e110f11f6b7f298113b9d722e50"
+    },
+    {
+      "original_path": "research/openlineage-gap-comparison-2026-09-28-reproductions/sourcecode-run.json",
+      "published_path": "openlineage-gap-comparison-2026-09-28-reproductions/sourcecode-run.json",
+      "sha256": "0c5288c709aeea0d7aae61ff8abe600929e67f6e792ef03d23b82762146548f8"
+    },
+    {
+      "original_path": "research/openlineage-gap-comparison-2026-09-28-reproductions/rename_01_create_old.json",
+      "published_path": "openlineage-gap-comparison-2026-09-28-reproductions/rename_01_create_old.json",
+      "sha256": "644b854e0c9a3bb5733d48be464938644f75f79c9f1a0ef90438e6bc38a49ec2"
+    },
+    {
+      "original_path": "research/openlineage-gap-comparison-2026-09-28-reproductions/rename_02_new_name.json",
+      "published_path": "openlineage-gap-comparison-2026-09-28-reproductions/rename_02_new_name.json",
+      "sha256": "d5b8283b0e2a02765608340faa6e699e3982e2cc4f2644b895fb1d7570a05f41"
+    },
+    {
+      "original_path": "research/openlineage-gap-comparison-2026-09-28-reproductions/legacy-parent-identity.json",
+      "published_path": "openlineage-gap-comparison-2026-09-28-reproductions/legacy-parent-identity.json",
+      "sha256": "0e5dd82b2e533a9e423455b3a591bfad68034fbe6e8f87b2319ea96361b832c7"
+    },
+    {
+      "original_path": "research/openlineage-known-bug-evidence/capture-b5-results.json",
+      "published_path": "openlineage-known-bug-evidence/capture-b5-results.json",
+      "sha256": "6ad4f580df6badb3fad98cd5fe1331d560886da0a4e6841e587f45452bced3bb"
+    }
+  ],
+  "navigation_note": "Current implementation links identify PR #19257 and its branch. Historical test paths/line numbers and machine-export absolute paths are provenance, not claims about the current PR head."
+}

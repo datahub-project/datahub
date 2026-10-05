@@ -1,0 +1,31 @@
+{
+  "exit_status": 0,
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_typed_facet_deletion[dataset]",
+      "outcome": "passed",
+      "duration": 29.977
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_typed_facet_deletion[job]",
+      "outcome": "passed",
+      "duration": 30.178
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_registered_facet_replacement",
+      "outcome": "passed",
+      "duration": 59.977
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_job_emission_mode_survives_omission",
+      "outcome": "passed",
+      "duration": 110.192
+    }
+  ]
+}

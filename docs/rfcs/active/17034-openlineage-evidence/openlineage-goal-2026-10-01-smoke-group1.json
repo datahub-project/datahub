@@ -1,0 +1,41 @@
+{
+  "exit_status": 0,
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[DatasetEvent-empty-owners]",
+      "outcome": "passed",
+      "duration": 29.843
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[DatasetEvent-tombstone]",
+      "outcome": "passed",
+      "duration": 30.095
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[JobEvent-empty-owners]",
+      "outcome": "passed",
+      "duration": 29.848
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[JobEvent-tombstone]",
+      "outcome": "passed",
+      "duration": 29.961
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_run_tags_preserve_omitted_job_tags",
+      "outcome": "passed",
+      "duration": 40.163
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_persisted_sequence_and_batch",
+      "outcome": "passed",
+      "duration": 63.746
+    }
+  ]
+}

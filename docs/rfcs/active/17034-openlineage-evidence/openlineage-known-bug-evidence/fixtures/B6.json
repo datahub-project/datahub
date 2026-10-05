@@ -1,0 +1,46 @@
+{
+  "bug_id": "B6",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-identity.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-10-01T05:30:13.146472Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "ol_identity_f1c1b793",
+          "name": "ol_identity_f1c1b793.task",
+          "facets": {}
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-10-01T05:30:14.146472Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "ol_identity_f1c1b793",
+          "name": "ol_identity_f1c1b793.task",
+          "facets": {
+            "jobType": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/2-0-4/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+              "processingType": "BATCH",
+              "integration": "SPARK"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-identity.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

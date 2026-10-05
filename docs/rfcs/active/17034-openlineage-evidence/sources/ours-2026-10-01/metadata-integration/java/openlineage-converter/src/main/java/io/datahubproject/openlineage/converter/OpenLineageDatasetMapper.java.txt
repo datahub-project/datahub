@@ -1,0 +1,1016 @@
+package io.datahubproject.openlineage.converter;
+
+import static io.datahubproject.openlineage.converter.OpenLineageMappingUtils.activeDatasetFacet;
+import static io.datahubproject.openlineage.converter.OpenLineageMappingUtils.activeJobFacet;
+
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Operation;
+import com.linkedin.common.OperationType;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Siblings;
+import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.container.Container;
+import com.linkedin.container.ContainerProperties;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.dataset.ColumnLineageTransformation;
+import com.linkedin.dataset.ColumnLineageTransformationArray;
+import com.linkedin.dataset.DatasetFieldProfile;
+import com.linkedin.dataset.DatasetFieldProfileArray;
+import com.linkedin.dataset.DatasetLineageType;
+import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.FineGrainedLineageDownstreamType;
+import com.linkedin.dataset.FineGrainedLineageUpstreamType;
+import com.linkedin.dataset.Quantile;
+import com.linkedin.dataset.QuantileArray;
+import com.linkedin.dataset.Upstream;
+import com.linkedin.dataset.UpstreamArray;
+import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.metadata.key.ContainerKey;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.MySqlDDL;
+import com.linkedin.schema.OtherSchema;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.DatahubDataset;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.openlineage.client.OpenLineage;
+import io.openlineage.client.OpenLineageClientUtils;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.time.ZonedDateTime;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+final class OpenLineageDatasetMapper {
+  private OpenLineageDatasetMapper() {}
+
+  static List<MetadataChangeProposal> convertDatasetEventToMcps(
+      OpenLineage.DatasetEvent event, DatahubOpenlineageConfig config) throws IOException {
+    var urn =
+        OpenLineagePlatformResolver.resolveLegacyDatasetIdentityOrUnknown(
+                event.getDataset(), config)
+            .urn();
+    var proposals = convertDatasetToMcps(event.getDataset(), config, true);
+    var profile = getDatasetQualityProfile(event.getDataset(), event.getEventTime());
+    if (profile != null) proposals.add(OpenLineageMcpFactory.upsert(urn, "dataset", profile));
+    var operation = getLifecycleOperation(event.getDataset(), event.getEventTime());
+    if (operation != null) proposals.add(OpenLineageMcpFactory.upsert(urn, "dataset", operation));
+    return proposals;
+  }
+
+  static List<MetadataChangeProposal> convertDatasetToMcps(
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig datahubConf) throws IOException {
+    return convertDatasetToMcps(dataset, datahubConf, false);
+  }
+
+  private static List<MetadataChangeProposal> convertDatasetToMcps(
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig datahubConf, boolean datasetEvent)
+      throws IOException {
+    List<MetadataChangeProposal> mcps = new LinkedList<>();
+    OpenLineagePlatformResolver.ResolvedDatasetIdentity resolvedIdentity =
+        OpenLineagePlatformResolver.resolveLegacyDatasetIdentityOrUnknown(dataset, datahubConf);
+    DatasetUrn datasetUrn = resolvedIdentity.urn();
+    DatahubDataset datahubDataset = mapDataset(dataset, resolvedIdentity, datahubConf, null);
+    Status lifecycleStatus = datahubDataset.getStatus();
+    if (datahubConf.isMaterializeDataset() || datasetEvent) {
+      mcps.add(OpenLineageMcpFactory.convert(DatahubJob.materializeDataset(datasetUrn)));
+      mcps.add(OpenLineageMcpFactory.datasetStatus(datasetUrn, lifecycleStatus));
+    } else if (lifecycleStatus != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, lifecycleStatus, mcps);
+    }
+
+    if (datahubDataset.getSchemaMetadata() != null && datahubConf.isIncludeSchemaMetadata()) {
+      mcps.add(
+          OpenLineageMcpFactory.upsert(datasetUrn, "dataset", datahubDataset.getSchemaMetadata()));
+    }
+
+    if (datahubDataset.getDatasetProperties() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getDatasetProperties(), mcps);
+    }
+
+    if (datahubDataset.getDataPlatformInstance() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn,
+          DatahubJob.DATASET_ENTITY_TYPE,
+          datahubDataset.getDataPlatformInstance(),
+          mcps);
+    }
+
+    if (datahubDataset.getSiblings() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getSiblings(), mcps);
+    }
+
+    if (datahubDataset.getOwnership() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getOwnership(), mcps);
+    }
+
+    if (datahubDataset.getGlobalTags() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getGlobalTags(), mcps);
+    }
+
+    if (datahubDataset.getSubTypes() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getSubTypes(), mcps);
+    }
+    if (datahubDataset.getLineage() != null) {
+      OpenLineageMappingUtils.addAspectToMcps(
+          datasetUrn, "dataset", datahubDataset.getLineage(), mcps);
+    }
+    addHierarchyMcps(mcps, dataset, datasetUrn);
+    return mcps;
+  }
+
+  static DatahubDataset mapDataset(
+      OpenLineage.Dataset dataset,
+      OpenLineagePlatformResolver.ResolvedDatasetIdentity resolvedIdentity,
+      DatahubOpenlineageConfig datahubConf,
+      OpenLineage.RunEvent event) {
+    return mapDataset(
+        dataset,
+        resolvedIdentity,
+        datahubConf,
+        event,
+        OpenLineageDatasetReferences.fromRun(event, datahubConf));
+  }
+
+  static DatahubDataset mapDataset(
+      OpenLineage.Dataset dataset,
+      OpenLineagePlatformResolver.ResolvedDatasetIdentity resolvedIdentity,
+      DatahubOpenlineageConfig datahubConf,
+      OpenLineage.RunEvent event,
+      OpenLineageDatasetReferences references) {
+    SchemaFieldArray schemaFields = OpenLineageSchemaMapper.fields(dataset);
+    Map<String, String> fieldPaths = OpenLineageSchemaMapper.fieldPaths(schemaFields);
+    DatasetUrn datasetUrn = resolvedIdentity.urn();
+    DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder().urn(datasetUrn);
+    builder.datasetProperties(getDatasetProperties(dataset));
+    builder.dataPlatformInstance(getDatasetDataPlatformInstance(resolvedIdentity, datahubConf));
+    builder.ownership(generateDatasetOwnership(dataset.getFacets()));
+    builder.globalTags(generateDatasetTags(dataset.getFacets()));
+    builder.subTypes(generateDatasetSubTypes(dataset.getFacets()));
+    builder.siblings(getDatasetSiblings(dataset, datasetUrn, datahubConf));
+    builder.status(getDatasetStatus(dataset));
+    if (event != null) {
+      // Input-facet metrics are per-run observations, not dataset totals.
+      builder.datasetProfile(getDatasetQualityProfile(dataset, event.getEventTime()));
+    }
+    if (datahubConf.isIncludeSchemaMetadata()) {
+      builder.schemaMetadata(getSchemaMetadata(dataset, datasetUrn, schemaFields, fieldPaths));
+    }
+    if (datahubConf.isCaptureColumnLevelLineage()) {
+      builder.lineage(
+          getFineGrainedLineage(dataset, datahubConf, event, datasetUrn, fieldPaths, references));
+    }
+    return builder.build();
+  }
+
+  static void addHierarchyMcps(
+      List<MetadataChangeProposal> mcps, OpenLineage.Dataset dataset, DatasetUrn datasetUrn) {
+    if (dataset.getFacets() == null
+        || activeDatasetFacet(dataset.getFacets().getHierarchy()) == null) {
+      return;
+    }
+    List<OpenLineage.HierarchyDatasetFacetLevel> hierarchy =
+        dataset.getFacets().getHierarchy().getHierarchy();
+    if (hierarchy == null || hierarchy.size() < 2) {
+      return;
+    }
+    if (hierarchy.stream()
+        .anyMatch(
+            level ->
+                level == null
+                    || level.getType() == null
+                    || level.getType().isBlank()
+                    || level.getName() == null
+                    || level.getName().isBlank())) {
+      log.debug("Skipping invalid OpenLineage hierarchy facet");
+      return;
+    }
+
+    Urn parentContainerUrn = null;
+    List<String> qualifiedPath = new LinkedList<>();
+    ByteArrayOutputStream identity = new ByteArrayOutputStream();
+    appendIdentityComponent(identity, datasetUrn.getPlatformEntity().getPlatformNameEntity());
+    appendIdentityComponent(identity, datasetUrn.getOriginEntity().toString());
+    appendIdentityComponent(identity, dataset.getNamespace());
+    for (int index = 0; index < hierarchy.size() - 1; index++) {
+      OpenLineage.HierarchyDatasetFacetLevel level = hierarchy.get(index);
+      qualifiedPath.add(level.getName());
+      appendIdentityComponent(identity, level.getType().toUpperCase(Locale.ROOT));
+      appendIdentityComponent(identity, level.getName());
+      String guid = UUID.nameUUIDFromBytes(identity.toByteArray()).toString().replace("-", "");
+      Urn containerUrn = UrnUtils.getUrn("urn:li:container:" + guid);
+
+      addMcpIfAbsent(mcps, containerUrn, "container", new ContainerKey().setGuid(guid));
+      StringMap customProperties =
+          new StringMap(
+              Map.of(
+                  "openlineage.hierarchy.type",
+                  level.getType(),
+                  "openlineage.hierarchy.namespace",
+                  dataset.getNamespace()));
+      ContainerProperties properties =
+          new ContainerProperties()
+              .setName(level.getName())
+              .setQualifiedName(String.join(".", qualifiedPath))
+              .setEnv(datasetUrn.getOriginEntity())
+              .setCustomProperties(customProperties);
+      addMcpIfAbsent(mcps, containerUrn, "container", properties);
+      addMcpIfAbsent(mcps, containerUrn, "container", new Status().setRemoved(Boolean.FALSE));
+      if (parentContainerUrn != null) {
+        addMcpIfAbsent(
+            mcps, containerUrn, "container", new Container().setContainer(parentContainerUrn));
+      }
+      parentContainerUrn = containerUrn;
+    }
+
+    if (parentContainerUrn != null) {
+      addMcpIfAbsent(
+          mcps,
+          datasetUrn,
+          DatahubJob.DATASET_ENTITY_TYPE,
+          new Container().setContainer(parentContainerUrn));
+    }
+  }
+
+  static void addMcpIfAbsent(
+      List<MetadataChangeProposal> mcps,
+      Urn entityUrn,
+      String entityType,
+      com.linkedin.data.template.DataTemplate aspect) {
+    MetadataChangeProposal mcp = OpenLineageMcpFactory.upsert(entityUrn, entityType, aspect);
+    if (!mcps.contains(mcp)) {
+      mcps.add(mcp);
+    }
+  }
+
+  static Status getDatasetStatus(OpenLineage.Dataset dataset) {
+    if (dataset.getFacets() == null
+        || activeDatasetFacet(dataset.getFacets().getLifecycleStateChange()) == null) {
+      return null;
+    }
+    OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange lifecycleStateChange =
+        dataset.getFacets().getLifecycleStateChange().getLifecycleStateChange();
+    return lifecycleStateChange == null
+        ? null
+        : new Status()
+            .setRemoved(
+                lifecycleStateChange
+                    == OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange.DROP);
+  }
+
+  private static void appendIdentityComponent(ByteArrayOutputStream identity, String value) {
+    byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+    identity.writeBytes(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+    identity.writeBytes(bytes);
+  }
+
+  static Ownership generateDatasetOwnership(OpenLineage.DatasetFacets datasetFacets) {
+    if (datasetFacets == null || activeDatasetFacet(datasetFacets.getOwnership()) == null) {
+      return null;
+    }
+    return OpenLineageMappingUtils.generateOwnership(
+        datasetFacets.getOwnership().getOwners(),
+        OpenLineage.OwnershipDatasetFacetOwners::getName,
+        OpenLineage.OwnershipDatasetFacetOwners::getType);
+  }
+
+  static GlobalTags generateDatasetTags(OpenLineage.DatasetFacets datasetFacets) {
+    if (datasetFacets == null || activeDatasetFacet(datasetFacets.getTags()) == null) {
+      return null;
+    }
+    return OpenLineageMappingUtils.generateFacetTags(
+        datasetFacets.getTags().getTags() == null
+            ? null
+            : datasetFacets.getTags().getTags().stream()
+                .filter(tag -> tag.getField() == null)
+                .toList(),
+        OpenLineage.TagsDatasetFacetFields::getKey,
+        OpenLineage.TagsDatasetFacetFields::getValue);
+  }
+
+  static SubTypes generateDatasetSubTypes(OpenLineage.DatasetFacets datasetFacets) {
+    if (datasetFacets == null || activeDatasetFacet(datasetFacets.getDatasetType()) == null) {
+      return null;
+    }
+    LinkedHashSet<String> typeNames = new LinkedHashSet<>();
+    if (datasetFacets.getDatasetType().getDatasetType() != null) {
+      typeNames.add(datasetFacets.getDatasetType().getDatasetType());
+    }
+    if (datasetFacets.getDatasetType().getSubType() != null) {
+      typeNames.add(datasetFacets.getDatasetType().getSubType());
+    }
+    if (typeNames.isEmpty()) {
+      return null;
+    }
+    return new SubTypes().setTypeNames(new StringArray(new LinkedList<>(typeNames)));
+  }
+
+  static DatasetProperties getDatasetProperties(OpenLineage.Dataset dataset) {
+    if (dataset.getFacets() == null
+        && !(dataset instanceof OpenLineage.InputDataset input && input.getInputFacets() != null)
+        && !(dataset instanceof OpenLineage.OutputDataset output
+            && output.getOutputFacets() != null)) {
+      return null;
+    }
+    OpenLineage.DatasetFacets facets =
+        dataset.getFacets() == null
+            ? new OpenLineage.DatasetFacetsBuilder().build()
+            : dataset.getFacets();
+
+    DatasetProperties properties = new DatasetProperties();
+    if (activeDatasetFacet(facets.getDocumentation()) != null
+        && facets.getDocumentation().getDescription() != null) {
+      properties.setDescription(facets.getDocumentation().getDescription());
+    }
+    if (activeDatasetFacet(facets.getDataSource()) != null
+        && facets.getDataSource().getUri() != null) {
+      properties.setExternalUrl(new Url(facets.getDataSource().getUri().toString()));
+    }
+
+    StringMap customProperties = new StringMap();
+    properties.setCustomProperties(customProperties);
+    OpenLineageFacetProperties.add(customProperties, facets);
+    if (dataset instanceof OpenLineage.InputDataset input
+        && input.getInputFacets() != null
+        && input.getInputFacets().getDataQualityMetrics() != null) {
+      customProperties.put(
+          "openlineage.inputFacet.dataQualityMetrics",
+          OpenLineageClientUtils.toJson(input.getInputFacets().getDataQualityMetrics()));
+    }
+    OpenLineage.StorageDatasetFacet storage = activeDatasetFacet(facets.getStorage());
+    if (storage != null) {
+      OpenLineageMappingUtils.putIfPresent(
+          customProperties, "storageLayer", storage.getStorageLayer());
+      OpenLineageMappingUtils.putIfPresent(customProperties, "fileFormat", storage.getFileFormat());
+    }
+
+    OpenLineage.CatalogDatasetFacet catalog = activeDatasetFacet(facets.getCatalog());
+    if (catalog != null) {
+      if (catalog.getCatalogProperties() != null
+          && catalog.getCatalogProperties().getAdditionalProperties() != null) {
+        for (Map.Entry<String, String> entry :
+            catalog.getCatalogProperties().getAdditionalProperties().entrySet()) {
+          String key = entry.getKey();
+          String value = entry.getValue();
+          if (key != null && !key.isBlank() && value != null) {
+            customProperties.put("openlineage.catalog." + key, value);
+          }
+        }
+      }
+      OpenLineageMappingUtils.putIfPresent(
+          customProperties, "catalogFramework", catalog.getFramework());
+      OpenLineageMappingUtils.putIfPresent(customProperties, "catalogType", catalog.getType());
+      OpenLineageMappingUtils.putIfPresent(customProperties, "catalogName", catalog.getName());
+      OpenLineageMappingUtils.putIfPresent(
+          customProperties, "catalogMetadataUri", catalog.getMetadataUri());
+      OpenLineageMappingUtils.putIfPresent(
+          customProperties, "catalogWarehouseUri", catalog.getWarehouseUri());
+      OpenLineageMappingUtils.putIfPresent(customProperties, "catalogSource", catalog.getSource());
+    }
+
+    OpenLineage.DatasetVersionDatasetFacet version = activeDatasetFacet(facets.getVersion());
+    if (version != null) {
+      OpenLineageMappingUtils.putIfPresent(
+          customProperties, "openlineage.datasetVersion", version.getDatasetVersion());
+    }
+
+    return properties.hasDescription() || properties.hasExternalUrl() || !customProperties.isEmpty()
+        ? properties
+        : null;
+  }
+
+  static DataPlatformInstance getDatasetDataPlatformInstance(
+      OpenLineagePlatformResolver.ResolvedDatasetIdentity resolvedIdentity,
+      DatahubOpenlineageConfig datahubConf) {
+    String instance = resolvedIdentity.platformInstance();
+    if (instance == null || instance.isBlank()) {
+      instance = datahubConf.getCommonDatasetPlatformInstance();
+    }
+    if (instance == null || instance.isBlank()) {
+      return null;
+    }
+    DatasetUrn datasetUrn = resolvedIdentity.urn();
+    String platformName = datasetUrn.getPlatformEntity().getPlatformNameEntity();
+    return new DataPlatformInstance()
+        .setPlatform(datasetUrn.getPlatformEntity())
+        .setInstance(OpenLineageMappingUtils.dataPlatformInstanceUrn(platformName, instance));
+  }
+
+  static Siblings getDatasetSiblings(
+      OpenLineage.Dataset dataset, DatasetUrn resolvedUrn, DatahubOpenlineageConfig datahubConf) {
+    if (dataset.getFacets() == null
+        || activeDatasetFacet(dataset.getFacets().getSymlinks()) == null) {
+      return null;
+    }
+
+    UrnArray siblingUrns = new UrnArray();
+    if (dataset.getFacets().getSymlinks().getIdentifiers() == null
+        || dataset.getFacets().getSymlinks().getIdentifiers().isEmpty()) {
+      return new Siblings().setSiblings(siblingUrns).setPrimary(true);
+    }
+    Optional<DatasetUrn> originalUrn =
+        OpenLineagePlatformResolver.getDatasetUrnFromOlDataset(
+            dataset.getNamespace(), dataset.getName(), null, datahubConf);
+    originalUrn.ifPresent(urn -> addSiblingIfDifferent(siblingUrns, resolvedUrn, urn));
+
+    for (OpenLineage.SymlinksDatasetFacetIdentifiers identifier :
+        dataset.getFacets().getSymlinks().getIdentifiers()) {
+      getDatasetUrnFromSymlinkIdentifier(identifier, datahubConf)
+          .ifPresent(urn -> addSiblingIfDifferent(siblingUrns, resolvedUrn, urn));
+    }
+
+    return new Siblings().setSiblings(siblingUrns).setPrimary(true);
+  }
+
+  static void addSiblingIfDifferent(
+      UrnArray siblingUrns, DatasetUrn resolvedUrn, DatasetUrn siblingUrn) {
+    if (resolvedUrn.toString().equals(siblingUrn.toString())) {
+      return;
+    }
+    boolean alreadyPresent =
+        siblingUrns.stream()
+            .anyMatch(existing -> existing.toString().equals(siblingUrn.toString()));
+    if (!alreadyPresent) {
+      siblingUrns.add(siblingUrn);
+    }
+  }
+
+  static Optional<DatasetUrn> getDatasetUrnFromSymlinkIdentifier(
+      OpenLineage.SymlinksDatasetFacetIdentifiers identifier,
+      DatahubOpenlineageConfig datahubConf) {
+    if (identifier.getType() == null
+        || identifier.getNamespace() == null
+        || identifier.getName() == null) return Optional.empty();
+    if ("TABLE".equals(identifier.getType()))
+      return OpenLineagePlatformResolver.resolveSymlinkIdentity(identifier, datahubConf)
+          .map(OpenLineagePlatformResolver.ResolvedDatasetIdentity::urn);
+    return OpenLineagePlatformResolver.getDatasetUrnFromOlDataset(
+        identifier.getNamespace(), identifier.getName(), null, datahubConf);
+  }
+
+  static Operation getInputOperation(OpenLineage.InputDataset input, ZonedDateTime eventTime) {
+    if (input.getInputFacets() == null || input.getInputFacets().getInputStatistics() == null) {
+      return null;
+    }
+
+    OpenLineage.InputStatisticsInputDatasetFacet statistics =
+        input.getInputFacets().getInputStatistics();
+    Operation operation = createDatasetOperation(eventTime, "READ");
+    if (statistics.getRowCount() != null) {
+      operation.setNumAffectedRows(statistics.getRowCount());
+    }
+    StringMap customProperties = new StringMap();
+    if (statistics.getSize() != null) {
+      customProperties.put("numAffectedBytes", statistics.getSize().toString());
+    }
+    if (statistics.getFileCount() != null) {
+      customProperties.put("fileCount", statistics.getFileCount().toString());
+    }
+    if (!customProperties.isEmpty()) {
+      operation.setCustomProperties(customProperties);
+    }
+    return operation;
+  }
+
+  private static DatasetProfile getDatasetQualityProfile(
+      OpenLineage.Dataset dataset, ZonedDateTime eventTime) {
+    var metrics =
+        dataset.getFacets() == null
+            ? null
+            : activeDatasetFacet(dataset.getFacets().getDataQualityMetrics());
+    if (metrics == null) return null;
+    return getDatasetProfile(OpenLineageMappingUtils.facetJson(metrics), eventTime, dataset);
+  }
+
+  static DatasetProfile getDatasetProfile(
+      com.fasterxml.jackson.databind.JsonNode metrics,
+      ZonedDateTime eventTime,
+      OpenLineage.Dataset dataset) {
+    return getDatasetProfile(metrics, eventTime, OpenLineageSchemaMapper.fieldPaths(dataset));
+  }
+
+  static DatasetProfile getDatasetProfile(
+      com.fasterxml.jackson.databind.JsonNode metrics,
+      ZonedDateTime eventTime,
+      Map<String, String> fieldPaths) {
+    DatasetProfile datasetProfile = new DatasetProfile();
+    datasetProfile.setTimestampMillis(
+        eventTime != null ? eventTime.toInstant().toEpochMilli() : System.currentTimeMillis());
+    if (eventTime != null) {
+      datasetProfile.setSourceTimestamp(eventTime.toString());
+      datasetProfile.setMessageId(eventTime.toString());
+    }
+    if (isLong(metrics.path("rowCount"))) {
+      datasetProfile.setRowCount(metrics.path("rowCount").asLong());
+    }
+    if (isLong(metrics.path("bytes"))) {
+      datasetProfile.setSizeInBytes(metrics.path("bytes").asLong());
+    }
+    if (metrics.path("columnMetrics").isObject()) {
+      DatasetFieldProfileArray fieldProfiles = new DatasetFieldProfileArray();
+      metrics
+          .path("columnMetrics")
+          .fields()
+          .forEachRemaining(
+              field -> {
+                DatasetFieldProfile fieldProfile =
+                    getDatasetFieldProfile(
+                        fieldPaths.getOrDefault(field.getKey(), field.getKey()), field.getValue());
+                if (fieldProfile != null) {
+                  fieldProfiles.add(fieldProfile);
+                }
+              });
+      if (!fieldProfiles.isEmpty()) {
+        datasetProfile.setFieldProfiles(fieldProfiles);
+      }
+    }
+    return datasetProfile.hasRowCount()
+            || datasetProfile.hasSizeInBytes()
+            || datasetProfile.hasFieldProfiles()
+        ? datasetProfile
+        : null;
+  }
+
+  private static DatasetFieldProfile getDatasetFieldProfile(
+      String fieldPath, com.fasterxml.jackson.databind.JsonNode columnMetrics) {
+    if (fieldPath == null || fieldPath.isBlank() || columnMetrics == null) {
+      return null;
+    }
+    DatasetFieldProfile fieldProfile = new DatasetFieldProfile().setFieldPath(fieldPath);
+    if (isLong(columnMetrics.path("nullCount"))) {
+      fieldProfile.setNullCount(columnMetrics.path("nullCount").asLong());
+    }
+    if (isLong(columnMetrics.path("distinctCount"))) {
+      fieldProfile.setUniqueCount(columnMetrics.path("distinctCount").asLong());
+    }
+    var min = columnMetrics.path("min");
+    if (min.isNumber()) fieldProfile.setMin(min.asText());
+    var max = columnMetrics.path("max");
+    if (max.isNumber()) fieldProfile.setMax(max.asText());
+    var sum = number(columnMetrics.path("sum"));
+    var count = number(columnMetrics.path("count"));
+    if (sum != null && count != null && count.signum() != 0) {
+      try {
+        fieldProfile.setMean(sum.divide(count).toString());
+      } catch (ArithmeticException nonTerminating) {
+        fieldProfile.setMean(sum.divide(count, java.math.MathContext.DECIMAL128).toString());
+      }
+    }
+    if (columnMetrics.path("quantiles").isObject()) {
+      QuantileArray quantiles = new QuantileArray();
+      columnMetrics
+          .path("quantiles")
+          .fields()
+          .forEachRemaining(
+              field -> {
+                String quantile = field.getKey();
+                var value = field.getValue();
+                if (value.isNumber()) {
+                  quantiles.add(new Quantile().setQuantile(quantile).setValue(value.asText()));
+                  if ("0.5".equals(quantile) || "0.50".equals(quantile))
+                    fieldProfile.setMedian(value.asText());
+                }
+              });
+      if (!quantiles.isEmpty()) fieldProfile.setQuantiles(quantiles);
+    }
+    return fieldProfile;
+  }
+
+  private static boolean isLong(com.fasterxml.jackson.databind.JsonNode value) {
+    return value.isNumber()
+        && value.canConvertToLong()
+        && value.decimalValue().stripTrailingZeros().scale() <= 0;
+  }
+
+  private static java.math.BigDecimal number(com.fasterxml.jackson.databind.JsonNode value) {
+    return value.isNumber() ? value.decimalValue() : null;
+  }
+
+  static Operation getOutputOperation(
+      OpenLineage.OutputDataset output, OpenLineage.RunEvent event) {
+    OpenLineage.OutputStatisticsOutputDatasetFacet statistics =
+        output.getOutputFacets() != null ? output.getOutputFacets().getOutputStatistics() : null;
+    Operation operation = getLifecycleOperation(output, event.getEventTime());
+    StringMap customProperties = new StringMap();
+    addSqlOperationProperties(event, customProperties);
+    addExternalQueryOperationProperties(event, customProperties);
+    if (statistics == null && operation == null && customProperties.isEmpty()) {
+      return null;
+    }
+
+    if (operation == null) {
+      operation = createDatasetOperation(event.getEventTime(), "WRITE");
+    } else {
+      customProperties.putAll(operation.getCustomProperties());
+    }
+    if (statistics != null) {
+      if (statistics.getRowCount() != null) {
+        operation.setNumAffectedRows(statistics.getRowCount());
+      }
+      if (statistics.getSize() != null) {
+        customProperties.put("numAffectedBytes", statistics.getSize().toString());
+      }
+      if (statistics.getFileCount() != null) {
+        customProperties.put("fileCount", statistics.getFileCount().toString());
+      }
+    }
+    if (!customProperties.isEmpty()) {
+      operation.setCustomProperties(customProperties);
+    }
+    return operation;
+  }
+
+  static Operation getLifecycleOperation(OpenLineage.Dataset dataset, ZonedDateTime eventTime) {
+    var lifecycle =
+        dataset.getFacets() != null
+            ? activeDatasetFacet(dataset.getFacets().getLifecycleStateChange())
+            : null;
+    if (lifecycle == null || lifecycle.getLifecycleStateChange() == null) {
+      return null;
+    }
+    var action = lifecycle.getLifecycleStateChange();
+    Operation operation = createDatasetOperation(eventTime, action.name());
+    operation.setOperationType(
+        switch (action) {
+          case CREATE -> OperationType.CREATE;
+          case DROP -> OperationType.DROP;
+          case TRUNCATE -> OperationType.DELETE;
+          case ALTER, RENAME -> OperationType.ALTER;
+          case OVERWRITE -> OperationType.UPDATE;
+        });
+    operation.removeCustomOperationType();
+    operation.setCustomProperties(
+        new StringMap(
+            Map.of(
+                "lifecycleStateChange",
+                action.name(),
+                "openlineage.facet.lifecycleStateChange",
+                OpenLineageClientUtils.toJson(lifecycle))));
+    return operation;
+  }
+
+  static Operation createDatasetOperation(ZonedDateTime eventTime, String operationType) {
+    Operation operation = new Operation();
+    operation.setOperationType(OperationType.CUSTOM);
+    operation.setCustomOperationType(operationType);
+    long timestampMillis =
+        eventTime != null ? eventTime.toInstant().toEpochMilli() : System.currentTimeMillis();
+    operation.setTimestampMillis(timestampMillis);
+    if (eventTime != null) {
+      operation.setSourceTimestamp(eventTime.toString());
+      operation.setMessageId(eventTime.toString());
+    }
+    operation.setLastUpdatedTimestamp(timestampMillis);
+    operation.setActor(UrnUtils.getUrn(OpenLineageMappingUtils.URN_LI_CORPUSER_DATAHUB));
+    return operation;
+  }
+
+  static void addSqlOperationProperties(OpenLineage.RunEvent event, StringMap customProperties) {
+    if (event.getJob().getFacets() == null
+        || activeJobFacet(event.getJob().getFacets().getSql()) == null
+        || event.getJob().getFacets().getSql().getQuery() == null) {
+      return;
+    }
+    customProperties.put("queryStatement", event.getJob().getFacets().getSql().getQuery());
+  }
+
+  static void addExternalQueryOperationProperties(
+      OpenLineage.RunEvent event, StringMap customProperties) {
+    if (event.getRun().getFacets() == null
+        || event.getRun().getFacets().getExternalQuery() == null) {
+      return;
+    }
+    OpenLineage.ExternalQueryRunFacet externalQuery = event.getRun().getFacets().getExternalQuery();
+    if (externalQuery.getExternalQueryId() != null) {
+      customProperties.put("externalQueryId", externalQuery.getExternalQueryId());
+    }
+    if (externalQuery.getSource() != null) {
+      customProperties.put("externalQuerySource", externalQuery.getSource());
+    }
+  }
+
+  private static UpstreamLineage getFineGrainedLineage(
+      OpenLineage.Dataset dataset,
+      DatahubOpenlineageConfig mappingConfig,
+      OpenLineage.RunEvent event,
+      DatasetUrn datasetUrn,
+      Map<String, String> outputFieldPaths,
+      OpenLineageDatasetReferences references) {
+    OpenLineage.Job job = event == null ? null : event.getJob();
+    FineGrainedLineageArray fgla = new FineGrainedLineageArray();
+    UpstreamArray upstreams = new UpstreamArray();
+
+    OpenLineage.ColumnLineageDatasetFacet columnLineage =
+        dataset.getFacets() == null ? null : dataset.getFacets().getColumnLineage();
+    if (columnLineage == null || Boolean.TRUE.equals(columnLineage.get_deleted())) {
+      return null;
+    }
+    // Per OpenLineage spec
+    // (https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json),
+    // "fields" is a required property. However, the OpenLineage Java client may return null
+    // when the fields object is empty {} or when producers (like Trino) omit it.
+    // We handle this gracefully to avoid NPE.
+    List<OpenLineage.InputField> datasetInputs =
+        columnLineage.getDataset() == null ? List.of() : columnLineage.getDataset();
+    boolean includeIndirect = mappingConfig.isIncludeIndirectColumnLineage();
+    String sql = columnLineageSql(job);
+    for (OpenLineage.InputField inputField : datasetInputs) {
+      if (!includeIndirect && isIndirectOnly(inputField)) continue;
+      references
+          .resolve(inputField.getNamespace(), inputField.getName())
+          .ifPresent(
+              urn -> {
+                addCoarseUpstream(upstreams, urn);
+                fgla.add(
+                    columnFieldLineage(
+                        references.field(urn, inputField.getField()),
+                        datasetUrn,
+                        FineGrainedLineageDownstreamType.DATASET,
+                        inputField,
+                        sql,
+                        null,
+                        Set.of()));
+              });
+    }
+
+    Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
+        columnLineage.getFields() == null
+            ? Set.of()
+            : columnLineage.getFields().getAdditionalProperties().entrySet();
+    for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
+      Urn output =
+          OpenLineageRunMapper.schemaFieldUrn(
+              datasetUrn, outputFieldPaths.getOrDefault(field.getKey(), field.getKey()));
+      if (field.getValue().getInputFields() == null) continue;
+      Set<String> omittedLabels = new LinkedHashSet<>();
+      // Spark retains filter labels when its display omits indirect-only source fields.
+      if (!includeIndirect && mappingConfig.isSpark()) {
+        for (OpenLineage.InputField inputField : field.getValue().getInputFields()) {
+          if (!isIndirectOnly(inputField)) continue;
+          for (OpenLineage.InputFieldTransformations transformation :
+              inputField.getTransformations()) {
+            if (transformation.getType() == null) continue;
+            omittedLabels.add(
+                transformation.getSubtype() == null
+                    ? transformation.getType()
+                    : transformation.getType() + ":" + transformation.getSubtype());
+          }
+        }
+      }
+      for (OpenLineage.InputField inputField : field.getValue().getInputFields()) {
+        if (!includeIndirect && isIndirectOnly(inputField)) continue;
+        references
+            .resolve(inputField.getNamespace(), inputField.getName())
+            .ifPresent(
+                urn -> {
+                  addCoarseUpstream(upstreams, urn);
+                  fgla.add(
+                      columnFieldLineage(
+                          references.field(urn, inputField.getField()),
+                          output,
+                          FineGrainedLineageDownstreamType.FIELD,
+                          inputField,
+                          sql,
+                          field.getValue(),
+                          omittedLabels));
+                });
+      }
+    }
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    upstreamLineage.setFineGrainedLineages(fgla);
+    upstreamLineage.setUpstreams(upstreams);
+    return upstreamLineage;
+  }
+
+  private static void addCoarseUpstream(UpstreamArray upstreams, DatasetUrn urn) {
+    if (upstreams.stream().noneMatch(upstream -> upstream.getDataset().equals(urn))) {
+      upstreams.add(new Upstream().setDataset(urn).setType(DatasetLineageType.TRANSFORMED));
+    }
+  }
+
+  private static String columnLineageSql(OpenLineage.Job job) {
+    if (job == null
+        || job.getFacets() == null
+        || activeJobFacet(job.getFacets().getSql()) == null) {
+      return "";
+    }
+    String query = job.getFacets().getSql().getQuery();
+    return query == null || query.isBlank() ? "" : query;
+  }
+
+  private static FineGrainedLineage columnFieldLineage(
+      Urn source,
+      Urn destination,
+      FineGrainedLineageDownstreamType destinationType,
+      OpenLineage.InputField input,
+      String sql,
+      OpenLineage.ColumnLineageDatasetFacetFieldsAdditional output,
+      Set<String> omittedLabels) {
+    var lineage =
+        new FineGrainedLineage()
+            .setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET)
+            .setUpstreams(new UrnArray(List.of(source)))
+            .setDownstreamType(destinationType)
+            .setDownstreams(new UrnArray(List.of(destination)))
+            .setConfidenceScore(1.0f);
+    var transformations = new ColumnLineageTransformationArray();
+    var labels = new LinkedHashSet<String>();
+    if (input.getTransformations() != null) {
+      for (OpenLineage.InputFieldTransformations transformation : input.getTransformations()) {
+        if (transformation.getType() == null) continue;
+        var nativeTransformation =
+            new ColumnLineageTransformation().setType(transformation.getType());
+        if (transformation.getSubtype() != null)
+          nativeTransformation.setSubtype(transformation.getSubtype());
+        if (transformation.getDescription() != null)
+          nativeTransformation.setDescription(transformation.getDescription());
+        if (transformation.getMasking() != null)
+          nativeTransformation.setMasking(transformation.getMasking());
+        transformations.add(nativeTransformation);
+        labels.add(
+            transformation.getSubtype() == null
+                ? transformation.getType()
+                : transformation.getType() + ":" + transformation.getSubtype());
+      }
+    }
+    if (!transformations.isEmpty()) lineage.setTransformations(transformations);
+    if (output != null) {
+      if (output.getTransformationDescription() != null)
+        lineage.setTransformationDescription(output.getTransformationDescription());
+      if (output.getTransformationType() != null)
+        lineage.setTransformationType(output.getTransformationType());
+    }
+    labels.addAll(omittedLabels);
+    String operation = String.join(",", labels);
+    if (!sql.isEmpty()) operation = operation.isEmpty() ? sql : "-- " + operation + "\n" + sql;
+    lineage.setTransformOperation(operation);
+    return lineage;
+  }
+
+  static boolean isIndirectOnly(OpenLineage.InputField inputField) {
+    List<OpenLineage.InputFieldTransformations> transformations = inputField.getTransformations();
+    return transformations != null
+        && !transformations.isEmpty()
+        && transformations.stream()
+            .allMatch(transformation -> "INDIRECT".equalsIgnoreCase(transformation.getType()));
+  }
+
+  static DatahubDataset mapInput(
+      DatahubJob datahubJob,
+      OpenLineage.RunEvent event,
+      OpenLineage.InputDataset input,
+      DatahubOpenlineageConfig datahubConf) {
+    OpenLineagePlatformResolver.ResolvedDatasetIdentity resolvedIdentity =
+        OpenLineagePlatformResolver.resolveLegacyDatasetIdentity(input, datahubConf).orElse(null);
+    if (resolvedIdentity == null) {
+      return null;
+    }
+    DatasetUrn datasetUrn = resolvedIdentity.urn();
+
+    Operation operation = getInputOperation(input, event.getEventTime());
+    if (operation != null) {
+      datahubJob
+          .getExtraMcps()
+          .add(OpenLineageMcpFactory.upsert(datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, operation));
+    }
+
+    return mapDataset(input, resolvedIdentity, datahubConf, event);
+  }
+
+  static void processJobOutputs(
+      DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+
+    if (event.getOutputs() == null) {
+      return;
+    }
+
+    for (OpenLineage.OutputDataset output : event.getOutputs()) {
+      OpenLineagePlatformResolver.ResolvedDatasetIdentity resolvedIdentity =
+          OpenLineagePlatformResolver.resolveLegacyDatasetIdentity(output, datahubConf)
+              .orElse(null);
+      if (resolvedIdentity == null) continue;
+
+      DatasetUrn datasetUrn = resolvedIdentity.urn();
+      Operation operation = getOutputOperation(output, event);
+      if (operation != null) {
+        datahubJob
+            .getExtraMcps()
+            .add(
+                OpenLineageMcpFactory.upsert(
+                    datasetUrn, DatahubJob.DATASET_ENTITY_TYPE, operation));
+      }
+
+      DatahubDataset datahubDataset = mapDataset(output, resolvedIdentity, datahubConf, event);
+      addHierarchyMcps(datahubJob.getExtraMcps(), output, datasetUrn);
+      datahubJob.getOutSet().remove(datahubDataset);
+      datahubJob.getOutSet().add(datahubDataset);
+    }
+  }
+
+  static SchemaFieldDataType.Type convertOlFieldTypeToDHFieldType(String openLineageFieldType) {
+    return OpenLineageSchemaMapper.fieldType(openLineageFieldType);
+  }
+
+  static SchemaMetadata getSchemaMetadata(
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
+    return OpenLineagePlatformResolver.resolveLegacyDatasetIdentity(dataset, mappingConfig)
+        .map(
+            identity -> {
+              SchemaFieldArray fields = OpenLineageSchemaMapper.fields(dataset);
+              return getSchemaMetadata(
+                  dataset, identity.urn(), fields, OpenLineageSchemaMapper.fieldPaths(fields));
+            })
+        .orElse(null);
+  }
+
+  private static SchemaMetadata getSchemaMetadata(
+      OpenLineage.Dataset dataset,
+      DatasetUrn datasetUrn,
+      SchemaFieldArray schemaFieldArray,
+      Map<String, String> fieldPaths) {
+    if (dataset.getFacets() == null
+        || activeDatasetFacet(dataset.getFacets().getSchema()) == null) {
+      return null;
+    }
+    if (activeDatasetFacet(dataset.getFacets().getTags()) != null
+        && dataset.getFacets().getTags().getTags() != null) {
+      for (SchemaField field : schemaFieldArray) {
+        var tags =
+            dataset.getFacets().getTags().getTags().stream()
+                .filter(
+                    tag -> {
+                      String sourceField = tag.getField();
+                      return sourceField != null
+                          && field
+                              .getFieldPath()
+                              .equals(fieldPaths.getOrDefault(sourceField, sourceField));
+                    })
+                .toList();
+        GlobalTags fieldTags =
+            OpenLineageMappingUtils.generateFacetTags(
+                tags,
+                OpenLineage.TagsDatasetFacetFields::getKey,
+                OpenLineage.TagsDatasetFacetFields::getValue);
+        if (fieldTags != null) field.setGlobalTags(fieldTags);
+      }
+    }
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setPlatformSchema(new SchemaMetadata.PlatformSchema());
+    schemaMetadata.setSchemaName("");
+    schemaMetadata.setVersion(1L);
+    schemaMetadata.setHash("");
+
+    String rawSchema =
+        OpenLineageClientUtils.toJson(
+            dataset.getFacets().getSchema().getFields() == null
+                ? List.of()
+                : dataset.getFacets().getSchema().getFields());
+    SchemaMetadata.PlatformSchema platformSchema = new SchemaMetadata.PlatformSchema();
+    String platformName = datasetUrn.getPlatformEntity().getPlatformNameEntity();
+    if ("mysql".equals(platformName) || "mariadb".equals(platformName)) {
+      MySqlDDL ddl = new MySqlDDL();
+      ddl.setTableSchema(rawSchema);
+      platformSchema.setMySqlDDL(ddl);
+    } else {
+      platformSchema.setOtherSchema(new OtherSchema().setRawSchema(rawSchema));
+    }
+
+    schemaMetadata.setPlatformSchema(platformSchema);
+
+    schemaMetadata.setPlatform(datasetUrn.getPlatformEntity());
+
+    schemaMetadata.setFields(schemaFieldArray);
+    return schemaMetadata;
+  }
+}

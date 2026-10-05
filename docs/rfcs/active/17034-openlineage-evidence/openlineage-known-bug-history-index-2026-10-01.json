@@ -1,0 +1,443 @@
+{
+  "purpose": "Pinned historical B1-B34 decision/reproduction provenance; these records are not current verdicts",
+  "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+  "count": 34,
+  "entries": [
+    {
+      "id": "B1",
+      "title": "# B1: Explicitly empty JobEvent directions leave stale column lineage",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B1.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B1.md",
+      "sha256": "50b3c9d3a23f80771cfba20ff1bfd19cbf154be1ab0a33c791a633191c16520f",
+      "bytes": 17780,
+      "candidate_local_fix": {
+        "commit": "9f820185b65a6ba32484cc70fc14847570ac82ad",
+        "subject": "docs(openlineage): refresh dataset-owned lineage evidence (B1)"
+      }
+    },
+    {
+      "id": "B2",
+      "title": "# B2: Run-only tag updates remove job tags",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B2.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B2.md",
+      "sha256": "5f7033274d86082a3e48507fb84df9e76f1aa5e77efa04a015d26d2f96da474d",
+      "bytes": 9619,
+      "candidate_local_fix": null
+    },
+    {
+      "id": "B3",
+      "title": "# B3: Offsetless ownership clearing must use the ingestion time parser",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B3.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B3.md",
+      "sha256": "e78fa99cd2741e9853533a2e2b8cc65ca499f9794b2d043b8d033a07c7e91eae",
+      "bytes": 8737,
+      "candidate_local_fix": {
+        "commit": "5110e7de87e2815a517757cbbe8db55e925c6fb7",
+        "subject": "docs(openlineage): refresh offsetless ownership verification (B3)"
+      }
+    },
+    {
+      "id": "B4",
+      "title": "# B4: Explicit JOB-to-DATASET edges must point downstream",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B4.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B4.md",
+      "sha256": "66d8ad757fb3d58f2872693e2effde4e7fd787b532a0dd538cd56aa9ac61f7a9",
+      "bytes": 8515,
+      "candidate_local_fix": {
+        "commit": "4acc3ee30f226b48a1377f7a510d58934eed8be5",
+        "subject": "fix(lineage): route downstream dataset patches to output edges (B4)"
+      }
+    },
+    {
+      "id": "B5",
+      "title": "# B5: Complete typed facet deletion support",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B5.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B5.md",
+      "sha256": "c9ad638d5aabe23c4334d19572a9c516f5ac1703650ca1e45d4625f551fe1bf9",
+      "bytes": 14182,
+      "candidate_local_fix": {
+        "commit": "899ac1601166f5f9b63cd74af8352b05200b1e35",
+        "subject": "fix(openlineage): apply typed facet deletions in request order (B5)"
+      }
+    },
+    {
+      "id": "B6",
+      "title": "# B6: Stable REST job identity",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B6.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B6.md",
+      "sha256": "21aaedef16517658b376371dcaf66bbc58e6db2a7ee8ecf8c8cf6ce53333bd88",
+      "bytes": 4371,
+      "candidate_local_fix": {
+        "commit": "7ff542ec557c99f9a08c73435882205649263f25",
+        "subject": "fix(openlineage): stabilize REST job identities (B6)"
+      }
+    },
+    {
+      "id": "B7",
+      "title": "# B7 \u2014 Preserve connection namespace in dataset identity",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B7.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B7.md",
+      "sha256": "b3558ca2ee13bb076d5d160aa2eb81aed6a9cfa909f7806fd1d71593384c09d4",
+      "bytes": 3604,
+      "candidate_local_fix": {
+        "commit": "ac68eb337dc2e2adc69c1ce30f782f41f00360df",
+        "subject": "fix(openlineage): retain connection namespaces in dataset identity (B7)"
+      }
+    },
+    {
+      "id": "B8",
+      "title": "# B8: Ambiguous legacy run-ID normalization merges distinct identities",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B8.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B8.md",
+      "sha256": "dbc92250dc47d459a0e06d35a2aa563d7f447730a553b090650d8e2c1a512cd6",
+      "bytes": 12331,
+      "candidate_local_fix": {
+        "commit": "3df31a51457d120bf8a7039844b895208485945f",
+        "subject": "fix(openlineage): normalize abbreviated UUIDs as legacy run IDs (B8)"
+      }
+    },
+    {
+      "id": "B9",
+      "title": "# B9 \u2014 All-dot job names",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B9.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B9.md",
+      "sha256": "09058842d6748b9e3b9e789877302cf0425a70071e417a374acfd47093608aab",
+      "bytes": 2156,
+      "candidate_local_fix": {
+        "commit": "649fb836aedc62cfa342546fd83c62fec5d98a79",
+        "subject": "fix(openlineage): accept all-dot job names (B9)"
+      }
+    },
+    {
+      "id": "B10",
+      "title": "# B10 \u2014 Preserve raw dataset identifier text",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B10.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B10.md",
+      "sha256": "55e6a5e204206774e5099bfaeb25b1416f6d0364080ffdd1cc499e04d21ec26e",
+      "bytes": 3461,
+      "candidate_local_fix": {
+        "commit": "1f0952f20fcd8904fbd9e92f32035fe1ceb84728",
+        "subject": "fix(openlineage): preserve raw dataset identifier text (B10)"
+      }
+    },
+    {
+      "id": "B11",
+      "title": "# B11 \u2014 Event time is not job creation time",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B11.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B11.md",
+      "sha256": "f858d33f43a7b0d75d26d8fc844591e8eecd929c1203a036618e7456673072bb",
+      "bytes": 2863,
+      "candidate_local_fix": {
+        "commit": "84de27905466d951fbd1fab1552ac16f1bb3e35e",
+        "subject": "fix(openlineage): stop inventing job creation timestamps (B11)"
+      }
+    },
+    {
+      "id": "B12",
+      "title": "# B12 \u2014 Job-type omission and optional subtype replacement",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B12.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B12.md",
+      "sha256": "898e1082b728f207be101aad21350c537a1bc1867cecf237f975836692a333c6",
+      "bytes": 2836,
+      "candidate_local_fix": {
+        "commit": "4bf18a9b2e1f2e03ee3a79bea45285295f7a5d0c",
+        "subject": "fix(openlineage): preserve omitted job type metadata (B12)"
+      }
+    },
+    {
+      "id": "B13",
+      "title": "# B13 \u2014 Keep execution dependencies on their run",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B13.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B13.md",
+      "sha256": "83cdcfc0574faceacbc42dd544383ad4d2adcf6dd45812b3524fafc2863d9560",
+      "bytes": 3964,
+      "candidate_local_fix": {
+        "commit": "51006d2d8911634f37b7e84b83ed253513384797",
+        "subject": "fix(openlineage): keep execution dependencies on runs (B13)"
+      }
+    },
+    {
+      "id": "B14",
+      "title": "# B14 \u2014 Forwarded facets do not write authoritative parent/root metadata",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B14.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B14.md",
+      "sha256": "46f2c052900785c1c88dd70bcb0003ff61712bd1b2c8e77247448d94e618009a",
+      "bytes": 3623,
+      "candidate_local_fix": {
+        "commit": "8b296ee37e54c1ecac27293c71cfc1393a2df206",
+        "subject": "fix(openlineage): preserve own-event authority for parents (B14)"
+      }
+    },
+    {
+      "id": "B15",
+      "title": "# B15 \u2014 Processing-engine metadata belongs to the run",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B15.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B15.md",
+      "sha256": "9e21e141a0e1083389ea4292ac19ccc318c4775f011dc986067858f2c115454e",
+      "bytes": 3358,
+      "candidate_local_fix": {
+        "commit": "31958321ee7a4e426bf9f7953d0bb37bfccecd66",
+        "subject": "fix(openlineage): keep processing engine metadata on runs (B15)"
+      }
+    },
+    {
+      "id": "B16",
+      "title": "# B16 \u2014 Stable platform instances and complete source/catalog replacement",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B16.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B16.md",
+      "sha256": "99ccd7c6c7f066ce6a18bbef699f6680abb9de3da9c0268a65075053aae5e8ac",
+      "bytes": 3720,
+      "candidate_local_fix": {
+        "commit": "1abb98368ce4ca06349e28e16d8500b0a858f206",
+        "subject": "fix(openlineage): isolate source and catalog replacements (B16)"
+      }
+    },
+    {
+      "id": "B17",
+      "title": "# B17 \u2014 Supplied schema without fields clears the schema",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B17.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B17.md",
+      "sha256": "7ae89cea911baa9ea9deb3544671c6e0bb6f1f6078eadc7859797f4622a2df51",
+      "bytes": 2041,
+      "candidate_local_fix": {
+        "commit": "a670bca3502f27eebe8841b800e80cb609908716",
+        "subject": "fix(openlineage): clear supplied schemas with omitted fields (B17)"
+      }
+    },
+    {
+      "id": "B18",
+      "title": "# B18 \u2014 Schema mapping obeys its configuration",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B18.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B18.md",
+      "sha256": "75f2b611467d48d269c31ec2371c974b34db7973089666c5ad5a3d09c5148254",
+      "bytes": 1943,
+      "candidate_local_fix": {
+        "commit": "5a7437fe6b400ef992c7f4d9be551775ce609311",
+        "subject": "fix(openlineage): honor schema mapping configuration (B18)"
+      }
+    },
+    {
+      "id": "B19",
+      "title": "# B19 \u2014 Dataset property replacement follows its occurrence",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B19.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B19.md",
+      "sha256": "d7aed80c8fe389e7d4576c9cf22f71999cc5ee8a5aba429f8076d229d4304bb9",
+      "bytes": 3477,
+      "candidate_local_fix": {
+        "commit": "91eda6127993c686f6bef0e4dc43680c1a77b9cb",
+        "subject": "fix(openlineage): bind property replacements to dataset occurrences (B19)"
+      }
+    },
+    {
+      "id": "B20",
+      "title": "# B20 \u2014 Do not infer total columns from measured columns",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B20.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B20.md",
+      "sha256": "c5d41d7908f44f6a573a95e1693ab66177b04d8e4a985600ad6ed01a700c1f76",
+      "bytes": 1571,
+      "candidate_local_fix": {
+        "commit": "33a2d09ac2e933ec8bfdd70c5cf4c9f9b5832898",
+        "subject": "fix(openlineage): omit unmeasured total column counts (B20)"
+      }
+    },
+    {
+      "id": "B21",
+      "title": "# B21 \u2014 Input metrics are not whole-dataset profiles",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B21.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B21.md",
+      "sha256": "6d3f2a77fe8cda24ef796d87a9eae13b9c6ca81f3500e42c1bdad5e93940bc81",
+      "bytes": 2627,
+      "candidate_local_fix": {
+        "commit": "508b7dcdae19a5b5db56ff706bf356ea023ef9d6",
+        "subject": "fix(openlineage): keep input quality metrics out of dataset profiles (B21)"
+      }
+    },
+    {
+      "id": "B22",
+      "title": "# B22 \u2014 Assertion identities describe distinct check definitions",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B22.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B22.md",
+      "sha256": "458f7bd608950af0bebabdd0d7158cb4a80c6d0b12bf11e690b084cec1caa035",
+      "bytes": 3213,
+      "candidate_local_fix": {
+        "commit": "4261c88b8bf4e3f96e70a2f5d558f37002e4e279",
+        "subject": "fix(openlineage): distinguish assertion definitions (B22)"
+      }
+    },
+    {
+      "id": "B23",
+      "title": "# B23 \u2014 Preserve numeric precision at the REST boundary",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B23.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B23.md",
+      "sha256": "fcdce7670a37b5f88f49f8db5fbde8c495631bd636905dd1b1c7ea2082e3efd6",
+      "bytes": 2869,
+      "candidate_local_fix": {
+        "commit": "f5919a29919cc0b352360946bc70c1d29489e4d8",
+        "subject": "fix(openlineage): preserve numeric precision through REST mapping (B23)"
+      }
+    },
+    {
+      "id": "B24",
+      "title": "# B24 \u2014 Schema platform follows resolved dataset identity",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B24.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B24.md",
+      "sha256": "0408ee3d15685c94ee01d2fe86061b4d69cbff4e6c25645ba5e1c0996e671395",
+      "bytes": 1831,
+      "candidate_local_fix": {
+        "commit": "768db72b91e2f30fb8f0350993ac2811a31eaf87",
+        "subject": "fix(openlineage): align schema platform with resolved dataset (B24)"
+      }
+    },
+    {
+      "id": "B25",
+      "title": "# B25: Preserve field identity without inventing an encoding",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B25.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B25.md",
+      "sha256": "d8672c9c7122be17396ccaf64717d9664e99288f3cea873bdd0acd0e242bcf43",
+      "bytes": 12118,
+      "candidate_local_fix": {
+        "commit": "cdf2f2cf10cee9fc0d2f2d35b204b6098bea0492",
+        "subject": "fix(openlineage): preserve schema field identities and reject ambiguity (B25)"
+      }
+    },
+    {
+      "id": "B26",
+      "title": "# B26 \u2014 Empty storage/version replacements clear obsolete properties",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B26.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B26.md",
+      "sha256": "5db1b63ad38661f75105880823699fda26bd33718536883c161cf5d887dbcca9",
+      "bytes": 3938,
+      "candidate_local_fix": {
+        "commit": "ddb49da18f0862c3c7aef430c278e459c6005241",
+        "subject": "test(openlineage): verify empty storage and version replacement (B26)"
+      }
+    },
+    {
+      "id": "B27",
+      "title": "# B27: Dataset-owned column lineage replacement and deletion",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B27.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B27.md",
+      "sha256": "98a86a3d9cfb33a10e80674151996ad0de71d67fce11a53bc206be438cf730bd",
+      "bytes": 19386,
+      "candidate_local_fix": {
+        "commit": "f9e8b75532fc610cabc1087007fb0864d27f0d99",
+        "subject": "fix(openlineage): replace dataset-owned column lineage (B27)"
+      }
+    },
+    {
+      "id": "B28",
+      "title": "# B28: Keep column-lineage deletion within its facet",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B28.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B28.md",
+      "sha256": "9225fbf047d94c008f265b307aaef966c354bd94aac73caa8da704a5eb2d802f",
+      "bytes": 1976,
+      "candidate_local_fix": {
+        "commit": "63d476aee2a8e7b5eb73eb4660760cda4e4982c2",
+        "subject": "fix(openlineage): keep column lineage deletion facet scoped (B28)"
+      }
+    },
+    {
+      "id": "B29",
+      "title": "# B29 \u2014 Sibling replacement",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B29.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B29.md",
+      "sha256": "7ce63417386dea286e5e7c88cbd6e38e60fcd4d9936c4055d9726b6ab932280a",
+      "bytes": 2388,
+      "candidate_local_fix": {
+        "commit": "37239281e0a54ee3b38a392642452c74976cf3dc",
+        "subject": "test(openlineage): verify complete sibling replacement (B29)"
+      }
+    },
+    {
+      "id": "B30",
+      "title": "# B30 \u2014 Hierarchy replacement clears obsolete membership",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B30.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B30.md",
+      "sha256": "9b0649fc0b547c0077bb452c4b64a27808f6a541dd379e3e2946c5167aed9bf3",
+      "bytes": 2934,
+      "candidate_local_fix": {
+        "commit": "7931cdca8f7e24c84e376c862a59659b92e767ca",
+        "subject": "fix(openlineage): clear obsolete hierarchy membership (B30)"
+      }
+    },
+    {
+      "id": "B31",
+      "title": "# B31 \u2014 Hierarchy identity collisions",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B31.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B31.md",
+      "sha256": "0f2c39ee7f446f5de367e4c15c482a4ac8528f8d8658821626a85f0a9573351b",
+      "bytes": 3750,
+      "candidate_local_fix": null
+    },
+    {
+      "id": "B32",
+      "title": "# B32: Respect symlink namespaces and keep REST dataset identity stable",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B32.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B32.md",
+      "sha256": "8da8f229413e4d751ee1a0456120f924e6df6d8b5ee5f21fcedb22d098ecc92b",
+      "bytes": 13793,
+      "candidate_local_fix": {
+        "commit": "e20d22b1c3c1e0a7d2ba841361f3b372018b5a8e",
+        "subject": "fix(openlineage): preserve dataset identity across symlink updates (B32)"
+      }
+    },
+    {
+      "id": "B33",
+      "title": "# B33: Preserve lifecycle status during dataset materialization",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B33.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B33.md",
+      "sha256": "3e252f3bc5f9231b76f82049d0584f2c1b909941befd47c929442a61a19e3220",
+      "bytes": 6660,
+      "candidate_local_fix": {
+        "commit": "0d3bb563efeb95eed8649eddadfbd251b5c4cca7",
+        "subject": "fix(openlineage): preserve lifecycle status during materialization (B33)"
+      }
+    },
+    {
+      "id": "B34",
+      "title": "# B34: Explicit job relationship contribution ownership",
+      "source_revision": "04e48fb3c7c84a2e6efbe36486f0d12acc37a341",
+      "source_path": "research/openlineage-review/decisions/B34.md",
+      "git_show": "git show 04e48fb3c7c84a2e6efbe36486f0d12acc37a341:research/openlineage-review/decisions/B34.md",
+      "sha256": "3bc6302bd1330b7690bf51d204b6d0b0ccadfd5a54c5b80e12bd3dd3fd7a1574",
+      "bytes": 25252,
+      "candidate_local_fix": {
+        "commit": "26099989e029b1d7660b63558ea1ddfce3013226",
+        "subject": "fix(openlineage): preserve explicit lineage contribution ownership (B34)"
+      }
+    }
+  ]
+}

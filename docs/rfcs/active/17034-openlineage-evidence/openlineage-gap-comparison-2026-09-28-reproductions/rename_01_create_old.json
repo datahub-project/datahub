@@ -1,0 +1,39 @@
+{
+  "eventType": "COMPLETE",
+  "eventTime": "2026-09-28T10:00:00Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "run": {
+    "runId": "00000000-0000-4000-8000-000000000301"
+  },
+  "job": {
+    "namespace": "comparison",
+    "name": "load.events"
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "namespace": "snowflake",
+      "name": "my_db.my_schema.events_old",
+      "facets": {
+        "documentation": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/DocumentationDatasetFacet.json",
+          "description": "History created under old name"
+        },
+        "lifecycleStateChange": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/LifecycleStateChangeDatasetFacet.json",
+          "lifecycleStateChange": "CREATE"
+        }
+      },
+      "outputFacets": {
+        "outputStatistics": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-2/OutputStatisticsOutputDatasetFacet.json",
+          "rowCount": 10
+        }
+      }
+    }
+  ]
+}

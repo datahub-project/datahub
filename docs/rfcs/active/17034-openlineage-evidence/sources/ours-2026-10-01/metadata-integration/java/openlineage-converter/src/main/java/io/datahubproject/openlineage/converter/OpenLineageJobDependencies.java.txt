@@ -1,0 +1,86 @@
+package io.datahubproject.openlineage.converter;
+
+import static io.datahubproject.openlineage.converter.OpenLineageAspectPatch.MAPPER;
+import static io.datahubproject.openlineage.converter.OpenLineageReferenceUpdates.reference;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.metadata.openlineage.OpenLineageLineage;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.datahubproject.openlineage.utils.DatahubUtils;
+import io.openlineage.client.OpenLineage;
+import java.util.List;
+
+/** Run-owned dependency snapshots project to job edges and run upstream relationships. */
+final class OpenLineageJobDependencies {
+  private OpenLineageJobDependencies() {}
+
+  static void add(DatahubJob job, OpenLineage.RunEvent event, DatahubOpenlineageConfig config) {
+    if (event.getRun().getFacets() == null
+        || event.getRun().getFacets().getJobDependencies() == null) return;
+    var facet = OpenLineageMappingUtils.facetJson(event.getRun().getFacets().getJobDependencies());
+    var references = MAPPER.createObjectNode();
+    for (String direction : List.of("upstream", "downstream")) {
+      for (JsonNode dependency : facet.path(direction)) {
+        addDependency(references, job, event, config, dependency, direction.equals("upstream"));
+      }
+    }
+    var properties = job.getDataProcessInstanceProperties();
+    if (!properties.hasCustomProperties()) properties.setCustomProperties(new StringMap());
+    properties.getCustomProperties().put(OpenLineageLineage.REFERENCES, references.toString());
+  }
+
+  private static void addDependency(
+      ObjectNode references,
+      DatahubJob own,
+      OpenLineage.RunEvent event,
+      DatahubOpenlineageConfig config,
+      JsonNode dependency,
+      boolean upstream) {
+    var identifier = dependency.path("job");
+    var otherJob =
+        DatahubUtils.jobUrn(
+            OpenLineagePlatformResolver.getFlowUrn(
+                identifier.path("namespace").asText(),
+                identifier.path("name").asText(),
+                null,
+                event.getProducer(),
+                config),
+            identifier.path("name").asText());
+    Urn sourceJob = upstream ? otherJob : own.getJobUrn();
+    Urn targetJob = upstream ? own.getJobUrn() : otherJob;
+    var edge = OpenLineageMappingUtils.createEdge(sourceJob, event.getEventTime());
+    var properties = new StringMap();
+    for (String key : List.of("dependency_type", "sequence_trigger_rule", "status_trigger_rule")) {
+      if (dependency.has(key)) properties.put(key, dependency.get(key).asText());
+    }
+    properties.put("openlineage.jobDependency", dependency.toString());
+    edge.setProperties(properties);
+    reference(
+        references,
+        targetJob,
+        "dataJobInputOutput",
+        "inputDatajobEdges",
+        MAPPER.valueToTree(edge.data()));
+    if (dependency.path("run").has("runId")) {
+      var otherRun =
+          UrnUtils.getUrn(
+              OpenLineageRunMapper.URN_LI_DATA_PROCESS_INSTANCE
+                  + dependency.path("run").path("runId").asText());
+      Urn sourceRun = upstream ? otherRun : own.getDataProcessInstanceUrn();
+      Urn targetRun = upstream ? own.getDataProcessInstanceUrn() : otherRun;
+      reference(
+          references,
+          targetRun,
+          "dataProcessInstanceRelationships",
+          "upstreamInstances",
+          MAPPER.getNodeFactory().textNode(sourceRun.toString()));
+      OpenLineageReferenceUpdates.aspect(references, otherRun, "dataProcessInstanceRelationships")
+          .put("parentTemplate", otherJob.toString());
+    }
+  }
+}

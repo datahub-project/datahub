@@ -1,0 +1,102 @@
+{
+  "source": "current local working tree",
+  "job_urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,ol_audit_eeba2dc5,ol_audit_eeba2dc5),ol_audit_eeba2dc5.source)",
+  "run_urn": "urn:li:dataProcessInstance:a9b04fb1-83b7-44e9-9106-53f258f05805",
+  "request": {
+    "eventTime": "2026-09-30T17:36:00.027659Z",
+    "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+    "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+    "eventType": "COMPLETE",
+    "run": {
+      "runId": "a9b04fb1-83b7-44e9-9106-53f258f05805",
+      "facets": {}
+    },
+    "job": {
+      "namespace": "ol_audit_eeba2dc5",
+      "name": "ol_audit_eeba2dc5.source",
+      "facets": {
+        "sourceCode": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SourceCodeJobFacet.json",
+          "language": "bash",
+          "sourceCode": "printf hello"
+        }
+      }
+    },
+    "inputs": [],
+    "outputs": []
+  },
+  "ingest_response": {
+    "status": 200,
+    "body": "",
+    "observed_at": "2026-09-30T17:36:00.159168+00:00"
+  },
+  "native_read": {
+    "status": 200,
+    "body": {
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,ol_audit_eeba2dc5,ol_audit_eeba2dc5),ol_audit_eeba2dc5.source)",
+      "dataTransformLogic": {
+        "value": {
+          "transforms": [
+            {
+              "queryStatement": {
+                "value": "printf hello",
+                "language": "UNKNOWN"
+              }
+            }
+          ]
+        }
+      },
+      "dataJobInfo": {
+        "value": {
+          "name": "source",
+          "flowUrn": "urn:li:dataFlow:(unknown,ol_audit_eeba2dc5,ol_audit_eeba2dc5)",
+          "customProperties": {
+            "openlineage.sourceCodeLanguage": "bash",
+            "openlineage.facet.sourceCode": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/SourceCodeJobFacet.json\",\"language\":\"bash\",\"sourceCode\":\"printf hello\"}"
+          },
+          "type": {
+            "string": "unknown"
+          }
+        }
+      }
+    },
+    "observed_at": "2026-09-30T17:36:00.168636+00:00"
+  },
+  "graphql_request": {
+    "query": "query SourceCodeGap($urn: String!) { dataJob(urn: $urn) { urn dataTransformLogic { transforms { queryStatement { value language } } } } }",
+    "variables": {
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,ol_audit_eeba2dc5,ol_audit_eeba2dc5),ol_audit_eeba2dc5.source)"
+    }
+  },
+  "graphql_response": {
+    "status": 200,
+    "body": {
+      "errors": [
+        {
+          "message": "No enum constant com.linkedin.datahub.graphql.generated.QueryLanguage.UNKNOWN",
+          "locations": [
+            {
+              "line": 1,
+              "column": 38
+            }
+          ],
+          "path": [
+            "dataJob"
+          ],
+          "extensions": {
+            "code": 400,
+            "type": "BAD_REQUEST",
+            "classification": "DataFetchingException"
+          }
+        }
+      ],
+      "data": {
+        "dataJob": null
+      },
+      "extensions": {}
+    },
+    "observed_at": "2026-09-30T17:36:00.204573+00:00"
+  },
+  "credentials_stored": false
+}

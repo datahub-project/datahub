@@ -1,0 +1,1341 @@
+{
+  "schema_version": 1,
+  "source_snapshot": "research/openlineage-goal-2026-09-30.snapshot.json",
+  "scope": "27 discovered independent PR heads (26 earlier heads plus newly discovered #20101), never composed with the six-PR stack",
+  "component_definitions": {
+    "converter_runtime": "metadata-integration/java/openlineage-converter/src/main/java/",
+    "receiver_runtime": "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/",
+    "receiver_schema_catalog": "metadata-service/openapi-servlet/src/main/resources/openlineage/",
+    "converter_dependency": "metadata-integration/java/openlineage-converter/gradle.lockfile"
+  },
+  "method": "SHA-256 over sorted (path, pinned blob hash) pairs from each source capture; exact component equality only. PR changed-file list determines provenance. Different fingerprint does not alone prove a PR-introduced facet change.",
+  "heads": [
+    {
+      "id": "pr_13066",
+      "number": 13066,
+      "title": "feat: accept trino as orchestrator",
+      "state": "open",
+      "head": "d587082444f16f80cf2c63c28a04b718ee9317f3",
+      "base": "dcc2c76539ac09a217c567fc32f3b095ab3a1a1c",
+      "merge_base": "d9f305b7b027ca3e897470ce12a64c62572da3aa",
+      "source_digest": "88a0069f566eb6c235be50bc243acc2392becabaedc5b6915e5486bfafc2f1cb",
+      "classification": "changed_ingest_identity_gate",
+      "reason": "Adds Trino orchestrator inference in the converter; facet payload mapping is not the advertised change, but the DataJob target and producer acceptance can change.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageToDataHub.java"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "78d8b7a29b011e4d62eb10d5bf6e49951c31c07ab009d6c45ecd4bd53dcd2432",
+          "file_count": 11,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "b454c780ae5d7d5d6bd26c1e5a34f26f3e7358ef38d196e3f2b6e365cf317d86",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "1b0f481ad69ed10c9635e15b1a12fa1d065738dd40840b7c12fe16d1dce952bc",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_14169",
+      "number": 14169,
+      "title": "fix acryl-spark-lineage table in readme",
+      "state": "open",
+      "head": "b3c7ba991f45ec1d94c61f35574a788ba2e79467",
+      "base": "dcc2c76539ac09a217c567fc32f3b095ab3a1a1c",
+      "merge_base": "e539e33e1060da06095ca42d9d6fd8b1620cd6c0",
+      "source_digest": "5b65f8910f5201a33f30804822b36e86097c411319a0e1421d549d58fbc732c3",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Spark lineage README only; no receiver implementation change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "fcc052820ef92468e0779a261eed4c55c706c78935cc4b0fe50ca22f5dff3a35",
+          "file_count": 11,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "7ab2d5152080fbbd3ff3a83c4b4981828f27eb322fb67b2d4e0dff425dad98ab",
+          "file_count": 4,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "file_count": 0,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_16976",
+      "number": 16976,
+      "title": "docs(rfc): RFC for UI-authored column-level lineage",
+      "state": "open",
+      "head": "8c09ba1f6205c9ab3cb2190e367a61456eb6ecaf",
+      "base": "7ed8710c65c455cdcc870a1531d8038475502f20",
+      "merge_base": "12a9f1fcdb81d73d4dda01fde8b41098039f161c",
+      "source_digest": "f5ae8a6695cd955d88b454142c1c8b2eee27596862a0c27a2e463551ac55d695",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "UI-authored column-lineage RFC only; no receiver implementation change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "8aaa25d703c002c1210bef1b010b5a8ad6a8e36a1722dc6af876afbb5020ad31",
+          "file_count": 11,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "b454c780ae5d7d5d6bd26c1e5a34f26f3e7358ef38d196e3f2b6e365cf317d86",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "1b0f481ad69ed10c9635e15b1a12fa1d065738dd40840b7c12fe16d1dce952bc",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_17015",
+      "number": 17015,
+      "title": "fix(openlineage): accept custom producer URIs instead of returning 500",
+      "state": "open",
+      "head": "69f64bd8588ea66ca07d9c0cdc2a658a7549b439",
+      "base": "e3296b2765b087ac7d56efcca174b2721bad89c1",
+      "merge_base": "e3296b2765b087ac7d56efcca174b2721bad89c1",
+      "source_digest": "0af3be3e970c5945e4d40c16e31f2bad9c4aa56eaa168ff1915a8fb5bad87632",
+      "classification": "changed_ingest_identity_gate",
+      "reason": "Changes custom producer URI handling; a request rejected on master may now reach facet mapping. The converter facet projection needs its own older-base comparison.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageToDataHub.java"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e790f0be4299373212c9958260b350e91f1d1c76a548dac9eb8f1a3c3d8aecee",
+          "file_count": 11,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "b454c780ae5d7d5d6bd26c1e5a34f26f3e7358ef38d196e3f2b6e365cf317d86",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "4227969feb74aadcbf11c994113b686927f75c015c01addc9909bf37bcee80b2",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_17034",
+      "number": 17034,
+      "title": "docs(rfc): OpenLineage spec compliance",
+      "state": "open",
+      "head": "169ae6dc7c83db5c2afa12b9ac1eb92892e418f0",
+      "base": "a7721a4294ea260dff0ded0d6d327fbec281fde5",
+      "merge_base": "7ed8710c65c455cdcc870a1531d8038475502f20",
+      "source_digest": "0ddd0141845b2bc2a8e1ed0743a5f91b25e555b6cfe410e4c47f31ec12eee4f4",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "OpenLineage compliance RFC only; useful design reference but not executable receiver behavior.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "8aaa25d703c002c1210bef1b010b5a8ad6a8e36a1722dc6af876afbb5020ad31",
+          "file_count": 11,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "b454c780ae5d7d5d6bd26c1e5a34f26f3e7358ef38d196e3f2b6e365cf317d86",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "4227969feb74aadcbf11c994113b686927f75c015c01addc9909bf37bcee80b2",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_17233",
+      "number": 17233,
+      "title": "feat(airflow-plugin): add per-DAG lineage filter for DataJob lineage",
+      "state": "open",
+      "head": "cf01d8778c2a879b60c6c4424498b3f61ff1df56",
+      "base": "55e7f8aa5f0e6ac11b8ea68e1f76673498438d26",
+      "merge_base": "55e7f8aa5f0e6ac11b8ea68e1f76673498438d26",
+      "source_digest": "6db5ee437362906d7615f33c56c1c8727359116c066deac144972be4a64faeca",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Airflow plugin DAG lineage filter; producer-side integration, no receiver facet mapper change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "4a3c9fc7ef429d89ad5e866e831a2556bc3f963611c20dbe7d728445179f5438",
+          "file_count": 11,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "b454c780ae5d7d5d6bd26c1e5a34f26f3e7358ef38d196e3f2b6e365cf317d86",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "8376ccbbb86b9c9d0543ca6137b38584255cb8d95419acdb66f90260c01b325a",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_18159",
+      "number": 18159,
+      "title": "fix(ingest/spark): fully relocate shaded-jar dependencies and repair the jar-leak check",
+      "state": "open",
+      "head": "7eb49aa6f6c6698861eda940df27fdeed59f348b",
+      "base": "522613f8192ff2aa32f805d99a523d6a342e9d88",
+      "merge_base": "522613f8192ff2aa32f805d99a523d6a342e9d88",
+      "source_digest": "c3aaa843596ba638e58b2f6e65b009cffc646f7f6828ad118422d101c74cd391",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Spark shaded-jar dependency relocation; no receiver facet mapper change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "ca416bdd3603c0d02996cc148b8deabd28630cd1c86bbae4c81efb48f4210908",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "231c199114a62a232c1f9119f8d55a4d77bbbeaa9cfa452f211c230ccb217285",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "deefa90b45cb5dfedbaa86ab4044c41fcc9831d3ac40f33599ac4ac2c57d6558",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_18652",
+      "number": 18652,
+      "title": "fix(openlineage): add multi-segment table path marker",
+      "state": "open",
+      "head": "339d610fb12e9fa08e467f28067ce5f41ab5b32e",
+      "base": "1c6f2af143b971859c1a6ef46e0c8d9578fb91a8",
+      "merge_base": "1c6f2af143b971859c1a6ef46e0c8d9578fb91a8",
+      "source_digest": "60d1ded3460ed81b6b961bc0f95a12d4aa1fbfcd8fd2f7f399a22cf4a8944cca",
+      "classification": "changed_dataset_identity",
+      "reason": "Changes HdfsPathDataset path marker; facet projections may target a different Dataset URN but no facet mapper file is changed.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/dataset/HdfsPathDataset.java"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "4f65006e506897eb846e77ef187a02e4a90401003ded9b5565bdc36a72336697",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "231c199114a62a232c1f9119f8d55a4d77bbbeaa9cfa452f211c230ccb217285",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "deefa90b45cb5dfedbaa86ab4044c41fcc9831d3ac40f33599ac4ac2c57d6558",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_18653",
+      "number": 18653,
+      "title": "fix(spark-lineage): retain Delta merge events",
+      "state": "open",
+      "head": "30fb7f828fe8aa25bf5ece09257ca3698e4d3467",
+      "base": "1c6f2af143b971859c1a6ef46e0c8d9578fb91a8",
+      "merge_base": "1c6f2af143b971859c1a6ef46e0c8d9578fb91a8",
+      "source_digest": "298bcd75288798e890935f9f30ddd67a1154b43efa839891c5c2d127db3c80a7",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Spark Delta event filter; affects producer event emission, not receiver facet projection.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "ca416bdd3603c0d02996cc148b8deabd28630cd1c86bbae4c81efb48f4210908",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "231c199114a62a232c1f9119f8d55a4d77bbbeaa9cfa452f211c230ccb217285",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "deefa90b45cb5dfedbaa86ab4044c41fcc9831d3ac40f33599ac4ac2c57d6558",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19144",
+      "number": 19144,
+      "title": "fix(airflow-plugin): derive warehouse dataset URNs from each platform's naming convention",
+      "state": "open",
+      "head": "f113dba7b3ab8c4dddcfd502f17f46f0ec6c1bea",
+      "base": "d8a2b34a8900ee3d186b3307ebb93069d62020e7",
+      "merge_base": "f0335b01e14255752744317d7e9433e71210707d",
+      "source_digest": "eaeef45d8ac86dba281a32d5ce7f2a5b0ee5df2afee74693115c8ba72c08939a",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Airflow warehouse URN naming; producer-side identity, not receiver facet projection.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "ca416bdd3603c0d02996cc148b8deabd28630cd1c86bbae4c81efb48f4210908",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "231c199114a62a232c1f9119f8d55a4d77bbbeaa9cfa452f211c230ccb217285",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "37239195fa69cf4e8079323d7b3100267c7246e1a6fca615134014d02c659144",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19257",
+      "number": 19257,
+      "title": "feat(openlineage): add full specification compliance",
+      "state": "open",
+      "head": "2bd474f5463bb6aca0e22687c7da329176421112",
+      "base": "c9e64b418e0f296f443ec061c8101c93bdc48220",
+      "merge_base": "7b52526fda639903f14e9662c0c7cf3ece33ea46",
+      "source_digest": "ebf23b96b379d3cf831520e75991f8cd8cb144632b4e6193774d46e2aa644ab6",
+      "classification": "changed_facet_receiver_requires_bespoke_audit",
+      "reason": "Touches converter, validator, catalog, controller, and persistence paths. Its bundled manifest is 1.45.0, so do not copy the pinned 1.53 verdicts.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/config/DatahubOpenlineageConfig.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageDatasetMapper.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageJobMapper.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageMappingUtils.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageMcpFactory.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineagePlatformResolver.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageRunMapper.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageToDataHub.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/customfacet/CompatibilityFacetCatalog.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/customfacet/CompatibilityFacetContract.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/customfacet/CustomRunFacetContributions.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/customfacet/CustomRunFacetProcessor.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/customfacet/ProducerUriPattern.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/dataset/DatahubDataset.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/dataset/DatahubJob.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/config/OpenLineageAuthenticationFilter.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/config/OpenLineageServletConfig.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/config/PinnedOpenLineageOpenApiCustomizer.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/controller/LineageApiImpl.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/controller/OpenLineageEventDeserializer.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/exception/InvalidOpenLineageEventException.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/exception/OpenLineageControllerExceptionHandler.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/mapping/RunEventMapper.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/model/LineageBody.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/validation/JsonSchemaOpenLineageRequestValidator.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/validation/OpenLineageRequestValidator.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/validation/OpenLineageSchemaCatalog.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/validation/OpenLineageValidationError.java",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/openlineage.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/OpenLineage.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/BaseSubsetDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/CatalogDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ColumnLineageDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DataQualityAssertionsDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DataQualityMetricsDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DataQualityMetricsInputDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DatasetTypeDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DatasetVersionDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DatasourceDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DocumentationDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/DocumentationJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/EnvironmentVariablesRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ErrorMessageRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ExecutionParametersRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ExternalQueryRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ExtractionErrorRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/GcpComposerJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/GcpComposerRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/GcpDataprocRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/GcpLineageJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/HierarchyDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/IcebergCommitReportOutputDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/IcebergScanReportInputDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/InputStatisticsInputDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/JobDependenciesRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/JobTypeJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/LifecycleStateChangeDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/NominalTimeRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/OutputStatisticsOutputDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/OwnershipDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/OwnershipJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ParentRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/ProcessingEngineRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/SQLJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/SchemaDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/SourceCodeJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/SourceCodeLocationJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/StorageDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/SymlinksDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/TagsDatasetFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/TagsJobFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/facets/TagsRunFacet.json",
+        "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.45.0/manifest.json"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "2fd4a05ba9afbde0dd512cafa24687bfa8a64010d065e9fbbf88ceb14d76a6b3",
+          "file_count": 23,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "7fa08e14ed038696c70ae308597c72e2cc569b026f651cac16ebe15d63b6f5cb",
+          "file_count": 13,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "378991320f9bea40d64408d5cab943132ef88d12731fec96e792f883727305fd",
+          "file_count": 45,
+          "exact_matches_to_pinned_targets": []
+        },
+        "converter_dependency": {
+          "sha256": "49d794bb680417a9f98d1020dbdb9324fa4d6d954ec068ccfb1c93f8b2afa94e",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19409",
+      "number": 19409,
+      "title": "feat(ingest/unity): link Databricks lineage to Query entities for transformation nodes",
+      "state": "open",
+      "head": "282382199bbbec6bda1b4eadbd9ecf7d66ea37b1",
+      "base": "1eeb440e658213989b90c434edb01961b197cc2c",
+      "merge_base": "64c5f052e0eb5e3c7fe86c8121a2653226d0ea46",
+      "source_digest": "49712ffcd0e545fa1cbcfe417e276be94d5c6593f346cd298cbfee64938ff89a",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Unity connector Query entities; independent ingestion path, not OpenLineage receiver.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "ca416bdd3603c0d02996cc148b8deabd28630cd1c86bbae4c81efb48f4210908",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "231c199114a62a232c1f9119f8d55a4d77bbbeaa9cfa452f211c230ccb217285",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "37239195fa69cf4e8079323d7b3100267c7246e1a6fca615134014d02c659144",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19419",
+      "number": 19419,
+      "title": "feat(lineage): emit Query entities for Spark and Airflow task SQL",
+      "state": "open",
+      "head": "9996b82bca45d31048702723232c67c0406ca3e7",
+      "base": "4dee0be5c922f2efcdffff3f91a24818ceeeaf50",
+      "merge_base": "1eeb440e658213989b90c434edb01961b197cc2c",
+      "source_digest": "34b5790a22192059d2012b67a2abbdf2c199458d793db64191740a8be0a52da9",
+      "classification": "changed_sql_facet_route_requires_bespoke_audit",
+      "reason": "Adds conditional Query entity emission from SQLJobFacet text during captured field lineage; audit the columnLineage + SQL + captureQueryEntities path and readback at this head.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/config/DatahubOpenlineageConfig.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageToDataHub.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/dataset/DatahubJob.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/utils/QueryUrnUtils.java"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "894a5d8ad8b8a4023aaa3bb46c7da428fa0e3bdeebe7d01d072e514af5810275",
+          "file_count": 13,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "231c199114a62a232c1f9119f8d55a4d77bbbeaa9cfa452f211c230ccb217285",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "37239195fa69cf4e8079323d7b3100267c7246e1a6fca615134014d02c659144",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": []
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19422",
+      "number": 19422,
+      "title": "fix(openlineage): resolve Iceberg table symlink identity",
+      "state": "open",
+      "head": "7cb2b18a341a5e0396010929c06594ca0e01d7c3",
+      "base": "d29d529d26172191c690598a6f69080952ba1cbc",
+      "merge_base": "d29d529d26172191c690598a6f69080952ba1cbc",
+      "source_digest": "b28586b5bea4af41a46138c4cb70ab8d0e67892a322d9d7c3adcb5ec7db12b6e",
+      "classification": "changed_symlinks_facet_route_requires_bespoke_audit",
+      "reason": "Changes SymlinksDatasetFacet Iceberg table identity resolution; audit URN and siblings/alias results at this head.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageToDataHub.java"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "c84aaf4c48dddd41464e8e6fc08df91c4cfce185cb4d2d0e90f5040121fa6f6b",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19573",
+      "number": 19573,
+      "title": "feat(ingest/spark): upgrade OpenLineage to 1.53.0",
+      "state": "open",
+      "head": "c4c399cd45b7148d1e69b51bd3e214e70fcd3a2c",
+      "base": "5ea33bfc8e9f19ce66c477aa6c49eda89db013fd",
+      "merge_base": "5ea33bfc8e9f19ce66c477aa6c49eda89db013fd",
+      "source_digest": "695ab34b50b37dae836a62b8dd1d0086a989498d64fb56b7a8e306dcda87ef22",
+      "classification": "changed_sdk_dependency_requires_verification",
+      "reason": "Upgrades the OpenLineage Java dependency/lockfile to 1.53.0 and Spark producer paths; converter source may match master while decoded facet shapes change.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/gradle.lockfile"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "0524cd5f12f059bba9fd5ca914a5a9cfdbf8ec301bfe664855ba8d4d59aa0373",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "ours"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19706",
+      "number": 19706,
+      "title": "docs: fix broken cross-reference and typos in docs",
+      "state": "open",
+      "head": "44d6281e16c985744b0bc9e15091064579802407",
+      "base": "7c792fddb10868527f213442fe87f4e1ea3f004f",
+      "merge_base": "230016c1f97a53ebb6f13c242c2131daf5380cfc",
+      "source_digest": "a11776551acdc8a720f49f27ac00db4e623caa1e47e272ddb2c82a4703abd8d9",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Documentation typo/cross-reference update; no receiver implementation change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6cb79b66b54c934a30c840cff332d262ac61c3da51a02632e1dc5e1bc6ac17e5",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19758",
+      "number": 19758,
+      "title": "fix(ingest/microstrategy): dataset folders, grid names, report formulas, sqlparse, personal folders",
+      "state": "open",
+      "head": "33435f06e5bd31bf91a21debbc735c633f09caf1",
+      "base": "f336e981a650e5567c6a48fb4eb5a6dfbf808941",
+      "merge_base": "be36dcb43b5ca2b2091f83ee1efc0acfb1deecf3",
+      "source_digest": "9c00204e99dc9a1236962ee19c285ff39ce43e50ef5e3a6c6eeaa641aaf2fe6a",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "MicroStrategy connector work; no OpenLineage receiver change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19856",
+      "number": 19856,
+      "title": "feat(executor): reuse cacheable venvs from a node-local cache",
+      "state": "open",
+      "head": "e72cad8e29929bd9adc332beac363274ba738679",
+      "base": "59fabc4341f84daf4a25b0e52e932c5861685d5e",
+      "merge_base": "76a4384c636792bf430575b870bc2e34cee884f1",
+      "source_digest": "1d4fd7e5306d174284c8204cf5eaa17a3f7a33409db9c75319679eb5fea3bccb",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Executor cache work; no OpenLineage receiver change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19887",
+      "number": 19887,
+      "title": "chore(test): Update test weights from CI runs (2026-09-21)",
+      "state": "open",
+      "head": "f12a863d479b23605d8397156665136848ba9655",
+      "base": "416c4510a575b94faf0e4489c139281ee1a8c683",
+      "merge_base": "416c4510a575b94faf0e4489c139281ee1a8c683",
+      "source_digest": "1d4fd7e5306d174284c8204cf5eaa17a3f7a33409db9c75319679eb5fea3bccb",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "CI test weights only; no receiver implementation change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19892",
+      "number": 19892,
+      "title": "chore(test): Update test weights from CI runs (2026-09-21)",
+      "state": "open",
+      "head": "bccab006da64f57444d64b1c8c84e9b04a0b423c",
+      "base": "d8387f5be4047bf3f9258f830c77cf8565470049",
+      "merge_base": "d8387f5be4047bf3f9258f830c77cf8565470049",
+      "source_digest": "1d4fd7e5306d174284c8204cf5eaa17a3f7a33409db9c75319679eb5fea3bccb",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "CI test weights only; no receiver implementation change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19950",
+      "number": 19950,
+      "title": "feat(ingest/fabric-data-factory): column-level lineage for Copy activities",
+      "state": "open",
+      "head": "b984b0478cbf1ed3e5139315f18164c3103b1182",
+      "base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "merge_base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "source_digest": "de729f3f44698d84e5080ae516140490ff58c3fb113fbe91385baf169ecf5b91",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Fabric Data Factory connector column lineage; separate ingestion path.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19951",
+      "number": 19951,
+      "title": "feat(ingest/powerbi): column-level lineage for DirectLake tables",
+      "state": "open",
+      "head": "fae7726270f741074ea7b1a625fd39c190303438",
+      "base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "merge_base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "source_digest": "de729f3f44698d84e5080ae516140490ff58c3fb113fbe91385baf169ecf5b91",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Power BI connector DirectLake column lineage; separate ingestion path.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19952",
+      "number": 19952,
+      "title": "feat(openlineage): Microsoft Fabric OneLake URNs, per-request options and stable notebook names",
+      "state": "open",
+      "head": "6969ecf2896f4713b58b0275edba594a234997d5",
+      "base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "merge_base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "source_digest": "9ffbb4f0b91e7b3dbba90ef94818507a6e51a7eeca4051a0300e4f3a772bd926",
+      "classification": "changed_dataset_identity_and_request_config",
+      "reason": "Adds Fabric OneLake dataset identity and per-request options in converter/controller; audit facet target URNs and configuration interaction independently.",
+      "changed_receiver_paths_in_pr": [
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/config/DatahubOpenlineageConfig.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/FabricNotebookRun.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/converter/OpenLineageToDataHub.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/dataset/FabricOneLakePath.java",
+        "metadata-integration/java/openlineage-converter/src/main/java/io/datahubproject/openlineage/dataset/HdfsPathDataset.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/config/FabricRequestOptions.java",
+        "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/controller/LineageApiImpl.java"
+      ],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "533c96a58e2943c78c3b51d5a25c74cb4a7d08d7dc5e4bd5d61f6d94044dee82",
+          "file_count": 14,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "05da877a69bee0443bd7c8e49be5e8ba9097fafbd1389cb07df92c837d8fc501",
+          "file_count": 6,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": null,
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19953",
+      "number": 19953,
+      "title": "fix(ingest/fabric-onelake): resolve cross-item SQL names, discover Warehouse tables, filter system objects",
+      "state": "open",
+      "head": "8522fb5b7a28bfa5a1da017a8397a8f97ee9aecf",
+      "base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "merge_base": "434e626fa5c6aa53b459dc4dec36ac4afe42ea13",
+      "source_digest": "de729f3f44698d84e5080ae516140490ff58c3fb113fbe91385baf169ecf5b91",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Fabric OneLake connector changes; separate ingestion path.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19962",
+      "number": 19962,
+      "title": "refactor(messaging): remove DataHubUpgradeHistory_v1",
+      "state": "closed",
+      "head": "f37e4a2f4a8e1961da2ba322eb58777637e81678",
+      "base": "be3e52d071d3a7faaaa026cd73644d011cadaff6",
+      "merge_base": "97598f46e2048d59fa1a9f4c812b8e0738ae5d86",
+      "source_digest": "de729f3f44698d84e5080ae516140490ff58c3fb113fbe91385baf169ecf5b91",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Messaging upgrade-history refactor; no OpenLineage receiver change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_19964",
+      "number": 19964,
+      "title": "docs(fabric): Microsoft Fabric overview guide",
+      "state": "open",
+      "head": "1195800c38b7bc23fcb82362f904aaf86b9cb59b",
+      "base": "faabc9cfc7bff30a097db9d3daea98bafa66076d",
+      "merge_base": "faabc9cfc7bff30a097db9d3daea98bafa66076d",
+      "source_digest": "de729f3f44698d84e5080ae516140490ff58c3fb113fbe91385baf169ecf5b91",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "Fabric overview documentation only; no receiver implementation change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "e2b3cc3975616f99ce800cb315925f648b10f5d7d272f565add356055ea140b9",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": []
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6ef2eb6735681385bc8fc53d0c3ecef5678ca6fc22243e71f880a91efb30d336",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "pr_18175",
+            "pr_19733",
+            "pr_19734",
+            "pr_19736",
+            "pr_19740",
+            "pr_19800"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    },
+    {
+      "id": "pr_20101",
+      "number": 20101,
+      "title": "feat(airflow): add schedule extraction for DAGs and update test cases\u2026",
+      "state": "open",
+      "head": "4cc38be0672ea50f8f900d304268101ead252c29",
+      "base": "1e26f89165b569fcd3bf01c5c953e34414fdefe7",
+      "merge_base": "1e26f89165b569fcd3bf01c5c953e34414fdefe7",
+      "source_digest": "89ff52815c03b4ffd921c698d7fbfa76999407829d87247a2889a1186f85ecb5",
+      "classification": "excluded_no_receiver_facet_change",
+      "reason": "New Airflow schedule extraction PR found on September 30; no OpenLineage receiver facet mapper change.",
+      "changed_receiver_paths_in_pr": [],
+      "component_fingerprints": {
+        "converter_runtime": {
+          "sha256": "b11595fafde1aab50f7a3f220b90e94b342807704e7a741dfde07451f918dbde",
+          "file_count": 12,
+          "exact_matches_to_pinned_targets": [
+            "master"
+          ]
+        },
+        "receiver_runtime": {
+          "sha256": "677ceba4ea5bc2ed08c3a025def5bcc81ec9111d5ff50197f30958fdc9faf74d",
+          "file_count": 5,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "receiver_schema_catalog": {
+          "sha256": "3a0a320a153607ed373ccda9ce5e1c3f1038c7ec92acce5ace329691049229f4",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master",
+            "pr_18175"
+          ]
+        },
+        "converter_dependency": {
+          "sha256": "6cb79b66b54c934a30c840cff332d262ac61c3da51a02632e1dc5e1bc6ac17e5",
+          "file_count": 1,
+          "exact_matches_to_pinned_targets": [
+            "master"
+          ]
+        }
+      },
+      "exact_full_facet_surface_matches": [
+        "master"
+      ],
+      "old_base_caveat": "This head may contain an older inherited receiver source. No changed receiver path in this PR does not mean exact equivalence to the September 30 master.",
+      "verification_status": "source_fingerprinted_only; no independent PR head executed"
+    }
+  ]
+}

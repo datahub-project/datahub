@@ -1,658 +1,347 @@
 - Start Date: 2026-04-14
-- Base Commit: `7ed8710c65` (source-level audit references in appendix §A.3 are tied to this commit)
+- Updated: 2026-10-05
 - RFC PR: [datahub-project/datahub#17034](https://github.com/datahub-project/datahub/pull/17034)
-- Discussion Issue:
-- Implementation PR(s):
+- RFC branch: [manuschillerdev/datahub:docs/rfc-openlineage-spec-compliance](https://github.com/manuschillerdev/datahub/tree/docs/rfc-openlineage-spec-compliance)
+- Implementation PR: [datahub-project/datahub#19257](https://github.com/datahub-project/datahub/pull/19257)
+- Implementation branch: [manuschillerdev/datahub:feat/openlineage-conformance-combined](https://github.com/manuschillerdev/datahub/tree/feat/openlineage-conformance-combined)
+- Specification: OpenLineage 1.53.0, event schema 2-0-2, [pinned commit 8ad5c14](https://github.com/OpenLineage/OpenLineage/tree/8ad5c14c63fbab63fedd8ff42f9a208d86ad07fe)
 
-# OpenLineage REST endpoint — spec compliance
+# OpenLineage REST endpoint specification compliance
 
 ## Summary
 
-Bring the `POST /openapi/openlineage/api/v1/lineage` endpoint into alignment with
-the OpenLineage 2-0-2 specification. Accept all three root event types
-(`RunEvent`, `JobEvent`, `DatasetEvent`), accept any spec-conforming `producer`
-URI, route the standard facets to their target DataHub aspects on the entities
-the spec attaches them to, route ingestion through the existing Kafka MCP
-topic to decouple REST latency from aspect-store writes, and ship an OpenAPI
-contract that matches the events the endpoint accepts. The orchestrator /
-platform name is derived by a total function — one that always returns a
-value and never throws — from typed facets, with the producer URI as a
-fallback.
+`POST /openapi/openlineage/api/v1/lineage` accepts OpenLineage `RunEvent`, `JobEvent`, and `DatasetEvent` objects, validates their typed envelopes and recognized official facets, maps supported metadata to native DataHub entities and aspects, and applies authorized metadata through the standard `EntityService` APIs with synchronous aspect writes.
 
-## Basic example
+The endpoint targets the OpenLineage 2-0-2 event model with facets from release 1.53.0. Historical Airflow, Spark, and Marquez mappings remain supported. Request-provided schema URLs are metadata and are never fetched.
 
-A `JobEvent` (no `run` block, no `eventType`) is a valid OpenLineage event. The
-target behavior:
+This RFC proposes the endpoint contract and records how the separate implementation approaches it, including remaining limitations. Design review and implementation review have separate branches and PRs. This document does not establish merge readiness or complete specification conformance. The comparison evidence was captured September 30–October 1; the October 5 verification checkpoint below covers the rebased implementation and does not refresh upstream comparison verdicts.
+
+The [known-gap evidence appendix](17034-openlineage-spec-compliance-known-gap-appendix.md) compares 34 concrete cases across pinned upstream master, the six cumulative PR heads, and the captured implementation source. It links each case to an ordered payload and reproduction check. The [HTML report](17034-openlineage-evidence/openlineage-known-bug-head-matrix-2026-10-01.html) is a searchable view of that appendix.
+
+## Motivation
+
+OpenLineage producers describe jobs, runs, datasets, and their relationships through one shared event contract. Catalog users need the resulting DataHub metadata to keep the same identity and meaning across partial events, repeated facets, deletion, and design-time versus runtime events. Accepting a request while losing its declared lineage, keeping obsolete owners, or changing a job identity makes impact analysis and operational history unreliable.
+
+The pinned comparison shows both inherited receiver defects and incomplete new PR mappings. It provides specific feedback to those PR authors while keeping this implementation's additional capabilities and remaining defects visible.
+
+## Scope and acceptance criteria
+
+The work covers the receiver, shared conversion, supported facet projections, and their persisted/read-API behavior. Existing Spark and Airflow integrations supply compatibility requirements; this RFC does not propose independent feature work for those producers.
+
+Completion requires:
+
+1. Every pinned upstream specification and compatibility fixture passes through the receiver, with explicit provenance for any corrected schema declarations and compatibility exceptions.
+2. All existing DataHub OpenLineage tests pass, including the existing Spark converter tests and the live receiver smoke suite; failures are resolved before a clean-suite claim.
+3. Each event/facet/attachment has a documented native mapping, retained-only representation, intentional unsupported boundary, or identified remaining verification. Schema, profile, tag, and lineage field references resolve consistently.
+4. Named-facet replacement, omission, typed Job/Dataset tombstones, partial RunEvent accumulation, and COMPLETE_SNAPSHOT semantics follow the pinned specification first, then DataHub contributor and aspect practices.
+5. Stateful examples are checked after storage and through the relevant read API. Evidence identifies exact revisions, payloads, expected and observed/predicted results, and end-user consequences separately for master, each PR head, and ours.
+6. Migration, authorization, partial failure/retry, and remaining product limits are documented. A passing converter or mocked HTTP corpus alone does not meet these criteria.
+
+The [comparison and specification appendix](./17034-openlineage-spec-compliance-appendix.md) indexes the broader 72-contract inventory, facet/attachment matrices, and PR feedback. The [known-gap appendix](./17034-openlineage-spec-compliance-known-gap-appendix.md) covers the 34 known cases. Neither appendix claims a completed runtime audit of every target.
+
+### Extensibility
+
+Schema and compatibility catalogs are pinned, versioned, and updated with provenance. New official facets need declared attachment points, native or retained-only targets, update/delete behavior, and end-to-end evidence. A producer-specific adapter is selected only by its explicit compatibility contract; unknown custom facets remain opaque.
+
+### Non-requirements
+
+This proposal does not require arbitrary remote schema retrieval, scheduling job dependencies, exact raw-event replay, a historical graph per emission window, automatic entity/history migration on RENAME, or receiver redaction. Independent producer feature work and unrelated performance changes are outside this RFC. Migration guidance for identity corrections and honest failure/retry guarantees remain required.
+
+## Changes from the original proposal
+
+The [original April proposal](https://github.com/manuschillerdev/datahub/blob/169ae6dc7c83db5c2afa12b9ac1eb92892e418f0/docs/rfcs/active/17034-openlineage-spec-compliance.md) used baseline `7ed8710c65`. The following decisions supersede its conflicting sections; its earlier Marquez/source crosswalk remains historical reference.
+
+| Earlier proposal                                                         | Current proposed contract and implementation boundary                                                                                                                                               |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direct Kafka publishing with 202, streaming enabled by default           | Standard EntityService ingest with synchronous aspect writes and 200; indexing/projections remain asynchronous. Other PRs may choose async transport and must define their acknowledgment contract. |
+| Event-level all-or-none persistence                                      | Authorize the full batch before writes. Storage does not provide an event-level transaction; failure can leave earlier writes committed. Failure/retry verification remains open.                   |
+| Derive job orchestrator from optional engine/integration/producer facets | Use explicit configured orchestrator, default `unknown`; optional facets remain attributes so a stable namespace/name does not split identity.                                                      |
+| Split dotted job name into flow prefix and task suffix                   | Use the prefix for flow grouping and preserve the complete job name as the DataJob ID.                                                                                                              |
+| Symlinks rewrite REST dataset identity                                   | Stable REST namespace/name identity; symlinks contribute siblings. Existing SDK alias-resolution compatibility is assessed separately.                                                              |
+| Request schema validation and generic facet retention deferred           | Bundled recognized schemas validate local contracts; opaque named-facet retention is supported. No remote schema fetch or exact raw-event archive is promised.                                      |
+| Implicit facet targets and optional receiver redaction                   | Canonical aspect targets and contributor-scoped updates are documented below; environment values are preserved. Redaction is an opt-in follow-up.                                                   |
+
+## Contract
+
+The request must use `Content-Type: application/json`. A valid request is a JSON event object, not a JSON-encoded string.
 
 ```bash
 curl -X POST http://localhost:8080/openapi/openlineage/api/v1/lineage \
   -H 'Content-Type: application/json' \
   -d '{
     "eventTime": "2026-04-14T10:00:00Z",
-    "producer":  "https://example.com/my-pipeline-tool",
+    "producer": "https://example.com/my-pipeline-tool",
     "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
-    "job":     { "namespace": "crm", "name": "load_dp_customer" },
-    "inputs":  [ { "namespace": "crm_unload",   "name": "customer" } ],
-    "outputs": [ { "namespace": "dataproducts", "name": "dp_customer" } ]
+    "job": { "namespace": "crm", "name": "load.customer" },
+    "inputs": [{ "namespace": "postgres://warehouse", "name": "crm.customer" }],
+    "outputs": [{ "namespace": "snowflake://analytics", "name": "crm.customer" }]
   }'
-# HTTP 202
-# Publishes to the MCP Kafka topic: DataFlow + DataJob + dataJobInputOutput
-# + Dataset(key,status) ×2. No DataProcessInstance MCPs (JobEvent is not a
-# run state transition). Today this returns HTTP 500 with a NullPointerException
-# (#15196).
 ```
 
-A spec-invalid event returns a structured error response from the servlet's
-global exception handler:
+The endpoint:
 
-```json
-{ "code": "INVALID_EVENT",
-  "message": "Missing required field: schemaURL",
-  "details": { "field": "schemaURL" } }
+1. parses the raw body with duplicate-key and trailing-content detection;
+2. validates the event envelope and recognized standard facets against bundled OpenLineage 1.53.0 schemas;
+3. dispatches structurally to `RunEvent`, `JobEvent`, or `DatasetEvent`;
+4. maps the typed event to MCPs and validates the resulting aspects through normal batch construction;
+5. authorizes the complete batch with standard REST ingest authorization; and
+6. waits for aspect writes and returns `200 OK`; search and graph indexing remain asynchronous.
+
+A root `schemaURL` or facet `_schemaURL` must be a valid absolute URI when present. Schema URL equality is not used for event dispatch, and no request-provided URL is resolved.
+
+Unknown custom facet objects remain opaque. A recognized standard facet is validated by key and attachment point even when DataHub does not map it. A standard key at the wrong attachment point is rejected.
+
+### Validation policy
+
+The endpoint uses one validation policy. It preserves historical acceptance of missing root/facet schema metadata, legacy run identifiers, offsetless timestamps, and supported payload-free tombstones. It checks the event envelope and recognized standard facet payloads against bundled schemas, with JSON Schema `format` annotations disabled; supplied schema URLs and facet producer URLs must be absolute URIs. Offsetless timestamps use the GMS host's time zone, and historical non-UUID root run identifiers are normalized deterministically from the Job namespace, Job name, and reported identifier. Upstream compatibility scenarios remain ingestion tests, not rejection tests.
+
+The 1.53.0 spec examples and historical compatibility scenarios serve different purposes. A separate audit with format assertions enabled found 14 historical scenarios whose placeholders or datasource URI strings fail those assertions. This observation does not change production request acceptance and does not prove a conversion error.
+
+## Gap closure status
+
+This table records local implementation follow-ups and their acceptance checks. The separate [known-gap appendix](17034-openlineage-spec-compliance-known-gap-appendix.md) gives the master/PR/ours comparison; a support gap on master or the PR stack is not automatically the same bug as a local mapping defect. “Investigating” means the requirement has not yet been established or discharged by evidence; it is not a waiver. The pinned 1.53.0 schema and prose under `openlineage/schemas/1.53.0/` are the semantic reference. The code and tests named here are implementation evidence at the stated checkpoints, not proof of merge readiness.
+
+| Item                               | Verified requirement/problem and origin                                                                                                                                                                                                                                                                                                                                                        | Chosen solution                                                                                                                                                                                                                                                                                                           | Status                                                                                                | Verification evidence required                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Native column transformations   | The column-lineage facet defines per-input type, subtype, description, and masking; the previous mapper folded inputs into one edge and kept only type/subtype text. Origin: existing converter.                                                                                                                                                                                               | One native fine-grained relationship per source field with typed transformations; retain legacy output-field type/description.                                                                                                                                                                                            | Focused converter, projection, GraphQL, and graph tests pass; full integration pending                | The focused regression failed with one edge instead of three, then passed with distinct typed transformations. Storage-side projection readback/deletion, GraphQL mapper, and graph extraction tests passed. Verify broader suites and goldens.                                                                                                                                                                                                                                                                                                                      |
+| 2. Dataset-wide column lineage     | The facet's `dataset[]` carries input fields and transformations; the previous mapper emitted only coarse dataset upstreams. Origin: existing converter.                                                                                                                                                                                                                                       | Native field-to-dataset relationship with the same typed transformation record.                                                                                                                                                                                                                                           | Focused converter, projection, GraphQL, and graph tests pass; full integration pending                | The regression sees a dataset downstream from the source field. Projection/readback and GraphQL tests pass; graph extraction creates the expected field-to-dataset edge. Verify broader suites and goldens.                                                                                                                                                                                                                                                                                                                                                          |
+| 3. Late schema arrival             | Field paths can be emitted before a schema; current request-scoped `OpenLineageSchemaState` resolves only schemas already stored or earlier in the batch. Origin: current reconciliation boundary.                                                                                                                                                                                             | Resolve canonical field identity on later schema arrival at an existing storage boundary, including old references.                                                                                                                                                                                                       | Confirmed, open                                                                                       | Observation before schema, schema later, then readback with one field identity and no orphaned reference.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 4. Ordering and concurrency        | The 1.53 facets guide says a same-name facet emission replaces its previous instance, but gives no `eventTime` arbitration rule. DataHub applies same-aspect patches under row locking or optimistic retry; OpenLineage currently uses arrival order for the same named facet and committed source version for contributions. Origin: proposed stale-event rule and current storage semantics. | Verify named-facet and independent-contributor concurrency at the real patch boundary; retain a documented arrival-order rule unless a spec or producer contract demands event-time arbitration.                                                                                                                          | Investigating; no spec basis found for a universal event-time winner                                  | Replay older event, concurrent distinct facets, concurrent same facet, and contributor readback; distinguish DataHub ordering from a producer contract.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 5. Storage failure                 | `LineageApiImpl.ingestMcps` splits writes around aspect deletes. Earlier writes may commit before a later failure. Origin: current endpoint.                                                                                                                                                                                                                                                   | Define a retry-safe persisted outcome using existing batch/storage guarantees where possible.                                                                                                                                                                                                                             | Confirmed, open                                                                                       | Inject a failure after an earlier write, retry, and verify no silent success or duplicate/lost owned state.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 6. Time and lifecycle              | The 1.53 event schema allows fractional `eventTime`; native run events use milliseconds and map both START and RUNNING to STARTED. DataHub's time-series index keys primarily by millisecond and entity, so same-millisecond transitions also collide without a message identifier. Origin: native representation/indexing.                                                                    | Retain source timestamp on OpenLineage-derived time-series aspects and original event type on run events, alongside native millisecond/status fields. Set deterministic time-series message IDs from source time and run event type so retries overwrite the same observation while distinct transitions remain separate. | Converter and GraphQL mapper tests pass; persisted readback pending                                   | Nanosecond START/RUNNING regression and its same-millisecond message-ID extension failed before fixes and pass now; all 97 converter tests and the GraphQL readback mapper test pass. GraphQL compilation and Rest.li model gate pass. DataHub's time-series transformer includes `messageId` in its document key. Persisted readback remains to verify.                                                                                                                                                                                                             |
+| 7. Custom-schema validation        | The pinned 1.53 `BaseFacet` explicitly permits additional properties, and facet maps accept base facet objects. `_schemaURL` identifies a schema but the spec does not require consumers to fetch and validate arbitrary producer schemas. Origin: proposed conformance claim, not a demonstrated bug.                                                                                         | Require custom facets to be objects, check supplied URI syntax, validate recognized standard facets locally, and project producer-specific compatibility fields only when provenance and consumed field shape match a declared contract. Retain other custom payloads opaquely.                                           | Closed: arbitrary custom-schema resolution is not required by 1.53; bounded compatibility checks pass | Pinned `OpenLineage.json` `BaseFacet.additionalProperties: true`; validator tests cover custom retention, invalid URI, and no remote resolution. `CustomRunFacetProcessorTest` covers compatible and incompatible payload shapes; the 97-test converter suite passes.                                                                                                                                                                                                                                                                                                |
+| 8. Rename and emission windows     | The pinned lifecycle facet defines `previousIdentifier` as the dataset's former namespace/name; it does not instruct consumers to migrate entities. The pinned `JobTypeJobFacet` defines `COMPLETE_SNAPSHOT` as a self-sufficient event for its window, not a requirement for a historical lineage graph. Origin: proposed capabilities, not demonstrated conformance bugs.                    | Retain RENAME and its `previousIdentifier` in the native operation's retained facet, and replace run I/O for each complete snapshot; preserve the emission pattern on the job.                                                                                                                                            | Single-run `COMPLETE_SNAPSHOT` live readback and focused tests pass; RENAME readback pending          | Pinned `LifecycleStateChangeDatasetFacet.json` and `JobTypeJobFacet.json`; converter lifecycle test retains `previousIdentifier` for DatasetEvent and RunEvent RENAME operations; `OpenLineageOwnLineageTest` removes prior run I/O in stored complete-snapshot mode after the declaration is omitted. The [October 1 two-window live probe](17034-openlineage-evidence/openlineage-goal-2026-10-01-live-complete-snapshot.json) showed input A clearing and output B appearing on the same run; rename persistence and cross-run window behavior remain unverified. |
+| 9. Contributor ownership           | The publisher read `change.getSystemMetadata().getVersion()` for every source change. A hard-delete MCL has no new system metadata, so deletion crashed before it could publish tombstones. Recreation restarts source versions and may still leave old target contributions. Origin: ownership publisher and DataHub rollback MCL.                                                            | Use the previous committed version plus one for delete tombstones, then reconcile source generations and target cleanup without touching independent writers.                                                                                                                                                             | Hard-delete tombstone regression passes; recreation open                                              | Focused publisher test failed with null new system metadata before the fix and now passes, verifying a version-six null tombstone after source version five. Hard delete/recreate, external edge, replacement, and replay against real patch/storage behavior remain.                                                                                                                                                                                                                                                                                                |
+| 10. Identity migration             | Stable job identity, corrected legacy run IDs, and encoded field paths can change URNs/field references on upgrade. Origin: recent converter fixes.                                                                                                                                                                                                                                            | Provide one tested identity-preserving upgrade path or migration for each changed identity.                                                                                                                                                                                                                               | Confirmed, open                                                                                       | Pre-upgrade identity fixtures upgraded through the new mapper and persisted references remain connected.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 11. Logging and environment values | Exception and converter logging exposed request-derived values. Environment variables may also contain sensitive values, but OpenLineage specifies their collection and does not require receiver-side redaction. Origin: logging and an unrequested mapping policy.                                                                                                                           | Preserve supplied environment values; log only failure class, counts, and fixed labels. Defer receiver-side redaction to a follow-up with opt-in configuration.                                                                                                                                                           | Default value preservation verified; opt-in redaction deferred                                        | [Reference source audit](./17034-openlineage-evidence/openlineage-environment-values-reference-implementations-2026-09-28.md) confirms Marquez preserves values. The latest selected runs pass 97 converter and 243 servlet tests, including original native/retained values and forwarded copies. The unchanged persisted-sequence live smoke test passes replacement and omission checks. Request-value logging regression checks remain.                                                                                                                          |
+| 12. Historical fixtures            | An earlier strict default rejected 14 of 74 upstream compatibility events intended for ingestion. The production policy now preserves their historical acceptance. Origin: unrequested validator modes.                                                                                                                                                                                        | One production validation path with recognized facet checks and preserved upstream acceptance.                                                                                                                                                                                                                            | HTTP and 122-case corpus pass; semantic golden review pending                                         | The latest ordinary servlet run passed all 122 corpus test cases with stored proposal-golden equality enabled, plus the remaining OpenLineage servlet tests. Earlier 102 mismatches were with pre-update goldens; fixture acceptance still does not establish persisted semantics. Review proposal changes before closing.                                                                                                                                                                                                                                           |
+| 13. Completion                     | Recent fixes changed proposals and behavior; proposal review, complete documentation reconciliation, and full checks remain incomplete. Origin: current worktree.                                                                                                                                                                                                                              | Review golden changes and full diff, run required checks, and reconcile public docs.                                                                                                                                                                                                                                      | Open                                                                                                  | Inspected golden diff, relevant integration gates, formatting, and requirement-by-requirement review.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 14. GraphQL source-code readback   | A valid `SourceCodeJobFacet` writes native `QueryLanguage.UNKNOWN`, while the GraphQL `QueryLanguage` enum exposes only `SQL`; `DataTransformLogicMapper` throws when reading the DataJob. Origin: current source-code projection crossing an existing GraphQL enum boundary.                                                                                                                  | Align the native source-code representation with the GraphQL API so the DataJob and source text remain readable for non-SQL languages.                                                                                                                                                                                    | Confirmed on the current local branch; open                                                           | The [saved live RunEvent](17034-openlineage-evidence/openlineage-goal-2026-09-30-live-graphql.json) returned HTTP 200 and native transformation readback succeeded, but GraphQL returned `dataJob=null` with `QueryLanguage.UNKNOWN` enum error. Add a non-SQL GraphQL readback check after the fix; the pinned upstream stack lacks this source-code projection, so its support gap is separate.                                                                                                                                                                    |
+
+## Event mapping
+
+| Event          | DataHub entities                                            | Behavior                                                                                                              |
+| -------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `RunEvent`     | DataFlow, DataJob, DataProcessInstance, referenced Datasets | `eventType` may emit a `dataProcessInstanceRunEvent`; inputs and outputs are recorded on the job and process instance |
+| `JobEvent`     | DataFlow, DataJob, referenced Datasets                      | Emits `dataJobInputOutput`; does not emit DataProcessInstance aspects                                                 |
+| `DatasetEvent` | Dataset                                                     | Always emits a Dataset key and status anchor                                                                          |
+
+### Entity identity
+
+For namespace `prod` and Job name `orders_etl.count_orders`:
+
+```text
+DataFlow URN: urn:li:dataFlow:(<orchestrator>,orders_etl,prod)
+DataJob URN:  urn:li:dataJob:(urn:li:dataFlow:(<orchestrator>,orders_etl,prod),orders_etl.count_orders)
+Display name: count_orders
 ```
 
-## Motivation
+The prefix before the first dot groups the DataJob into a DataFlow. The complete Job name remains the DataJob ID for current, parent, and dependency jobs. A name without a dot is used as both DataFlow name and DataJob ID. The Spark integration retains its existing opt-in enhanced `MERGE INTO` identity behavior.
 
-The DataHub OpenLineage endpoint is advertised as spec-compatible but
-implements a producer allow-list: the converter recognizes a fixed set of
-`producer` URIs (canonical OL, Airflow, Trino, a handful of others) and
-crashes or silently drops payloads from anything outside that set. The
-architectural goal of this RFC is to make **"spec-compliant OpenLineage
-producer" a sufficient condition** for interoperating with DataHub: any
-event that conforms to OpenLineage 2-0-2 must be accepted, dispatched on
-its actual type, and routed to the DataHub entities and aspects the spec
-attaches each facet to, without per-producer special-casing.
+The REST endpoint uses configured `DATAHUB_OPENLINEAGE_ORCHESTRATOR`, defaulting to `unknown`. Optional integration, engine and producer metadata do not change job identity. Custom orchestrator platforms must be registered separately.
 
-The known user-visible symptoms (each traceable to the same root cause —
-producer-specific code paths instead of spec-driven routing):
+Dataset identity follows namespace/name, environment and explicit instance configuration. Connection-qualified non-filesystem namespaces supply a component-safe default instance; filesystem resolution preserves object paths. Symlinks create native siblings without changing REST dataset identity. The event producer is not part of identity. See the [identity and migration limitations](https://github.com/manuschillerdev/datahub/blob/feat/openlineage-conformance-combined/docs/lineage/openlineage.md#known-limitations).
 
-- HTTP 500 (`Unable to determine orchestrator`) when the producer URI is not on
-  a hard-coded allow-list
-  ([#16961](https://github.com/datahub-project/datahub/issues/16961),
-  [#13011](https://github.com/datahub-project/datahub/issues/13011)).
-- HTTP 500 (`NullPointerException`) when the event is a `JobEvent`
-  ([#15196](https://github.com/datahub-project/datahub/issues/15196)).
-- `TagsJobFacet` and `OwnershipJobFacet` are read from the payload but never
-  persisted on the REST path
-  ([#14458](https://github.com/datahub-project/datahub/issues/14458)).
-- The shipped OpenAPI contract declares the request body as `{"type":
-  "string"}`, so every generated client sends JSON-encoded strings instead of
-  OpenLineage events — this single contract bug accounts for a substantial
-  share of the integration confusion users hit on their first attempt.
+`run.runId` identifies the DataProcessInstance. `JobEvent` and `DatasetEvent` do not create DataProcessInstances.
 
-Three findings from the source-level audit (appendix §A.3) that are not
-captured in the open tickets:
+### Updates and relationship ownership
 
-- **`DataFlow` URNs point at ghost platforms.** The current converter's
-  orchestrator-derivation regex captures the last path segment of the
-  producer URL, so the canonical OpenLineage Python/Java reference client
-  producer URI turns into `urn:li:dataPlatform:client` after the DataHub
-  converter processes it — a platform entity that does not exist in the
-  DataHub model. A `GET /openapi/v3/entity/dataPlatform/urn:li:dataPlatform:client`
-  returns 404. Different canonical-OL producer URLs yield different ghost
-  platforms, fragmenting related lineage across non-entities.
-- **The endpoint produces aspects its own backend rejects.** The
-  `RunEvent.eventType = OTHER` case maps to `RunResultType.$UNKNOWN` in the
-  current converter — a Pegasus sentinel value that fails DataHub's own
-  aspect validation. The endpoint succeeds at the HTTP layer, publishes the
-  MCP, and the aspect is silently dropped downstream. This is a semantic
-  failure, not a crash: producers see a 200 and lineage disappears.
-- **No request atomicity.** The current `LineageApiImpl` loops over MCPs and
-  calls `EntityServiceImpl.ingestProposal` per item synchronously. A failure
-  partway through leaves earlier MCPs committed and later ones lost, with no
-  client-visible indication of which. A single event can leave the aspect
-  store in an inconsistent partial-write state.
+Omitted run facets survive lifecycle changes, including `START` to `COMPLETE`. A supplied facet replaces its previous instance, clearing optional fields omitted from the replacement. Supported job/dataset facet deletions retract their mapped contribution, including for schema-valid populated `_deleted: true` payloads.
 
-Making the endpoint spec-compliant therefore requires three aligned changes:
-(a) remove the per-producer special-casing in the converter and route every
-standard facet to a documented target aspect, (b) dispatch on the event's
-actual type rather than hardcoding `RunEvent`, and (c) publish the entire MCP
-batch for a single event through the existing MCP Kafka topic so the request
-succeeds or fails as a unit without blocking on synchronous aspect-store
-writes.
+`JobEvent` preserves omitted I/O directions. A supplied direction replaces its own previous contribution; an explicit empty array clears that direction. Run I/O accumulates unless a complete snapshot is declared. Explicit lineage preserves own job/run I/O and independent parent/dependency relationships while avoiding inferred dataset combinations.
 
-## Requirements
+Explicit references retain the reporting entity as their contributor. Replacement or deletion retracts that contribution while preserving other recorded contributors and the target's own relationships. See the ownership limitations below for historical edges and competing writers.
 
-1. Every spec-valid OpenLineage 2-0-2 event is accepted with HTTP 2xx and
-   produces at least one MCP. The endpoint never returns an empty 500 — all
-   error paths produce a structured error body via the servlet's global
-   exception handler.
-2. All three root event types — `RunEvent`, `JobEvent`, `DatasetEvent` — are
-   dispatched and ingested on paths appropriate to the event's semantics.
-3. The `producer` field is treated as a free-form URI per spec. The
-   orchestrator/platform name is derived from typed facets first; the
-   derivation function is total (always returns a value, never throws).
-4. Standard facets enumerated in the appendix are routed to their target
-   DataHub aspects on the entity the spec attaches them to (Job facets →
-   `DataJob`, Run facets → `DataProcessInstance`, Dataset facets → `Dataset`).
-5. The `openlineage.json` OpenAPI contract that the servlet ships matches the
-   events the server accepts.
-6. The implementation is testable against the OpenLineage spec without
-   DataHub-specific assumptions. A parameterized test harness loads JSON
-   fixtures from the OpenLineage / Marquez ecosystem and asserts both the HTTP
-   response and the resulting MCP set.
-7. Behavior changes are observable. Unmapped facets log at debug level so new
-   producer additions are visible without producing 500s.
-8. Ingestion of a single event is atomic at the request boundary. Either every
-   MCP produced from the event is published to the downstream MCP channel or
-   none is — no partial writes.
+## Standard facet mappings
 
-### Extensibility
+### Run facets
 
-- Adding a facet mapping is a matter of writing a method in the converter and
-  registering it in the per-event-type dispatcher; the controller does not
-  need to change.
-- Per-producer customization (orchestrator override, platform-instance
-  override, dataset-URN namespace prefix) is supported through
-  `DatahubOpenlineageConfig` so site operators can adapt the endpoint without
-  code changes.
-- New OpenLineage spec versions are absorbed by regenerating `openlineage.json`
-  and bumping the embedded `io.openlineage:openlineage-java` client. The
-  dispatcher and facet mappings are version-stable as long as the spec stays
-  additive, which matches OpenLineage's declared versioning policy
-  (`spec/Versioning.md`: "schema changes should only add optional fields").
+| Facet                          | DataHub mapping                                                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `NominalTimeRunFacet`          | Process-instance creation time and nominal start/end custom properties                                                       |
+| `ParentRunFacet`               | Parent process-instance relationship and retained parent/root identities; forwarded facets do not update referenced entities |
+| `ErrorMessageRunFacet`         | Process-instance diagnostic properties; status remains determined by eventType                                               |
+| `ProcessingEngineRunFacet`     | Complete facet in run properties; no job identity or pipeline version changes                                                |
+| `ExternalQueryRunFacet`        | Run properties and output Dataset operation properties                                                                       |
+| `EnvironmentVariablesRunFacet` | Original values in process-instance custom properties under `env.*` and the complete retained facet                          |
+| `TagsRunFacet`                 | Run properties; no native job tags                                                                                           |
+| `JobDependenciesRunFacet`      | Complete run property plus run-owned native job dependency edges and, when run IDs are supplied, upstream-run relationships  |
+| `ExtractionErrorRunFacet`      | Run diagnostic properties; no status override                                                                                |
+| `ExecutionParametersRunFacet`  | Run properties                                                                                                               |
+| `GcpComposerRunFacet`          | Retained run facet properties                                                                                                |
+| `GcpDataprocRunFacet`          | Retained run facet properties                                                                                                |
 
-## Non-Requirements
+Environment-variable names and values are preserved. Receiver-side redaction is a follow-up with opt-in configuration, rather than part of specification compliance.
 
-- Changes to the Spark or Airflow agents (`acryl-spark-lineage`,
-  `metadata-ingestion-modules/airflow-plugin`) are out of scope; their event
-  shapes already match what the REST endpoint will accept.
-- Persisting raw OpenLineage event payloads is out of scope. Marquez stores
-  the full JSON in `lineage_events` for later replay; DataHub has no analogous
-  store and adding one is outside this RFC.
-- Request-layer validation of payloads is out of scope. Typed Jackson
-  deserialization against the `io.openlineage:openlineage-java` beans
-  catches whatever the beans' own typed fields catch (wrong JSON shapes,
-  unknown enum values, malformed timestamps) and nothing beyond that.
-- Custom (non-standard) facets sent via `additionalProperties` keep their
-  producer-specific handlers (Spark, Airflow). Unifying them with the standard
-  facet table is a follow-up.
-- This RFC does not propose UI changes.
+Job dependency omission preserves the reporting run's previous contribution. A supplied facet replaces it, and an explicit empty replacement retracts it while preserving other contributors. Dependency type and sequence/status trigger rules are retained on job edges; the complete facet retains all remaining metadata. These relationships do not schedule or enforce execution. Forwarded parent/root facets are retained on the reporting run with their supplied values and do not overwrite the referenced entities.
 
-## Detailed design
+### Job facets
 
-The design is organized around three concerns: dispatch at the controller,
-entity-and-URN shape in the converter, and facet-to-aspect routing. The
-companion [appendix](./17034-openlineage-spec-compliance-appendix.md) carries
-the detailed reference material:
+| Facet                        | DataHub mapping                                                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DocumentationJobFacet`      | `dataJobInfo.description`                                                                                                                       |
+| `SourceCodeLocationJobFacet` | `dataJobInfo.externalUrl`                                                                                                                       |
+| `SourceCodeJobFacet`         | DataJob transformation metadata and source-language custom property; current `UNKNOWN` query language breaks GraphQL DataJob readback (item 14) |
+| `SQLJobFacet`                | DataJob transformation query and output Dataset operation query                                                                                 |
+| `OwnershipJobFacet`          | DataJob `ownership`                                                                                                                             |
+| `TagsJobFacet`               | DataJob `globalTags`                                                                                                                            |
+| `JobTypeJobFacet`            | DataJob subtype/type, integration and emission-pattern properties; controls snapshot mode                                                       |
+| `GcpComposerJobFacet`        | Retained job facet properties                                                                                                                   |
+| `GcpLineageJobFacet`         | Retained job facet properties                                                                                                                   |
 
-- **Appendix §A.2 — OpenLineage ↔ DataHub ↔ Marquez mapping.** Per-element
-  cross-walk covering the envelope, every standard facet, and how each
-  receiver stores the same OL concept.
-- **Appendix §A.3 — Status quo and gaps.** Per-facet implementation status
-  against the converter source, backed by aspect-store verification.
-- **Appendix §A.5 — Milestone roll-up.** Per-section / per-status counts
-  driving the implementation-effort estimate.
+Job documentation, ownership, and tags have one canonical target: DataJob. Existing DataFlow aspects written by older behavior are not deleted.
 
-### Endpoint dispatch
+### Dataset facets
 
-`LineageApiImpl.postRunEventRaw(String body)` currently calls
-`OpenLineageClientUtils.runEventFromJson(body)` unconditionally — hardcoded
-to `RunEvent`, which is the root cause of the `JobEvent` / `DatasetEvent`
-dispatch gap. The new shape:
+| Facet                              | DataHub mapping                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `SchemaDatasetFacet`               | `schemaMetadata`, including recursively flattened nested fields                           |
+| `DatasourceDatasetFacet`           | Dataset external URL and retained source properties; no facet-derived platform instance   |
+| `ColumnLineageDatasetFacet`        | Owning Dataset upstreamLineage, with replacement, omission and deletion semantics         |
+| `OwnershipDatasetFacet`            | Dataset `ownership`                                                                       |
+| `LifecycleStateChangeDatasetFacet` | Dataset status and native operation history retaining the original action                 |
+| `SymlinksDatasetFacet`             | Dataset siblings; REST namespace/name identity stays stable                               |
+| `StorageDatasetFacet`              | Storage layer and file-format custom properties                                           |
+| `DatasetVersionDatasetFacet`       | `datasetProperties.customProperties["openlineage.datasetVersion"]`                        |
+| `DocumentationDatasetFacet`        | `datasetProperties.description`                                                           |
+| `DatasetTypeDatasetFacet`          | Dataset `subTypes`                                                                        |
+| `CatalogDatasetFacet`              | Retained catalog properties; no facet-derived platform instance                           |
+| `HierarchyDatasetFacet`            | Container hierarchy and Dataset-to-nearest-Container relationship                         |
+| `TagsDatasetFacet`                 | Dataset globalTags and matching schema-field tags                                         |
+| `DataQualityMetricsDatasetFacet`   | Dataset profile with retained numeric precision; measured fields do not imply columnCount |
 
-1. **Deserialize** the body into `LineageBody` — the existing Jackson
-   discriminated-union interface at
-   `metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/openlineage/model/LineageBody.java`.
-   `LineageBody` selects one of `OpenLineage.RunEvent`,
-   `OpenLineage.JobEvent`, `OpenLineage.DatasetEvent`. Today the interface
-   discriminates on exact-string match against three hard-coded `schemaURL`
-   values pinned to the pre-`$defs` `2-0-0/OpenLineage.json#/definitions/`
-   path — this breaks on any real producer, because producers emit
-   arbitrary `schemaURL` values (different OL versions, different cached
-   schema references, vendor extensions). This RFC replaces the strategy
-   with a shape-based custom `TypeIdResolver`: `run` present → `RunEvent`;
-   `dataset` present → `DatasetEvent`; else → `JobEvent`. `schemaURL` is
-   still logged as a hint but does not gate dispatch.
-2. **Dispatch** to one of three mapper entry points on `RunEventMapper`:
-   - `mapRunEvent(RunEvent, MappingConfig)` — emits `DataFlow`, `DataJob`,
-     `DataProcessInstance`, and referenced `Dataset` aspects.
-   - `mapJobEvent(JobEvent, MappingConfig)` — emits `DataFlow`, `DataJob`,
-     `dataJobInputOutput`, and referenced `Dataset` aspects. No DPI aspects.
-   - `mapDatasetEvent(DatasetEvent, MappingConfig)` — emits `Dataset` aspects
-     only.
-3. **Publish** every MCP produced for a single event to the MCP Kafka topic
-   via `EventProducer.produceMetadataChangeProposal(urn, mcp)`, which is the
-   same path the MCE consumer already reads from
-   (`metadata-dao-impl/kafka-producer/src/main/java/com/linkedin/metadata/dao/producer/KafkaEventProducer.java`).
-   See §"Streaming ingest" below for atomicity and response semantics.
-4. `AuthenticationContext.getAuthentication()` is null-checked and returns
-   401 when the actor is missing. The controller's current
-   `catch (Exception e) → 500` block is removed; Jackson's typed exceptions
-   (`MismatchedInputException` on wrong JSON shapes, unknown enum values,
-   malformed `ZonedDateTime`, unparseable JSON) and mapper-layer runtime
-   failures propagate to the servlet's global exception handler
-   (`GlobalControllerExceptionHandler`), which produces a structured
-   error body.
+Dataset version metadata does not create DataHub entity-version history. Column lineage is Dataset-owned regardless of the enclosing event. Explicit dataset lineage takes precedence; deleting it reveals the retained column facet. Independent explicit relationship contributors retain their ownership.
 
-### Timestamp coercion
+### Input Dataset facets
 
-The openapi-servlet `ObjectMapper` used for OpenLineage deserialization
-installs a permissive `ZonedDateTime` deserializer that falls back to
-`LocalDateTime.parse(s).atZone(UTC)` on `DateTimeParseException`, so naive
-timestamps are treated as UTC and accepted. This matches Marquez's behavior
-and accommodates producers such as the OpenLineage reference Python client,
-which emits `eventTime` without a timezone suffix (e.g.
-`"2021-11-03T10:53:52.427343"`) as the default serialization shape.
-Unconditional — no config knob.
+| Facet                                 | DataHub mapping                                                     |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| `DataQualityMetricsInputDatasetFacet` | Qualified input/run properties; not a whole-dataset profile         |
+| `InputStatisticsInputDatasetFacet`    | Dataset read `operation` with available row, byte, and file metrics |
+| `DataQualityAssertionsDatasetFacet`   | Assertion entities and, for RunEvent, assertion run events          |
+| `BaseSubsetDatasetFacet`              | Qualified dataset summary and run input/output report properties    |
+| `IcebergScanReportInputDatasetFacet`  | Qualified dataset summary and run input report properties           |
 
-### Streaming ingest
+A `JobEvent` emits assertion definitions but not assertion run events because it has no current run.
 
-Every event produces a batch of MCPs. This RFC publishes the batch to the
-MCP Kafka topic rather than calling `EntityServiceImpl.ingestProposal` in a
-loop synchronously, matching the path the MCE consumer uses and decoupling
-the REST endpoint from GMS write latency.
+### Output Dataset facets
 
-**Rationale.** Producers emit OpenLineage events at their own cadence —
-Spark, Airflow, Trino, dbt — and expect fire-and-forget semantics. Under
-the current synchronous path, a bursty Spark job blocks on per-MCP aspect-
-store writes, compounding latency proportional to the number of input /
-output datasets. Routing through the existing MCP topic uses the same
-async ingestion path the rest of DataHub uses for high-throughput metadata
-emission and removes aspect-store latency from the REST response time.
+| Facet                                   | DataHub mapping                                                              |
+| --------------------------------------- | ---------------------------------------------------------------------------- |
+| `OutputStatisticsOutputDatasetFacet`    | Dataset write `operation` with affected rows and byte/file custom properties |
+| `BaseSubsetDatasetFacet`                | Qualified dataset summary and run input/output report properties             |
+| `IcebergCommitReportOutputDatasetFacet` | Qualified dataset summary and run output report properties                   |
 
-**Atomicity.** The controller collects the full MCP list for the event,
-then publishes each via
-`EventProducer.produceMetadataChangeProposal(urn, mcp)` and awaits the
-returned `Future<?>`. If any publish fails, the request returns 5xx.
-MCPs already published before the failure are not rolled back and may
-still be consumed downstream — this is a known gap relative to true
-transactional semantics, which would require Kafka's transactional
-producer (exactly-once batch commit) and is tracked as a follow-up. It
-is nonetheless strictly stronger than the current behavior, where
-partial writes succeed under HTTP 200 with no client-visible indication
-of which MCPs landed and which did not (appendix §A.3.1 "Request
-atomicity"). The contract for clients is "5xx on any publish failure;
-retry the event" — matching producer-side retry expectations (OL
-producers are retry-capable at the event level).
+## Custom facet compatibility
 
-**Response semantics.** HTTP 2xx means "accepted and published to the MCP
-channel". Downstream consumer ingestion is eventually consistent; clients
-that need confirm-on-ingest can poll `GET /openapi/v3/entity/<type>/<urn>`
-for the aspect they expect. This is a semantic change from the current
-endpoint, which returns 2xx only after synchronous aspect-store writes
-have landed. The status code changes from `200` to `202 Accepted` to
-reflect the async semantics.
+OpenLineage permits platform-defined facets through facet-map additional properties. Unknown custom facets are retained as opaque JSON with named-facet replacement, omission, and supported job/dataset deletion semantics. Job, run, and dataset facets use `openlineage.facet.<name>` properties. Input/output observations use qualified dataset/direction keys on the reporting run, or on the job for a `JobEvent`. Retention does not validate the custom schema or provide a native mapping for its contents. Specialized mapping is selected only when attachment point, key, producer family, schema identity, and consumed field shape match a declared compatibility contract.
 
-**Configuration.** `DatahubOpenlineageConfig.useStreamingIngest` (boolean,
-default `true`) toggles between the Kafka path and the legacy synchronous
-`EntityServiceImpl.ingestProposal` path. Operators who depend on
-confirm-on-ingest semantics during the transition set this to `false` and
-accept the per-request latency cost. See §"Rollout / Adoption Strategy"
-for the default flip and removal timeline.
+| Key                      | Attachment | Producer family and accepted URI shape                                            | Accepted schema identity          | Lifecycle  |
+| ------------------------ | ---------- | --------------------------------------------------------------------------------- | --------------------------------- | ---------- |
+| `airflow`                | Run        | OpenLineage Airflow integration or Apache Airflow OpenLineage provider            | Generic `RunFacet` or `BaseFacet` | Active     |
+| `spark_jobDetails`       | Run        | OpenLineage Spark integration                                                     | Generic `RunFacet`                | Active     |
+| `spark_properties`       | Run        | OpenLineage Spark integration                                                     | Generic `RunFacet`                | Active     |
+| `spark.logicalPlan`      | Run        | OpenLineage Spark integration                                                     | Generic `RunFacet`                | Active     |
+| `spark_version`          | Run        | Historical OpenLineage Spark integration                                          | Generic `RunFacet`                | Deprecated |
+| `unknownSourceAttribute` | Run        | Historical OpenLineage Airflow integration or Apache Airflow OpenLineage provider | Generic `RunFacet` or `BaseFacet` | Deprecated |
 
-### Conceptual entity mapping
+The OpenLineage integration producer URI families are HTTPS GitHub URIs under `OpenLineage/OpenLineage`, with versioned `tree` or `blob` paths to the relevant integration. Historical Airflow also accepts the unversioned integration path. Apache Airflow provider URIs are HTTPS GitHub paths under `apache/airflow/tree/providers-openlineage/<version>`.
 
-| OpenLineage concept | DataHub entity | URN shape |
-|---|---|---|
-| `Job` (`namespace`, `name`) | `DataJob` | `urn:li:dataJob:(<DataFlow URN>, <task id>)` |
-| Containing flow (orchestrator + namespace) | `DataFlow` | `urn:li:dataFlow:(<orchestrator>, <flow id>, <namespace/instance>)` |
-| `Run` (`runId`) | `DataProcessInstance` | `urn:li:dataProcessInstance:<runId>` |
-| `Dataset` (`namespace`, `name`) | `Dataset` | `urn:li:dataset:(urn:li:dataPlatform:<derived>, <dataset name>, PROD)` |
-| Run state transition (`eventType`) | `dataProcessInstanceRunEvent` time-series MCP | — |
-| `inputs[]` / `outputs[]` | `dataJobInputOutput` on DataJob + `upstreamLineage` on each output Dataset | — |
+The generic identities are:
 
-Shape decisions:
-
-- **Job → DataJob / DataFlow split.** The existing convention is preserved:
-  split `Job.name` on the first `.` (prefix = flow id, suffix = task id). If
-  no `.` is present, `flowId == jobName` and the flow contains a single task
-  that shares the flow's id. Per-producer override is configurable.
-- **Orchestrator name.** Resolution order:
-  `ProcessingEngineRunFacet.name` (lower-cased) →
-  `JobTypeJobFacet.integration` (lower-cased) →
-  `DatahubOpenlineageConfig.orchestrator` →
-  a best-effort parse of the producer URI →
-  the configured default (`openlineage`). Total: always returns a value,
-  never throws.
-- **DataPlatform URN for the flow.** Derived from the orchestrator name above.
-  A validation step verifies the resulting `urn:li:dataPlatform:<name>`
-  resolves to a registered platform entity; if it does not, the configured
-  default is used instead. This prevents ghost platform references of the
-  kind surfaced by the current endpoint.
-- **DataProcessInstance URN.** Uses `Run.runId` directly.
-- **Dataset URN.** Reuses `convertOpenlineageDatasetToDatasetUrn`. The
-  `DatasourceDatasetFacet.uri`, when present, is written to
-  `datasetProperties.externalUrl`.
-- **`eventType` handling.** Per spec, `eventType` is optional on `RunEvent`.
-  A missing `eventType` is treated as `OTHER` (supplementary-metadata event)
-  and produces no `dataProcessInstanceRunEvent` MCP. Each enum value maps to
-  exactly one status / result-type pair; the `OTHER` branch emits no run-event
-  MCP at all rather than writing the Pegasus sentinel value that currently
-  fails aspect validation.
-
-### Facet routing
-
-The full facet-to-aspect table is in
-[appendix §A.3](./17034-openlineage-spec-compliance-appendix.md#a3-status-quo-and-gaps),
-the OpenLineage ↔ DataHub ↔ Marquez cross-walk is in
-[appendix §A.2](./17034-openlineage-spec-compliance-appendix.md#a2-openlineage--datahub--marquez-mapping),
-and the per-section / per-status milestone roll-up is in
-[appendix §A.5](./17034-openlineage-spec-compliance-appendix.md#a5-milestone-roll-up).
-
-**Milestone A — P0 baseline.** Every item from appendix §A.5's Milestone A
-roll-up: 32 P0 items (envelope concerns plus 16 P0 standard facets).
-Envelope: event-type dispatch, free-form producer, structured error
-body, request atomicity via the MCP Kafka topic, registered-platform
-validation, URN split, `eventType` enum handling, authentication
-null-safety. P0 facets: `NominalTimeRunFacet`, `ParentRunFacet`,
-`ErrorMessageRunFacet`, `ProcessingEngineRunFacet`,
-`DocumentationJobFacet`, `SourceCodeLocationJobFacet`, `SQLJobFacet`,
-`OwnershipJobFacet`, `TagsJobFacet`, `JobTypeJobFacet`,
-`SchemaDatasetFacet`, `DatasourceDatasetFacet`,
-`ColumnLineageDatasetFacet`, `DocumentationDatasetFacet`,
-`OutputStatisticsOutputDatasetFacet`, and
-**`DataQualityAssertionsDatasetFacet`** — the only P0 item that
-materializes a new DataHub entity (the native `assertion` entity, paired
-with `assertionRunEvent` per assertion) rather than writing an aspect to
-an existing entity, so OL-emitted quality checks land alongside Great
-Expectations and dbt tests in the same UI surface. Closes #16961,
-#15196, #13011, #14458.
-
-**Milestone B — P1 standard producer coverage.** `ExternalQueryRunFacet`,
-`SourceCodeJobFacet`, `OwnershipDatasetFacet`,
-`LifecycleStateChangeDatasetFacet`, `SymlinksDatasetFacet`,
-`DatasetVersionDatasetFacet`, `DatasetTypeDatasetFacet`,
-`CatalogDatasetFacet`, `TagsDatasetFacet`,
-`DataQualityMetricsInputDatasetFacet`, `InputStatisticsInputDatasetFacet`,
-plus `JobEvent` / `DatasetEvent` polish (multi-event idempotency,
-cross-producer dataset scoping).
-
-**Milestone C — P2 quality and edge cases.** Environment variables,
-hierarchy, run-level tags, extraction-error reporting.
-
-### Configuration surface
-
-`DatahubOpenlineageConfig` gains the following options. Each default preserves
-current behavior where feasible so operators see no change without an opt-in.
-
-- `orchestratorDefault` (string, default `openlineage`) — value used when no
-  facet- or producer-derived orchestrator is found.
-- `documentationTarget` (enum: `dataJob`, `dataFlow`, `both`, default `both`
-  during the parallel-write window (see §"Rollout / Adoption Strategy"),
-  then `dataJob`) — controls where `DocumentationJobFacet` is written.
-- `ownershipTarget` (enum: same shape as above, same default trajectory) —
-  controls where `OwnershipJobFacet` is written.
-- `datasetEventNamespaceByProducer` (boolean, default `false`) — when true,
-  dataset URNs ingested via `DatasetEvent` carry a producer-scoped platform
-  instance, preventing cross-producer overwrite.
-- `requireRegisteredPlatform` (boolean, default `true`) — when true, an
-  orchestrator name that does not resolve to a registered `dataPlatform` entity
-  is rejected in favor of the configured default, preventing ghost-platform
-  URNs.
-- `useStreamingIngest` (boolean, default `true`) — when true, MCPs produced
-  from an OpenLineage event are published to the MCP Kafka topic via
-  `EventProducer.produceMetadataChangeProposal`; when false, the endpoint
-  falls back to per-MCP synchronous `EntityServiceImpl.ingestProposal` calls.
-  Lifecycle in §"Rollout / Adoption Strategy".
-
-`documentationTarget`, `ownershipTarget`, and `useStreamingIngest` all
-ship with a transitional default that's removed in a later minor release.
-Their consolidated lifecycle is in §"Rollout / Adoption Strategy".
-
-### Error responses
-
-The endpoint returns a structured JSON body matching the shape used elsewhere
-in the openapi-servlet:
-
-```json
-{ "code": "INVALID_EVENT",
-  "message": "Unknown eventType value: DONE",
-  "details": { "field": "eventType" } }
+```text
+https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet
+https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet
 ```
 
-HTTP status mapping:
+A familiar key with a nonmatching producer, schema, or shape remains opaque and does not select producer-specific behavior. Compatibility contributions are merged in catalog order and retain the first value on collision. The typed `processing_engine` facet is applied afterward and takes precedence. Submitted values are not included in collision or deprecation logs.
 
-- `202` — event accepted and MCPs published to the MCP Kafka topic.
-  Downstream aspect-store ingestion is eventually consistent (see
-  §"Streaming ingest").
-- `400` — Jackson-native deserialization failure. The OL Java client beans
-  are typed (`ZonedDateTime`, `URI`, typed Java enums for `eventType`),
-  so Jackson catches type mismatches (`run` as a string instead of an
-  object), unknown `eventType` values (the typed `OpenLineage.RunEvent.EventType`
-  Java enum rejects strings outside its set), malformed `ZonedDateTime`,
-  unparseable JSON, and `Content-Type` mismatches. JSON Schema validation
-  of the full spec (missing required envelope fields, `format: uri`,
-  facet-internal constraints) is out of scope for this RFC and tracked in
-  Future Work.
-- `401` — missing or invalid authentication.
-- `500` — unexpected runtime failure. The `details` object contains the
-  exception class and message.
+## Responses and ingestion guarantees
 
-All MCPs produced from a single event are published as a single batch
-through `EventProducer.produceMetadataChangeProposal`. If any publish fails
-mid-batch, the request returns 5xx and the client is expected to retry —
-see §"Streaming ingest" for the atomicity story.
+| Status | Meaning                                                                                      |
+| ------ | -------------------------------------------------------------------------------------------- |
+| `200`  | Synchronous aspect writes completed; indexing remains asynchronous                           |
+| `400`  | Malformed JSON, invalid structure, schema violation, or deserialization failure              |
+| `401`  | Authentication is missing or invalid                                                         |
+| `403`  | The caller lacks required create/edit privileges or delete privileges for an aspect deletion |
+| `415`  | The request is not JSON                                                                      |
+| `500`  | Unexpected mapping, validation, or ingestion failure                                         |
 
-### OpenAPI contract
+Errors use the structured `{code, message, details}` response shape. Validation errors include deterministic paths and rules without echoing submitted values.
 
-`metadata-service/openapi-servlet/src/main/resources/openlineage/openlineage.json`
-is regenerated from upstream OpenLineage 2-0-2. The request body schema
-references a `oneOf` over `RunEvent`, `JobEvent`, and `DatasetEvent`. Error
-response schemas are documented for `400`, `401`, `500`. Generated clients
-stop sending JSON-encoded strings.
+Requests without aspect deletion submit one `AspectsBatch`. Requests containing deletion preserve proposal order by applying write batches between synchronous native aspect deletes. This is not an event-level transaction or exactly-once guarantee. Aspect writes complete before success, but indexing and downstream projections remain asynchronous. A failure can leave earlier writes applied, and retries can create additional time-series writes.
 
-### Test strategy
+The endpoint does not provide a direct Kafka mode, streaming toggle, raw-event retention, remote schema resolution, platform-registration checks, producer-scoped Dataset identities, configurable facet targets, automatic stale-aspect cleanup, or UI behavior.
 
-Two layers of tests, following the openapi-servlet house style.
+## Compatibility and limitations
 
-1. **Controller + MCP mapping — Spring `MockMvc` test** at
-   `metadata-service/openapi-servlet/src/test/java/io/datahubproject/openapi/openlineage/LineageApiImplTest.java`.
-   Pattern matches `EntityControllerTest` and the other `*ControllerTest`
-   classes in the module:
-   `@SpringBootTest(classes = SpringWebConfig.class)` +
-   `@Import({LineageApiImpl.class, TestConfig.class, GlobalControllerExceptionHandler.class})` +
-   `@AutoConfigureMockMvc` + `AbstractTestNGSpringContextTests`. Drives
-   `POST /openapi/openlineage/api/v1/lineage` with fixture bodies
-   vendored from two upstream Apache-2.0 corpora (attribution in
-   `NOTICE`): Marquez's `api/src/test/resources/open_lineage/` for
-   envelope and facet shapes, and
-   `github.com/OpenLineage/compatibility-tests`
-   `consumer/scenarios/*/events/*.json` for cross-consumer canonical
-   scenarios (`simple_run_event`, `CLL`, `airflow`, `spark_dataproc_*`).
-   Fixtures live in `src/test/resources/openlineage/fixtures/` grouped
-   by concern (envelope, event types, run facets, job facets, dataset
-   facets, input/output facets, edge cases), with per-fixture metadata
-   (expected HTTP status, expected MCP tuples) encoded either inline or
-   in a sibling YAML. A TestNG `@DataProvider` walks the directory and
-   parameterizes the test method. A mocked `EventProducer` captures every
-   `produceMetadataChangeProposal(urn, mcp)` call via
-   `ArgumentCaptor<MetadataChangeProposal>`; assertions run against the
-   captured MCP set per fixture. Runs in
-   `./gradlew :metadata-service:openapi-servlet:test`.
-2. **Aspect-store verification** as a pre-merge integration step, querying
-   `GET /openapi/v3/entity/<type>/<urn>` against a running instance to
-   confirm that per-fixture expected aspects are persisted end-to-end
-   after the MCP Kafka path round-trips through the consumer.
+- Independent producers that resolve the same Dataset namespace/name and DataHub mapping update the same Dataset.
+- Custom orchestrators may create dangling DataFlow platform references unless the corresponding DataPlatform is registered.
+- **Column transformations:** the implementation mapping emits one native fine-grained relationship per source field with typed transformation details. Focused storage, graph, and GraphQL tests pass; broader integration checks remain pending. The complete facet is also retained as JSON.
+- **Dataset-wide column lineage:** the implementation mapping emits field-to-dataset fine-grained relationships for `columnLineage.dataset[]`; focused graph and API-mapping checks pass, while broader integration checks remain pending.
+- **Schema availability:** REST mapping resolves fields using stored schemas, current-event schemas, and accepted schema changes earlier in the same batch. When no matching schema is available, field references use fallback paths. Later schema arrival does not automatically repair earlier references; schema reads and subsequent writes are not a cross-request transaction.
+- **Ordering:** snapshot updates are not arbitrated by producer `eventTime`; replaying an older event can replace newer metadata. Concurrent requests and asynchronous projections do not guarantee global HTTP-arrival order. This remains an existing operational limitation.
+- **Ownership boundaries:** contributor tracking does not automatically reconcile historical unowned edges, hard deletion/recreation of reporting entities, or arbitrary competing non-OpenLineage writers. These are boundaries of the new ownership mechanism.
+- **Identity migration:** stable job identities, corrected legacy run identifiers, and encoded schema-field components can change existing URNs or field references. No automatic migration or history backfill is provided. These corrections introduce migration obligations; literal dotted field names, for example, are encoded separately from nested paths.
+- **Representation:** native timestamps use milliseconds and `START`/`RUNNING` share the native `STARTED` status, as in the previous converter. Retained facets do not constitute a complete raw-event archive or guarantee exact event replay.
+- **Lifecycle and windows:** dataset rename records the previous identifier without migrating entity identity. Emission windows do not create separate historical graphs or automatically expire lineage. These capabilities remain unsupported by the added lifecycle/window handling.
+- **Environment-value policy:** supplied values are preserved, including forwarded parent/root copies. Configurable receiver-side redaction is an opt-in follow-up. Mapping and request-failure logs avoid request-derived values; metadata access controls govern retained content.
+- **Validation and schema versions:** remote custom schemas are not fetched or validated. Standard facets use the bundled key/attachment contracts, not arbitrary schemas selected by the payload URL. Accepted offsetless timestamps depend on the GMS host time zone.
+- Existing DataFlow documentation, ownership, and tags are not removed when future events write canonical DataJob aspects.
+- Hierarchy facet levels are interpreted highest-to-lowest; nonterminal levels become Containers and the terminal level remains the Dataset.
 
-## How we teach this
+## Conformance verification
 
-The DataHub OpenLineage endpoint is an existing feature; this RFC sharpens its
-contract rather than introducing new terminology. Documentation changes:
+The conformance corpus contains 47 fixtures from OpenLineage 1.53.0 `spec/tests` and 74 OpenLineage compatibility-test events. Standalone events pass through HTTP validation, deserialization, conversion, authorization, and ingestion submission. Standard facet fragments are attached to minimal events at their official attachment points and pass through the same path. Focused converter tests assert identity, aspect routing, lifecycle, lineage, compatibility, and mapped values.
 
-- `docs/lineage/openlineage.md` gains a "Spec compliance" section listing
-  supported event types, the orchestrator-resolution order, and the
-  configuration knobs above.
-- The producer-compatibility subsection links to OpenLineage's producer
-  registry rather than maintaining a DataHub-side allow-list.
-- `docs/how/updating-datahub.md` documents the documentation-target and
-  ownership-target config changes, the parallel-write window, and the
-  migration procedure for sites that depend on the current DataFlow-side
-  writes.
-- The regenerated OpenAPI contract is the source of truth for clients;
-  consumers generating from the spec observe the new request-body shape
-  automatically.
+At the [September 30–October 1 evidence checkpoint](17034-openlineage-evidence/openlineage-goal-progress-2026-09-30.md), the selected runs passed 97 converter tests, 243 OpenLineage servlet tests (including 122 fixture-corpus cases with ordinary stored-golden comparison), 14 metadata-io tests, one GraphQL run-event mapper test, and three WAR authentication tests. The earlier 102 proposal-golden mismatches described a pre-update state and are no longer current test failures. The proposal changes still need semantic review. An earlier optional format-assertion audit rejected 14 historical compatibility events; the restored production validation policy accepts them. Fixture success does not prove stateful replacement, persisted aspects, read APIs, or full 1.53 conformance.
 
-The audience is primarily backend developers and operators integrating
-third-party OpenLineage producers. Frontend changes are not required.
+The 42 selected local smoke cases yielded 40 passes and two failures in existing B13/B14 assertions. Those assertions expect the previous policies for native job-dependency edges and forwarded-facet retention; the [B13 live sequence](17034-openlineage-evidence/openlineage-goal-2026-10-01-live-dependency-ownership.json) and [B14 live sequence](17034-openlineage-evidence/openlineage-goal-2026-10-01-live-forwarded-authority.json) verify the current intended behavior through stored aspects. The smoke suite is **not green**. Separate current-branch probes also read persisted lineage, identity, facet replacement/deletion, hierarchy, lifecycle, and profile values; their exact scope is listed in the checkpoint. A [source-code RunEvent probe](17034-openlineage-evidence/openlineage-goal-2026-09-30-live-graphql.json) exposed the open GraphQL `QueryLanguage.UNKNOWN` readback failure in item 14.
 
-## Drawbacks
+No master or PR-head receiver was deployed for the [known-gap appendix](17034-openlineage-spec-compliance-known-gap-appendix.md). Its upstream verdicts are pinned source assessments, while local outcomes are limited to the cited tests and live readbacks. Full integration gates, semantic proposal review, the two stale smoke assertions, unresolved local defects, and target-matched upstream persistence/read-API checks remain. This RFC does not claim merge readiness or complete specification conformance.
 
-- **Read-after-write semantics change (200 → 202).** The endpoint
-  currently returns `200 OK` only after every MCP has been written
-  synchronously to the aspect store, which means a client that posts an
-  event and immediately queries `GET /openapi/v3/entity/<type>/<urn>`
-  for the resulting aspect can rely on the aspect being present.
-  Post-RFC the endpoint returns `202 Accepted` after publishing the MCP
-  batch to the Kafka topic; downstream consumer ingestion is eventually
-  consistent and the same client may observe a delay before the aspect
-  is queryable. Pipelines that depend on read-after-write consistency
-  (e.g. post-an-event-then-verify integration tests) need to either
-  poll or set `useStreamingIngest = false` to keep the synchronous
-  path during the transition.
-- **Behavioral change for existing users.** Sites that depend on
-  `DocumentationJobFacet` or `OwnershipJobFacet` landing on `DataFlow` see the
-  aspects move to `DataJob` after the parallel-write window closes. The
-  `documentationTarget` and `ownershipTarget` config knobs allow an extended
-  transition.
-- **Larger facet surface to maintain.** Three event types plus the P0 facet
-  set is more surface than today's converter. Every facet has a fixture in
-  the `LineageApiImplTest` corpus and every fixture asserts a specific MCP
-  shape, replacing the implicit safety net the removed allow-list
-  previously provided.
-- **Loss of an implicit safety net.** The current allow-list rejects events
-  from unknown producers, which accidentally prevents some misconfigured
-  pipelines from writing to DataHub. Post-RFC any producer is accepted.
-  Operators relying on the rejection as a safety net enforce it at the
-  auth/network layer instead.
-- **Divergence from Marquez's storage model.** Marquez persists raw event JSON
-  for later replay; DataHub does not. Facets that DataHub does not map are
-  dropped. The unmapped-facet debug log makes the gap observable.
-- **Atomicity is best-effort, not transactional.** The MCP Kafka publish
-  path returns 5xx on any per-message failure but does not roll back
-  MCPs already published earlier in the batch. Strict
-  exactly-once-batch semantics would require Kafka transactional
-  producers and are tracked as a follow-up in §"Streaming ingest".
+### October 5 rebase verification checkpoint
 
-## Alternatives
+The implementation was rebased onto fork `origin/master` at `0a556e75ca3440995a26e001e603c89a9fc20298`. With the local implementation tree based on commit `20940d38ed06af55bca70015a17da9db7526ddf5`, the selected checks passed: 97 converter tests, 244 servlet tests (including the 122 fixture-corpus cases), 14 metadata-io tests, two GraphQL mapper tests, 45 existing Spark converter tests, 61 development-tool tests, and 12 graph-index tests: **475 passing tests**. The Rest.li model compatibility check also passed. This is a selected verification run, not the entire DataHub test suite.
 
-- **Request-layer JSON Schema validation.** Deferred. The scope of this
-  RFC is dispatch, routing, and mapping. A validation layer is a natural
-  follow-up once the mapping surface is stable and is tracked under
-  "JSON Schema validation for request payloads" in Future Work.
-- **Replace the converter with a pass-through to a new `rawLineageEvent`
-  entity.** Storing the raw JSON event the way Marquez does gives
-  forward-compatibility with any facet shape but requires a new entity type,
-  time-series indexing, and a UI to browse it. Rejected: out of scope.
-- **DataHub-side producer registry.** One Java class per supported producer
-  (Airflow, Trino, dbt, Spark, …) with its own field-extraction logic is
-  the direction the converter currently implements. It does not scale and
-  conflicts with the spec's producer-agnostic intent. Rejected.
-- **Vendor-fork the OpenLineage Java client.** Tempting for fields like
-  `nominalEndTime` that need typed access. Reading through
-  `additionalProperties` is the lower-maintenance path. Rejected.
+The rebase moved smoke tests to `smoke-test/tests/e2e/openapi/test_openapi.py`. The live smoke suite was not rerun on October 5; its latest recorded outcome remains 40 passes and two stale-assertion failures from the October 1 checkpoint. The non-SQL GraphQL `QueryLanguage.UNKNOWN` readback bug, late-schema reconciliation, failure/retry, recreation, and other pending readbacks remain open. The local rebased commit and formatter-only import fix are not yet the published PR head; use the implementation PR/branch above for the currently published revision.
 
-**Prior art.** Marquez is the de-facto receiver implementation for OpenLineage
-in the wider ecosystem. It ingests events by persisting raw JSONB facet blobs
-in `run_facets` / `job_facets` / `dataset_facets` and selectively promotes a
-few well-known fields into typed columns (`jobs.description`, `jobs.location`,
-`runs.parent_run_uuid`, `dataset_fields`, `column_lineage`). This RFC follows
-the same shape on the DataHub side: typed mapping for standard facets,
-graceful tolerance for everything else, observable debug logging for the
-unmapped ones. The Marquez JSON test fixtures are reused as DataHub's spec
-corpus (appendix §A.2 cross-walks each fixture to the DataHub aspect it
-exercises).
+## 1.53.0 implementation follow-up
 
-## Rollout / Adoption Strategy
+The fixture corpus contains 121 upstream-derived JSON files, including ten official fixtures with locally corrected schema declarations. Payload values are unchanged; provenance is recorded in the fixture README. Both `LineageFacet` attachment
+points are validated, and the complete HTTP specification and model prose are pinned alongside the
+JSON schemas. The Java converter dependency is 1.53.0; the Spark integration artifact remains
+1.50.0. Compatibility across those integration paths requires separate verification.
 
-- **Default on.** The behavior changes (event-type dispatch, free-form
-  producer, facet rerouting, structured error responses, MCP Kafka
-  publish path) ship enabled by default in the release that lands this
-  RFC.
-- **Transitional config knobs and removal timeline.** Three knobs ship
-  with a transitional default and are removed in the release after they
-  flip:
+The [batch and incremental-lineage contract](https://github.com/manuschillerdev/datahub/blob/feat/openlineage-conformance-combined/docs/lineage/openlineage.md#batches-and-incremental-lineage)
+describes the new endpoint, accumulation and replacement rules, richer assertions, explicit lineage,
+and representation limits. Focused regression tests apply run patches to DataHub aspect models,
+exercise replay and snapshot behavior, and validate request-to-aspect mapping. Persistence remains
+mocked in the HTTP corpus; the separately linked local live probes establish only their specific
+stored and read-API outcomes.
 
-  | Knob | First-release default | Second-release default | Removal release |
-  |---|---|---|---|
-  | `documentationTarget` | `both` (DataJob + DataFlow) | `dataJob` | one release after the flip |
-  | `ownershipTarget` | `both` (DataJob + DataFlow) | `dataJob` | one release after the flip |
-  | `useStreamingIngest` | `true` (Kafka publish path), with the legacy synchronous `EntityServiceImpl.ingestProposal` path retained behind `false` for sites that depend on read-after-write semantics | `true`, no change | the release that removes the synchronous fallback (one release after the first) |
+## Alternatives and trade-offs
 
-  The `documentationTarget` / `ownershipTarget` parallel-write window
-  exists so operators on `DataFlow`-side reads have one minor release
-  to migrate. The `useStreamingIngest` legacy path exists so
-  read-after-write integrations have one minor release to switch to
-  polling or to the streaming-aware contract. All three knobs are gone
-  one minor release after the flip.
-- **Migration documentation.** A section in `docs/how/updating-datahub.md`
-  lists affected aspects, the config knobs, the response-status change
-  (200 → 202), the read-after-write semantic change, and the rollback
-  procedure. The note cross-links the tracked issues so operators
-  searching for a known symptom land on the migration page.
-- **Backfill.** Not required. Existing `DataFlow.dataFlowInfo.description`
-  and `DataFlow.ownership` records remain valid. New events populate the
-  DataJob location; the DataFlow location continues to receive writes
-  during the parallel-write window.
+| Choice                                        | Reason and cost                                                                                                                                                                                                 |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Synchronous EntityService writes              | Reuses native validation, authorization, patches, and stored-write error reporting. Request latency includes storage; indexing is still asynchronous and a request is not one transaction.                      |
+| Direct asynchronous Kafka transport           | Can reduce acknowledgment latency, as proposed by other PRs. It needs a separate durable-acceptance, validation/authorization, and partial-failure contract; acceptance alone cannot certify persisted aspects. |
+| Native projections plus named-facet retention | Enables DataHub lineage/catalog features and inspection of unsupported detail. SDK serialization and native type/time limits still prevent a claim of exact original-payload fidelity.                          |
+| Configured stable orchestrator                | Keeps identity independent of optional facets. Deployments must configure their desired orchestrator and register any custom platform; existing differently resolved identities need migration planning.        |
 
-## Future Work
+## Rollout and how we teach this
 
-- **JSON Schema validation for request payloads.** Enforce the full
-  OpenLineage 2-0-2 envelope schema at the request layer via an OpenAPI
-  request validator (`com.atlassian.oai:swagger-request-validator-spring-webmvc`
-  against the regenerated `openlineage.json` contract) or a raw JSON
-  Schema validator (`networknt/json-schema-validator` against
-  `spec/OpenLineage.json`), wired as a Spring `RequestBodyAdvice` or
-  `HandlerInterceptor` with `additionalProperties: true` preserved for
-  forward-compat. Closes the gaps typed Jackson leaves open: missing
-  required envelope fields, `format: uri` on `producer` / `schemaURL`,
-  facet-internal `required` fields, `_producer` / `_schemaURL` presence
-  on facets, and `format: date-time` edge cases beyond what
-  `ZonedDateTime` catches.
-- **OpenLineage-driven DataProduct entity.** `JobEvent` ingestion provides
-  enough information to materialize the OL "data product" concept once that
-  part of the spec stabilizes.
-- **Marquez-as-oracle integration test.** Run each Marquez fixture through
-  both Marquez and DataHub and compare the semantic output (entity count,
-  lineage edges, schema fields). Gives a black-box conformance gate anchored
-  to the reference implementation.
-- **Contribute a `datahub` entry to `OpenLineage/compatibility-tests`.** The
-  upstream cross-consumer compatibility repo at
-  `github.com/OpenLineage/compatibility-tests` hosts canonical scenarios
-  under `consumer/scenarios/` and per-consumer mappings under
-  `consumer/consumers/<name>/`. Only `dataplex` is currently listed. The
-  conceptual facet-to-entity mapping in appendix §A.2 is re-expressed as
-  `consumer/consumers/datahub/mapping.json` in the repo's standardized
-  format (`mapped.core`, `mapped.<FacetName>`, `knownUnmapped`) and
-  paired with a `validator/` that calls
-  `GET /openapi/v3/entity/<type>/<urn>` to verify each scenario's expected
-  DataHub aspects. Gives DataHub an official seat in the OL conformance
-  matrix and a vendor-neutral regression target.
-- **Upstream receiver-side conformance proposal.** The OpenLineage project
-  versioning document (`spec/Versioning.md`) is silent on receiver
-  expectations. A short receiver-side guideline codifying the behavior
-  shipped here (`additionalProperties: true`, naive-tz coercion,
-  shape-based dispatch) gives downstream implementations a neutral
-  target. Natural companion to the `compatibility-tests` contribution.
-- **OpenLineage 2-0-3 / future versions.** Additive spec changes are absorbed
-  by regenerating `openlineage.json` and adding mapping methods; no
-  architectural change required.
+Publish the receiver contract, support/retention table, and compatibility exceptions in the [implementation's OpenLineage guide](https://github.com/manuschillerdev/datahub/blob/feat/openlineage-conformance-combined/docs/lineage/openlineage.md). Explain design-time events, run observations, and named-facet update semantics with the linked payload sequences and native readbacks.
 
-## Unresolved questions
+Clients generated for a JSON-encoded string body must move to a JSON event object. Operators must review ingest/delete permissions and configured orchestrator/instance settings. URN and field-path corrections require explicit upgrade guidance and reference checks; no automatic migration or history backfill is implemented. The implementation's [updating guide](https://github.com/manuschillerdev/datahub/blob/feat/openlineage-conformance-combined/docs/how/updating-datahub.md) owns release migration notes.
 
-1. **Default DataPlatform when the orchestrator cannot be derived.** The
-   proposed default is the literal `openlineage`. An alternative derives it
-   from `Job.namespace` by parsing a URI scheme. Decision pending observation
-   of real producer populations.
-2. **DataFlow scope when `Job.name` contains no `.`.** The proposal is a
-   single-task flow named after the job. An alternative uses `Job.namespace`
-   as the flow id and `Job.name` as the task id. Choice affects URN stability
-   for producers that do not follow the `flow.task` convention.
-3. **Length of the parallel-write window for `documentationTarget` /
-   `ownershipTarget`.** One minor release may be too short for sites on
-   quarterly upgrade cadences. Two minor releases delays cleanup.
-4. **Overlap between the existing Airflow-specific and Spark-specific
-   custom-facet handlers and the standard facets.** `processAirflowProperties`
-   reads `run.facets.airflow.dag.tags` for DataHub-side tag ingestion, which
-   overlaps functionally with standard `TagsJobFacet` / `TagsRunFacet`. The
-   proposal leaves the custom handlers in place; a follow-up RFC can audit
-   them for duplication.
-5. **Cross-producer dataset overwrite behavior for `DatasetEvent`.** The
-   `datasetEventNamespaceByProducer` knob ships off by default. If real-world
-   cross-producer collisions are observed, a later RFC flips the default.
+Implementation merge readiness still requires semantic golden review, a green live smoke suite, fixes or agreed handling for open defects, and the remaining persisted/read-API and failure/retry checks. The RFC can be reviewed independently while those gates remain open.
 
-## Appendix
+## Evidence appendix
 
-Per-facet mapping tables, test suite overview, methodology, the
-OpenLineage / DataHub / Marquez cross-walk, and the linked issues/PRs are in
-[`17034-openlineage-spec-compliance-appendix.md`](./17034-openlineage-spec-compliance-appendix.md).
+The [Markdown known-gap appendix](17034-openlineage-spec-compliance-known-gap-appendix.md)
+contains the pinned 34-case master/PR/ours matrix, end-user effects, reproduction index, and direct
+payload links. The [HTML view](17034-openlineage-evidence/openlineage-known-bug-head-matrix-2026-10-01.html)
+adds search and filters. The broader [core semantic audit](17034-openlineage-evidence/openlineage-153-core-semantic-target-audit-2026-10-01.md)
+and [facet audit](17034-openlineage-evidence/openlineage-153-facet-target-audit-2026-10-01.md) cover the
+OpenLineage 1.53 contracts beyond those 34 known cases.

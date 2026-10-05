@@ -1,0 +1,78 @@
+{
+  "bug_id": "B25",
+  "provenance": "captured_from_existing_smoke_test",
+  "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+  "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_ambiguous_field_update_preserves_stored_tags",
+  "test_result_artifact": "../capture-group-c2-results.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_eba1740f",
+          "facets": {
+            "schema": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json",
+              "fields": [
+                {
+                  "name": "col_a",
+                  "type": "string"
+                },
+                {
+                  "name": "col_b",
+                  "type": "integer"
+                }
+              ]
+            },
+            "tags": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsDatasetFacet.json",
+              "tags": [
+                {
+                  "key": "preserved",
+                  "value": "true",
+                  "field": "col_a"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_eba1740f",
+          "facets": {
+            "tags": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsDatasetFacet.json",
+              "tags": [
+                {
+                  "key": "replacement",
+                  "value": "true",
+                  "field": "col_a"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 400
+    }
+  ],
+  "note": "Exact request bodies captured during a passing existing smoke test. Native values are asserted by the test; full read API bodies were not separately retained. No master or PR-head execution is claimed."
+}

@@ -1,0 +1,36 @@
+{
+  "exit_status": 0,
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_present_schema_without_fields_clears_schema",
+      "outcome": "passed",
+      "duration": 23.691
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_repeated_dataset_property_replacement",
+      "outcome": "passed",
+      "duration": 100.1
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_assertion_definitions_keep_separate_history",
+      "outcome": "passed",
+      "duration": 16.231
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_profile_preserves_numeric_precision",
+      "outcome": "passed",
+      "duration": 10.027
+    },
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_ambiguous_field_update_preserves_stored_tags",
+      "outcome": "passed",
+      "duration": 19.804
+    }
+  ]
+}

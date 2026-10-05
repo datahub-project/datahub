@@ -1,0 +1,571 @@
+{
+  "bug_id": "B27",
+  "provenance": "captured_from_existing_smoke_test",
+  "test_result_artifact": "../capture-group-a-results.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.first",
+          "facets": {}
+        },
+        "run": {
+          "runId": "bc1e5c64-823b-5ec4-abd5-6bfd9629503f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+                "fields": {
+                  "col_b": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake",
+                        "name": "my_db.my_schema.source_ca8f2341",
+                        "field": "col_a"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.second",
+          "facets": {}
+        },
+        "run": {
+          "runId": "34acb251-bbb0-55d4-87cf-15059b0cd28f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+                "fields": {
+                  "col_b": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake",
+                        "name": "my_db.my_schema.source_ca8f2341",
+                        "field": "col_c"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "event-3",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.first",
+          "facets": {}
+        },
+        "run": {
+          "runId": "bc1e5c64-823b-5ec4-abd5-6bfd9629503f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "event-4",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.second",
+          "facets": {}
+        },
+        "run": {
+          "runId": "34acb251-bbb0-55d4-87cf-15059b0cd28f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+                "fields": {}
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 5,
+      "label": "event-5",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.first",
+          "facets": {}
+        },
+        "run": {
+          "runId": "bc1e5c64-823b-5ec4-abd5-6bfd9629503f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+                "fields": {
+                  "col_b": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake",
+                        "name": "my_db.my_schema.source_ca8f2341",
+                        "field": "col_a"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 6,
+      "label": "event-6",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.second",
+          "facets": {}
+        },
+        "run": {
+          "runId": "34acb251-bbb0-55d4-87cf-15059b0cd28f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+                "_deleted": true
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 7,
+      "label": "event-7",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.first",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "entries": [
+                {
+                  "namespace": "snowflake",
+                  "name": "my_db.my_schema.events_ca8f2341",
+                  "type": "DATASET",
+                  "inputs": [
+                    {
+                      "namespace": "snowflake",
+                      "name": "my_db.my_schema.source_ca8f2341",
+                      "type": "DATASET"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "run": {
+          "runId": "bc1e5c64-823b-5ec4-abd5-6bfd9629503f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+                "fields": {
+                  "col_b": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake",
+                        "name": "my_db.my_schema.source_ca8f2341",
+                        "field": "col_a"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 8,
+      "label": "event-8",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "eventType": "COMPLETE",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "openlineage_ca8f2341",
+          "name": "load_ca8f2341.second",
+          "facets": {}
+        },
+        "run": {
+          "runId": "34acb251-bbb0-55d4-87cf-15059b0cd28f"
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.source_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_a",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "col_c",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake",
+            "name": "my_db.my_schema.events_ca8f2341",
+            "facets": {
+              "schema": {
+                "_producer": "https://example.com/producer",
+                "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+                "fields": [
+                  {
+                    "name": "col_b",
+                    "type": "STRING"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "note": "These exact request bodies were captured during a passing existing smoke test. The test asserts native readback; its full read API bodies were not separately retained in this capture. No master or PR-head execution is claimed.",
+  "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+  "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_column_lineage_replacement_and_deletion"
+}

@@ -1,0 +1,24 @@
+{
+  "eventTime": "2026-09-28T12:00:00Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "11111111-1111-4111-8111-111111111111",
+    "facets": {}
+  },
+  "job": {
+    "namespace": "gap-demo",
+    "name": "gapdemo.source",
+    "facets": {
+      "sourceCode": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SourceCodeJobFacet.json",
+        "language": "bash",
+        "sourceCode": "printf hello"
+      }
+    }
+  },
+  "inputs": [],
+  "outputs": []
+}

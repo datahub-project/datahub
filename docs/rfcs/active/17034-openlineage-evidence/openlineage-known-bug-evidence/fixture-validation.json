@@ -1,0 +1,57 @@
+{
+  "schema_source": "metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/1.53.0",
+  "validator": "jsonschema Draft202012Validator plus explicit eventTime timezone check",
+  "fixture_count": 34,
+  "provenance_counts": {
+    "captured_from_existing_smoke_test": 17,
+    "executed_current_live": 12,
+    "constructed_from_checked_in_test_unexecuted_payload": 5
+  },
+  "validated_payload_count": 153,
+  "schema_invalid_events": [
+    {
+      "fixture": "B8",
+      "case": "primary",
+      "step": 1,
+      "schema_valid": false,
+      "offsetless_time": false,
+      "error_count": 1
+    },
+    {
+      "fixture": "B8",
+      "case": "primary",
+      "step": 2,
+      "schema_valid": false,
+      "offsetless_time": false,
+      "error_count": 1
+    },
+    {
+      "fixture": "B19",
+      "case": "primary",
+      "step": 12,
+      "schema_valid": false,
+      "offsetless_time": false,
+      "error_count": 1
+    },
+    {
+      "fixture": "B19",
+      "case": "primary",
+      "step": 14,
+      "schema_valid": false,
+      "offsetless_time": false,
+      "error_count": 1
+    }
+  ],
+  "offsetless_time_events": [
+    {
+      "fixture": "B3",
+      "case": "primary",
+      "step": 4,
+      "schema_valid": true,
+      "offsetless_time": true,
+      "error_count": 0
+    }
+  ],
+  "missing_fixture_references": [],
+  "strict_b19_variant_valid": true
+}

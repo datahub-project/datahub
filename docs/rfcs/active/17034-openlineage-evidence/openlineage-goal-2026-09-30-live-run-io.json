@@ -1,0 +1,172 @@
+{
+  "probe": "same-run-partial-io-accumulation",
+  "source": "current local working tree",
+  "started_at": "2026-09-30T17:23:36.370375+00:00",
+  "namespace": "ol_audit_780ce707",
+  "run_urn": "urn:li:dataProcessInstance:6e818e25-1640-4160-9999-162c76557fb9",
+  "endpoint": "http://localhost:10080/openapi/openlineage/api/v1/lineage",
+  "read_url": "http://localhost:10080/openapi/v3/entity/dataProcessInstance/urn%3Ali%3AdataProcessInstance%3A6e818e25-1640-4160-9999-162c76557fb9?aspects=dataProcessInstanceInput,dataProcessInstanceOutput&systemMetadata=true",
+  "requests": [
+    {
+      "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+      "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+      "run": {
+        "runId": "6e818e25-1640-4160-9999-162c76557fb9"
+      },
+      "job": {
+        "namespace": "ol_audit_780ce707",
+        "name": "ol_audit_780ce707.task",
+        "facets": {}
+      },
+      "eventTime": "2026-09-30T17:23:36.370339Z",
+      "eventType": "START",
+      "inputs": [
+        {
+          "namespace": "postgres://warehouse:5432",
+          "name": "ol_audit_780ce707.a"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+      "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+      "run": {
+        "runId": "6e818e25-1640-4160-9999-162c76557fb9"
+      },
+      "job": {
+        "namespace": "ol_audit_780ce707",
+        "name": "ol_audit_780ce707.task",
+        "facets": {}
+      },
+      "eventTime": "2026-09-30T17:23:37.370344Z",
+      "eventType": "COMPLETE",
+      "inputs": [],
+      "outputs": [
+        {
+          "namespace": "postgres://warehouse:5432",
+          "name": "ol_audit_780ce707.b"
+        }
+      ]
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "body": "",
+      "observed_at": "2026-09-30T17:23:36.953802+00:00"
+    },
+    {
+      "status": 200,
+      "body": "",
+      "observed_at": "2026-09-30T17:23:37.109012+00:00"
+    }
+  ],
+  "readbacks": [
+    {
+      "status": 200,
+      "body": {
+        "urn": "urn:li:dataProcessInstance:6e818e25-1640-4160-9999-162c76557fb9",
+        "dataProcessInstanceInput": {
+          "value": {
+            "inputs": [
+              "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres%3A%2F%2Fwarehouse%3A5432.ol_audit_780ce707.a,PROD)"
+            ]
+          },
+          "systemMetadata": {
+            "aspectCreated": {
+              "actor": "urn:li:corpuser:datahub",
+              "time": 1790789016520
+            },
+            "aspectModified": {
+              "actor": "urn:li:corpuser:datahub",
+              "time": 1790789016520
+            },
+            "schemaVersion": 1,
+            "version": "1",
+            "lastObserved": 1790789016860,
+            "properties": {
+              "eventSource": "OPENAPI",
+              "sourceIP": "172.18.0.1",
+              "telemetryTraceId": "00065cb68f30a8b0e0d1cea6be554209"
+            }
+          },
+          "auditStamp": {
+            "actor": "urn:li:corpuser:datahub",
+            "time": 1790789016520
+          }
+        }
+      },
+      "observed_at": "2026-09-30T17:23:36.981066+00:00"
+    },
+    {
+      "status": 200,
+      "body": {
+        "urn": "urn:li:dataProcessInstance:6e818e25-1640-4160-9999-162c76557fb9",
+        "dataProcessInstanceInput": {
+          "value": {
+            "inputs": [
+              "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres%3A%2F%2Fwarehouse%3A5432.ol_audit_780ce707.a,PROD)"
+            ]
+          },
+          "systemMetadata": {
+            "aspectCreated": {
+              "actor": "urn:li:corpuser:datahub",
+              "time": 1790789016520
+            },
+            "schemaVersion": 1,
+            "lastObserved": 1790789017068,
+            "aspectModified": {
+              "actor": "urn:li:corpuser:datahub",
+              "time": 1790789016520
+            },
+            "runId": "no-run-id-provided",
+            "version": "1",
+            "properties": {
+              "eventSource": "OPENAPI",
+              "isNoOp": "true",
+              "sourceIP": "172.18.0.1",
+              "telemetryTraceId": "00065cb68f39d840e85dd5bff7876edb"
+            }
+          },
+          "auditStamp": {
+            "actor": "urn:li:corpuser:datahub",
+            "time": 1790789016520
+          }
+        },
+        "dataProcessInstanceOutput": {
+          "value": {
+            "outputs": [
+              "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres%3A%2F%2Fwarehouse%3A5432.ol_audit_780ce707.b,PROD)"
+            ]
+          },
+          "systemMetadata": {
+            "aspectCreated": {
+              "actor": "urn:li:corpuser:datahub",
+              "time": 1790789017009
+            },
+            "aspectModified": {
+              "actor": "urn:li:corpuser:datahub",
+              "time": 1790789017009
+            },
+            "schemaVersion": 1,
+            "version": "1",
+            "lastObserved": 1790789017068,
+            "properties": {
+              "eventSource": "OPENAPI",
+              "sourceIP": "172.18.0.1",
+              "telemetryTraceId": "00065cb68f39d840e85dd5bff7876edb"
+            }
+          },
+          "auditStamp": {
+            "actor": "urn:li:corpuser:datahub",
+            "time": 1790789017009
+          }
+        }
+      },
+      "observed_at": "2026-09-30T17:23:37.122351+00:00"
+    }
+  ],
+  "credentials_stored": false,
+  "finished_at": "2026-09-30T17:23:37.122376+00:00"
+}

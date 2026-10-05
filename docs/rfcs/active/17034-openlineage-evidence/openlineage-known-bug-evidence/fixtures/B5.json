@@ -1,0 +1,293 @@
+{
+  "bug_id": "B5",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-09-30-live-known-bugs.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-09-30T17:31:17.504518Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "ol_audit_5f8b61da",
+          "name": "ol_audit_5f8b61da.jobtype_delete",
+          "facets": {
+            "jobType": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/2-0-4/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+              "processingType": "BATCH",
+              "integration": "unknown",
+              "jobType": "QUERY"
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-09-30T17:31:18.504518Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "ol_audit_5f8b61da",
+          "name": "ol_audit_5f8b61da.jobtype_delete",
+          "facets": {
+            "jobType": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/2-0-4/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+              "processingType": "BATCH",
+              "integration": "unknown",
+              "jobType": "QUERY",
+              "_deleted": true
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-09-30-live-known-bugs.json",
+  "note": "Primary jobType sequence is copied from live readback. The separate dataset and job typed-tombstone variants were captured during two passing existing smoke tests; their full read API bodies were not retained in this capture. No master or PR-head execution is claimed.",
+  "additional_cases": [
+    {
+      "label": "dataset typed facet deletion",
+      "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+      "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_typed_facet_deletion[dataset]",
+      "test_result_artifact": "../capture-b5-results.json",
+      "event_sequence": [
+        {
+          "step": 1,
+          "label": "event-1",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+            "dataset": {
+              "namespace": "snowflake",
+              "name": "load_f1898303.events",
+              "facets": {
+                "datasetType": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasetTypeDatasetFacet.json",
+                  "datasetType": "TABLE",
+                  "subType": "EXTERNAL"
+                }
+              }
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 2,
+          "label": "event-2",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+            "dataset": {
+              "namespace": "snowflake",
+              "name": "load_f1898303.events",
+              "facets": {}
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 3,
+          "label": "event-3",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+            "dataset": {
+              "namespace": "snowflake",
+              "name": "load_f1898303.events",
+              "facets": {
+                "datasetType": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasetTypeDatasetFacet.json",
+                  "_deleted": true
+                }
+              }
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 4,
+          "label": "event-4",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+            "dataset": {
+              "namespace": "snowflake",
+              "name": "load_f1898303.events",
+              "facets": {}
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 5,
+          "label": "event-5",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+            "dataset": {
+              "namespace": "snowflake",
+              "name": "load_f1898303.events",
+              "facets": {
+                "datasetType": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasetTypeDatasetFacet.json",
+                  "datasetType": "TABLE",
+                  "subType": "EXTERNAL"
+                }
+              }
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        }
+      ]
+    },
+    {
+      "label": "job typed facet deletion",
+      "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+      "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_typed_facet_deletion[job]",
+      "test_result_artifact": "../capture-b5-results.json",
+      "event_sequence": [
+        {
+          "step": 1,
+          "label": "event-1",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_522fb3aa",
+              "name": "load_522fb3aa.events",
+              "facets": {
+                "gcp_lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpLineageJobFacet.json",
+                  "displayName": "Example job"
+                },
+                "gcp_composer_job": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpComposerJobFacet.json",
+                  "environmentName": "example",
+                  "dagId": "example_dag",
+                  "airflowVersion": "2.10.0",
+                  "composerVersion": "3"
+                }
+              }
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 2,
+          "label": "event-2",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_522fb3aa",
+              "name": "load_522fb3aa.events",
+              "facets": {}
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 3,
+          "label": "event-3",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_522fb3aa",
+              "name": "load_522fb3aa.events",
+              "facets": {
+                "gcp_lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpLineageJobFacet.json",
+                  "_deleted": true
+                },
+                "gcp_composer_job": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpComposerJobFacet.json",
+                  "_deleted": true
+                }
+              }
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 4,
+          "label": "event-4",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_522fb3aa",
+              "name": "load_522fb3aa.events",
+              "facets": {}
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        },
+        {
+          "step": 5,
+          "label": "event-5",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_522fb3aa",
+              "name": "load_522fb3aa.events",
+              "facets": {
+                "gcp_lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpLineageJobFacet.json",
+                  "displayName": "Example job"
+                },
+                "gcp_composer_job": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpComposerJobFacet.json",
+                  "environmentName": "example",
+                  "dagId": "example_dag",
+                  "airflowVersion": "2.10.0",
+                  "composerVersion": "3"
+                }
+              }
+            }
+          },
+          "payload_raw_json": null,
+          "observed_http_status": 200
+        }
+      ]
+    }
+  ]
+}

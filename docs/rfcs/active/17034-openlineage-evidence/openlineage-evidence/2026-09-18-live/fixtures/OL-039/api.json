@@ -1,0 +1,640 @@
+{
+  "responses": [
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "datasetKey",
+      "route": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cspec_fixtures.SchemaDatasetFacet_1%2CPROD%29?aspect=datasetKey&version=0",
+      "observed_at": "2026-09-18T10:21:11.786583+00:00",
+      "http_status": 200,
+      "body": {
+        "version": 0,
+        "aspect": {
+          "com.linkedin.metadata.key.DatasetKey": {
+            "name": "spec_fixtures.SchemaDatasetFacet_1",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "origin": "PROD"
+          }
+        }
+      }
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "route": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cspec_fixtures.SchemaDatasetFacet_1%2CPROD%29?aspect=schemaMetadata&version=0",
+      "observed_at": "2026-09-18T10:21:11.789845+00:00",
+      "http_status": 200,
+      "body": {
+        "version": 0,
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "",
+            "fields": [
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NullType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=int64].user_id",
+                "nativeDataType": "int64"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NullType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=int64].counterparty_id",
+                "nativeDataType": "int64"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.MapType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].currency",
+                "nativeDataType": "object"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NullType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=int64].amount",
+                "nativeDataType": "int64"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].phones",
+                "description": "List of phone numbers",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.ArrayType": {}
+                  }
+                },
+                "nativeDataType": "array"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].phones.[type=string]._element",
+                "description": "Phone number",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "nativeDataType": "string"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses",
+                "description": "Has customer completed activation process",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.MapType": {}
+                  }
+                },
+                "nativeDataType": "struct"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].type",
+                "description": "Address type, g.e. home, work, etc.",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "nativeDataType": "string"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].country",
+                "description": "Country name",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "nativeDataType": "string"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].zip",
+                "description": "Zip code",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "nativeDataType": "string"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].state",
+                "description": "State name",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "nativeDataType": "string"
+              },
+              {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].street",
+                "description": "Street name",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "nativeDataType": "string"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.MapType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties",
+                "nativeDataType": "map"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=string].key",
+                "nativeDataType": "string"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.UnionType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value",
+                "nativeDataType": "union"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value.[type=string]._0",
+                "nativeDataType": "string"
+              },
+              {
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NullType": {}
+                  }
+                },
+                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value.[type=int64]._1",
+                "nativeDataType": "int64"
+              }
+            ],
+            "version": 1,
+            "platform": "urn:li:dataPlatform:snowflake",
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": "[{\"name\":\"user_id\",\"type\":\"int64\",\"ordinal_position\":1},{\"name\":\"counterparty_id\",\"type\":\"int64\",\"ordinal_position\":2},{\"name\":\"currency\",\"type\":\"object\",\"ordinal_position\":3},{\"name\":\"amount\",\"type\":\"int64\",\"ordinal_position\":4},{\"name\":\"phones\",\"type\":\"array\",\"description\":\"List of phone numbers\",\"ordinal_position\":5,\"fields\":[{\"name\":\"_element\",\"type\":\"string\",\"description\":\"Phone number\"}]},{\"name\":\"addresses\",\"type\":\"struct\",\"description\":\"Has customer completed activation process\",\"ordinal_position\":6,\"fields\":[{\"name\":\"type\",\"type\":\"string\",\"description\":\"Address type, g.e. home, work, etc.\",\"ordinal_position\":1},{\"name\":\"country\",\"type\":\"string\",\"description\":\"Country name\",\"ordinal_position\":2},{\"name\":\"zip\",\"type\":\"string\",\"description\":\"Zip code\",\"ordinal_position\":3},{\"name\":\"state\",\"type\":\"string\",\"description\":\"State name\",\"ordinal_position\":4},{\"name\":\"street\",\"type\":\"string\",\"description\":\"Street name\",\"ordinal_position\":5}]},{\"name\":\"custom_properties\",\"type\":\"map\",\"ordinal_position\":7,\"fields\":[{\"name\":\"key\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"union\",\"fields\":[{\"name\":\"_0\",\"type\":\"string\"},{\"name\":\"_1\",\"type\":\"int64\"}]}]}]"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "status",
+      "route": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cspec_fixtures.SchemaDatasetFacet_1%2CPROD%29?aspect=status&version=0",
+      "observed_at": "2026-09-18T10:21:11.793420+00:00",
+      "http_status": 200,
+      "body": {
+        "version": 0,
+        "aspect": {
+          "com.linkedin.common.Status": {
+            "removed": false
+          }
+        }
+      }
+    }
+  ],
+  "checks": [
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "datasetKey",
+      "path": "/",
+      "kind": "native",
+      "expected": {
+        "name": "spec_fixtures.SchemaDatasetFacet_1",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "origin": "PROD"
+      },
+      "actual": {
+        "name": "spec_fixtures.SchemaDatasetFacet_1",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "origin": "PROD"
+      },
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "path": "/platformSchema",
+      "kind": "native",
+      "expected": {
+        "com.linkedin.schema.OtherSchema": {
+          "rawSchema": "[{\"name\":\"user_id\",\"type\":\"int64\",\"ordinal_position\":1},{\"name\":\"counterparty_id\",\"type\":\"int64\",\"ordinal_position\":2},{\"name\":\"currency\",\"type\":\"object\",\"ordinal_position\":3},{\"name\":\"amount\",\"type\":\"int64\",\"ordinal_position\":4},{\"name\":\"phones\",\"type\":\"array\",\"description\":\"List of phone numbers\",\"ordinal_position\":5,\"fields\":[{\"name\":\"_element\",\"type\":\"string\",\"description\":\"Phone number\"}]},{\"name\":\"addresses\",\"type\":\"struct\",\"description\":\"Has customer completed activation process\",\"ordinal_position\":6,\"fields\":[{\"name\":\"type\",\"type\":\"string\",\"description\":\"Address type, g.e. home, work, etc.\",\"ordinal_position\":1},{\"name\":\"country\",\"type\":\"string\",\"description\":\"Country name\",\"ordinal_position\":2},{\"name\":\"zip\",\"type\":\"string\",\"description\":\"Zip code\",\"ordinal_position\":3},{\"name\":\"state\",\"type\":\"string\",\"description\":\"State name\",\"ordinal_position\":4},{\"name\":\"street\",\"type\":\"string\",\"description\":\"Street name\",\"ordinal_position\":5}]},{\"name\":\"custom_properties\",\"type\":\"map\",\"ordinal_position\":7,\"fields\":[{\"name\":\"key\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"union\",\"fields\":[{\"name\":\"_0\",\"type\":\"string\"},{\"name\":\"_1\",\"type\":\"int64\"}]}]}]"
+        }
+      },
+      "actual": {
+        "com.linkedin.schema.OtherSchema": {
+          "rawSchema": "[{\"name\":\"user_id\",\"type\":\"int64\",\"ordinal_position\":1},{\"name\":\"counterparty_id\",\"type\":\"int64\",\"ordinal_position\":2},{\"name\":\"currency\",\"type\":\"object\",\"ordinal_position\":3},{\"name\":\"amount\",\"type\":\"int64\",\"ordinal_position\":4},{\"name\":\"phones\",\"type\":\"array\",\"description\":\"List of phone numbers\",\"ordinal_position\":5,\"fields\":[{\"name\":\"_element\",\"type\":\"string\",\"description\":\"Phone number\"}]},{\"name\":\"addresses\",\"type\":\"struct\",\"description\":\"Has customer completed activation process\",\"ordinal_position\":6,\"fields\":[{\"name\":\"type\",\"type\":\"string\",\"description\":\"Address type, g.e. home, work, etc.\",\"ordinal_position\":1},{\"name\":\"country\",\"type\":\"string\",\"description\":\"Country name\",\"ordinal_position\":2},{\"name\":\"zip\",\"type\":\"string\",\"description\":\"Zip code\",\"ordinal_position\":3},{\"name\":\"state\",\"type\":\"string\",\"description\":\"State name\",\"ordinal_position\":4},{\"name\":\"street\",\"type\":\"string\",\"description\":\"Street name\",\"ordinal_position\":5}]},{\"name\":\"custom_properties\",\"type\":\"map\",\"ordinal_position\":7,\"fields\":[{\"name\":\"key\",\"type\":\"string\"},{\"name\":\"value\",\"type\":\"union\",\"fields\":[{\"name\":\"_0\",\"type\":\"string\"},{\"name\":\"_1\",\"type\":\"int64\"}]}]}]"
+        }
+      },
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "path": "/schemaName",
+      "kind": "native",
+      "expected": "",
+      "actual": "",
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "path": "/fields",
+      "kind": "native",
+      "expected": [
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=int64].user_id",
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "nativeDataType": "int64"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=int64].counterparty_id",
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "nativeDataType": "int64"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].currency",
+          "type": {
+            "type": {
+              "com.linkedin.schema.MapType": {}
+            }
+          },
+          "nativeDataType": "object"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=int64].amount",
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "nativeDataType": "int64"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].phones",
+          "description": "List of phone numbers",
+          "type": {
+            "type": {
+              "com.linkedin.schema.ArrayType": {}
+            }
+          },
+          "nativeDataType": "array"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].phones.[type=string]._element",
+          "description": "Phone number",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses",
+          "description": "Has customer completed activation process",
+          "type": {
+            "type": {
+              "com.linkedin.schema.MapType": {}
+            }
+          },
+          "nativeDataType": "struct"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].type",
+          "description": "Address type, g.e. home, work, etc.",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].country",
+          "description": "Country name",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].zip",
+          "description": "Zip code",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].state",
+          "description": "State name",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].street",
+          "description": "Street name",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties",
+          "type": {
+            "type": {
+              "com.linkedin.schema.MapType": {}
+            }
+          },
+          "nativeDataType": "map"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=string].key",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value",
+          "type": {
+            "type": {
+              "com.linkedin.schema.UnionType": {}
+            }
+          },
+          "nativeDataType": "union"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value.[type=string]._0",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value.[type=int64]._1",
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "nativeDataType": "int64"
+        }
+      ],
+      "actual": [
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=int64].user_id",
+          "nativeDataType": "int64"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=int64].counterparty_id",
+          "nativeDataType": "int64"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.MapType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].currency",
+          "nativeDataType": "object"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=int64].amount",
+          "nativeDataType": "int64"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].phones",
+          "description": "List of phone numbers",
+          "type": {
+            "type": {
+              "com.linkedin.schema.ArrayType": {}
+            }
+          },
+          "nativeDataType": "array"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].phones.[type=string]._element",
+          "description": "Phone number",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses",
+          "description": "Has customer completed activation process",
+          "type": {
+            "type": {
+              "com.linkedin.schema.MapType": {}
+            }
+          },
+          "nativeDataType": "struct"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].type",
+          "description": "Address type, g.e. home, work, etc.",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].country",
+          "description": "Country name",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].zip",
+          "description": "Zip code",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].state",
+          "description": "State name",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "fieldPath": "[version=2.0].[type=struct].[type=struct].addresses.[type=string].street",
+          "description": "Street name",
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.MapType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties",
+          "nativeDataType": "map"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=string].key",
+          "nativeDataType": "string"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.UnionType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value",
+          "nativeDataType": "union"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.StringType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value.[type=string]._0",
+          "nativeDataType": "string"
+        },
+        {
+          "type": {
+            "type": {
+              "com.linkedin.schema.NullType": {}
+            }
+          },
+          "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].custom_properties.[type=union].value.[type=int64]._1",
+          "nativeDataType": "int64"
+        }
+      ],
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "path": "/version",
+      "kind": "native",
+      "expected": 1,
+      "actual": 1,
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "path": "/hash",
+      "kind": "native",
+      "expected": "",
+      "actual": "",
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "schemaMetadata",
+      "path": "/platform",
+      "kind": "native",
+      "expected": "urn:li:dataPlatform:snowflake",
+      "actual": "urn:li:dataPlatform:snowflake",
+      "status": "verified"
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,spec_fixtures.SchemaDatasetFacet_1,PROD)",
+      "aspect": "status",
+      "path": "/",
+      "kind": "native",
+      "expected": {
+        "removed": false
+      },
+      "actual": {
+        "removed": false
+      },
+      "status": "verified"
+    }
+  ]
+}

@@ -1,0 +1,617 @@
+package io.datahubproject.openlineage.converter;
+
+import static io.datahubproject.openlineage.converter.OpenLineageMappingUtils.activeJobFacet;
+
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.DataTransform;
+import com.linkedin.common.DataTransformArray;
+import com.linkedin.common.DataTransformLogic;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.SubTypes;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.common.urn.DataJobUrn;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.datajob.DataFlowInfo;
+import com.linkedin.datajob.DataJobInfo;
+import com.linkedin.dataprocess.DataProcessInstanceRelationships;
+import com.linkedin.domain.Domains;
+import com.linkedin.query.QueryLanguage;
+import com.linkedin.query.QueryStatement;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.customfacet.CompatibilityFacetCatalog;
+import io.datahubproject.openlineage.customfacet.CompatibilityFacetContract;
+import io.datahubproject.openlineage.customfacet.CustomRunFacetContributions;
+import io.datahubproject.openlineage.customfacet.CustomRunFacetProcessor;
+import io.datahubproject.openlineage.dataset.DatahubDataset;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.datahubproject.openlineage.utils.DatahubUtils;
+import io.openlineage.client.OpenLineage;
+import java.io.IOException;
+import java.net.URI;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+final class OpenLineageJobMapper {
+
+  static final String PROCESSING_ENGINE_KEY = "processingEngine";
+  static final String PROCESSING_ENGINE_VERSION_KEY = "processingEngineVersion";
+  static final String OPENLINEAGE_ADAPTER_VERSION_KEY = "openlineageAdapterVersion";
+  static final String JOB_ID_KEY = "jobId";
+  static final String JOB_DESCRIPTION_KEY = "jobDescription";
+  static final String JOB_GROUP_KEY = "jobGroup";
+  static final String JOB_CALL_SITE_KEY = "jobCallSite";
+  static final String SPARK_VERSION_KEY = "spark-version";
+  static final String OPENLINEAGE_SPARK_VERSION_KEY = "openlineage-spark-version";
+  static final String SPARK_LOGICAL_PLAN_KEY = "spark.logicalPlan";
+  static final String MERGE_INTO_COMMAND_PATTERN = "execute_merge_into_command_edge";
+  static final String MERGE_INTO_SQL_PATTERN = "MERGE INTO";
+  static final String TABLE_PREFIX = "table/";
+  static final String WAREHOUSE_PATH_PATTERN = "/warehouse/";
+  static final String DB_SUFFIX = ".db/";
+  private static final CustomRunFacetProcessor CUSTOM_RUN_FACET_PROCESSOR =
+      new CustomRunFacetProcessor();
+  private static final Set<String> COMPATIBILITY_RUN_FACET_KEYS =
+      CompatibilityFacetCatalog.contracts().stream()
+          .map(CompatibilityFacetContract::key)
+          .collect(Collectors.toUnmodifiableSet());
+
+  private OpenLineageJobMapper() {}
+
+  static DatahubJob convertJobEventToJob(
+      OpenLineage.JobEvent event, DatahubOpenlineageConfig datahubConf) throws IOException {
+    var job = mapRunMetadata(jobEventAsRun(event), datahubConf, false, true);
+    populateDatasets(job, jobEventAsRun(event), datahubConf);
+    return job;
+  }
+
+  static DatahubJob mapJobMetadata(OpenLineage.JobEvent event, DatahubOpenlineageConfig config)
+      throws IOException {
+    return mapRunMetadata(jobEventAsRun(event), config, false, false);
+  }
+
+  static OpenLineage.RunEvent jobEventAsRun(OpenLineage.JobEvent event) {
+    URI producer =
+        event.getProducer() != null ? event.getProducer() : URI.create("https://openlineage.io");
+    OpenLineage openLineage = new OpenLineage(producer);
+    OpenLineage.RunEvent syntheticRunEvent =
+        openLineage
+            .newRunEventBuilder()
+            .eventTime(event.getEventTime())
+            .eventType(OpenLineage.RunEvent.EventType.OTHER)
+            // The shared mapper requires a RunEvent; JobEvents never emit its placeholder run.
+            .run(openLineage.newRunBuilder().runId(new UUID(0, 0)).build())
+            .job(event.getJob())
+            .inputs(event.getInputs())
+            .outputs(event.getOutputs())
+            .build();
+
+    return syntheticRunEvent;
+  }
+
+  static DatahubJob convertRunEventToJob(
+      OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) throws IOException {
+    var job = mapRunMetadata(event, datahubConf, true, true);
+    populateDatasets(job, event, datahubConf);
+    return job;
+  }
+
+  static DatahubJob mapRunMetadata(
+      OpenLineage.RunEvent event,
+      DatahubOpenlineageConfig datahubConf,
+      boolean emitDataProcessInstance)
+      throws IOException {
+    return mapRunMetadata(event, datahubConf, emitDataProcessInstance, false);
+  }
+
+  private static DatahubJob mapRunMetadata(
+      OpenLineage.RunEvent event,
+      DatahubOpenlineageConfig datahubConf,
+      boolean emitDataProcessInstance,
+      boolean legacyJobIdentity)
+      throws IOException {
+    DatahubJob.DatahubJobBuilder jobBuilder = DatahubJob.builder();
+
+    if (event.getEventTime() != null) {
+      jobBuilder.eventTime(event.getEventTime().toInstant().toEpochMilli());
+    }
+
+    log.debug("Mapping OpenLineage RunEvent");
+    logUnknownFacets(event);
+    CustomRunFacetContributions customFacetContributions =
+        CUSTOM_RUN_FACET_PROCESSOR.process(event.getRun().getFacets());
+    DataFlowInfo dfi =
+        OpenLineagePlatformResolver.convertRunEventToDataFlowInfo(
+            event, datahubConf.getPipelineName());
+
+    OpenLineage.RunFacets runFacets = event.getRun().getFacets();
+    OpenLineage.ProcessingEngineRunFacet processingEngineFacet =
+        runFacets == null ? null : runFacets.getProcessing_engine();
+    String processingEngine =
+        processingEngineFacet != null ? processingEngineFacet.getName() : null;
+
+    OpenLineage.JobFacets jobFacets = event.getJob().getFacets();
+    OpenLineage.JobTypeJobFacet jobTypeFacet = activeJobType(jobFacets);
+
+    DataFlowUrn dataFlowUrn =
+        (legacyJobIdentity
+            ? OpenLineagePlatformResolver.getLegacyFlowUrn(
+                event.getJob().getNamespace(),
+                event.getJob().getName(),
+                processingEngine,
+                event.getProducer(),
+                datahubConf)
+            : OpenLineagePlatformResolver.getFlowUrn(
+                event.getJob().getNamespace(),
+                event.getJob().getName(),
+                processingEngine,
+                jobTypeFacet == null ? null : jobTypeFacet.getIntegration(),
+                event.getProducer(),
+                datahubConf));
+    jobBuilder.flowUrn(dataFlowUrn);
+
+    if (datahubConf.getPlatformInstance() != null) {
+      DataPlatformInstance dpi =
+          new DataPlatformInstance()
+              .setPlatform(new DataPlatformUrn(dataFlowUrn.getOrchestratorEntity()))
+              .setInstance(
+                  OpenLineageMappingUtils.dataPlatformInstanceUrn(
+                      dataFlowUrn.getOrchestratorEntity(), datahubConf.getPlatformInstance()));
+      jobBuilder.flowPlatformInstance(dpi);
+      // Stamp the same instance on the DataJob so the job entity carries its own
+      // DataPlatformInstance aspect, not just the instance embedded in the parent DataFlow URN.
+      jobBuilder.jobPlatformInstance(dpi);
+    }
+
+    dfi.setCustomProperties(new StringMap(customFacetContributions.flowProperties()));
+
+    jobBuilder.dataFlowInfo(dfi);
+
+    jobBuilder.jobOwnership(generateOwnership(event.getJob().getFacets()));
+
+    jobBuilder.jobGlobalTags(generateJobTags(event.getJob().getFacets()));
+    jobBuilder.flowGlobalTags(customFacetContributions.flowTags());
+
+    DataTransformLogic dataTransformLogic = generateDataTransformLogic(event.getJob().getFacets());
+    jobBuilder.dataTransformLogic(dataTransformLogic);
+
+    Domains domains = OpenLineageMappingUtils.generateDomains(datahubConf.getDomains());
+    jobBuilder.flowDomains(domains);
+    jobBuilder.jobDomains(domains);
+
+    DatahubJob datahubJob = jobBuilder.build();
+    if (emitDataProcessInstance) {
+      datahubJob.setDataProcessInstanceUrn(
+          UrnUtils.getUrn(
+              OpenLineageRunMapper.URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId()));
+    }
+    convertJobToDataJob(datahubJob, event, datahubConf, customFacetContributions);
+    return datahubJob;
+  }
+
+  static Ownership generateOwnership(OpenLineage.JobFacets jobFacets) {
+    if (jobFacets == null || activeJobFacet(jobFacets.getOwnership()) == null) {
+      return null;
+    }
+    return OpenLineageMappingUtils.generateOwnership(
+        jobFacets.getOwnership().getOwners(),
+        OpenLineage.OwnershipJobFacetOwners::getName,
+        OpenLineage.OwnershipJobFacetOwners::getType);
+  }
+
+  static GlobalTags generateJobTags(OpenLineage.JobFacets jobFacets) {
+    if (jobFacets == null || activeJobFacet(jobFacets.getTags()) == null) {
+      return null;
+    }
+    return OpenLineageMappingUtils.generateFacetTags(
+        jobFacets.getTags().getTags(),
+        OpenLineage.TagsJobFacetFields::getKey,
+        OpenLineage.TagsJobFacetFields::getValue);
+  }
+
+  static DataTransformLogic generateDataTransformLogic(OpenLineage.JobFacets jobFacets) {
+    if (jobFacets == null) {
+      return null;
+    }
+
+    DataTransformArray transforms = new DataTransformArray();
+    if (activeJobFacet(jobFacets.getSql()) != null && jobFacets.getSql().getQuery() != null) {
+      transforms.add(getDataTransform(jobFacets.getSql().getQuery(), QueryLanguage.SQL));
+    }
+    if (activeJobFacet(jobFacets.getSourceCode()) != null
+        && jobFacets.getSourceCode().getSourceCode() != null) {
+      transforms.add(
+          getDataTransform(jobFacets.getSourceCode().getSourceCode(), QueryLanguage.UNKNOWN));
+    }
+    if (transforms.isEmpty()) {
+      return null;
+    }
+
+    DataTransformLogic transformLogic = new DataTransformLogic();
+    transformLogic.setTransforms(transforms);
+    return transformLogic;
+  }
+
+  static DataTransform getDataTransform(String value, QueryLanguage language) {
+    QueryStatement queryStatement = new QueryStatement();
+    queryStatement.setValue(value);
+    queryStatement.setLanguage(language);
+
+    DataTransform transform = new DataTransform();
+    transform.setQueryStatement(queryStatement);
+    return transform;
+  }
+
+  static String getSourceCodeLocationUrl(OpenLineage.JobFacets jobFacets) {
+    OpenLineage.SourceCodeLocationJobFacet location =
+        jobFacets == null ? null : activeJobFacet(jobFacets.getSourceCodeLocation());
+    if (location == null) return null;
+    return location.getUrl() == null ? location.getRepoUrl() : location.getUrl().toString();
+  }
+
+  static SubTypes getDataJobSubTypes(OpenLineage.JobFacets jobFacets) {
+    OpenLineage.JobTypeJobFacet jobTypeFacet = activeJobType(jobFacets);
+    if (jobTypeFacet == null
+        || jobTypeFacet.getJobType() == null
+        || jobTypeFacet.getJobType().isBlank()) {
+      return null;
+    }
+    return new SubTypes().setTypeNames(new StringArray(List.of(jobTypeFacet.getJobType().trim())));
+  }
+
+  private static OpenLineage.JobTypeJobFacet activeJobType(OpenLineage.JobFacets facets) {
+    if (facets == null || facets.getJobType() == null) return null;
+    OpenLineage.JobTypeJobFacet jobType = facets.getJobType();
+    return Boolean.TRUE.equals(jobType.get_deleted()) ? null : jobType;
+  }
+
+  static void logUnknownFacets(OpenLineage.RunEvent event) {
+    if (event.getRun().getFacets() != null
+        && event.getRun().getFacets().getAdditionalProperties() != null) {
+      Set<String> unknownRunFacets =
+          event.getRun().getFacets().getAdditionalProperties().keySet().stream()
+              .filter(name -> !COMPATIBILITY_RUN_FACET_KEYS.contains(name))
+              .filter(name -> !"processing_engine".equals(name))
+              .collect(Collectors.toUnmodifiableSet());
+      OpenLineageMappingUtils.logFacetNames("RunEvent", "run", unknownRunFacets);
+    }
+    if (event.getJob().getFacets() != null) {
+      OpenLineageMappingUtils.logFacetNames(
+          "RunEvent", "job", event.getJob().getFacets().getAdditionalProperties().keySet());
+    }
+    if (event.getInputs() != null) {
+      for (OpenLineage.InputDataset input : event.getInputs()) {
+        if (input.getFacets() != null) {
+          OpenLineageMappingUtils.logFacetNames(
+              "RunEvent", "input.dataset", input.getFacets().getAdditionalProperties().keySet());
+        }
+        if (input.getInputFacets() != null) {
+          OpenLineageMappingUtils.logFacetNames(
+              "RunEvent", "input", input.getInputFacets().getAdditionalProperties().keySet());
+        }
+      }
+    }
+    if (event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        if (output.getFacets() != null) {
+          OpenLineageMappingUtils.logFacetNames(
+              "RunEvent", "output.dataset", output.getFacets().getAdditionalProperties().keySet());
+        }
+        if (output.getOutputFacets() != null) {
+          OpenLineageMappingUtils.logFacetNames(
+              "RunEvent", "output", output.getOutputFacets().getAdditionalProperties().keySet());
+        }
+      }
+    }
+  }
+
+  static boolean isNonMaterializingRddTransformation(String jobName) {
+    // These transformations work on the same logical dataset without materializing new ones
+    String[] nonMaterializingTransformations = {
+      // Element-wise transformations (1-to-1 mapping)
+      "map_parallel_collection",
+      "map_text_file",
+      "map_hadoopfile",
+      "map_partitions_parallel_collection",
+      "map_partitions_text_file",
+      "map_partitions_hadoopfile",
+      "flatmap_parallel_collection",
+      "flatmap_text_file",
+      "flatmap_hadoopfile",
+
+      // Filtering operations (subset of same dataset)
+      "filter_parallel_collection",
+      "filter_text_file",
+      "filter_hadoopfile",
+
+      // Deduplication (subset of same dataset)
+      "distinct_parallel_collection",
+      "distinct_text_file",
+      "distinct_hadoopfile"
+    };
+
+    for (String transformation : nonMaterializingTransformations) {
+      if (jobName.endsWith(transformation)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  static void convertJobToDataJob(
+      DatahubJob datahubJob,
+      OpenLineage.RunEvent event,
+      DatahubOpenlineageConfig datahubConf,
+      CustomRunFacetContributions customFacetContributions) {
+
+    OpenLineage.Job job = event.getJob();
+    DataFlowUrn flowUrn = datahubJob.getFlowUrn();
+    DataJobInfo dataJobInfo = new DataJobInfo();
+
+    // Extract job names using helper method
+    JobNameResult jobNames = extractJobNames(event, datahubConf);
+
+    // Set the display name
+    dataJobInfo.setName(jobNames.displayName());
+
+    dataJobInfo.setFlowUrn(flowUrn);
+    OpenLineage.JobFacets jobFacets = job.getFacets();
+    OpenLineage.JobTypeJobFacet jobTypeFacet = activeJobType(jobFacets);
+    String jobProcessingType = jobTypeFacet == null ? null : jobTypeFacet.getProcessingType();
+    dataJobInfo.setType(
+        DataJobInfo.Type.create(
+            jobProcessingType != null && !jobProcessingType.isBlank()
+                ? jobProcessingType.trim()
+                : flowUrn.getOrchestratorEntity()));
+
+    DataJobUrn dataJobUrn = DatahubUtils.jobUrn(flowUrn, jobNames.taskName());
+    datahubJob.setJobUrn(dataJobUrn);
+
+    StringMap customProperties = new StringMap(customFacetContributions.jobProperties());
+    if (jobFacets != null
+        && activeJobFacet(jobFacets.getSourceCode()) != null
+        && jobFacets.getSourceCode().getLanguage() != null) {
+      customProperties.put(
+          "openlineage.sourceCodeLanguage", jobFacets.getSourceCode().getLanguage());
+    }
+    if (jobFacets != null && activeJobFacet(jobFacets.getSourceCodeLocation()) != null) {
+      var location = jobFacets.getSourceCodeLocation();
+      if (location.getType() != null)
+        customProperties.put("openlineage.sourceCodeLocation.type", location.getType());
+      if (location.getUrl() != null)
+        customProperties.put("openlineage.sourceCodeLocation.url", location.getUrl().toString());
+      if (location.getRepoUrl() != null)
+        customProperties.put("openlineage.sourceCodeLocation.repoUrl", location.getRepoUrl());
+      if (location.getPath() != null)
+        customProperties.put("openlineage.sourceCodeLocation.path", location.getPath());
+      if (location.getVersion() != null)
+        customProperties.put("openlineage.sourceCodeLocation.version", location.getVersion());
+      if (location.getTag() != null)
+        customProperties.put("openlineage.sourceCodeLocation.tag", location.getTag());
+      if (location.getBranch() != null)
+        customProperties.put("openlineage.sourceCodeLocation.branch", location.getBranch());
+      OpenLineageMappingUtils.putIfPresent(
+          customProperties, "openlineage.pullRequestNumber", location.getPullRequestNumber());
+    }
+    OpenLineage.DocumentationJobFacet documentation =
+        jobFacets == null ? null : jobFacets.getDocumentation();
+    OpenLineageFacetProperties.add(customProperties, jobFacets);
+    dataJobInfo.setCustomProperties(customProperties);
+
+    if (documentation != null && !Boolean.TRUE.equals(documentation.get_deleted())) {
+      dataJobInfo.setDescription(documentation.getDescription());
+    }
+
+    String sourceCodeUrl = getSourceCodeLocationUrl(jobFacets);
+    if (sourceCodeUrl != null) {
+      dataJobInfo.setExternalUrl(new Url(sourceCodeUrl));
+    }
+    datahubJob.setJobInfo(dataJobInfo);
+    datahubJob.setJobSubTypes(getDataJobSubTypes(jobFacets));
+
+    if (datahubJob.getDataProcessInstanceUrn() != null) {
+      // JobEvents reuse job mapping without creating run-only metadata.
+      datahubJob.setDataProcessInstanceRunEvent(
+          OpenLineageRunMapper.processDataProcessInstanceResult(event));
+      datahubJob.setDataProcessInstanceProperties(
+          OpenLineageRunMapper.getJobDataProcessInstanceProperties(event));
+      OpenLineageJobDependencies.add(datahubJob, event, datahubConf);
+
+      DataProcessInstanceRelationships relationships = new DataProcessInstanceRelationships();
+      relationships.setParentTemplate(dataJobUrn);
+      OpenLineageRunMapper.getParentDataProcessInstanceUrn(event)
+          .ifPresent(relationships::setParentInstance);
+      relationships.setUpstreamInstances(new UrnArray());
+      datahubJob.setDataProcessInstanceRelationships(relationships);
+    }
+  }
+
+  private static void populateDatasets(
+      DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+    // Process inputs and outputs
+    boolean inputsEqualOutputs = checkInputsEqualOutputs(event, datahubConf);
+
+    processJobInputs(datahubJob, event, datahubConf);
+
+    if (!inputsEqualOutputs) {
+      OpenLineageDatasetMapper.processJobOutputs(datahubJob, event, datahubConf);
+    }
+  }
+
+  private record JobNameResult(String taskName, String displayName) {}
+
+  private static JobNameResult extractJobNames(
+      OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+    OpenLineage.Job job = event.getJob();
+    String jobNameForUrn = job.getName();
+    if (jobNameForUrn.contains(MERGE_INTO_COMMAND_PATTERN)
+        && datahubConf.isEnhancedMergeIntoExtraction()) {
+      log.info("Using enhanced MERGE INTO extraction");
+      String tableName = extractTableNameFromMergeCommand(event);
+      if (tableName != null) {
+        // The MERGE target disambiguates the job; its parent flow keeps the original name.
+        String tablePart = tableName.replace(".", "_").replace(" ", "_").toLowerCase(Locale.ROOT);
+        jobNameForUrn += "." + tablePart;
+      }
+    }
+    int separator = jobNameForUrn.indexOf('.');
+    String jobNameForDisplay =
+        separator < 0 ? jobNameForUrn : jobNameForUrn.substring(separator + 1);
+    return new JobNameResult(jobNameForUrn, jobNameForDisplay);
+  }
+
+  private static String extractTableNameFromMergeCommand(OpenLineage.RunEvent event) {
+    String tableName;
+
+    // Method 1: Check for table name in the SQL facet (most reliable)
+    tableName = extractTableNameFromSql(event.getJob());
+    if (tableName != null) {
+      return tableName;
+    }
+
+    // Method 2: Look for direct table names in the outputs
+    tableName = extractTableNameFromOutputs(event);
+    if (tableName != null) {
+      return tableName;
+    }
+
+    // Method 3: Check for table identifiers in symlinks
+    tableName = extractTableNameFromSymlinks(event);
+    if (tableName != null) {
+      return tableName;
+    }
+
+    // Method 4: Extract table name from warehouse paths (as a last resort)
+    return extractTableNameFromWarehousePaths(event);
+  }
+
+  private static String extractTableNameFromSql(OpenLineage.Job job) {
+    if (job.getFacets() == null || job.getFacets().getSql() == null) return null;
+    String sqlQuery = job.getFacets().getSql().getQuery();
+    if (sqlQuery == null) return null;
+    for (String line : sqlQuery.split("\n")) {
+      String trimmed = line.trim();
+      if (!trimmed.toUpperCase(Locale.ROOT).startsWith(MERGE_INTO_SQL_PATTERN)) continue;
+      String[] parts = trimmed.split("\\s+");
+      if (parts.length < 3) continue;
+      // The third token is the target in "MERGE INTO schema.table ...".
+      String tableName = parts[2].replace("`", "").trim();
+      return tableName;
+    }
+    return null;
+  }
+
+  private static String extractTableNameFromOutputs(OpenLineage.RunEvent event) {
+    if (event.getOutputs() == null) return null;
+    for (OpenLineage.OutputDataset output : event.getOutputs()) {
+      String name = output.getName();
+      if (name == null || !name.contains(".") || name.startsWith("/")) continue;
+      return name;
+    }
+    return null;
+  }
+
+  private static String extractTableNameFromSymlinks(OpenLineage.RunEvent event) {
+    if (event.getOutputs() == null) return null;
+    for (OpenLineage.OutputDataset output : event.getOutputs()) {
+      if (output.getFacets() == null || output.getFacets().getSymlinks() == null) continue;
+      for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+          output.getFacets().getSymlinks().getIdentifiers()) {
+        if (!"TABLE".equals(symlink.getType()) || symlink.getName() == null) continue;
+        String name = symlink.getName();
+        if (name.startsWith(TABLE_PREFIX)) {
+          name = name.substring(TABLE_PREFIX.length()).replace("/", ".");
+        }
+        return name;
+      }
+    }
+    return null;
+  }
+
+  private static String extractTableNameFromWarehousePaths(OpenLineage.RunEvent event) {
+    if (event.getOutputs() == null) return null;
+    for (OpenLineage.OutputDataset output : event.getOutputs()) {
+      String path = output.getName();
+      if (path == null || !path.contains(WAREHOUSE_PATH_PATTERN) || !path.contains(DB_SUFFIX))
+        continue;
+      int dbIndex = path.lastIndexOf(DB_SUFFIX);
+      String tablePart = path.substring(dbIndex + DB_SUFFIX.length()).replaceAll("/+$", "");
+      int warehouseIndex = path.lastIndexOf(WAREHOUSE_PATH_PATTERN);
+      String dbPart = path.substring(warehouseIndex + WAREHOUSE_PATH_PATTERN.length(), dbIndex);
+      String tableName = dbPart + "." + tablePart;
+      return tableName;
+    }
+    return null;
+  }
+
+  private static void processJobInputs(
+      DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+    if (event.getInputs() == null) {
+      return;
+    }
+    for (OpenLineage.InputDataset input : event.getInputs()) {
+      DatahubDataset datahubDataset =
+          OpenLineageDatasetMapper.mapInput(datahubJob, event, input, datahubConf);
+      if (datahubDataset == null) {
+        continue;
+      }
+      OpenLineageRunMapper.processDataQualityAssertions(
+          datahubJob, event, input, datahubDataset.getUrn());
+      OpenLineageDatasetMapper.addHierarchyMcps(
+          datahubJob.getExtraMcps(), input, datahubDataset.getUrn());
+      datahubJob.getInSet().remove(datahubDataset);
+      datahubJob.getInSet().add(datahubDataset);
+    }
+  }
+
+  static boolean checkInputsEqualOutputs(
+      OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+    OpenLineage.Job job = event.getJob();
+    if (!datahubConf.isSpark()) {
+      return false;
+    }
+
+    OpenLineage.JobTypeJobFacet jobTypeFacet = activeJobType(job.getFacets());
+    if (jobTypeFacet == null || !"RDD_JOB".equals(jobTypeFacet.getJobType())) {
+      return false;
+    }
+
+    if (!isNonMaterializingRddTransformation(job.getName())) {
+      return false;
+    }
+
+    if (event.getInputs() == null
+        || event.getOutputs() == null
+        || event.getInputs().size() != event.getOutputs().size()) {
+      return false;
+    }
+
+    boolean inputsEqualOutputs =
+        event.getInputs().stream()
+            .map(OpenLineage.Dataset::getName)
+            .collect(Collectors.toSet())
+            .equals(
+                event.getOutputs().stream()
+                    .map(OpenLineage.Dataset::getName)
+                    .collect(Collectors.toSet()));
+
+    if (inputsEqualOutputs) {
+      log.info(
+          "Inputs equals Outputs: {}. This is most probably because of an rdd map operation and we only process Inputs",
+          inputsEqualOutputs);
+    }
+
+    return inputsEqualOutputs;
+  }
+}

@@ -1,0 +1,511 @@
+{
+  "bug_id": "B34",
+  "provenance": "captured_from_existing_smoke_test",
+  "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+  "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_job_lineage_owners_remain_independent[DATASET]",
+  "test_result_artifact": "../capture-group-c2-results.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_a_8bef1af5",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "entries": [
+                {
+                  "namespace": "snowflake",
+                  "name": "my_db.my_schema.target_a_8bef1af5",
+                  "type": "DATASET",
+                  "inputs": [
+                    {
+                      "namespace": "snowflake",
+                      "name": "my_db.my_schema.source_a_8bef1af5",
+                      "type": "DATASET"
+                    }
+                  ]
+                },
+                {
+                  "namespace": "snowflake",
+                  "name": "my_db.my_schema.target_b_8bef1af5",
+                  "type": "DATASET",
+                  "inputs": [
+                    {
+                      "namespace": "snowflake",
+                      "name": "my_db.my_schema.source_a_8bef1af5",
+                      "type": "DATASET"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_b_8bef1af5",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "entries": [
+                {
+                  "namespace": "snowflake",
+                  "name": "my_db.my_schema.target_a_8bef1af5",
+                  "type": "DATASET",
+                  "inputs": [
+                    {
+                      "namespace": "snowflake",
+                      "name": "my_db.my_schema.source_b_8bef1af5",
+                      "type": "DATASET"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "event-3",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_a_8bef1af5",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "entries": [
+                {
+                  "namespace": "snowflake",
+                  "name": "my_db.my_schema.target_b_8bef1af5",
+                  "type": "DATASET",
+                  "inputs": [
+                    {
+                      "namespace": "snowflake",
+                      "name": "my_db.my_schema.source_a_8bef1af5",
+                      "type": "DATASET"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "event-4",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_b_8bef1af5",
+          "facets": {}
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 5,
+      "label": "event-5",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_b_8bef1af5",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "entries": []
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 6,
+      "label": "event-6",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_b_8bef1af5",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "entries": [
+                {
+                  "namespace": "snowflake",
+                  "name": "my_db.my_schema.target_a_8bef1af5",
+                  "type": "DATASET",
+                  "inputs": [
+                    {
+                      "namespace": "snowflake",
+                      "name": "my_db.my_schema.source_b_8bef1af5",
+                      "type": "DATASET"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 7,
+      "label": "event-7",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_8bef1af5",
+          "name": "lineage_b_8bef1af5",
+          "facets": {
+            "lineage": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+              "_deleted": true
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "additional_cases": [
+    {
+      "label": "JOB target",
+      "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_job_lineage_owners_remain_independent[JOB]",
+      "event_sequence": [
+        {
+          "step": 1,
+          "label": "event-1",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "eventType": "COMPLETE",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "my_db.my_schema.target_a_7b7add45"
+            },
+            "run": {
+              "runId": "45b0eea3-b2b3-4095-865a-ca135e86c00e"
+            },
+            "inputs": [
+              {
+                "namespace": "snowflake",
+                "name": "my_db.my_schema.source_a_7b7add45"
+              },
+              {
+                "namespace": "snowflake",
+                "name": "my_db.my_schema.own_7b7add45"
+              }
+            ],
+            "outputs": []
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 2,
+          "label": "event-2",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "eventType": "COMPLETE",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "my_db.my_schema.target_b_7b7add45"
+            },
+            "run": {
+              "runId": "c9f85083-6e37-4ad9-9d26-ac5ad963f180"
+            },
+            "inputs": [],
+            "outputs": []
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 3,
+          "label": "event-3",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_a_7b7add45",
+              "facets": {
+                "lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+                  "entries": [
+                    {
+                      "namespace": "openlineage_7b7add45",
+                      "name": "my_db.my_schema.target_a_7b7add45",
+                      "type": "JOB",
+                      "runId": "45b0eea3-b2b3-4095-865a-ca135e86c00e",
+                      "inputs": [
+                        {
+                          "namespace": "snowflake",
+                          "name": "my_db.my_schema.source_a_7b7add45",
+                          "type": "DATASET"
+                        }
+                      ]
+                    },
+                    {
+                      "namespace": "openlineage_7b7add45",
+                      "name": "my_db.my_schema.target_b_7b7add45",
+                      "type": "JOB",
+                      "runId": "c9f85083-6e37-4ad9-9d26-ac5ad963f180",
+                      "inputs": [
+                        {
+                          "namespace": "snowflake",
+                          "name": "my_db.my_schema.source_a_7b7add45",
+                          "type": "DATASET"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 4,
+          "label": "event-4",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_b_7b7add45",
+              "facets": {
+                "lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+                  "entries": [
+                    {
+                      "namespace": "openlineage_7b7add45",
+                      "name": "my_db.my_schema.target_a_7b7add45",
+                      "type": "JOB",
+                      "runId": "45b0eea3-b2b3-4095-865a-ca135e86c00e",
+                      "inputs": [
+                        {
+                          "namespace": "snowflake",
+                          "name": "my_db.my_schema.source_b_7b7add45",
+                          "type": "DATASET"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 5,
+          "label": "event-5",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "eventType": "COMPLETE",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "my_db.my_schema.target_a_7b7add45"
+            },
+            "run": {
+              "runId": "45b0eea3-b2b3-4095-865a-ca135e86c00e"
+            },
+            "inputs": [
+              {
+                "namespace": "snowflake",
+                "name": "my_db.my_schema.source_a_7b7add45"
+              },
+              {
+                "namespace": "snowflake",
+                "name": "my_db.my_schema.own_7b7add45"
+              }
+            ],
+            "outputs": []
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 6,
+          "label": "event-6",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_a_7b7add45",
+              "facets": {
+                "lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+                  "entries": [
+                    {
+                      "namespace": "openlineage_7b7add45",
+                      "name": "my_db.my_schema.target_b_7b7add45",
+                      "type": "JOB",
+                      "runId": "c9f85083-6e37-4ad9-9d26-ac5ad963f180",
+                      "inputs": [
+                        {
+                          "namespace": "snowflake",
+                          "name": "my_db.my_schema.source_a_7b7add45",
+                          "type": "DATASET"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 7,
+          "label": "event-7",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_b_7b7add45",
+              "facets": {}
+            }
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 8,
+          "label": "event-8",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_b_7b7add45",
+              "facets": {
+                "lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+                  "entries": []
+                }
+              }
+            }
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 9,
+          "label": "event-9",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_b_7b7add45",
+              "facets": {
+                "lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+                  "entries": [
+                    {
+                      "namespace": "openlineage_7b7add45",
+                      "name": "my_db.my_schema.target_a_7b7add45",
+                      "type": "JOB",
+                      "runId": "45b0eea3-b2b3-4095-865a-ca135e86c00e",
+                      "inputs": [
+                        {
+                          "namespace": "snowflake",
+                          "name": "my_db.my_schema.source_b_7b7add45",
+                          "type": "DATASET"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "observed_http_status": 200
+        },
+        {
+          "step": 10,
+          "label": "event-10",
+          "payload": {
+            "eventTime": "2026-04-14T10:00:00Z",
+            "producer": "https://example.com/producer",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+            "job": {
+              "namespace": "openlineage_7b7add45",
+              "name": "lineage_b_7b7add45",
+              "facets": {
+                "lineage": {
+                  "_producer": "https://example.com/producer",
+                  "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LineageFacet.json#/$defs/LineageJobFacet",
+                  "_deleted": true
+                }
+              }
+            }
+          },
+          "observed_http_status": 200
+        }
+      ]
+    }
+  ],
+  "note": "Both DATASET and JOB target variants passed. Exact request bodies were captured; full native read API bodies were not separately retained. No master or PR-head execution is claimed."
+}

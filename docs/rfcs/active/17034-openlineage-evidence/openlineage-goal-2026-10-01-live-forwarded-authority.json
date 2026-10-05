@@ -1,0 +1,1389 @@
+{
+  "source": "current local working tree",
+  "job_urns": [
+    "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+    "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+    "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)"
+  ],
+  "run_urns": [
+    "urn:li:dataProcessInstance:76386160-7052-43a7-b27c-29b1b8b28a52",
+    "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+    "urn:li:dataProcessInstance:c377ef4d-2805-444a-9e54-28f176ad8342"
+  ],
+  "stages": [
+    {
+      "label": "own-parent",
+      "request": {
+        "eventTime": "2026-10-01T06:12:54.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.parent",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own parent"
+            }
+          }
+        },
+        "run": {
+          "runId": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own parent",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:12:54.594750+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "jobs": [
+              {
+                "status": 404,
+                "body": "",
+                "observed_at": "2026-10-01T06:12:54.599283+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "parent",
+                      "description": "own parent",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own parent\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.603515+00:00"
+              },
+              {
+                "status": 404,
+                "body": "",
+                "observed_at": "2026-10-01T06:12:54.607702+00:00"
+              }
+            ],
+            "runs": [
+              {
+                "status": 404,
+                "body": "",
+                "observed_at": "2026-10-01T06:12:54.611776+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own parent\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.615510+00:00"
+              },
+              {
+                "status": 404,
+                "body": "",
+                "observed_at": "2026-10-01T06:12:54.619257+00:00"
+              }
+            ]
+          },
+          "projection": {
+            "descriptions": [
+              null,
+              "own parent",
+              null
+            ],
+            "run_tags": [
+              null,
+              "own parent",
+              null
+            ],
+            "child_parent_instance": null,
+            "child_retained_forwarded_parent_description": null,
+            "child_retained_forwarded_root_description": null
+          }
+        }
+      ],
+      "matched": true
+    },
+    {
+      "label": "child-forwarded",
+      "request": {
+        "eventTime": "2026-10-01T06:12:55.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.child",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own child"
+            }
+          }
+        },
+        "run": {
+          "runId": "76386160-7052-43a7-b27c-29b1b8b28a52",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own child",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_forwarded_c2fe3dea",
+                "name": "load.parent",
+                "facets": {
+                  "documentation": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                    "description": "forwarded parent"
+                  }
+                }
+              },
+              "run": {
+                "runId": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                "facets": {
+                  "tags": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                    "tags": [
+                      {
+                        "key": "forwarded parent",
+                        "value": "true",
+                        "source": "audit"
+                      }
+                    ]
+                  }
+                }
+              },
+              "root": {
+                "job": {
+                  "namespace": "ol_forwarded_c2fe3dea",
+                  "name": "load.root",
+                  "facets": {
+                    "documentation": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                      "description": "forwarded root"
+                    }
+                  }
+                },
+                "run": {
+                  "runId": "c377ef4d-2805-444a-9e54-28f176ad8342",
+                  "facets": {
+                    "tags": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                      "tags": [
+                        {
+                          "key": "forwarded root",
+                          "value": "true",
+                          "source": "audit"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:12:54.665696+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "jobs": [
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "child",
+                      "description": "own child",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own child\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.670587+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "parent",
+                      "description": "own parent",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own parent\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.674293+00:00"
+              },
+              {
+                "status": 404,
+                "body": "",
+                "observed_at": "2026-10-01T06:12:54.677765+00:00"
+              }
+            ],
+            "runs": [
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:76386160-7052-43a7-b27c-29b1b8b28a52",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+                      "parentInstance": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "76386160-7052-43a7-b27c-29b1b8b28a52",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835175521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own child\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)\",\"parentInstance\":\"urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527\",\"upstreamInstances\":[]}}",
+                        "openlineage.facet.parent": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json\",\"run\":{\"runId\":\"1bddf6ec-88ee-4f0e-9427-1e376f462527\",\"facets\":{\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"forwarded parent\",\"value\":\"true\",\"source\":\"audit\"}]}}},\"job\":{\"namespace\":\"ol_forwarded_c2fe3dea\",\"name\":\"load.parent\",\"facets\":{\"documentation\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"forwarded parent\"}}},\"root\":{\"run\":{\"runId\":\"c377ef4d-2805-444a-9e54-28f176ad8342\",\"facets\":{\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"forwarded root\",\"value\":\"true\",\"source\":\"audit\"}]}}},\"job\":{\"namespace\":\"ol_forwarded_c2fe3dea\",\"name\":\"load.root\",\"facets\":{\"documentation\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"forwarded root\"}}}}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.681699+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own parent\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.684997+00:00"
+              },
+              {
+                "status": 404,
+                "body": "",
+                "observed_at": "2026-10-01T06:12:54.687949+00:00"
+              }
+            ]
+          },
+          "projection": {
+            "descriptions": [
+              "own child",
+              "own parent",
+              null
+            ],
+            "run_tags": [
+              "own child",
+              "own parent",
+              null
+            ],
+            "child_parent_instance": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+            "child_retained_forwarded_parent_description": "forwarded parent",
+            "child_retained_forwarded_root_description": "forwarded root"
+          }
+        }
+      ],
+      "matched": true
+    },
+    {
+      "label": "own-root",
+      "request": {
+        "eventTime": "2026-10-01T06:12:56.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.root",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own root"
+            }
+          }
+        },
+        "run": {
+          "runId": "c377ef4d-2805-444a-9e54-28f176ad8342",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own root",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:12:54.733746+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "jobs": [
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "child",
+                      "description": "own child",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own child\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.738104+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "parent",
+                      "description": "own parent",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own parent\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.741569+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "root",
+                      "description": "own root",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own root\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174722,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e7050b89986060040e68efd"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174692
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.744969+00:00"
+              }
+            ],
+            "runs": [
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:76386160-7052-43a7-b27c-29b1b8b28a52",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+                      "parentInstance": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "76386160-7052-43a7-b27c-29b1b8b28a52",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835175521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own child\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)\",\"parentInstance\":\"urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527\",\"upstreamInstances\":[]}}",
+                        "openlineage.facet.parent": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json\",\"run\":{\"runId\":\"1bddf6ec-88ee-4f0e-9427-1e376f462527\",\"facets\":{\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"forwarded parent\",\"value\":\"true\",\"source\":\"audit\"}]}}},\"job\":{\"namespace\":\"ol_forwarded_c2fe3dea\",\"name\":\"load.parent\",\"facets\":{\"documentation\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"forwarded parent\"}}},\"root\":{\"run\":{\"runId\":\"c377ef4d-2805-444a-9e54-28f176ad8342\",\"facets\":{\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"forwarded root\",\"value\":\"true\",\"source\":\"audit\"}]}}},\"job\":{\"namespace\":\"ol_forwarded_c2fe3dea\",\"name\":\"load.root\",\"facets\":{\"documentation\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"forwarded root\"}}}}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.748765+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own parent\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.752142+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:c377ef4d-2805-444a-9e54-28f176ad8342",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174722,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e7050b89986060040e68efd"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174692
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "c377ef4d-2805-444a-9e54-28f176ad8342",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835176521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own root\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174722,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e7050b89986060040e68efd"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174692
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.755585+00:00"
+              }
+            ]
+          },
+          "projection": {
+            "descriptions": [
+              "own child",
+              "own parent",
+              "own root"
+            ],
+            "run_tags": [
+              "own child",
+              "own parent",
+              "own root"
+            ],
+            "child_parent_instance": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+            "child_retained_forwarded_parent_description": "forwarded parent",
+            "child_retained_forwarded_root_description": "forwarded root"
+          }
+        }
+      ],
+      "matched": true
+    },
+    {
+      "label": "child-replay",
+      "request": {
+        "eventTime": "2026-10-01T06:12:57.521035Z",
+        "eventType": "COMPLETE",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+        "job": {
+          "namespace": "ol_forwarded_c2fe3dea",
+          "name": "load.child",
+          "facets": {
+            "documentation": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+              "description": "own child"
+            }
+          }
+        },
+        "run": {
+          "runId": "76386160-7052-43a7-b27c-29b1b8b28a52",
+          "facets": {
+            "tags": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+              "tags": [
+                {
+                  "key": "own child",
+                  "value": "true",
+                  "source": "audit"
+                }
+              ]
+            },
+            "parent": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json",
+              "job": {
+                "namespace": "ol_forwarded_c2fe3dea",
+                "name": "load.parent",
+                "facets": {
+                  "documentation": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                    "description": "forwarded parent"
+                  }
+                }
+              },
+              "run": {
+                "runId": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                "facets": {
+                  "tags": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                    "tags": [
+                      {
+                        "key": "forwarded parent",
+                        "value": "true",
+                        "source": "audit"
+                      }
+                    ]
+                  }
+                }
+              },
+              "root": {
+                "job": {
+                  "namespace": "ol_forwarded_c2fe3dea",
+                  "name": "load.root",
+                  "facets": {
+                    "documentation": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+                      "description": "forwarded root"
+                    }
+                  }
+                },
+                "run": {
+                  "runId": "c377ef4d-2805-444a-9e54-28f176ad8342",
+                  "facets": {
+                    "tags": {
+                      "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+                      "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json",
+                      "tags": [
+                        {
+                          "key": "forwarded root",
+                          "value": "true",
+                          "source": "audit"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      "response": {
+        "status": 200,
+        "body": "",
+        "observed_at": "2026-10-01T06:12:54.787518+00:00"
+      },
+      "readbacks": [
+        {
+          "responses": {
+            "jobs": [
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "child",
+                      "description": "own child",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own child\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174760
+                      },
+                      "runId": "no-run-id-provided",
+                      "schemaVersion": 1,
+                      "lastObserved": 1790835174777,
+                      "version": "3",
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "isNoOp": "true",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e715670d49b5e0b5e107248"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174760
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.791275+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "parent",
+                      "description": "own parent",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own parent\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.794297+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)",
+                  "dataJobInfo": {
+                    "value": {
+                      "name": "root",
+                      "description": "own root",
+                      "flowUrn": "urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea)",
+                      "customProperties": {
+                        "openlineage.facet.documentation": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"own root\"}"
+                      },
+                      "type": {
+                        "string": "unknown"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174722,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e7050b89986060040e68efd"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174692
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.797097+00:00"
+              }
+            ],
+            "runs": [
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:76386160-7052-43a7-b27c-29b1b8b28a52",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)",
+                      "parentInstance": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174624
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174654,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6f433074f294efc0406493"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174624
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "76386160-7052-43a7-b27c-29b1b8b28a52",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835177521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own child\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.facet.parent": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-2-0/ParentRunFacet.json\",\"run\":{\"runId\":\"1bddf6ec-88ee-4f0e-9427-1e376f462527\",\"facets\":{\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"forwarded parent\",\"value\":\"true\",\"source\":\"audit\"}]}}},\"job\":{\"namespace\":\"ol_forwarded_c2fe3dea\",\"name\":\"load.parent\",\"facets\":{\"documentation\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"forwarded parent\"}}},\"root\":{\"run\":{\"runId\":\"c377ef4d-2805-444a-9e54-28f176ad8342\",\"facets\":{\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"forwarded root\",\"value\":\"true\",\"source\":\"audit\"}]}}},\"job\":{\"namespace\":\"ol_forwarded_c2fe3dea\",\"name\":\"load.root\",\"facets\":{\"documentation\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json\",\"description\":\"forwarded root\"}}}}}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.child)\",\"parentInstance\":\"urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174760
+                      },
+                      "runId": "no-run-id-provided",
+                      "schemaVersion": 1,
+                      "lastObserved": 1790835174778,
+                      "version": "4",
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "isNoOp": "false",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e715670d49b5e0b5e107248"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174760
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.800354+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "1bddf6ec-88ee-4f0e-9427-1e376f462527",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own parent\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.parent)\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174552
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174583,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e6e2dd89641090a970c9c26"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174552
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.803987+00:00"
+              },
+              {
+                "status": 200,
+                "body": {
+                  "urn": "urn:li:dataProcessInstance:c377ef4d-2805-444a-9e54-28f176ad8342",
+                  "dataProcessInstanceRelationships": {
+                    "value": {
+                      "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)",
+                      "upstreamInstances": []
+                    },
+                    "systemMetadata": {
+                      "aspectCreated": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "schemaVersion": 1,
+                      "version": "1",
+                      "lastObserved": 1790835174722,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e7050b89986060040e68efd"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174692
+                    }
+                  },
+                  "dataProcessInstanceProperties": {
+                    "value": {
+                      "name": "c377ef4d-2805-444a-9e54-28f176ad8342",
+                      "created": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835176521
+                      },
+                      "customProperties": {
+                        "openlineage.facet.tags": "{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests\",\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsRunFacet.json\",\"tags\":[{\"key\":\"own root\",\"value\":\"true\",\"source\":\"audit\"}]}",
+                        "openlineage.mapping.ownLineage": "{\"dataProcessInstanceRelationships\":{\"parentTemplate\":\"urn:li:dataJob:(urn:li:dataFlow:(unknown,load,ol_forwarded_c2fe3dea),load.root)\",\"upstreamInstances\":[]}}"
+                      }
+                    },
+                    "systemMetadata": {
+                      "aspectModified": {
+                        "actor": "urn:li:corpuser:datahub",
+                        "time": 1790835174692
+                      },
+                      "schemaVersion": 1,
+                      "version": "2",
+                      "lastObserved": 1790835174722,
+                      "properties": {
+                        "eventSource": "OPENAPI",
+                        "sourceIP": "172.18.0.1",
+                        "telemetryTraceId": "00065cc14e7050b89986060040e68efd"
+                      }
+                    },
+                    "auditStamp": {
+                      "actor": "urn:li:corpuser:datahub",
+                      "time": 1790835174692
+                    }
+                  }
+                },
+                "observed_at": "2026-10-01T06:12:54.807605+00:00"
+              }
+            ]
+          },
+          "projection": {
+            "descriptions": [
+              "own child",
+              "own parent",
+              "own root"
+            ],
+            "run_tags": [
+              "own child",
+              "own parent",
+              "own root"
+            ],
+            "child_parent_instance": "urn:li:dataProcessInstance:1bddf6ec-88ee-4f0e-9427-1e376f462527",
+            "child_retained_forwarded_parent_description": "forwarded parent",
+            "child_retained_forwarded_root_description": "forwarded root"
+          }
+        }
+      ],
+      "matched": true
+    }
+  ],
+  "credentials_stored": false,
+  "finished_at": "2026-10-01T06:12:54.807638+00:00"
+}

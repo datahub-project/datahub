@@ -25,7 +25,9 @@ Historical RFCs will be migrated to this directory on an as-needed basis when th
 
 ## Active RFCs
 
-Currently, there are no active RFCs. Check the [pull requests with the "RFC" label](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aopen+label%3ARFC) for pending RFC proposals.
+- [OpenLineage REST endpoint specification compliance](./active/17034-openlineage-spec-compliance.md) — [RFC PR #17034](https://github.com/datahub-project/datahub/pull/17034); separate implementation in [#19257](https://github.com/datahub-project/datahub/pull/19257).
+
+See the [pull requests with the "RFC" label](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aopen+label%3ARFC) for other pending proposals.
 
 ## Accepted RFCs
 

@@ -1,0 +1,347 @@
+package io.datahubproject.openlineage.converter;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.CustomAssertionInfo;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.dataprocess.DataProcessInstanceProperties;
+import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataprocess.DataProcessInstanceRunResult;
+import com.linkedin.dataprocess.DataProcessRunStatus;
+import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.metadata.key.AssertionKey;
+import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.openlineage.client.OpenLineage;
+import io.openlineage.client.OpenLineageClientUtils;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+final class OpenLineageRunMapper {
+
+  static final String URN_LI_DATA_PROCESS_INSTANCE = "urn:li:dataProcessInstance:";
+  static final String URN_LI_ASSERTION = "urn:li:assertion:";
+  static final String ASSERTION_ENTITY_TYPE = "assertion";
+  private static final ObjectMapper ASSERTION_IDENTITY_MAPPER =
+      new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+
+  private OpenLineageRunMapper() {}
+
+  static DataProcessInstanceProperties getJobDataProcessInstanceProperties(
+      OpenLineage.RunEvent event) {
+    DataProcessInstanceProperties dpiProperties = new DataProcessInstanceProperties();
+    dpiProperties.setName(event.getRun().getRunId().toString());
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(getDataProcessInstanceCreatedTime(event));
+    auditStamp.setActor(UrnUtils.getUrn(OpenLineageMappingUtils.URN_LI_CORPUSER_DATAHUB));
+    dpiProperties.setCreated(auditStamp);
+
+    StringMap customProperties = getDataProcessInstanceCustomProperties(event);
+    if (!customProperties.isEmpty()) {
+      dpiProperties.setCustomProperties(customProperties);
+    }
+    return dpiProperties;
+  }
+
+  static long getDataProcessInstanceCreatedTime(OpenLineage.RunEvent event) {
+    OpenLineage.RunFacets facets = event.getRun().getFacets();
+    OpenLineage.NominalTimeRunFacet nominalTime = facets == null ? null : facets.getNominalTime();
+    if (nominalTime != null && nominalTime.getNominalStartTime() != null)
+      return nominalTime.getNominalStartTime().toInstant().toEpochMilli();
+    return event.getEventTime() == null
+        ? System.currentTimeMillis()
+        : event.getEventTime().toInstant().toEpochMilli();
+  }
+
+  static StringMap getDataProcessInstanceCustomProperties(OpenLineage.RunEvent event) {
+    StringMap customProperties = new StringMap();
+    OpenLineage.RunFacets facets = event.getRun().getFacets();
+    if (facets == null) {
+      return customProperties;
+    }
+
+    OpenLineageFacetProperties.add(customProperties, facets);
+    // Older SDK callers can also put this typed facet in the additional-properties map.
+    if (facets.getProcessing_engine() != null) {
+      customProperties.put(
+          "openlineage.facet.processing_engine",
+          OpenLineageClientUtils.toJson(facets.getProcessing_engine()));
+    }
+
+    if (facets.getTest() != null) {
+      // DataHub custom assertions currently require a Dataset as their subject. Run-scoped tests
+      // must stay attached to this run rather than inventing a dataset or changing pipeline status.
+      customProperties.put(
+          "openlineage.tests", OpenLineageClientUtils.toJson(facets.getTest().getTests()));
+    }
+
+    OpenLineage.NominalTimeRunFacet nominalTime = facets.getNominalTime();
+    if (nominalTime != null) {
+      if (nominalTime.getNominalStartTime() != null) {
+        customProperties.put("nominalStartTime", nominalTime.getNominalStartTime().toString());
+      }
+      if (nominalTime.getNominalEndTime() != null) {
+        customProperties.put("nominalEndTime", nominalTime.getNominalEndTime().toString());
+      }
+    }
+
+    OpenLineage.ErrorMessageRunFacet errorMessage = facets.getErrorMessage();
+    if (errorMessage != null) {
+      if (errorMessage.getMessage() != null) {
+        customProperties.put("errorMessage", errorMessage.getMessage());
+      }
+      if (errorMessage.getProgrammingLanguage() != null) {
+        customProperties.put("programmingLanguage", errorMessage.getProgrammingLanguage());
+      }
+      if (errorMessage.getStackTrace() != null) {
+        customProperties.put("stackTrace", errorMessage.getStackTrace());
+      }
+    }
+
+    OpenLineage.EnvironmentVariablesRunFacet environmentVariables =
+        facets.getEnvironmentVariables();
+    if (environmentVariables != null && environmentVariables.getEnvironmentVariables() != null) {
+      for (OpenLineage.EnvironmentVariable environmentVariable :
+          environmentVariables.getEnvironmentVariables()) {
+        if (environmentVariable.getName() != null && environmentVariable.getValue() != null) {
+          customProperties.put(
+              "env." + environmentVariable.getName(), environmentVariable.getValue());
+        }
+      }
+    }
+
+    OpenLineage.ExtractionErrorRunFacet extractionError = facets.getExtractionError();
+    if (extractionError != null) {
+      if (extractionError.getTotalTasks() != null) {
+        customProperties.put(
+            "extractionError.totalTasks", extractionError.getTotalTasks().toString());
+      }
+      if (extractionError.getFailedTasks() != null) {
+        customProperties.put(
+            "extractionError.failedTasks", extractionError.getFailedTasks().toString());
+      }
+      if (extractionError.getErrors() != null && !extractionError.getErrors().isEmpty()) {
+        customProperties.put(
+            "extractionError.errors", OpenLineageClientUtils.toJson(extractionError.getErrors()));
+      }
+    }
+    return customProperties;
+  }
+
+  static Optional<Urn> getParentDataProcessInstanceUrn(OpenLineage.RunEvent event) {
+    OpenLineage.RunFacets facets = event.getRun().getFacets();
+    OpenLineage.ParentRunFacet parent = facets == null ? null : facets.getParent();
+    OpenLineage.ParentRunFacetRun run = parent == null ? null : parent.getRun();
+    return run == null || run.getRunId() == null
+        ? Optional.empty()
+        : Optional.of(UrnUtils.getUrn(URN_LI_DATA_PROCESS_INSTANCE + run.getRunId()));
+  }
+
+  static void processDataQualityAssertions(
+      DatahubJob datahubJob,
+      OpenLineage.RunEvent event,
+      OpenLineage.InputDataset input,
+      DatasetUrn datasetUrn) {
+    processDataQualityAssertions(
+        datahubJob, event, input, datasetUrn, OpenLineageSchemaMapper.fieldPaths(input));
+  }
+
+  static void processDataQualityAssertions(
+      DatahubJob datahubJob,
+      OpenLineage.RunEvent event,
+      OpenLineage.InputDataset input,
+      DatasetUrn datasetUrn,
+      Map<String, String> fieldPaths) {
+    if (input.getInputFacets() == null
+        || input.getInputFacets().getDataQualityAssertions() == null
+        || input.getInputFacets().getDataQualityAssertions().getAssertions() == null) {
+      return;
+    }
+
+    for (OpenLineage.DataQualityAssertionsDatasetFacetAssertions assertion :
+        input.getInputFacets().getDataQualityAssertions().getAssertions()) {
+      if (assertion.getAssertion() == null || assertion.getAssertion().isBlank()) {
+        continue;
+      }
+      String assertionId = assertionId(datasetUrn, assertion);
+      Urn assertionUrn = UrnUtils.getUrn(URN_LI_ASSERTION + assertionId);
+
+      AssertionKey assertionKey = new AssertionKey().setAssertionId(assertionId);
+      datahubJob
+          .getExtraMcps()
+          .add(OpenLineageMcpFactory.upsert(assertionUrn, ASSERTION_ENTITY_TYPE, assertionKey));
+
+      CustomAssertionInfo customAssertionInfo =
+          new CustomAssertionInfo()
+              .setType("OpenLineage Data Quality Assertion")
+              .setEntity(datasetUrn)
+              .setLogic(
+                  assertion.getContent() == null
+                      ? assertion.getAssertion()
+                      : assertion.getContent());
+      if (assertion.getColumn() != null && !assertion.getColumn().isBlank()) {
+        customAssertionInfo.setField(
+            schemaFieldUrn(
+                datasetUrn, fieldPaths.getOrDefault(assertion.getColumn(), assertion.getColumn())));
+      }
+
+      AssertionInfo assertionInfo =
+          new AssertionInfo()
+              .setType(AssertionType.CUSTOM)
+              .setDescription(
+                  assertion.getDescription() == null
+                      ? assertion.getAssertion()
+                      : assertion.getDescription())
+              .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL))
+              .setCustomAssertion(customAssertionInfo);
+      StringMap assertionProperties = new StringMap();
+      OpenLineageMappingUtils.putIfPresent(assertionProperties, "name", assertion.getName());
+      OpenLineageMappingUtils.putIfPresent(
+          assertionProperties, "assertion", assertion.getAssertion());
+      OpenLineageMappingUtils.putIfPresent(
+          assertionProperties, "contentType", assertion.getContentType());
+      OpenLineageMappingUtils.putIfPresent(
+          assertionProperties, "expected", assertion.getExpected());
+      OpenLineageMappingUtils.putIfPresent(
+          assertionProperties, "severity", assertion.getSeverity());
+      if (assertion.getParams() != null) {
+        assertionProperties.put("params", OpenLineageClientUtils.toJson(assertion.getParams()));
+      }
+      assertionInfo.setCustomProperties(assertionProperties);
+      datahubJob
+          .getExtraMcps()
+          .add(OpenLineageMcpFactory.upsert(assertionUrn, ASSERTION_ENTITY_TYPE, assertionInfo));
+
+      DataPlatformInstance assertionPlatformInstance =
+          new DataPlatformInstance()
+              .setPlatform(new DataPlatformUrn(datahubJob.getFlowUrn().getOrchestratorEntity()));
+      datahubJob
+          .getExtraMcps()
+          .add(
+              OpenLineageMcpFactory.upsert(
+                  assertionUrn, ASSERTION_ENTITY_TYPE, assertionPlatformInstance));
+
+      if (assertion.getSuccess() != null && datahubJob.getDataProcessInstanceUrn() != null) {
+        AssertionResult assertionResult =
+            new AssertionResult()
+                .setType(
+                    assertion.getSuccess()
+                        ? AssertionResultType.SUCCESS
+                        : AssertionResultType.FAILURE);
+        StringMap nativeResults = new StringMap();
+        OpenLineageMappingUtils.putIfPresent(nativeResults, "expected", assertion.getExpected());
+        OpenLineageMappingUtils.putIfPresent(nativeResults, "actual", assertion.getActual());
+        OpenLineageMappingUtils.putIfPresent(nativeResults, "severity", assertion.getSeverity());
+        assertionResult.setNativeResults(nativeResults);
+        AssertionRunEvent assertionRunEvent =
+            new AssertionRunEvent()
+                .setTimestampMillis(
+                    event.getEventTime() != null
+                        ? event.getEventTime().toInstant().toEpochMilli()
+                        : System.currentTimeMillis())
+                .setRunId(event.getRun().getRunId().toString())
+                .setAsserteeUrn(datasetUrn)
+                .setStatus(AssertionRunStatus.COMPLETE)
+                .setResult(assertionResult)
+                .setAssertionUrn(assertionUrn);
+        if (event.getEventTime() != null) {
+          assertionRunEvent.setSourceTimestamp(event.getEventTime().toString());
+          assertionRunEvent.setMessageId(event.getEventTime().toString());
+        }
+        datahubJob
+            .getExtraMcps()
+            .add(
+                OpenLineageMcpFactory.upsert(
+                    assertionUrn, ASSERTION_ENTITY_TYPE, assertionRunEvent));
+      }
+    }
+  }
+
+  private static String assertionId(
+      DatasetUrn datasetUrn, OpenLineage.DataQualityAssertionsDatasetFacetAssertions assertion) {
+    // Identity describes the check definition, not its result or display metadata.
+    var definition =
+        Arrays.asList(
+            "openlineage-assertion-v2",
+            datasetUrn.toString(),
+            assertion.getColumn() == null || assertion.getColumn().isBlank()
+                ? ""
+                : assertion.getColumn(),
+            assertion.getName(),
+            assertion.getAssertion(),
+            assertion.getContent(),
+            assertion.getContentType(),
+            assertion.getExpected(),
+            assertion.getParams() == null
+                ? Map.of()
+                : assertion.getParams().getAdditionalProperties());
+    String encoded = ASSERTION_IDENTITY_MAPPER.valueToTree(definition).toString();
+    return UUID.nameUUIDFromBytes(encoded.getBytes(StandardCharsets.UTF_8)).toString();
+  }
+
+  static Urn schemaFieldUrn(DatasetUrn datasetUrn, String fieldPath) {
+    return Urn.createFromTuple(
+        "schemaField",
+        datasetUrn.toString(),
+        fieldPath.replace("(", "%28").replace(")", "%29").replace(",", "%2C"));
+  }
+
+  static DataProcessInstanceRunEvent processDataProcessInstanceResult(OpenLineage.RunEvent event) {
+    // Diagnostic facets describe errors, not lifecycle transitions. In particular, lineage
+    // extraction can fail even when the job succeeds; keep those details in run properties.
+    if (event.getEventType() == null
+        || event.getEventType() == OpenLineage.RunEvent.EventType.OTHER) {
+      return null;
+    }
+
+    DataProcessInstanceRunEvent dataProcessInstanceRunEvent = new DataProcessInstanceRunEvent();
+    dataProcessInstanceRunEvent.setSourceEventType(event.getEventType().name());
+    if (event.getEventTime() != null) {
+      dataProcessInstanceRunEvent.setTimestampMillis(
+          event.getEventTime().toInstant().toEpochMilli());
+      dataProcessInstanceRunEvent.setSourceTimestamp(event.getEventTime().toString());
+      dataProcessInstanceRunEvent.setMessageId(
+          event.getEventTime() + "|" + event.getEventType().name());
+    }
+
+    DataProcessInstanceRunResult result = new DataProcessInstanceRunResult();
+    switch (event.getEventType()) {
+      case COMPLETE:
+        dataProcessInstanceRunEvent.setStatus(DataProcessRunStatus.COMPLETE);
+        result.setType(RunResultType.SUCCESS);
+        result.setNativeResultType(event.getEventType().toString());
+        dataProcessInstanceRunEvent.setResult(result);
+        break;
+      case FAIL:
+      case ABORT:
+        dataProcessInstanceRunEvent.setStatus(DataProcessRunStatus.COMPLETE);
+        result.setType(RunResultType.FAILURE);
+        result.setNativeResultType(event.getEventType().toString());
+        dataProcessInstanceRunEvent.setResult(result);
+        break;
+      case START:
+      case RUNNING:
+        dataProcessInstanceRunEvent.setStatus(DataProcessRunStatus.STARTED);
+        break;
+      default:
+        return null;
+    }
+    return dataProcessInstanceRunEvent;
+  }
+}

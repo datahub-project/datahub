@@ -1,0 +1,102 @@
+{
+  "bug_id": "B3",
+  "provenance": "captured_from_existing_smoke_test",
+  "test_result_artifact": "../capture-group-a-results.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_543e50fd",
+          "name": "ownership_543e50fd",
+          "facets": {
+            "ownership": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json",
+              "owners": [
+                {
+                  "name": "datahub",
+                  "type": "MAINTAINER"
+                },
+                {
+                  "name": "urn:li:corpGroup:review_543e50fd"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_543e50fd",
+          "name": "ownership_543e50fd",
+          "facets": {
+            "ownership": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json",
+              "owners": [
+                {
+                  "name": "urn:li:corpuser:datahub",
+                  "type": "BUSINESS_OWNER"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "event-3",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_543e50fd",
+          "name": "ownership_543e50fd",
+          "facets": {}
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "event-4",
+      "payload": {
+        "eventTime": "2026-04-14T10:01:00",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "openlineage_543e50fd",
+          "name": "ownership_543e50fd",
+          "facets": {
+            "ownership": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json",
+              "owners": [],
+              "_deleted": true
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "note": "These exact request bodies were captured during a passing existing smoke test. The test asserts native readback; its full read API bodies were not separately retained in this capture. No master or PR-head execution is claimed.",
+  "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+  "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_offsetless_ownership_clear[JobEvent-tombstone]"
+}

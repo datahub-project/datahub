@@ -1,0 +1,105 @@
+{
+  "bug_id": "B24",
+  "provenance": "constructed_from_checked_in_test_unexecuted_payload",
+  "source_test_file": "../../../metadata-integration/java/openlineage-converter/src/test/java/io/datahubproject/openlineage/OpenLineageConformanceTest.java",
+  "source_test_line": 2081,
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "DatasetEvent with file source and Snowflake TABLE alias",
+      "payload": {
+        "eventTime": "2026-04-14T10:01:00Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "file",
+          "name": "/tmp/events",
+          "facets": {
+            "schema": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json",
+              "fields": []
+            },
+            "symlinks": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+              "identifiers": [
+                {
+                  "namespace": "snowflake",
+                  "name": "table/db/events",
+                  "type": "TABLE"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": null
+    }
+  ],
+  "additional_cases": [
+    {
+      "label": "RunEvent output variant",
+      "event_sequence": [
+        {
+          "step": 1,
+          "label": "RunEvent with same output alias",
+          "payload": {
+            "eventTime": "2026-04-14T10:01:00Z",
+            "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+            "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+            "eventType": "COMPLETE",
+            "run": {
+              "runId": "11111111-2222-4333-8444-555555555555"
+            },
+            "job": {
+              "namespace": "audit",
+              "name": "audit.alias"
+            },
+            "inputs": [],
+            "outputs": [
+              {
+                "namespace": "file",
+                "name": "/tmp/events",
+                "facets": {
+                  "schema": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json",
+                    "fields": []
+                  },
+                  "symlinks": {
+                    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/integration/spark",
+                    "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+                    "identifiers": [
+                      {
+                        "namespace": "snowflake",
+                        "name": "table/db/events",
+                        "type": "TABLE"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "observed_http_status": null
+        }
+      ]
+    }
+  ],
+  "configuration_variants": [
+    {
+      "includeSchemaMetadata": true,
+      "materializeDataset": true,
+      "hivePlatformAlias": "custom_hive",
+      "disableSymlinkResolution": false
+    },
+    {
+      "includeSchemaMetadata": true,
+      "materializeDataset": true,
+      "hivePlatformAlias": "custom_hive",
+      "disableSymlinkResolution": true
+    }
+  ],
+  "note": "Reconstructed from testTableSymlinkUsesItsOwnNamespace. The checked-in converter test passed for both event kinds and both resolution settings; these JSON bodies were not submitted to a live receiver. With resolution enabled, schema platform should match the Snowflake alias; disabled, it should match file."
+}

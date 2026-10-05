@@ -1,0 +1,53 @@
+{
+  "bug_id": "B20",
+  "provenance": "executed_current_live",
+  "source_artifact": "../../openlineage-goal-2026-10-01-live-profile.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "partial-field-profile",
+      "payload": {
+        "eventTime": "2026-10-01T05:36:16.170991Z",
+        "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "ol_profile_7a5de530.table",
+          "facets": {
+            "schema": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+              "fields": [
+                {
+                  "name": "col_a",
+                  "type": "int"
+                },
+                {
+                  "name": "col_b",
+                  "type": "int"
+                },
+                {
+                  "name": "col_c",
+                  "type": "int"
+                }
+              ]
+            },
+            "dataQualityMetrics": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.53.0/spec/tests",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityMetricsDatasetFacet.json#/$defs/DataQualityMetricsDatasetFacet",
+              "rowCount": 10,
+              "columnMetrics": {
+                "col_a": {
+                  "nullCount": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "readback_artifact": "../../openlineage-goal-2026-10-01-live-profile.json",
+  "note": "Payloads were copied from the recorded local request/readback artifact. The source artifact contains the native readbacks; this fixture does not claim execution on master or a PR head."
+}

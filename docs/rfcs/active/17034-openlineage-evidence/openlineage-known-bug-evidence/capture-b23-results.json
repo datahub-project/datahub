@@ -1,0 +1,16 @@
+{
+  "exit_status": 0,
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "errors": 0,
+  "failures": [],
+  "all_results": [
+    {
+      "test_id": "tests/openapi/test_openapi.py::test_openlineage_profile_preserves_numeric_precision",
+      "outcome": "passed",
+      "duration": 9.921
+    }
+  ]
+}

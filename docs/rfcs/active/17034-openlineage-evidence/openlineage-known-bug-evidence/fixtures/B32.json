@@ -1,0 +1,161 @@
+{
+  "bug_id": "B32",
+  "provenance": "captured_from_existing_smoke_test",
+  "test_result_artifact": "../capture-group-b-results.json",
+  "event_sequence": [
+    {
+      "step": 1,
+      "label": "event-1",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {
+            "symlinks": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+              "identifiers": [
+                {
+                  "namespace": "postgres",
+                  "name": "my_db.my_schema.events_67217079",
+                  "type": "TABLE"
+                },
+                {
+                  "namespace": "bigquery",
+                  "name": "my_db.my_schema.events_67217079",
+                  "type": "TABLE"
+                },
+                {
+                  "namespace": "file",
+                  "name": "my_db.my_schema.events_67217079",
+                  "type": "LOCATION"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 2,
+      "label": "event-2",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {}
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 3,
+      "label": "event-3",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {
+            "symlinks": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+              "identifiers": [
+                {
+                  "namespace": "bigquery",
+                  "name": "my_db.my_schema.events_67217079",
+                  "type": "TABLE"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 4,
+      "label": "event-4",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {}
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 5,
+      "label": "event-5",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {
+            "symlinks": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+              "identifiers": []
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 6,
+      "label": "event-6",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {}
+        }
+      },
+      "observed_http_status": 200
+    },
+    {
+      "step": 7,
+      "label": "event-7",
+      "payload": {
+        "eventTime": "2026-04-14T10:00:00Z",
+        "producer": "https://example.com/producer",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "snowflake",
+          "name": "my_db.my_schema.events_67217079",
+          "facets": {
+            "symlinks": {
+              "_producer": "https://example.com/producer",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+              "_deleted": true
+            }
+          }
+        }
+      },
+      "observed_http_status": 200
+    }
+  ],
+  "note": "These exact request bodies were captured during a passing existing smoke test. The test asserts native readback; its full read API bodies were not separately retained in this capture. B29 and B32 share the same test sequence but require different checks. No master or PR-head execution is claimed.",
+  "source_test_file": "../../../smoke-test/tests/openapi/test_openapi.py",
+  "pytest_nodeid": "tests/openapi/test_openapi.py::test_openlineage_symlink_replacement_preserves_dataset_identity[DatasetEvent]"
+}

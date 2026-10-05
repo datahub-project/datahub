@@ -1,0 +1,6 @@
+{
+  "query": "query SourceCodeGap($urn: String!) { dataJob(urn: $urn) { urn dataTransformLogic { transforms { queryStatement { value language } } } } }",
+  "variables": {
+    "urn": "urn:li:dataJob:(urn:li:dataFlow:(unknown,gapdemo,gap-demo),gapdemo.source)"
+  }
+}
