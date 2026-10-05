@@ -191,6 +191,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:dashboard:(looker,staging_notes)");
   // A one-word title that a query only matches as a substring
   private static final Urn LIFETIME_DASHBOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,ltv)");
+  // Letter and digit runs in titles, next to a title sharing their letters
+  private static final Urn CARGO_REPORT = UrnUtils.getUrn("urn:li:dashboard:(looker,cargo_report)");
+  private static final Urn CARGO_OVERVIEW =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,cargo_overview)");
+  private static final Urn MANIFEST = UrnUtils.getUrn("urn:li:dashboard:(looker,manifest)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -342,7 +347,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             null)
         .processBatch(
             opContext,
-            Map.of(
+            seedEvents(
                 ORDERS,
                 events(
                     ORDERS,
@@ -425,6 +430,24 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DashboardInfo()
                         .setTitle("customerlifetimevalue")
                         .setDescription("Load checks")
+                        .setLastModified(new ChangeAuditStamps())),
+                CARGO_REPORT,
+                events(
+                    CARGO_REPORT,
+                    new DashboardInfo()
+                        .setTitle("Cargo2017 Report")
+                        .setLastModified(new ChangeAuditStamps())),
+                CARGO_OVERVIEW,
+                events(
+                    CARGO_OVERVIEW,
+                    new DashboardInfo()
+                        .setTitle("Cargo Overview")
+                        .setLastModified(new ChangeAuditStamps())),
+                MANIFEST,
+                events(
+                    MANIFEST,
+                    new DashboardInfo()
+                        .setTitle("Manifest20240101")
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
@@ -1191,6 +1214,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         search.apply(DATASET_ENTITY_NAME, "orderz_aa_bb_cc").getNumEntities().intValue(), 0);
     assertUrns(search.apply(DATASET_ENTITY_NAME, "orderz_aa").getEntities(), ORDERS);
 
+    // The light query keeps letter and digit runs whole: "Cargo Overview" matching "cargo" must
+    // not hide "Cargo2017 Report", and a 6-digit run held in a title is found, not stopped
+    assertTrue(
+        search.apply(DASHBOARD_ENTITY_NAME, "cargo2017").getEntities().stream()
+            .anyMatch(entity -> entity.getEntity().equals(CARGO_REPORT)));
+    assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "manifest20240101").getEntities(), MANIFEST);
     // A search with includeExplain explains the light query that served it
     SearchEntityArray explained =
         searchService
@@ -1497,6 +1526,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // No browsePaths aspect
     assertEquals(
         searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
+  }
+
+  /** Map.of takes at most 10 entries; the fixture seeds more. */
+  @SuppressWarnings("unchecked")
+  private static Map<Urn, List<MCLItem>> seedEvents(Object... urnsAndEvents) {
+    Map<Urn, List<MCLItem>> seeded = new java.util.LinkedHashMap<>();
+    for (int i = 0; i < urnsAndEvents.length; i += 2) {
+      seeded.put((Urn) urnsAndEvents[i], (List<MCLItem>) urnsAndEvents[i + 1]);
+    }
+    return seeded;
   }
 
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {

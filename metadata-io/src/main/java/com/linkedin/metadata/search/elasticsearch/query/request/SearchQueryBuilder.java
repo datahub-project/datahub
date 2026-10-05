@@ -539,13 +539,12 @@ public class SearchQueryBuilder {
         }
         getDescriptionPhraseMatchQuery(lightSanitizedQuery).ifPresent(disMaxQuery::add);
       }
-      // On the light path the raw-query exact/prefix/wildcard clauses are skipped, and
-      // escapeSimpleQueryStringOperators has turned a hyphenated identifier like
-      // "load_job-0001" into space-separated tokens, so name.keyword and the analyzed match
-      // both miss it. Re-query the .delimited identity fields (whose analyzer keeps the
-      // hyphenated run as one token) with the pre-escape string. Fires only when escaping changed
-      // the query, so ordinary queries are untouched.
-      if (skipExpensiveClauses && !colonStripped.equals(operatorEscaped)) {
+      // On the light path the raw-query exact/prefix/wildcard clauses are skipped, and the
+      // escaping and letter/digit splitting above shred identifiers such as "load_job-0001" or
+      // "orders2017" that the .delimited analyzer indexes as one token. Re-query the .delimited
+      // identity fields with the pre-escape string, all terms required. Fires only when escaping
+      // or splitting changed the query, so ordinary queries are untouched.
+      if (skipExpensiveClauses && anyTextMatch && !colonStripped.equals(sanitizedQuery)) {
         getDelimitedIdentityQuery(opContext, entitySpecs, colonStripped)
             .ifPresent(disMaxQuery::add);
       }

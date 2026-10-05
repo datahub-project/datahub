@@ -99,9 +99,9 @@ import org.opensearch.search.sort.SortOrder;
 public class ESSearchDAO {
 
   /**
-   * Queries containing 6+ consecutive digits are ID or hash lookups (e.g.
-   * "20240121_015001_86a348"). When the light query matches nothing for these, fuzzy expansion of
-   * the digit runs only adds false positives, so the full query is skipped.
+   * Queries containing 6+ consecutive digits are ID or hash lookups (e.g. "run_20240101_120000").
+   * When the light query matches nothing for these, fuzzy expansion of the digit runs only adds
+   * false positives, so the full query is skipped.
    */
   private static final Pattern HASH_ID_QUERY_PATTERN = Pattern.compile(".*\\d{6,}.*");
 
@@ -483,8 +483,13 @@ public class ESSearchDAO {
       @Nonnull String input)
       throws IOException {
     QueryBuilder fullQuery = searchRequest.source().query();
+    QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
+    if (lightSourceQuery == null) {
+      return searchClient(opContext, searchRequest)
+          .search(opContext, searchRequest, RequestOptions.DEFAULT);
+    }
     SearchResponse lightResponse;
-    searchRequest.source().query(buildLightSourceQuery(fullQuery, lightQuery));
+    searchRequest.source().query(lightSourceQuery);
     try {
       lightResponse =
           searchClient(opContext, searchRequest)
@@ -542,6 +547,7 @@ public class ESSearchDAO {
    * bool root are kept, and so is a function_score wrapper around it.
    */
   @VisibleForTesting
+  @Nullable
   static QueryBuilder buildLightSourceQuery(
       @Nonnull final QueryBuilder originalQuery, @Nonnull final QueryBuilder lightQuery) {
     FunctionScoreQueryBuilder originalFunctionScoreQuery = null;
@@ -552,7 +558,8 @@ public class ESSearchDAO {
     }
 
     if (!(boolCarrier instanceof BoolQueryBuilder)) {
-      return lightQuery;
+      // Unknown shape: fail closed, the caller runs the full query
+      return null;
     }
 
     BoolQueryBuilder lightBool = QueryBuilders.boolQuery().must(lightQuery);
@@ -1219,6 +1226,9 @@ public class ESSearchDAO {
       return fullQuery;
     }
     QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
+    if (lightSourceQuery == null) {
+      return fullQuery;
+    }
     if (skipsFullQuery(input)) {
       return lightSourceQuery;
     }

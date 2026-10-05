@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
@@ -59,7 +60,8 @@ public class ESSearchDAOLightFirstTest {
 
   @Test
   public void testLightSourceQueryWithoutBoolRoot() {
-    assertSame(ESSearchDAO.buildLightSourceQuery(FULL, LIGHT), LIGHT);
+    // Fails closed: the caller runs the full query
+    assertNull(ESSearchDAO.buildLightSourceQuery(FULL, LIGHT));
   }
 
   @Test
