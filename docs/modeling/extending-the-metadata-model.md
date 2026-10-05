@@ -372,9 +372,9 @@ It takes the following parameters:
 
   **Available field types:**
 
-  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering. **Default length limit**: 255 characters.
+  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering. The whole value is indexed as one term, so it has to stay under Lucene's 32,766-byte term limit.
 
-  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables. **Default length limit**: 255 characters.
+  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables. Exact matches (the keyword forms) skip values over 32,766 characters; the analyzed subfields still index them.
 
   3. _BOOLEAN_ - Boolean fields used for filtering.
 
@@ -403,7 +403,7 @@ It takes the following parameters:
 
 **⚠️ Important Length Limitations:**
 
-- **Regular Fields**: Fields are limited to **255 characters** for Elasticsearch compatibility
+- **Regular Fields**: Keyword forms skip values over **32,766 characters** (`ignore_above: 32766`, Lucene's term limit). On Search V3, the copies under `_aspects` skip strings over 8,191 characters and URNs over 255
 - **Object Fields**: Maximum **1000 object keys** and **4096 characters per value** to prevent mapping explosion
 - **Array Fields**: Maximum **1000 array elements** and **4096 characters per value**
 - **Field Names**: Maximum **255 characters** for Elasticsearch field name compatibility
@@ -417,7 +417,7 @@ It takes the following parameters:
 - **Special Fields**: Some system fields have different limits:
   - **URN fields**: Automatically set to **512 characters** (`ignore_above: 512`)
 
-**Note**: The `ignore_above` settings are automatically applied by the system. While some limits can be configured via environment variables, the regular field limit (255 characters) is hard-coded and cannot be overridden through annotations or configuration.
+**Note**: The `ignore_above` settings are automatically applied by the system. While some limits can be configured via environment variables, the regular field limit is hard-coded and cannot be overridden through annotations or configuration.
 
 **Important**: The ability to have longer keyword fields is limited to system-level configurations and special field types. Regular user-defined fields will always be subject to the default limits for performance and compatibility reasons.
 
