@@ -1012,6 +1012,20 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
     // An entity that references the URN, here through its tags
     assertTopHit(ENTITY_TYPES, "urn:li:tag:Confidential", ORDERS_CHART);
+    // Search operators are plain text: "-archive" does not exclude the title holding it
+    assertTrue(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DASHBOARD_ENTITY_NAME),
+                "revenue -archive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .anyMatch(entity -> entity.getEntity().equals(TITLE_MATCH)));
     // A long description pasted as the query
     assertTopHit(List.of(DATASET_ENTITY_NAME), CUSTOMERS_DESCRIPTION, CUSTOMERS);
     // One edit away from "customers"

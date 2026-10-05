@@ -164,7 +164,7 @@ public class QueryUnderstandingTest {
 
   @Test
   public void testNormalizeSkipsAbbreviationSynonyms() {
-    // "conv" → "conversion" length difference > 3, skip normalization
+    // "conv" → "conversion" more than two edits apart, skip normalization
     Map<String, Set<String>> abbrSyns =
         Map.of(
             "conv", Set.of("conv", "conversion", "conversions"),
