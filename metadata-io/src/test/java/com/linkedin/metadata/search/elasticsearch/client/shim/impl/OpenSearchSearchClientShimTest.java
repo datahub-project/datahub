@@ -747,6 +747,24 @@ public class OpenSearchSearchClientShimTest {
     assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled());
   }
 
+  @Test
+  public void reconfiguringOrClosingReleasesBulkTelemetry() {
+    OpenSearchSearchClientShim shim = shimWith(mock(RestClient.class));
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(telemetry(collector, false, null));
+    BulkTelemetry first = shim.getBulkTelemetry();
+    Object batch = new Object();
+    first.beforeBulk(batch, List.of());
+    shim.configureBulkTelemetry(telemetry(collector, false, null));
+    assertEquals(first.openBatches(), 0, "the replaced instance is closed");
+    assertEquals(first.abandonedBatches(), 1L);
+    BulkTelemetry second = shim.getBulkTelemetry();
+    second.beforeBulk(batch, List.of());
+    shim.closeBulkProcessor(); // no processors were generated; telemetry is still released
+    assertEquals(second.openBatches(), 0);
+    assertEquals(second.abandonedBatches(), 1L);
+  }
+
   private static final String BULK_REJECTED =
       "{\"took\":5,\"errors\":true,\"items\":[{\"index\":{\"_index\":\"idx\",\"_id\":\"1\","
           + "\"status\":429,\"error\":{\"type\":\"es_rejected_execution_exception\","

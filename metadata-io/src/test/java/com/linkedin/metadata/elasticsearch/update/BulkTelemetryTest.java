@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import io.datahubproject.metadata.context.RequestStats;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
@@ -27,9 +28,13 @@ import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BooleanSupplier;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
@@ -285,7 +290,8 @@ public class BulkTelemetryTest {
     Collector collector = new Collector();
     BulkTelemetry t = create(tracer(collector), true, true, "gms");
     t.beforeBulk(null, List.of());
-    t.beforeBulk(new BulkRequest(), null); // mocks return null request lists
+    BulkRequest nullList = new BulkRequest();
+    t.beforeBulk(nullList, null); // mocks return null request lists
     assertEquals(t.openBatches(), 1);
     assertEquals(t.opaqueId(null).isPresent(), false);
     assertSame(t.makeCurrent(null), Scope.noop());
@@ -305,6 +311,7 @@ public class BulkTelemetryTest {
     t.afterBulk(null, new RuntimeException());
     t.afterBulk(new Object(), new RuntimeException());
     assertEquals(collector.spans.size(), 0);
+    Reference.reachabilityFence(nullList); // its batch stays open, not abandoned, for the test
   }
 
   @Test
@@ -538,11 +545,13 @@ public class BulkTelemetryTest {
   }
 
   @Test
-  public void carriedOriginsAreBounded() {
+  public void carriedOriginsAreBoundedKeepingTheNewest() {
     BulkTelemetry t = create(tracer(new Collector()), true, false, null);
     // Two failed batches of 15,000 linked actions each: 30,000 failures, MAX_PENDING carried.
+    List<List<DocWriteRequest<?>>> batches = new ArrayList<>();
     for (int b = 0; b < 2; b++) {
       List<DocWriteRequest<?>> actions = new ArrayList<>();
+      batches.add(actions);
       try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
         for (int i = 0; i < 15_000; i++) {
           IndexRequest r = new IndexRequest("idx").id(b + "-" + i);
@@ -561,17 +570,172 @@ public class BulkTelemetryTest {
       }
     }
     assertEquals(t.carriedCount(), 20_000);
+    assertEquals(t.droppedOrigins(), 10_000L, "the oldest 10,000 were evicted");
+    t.onRequeue(batches.get(0).get(0));
+    assertEquals(t.pendingCount(), 0, "the oldest failure's origin was evicted");
+    t.onRequeue(batches.get(1).get(14_999));
+    assertEquals(t.pendingCount(), 1, "the newest failure's origin is kept");
   }
 
   @Test
-  public void pendingOriginsAreBounded() {
-    BulkTelemetry t = create(tracer(new Collector()), true, false, null);
-    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
-      for (int i = 0; i < 20_010; i++) {
-        t.onAdd(new IndexRequest("idx").id("" + i));
+  public void pendingOriginsAreBoundedKeepingTheNewest() {
+    Collector collector = new Collector();
+    BulkTelemetry t = create(tracer(collector), true, false, null);
+    List<DocWriteRequest<?>> actions = new ArrayList<>();
+    for (int i = 0; i < 20_010; i++) {
+      // A distinct trace for the first ten, so the batch's links show whether they survived.
+      String trace = i < 10 ? TRACE_B : TRACE_A;
+      try (Scope ignored = remoteSpan(trace, "b7ad6b7169203331").makeCurrent()) {
+        IndexRequest r = new IndexRequest("idx").id("" + i);
+        t.onAdd(r);
+        actions.add(r);
       }
     }
     assertEquals(t.pendingCount(), 20_000);
-    assertNotEquals(t.pendingCount(), 20_010);
+    assertEquals(t.droppedOrigins(), 10L);
+    Object key = new Object();
+    t.beforeBulk(key, actions);
+    t.afterBulk(key, 1L, List.of());
+    assertEquals(collector.spans.get(0).getLinks().size(), 1, "linking did not stop at the cap");
+    assertEquals(
+        collector.spans.get(0).getLinks().get(0).getSpanContext().getTraceId(),
+        TRACE_A,
+        "the oldest origins were the ones evicted");
+  }
+
+  @Test
+  public void unflushedActionsAreNotRetained() throws InterruptedException {
+    BulkTelemetry t = create(tracer(new Collector()), true, false, null);
+    List<WeakReference<IndexRequest>> probes = new ArrayList<>();
+    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+      for (int i = 0; i < 1_000; i++) {
+        // Added, then never flushed: the processor rejected or dropped it.
+        IndexRequest r = new IndexRequest("idx").id("" + i).source(Map.of("big", "x".repeat(100)));
+        t.onAdd(r);
+        probes.add(new WeakReference<>(r));
+      }
+    }
+    collectUntil(() -> probes.stream().allMatch(p -> p.get() == null) && t.pendingCount() == 0);
+    assertEquals(t.droppedOrigins(), 1_000L, "purged once collected, and counted");
+  }
+
+  @Test
+  public void batchWhoseAfterBulkNeverRunsIsAbandonedNotLeaked() throws InterruptedException {
+    Collector collector = new Collector();
+    BulkTelemetry t = create(tracer(collector), true, true, "gms");
+    WeakReference<Object> probe = startLostBatch(t);
+    collectUntil(() -> probe.get() == null && t.openBatches() == 0);
+    assertEquals(t.abandonedBatches(), 1L);
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertEquals(span.getAttributes().get(BulkTelemetry.ABANDONED), Boolean.TRUE);
+    assertEquals(span.getStatus().getStatusCode(), StatusCode.ERROR);
+  }
+
+  private static WeakReference<Object> startLostBatch(BulkTelemetry t) {
+    BulkRequest request = new BulkRequest().add(new IndexRequest("idx").id("1").source("{}", 0));
+    t.beforeBulk(request, request.requests());
+    return new WeakReference<>(request);
+  }
+
+  @Test
+  public void openBatchesAreBounded() {
+    Collector collector = new Collector();
+    BulkTelemetry t = create(tracer(collector), true, false, null);
+    List<Object> keys = new ArrayList<>();
+    for (int i = 0; i < 1_025; i++) {
+      Object key = new Object();
+      keys.add(key);
+      t.beforeBulk(key, List.of());
+    }
+    assertEquals(t.openBatches(), 1_024);
+    assertEquals(t.abandonedBatches(), 1L);
+    assertEquals(collector.spans.size(), 1, "the oldest batch's span was ended as abandoned");
+    assertEquals(collector.spans.get(0).getAttributes().get(BulkTelemetry.ABANDONED), Boolean.TRUE);
+    t.afterBulk(keys.get(0), 1L, List.of());
+    assertEquals(collector.spans.size(), 1, "its late afterBulk is ignored");
+    t.afterBulk(keys.get(1_024), 1L, List.of());
+    assertEquals(collector.spans.size(), 2);
+  }
+
+  @Test
+  public void closeReleasesEverythingAndUnregistersMeters() {
+    Collector collector = new Collector();
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    BulkTelemetry t =
+        BulkTelemetry.create(
+            BulkTelemetryConfig.builder()
+                .tracer(tracer(collector))
+                .batchSpans(true)
+                .meterRegistry(registry)
+                .build());
+    IndexRequest pendingAction = new IndexRequest("idx").id("p");
+    IndexRequest failedAction = new IndexRequest("idx").id("f");
+    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+      t.onAdd(failedAction);
+      t.onAdd(pendingAction);
+    }
+    Object failedBatch = new Object();
+    t.beforeBulk(failedBatch, List.of(failedAction));
+    t.afterBulk(failedBatch, 1L, List.of(failedAction));
+    Object openBatch = new Object();
+    t.beforeBulk(openBatch, List.of());
+
+    assertEquals(gauge(registry, "pending"), 1.0);
+    assertEquals(gauge(registry, "carried"), 1.0);
+    assertEquals(gauge(registry, "open_batches"), 1.0);
+    assertEquals(counter(registry, "origins_dropped"), 0.0);
+    assertEquals(counter(registry, "batches_abandoned"), 0.0);
+
+    Reference.reachabilityFence(pendingAction);
+    Reference.reachabilityFence(failedAction);
+    t.close();
+    assertEquals(t.pendingCount(), 0);
+    assertEquals(t.carriedCount(), 0);
+    assertEquals(t.openBatches(), 0);
+    assertEquals(t.abandonedBatches(), 1L);
+    assertEquals(collector.spans.size(), 2);
+    assertEquals(collector.spans.get(1).getAttributes().get(BulkTelemetry.ABANDONED), Boolean.TRUE);
+    assertTrue(registry.getMeters().isEmpty(), "meters are unregistered on close");
+    t.close(); // idempotent
+    assertEquals(collector.spans.size(), 2);
+    t.afterBulk(openBatch, 1L, List.of());
+    assertEquals(collector.spans.size(), 2, "a batch completing after close is ignored");
+  }
+
+  @Test
+  public void closeWithoutSpansOrMeters() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    // Header only: no tracer, so no origins and no meters even with a registry.
+    BulkTelemetry headerOnly =
+        BulkTelemetry.create(
+            BulkTelemetryConfig.builder().opaqueId(true).meterRegistry(registry).build());
+    assertTrue(registry.getMeters().isEmpty());
+    Object batch = new Object();
+    headerOnly.beforeBulk(batch, List.of());
+    headerOnly.close();
+    assertEquals(headerOnly.openBatches(), 0);
+    assertEquals(headerOnly.abandonedBatches(), 1L, "counted even without a span to end");
+    // Spans without a registry: nothing to unregister.
+    BulkTelemetry noMeters = create(tracer(new Collector()), true, false, null);
+    noMeters.close();
+    assertEquals(noMeters.abandonedBatches(), 0L);
+    BulkTelemetry.disabled().close(); // no-op
+  }
+
+  private static double gauge(SimpleMeterRegistry registry, String name) {
+    return registry.get(BulkTelemetry.METRIC_PREFIX + "." + name).gauge().value();
+  }
+
+  private static double counter(SimpleMeterRegistry registry, String name) {
+    return registry.get(BulkTelemetry.METRIC_PREFIX + "." + name).functionCounter().count();
+  }
+
+  private static void collectUntil(BooleanSupplier done) throws InterruptedException {
+    for (int i = 0; i < 100 && !done.getAsBoolean(); i++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertTrue(done.getAsBoolean(), "garbage was not collected");
   }
 }

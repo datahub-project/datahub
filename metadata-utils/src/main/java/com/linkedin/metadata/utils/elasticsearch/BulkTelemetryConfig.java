@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.trace.Tracer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -17,6 +18,9 @@ import lombok.Value;
  *       only; the Elasticsearch 8 bulk ingester owns its HTTP calls).
  *   <li>{@code serviceName}: the service named in that header; the implementation falls back to a
  *       default when null or blank.
+ *   <li>{@code meterRegistry}: where to publish the size of the attribution's bounded bookkeeping
+ *       (pending origins, open batches, drops). Only used when spans are on; null publishes
+ *       nothing.
  * </ul>
  */
 @Value
@@ -30,6 +34,7 @@ public class BulkTelemetryConfig {
   boolean batchSpans;
   boolean opaqueId;
   @Nullable String serviceName;
+  @Nullable MeterRegistry meterRegistry;
 
   /** Spans will be produced: {@code batchSpans} is set and a tracer was supplied. */
   public boolean spansEnabled() {

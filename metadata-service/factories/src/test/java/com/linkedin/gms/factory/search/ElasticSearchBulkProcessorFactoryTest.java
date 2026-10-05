@@ -16,6 +16,8 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import org.mockito.Answers;
@@ -92,7 +94,25 @@ public class ElasticSearchBulkProcessorFactoryTest extends AbstractTestNGSpringC
     verify(both).configureBulkTelemetry(BulkTelemetryConfig.of(tracer, true, true, "gms"));
 
     assertSame(
-        ElasticSearchBulkProcessorFactory.bulkTelemetry(null, tracer),
+        ElasticSearchBulkProcessorFactory.bulkTelemetry(null, tracer, null),
         BulkTelemetryConfig.DISABLED);
+  }
+
+  @Test
+  void bulkTelemetryPublishesToTheMetricsRegistry() {
+    RequestAttributionConfiguration attribution = new RequestAttributionConfiguration();
+    attribution.setEnabled(true);
+    Tracer tracer = OpenTelemetry.noop().getTracer("test");
+    MeterRegistry registry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    when(metricUtils.getRegistry()).thenReturn(registry);
+
+    assertSame(
+        ElasticSearchBulkProcessorFactory.bulkTelemetry(attribution, tracer, metricUtils)
+            .getMeterRegistry(),
+        registry);
+    assertNull(
+        ElasticSearchBulkProcessorFactory.bulkTelemetry(attribution, tracer, null)
+            .getMeterRegistry());
   }
 }
