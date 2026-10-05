@@ -8,8 +8,8 @@ import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
-import { SearchResultList } from '@app/searchV2/SearchResultList';
 import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
+import { SearchResultList } from '@app/searchV2/SearchResultList';
 import {
     SearchEntityWithLineage,
     applySearchResultLineageCounts,

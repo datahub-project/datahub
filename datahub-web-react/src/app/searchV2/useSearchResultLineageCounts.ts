@@ -17,10 +17,7 @@ export function useSearchResultLineageCounts(urns: string[]) {
     const hideLineage = useHideLineageInSearchCards();
     // Stabilize identity so the counts memo is not invalidated every parent render.
     const queryUrnsKey = uniqueUrns(urns).join('\0');
-    const queryUrns = useMemo(
-        () => (queryUrnsKey.length > 0 ? queryUrnsKey.split('\0') : []),
-        [queryUrnsKey],
-    );
+    const queryUrns = useMemo(() => (queryUrnsKey.length > 0 ? queryUrnsKey.split('\0') : []), [queryUrnsKey]);
     const skip = hideLineage || queryUrns.length === 0;
 
     const { data, loading, error } = useGetSearchResultLineageCountsQuery({

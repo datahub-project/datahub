@@ -83,8 +83,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     // Drop the reservation when the page batch fails so slots do not stay empty forever.
     const hasLineageCounts = previewData?.upstream != null || previewData?.downstream != null;
     const showLineageBadge = hasLineageCapability && (!isSearchResultCard || hasLineageCounts);
-    const reserveLineageBadge =
-        isSearchResultCard && hasLineageCapability && !hasLineageCounts && !lineageCountsFailed;
+    const reserveLineageBadge = isSearchResultCard && hasLineageCapability && !hasLineageCounts && !lineageCountsFailed;
 
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderRightSection =

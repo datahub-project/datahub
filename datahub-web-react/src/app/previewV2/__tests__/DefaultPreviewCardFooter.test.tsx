@@ -40,7 +40,9 @@ function renderFooter(
         <PreviewContext.Provider value={{ previewData: previewData as any }}>{footer}</PreviewContext.Provider>
     );
     const withLineageStatus = (
-        <SearchResultLineageStatusProvider failed={lineageCountsFailed}>{withPreview}</SearchResultLineageStatusProvider>
+        <SearchResultLineageStatusProvider failed={lineageCountsFailed}>
+            {withPreview}
+        </SearchResultLineageStatusProvider>
     );
     const withSearch = asSearchResult ? (
         <SearchResultProvider searchResult={searchResult as any}>{withLineageStatus}</SearchResultProvider>
