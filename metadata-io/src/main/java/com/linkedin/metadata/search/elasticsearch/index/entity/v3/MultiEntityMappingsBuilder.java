@@ -545,8 +545,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     properties.putIfAbsent(
         V3SearchDocumentProjector.ENTITY_TYPE_FIELD, new HashMap<>(Map.of(TYPE, "keyword")));
     // Structured property values are copied into this field (StructuredPropertyMappingBuilder), so
-    // it is mapped before any property exists
-    properties.putIfAbsent(
+    // it is mapped before any property exists, always with the subfields V3 queries read
+    properties.put(
         CUSTOM_FULL_TEXT_SEARCH_FIELDS, FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT));
   }
 

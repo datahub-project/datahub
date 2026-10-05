@@ -270,12 +270,16 @@ public class StructuredPropertyMappingBuilderTest {
           valueType);
     }
 
-    StructuredPropertyDefinition excluded =
-        propertyOfType("string")
-            .setSearchConfiguration(new DataHubSearchConfig().setExcludeFromFullTextSearch(true));
-    assertFalse(
-        StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(excluded)
-            .containsKey("copy_to"));
+    // An opted-out property keeps its field for filters and facets
+    for (String valueType : List.of("string", "rich_text", "urn")) {
+      Map<String, Object> excluded =
+          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+              propertyOfType(valueType)
+                  .setSearchConfiguration(
+                      new DataHubSearchConfig().setExcludeFromFullTextSearch(true)));
+      assertFalse(excluded.containsKey("copy_to"), valueType);
+      assertEquals(excluded.get("type"), "keyword", valueType);
+    }
   }
 
   @Test
