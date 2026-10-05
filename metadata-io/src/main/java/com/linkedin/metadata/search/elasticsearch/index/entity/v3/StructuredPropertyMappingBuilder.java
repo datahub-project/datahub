@@ -3,6 +3,8 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.CUSTOM_FULL_TEXT_SEARCH_FIELDS;
+import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.linkedin.common.urn.Urn;
@@ -89,6 +91,28 @@ public class StructuredPropertyMappingBuilder {
       fieldMapping.putAll(properties);
     }
 
+    if (isFullTextEligible(logicalValueType) && !isExcludedFromFullTextSearch(definition)) {
+      fieldMapping.put(COPY_TO, List.of(CUSTOM_FULL_TEXT_SEARCH_FIELDS));
+    }
+
     return fieldMapping;
+  }
+
+  private static boolean isFullTextEligible(@Nonnull LogicalValueType logicalType) {
+    return logicalType == LogicalValueType.STRING
+        || logicalType == LogicalValueType.RICH_TEXT
+        || logicalType == LogicalValueType.URN;
+  }
+
+  /**
+   * Per-property opt-out from the full-text field. Read only when the property's mapping is built:
+   * system-update leaves the structuredProperties subtree out of its mapping diff, and copy_to
+   * applies at index time, so changing it on a property already in an index needs that index
+   * rebuilt.
+   */
+  private static boolean isExcludedFromFullTextSearch(
+      @Nonnull StructuredPropertyDefinition definition) {
+    return definition.hasSearchConfiguration()
+        && Boolean.TRUE.equals(definition.getSearchConfiguration().isExcludeFromFullTextSearch());
   }
 }

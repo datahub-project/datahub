@@ -1077,6 +1077,20 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void testStructuredPropertyFullTextFieldIsMappedWithoutProperties() {
+    Map<String, Object> properties =
+        getProperties(
+            mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
+
+    // The copy_to target of structured property values, queried through its delimited subfield
+    Map<String, Object> fullText =
+        (Map<String, Object>) properties.get("customFullTextSearchFields");
+    assertEquals(fullText.get("type"), "keyword");
+    assertTrue(((Map<String, Object>) fullText.get("fields")).containsKey("delimited"));
+  }
+
+  @Test
   public void testConflictedProjectedRootFieldDoesNotUseAspectCopyTo() {
     EntitySpec entitySpec1 =
         createMockEntitySpecWithSearchMetadata(

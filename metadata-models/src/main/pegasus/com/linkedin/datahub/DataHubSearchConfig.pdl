@@ -33,6 +33,15 @@ record DataHubSearchConfig {
     **/
     queryByDefault: boolean = false
 
+    /**
+    * Whether to exclude this field's values from the aggregated full-text search field.
+    * Only consulted when full-text indexing of structured property values is enabled
+    * globally. Unset means not excluded. Takes effect for newly mapped properties; on a
+    * property that is already indexed it applies only once the index is rebuilt, which
+    * some reindex configurations will carry out as a full reindex of that index.
+    **/
+    excludeFromFullTextSearch: optional boolean
+
     /** 
     * Whether we should use the field for default autocomplete
     **/

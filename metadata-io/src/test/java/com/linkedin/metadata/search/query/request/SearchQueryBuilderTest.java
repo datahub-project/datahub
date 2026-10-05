@@ -637,6 +637,26 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testStructuredPropertyFullTextFieldQueriedOnlyOnV3() {
+    List<EntitySpec> entitySpecs = ImmutableList.of(TestEntitySpecBuilder.getSpec());
+    assertFalse(
+        TEST_BUILDER
+            .buildQuery(opContext, entitySpecs, "testQuery", true)
+            .toString()
+            .contains("customFullTextSearchFields"),
+        "V2 indices have no structured property full-text field");
+
+    FunctionScoreQueryBuilder v3Query =
+        (FunctionScoreQueryBuilder)
+            new SearchQueryBuilder(testQueryConfig, null, true)
+                .buildQuery(opContext, entitySpecs, "testQuery", true);
+    List<QueryBuilder> shouldQueries = ((BoolQueryBuilder) v3Query.query()).should();
+    // The simple query matches the words of a value, the exact query the whole value
+    assertTrue(shouldQueries.get(0).toString().contains("customFullTextSearchFields.delimited"));
+    assertTrue(shouldQueries.get(1).toString().contains("customFullTextSearchFields.keyword"));
+  }
+
+  @Test
   public void testSearchFieldConfigurationInSimpleQuery() {
     // Create a custom configuration with field configurations
     CustomSearchConfiguration customConfig =
