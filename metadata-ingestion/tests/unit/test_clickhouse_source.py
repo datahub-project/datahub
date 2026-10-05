@@ -667,6 +667,66 @@ def test_usage_credits_every_table_clickhouse_resolved(monkeypatch):
     assert _field_counts(by_urn[dim_users]) == {"col_c": 1}
 
 
+@pytest.mark.parametrize(
+    ("raw", "normalized"),
+    [
+        ("`select`", "select"),
+        ("`a.b`", "a.b"),
+        (r"`a\`b`", "a`b"),
+        (r"`a\\b`", r"a\b"),
+        ("a.b.c.d", "a.b.c.d"),
+        ("`unterminated", "`unterminated"),
+    ],
+)
+def test_normalize_query_log_identifier(raw: str, normalized: str) -> None:
+    assert clickhouse._normalize_query_log_identifier(raw) == normalized
+
+
+def test_usage_normalizes_backtick_quoted_dataset_names(monkeypatch):
+    source = _query_log_source()
+    source.discovered_datasets.update({"my_db.values", "my_db.t", "my_db.t.x"})
+    rows = [
+        _select_row(
+            tables=("my_db.`values`", "my_db.t", "my_db.`t.x`"),
+            columns=(
+                "my_db.`values`.col_a",
+                "my_db.t.col_b",
+                "my_db.`t.x`.col_c",
+            ),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    by_urn = {
+        wu.metadata.entityUrn: wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    values_urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.values,PROD)"
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.t,PROD)"
+    dotted_urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.t.x,PROD)"
+    assert set(by_urn) == {values_urn, table_urn, dotted_urn}
+    assert _field_counts(by_urn[values_urn]) == {"col_a": 1}
+    assert _field_counts(by_urn[table_urn]) == {"col_b": 1}
+    assert _field_counts(by_urn[dotted_urn]) == {"col_c": 1}
+
+
+def test_usage_matches_columns_to_the_longest_dataset_name():
+    source = _query_log_source()
+    row = _select_row(
+        tables=("my_db.t", "my_db.t.x"),
+        columns=("my_db.t.x.col_a",),
+    )
+
+    query = source._usage_row_to_preparsed(dict(row._mapping))
+
+    assert query
+    longer_urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.t.x,PROD)"
+    assert query.column_usage == {longer_urn: {"col_a"}}
+
+
 def test_usage_counts_nested_and_map_subcolumns(monkeypatch):
     # ClickHouse stores Nested(a UInt8) on column n as a physical column named
     # n.a, and reports it backtick-quoted, so the column name is itself dotted.

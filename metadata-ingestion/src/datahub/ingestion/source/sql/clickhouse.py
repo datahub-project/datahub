@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import (
     Any,
     Dict,
@@ -23,6 +23,7 @@ from typing import (
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
+import sqlglot
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic import field_validator, model_validator
@@ -150,6 +151,16 @@ register_custom_type(custom_types.common.Tuple, UnionTypeClass)
 
 def _split_joined(value: Optional[str]) -> List[str]:
     return [part for part in (value or "").split(_ARRAY_SEP) if part]
+
+
+@lru_cache(maxsize=10_000)
+def _normalize_query_log_identifier(value: str) -> str:
+    """Canonicalize a ClickHouse identifier using the query parser's dialect."""
+    try:
+        table = sqlglot.to_table(value, dialect="clickhouse")
+    except sqlglot.errors.SqlglotError:
+        return value
+    return ".".join(part.name for part in table.parts)
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -1100,11 +1111,15 @@ ORDER BY event_time ASC
             if isinstance(event_time, datetime):
                 event_time = _as_utc(event_time)
 
-            # ClickHouse reports tables as db.table, which is already the dataset
-            # name this two-tier source uses.
+            # Query-log identifiers may backtick individual parts. Normalize them
+            # to the unquoted names used by schema discovery.
+            dataset_names = [
+                (raw_name, _normalize_query_log_identifier(raw_name))
+                for raw_name in _split_joined(row.get("tables_joined"))
+            ]
             urn_by_dataset_name = {
                 dataset_name: self._dataset_urn(dataset_name)
-                for dataset_name in _split_joined(row.get("tables_joined"))
+                for _, dataset_name in dataset_names
                 if not dataset_name.startswith(_NON_USER_TABLE_PREFIXES)
             }
             if not urn_by_dataset_name:
@@ -1116,11 +1131,18 @@ ORDER BY event_time ASC
             # itself dotted and backtick-quoted (db.t.`n.a`), so split on the
             # table names we already have rather than on the last dot.
             column_usage: Dict[str, Set[str]] = defaultdict(set)
+            dataset_names_by_length = sorted(
+                dataset_names, key=lambda names: len(names[0]), reverse=True
+            )
             for qualified_column in _split_joined(row.get("columns_joined")):
-                for dataset_name, urn in urn_by_dataset_name.items():
-                    if qualified_column.startswith(f"{dataset_name}."):
-                        column = qualified_column[len(dataset_name) + 1 :]
-                        column_usage[urn].add(column.strip("`"))
+                for raw_name, dataset_name in dataset_names_by_length:
+                    if qualified_column.startswith(f"{raw_name}."):
+                        column = qualified_column[len(raw_name) + 1 :]
+                        urn = urn_by_dataset_name.get(dataset_name)
+                        if urn:
+                            column_usage[urn].add(
+                                _normalize_query_log_identifier(column)
+                            )
                         break
 
             user = row.get("user", "")
