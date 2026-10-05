@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Callable, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Annotated, Callable, Dict, List, Optional, Sequence, Union
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -12,6 +12,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Enables,
     Filters,
     HiddenFromDocs,
 )
@@ -339,9 +340,12 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    include_notebooks: bool = pydantic.Field(
-        default=False,
-        description="Ingest notebooks, represented as DataHub datasets.",
+    # get_workunits_internal runs process_notebooks only with this on.
+    include_notebooks: Annotated[bool, Enables(DatasetSubTypes.NOTEBOOK)] = (
+        pydantic.Field(
+            default=False,
+            description="Ingest notebooks, represented as DataHub datasets.",
+        )
     )
 
     include_ownership: bool = pydantic.Field(
@@ -731,14 +735,6 @@ class UnityCatalogSourceConfig(
             kind,
             (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
         )
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        # get_workunits_internal runs process_notebooks only with this on.
-        return {
-            **super().probe_kind_switches(),
-            str(DatasetSubTypes.NOTEBOOK): "include_notebooks",
-        }
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """What process_tables and _get_catalogs (source.py) decide that no
