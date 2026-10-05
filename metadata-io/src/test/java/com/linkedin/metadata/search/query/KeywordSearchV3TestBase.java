@@ -66,6 +66,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -157,6 +158,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
   private MappingsBuilder mappingsBuilder;
+  private MultiEntityMappingsBuilder engineV3MappingsBuilder;
   private ESIndexBuilder indexBuilder;
   private SettingsBuilder settingsBuilder;
   private IndexConfiguration indexConfiguration;
@@ -193,6 +195,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    // Built as MappingsBuilderFactory builds it, with the engine's own mapping details
+    engineV3MappingsBuilder = new MultiEntityMappingsBuilder(entityIndex, getSearchClient());
     // Both the document transformer and the filter resolver look the definition up
     StructuredPropertyDefinition retentionPolicy =
         new StructuredPropertyDefinition()
@@ -346,11 +350,78 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
    * the ones the other tests seed, and stores them in a form that compares equal on the next
    * system-update, which would otherwise apply or reindex them again every time.
    */
+  /** Field paths where two mappings differ, compared the way system-update compares them. */
+  private static List<String> differingPaths(
+      Map<String, Object> current, Map<String, Object> target) {
+    List<String> paths = new ArrayList<>();
+    collectDifferences(current.get("properties"), target.get("properties"), "", paths);
+    return paths.size() > 8 ? paths.subList(0, 8) : paths;
+  }
+
+  /** Index settings the target sets that the engine reports differently. */
+  private static List<String> differingSettings(
+      org.opensearch.common.settings.Settings current, Map<String, Object> target) {
+    List<String> paths = new ArrayList<>();
+    collectSettingDifferences(current, target, "", paths);
+    return paths.size() > 8 ? paths.subList(0, 8) : paths;
+  }
+
+  private static void collectSettingDifferences(
+      org.opensearch.common.settings.Settings current,
+      Object target,
+      String key,
+      List<String> paths) {
+    if (target instanceof Map<?, ?> targetMap) {
+      for (Map.Entry<?, ?> entry : targetMap.entrySet()) {
+        collectSettingDifferences(
+            current,
+            entry.getValue(),
+            key.isEmpty() ? "" + entry.getKey() : key + "." + entry.getKey(),
+            paths);
+      }
+      return;
+    }
+    String settingKey = key.startsWith("index.") ? key : "index." + key;
+    String actual =
+        target instanceof List<?>
+            ? String.valueOf(current.getAsList(settingKey))
+            : current.get(settingKey);
+    if (!java.util.Objects.equals(actual, String.valueOf(target))) {
+      paths.add(settingKey + ": " + actual + " != " + target);
+    }
+  }
+
+  private static void collectDifferences(
+      Object current, Object target, String path, List<String> paths) {
+    if (current instanceof Map<?, ?> currentMap && target instanceof Map<?, ?> targetMap) {
+      java.util.Set<String> keys = new java.util.TreeSet<>();
+      currentMap.keySet().forEach(key -> keys.add(String.valueOf(key)));
+      targetMap.keySet().forEach(key -> keys.add(String.valueOf(key)));
+      for (String key : keys) {
+        Object currentValue = currentMap.get(key);
+        Object targetValue = targetMap.get(key);
+        // The engine reports type object on mapped objects that the generated mapping leaves
+        // implicit
+        if ("type".equals(key)
+            && "object".equals(String.valueOf(currentValue == null ? targetValue : currentValue))
+            && (currentValue == null || targetValue == null)) {
+          continue;
+        }
+        collectDifferences(currentValue, targetValue, path + "/" + key, paths);
+      }
+      return;
+    }
+    if (!java.util.Objects.equals(String.valueOf(current), String.valueOf(target))) {
+      paths.add(path + ": " + current + " != " + target);
+    }
+  }
+
   @Test
   public void testEngineAcceptsEveryRegistryIndex() throws IOException {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     int created = 0;
-    for (MappingsBuilder.IndexMapping mapping : mappingsBuilder.getIndexMappings(opContext)) {
+    for (MappingsBuilder.IndexMapping mapping :
+        engineV3MappingsBuilder.getIndexMappings(opContext)) {
       if (!indexConvention.isV3EntityIndexType(mapping.getIndexName())) {
         continue;
       }
@@ -362,8 +433,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings));
       ReindexConfig secondPass =
           indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings);
-      assertFalse(secondPass.requiresApplyMappings(), index + " mapping changed in the engine");
-      assertFalse(secondPass.requiresApplySettings(), index + " settings changed in the engine");
+      assertFalse(
+          secondPass.requiresApplyMappings(),
+          index
+              + " mapping changed in the engine: "
+              + differingPaths(secondPass.currentMappings(), secondPass.targetMappings()));
+      assertFalse(
+          secondPass.requiresApplySettings(),
+          index
+              + " settings changed in the engine: "
+              + differingSettings(secondPass.currentSettings(), secondPass.targetSettings()));
       getSearchClient()
           .deleteIndex(
               OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
