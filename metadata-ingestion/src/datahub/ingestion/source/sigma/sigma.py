@@ -2818,9 +2818,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         title="Sigma Data Model spec not fully read",
                         message=(
                             "A Data Model's /spec did not match the shape this "
-                            "connector expects, so some of its union column "
-                            "lineage may be missing. Upgrading the connector "
-                            "usually fixes this."
+                            "connector expects, so "
+                            + (
+                                "some of its union column lineage may be missing."
+                                if index.is_supported_schema
+                                else "its union column lineage is skipped: the "
+                                "schemaVersion is not one this connector reads."
+                            )
+                            + " Upgrading the connector usually fixes this."
                         ),
                         context=(
                             f"data_model={dm_id}, schema_version={index.schema_version}"
