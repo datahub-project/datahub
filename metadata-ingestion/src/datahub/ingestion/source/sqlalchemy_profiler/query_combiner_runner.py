@@ -188,6 +188,15 @@ class QueryCombinerRunner:
         self.query_combiner.run(execute)
         return FutureResult(container=container)
 
+    @property
+    def defers_queries(self) -> bool:
+        """Whether scheduling a query postpones it until flush().
+
+        False when the combiner is disabled: every scheduled call runs where it
+        is written, so queries cannot be gated on a result from the same batch.
+        """
+        return bool(self.query_combiner.enabled)
+
     def flush(self) -> None:
         """Execute every scheduled query. FutureResults resolve after this."""
         self.query_combiner.flush()

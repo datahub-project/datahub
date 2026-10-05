@@ -1005,6 +1005,54 @@ class SQLAlchemyProfiler:
 
         return row_count
 
+    def _resolve_sampling_ignore_list(
+        self,
+        sql_table: sa.Table,
+        adapter: PlatformAdapter,
+        conn: Connection,
+        pretty_name: str,
+        platform: str,
+    ) -> Tuple[bool, List[str]]:
+        """Which columns opt out of sampling, per tags_to_ignore_sampling.
+
+        Non-fatal by design: this reaches the DataHub server, and it runs before
+        the row count. A failure here used to cost the whole profile -- including
+        the rowCount an empty table would otherwise have emitted -- in exchange
+        for a sampling hint.
+
+        It fails closed. The option names columns whose values must not reach
+        DataHub, so a lookup failure is answered with "treat the whole table as
+        tagged": counts and the row count still go out, sample values and
+        min/max do not. Answering "nothing is tagged" would publish values for
+        exactly the columns the option exists to protect, behind a warning.
+        """
+        try:
+            ignore_table_sampling, ignore_list = _get_columns_to_ignore_sampling(
+                pretty_name,
+                self.config.tags_to_ignore_sampling,
+                platform,
+                self.env,
+            )
+            return ignore_table_sampling, self._ignore_list_as_stored_names(
+                ignore_list, sql_table, adapter, conn
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Profiling: sampling tags unavailable",
+                message=(
+                    "Could not resolve tags_to_ignore_sampling, so the whole "
+                    "table is treated as tagged: the row count and the null "
+                    "and unique counts are profiled; column values (sample "
+                    "values, min/max/mean, histograms, quantiles and distinct "
+                    "value frequencies) are not."
+                ),
+                context=pretty_name,
+                exc=e,
+            )
+            if not self.config.catch_exceptions:
+                raise
+            return True, []
+
     def _ignore_list_as_stored_names(
         self,
         ignore_paths: List[str],
@@ -1614,66 +1662,25 @@ class SQLAlchemyProfiler:
                     # also a table scan, so there are as few as the data
                     # dependencies allow:
                     #
-                    # STAGE 1: Row count
-                    #   Helpers: _schedule_row_count() + _extract_row_count()
-                    #   - Alone and first: a zero or failed count skips everything
-                    #     below, including the setup
-                    #
                     # SETUP: columns to profile, their types, empty field
                     #   profiles. All from the schema, so no queries.
                     #
-                    # STAGE 2: Cardinality + numeric stats
-                    #   Helpers: _schedule_cardinality_queries()
+                    # STAGE 1: Row count + cardinality + numeric stats
+                    #   Helpers: _schedule_row_count()
+                    #            + _schedule_cardinality_queries()
                     #            + _schedule_numeric_queries()
+                    #            + _extract_row_count()
                     #            + _extract_cardinality_results()
-                    #   - Both schedule into ONE batch: which stats a column needs
-                    #     follows from its schema type, not from the counts
+                    #   - All three schedule into ONE batch: which stats a column
+                    #     needs follows from its schema type, not from the counts,
+                    #     and over an empty table the column queries scan nothing
                     #   - Extracts results and calculates null counts, proportions
                     #
-                    # STAGE 3: Complex queries
+                    # STAGE 2: Complex queries
                     #   Helper: _extract_and_process_stats()
                     #   - Runs the non-batchable ones (sample values, histograms,
                     #     frequencies) that need an earlier result to build
                     # ================================================================
-
-                    # ----------------------------------------------------------------
-                    # STAGE 1: Row count
-                    # ----------------------------------------------------------------
-                    # First and alone: a zero or failed count means none of the
-                    # setup below, and none of the column queries, need to happen.
-                    with runner.batch() as batch:
-                        row_count_future = self._schedule_row_count(
-                            batch=batch,
-                            sql_table=sql_table,
-                            adapter=adapter,
-                            pretty_name=pretty_name,
-                        )
-                    row_count = self._extract_row_count(
-                        row_count_future=row_count_future,
-                        profile=profile,
-                        context=context,
-                        pretty_name=pretty_name,
-                    )
-
-                    # Skip the column queries when the row count says there is no
-                    # data to profile:
-                    # - row_count is None: the query failed (permission error etc.)
-                    # - row_count == 0 AND the count was EXACT: genuinely empty.
-                    #
-                    # With profile_table_row_count_estimate_only the count comes from
-                    # the catalog, which can report 0 for a table that has rows --
-                    # never analyzed, or stale statistics -- so an estimate of 0 must
-                    # not drop the column profiles.
-                    if row_count is None or (
-                        row_count == 0 and not self._uses_row_count_estimate(adapter)
-                    ):
-                        reason = (
-                            "empty table (rowCount=0)"
-                            if row_count == 0
-                            else "row count unavailable (permission error or query failure)"
-                        )
-                        logger.info(f"No column profiles for {pretty_name}: {reason}")
-                        return profile
 
                     # ----------------------------------------------------------------
                     # SETUP: Get columns to profile and sampling configuration
@@ -1684,15 +1691,8 @@ class SQLAlchemyProfiler:
                     (
                         ignore_table_sampling,
                         columns_list_to_ignore_sampling,
-                    ) = _get_columns_to_ignore_sampling(
-                        pretty_name,
-                        self.config.tags_to_ignore_sampling,
-                        platform,
-                        self.env,
-                    )
-
-                    columns_list_to_ignore_sampling = self._ignore_list_as_stored_names(
-                        columns_list_to_ignore_sampling, sql_table, adapter, conn
+                    ) = self._resolve_sampling_ignore_list(
+                        sql_table, adapter, conn, pretty_name, platform
                     )
 
                     all_columns = [col.name for col in sql_table.columns]
@@ -1706,27 +1706,95 @@ class SQLAlchemyProfiler:
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 2: Cardinality + numeric stats, in one batch
+                    # STAGE 1: Row count + cardinality + numeric stats
                     # ----------------------------------------------------------------
                     column_types = self._resolve_column_types(
                         sql_table, columns_to_profile_set, platform
                     )
 
+                    # Folding the row count in only pays when scheduling defers.
+                    # With the combiner off every call runs where it is written,
+                    # so the column queries would all execute before the count
+                    # could skip them -- 73 statements on an empty 12-column
+                    # table instead of 1, and 73 failures on an unreadable one.
+                    folded = runner.defers_queries
+
+                    def _schedule_columns(
+                        batch: QueryCombinerRunner,
+                    ) -> Tuple[
+                        Dict[str, Dict[str, FutureResult[Any]]],
+                        Dict[str, Dict[str, FutureResult[Any]]],
+                    ]:
+                        return (
+                            self._schedule_cardinality_queries(
+                                batch=batch,
+                                sql_table=sql_table,
+                                columns_to_profile_set=columns_to_profile_set,
+                                pretty_name=pretty_name,
+                            ),
+                            self._schedule_numeric_queries(
+                                batch=batch,
+                                sql_table=sql_table,
+                                column_types=column_types,
+                                ignore_table_sampling=ignore_table_sampling,
+                                columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
+                                pretty_name=pretty_name,
+                            ),
+                        )
+
+                    cardinality_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
+                    numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
                     with runner.batch() as batch:
-                        cardinality_futures = self._schedule_cardinality_queries(
+                        row_count_future = self._schedule_row_count(
                             batch=batch,
                             sql_table=sql_table,
-                            columns_to_profile_set=columns_to_profile_set,
+                            adapter=adapter,
                             pretty_name=pretty_name,
                         )
-                        numeric_stats_futures = self._schedule_numeric_queries(
-                            batch=batch,
-                            sql_table=sql_table,
-                            column_types=column_types,
-                            ignore_table_sampling=ignore_table_sampling,
-                            columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
-                            pretty_name=pretty_name,
+                        if folded:
+                            (
+                                cardinality_futures,
+                                numeric_stats_futures,
+                            ) = _schedule_columns(batch)
+
+                    row_count = self._extract_row_count(
+                        row_count_future=row_count_future,
+                        profile=profile,
+                        context=context,
+                        pretty_name=pretty_name,
+                    )
+
+                    # Emit no field profiles when the row count says there is no data:
+                    # - row_count is None: row count query failed (permission error etc.)
+                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
+                    #
+                    # The column queries have already run — over an empty table they scan
+                    # nothing, which is why they are scheduled alongside the row count
+                    # rather than behind it. Their results are simply dropped here.
+                    #
+                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
+                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
+                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
+                    # recently-modified tables that actually have data — never analyzed yet, or
+                    # stats not refreshed. Treating that 0 as "no data" would silently drop
+                    # fieldProfiles for non-empty tables.
+                    if row_count is None or (
+                        row_count == 0 and not self._uses_row_count_estimate(adapter)
+                    ):
+                        reason = (
+                            "empty table (rowCount=0)"
+                            if row_count == 0
+                            else "row count unavailable (permission error or query failure)"
                         )
+                        logger.info(f"No column profiles for {pretty_name}: {reason}")
+                        return profile
+
+                    if not folded:
+                        with runner.batch() as batch:
+                            (
+                                cardinality_futures,
+                                numeric_stats_futures,
+                            ) = _schedule_columns(batch)
 
                     columns_with_types = self._extract_cardinality_results(
                         field_profiles=field_profiles,
@@ -1737,7 +1805,7 @@ class SQLAlchemyProfiler:
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 3: Complex queries
+                    # STAGE 2: Complex queries
                     # ----------------------------------------------------------------
                     self._extract_and_process_stats(
                         runner=runner,

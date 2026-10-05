@@ -19,6 +19,9 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+    GenericAdapter,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -807,11 +810,6 @@ class TestSQLAlchemyProfiler:
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
             ) as mock_get_adapter,
-            patch.object(
-                profiler,
-                "_get_columns_to_profile",
-                wraps=profiler._get_columns_to_profile,
-            ) as spy_setup,
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
 
@@ -848,13 +846,11 @@ class TestSQLAlchemyProfiler:
                 f"Expected no field profiles for empty table, got {len(result_profile.fieldProfiles) if result_profile.fieldProfiles else 0}"
             )
 
-            # The docstring's "no wasted queries" claim, actually checked: the
-            # row count runs alone and first, so neither the column queries...
+            # This runs with the combiner disabled, where nothing is deferred,
+            # so the column queries are NOT folded in with the row count --
+            # folding them would run every one before the count could skip them.
             mock_adapter.get_column_non_null_count.assert_not_called()
             mock_adapter.get_column_unique_count.assert_not_called()
-            # ...nor the setup that feeds them should have happened. Without
-            # this, moving the setup block back above the row count passes.
-            spy_setup.assert_not_called()
 
 
 class TestProfilingIsolationLevelResolution:
@@ -1680,9 +1676,9 @@ class TestColumnQueriesShareOneBatch:
 
         assert profile is not None
         assert len(profile.fieldProfiles or []) == 3
-        # One statement for the row count, one for everything about the columns.
-        # Two batches would make it three.
-        assert report.combined_queries_issued == 2, report.as_obj()
+        # One statement for the whole table: the row count rides along with the
+        # column queries. Before the fold it was two; before the merge, three.
+        assert report.combined_queries_issued == 1, report.as_obj()
         assert report.uncombined_queries_issued == 0, report.as_obj()
 
     def test_counts_and_numeric_stats_share_a_scan_when_flattening(self, tmp_path):
@@ -1694,3 +1690,249 @@ class TestColumnQueriesShareOneBatch:
         # which is only possible because both sets are in it.
         assert report.flat_queries_issued == 1, report.as_obj()
         assert report.query_exceptions == 0, report.as_obj()
+
+
+class TestEndToEndFailureHandling:
+    """Driven through generate_profiles, so the wiring is covered, not just the
+    helpers. Unit tests on the helpers alone let a reverted fix pass."""
+
+    @staticmethod
+    def _db(tmp_path, columns=12, rows=10):
+        engine = sa.create_engine(f"sqlite:///{tmp_path}/probe.db")
+        meta = sa.MetaData()
+        table = sa.Table(
+            "probe", meta, *[sa.Column(f"c{i}", Integer) for i in range(columns)]
+        )
+        conn = engine.connect()
+        meta.create_all(conn)
+        if rows:
+            conn.execute(
+                table.insert(),
+                [{f"c{i}": n for i in range(columns)} for n in range(rows)],
+            )
+        conn.commit()
+        return engine, conn
+
+    @staticmethod
+    def _profile(conn, flatten, **overrides):
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_enabled=True,
+            query_combiner_flatten_enabled=flatten,
+            **{
+                "include_field_sample_values": False,
+                "include_field_median_value": False,
+                **overrides,
+            },
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=conn,
+            report=SQLSourceReport(),
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        request = ProfilerRequest(
+            pretty_name="main.probe", batch_kwargs={"table": "probe"}
+        )
+        results = list(
+            profiler.generate_profiles([request], max_workers=1, platform="sqlite")
+        )
+        return profiler, results[0][1]
+
+    @staticmethod
+    def _deny_table(engine, seen):
+        def deny(c, cur, statement, *_):
+            text = " ".join(statement.split())
+            if "probe" in text and text.upper().startswith(("SELECT", "WITH")):
+                seen.append(text)
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny)
+
+    @pytest.mark.parametrize("flatten", [False, True])
+    def test_unreadable_table_does_not_retry_every_column(self, tmp_path, flatten):
+        # The row count is a gate: once it fails alone the table cannot be read,
+        # so the remaining queries are resolved rather than issued.
+        engine, conn = self._db(tmp_path)
+        attempted: List[str] = []
+        self._deny_table(engine, attempted)
+
+        profiler, profile = self._profile(conn, flatten)
+
+        assert len(attempted) <= 3, attempted
+        assert profile is not None
+        assert profile.rowCount is None
+        assert not profile.fieldProfiles
+        assert profiler.report.query_combiner.queries_skipped_after_gate > 0
+
+    def test_a_single_column_unreadable_table_skips_the_unmatched_group(self, tmp_path):
+        # One column means one flatten group plus a lone distinct count, which
+        # lands in the unmatched set. Both the group loop and the unmatched
+        # block must honour the gate, and the serial retry must read the
+        # flush's record rather than starting from None.
+        engine, conn = self._db(tmp_path, columns=1)
+        attempted: List[str] = []
+        self._deny_table(engine, attempted)
+
+        profiler, profile = self._profile(conn, True)
+
+        assert len(attempted) <= 3, attempted
+        assert profile is not None
+        assert not profile.fieldProfiles
+
+    def test_one_failing_column_does_not_serialize_the_whole_table(self, tmp_path):
+        # Recovery is scoped to the chunk that failed, so later chunks are still
+        # combined instead of going one query per round trip.
+        engine, conn = self._db(tmp_path, columns=6)
+        failed = []
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split())
+            if "count(c3)" in text.replace('"', "") and "count(c0)" not in text:
+                failed.append(text)
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        # stddev_samp does not exist on SQLite, so leaving it on would fail
+        # every chunk and the assertion below would be met by the chunks that
+        # ran before the failure rather than by the scoping.
+        profiler, profile = self._profile(
+            conn,
+            False,
+            include_field_stddev_value=False,
+        )
+        report = profiler.report.query_combiner
+
+        assert profile is not None
+        # Only the chunk holding c3 goes one query per round trip. Without
+        # scoping the whole queue is demoted and this is an order of magnitude
+        # larger.
+        assert report.uncombined_queries_issued <= 3
+
+    def test_empty_table_with_a_failing_column_stops_at_the_count(self, tmp_path):
+        # Merging the row count into the column batch used to mean an empty
+        # table retried every column; an exact 0 now resolves the rest.
+        engine, conn = self._db(tmp_path, columns=12, rows=0)
+        issued: List[str] = []
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split()).replace('"', "")
+            if "probe" in text and text.upper().startswith(("SELECT", "WITH")):
+                issued.append(text)
+                if "count(c3)" in text:
+                    raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        profiler, profile = self._profile(conn, False)
+
+        assert len(issued) <= 2, issued
+        assert profile is not None
+        assert profile.rowCount == 0
+        assert not profile.fieldProfiles
+        assert profiler.report.query_combiner.queries_skipped_empty_table > 0
+        # An empty table is not an unreadable one.
+        assert profiler.report.query_combiner.queries_skipped_after_gate == 0
+
+    def test_non_empty_table_with_a_failing_column_keeps_its_field_profiles(
+        self, tmp_path
+    ):
+        # The count is read twice: once to decide whether to skip, once by the
+        # profiler. Consuming it the first time would report 0 rows here and
+        # drop every field profile without a warning.
+        engine, conn = self._db(tmp_path, columns=6, rows=10)
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split()).replace('"', "")
+            if "count(c3)" in text and "count(c0)" not in text:
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        profiler, profile = self._profile(conn, False)
+
+        assert profile is not None
+        assert profile.rowCount == 10
+        assert len(profile.fieldProfiles or []) == 6
+        assert profiler.report.query_combiner.queries_skipped_empty_table == 0
+
+    def test_a_failed_tag_lookup_does_not_publish_sample_values(self, tmp_path):
+        # tags_to_ignore_sampling names columns whose values must not reach
+        # DataHub. If the lookup fails we cannot tell which those are, so the
+        # whole table is treated as tagged: counts still go out, values do not.
+        engine, conn = self._db(tmp_path, columns=3, rows=10)
+
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+            "._get_columns_to_ignore_sampling",
+            side_effect=Exception("DataHub unreachable"),
+        ):
+            profiler, profile = self._profile(
+                conn,
+                False,
+                tags_to_ignore_sampling=["pii"],
+                include_field_sample_values=True,
+                include_field_min_value=True,
+                include_field_max_value=True,
+                include_field_median_value=True,
+                include_field_stddev_value=True,
+                include_field_quantiles=True,
+                include_field_histogram=True,
+                include_field_distinct_value_frequencies=True,
+            )
+
+        assert profile is not None
+        # The profile survives...
+        assert profile.rowCount == 10
+        assert len(profile.fieldProfiles or []) == 3
+        # ...carrying only the counts, and nothing that reveals a value. Checked
+        # exhaustively rather than field by field, so a new value-bearing
+        # statistic cannot leak through this path unnoticed.
+        allowed = {
+            "fieldPath",
+            "nullCount",
+            "nullProportion",
+            "uniqueCount",
+            "uniqueProportion",
+        }
+        for field in profile.fieldProfiles or []:
+            # These are Avro-generated classes: the values live in _inner_dict,
+            # not __dict__, which is empty.
+            leaked = {
+                name: value
+                for name, value in field._inner_dict.items()
+                if name not in allowed and value not in (None, [], {})
+            }
+            assert not leaked, f"{field.fieldPath}: {leaked}"
+
+        warning = next(
+            w
+            for w in profiler.report.warnings
+            if "sampling tags unavailable" in w.title.lower()
+        )
+        # The message is what an operator reads to decide whether values were
+        # published, so it has to describe the direction actually taken.
+        assert "treated as tagged" in str(warning.message)
+        assert "are not" in str(warning.message)
+
+    def test_an_estimated_row_count_is_never_a_gate(self, tmp_path):
+        # The estimate is allowed to say 0 for a table that has data, so it must
+        # never short-circuit the column queries. Only the exact count may.
+        engine, conn = self._db(tmp_path, columns=3, rows=10)
+        with (
+            patch.object(
+                GenericAdapter, "supports_row_count_estimation", return_value=True
+            ),
+            patch.object(GenericAdapter, "get_estimated_row_count", return_value=0),
+        ):
+            profiler, profile = self._profile(
+                conn, False, profile_table_row_count_estimate_only=True
+            )
+
+        assert profile is not None
+        assert profile.rowCount == 0
+        # Stale statistics must not cost the table its column profiles.
+        assert len(profile.fieldProfiles or []) == 3
+        assert profiler.report.query_combiner.queries_skipped_empty_table == 0
