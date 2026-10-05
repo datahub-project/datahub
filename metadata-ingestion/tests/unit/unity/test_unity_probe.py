@@ -647,7 +647,7 @@ def _principal(name: str, app_id: str) -> SdkServicePrincipal:
     )
 
 
-def test_service_principals_reports_a_count_and_never_a_name(
+def test_service_principals_lists_display_names_and_never_application_ids(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ws = _fake_ws()
@@ -656,53 +656,38 @@ def test_service_principals_reports_a_count_and_never_a_name(
     )
     _serve(monkeypatch, ws)
     result = run_probe_method("unity-catalog", BASE, "service_principals", {})
-    assert result.result == {"listable": True, "count": 2, "truncated": False}
+    assert result.result == ["etl-bot", "bi-bot"]
+    assert result.truncated is False
     payload = json.dumps(result.to_dict())
-    for leaked in ("etl-bot", "bi-bot", "app-1", "app-2"):
-        assert leaked not in payload
+    assert "app-1" not in payload and "app-2" not in payload
 
 
-def test_service_principals_count_skips_what_ingestion_skips() -> None:
+def test_service_principals_lists_only_what_ingestion_keeps() -> None:
     # Ingestion drops a principal without a display name or application id.
     ws = _fake_ws()
     ws.service_principals.list.return_value = iter(
         [_principal("etl-bot", "app-1"), SdkServicePrincipal(id="no-app")]
     )
-    assert _probe(ws).service_principals()["count"] == 1
+    assert _probe(ws).service_principals() == ["etl-bot"]
 
 
-@pytest.mark.parametrize(
-    ("listed", "count", "truncated"),
-    [(3, 3, False), (4, 3, True)],
-    ids=["exactly-the-cap", "past-the-cap"],
-)
-def test_service_principals_says_only_when_it_stopped_counting(
-    monkeypatch: pytest.MonkeyPatch, listed: int, count: int, truncated: bool
+def test_service_principals_says_when_the_listing_stopped_at_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "datahub.ingestion.source.unity.unity_probe._SERVICE_PRINCIPAL_COUNT_CAP", 3
-    )
     ws = _fake_ws()
     ws.service_principals.list.return_value = iter(
-        [_principal(f"bot-{i}", f"app-{i}") for i in range(listed)]
+        [_principal(f"bot-{i}", f"app-{i}") for i in range(5)]
     )
     _serve(monkeypatch, ws)
-    result = run_probe_method("unity-catalog", BASE, "service_principals", {})
-    assert result.result == {
-        "listable": True,
-        "count": count,
-        "truncated": truncated,
-    }
+    result = run_probe_method("unity-catalog", BASE, "service_principals", {"limit": 3})
+    assert result.result == ["bot-0", "bot-1", "bot-2"]
+    assert result.truncated is True
 
 
 def test_service_principals_the_credential_cannot_list_degrade_with_a_warning() -> None:
     ws = _fake_ws()
     ws.service_principals.list.side_effect = PermissionDenied("s3cr3t-detail")
     probe = _probe(ws)
-    assert probe.service_principals() == {
-        "listable": False,
-        "count": None,
-        "truncated": False,
-    }
+    assert probe.service_principals() == []
     assert any("service principals" in w for w in probe.warnings)
     assert not any("s3cr3t" in w for w in probe.warnings)
