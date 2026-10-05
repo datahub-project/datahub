@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import importlib.util
 import importlib
+import importlib.util
 import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -178,11 +178,18 @@ def repo_label_ids_for_occurrences(
     return out
 
 
-def issue_graphql_label_ids(api_key: str, issue_id: str) -> list[str]:
+class IssueLabelRef(NamedTuple):
+    """A label on an issue and the label group it belongs to (``None`` when ungrouped)."""
+
+    id: str
+    parent_id: str | None
+
+
+def issue_labels_with_parents(api_key: str, issue_id: str) -> list[IssueLabelRef]:
     q = """
-query IssueLabelIds($id: String!) {
+query IssueLabelsWithParents($id: String!) {
   issue(id: $id) {
-    labels { nodes { id } }
+    labels { nodes { id parent { id } } }
   }
 }
 """
@@ -190,11 +197,36 @@ query IssueLabelIds($id: String!) {
     issue = data.get("issue")
     if not issue:
         return []
-    return [
-        str(n["id"])
-        for n in (issue.get("labels") or {}).get("nodes") or []
-        if n.get("id")
+    out: list[IssueLabelRef] = []
+    for n in (issue.get("labels") or {}).get("nodes") or []:
+        if not n.get("id"):
+            continue
+        parent = n.get("parent") or {}
+        pid = parent.get("id")
+        out.append(IssueLabelRef(str(n["id"]), str(pid) if pid else None))
+    return out
+
+
+def label_ids_replacing_group_sibling(
+    current: list[IssueLabelRef], new_label_id: str, group_id: str | None
+) -> list[str]:
+    """Current label ids with any other child of ``group_id`` dropped and ``new_label_id`` added.
+
+    Linear label groups are exclusive: an issue may carry only one child per group, and
+    ``issueUpdate`` rejects a set that contains two. The scan-history comment keeps the full
+    list of refs, so replacing the previous child is lossless.
+
+    ``group_id`` is the parent of the label being applied. ``None`` means that label is
+    ungrouped, so every current label stays and the new id is added.
+    """
+    if group_id is None:
+        return dedupe_preserve_order([*(ref.id for ref in current), new_label_id])
+    kept = [
+        ref.id
+        for ref in current
+        if ref.id == new_label_id or ref.parent_id != group_id
     ]
+    return dedupe_preserve_order([*kept, new_label_id])
 
 
 def issue_update_label_ids(api_key: str, issue_id: str, label_ids: list[str]) -> None:
@@ -215,21 +247,42 @@ def random_label_color_hex() -> str:
     return f"#{random.randint(0, 0xFFFFFF):06x}"
 
 
-def find_team_label_by_name(api_key: str, team_id: str, label_name: str) -> str | None:
-    q = """
-query TeamIssueLabelByName($teamId: ID!, $name: String!) {
+def is_duplicate_label_error(err: BaseException) -> bool:
+    em = str(err).lower()
+    return any(
+        x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
+    )
+
+
+def find_label_group_id(
+    api_key: str, group_name: str, team_id: str | None = None
+) -> str | None:
+    """Id of the label group ``group_name``: workspace-level, or on ``team_id`` when given."""
+    if team_id:
+        q = """
+query TeamLabelGroupByName($name: String!, $teamId: ID!) {
   issueLabels(
-    filter: {
-      team: { id: { eq: $teamId } }
-      name: { eq: $name }
-    }
+    filter: { name: { eq: $name }, isGroup: { eq: true }, team: { id: { eq: $teamId } } }
     first: 1
   ) {
-    nodes { id name }
+    nodes { id }
   }
 }
 """
-    data = graphql(api_key, q, {"teamId": team_id, "name": label_name})
+        variables: dict[str, Any] = {"name": group_name, "teamId": team_id}
+    else:
+        q = """
+query WorkspaceLabelGroupByName($name: String!) {
+  issueLabels(
+    filter: { name: { eq: $name }, isGroup: { eq: true }, team: { null: true } }
+    first: 1
+  ) {
+    nodes { id }
+  }
+}
+"""
+        variables = {"name": group_name}
+    data = graphql(api_key, q, variables)
     nodes = (data.get("issueLabels") or {}).get("nodes") or []
     if not nodes:
         return None
@@ -237,103 +290,162 @@ query TeamIssueLabelByName($teamId: ID!, $name: String!) {
     return str(found) if found else None
 
 
-def find_workspace_label_by_name(api_key: str, label_name: str) -> str | None:
-    """Resolve a non-group issue label by name across the workspace (name is unique)."""
+class ResolvedLabel(NamedTuple):
+    """A label and the group it actually belongs to (``None`` when ungrouped)."""
+
+    id: str
+    parent_id: str | None
+
+
+def find_label_id_by_name(api_key: str, label_name: str) -> ResolvedLabel | None:
+    """Any issue label with this name, regardless of parent or team.
+
+    Linear label names are unique in the workspace, so a name taken outside the group we
+    intended still identifies the label to reuse. The parent is that label's real group.
+    """
     q = """
-query WorkspaceIssueLabelByName($name: String!) {
-  issueLabels(
-    filter: {
-      name: { eq: $name }
-      isGroup: { eq: false }
-    }
-    first: 1
-  ) {
-    nodes { id name }
+query IssueLabelByName($name: String!) {
+  issueLabels(filter: { name: { eq: $name } }, first: 1) {
+    nodes { id parent { id } }
   }
 }
 """
     data = graphql(api_key, q, {"name": label_name})
     nodes = (data.get("issueLabels") or {}).get("nodes") or []
+    if not nodes or not nodes[0].get("id"):
+        return None
+    parent = nodes[0].get("parent") or {}
+    parent_id = parent.get("id")
+    return ResolvedLabel(str(nodes[0]["id"]), str(parent_id) if parent_id else None)
+
+
+def find_group_child_label_id(api_key: str, group_id: str, label_name: str) -> str | None:
+    q = """
+query GroupChildLabelByName($name: String!, $parentId: ID!) {
+  issueLabels(
+    filter: { name: { eq: $name }, parent: { id: { eq: $parentId } } }
+    first: 1
+  ) {
+    nodes { id }
+  }
+}
+"""
+    data = graphql(api_key, q, {"name": label_name, "parentId": group_id})
+    nodes = (data.get("issueLabels") or {}).get("nodes") or []
     if not nodes:
         return None
     found = nodes[0].get("id")
     return str(found) if found else None
 
 
-def create_team_label(
-    api_key: str, team_id: str, label_name: str, color_hex: str
+def _issue_label_create(api_key: str, label_input: dict[str, Any]) -> str:
+    m = """
+mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
+  issueLabelCreate(input: $input) {
+    success
+    issueLabel { id }
+  }
+}
+"""
+    data = graphql(api_key, m, {"input": label_input})
+    result = data.get("issueLabelCreate") or {}
+    if not result.get("success"):
+        raise RuntimeError(f"issueLabelCreate failed: {data}")
+    lid = (result.get("issueLabel") or {}).get("id")
+    if not lid:
+        raise RuntimeError(f"issueLabelCreate returned no id: {data}")
+    return str(lid)
+
+
+def create_label_group(api_key: str, group_name: str, team_id: str | None = None) -> str:
+    label_input: dict[str, Any] = {"name": group_name, "isGroup": True}
+    if team_id:
+        label_input["teamId"] = team_id
+    return _issue_label_create(api_key, label_input)
+
+
+def create_group_child_label(
+    api_key: str,
+    group_id: str,
+    label_name: str,
+    color_hex: str,
+    team_id: str | None = None,
 ) -> str:
-    m = """
-mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
-  issueLabelCreate(input: $input) {
-    success
-    issueLabel { id name color }
-  }
-}
-"""
-    data = graphql(
-        api_key,
-        m,
-        {
-            "input": {
-                "teamId": team_id,
-                "name": label_name,
-                "color": color_hex,
-            }
-        },
-    )
-    result = data.get("issueLabelCreate") or {}
-    if not result.get("success"):
-        raise RuntimeError(f"issueLabelCreate failed: {data}")
-    issue_label = result.get("issueLabel") or {}
-    lid = issue_label.get("id")
-    if not lid:
-        raise RuntimeError(f"issueLabelCreate returned no id: {data}")
-    return str(lid)
+    # A child of a team group must be created on that team; workspace groups take no teamId.
+    label_input: dict[str, Any] = {
+        "name": label_name,
+        "parentId": group_id,
+        "color": color_hex,
+    }
+    if team_id:
+        label_input["teamId"] = team_id
+    return _issue_label_create(api_key, label_input)
 
 
-def create_workspace_label(api_key: str, label_name: str, color_hex: str) -> str:
-    """Create a workspace-level label (omit teamId so Linear does not enforce per-team names)."""
-    m = """
-mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
-  issueLabelCreate(input: $input) {
-    success
-    issueLabel { id name color }
-  }
-}
-"""
-    data = graphql(
-        api_key,
-        m,
-        {
-            "input": {
-                "name": label_name,
-                "color": color_hex,
-            }
-        },
-    )
-    result = data.get("issueLabelCreate") or {}
-    if not result.get("success"):
-        raise RuntimeError(f"issueLabelCreate failed: {data}")
-    issue_label = result.get("issueLabel") or {}
-    lid = issue_label.get("id")
-    if not lid:
-        raise RuntimeError(f"issueLabelCreate returned no id: {data}")
-    return str(lid)
+def get_or_create_label_group_id(
+    api_key: str,
+    group_name: str,
+    team_id: str | None = None,
+    *,
+    create_if_missing: bool,
+) -> str:
+    existing = find_label_group_id(api_key, group_name, team_id)
+    if existing:
+        return existing
+    if not create_if_missing:
+        scope = f"team {team_id}" if team_id else "the workspace"
+        raise RuntimeError(f"Linear label group {group_name!r} not found in {scope}")
+    try:
+        return create_label_group(api_key, group_name, team_id)
+    except RuntimeError as e:
+        if is_duplicate_label_error(e):
+            existing_after = find_label_group_id(api_key, group_name, team_id)
+            if existing_after:
+                return existing_after
+        raise
 
 
-def get_or_create_workspace_label_id(api_key: str, label_name: str) -> str:
-    existing = find_workspace_label_by_name(api_key, label_name)
+def _resolve_existing_child_label(
+    api_key: str, group_id: str, label_name: str
+) -> ResolvedLabel | None:
+    """Child of ``group_id`` with this name, or the workspace label when the name is taken.
+
+    A label found outside the group is reused as-is. It is not moved, so callers must use
+    its real parent when replacing group siblings.
+    """
+    child_id = find_group_child_label_id(api_key, group_id, label_name)
+    if child_id:
+        return ResolvedLabel(child_id, group_id)
+    found = find_label_id_by_name(api_key, label_name)
+    if not found:
+        return None
+    if found.parent_id != group_id:
+        print(
+            f"Linear label {label_name!r} already exists ({found.id}) "
+            f"outside group {group_id}; reusing it without moving it"
+        )
+    return found
+
+
+def get_or_create_group_child_label_id(
+    api_key: str, group_id: str, label_name: str, team_id: str | None = None
+) -> ResolvedLabel:
+    """Reuse or create ``label_name`` as a child of ``group_id``.
+
+    Label names are unique in the workspace. A child of this group is preferred. If the name
+    already exists outside the group, that label is reused and keeps its current parent.
+    """
+    existing = _resolve_existing_child_label(api_key, group_id, label_name)
     if existing:
         return existing
     try:
-        return create_workspace_label(api_key, label_name, random_label_color_hex())
+        created = create_group_child_label(
+            api_key, group_id, label_name, random_label_color_hex(), team_id
+        )
+        return ResolvedLabel(created, group_id)
     except RuntimeError as e:
-        em = str(e).lower()
-        if any(
-            x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
-        ):
-            existing_after = find_workspace_label_by_name(api_key, label_name)
+        if is_duplicate_label_error(e):
+            existing_after = _resolve_existing_child_label(api_key, group_id, label_name)
             if existing_after:
                 return existing_after
         raise

@@ -493,46 +493,45 @@ public class ESUtils {
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
-    if (filter == null) {
-      return finalQueryBuilder;
-    }
+    // No early return on a null filter: unfiltered searches still need the latest-version clause.
+    if (filter != null) {
+      StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
 
-    StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
-
-    if (filter.getOr() != null) {
-      // If caller is using the new Filters API, build boolean query from that.
-      filter
-          .getOr()
-          .forEach(
-              or ->
-                  finalQueryBuilder.should(
-                      ESUtils.buildConjunctiveFilterQuery(
-                          or,
-                          isTimeseries,
-                          skipKeywordSuffix,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain)));
-    } else if (filter.getCriteria() != null) {
-      // Otherwise, build boolean query from the deprecated "criteria" field.
-      log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
-      final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-      filter
-          .getCriteria()
-          .forEach(
-              criterion -> {
-                if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
-                  andQueryBuilder.must(
-                      getQueryBuilderFromCriterion(
-                          criterion,
-                          isTimeseries,
-                          skipKeywordSuffix,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain));
-                }
-              });
-      finalQueryBuilder.should(andQueryBuilder);
+      if (filter.getOr() != null) {
+        // If caller is using the new Filters API, build boolean query from that.
+        filter
+            .getOr()
+            .forEach(
+                or ->
+                    finalQueryBuilder.should(
+                        ESUtils.buildConjunctiveFilterQuery(
+                            or,
+                            isTimeseries,
+                            skipKeywordSuffix,
+                            searchableFieldTypes,
+                            opContext,
+                            queryFilterRewriteChain)));
+      } else if (filter.getCriteria() != null) {
+        // Otherwise, build boolean query from the deprecated "criteria" field.
+        log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
+        final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
+        filter
+            .getCriteria()
+            .forEach(
+                criterion -> {
+                  if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
+                    andQueryBuilder.must(
+                        getQueryBuilderFromCriterion(
+                            criterion,
+                            isTimeseries,
+                            skipKeywordSuffix,
+                            searchableFieldTypes,
+                            opContext,
+                            queryFilterRewriteChain));
+                  }
+                });
+        finalQueryBuilder.should(andQueryBuilder);
+      }
     }
     if (Boolean.TRUE.equals(
         opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {

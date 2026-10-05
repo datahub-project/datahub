@@ -97,3 +97,16 @@ If `scans_avoided` is low, those last four say why. High `flatten_singletons` me
 For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowflake) profiles a sample rather than the full table. This reduces the cost of each scan, where the two options above reduce how many queries and scans are issued — so sampling composes with both, and on a supported platform you can enable all three.
 
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
+
+#### `rowCount` and the column statistics are measured over different things
+
+A profile whose `partitionSpec.type` is not `FULL_TABLE` — which covers both a sampled profile and a partitioned one — carries two kinds of number that do **not** come from the same set of rows:
+
+| field                                                                              | measured over                                   |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `rowCount`                                                                         | the whole dataset, taken from source metadata   |
+| every field profile (`nullCount`, `nullProportion`, `uniqueCount`, min/max/mean/…) | only the sample, or only the profiled partition |
+
+**The consequence is the part that catches people out: `nullCount` is not a fraction of `rowCount`.** It is `sample_rows - non_null_rows`, so on a billion-row table sampled to 10,000 rows a column that is 50% null reports `nullCount: 5000` against `rowCount: 1000000000`. Dividing one by the other is meaningless. `nullProportion` is the figure to use — it is computed over the sample and is therefore a valid estimate of the whole. The same applies to `uniqueCount` (a sample's distinct count, not scaled up — distinct counts do not grow linearly with the sampling rate) and to the min, max, mean, median and stdev.
+
+When the source metadata has no row count — views, external tables, or anywhere it is otherwise unavailable — the profile carries no `rowCount` at all rather than the sample's size. That is expected, not a failure.
