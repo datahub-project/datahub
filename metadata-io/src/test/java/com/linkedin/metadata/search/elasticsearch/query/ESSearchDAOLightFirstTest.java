@@ -26,11 +26,12 @@ public class ESSearchDAOLightFirstTest {
     BoolQueryBuilder light =
         (BoolQueryBuilder)
             ESSearchDAO.buildLightSourceQuery(
-                QueryBuilders.boolQuery().must(FULL).filter(FILTER), LIGHT);
+                QueryBuilders.boolQuery().must(FULL).filter(FILTER).mustNot(FILTER), LIGHT);
     assertEquals(light.must().size(), 1);
     assertSame(light.must().get(0), LIGHT);
     assertEquals(light.filter().size(), 1);
     assertSame(light.filter().get(0), FILTER);
+    assertSame(light.mustNot().get(0), FILTER);
   }
 
   @Test

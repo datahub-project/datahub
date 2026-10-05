@@ -491,9 +491,15 @@ public class ESSearchDAO {
     } finally {
       searchRequest.source().query(fullQuery);
     }
-    if (hasHits(lightResponse) || skipsFullQuery(input)) {
+    if (hasHits(lightResponse)) {
+      countLightFirst(opContext, "light");
       return lightResponse;
     }
+    if (skipsFullQuery(input)) {
+      countLightFirst(opContext, "stopped");
+      return lightResponse;
+    }
+    countLightFirst(opContext, "full");
     if (lightResponse.getFailedShards() > 0) {
       log.warn(
           "Light query failed on {} of {} shards, running the full query",
@@ -572,6 +578,14 @@ public class ESSearchDAO {
       lightFunctionScoreQuery.queryName(originalFunctionScoreQuery.queryName());
     }
     return lightFunctionScoreQuery;
+  }
+
+  /** Counts which query served a light-first search: light, full (fell through) or stopped. */
+  private static void countLightFirst(@Nonnull OperationContext opContext, @Nonnull String served) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> metricUtils.increment(ESSearchDAO.class, "lightFirst_" + served, 1));
   }
 
   /** No sort, or only by score (the explain API's default), orders by relevance. */
