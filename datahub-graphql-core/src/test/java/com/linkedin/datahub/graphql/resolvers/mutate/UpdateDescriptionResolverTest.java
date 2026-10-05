@@ -429,7 +429,9 @@ public class UpdateDescriptionResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
+    // No existing aspect: the fallback seeds the required name from the urn id.
     ApiProperties expected = new ApiProperties();
+    expected.setName("test-api");
     expected.setDescription(TEST_DESCRIPTION);
     verifySingleIngestProposal(
         mockEntityService,

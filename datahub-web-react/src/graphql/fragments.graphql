@@ -1552,6 +1552,11 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+    }
     ... on DataPlatformInstance {
         instanceId
     }

@@ -39,18 +39,10 @@ fragment apiSearchFields on Api {
     signature {
         schemaDefinition
         inputFields {
-            fieldPath
-            nullable
-            description
-            nativeDataType
-            type
+            ...apiSignatureFieldFields
         }
         outputFields {
-            fieldPath
-            nullable
-            description
-            nativeDataType
-            type
+            ...apiSignatureFieldFields
         }
     }
     restProperties {
@@ -81,4 +73,12 @@ fragment apiSearchFields on Api {
     status {
         removed
     }
+}
+
+fragment apiSignatureFieldFields on SchemaField {
+    fieldPath
+    nullable
+    description
+    nativeDataType
+    type
 }

@@ -138,6 +138,7 @@ public class ApiTypeTest {
         type.autoComplete("payments", null, (Filter) null, 10, mockContext());
 
     assertNotNull(results);
+    assertEquals(results.getQuery(), "payments");
     Mockito.verify(mockClient, Mockito.times(1))
         .autoComplete(
             any(),

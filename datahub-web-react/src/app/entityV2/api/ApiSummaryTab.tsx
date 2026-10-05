@@ -11,6 +11,7 @@ import {
     SummaryTabWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
+import { safeUrl } from '@app/shared/urlUtils';
 
 import { GetApiQuery } from '@graphql/api.generated';
 
@@ -86,7 +87,7 @@ export const ApiSummaryTab = () => {
                 <SectionContainer>
                     <SummaryTabHeaderTitle icon={<LinkOutlined />} title={t('api.summary.reference')} />
                     <RefRow>
-                        <RefLink href={externalUrl} target="_blank" rel="noopener noreferrer">
+                        <RefLink href={safeUrl(externalUrl)} target="_blank" rel="noopener noreferrer">
                             <LinkOutlined />
                             {t('api.summary.viewDocs')}
                         </RefLink>

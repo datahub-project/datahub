@@ -25,6 +25,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 
 import { useGetApiQuery } from '@graphql/api.generated';
 import { Api, EntityType, SearchResult } from '@types';
@@ -210,6 +211,7 @@ export class ApiEntity implements Entity<Api> {
             urn: entity.urn,
             name: this.displayName(entity),
             type: EntityType.Api,
+            subtype: getFirstSubType(entity),
             icon: undefined,
             platform: entity?.dataPlatformInstance?.platform ?? undefined,
         };
@@ -241,7 +243,6 @@ export class ApiEntity implements Entity<Api> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
-            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

@@ -174,6 +174,11 @@ public class ApiMapper implements ModelMapper<EntityResponse, Api> {
 
   private static void mapRestApiProperties(@Nonnull final Api api, @Nonnull final DataMap dataMap) {
     final com.linkedin.api.RestApiProperties info = new com.linkedin.api.RestApiProperties(dataMap);
+    // Both fields are required by the PDL, but a partial aspect must degrade to "no REST
+    // properties" rather than fail the whole batch load (method/path are non-null in GraphQL).
+    if (!info.hasMethod() || !info.hasPath()) {
+      return;
+    }
     final RestApiProperties result = new RestApiProperties();
     // PdlEnumMapper (not Enum.valueOf) so an unknown/$UNKNOWN PDL method value
     // degrades to a default instead of throwing.

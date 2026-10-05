@@ -77,7 +77,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input,
             environment.getContext(),
             Constants.API_PROPERTIES_ASPECT_NAME,
-            new ApiProperties(),
+            // name is required on apiProperties; seed it from the urn id when the aspect is absent
+            new ApiProperties().setName(targetUrn.getId()),
             ApiProperties::setDescription);
       case Constants.DOCUMENT_ENTITY_NAME:
         return updateDocumentDescription(targetUrn, input, environment.getContext());

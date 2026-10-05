@@ -1632,6 +1632,11 @@ fragment facetFields on FacetMetadata {
                     name
                 }
             }
+            ... on Api {
+                properties {
+                    name
+                }
+            }
             ... on Document {
                 info {
                     title

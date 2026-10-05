@@ -614,9 +614,11 @@ public class DescriptionUtils {
         (T)
             EntityUtils.getAspectFromEntity(
                 opContext, resourceUrn.toString(), aspectName, entityService, emptyAspect);
-    if (properties != null) {
-      setDescription.accept(properties, newDescription);
+    if (properties == null) {
+      log.warn("Failed to read {} for {}; skipping description update", aspectName, resourceUrn);
+      return;
     }
+    setDescription.accept(properties, newDescription);
     persistAspect(opContext, resourceUrn, aspectName, properties, actor, entityService);
   }
 
