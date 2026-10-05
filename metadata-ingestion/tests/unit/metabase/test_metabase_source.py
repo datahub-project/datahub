@@ -277,6 +277,29 @@ WHERE 1=1
     assert "}}" not in stripped
 
 
+def test_strip_template_expressions_handles_multiline_template_variable_standalone():
+    """Exercises _TEMPLATE_VARIABLE_PATTERN's re.DOTALL in isolation.
+
+    The multiline-optional-clause test above nests its {{ }} variables
+    inside a [[ ... ]] block, so _OPTIONAL_CLAUSE_PATTERN consumes and
+    removes them in the first substitution pass before
+    _TEMPLATE_VARIABLE_PATTERN ever runs, leaving its own DOTALL flag
+    untested. This test uses a {{ }} variable that spans multiple lines
+    on its own, outside any [[ ... ]] block, so it survives to be matched
+    by _TEMPLATE_VARIABLE_PATTERN directly.
+    """
+    query = """SELECT *
+FROM orders
+WHERE status = {{
+  order_status
+}}
+"""
+    stripped = MetabaseSource.strip_template_expressions(query)
+
+    assert "{{" not in stripped
+    assert "}}" not in stripped
+
+
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
