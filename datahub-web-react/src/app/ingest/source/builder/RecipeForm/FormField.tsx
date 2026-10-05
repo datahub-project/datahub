@@ -1,8 +1,8 @@
-import { Tooltip } from '@components';
-import { MinusCircle } from '@phosphor-icons/react/dist/csr/MinusCircle';
+import { Button, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Checkbox, Form, Input, Select } from 'antd';
-import Button from 'antd/lib/button';
+import AntButton from 'antd/lib/button';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -19,13 +19,12 @@ import DatePicker from '@utils/DayjsDatePicker';
 
 import { Secret } from '@types';
 
-const StyledButton = styled(Button)`
+const StyledButton = styled(AntButton)`
     color: ${(props) => props.theme.colors.textTertiary};
     width: 80%;
 `;
 
-const StyledRemoveIcon = styled(MinusCircle)`
-    font-size: 14px;
+const RemoveButton = styled(Button)`
     margin-left: 10px;
 `;
 
@@ -52,17 +51,12 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
                             <Form.Item {...item} noStyle>
                                 <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>
-                            <StyledRemoveIcon
-                                role="button"
-                                tabIndex={0}
+                            <RemoveButton
+                                variant="text"
+                                isCircle
+                                icon={{ icon: Trash, size: 'lg' }}
                                 aria-label={t('remove')}
                                 onClick={() => remove(item.name)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        remove(item.name);
-                                    }
-                                }}
                             />
                         </Form.Item>
                     ))}

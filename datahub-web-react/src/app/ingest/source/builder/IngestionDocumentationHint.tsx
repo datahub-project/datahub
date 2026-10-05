@@ -48,7 +48,7 @@ export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => 
             <Header>
                 <Title>Let&apos;s get connected! 🎉</Title>
                 <Tooltip showArrow={false} title="Hide">
-                    <Button type="text" icon={<StyledCloseOutlined />} onClick={onHide} />
+                    <Button type="text" icon={<StyledCloseOutlined />} onClick={onHide} aria-label="Hide" />
                 </Tooltip>
             </Header>
             <Description>

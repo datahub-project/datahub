@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.linkedin.api.ApiProperties;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -19,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +71,15 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
       case Constants.APPLICATION_ENTITY_NAME:
         return updateApplicationDescription(targetUrn, input, environment.getContext());
+      case Constants.API_ENTITY_NAME:
+        return updateCatalogEntityDescription(
+            targetUrn,
+            input,
+            environment.getContext(),
+            Constants.API_PROPERTIES_ASPECT_NAME,
+            // name is required on apiProperties; seed it from the urn id when the aspect is absent
+            new ApiProperties().setName(targetUrn.getId()),
+            ApiProperties::setDescription);
       case Constants.DOCUMENT_ENTITY_NAME:
         return updateDocumentDescription(targetUrn, input, environment.getContext());
       default:
@@ -618,6 +630,45 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         },
         this.getClass().getSimpleName(),
         "updateApplicationDescription");
+  }
+
+  private <T extends RecordTemplate> CompletableFuture<Boolean> updateCatalogEntityDescription(
+      Urn targetUrn,
+      DescriptionUpdateInput input,
+      QueryContext context,
+      String aspectName,
+      T emptyAspect,
+      BiConsumer<T, String> setDescription) {
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
+
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateCatalogEntityDescription(
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService,
+                aspectName,
+                emptyAspect,
+                setDescription);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        },
+        this.getClass().getSimpleName(),
+        "updateCatalogEntityDescription");
   }
 
   private CompletableFuture<Boolean> updateBusinessAttributeDescription(
