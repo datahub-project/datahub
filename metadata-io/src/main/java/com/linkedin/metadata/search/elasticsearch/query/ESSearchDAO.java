@@ -434,9 +434,10 @@ public class ESSearchDAO {
 
   /**
    * The light Stage 1 query that Search V3 keyword reads run before the full query, or null when
-   * the full query runs directly: on V2, with a sort order other than relevance, for structured
-   * queries, and for empty, match-all, quoted and URN or path queries, whose light and full queries
-   * are the same or whose quotes ask for exact matches only.
+   * the full query runs directly: on V2, with a sort order other than relevance, under a Column
+   * Name filter, for searches that are not full-text, for structured queries, and for empty,
+   * match-all, quoted and URN or path queries, whose light and full queries are the same or whose
+   * quotes ask for exact matches only.
    */
   @Nullable
   private QueryBuilder lightFirstQuery(
@@ -502,9 +503,12 @@ public class ESSearchDAO {
     countLightFirst(opContext, "full");
     if (lightResponse.getFailedShards() > 0) {
       log.warn(
-          "Light query failed on {} of {} shards, running the full query",
+          "Light query failed on {} of {} shards, running the full query: {}",
           lightResponse.getFailedShards(),
-          lightResponse.getTotalShards());
+          lightResponse.getTotalShards(),
+          lightResponse.getShardFailures().length > 0
+              ? lightResponse.getShardFailures()[0].reason()
+              : "");
     }
     log.debug("Light query matched nothing, running the full query for \"{}\"", input);
     return searchClient(opContext, searchRequest)
