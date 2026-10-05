@@ -381,14 +381,6 @@ class ClickHouseConfig(
                 return True
         return False
 
-    def is_allowed_table(self, name: str) -> bool:
-        """Whether a db.table named in the query log is in this recipe's scope."""
-        if "." in name:
-            database = name.split(".", 1)[0]
-            if not self.database_pattern.allowed(database):
-                return False
-        return self.table_pattern.allowed(name) or self.view_pattern.allowed(name)
-
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
@@ -836,6 +828,12 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             or self.config.include_query_log_operations
         )
 
+    def _save_schema_to_resolver(self) -> bool:
+        return super()._save_schema_to_resolver() or self._should_extract_query_log()
+
+    def _is_allowed_query_log_table(self, name: str) -> bool:
+        return name in self.discovered_datasets
+
     def _init_query_log_aggregator(self) -> None:
         """Initialize the SQL parsing aggregator for query log extraction."""
         start_time, end_time = self._get_query_log_time_window()
@@ -844,6 +842,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             platform="clickhouse",
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            schema_resolver=self.get_schema_resolver(),
             graph=self.ctx.graph,
             eager_graph_load=False,
             generate_lineage=self.config.include_query_log_lineage,
@@ -858,7 +857,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             ),
             generate_operations=self.config.include_query_log_operations,
             is_temp_table=self.config.is_temp_table,
-            is_allowed_table=self.config.is_allowed_table,
+            is_allowed_table=self._is_allowed_query_log_table,
             format_queries=False,
         )
         self.report.query_log_aggregator = self._query_log_aggregator.report

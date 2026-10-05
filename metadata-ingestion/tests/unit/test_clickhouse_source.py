@@ -259,6 +259,7 @@ def test_query_log_lineage_resolves_unqualified_tables(monkeypatch):
         }
     )
     source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.update({"my_db.daily_agg", "my_db.raw_events"})
 
     rows = [
         _FakeRow(
@@ -306,6 +307,9 @@ def test_query_log_lineage_does_not_over_qualify(monkeypatch):
         }
     )
     source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.update(
+        {"analytics_marts.daily_agg", "analytics_raw.raw_events"}
+    )
 
     rows = [
         _FakeRow(
@@ -415,7 +419,15 @@ def _query_log_source() -> ClickHouseSource:
             "end_time": "2020-04-16T00:00:00Z",
         }
     )
-    return ClickHouseSource(config, PipelineContext(run_id="test"))
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.update(
+        {
+            f"{database}.{table}"
+            for database in ("my_db", "db_a", "db_b")
+            for table in ("daily_agg", "raw_events", "dim_users")
+        }
+    )
+    return source
 
 
 def _insert_row(
@@ -778,6 +790,7 @@ def test_operation_reports_the_newest_execution(monkeypatch):
         }
     )
     source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.update({"my_db.daily_agg", "my_db.raw_events"})
     rows = [
         _insert_row(query_id="a6", user="alice", hour=6),
         _insert_row(query_id="b7", user="bob", hour=7),
@@ -897,6 +910,8 @@ def test_query_log_aggregator_report_is_attached():
     )
 
     assert source._query_log_aggregator is not None
+    assert source._save_schema_to_resolver()
+    assert source._query_log_aggregator._schema_resolver is source.get_schema_resolver()
     assert source.report.query_log_aggregator is source._query_log_aggregator.report
 
 
@@ -914,6 +929,7 @@ def test_query_log_respects_database_pattern(monkeypatch):
         }
     )
     source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.add("my_db.raw_events")
     rows = [
         _select_row(
             tables=("my_db.raw_events", "other_db.secret"),
@@ -933,18 +949,20 @@ def test_query_log_respects_database_pattern(monkeypatch):
     assert _RAW_EVENTS in urns
 
 
-def test_query_log_respects_inherited_table_pattern(monkeypatch):
+def test_query_log_respects_table_pattern_with_explicit_view_pattern(monkeypatch):
     config = ClickHouseConfig.model_validate(
         {
             "host_port": "localhost:8123",
             "include_query_log_lineage": True,
             "include_usage_statistics": True,
             "table_pattern": {"deny": [r"my_db\.denied_.*"]},
+            "view_pattern": {"allow": [r"my_db\..*"]},
             "start_time": "2020-04-14T00:00:00Z",
             "end_time": "2020-04-16T00:00:00Z",
         }
     )
     source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.add("my_db.raw_events")
     denied_insert = _insert_row(query_id="i1")
     denied_insert._mapping["query"] = (
         "INSERT INTO denied_output SELECT col_a FROM denied_input"
