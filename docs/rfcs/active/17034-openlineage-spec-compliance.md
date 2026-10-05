@@ -154,22 +154,25 @@ Explicit references retain the reporting entity as their contributor. Replacemen
 
 ## Standard facet mappings
 
+Named Job, Run, and Dataset facets are also retained as SDK-serialized JSON in `openlineage.facet.<name>` properties on their owning entity; input/output observations use the qualified reporting-entity keys described below. This supports inspection of detail beyond native projections, but does not guarantee exact original-field fidelity or raw-event replay. The tables include official facets and the six bundled GCP/Iceberg registry extensions; the [facet/attachment audit](./17034-openlineage-evidence/openlineage-153-facet-target-audit-2026-10-01.md) gives the complete inventory and evidence boundary.
+
 ### Run facets
 
-| Facet                          | DataHub mapping                                                                                                              |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `NominalTimeRunFacet`          | Process-instance creation time and nominal start/end custom properties                                                       |
-| `ParentRunFacet`               | Parent process-instance relationship and retained parent/root identities; forwarded facets do not update referenced entities |
-| `ErrorMessageRunFacet`         | Process-instance diagnostic properties; status remains determined by eventType                                               |
-| `ProcessingEngineRunFacet`     | Complete facet in run properties; no job identity or pipeline version changes                                                |
-| `ExternalQueryRunFacet`        | Run properties and output Dataset operation properties                                                                       |
-| `EnvironmentVariablesRunFacet` | Original values in process-instance custom properties under `env.*` and the complete retained facet                          |
-| `TagsRunFacet`                 | Run properties; no native job tags                                                                                           |
-| `JobDependenciesRunFacet`      | Complete run property plus run-owned native job dependency edges and, when run IDs are supplied, upstream-run relationships  |
-| `ExtractionErrorRunFacet`      | Run diagnostic properties; no status override                                                                                |
-| `ExecutionParametersRunFacet`  | Run properties                                                                                                               |
-| `GcpComposerRunFacet`          | Retained run facet properties                                                                                                |
-| `GcpDataprocRunFacet`          | Retained run facet properties                                                                                                |
+| Facet                          | DataHub mapping                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `NominalTimeRunFacet`          | Process-instance creation time and nominal start/end custom properties                                                            |
+| `ParentRunFacet`               | Parent process-instance relationship and retained parent/root identities; forwarded facets do not update referenced entities      |
+| `ErrorMessageRunFacet`         | Process-instance diagnostic properties; status remains determined by eventType                                                    |
+| `ProcessingEngineRunFacet`     | Complete facet in run properties; no job identity or pipeline version changes                                                     |
+| `ExternalQueryRunFacet`        | Run properties and output Dataset operation properties                                                                            |
+| `EnvironmentVariablesRunFacet` | Original values in process-instance custom properties under `env.*` and the complete retained facet                               |
+| `TagsRunFacet`                 | Run properties; no native job tags                                                                                                |
+| `JobDependenciesRunFacet`      | Complete run property plus run-owned native job dependency edges and, when run IDs are supplied, upstream-run relationships       |
+| `TestRunFacet`                 | Run properties `openlineage.tests` and the retained named facet; no invented Dataset assertion subject or lifecycle status change |
+| `ExtractionErrorRunFacet`      | Run diagnostic properties; no status override                                                                                     |
+| `ExecutionParametersRunFacet`  | Run properties                                                                                                                    |
+| `GcpComposerRunFacet`          | Retained run facet properties                                                                                                     |
+| `GcpDataprocRunFacet`          | Retained run facet properties                                                                                                     |
 
 Environment-variable names and values are preserved. Receiver-side redaction is a follow-up with opt-in configuration, rather than part of specification compliance.
 
@@ -185,6 +188,7 @@ Job dependency omission preserves the reporting run's previous contribution. A s
 | `SQLJobFacet`                | DataJob transformation query and output Dataset operation query                                                                                 |
 | `OwnershipJobFacet`          | DataJob `ownership`                                                                                                                             |
 | `TagsJobFacet`               | DataJob `globalTags`                                                                                                                            |
+| `LineageJobFacet`            | Explicit native job/dataset/field relationships with reporting-job ownership and precedence over inferred combinations                          |
 | `JobTypeJobFacet`            | DataJob subtype/type, integration and emission-pattern properties; controls snapshot mode                                                       |
 | `GcpComposerJobFacet`        | Retained job facet properties                                                                                                                   |
 | `GcpLineageJobFacet`         | Retained job facet properties                                                                                                                   |
@@ -193,44 +197,45 @@ Job documentation, ownership, and tags have one canonical target: DataJob. Exist
 
 ### Dataset facets
 
-| Facet                              | DataHub mapping                                                                           |
-| ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| `SchemaDatasetFacet`               | `schemaMetadata`, including recursively flattened nested fields                           |
-| `DatasourceDatasetFacet`           | Dataset external URL and retained source properties; no facet-derived platform instance   |
-| `ColumnLineageDatasetFacet`        | Owning Dataset upstreamLineage, with replacement, omission and deletion semantics         |
-| `OwnershipDatasetFacet`            | Dataset `ownership`                                                                       |
-| `LifecycleStateChangeDatasetFacet` | Dataset status and native operation history retaining the original action                 |
-| `SymlinksDatasetFacet`             | Dataset siblings; REST namespace/name identity stays stable                               |
-| `StorageDatasetFacet`              | Storage layer and file-format custom properties                                           |
-| `DatasetVersionDatasetFacet`       | `datasetProperties.customProperties["openlineage.datasetVersion"]`                        |
-| `DocumentationDatasetFacet`        | `datasetProperties.description`                                                           |
-| `DatasetTypeDatasetFacet`          | Dataset `subTypes`                                                                        |
-| `CatalogDatasetFacet`              | Retained catalog properties; no facet-derived platform instance                           |
-| `HierarchyDatasetFacet`            | Container hierarchy and Dataset-to-nearest-Container relationship                         |
-| `TagsDatasetFacet`                 | Dataset globalTags and matching schema-field tags                                         |
-| `DataQualityMetricsDatasetFacet`   | Dataset profile with retained numeric precision; measured fields do not imply columnCount |
+| Facet                              | DataHub mapping                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `SchemaDatasetFacet`               | `schemaMetadata`, including recursively flattened nested fields                                                                 |
+| `DatasourceDatasetFacet`           | Dataset external URL and retained source properties; no facet-derived platform instance                                         |
+| `LineageDatasetFacet`              | Explicit native dataset/field relationships with contributor ownership; takes precedence over the retained column-lineage facet |
+| `ColumnLineageDatasetFacet`        | Owning Dataset upstreamLineage, with replacement, omission and deletion semantics                                               |
+| `OwnershipDatasetFacet`            | Dataset `ownership`                                                                                                             |
+| `LifecycleStateChangeDatasetFacet` | Dataset status and native operation history retaining the original action                                                       |
+| `SymlinksDatasetFacet`             | Dataset siblings; REST namespace/name identity stays stable                                                                     |
+| `StorageDatasetFacet`              | Storage layer and file-format custom properties                                                                                 |
+| `DatasetVersionDatasetFacet`       | `datasetProperties.customProperties["openlineage.datasetVersion"]`                                                              |
+| `DocumentationDatasetFacet`        | `datasetProperties.description`                                                                                                 |
+| `DatasetTypeDatasetFacet`          | Dataset `subTypes`                                                                                                              |
+| `CatalogDatasetFacet`              | Retained catalog properties; no facet-derived platform instance                                                                 |
+| `HierarchyDatasetFacet`            | Container hierarchy and Dataset-to-nearest-Container relationship                                                               |
+| `TagsDatasetFacet`                 | Dataset globalTags and matching schema-field tags                                                                               |
+| `DataQualityMetricsDatasetFacet`   | Dataset profile with retained numeric precision; measured fields do not imply columnCount                                       |
 
 Dataset version metadata does not create DataHub entity-version history. Column lineage is Dataset-owned regardless of the enclosing event. Explicit dataset lineage takes precedence; deleting it reveals the retained column facet. Independent explicit relationship contributors retain their ownership.
 
 ### Input Dataset facets
 
-| Facet                                 | DataHub mapping                                                     |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| `DataQualityMetricsInputDatasetFacet` | Qualified input/run properties; not a whole-dataset profile         |
-| `InputStatisticsInputDatasetFacet`    | Dataset read `operation` with available row, byte, and file metrics |
-| `DataQualityAssertionsDatasetFacet`   | Assertion entities and, for RunEvent, assertion run events          |
-| `BaseSubsetDatasetFacet`              | Qualified dataset summary and run input/output report properties    |
-| `IcebergScanReportInputDatasetFacet`  | Qualified dataset summary and run input report properties           |
+| Facet                                     | DataHub mapping                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| `DataQualityMetricsInputDatasetFacet`     | Qualified input/run properties; not a whole-dataset profile         |
+| `InputStatisticsInputDatasetFacet`        | Dataset read `operation` with available row, byte, and file metrics |
+| `DataQualityAssertionsDatasetFacet`       | Assertion entities and, for RunEvent, assertion run events          |
+| `InputSubsetInputDatasetFacet` (`subset`) | Qualified dataset summary and run input/output report properties    |
+| `IcebergScanReportInputDatasetFacet`      | Qualified dataset summary and run input report properties           |
 
 A `JobEvent` emits assertion definitions but not assertion run events because it has no current run.
 
 ### Output Dataset facets
 
-| Facet                                   | DataHub mapping                                                              |
-| --------------------------------------- | ---------------------------------------------------------------------------- |
-| `OutputStatisticsOutputDatasetFacet`    | Dataset write `operation` with affected rows and byte/file custom properties |
-| `BaseSubsetDatasetFacet`                | Qualified dataset summary and run input/output report properties             |
-| `IcebergCommitReportOutputDatasetFacet` | Qualified dataset summary and run output report properties                   |
+| Facet                                       | DataHub mapping                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------------------- |
+| `OutputStatisticsOutputDatasetFacet`        | Dataset write `operation` with affected rows and byte/file custom properties |
+| `OutputSubsetOutputDatasetFacet` (`subset`) | Qualified dataset summary and run input/output report properties             |
+| `IcebergCommitReportOutputDatasetFacet`     | Qualified dataset summary and run output report properties                   |
 
 ## Custom facet compatibility
 
