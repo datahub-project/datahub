@@ -213,6 +213,10 @@ def filter_request(
     kind but not contradict it, and --parent replaces its parent_path. The
     caller refuses --name alongside a listing.
     """
+    # Before the listing branch, so a --parent replacing a redacted
+    # parent_path is checked too.
+    _refuse_masked("--parent", parents, what="container name")
+    _refuse_masked("--name", names, what="object name")
     if listing is None:
         if not names:
             raise ValueError(
@@ -230,6 +234,20 @@ def filter_request(
     return _listing_request(
         source_type=source_type, kind=kind, parents=parents, listing=listing
     )
+
+
+def _refuse_masked(flag: str, values: Sequence[str], *, what: str) -> None:
+    """Refuse a flag value copied from masked output: judged, `***` would get
+    a confident verdict on a name the source does not have."""
+    # `in`, as listing_from_run tests: the mask may sit inside a longer
+    # identifier. Only the mask is echoed, never the rest of the value.
+    if any(MASK in value for value in values):
+        raise ValueError(
+            f"a {flag} value holds '{MASK}', the mask a secret was replaced "
+            f"with, so it cannot be judged; pass the real {what}. This happens "
+            "when a secret's value equals an identifier: output that masks the "
+            "secret masks the identifier too"
+        )
 
 
 def _listing_request(

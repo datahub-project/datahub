@@ -243,7 +243,8 @@ Four barriers keep them out of the output:
 
 - **Payload redaction.** Collected values become `***`, and free text is scrubbed of credential
   shapes (`redact.redact`, `redact.scrub_text`); `probe filter` and `probe run` warn when that
-  changed the result.
+  changed the result. A secret equal to an identifier masks that identifier too, so `probe filter`
+  refuses (exit 2) a `--parent` or `--name` holding `***` rather than judge it.
 - **The masking registry.** `SecretRegistry`, whose stdout wrapper, logging filter and excepthook
   the `recipe` group installs, masks stdout and `--report-to` as a structure.
 - **Error labels.** A foreign exception is named by its label, never its text, and each error line

@@ -225,11 +225,38 @@ def test_a_parent_replaces_the_listings() -> None:
     assert request.parent_path == ["mydb", "sales"]
 
 
-def test_a_redacted_parent_is_refused_unless_replaced() -> None:
+def test_a_redacted_parent_is_refused_unless_replaced_by_a_real_one() -> None:
     redacted = replace(_LISTING, parent_path=["***"], parent_redacted=True)
     with pytest.raises(ValueError, match="parent_path was redacted"):
         _request(listing=redacted)
+    # The replacement is the caller's input, so it is checked like any --parent.
+    with pytest.raises(ValueError, match=r"--parent value holds '\*\*\*'"):
+        _request(parents=("***",), listing=redacted)
     assert _request(parents=("public",), listing=redacted).parent_path == ["public"]
+
+
+# A secret equal to an identifier masks it in every output the caller could
+# have copied it from, alone or inside a longer name.
+@pytest.mark.parametrize("masked", ["***", "prod_***"])
+def test_a_masked_parent_is_refused_not_judged(masked: str) -> None:
+    with pytest.raises(ValueError, match=r"--parent value holds '\*\*\*'") as info:
+        _request(kind="Table", parents=("mydb", masked), names=("orders",))
+    # Only the mask is echoed: the rest of the value, and the other segments,
+    # are the caller's identifiers.
+    assert "prod_" not in str(info.value)
+    assert "mydb" not in str(info.value)
+
+
+@pytest.mark.parametrize("masked", ["***", "prod_***"])
+def test_a_masked_name_is_refused_not_judged(masked: str) -> None:
+    with pytest.raises(ValueError, match=r"--name value holds '\*\*\*'"):
+        _request(kind="Table", parents=("public",), names=("orders", masked))
+
+
+def test_a_name_with_stars_that_are_not_the_mask_is_judged() -> None:
+    request = _request(kind="Table", parents=("pub*",), names=("orders_*", "**"))
+    assert request.parent_path == ["pub*"]
+    assert request.names == ["orders_*", "**"]
 
 
 def test_a_listing_from_another_source_is_refused() -> None:

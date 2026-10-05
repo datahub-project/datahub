@@ -1945,6 +1945,30 @@ def test_a_redacted_listing_parent_is_refused_unless_parent_is_given(
     assert seen["parent_path"] == ["real_db"]
 
 
+def test_a_masked_parent_copied_from_output_is_a_bad_argument(monkeypatch, tmp_path):
+    # A secret equal to a schema name masks the schema in every output, and a
+    # caller copying it back must be stopped, not handed a verdict on `***`.
+    seen = _capturing_check_filters(monkeypatch)
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--parent",
+            "***",
+            "--name",
+            "orders",
+        ],
+    )
+    assert res.exit_code == 2, res.output
+    assert "--parent" in res.output
+    assert seen == {}
+
+
 def test_test_connection_scrubs_credential_shapes_from_driver_text(
     monkeypatch, tmp_path
 ):
