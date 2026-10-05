@@ -1088,6 +1088,8 @@ public class MultiEntityMappingsBuilderTest {
         (Map<String, Object>) properties.get("customFullTextSearchFields");
     assertEquals(fullText.get("type"), "keyword");
     assertTrue(((Map<String, Object>) fullText.get("fields")).containsKey("delimited"));
+    // Byte-safe: a copied value within KEYWORD_MAXLENGTH characters can exceed it in bytes
+    assertEquals(fullText.get("ignore_above"), 8191);
   }
 
   @Test

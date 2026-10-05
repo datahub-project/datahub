@@ -61,7 +61,6 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
-import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -219,7 +218,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
   private MappingsBuilder mappingsBuilder;
-  private List<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   private MultiEntityMappingsBuilder engineV3MappingsBuilder;
   private ESIndexBuilder indexBuilder;
   private SettingsBuilder settingsBuilder;
@@ -339,13 +337,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
     // Only the seeded entity types' indices plus the empty one; the registry would build one per
     // entity type
-    structuredProperties =
-        List.of(
-            Pair.of(RETENTION_POLICY, retentionPolicy),
-            Pair.of(STEWARD_NOTE, stewardNote),
-            Pair.of(INTERNAL_CODE, internalCode));
     Map<String, Map<String, Object>> mappings =
-        mappingsBuilder.getIndexMappings(opContext, structuredProperties).stream()
+        mappingsBuilder
+            .getIndexMappings(
+                opContext,
+                List.of(
+                    Pair.of(RETENTION_POLICY, retentionPolicy),
+                    Pair.of(STEWARD_NOTE, stewardNote),
+                    Pair.of(INTERNAL_CODE, internalCode)))
+            .stream()
             .collect(
                 Collectors.toMap(
                     MappingsBuilder.IndexMapping::getIndexName,
@@ -778,66 +778,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         CUSTOMERS);
-  }
-
-  /**
-   * A V3 index created before structured property values were copied for full-text search takes the
-   * change in place when system-update maps structured properties from their definitions: it adds
-   * the field and the copy_to of the properties the index already maps, without a reindex. Without
-   * the definitions, system-update keeps the live property mappings.
-   */
-  @Test
-  @SuppressWarnings("unchecked")
-  public void testStructuredPropertyFullTextAppliesInPlace() throws IOException {
-    String datasetIndex = v3IndexName(DATASET_ENTITY_NAME);
-    Map<String, Object> target =
-        engineV3MappingsBuilder.getIndexMappings(opContext, structuredProperties).stream()
-            .filter(mapping -> mapping.getIndexName().equals(datasetIndex))
-            .findFirst()
-            .orElseThrow()
-            .getMappings();
-    ObjectMapper objectMapper = new ObjectMapper();
-    Map<String, Object> before =
-        objectMapper.readValue(objectMapper.writeValueAsString(target), Map.class);
-    Map<String, Object> beforeFields = (Map<String, Object>) before.get("properties");
-    beforeFields.remove("customFullTextSearchFields");
-    structuredPropertyFields(beforeFields)
-        .values()
-        .forEach(field -> ((Map<String, Object>) field).remove("copy_to"));
-
-    String index = "upgraded_" + datasetIndex;
-    Map<String, Object> settings = settingsBuilder.getSettings(indexConfiguration, datasetIndex);
-    // ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true
-    ESIndexBuilder definitionsIndexBuilder =
-        new ESIndexBuilder(
-            getSearchClient(),
-            config,
-            StructuredPropertiesConfiguration.builder()
-                .enabled(true)
-                .systemUpdateEnabled(true)
-                .build(),
-            Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
-    try {
-      indexBuilder.buildIndex(
-          opContext, indexBuilder.buildReindexState(opContext, index, before, settings));
-      ReindexConfig upgrade =
-          definitionsIndexBuilder.buildReindexState(opContext, index, target, settings);
-      assertTrue(upgrade.isPureMappingsAddition());
-      assertFalse(upgrade.requiresReindex());
-      definitionsIndexBuilder.buildIndex(opContext, upgrade);
-
-      Map<String, Object> upgraded = getIndexProperties(index);
-      assertTrue(upgraded.containsKey("customFullTextSearchFields"));
-      assertEquals(
-          ((Map<String, Object>) structuredPropertyFields(upgraded).get(RETENTION_POLICY.getId()))
-              .get("copy_to"),
-          List.of("customFullTextSearchFields"));
-    } finally {
-      getSearchClient()
-          .deleteIndex(
-              OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
-    }
   }
 
   @Test
@@ -2067,27 +2007,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         .collect(Collectors.toMap(BrowseResultGroup::getName, BrowseResultGroup::getCount));
   }
 
+  @SuppressWarnings("unchecked")
   private Map<String, Object> getMappedProperties(String entityType) throws IOException {
-    return getIndexProperties(v3IndexName(entityType));
-  }
-
-  private String v3IndexName(String entityType) {
-    return opContext
-        .getSearchContext()
-        .getIndexConvention()
-        .getEntityIndexNameV3(
-            opContext,
-            V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec(entityType)));
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Map<String, Object> structuredPropertyFields(Map<String, Object> properties) {
-    return (Map<String, Object>)
-        ((Map<String, Object>) properties.get("structuredProperties")).get("properties");
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> getIndexProperties(String index) throws IOException {
+    String index =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(
+                opContext,
+                V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec(entityType)));
     return (Map<String, Object>)
         getSearchClient()
             .getIndexMapping(

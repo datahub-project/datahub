@@ -547,7 +547,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     // Structured property values are copied into this field (StructuredPropertyMappingBuilder), so
     // it is mapped before any property exists, always with the subfields V3 queries read
     properties.put(
-        CUSTOM_FULL_TEXT_SEARCH_FIELDS, FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT));
+        CUSTOM_FULL_TEXT_SEARCH_FIELDS, FieldTypeMapper.getMappingsForCopiedText(keywordMaxLength));
   }
 
   private void applyMappingContributors(
