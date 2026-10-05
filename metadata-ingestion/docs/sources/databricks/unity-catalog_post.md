@@ -108,16 +108,17 @@ The `emit_siblings` option described under _Delta Lake External Tables_ above is
 
 `datahub recipe probe` checks a recipe against the live workspace before a run. It uses the recipe's own credentials and reads metadata only, through the same Unity Catalog REST API as ingestion.
 
-| Command        | Parameters                   | Returns                                                                                                         |
-| -------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `catalogs`     | `limit`                      | The catalogs the recipe reads: the pinned `catalogs` list when set, otherwise every catalog the credential sees |
-| `schemas`      | `catalog`, `limit`           | The schemas in one catalog                                                                                      |
-| `tables`       | `catalog`, `schema`, `limit` | The tables in one schema                                                                                        |
-| `views`        | `catalog`, `schema`, `limit` | The views and materialized views in one schema                                                                  |
-| `metric_views` | `catalog`, `schema`, `limit` | The metric views in one schema                                                                                  |
-| `columns`      | `catalog`, `schema`, `table` | Each column's name, type, nullability, comment and partition index                                              |
-| `notebooks`    | `limit`                      | Notebook paths under `/Shared/`, and any other path the recipe would ingest                                     |
-| `sql`          | `query`, `limit`             | The result of one `SELECT` over `information_schema`, run on the warehouse named by `warehouse_id`              |
+| Command              | Parameters                   | Returns                                                                                                                                           |
+| -------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `catalogs`           | `limit`                      | The catalogs the recipe reads: the pinned `catalogs` list when set, otherwise every catalog the credential sees                                   |
+| `schemas`            | `catalog`, `limit`           | The schemas in one catalog                                                                                                                        |
+| `tables`             | `catalog`, `schema`, `limit` | The tables in one schema                                                                                                                          |
+| `views`              | `catalog`, `schema`, `limit` | The views and materialized views in one schema                                                                                                    |
+| `metric_views`       | `catalog`, `schema`, `limit` | The metric views in one schema                                                                                                                    |
+| `columns`            | `catalog`, `schema`, `table` | Each column's name, type, nullability, comment and partition index                                                                                |
+| `notebooks`          | `limit`                      | Notebook paths under `/Shared/`, and any other path the recipe would ingest                                                                       |
+| `service_principals` |                              | Whether the credential can list service principals, which ingestion uses to show owners by name, and how many it sees. A count only, never a name |
+| `sql`                | `query`, `limit`             | The result of one `SELECT` over `information_schema`, run on the warehouse named by `warehouse_id`                                                |
 
 `probe filter` gives the verdict ingestion makes. Keep these rules in mind when you read it:
 

@@ -19,6 +19,7 @@ from databricks.sdk.service.catalog import (
     TableInfo,
     TableType,
 )
+from databricks.sdk.service.iam import ServicePrincipal as SdkServicePrincipal
 from databricks.sdk.service.workspace import ObjectInfo, ObjectType
 from databricks.sql.exc import RequestError, ServerOperationError
 
@@ -638,3 +639,70 @@ def test_warehouse_error_text_never_reaches_the_caller(
         )
     assert "s3cr3t" not in str(raised.value)
     assert type(error).__name__ in str(raised.value)
+
+
+def _principal(name: str, app_id: str) -> SdkServicePrincipal:
+    return SdkServicePrincipal(
+        id=f"id-{app_id}", display_name=name, application_id=app_id
+    )
+
+
+def test_service_principals_reports_a_count_and_never_a_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ws = _fake_ws()
+    ws.service_principals.list.return_value = iter(
+        [_principal("etl-bot", "app-1"), _principal("bi-bot", "app-2")]
+    )
+    _serve(monkeypatch, ws)
+    result = run_probe_method("unity-catalog", BASE, "service_principals", {})
+    assert result.result == {"listable": True, "count": 2, "truncated": False}
+    payload = json.dumps(result.to_dict())
+    for leaked in ("etl-bot", "bi-bot", "app-1", "app-2"):
+        assert leaked not in payload
+
+
+def test_service_principals_count_skips_what_ingestion_skips() -> None:
+    # Ingestion drops a principal without a display name or application id.
+    ws = _fake_ws()
+    ws.service_principals.list.return_value = iter(
+        [_principal("etl-bot", "app-1"), SdkServicePrincipal(id="no-app")]
+    )
+    assert _probe(ws).service_principals()["count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("listed", "count", "truncated"),
+    [(3, 3, False), (4, 3, True)],
+    ids=["exactly-the-cap", "past-the-cap"],
+)
+def test_service_principals_says_only_when_it_stopped_counting(
+    monkeypatch: pytest.MonkeyPatch, listed: int, count: int, truncated: bool
+) -> None:
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe._SERVICE_PRINCIPAL_COUNT_CAP", 3
+    )
+    ws = _fake_ws()
+    ws.service_principals.list.return_value = iter(
+        [_principal(f"bot-{i}", f"app-{i}") for i in range(listed)]
+    )
+    _serve(monkeypatch, ws)
+    result = run_probe_method("unity-catalog", BASE, "service_principals", {})
+    assert result.result == {
+        "listable": True,
+        "count": count,
+        "truncated": truncated,
+    }
+
+
+def test_service_principals_the_credential_cannot_list_degrade_with_a_warning() -> None:
+    ws = _fake_ws()
+    ws.service_principals.list.side_effect = PermissionDenied("s3cr3t-detail")
+    probe = _probe(ws)
+    assert probe.service_principals() == {
+        "listable": False,
+        "count": None,
+        "truncated": False,
+    }
+    assert any("service principals" in w for w in probe.warnings)
+    assert not any("s3cr3t" in w for w in probe.warnings)

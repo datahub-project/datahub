@@ -63,6 +63,11 @@ _WITHHELD = (
 # denylist of "personal" roots misses one. Only the shared root is safe to
 # list unconditionally; everything else is listed only when ingestion itself
 # would read it.
+# How many service principals `service_principals` counts before it stops.
+# Answering "can this credential list them" needs only the first page; the cap
+# keeps a very large workspace from paging through every principal.
+_SERVICE_PRINCIPAL_COUNT_CAP = 1000
+
 _SHARED_ROOT = "/shared/"
 _WORKSPACE_PREFIX = "/workspace/"
 _REPEATED_SLASHES = re.compile(r"/{2,}")
@@ -505,6 +510,32 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         return self._config.include_notebooks and self._config.notebook_pattern.allowed(
             path
         )
+
+    @probe_method()
+    def service_principals(self) -> Dict[str, object]:
+        """Whether this credential can list the workspace's service principals,
+        and how many it sees. Ingestion lists them to show an owner that is a
+        service principal by its display name rather than its application id;
+        when it cannot, it warns and those owners stay ids. Reports a count
+        only, never a name or id, since principals are identities. Stops
+        counting past _SERVICE_PRINCIPAL_COUNT_CAP and says so with
+        `truncated`."""
+        try:
+            with self._calling("listing service principals"):
+                # One past the cap, so exactly the cap does not read as cut off.
+                seen = len(
+                    take(
+                        self._proxy.service_principals(),
+                        _SERVICE_PRINCIPAL_COUNT_CAP + 1,
+                    )
+                )
+        except _Degraded:
+            return {"listable": False, "count": None, "truncated": False}
+        return {
+            "listable": True,
+            "count": min(seen, _SERVICE_PRINCIPAL_COUNT_CAP),
+            "truncated": seen > _SERVICE_PRINCIPAL_COUNT_CAP,
+        }
 
     @probe_method(
         name="sql",
