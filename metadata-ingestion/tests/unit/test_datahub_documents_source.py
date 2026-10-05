@@ -4944,6 +4944,16 @@ class TestCheckpointPruning:
         else:
             source.document_state = previous
 
+        self._serve(source, scroll_urns)
+        return source
+
+    def _serve(
+        self, source: DataHubDocumentsSource, scroll_urns: tuple[str, ...]
+    ) -> None:
+        """Answer the scroll with `scroll_urns`. Only the live document resolves; any
+        other listed URN is an orphan (an index entry whose entity is gone)."""
+        live_doc = TestOrphanedDocumentResilience._native_notion_doc(self.LIVE)
+
         def _graphql(query: str, variables: Optional[dict] = None) -> dict:
             if "scrollAcrossEntities" in query:
                 return {
@@ -4952,8 +4962,6 @@ class TestCheckpointPruning:
                         "searchResults": [{"entity": {"urn": u}} for u in scroll_urns],
                     }
                 }
-            # Only the live document resolves; any other listed URN is an orphan
-            # (an index entry whose entity is gone), as GMS returns it.
             assert variables is not None
             return {
                 "entities": [
@@ -4961,8 +4969,7 @@ class TestCheckpointPruning:
                 ]
             }
 
-        source.graph.execute_graphql.side_effect = _graphql
-        return source
+        source.graph.execute_graphql.side_effect = _graphql  # type: ignore[attr-defined]
 
     @staticmethod
     def _tracked_urns(source: DataHubDocumentsSource) -> set[str]:
@@ -5021,6 +5028,36 @@ class TestCheckpointPruning:
         list(source._process_batch_mode())
 
         assert self._tracked_urns(source) == {self.LIVE, "urn:li:document:just-created"}
+
+    @pytest.mark.parametrize("listed", [(), (DELETED,)], ids=["empty", "all-orphans"])
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_listing_without_live_documents_keeps_state_despite_writes(
+        self, ctx, backend, listed
+    ):
+        # Writes from earlier in the run must not make a listing with no live
+        # documents look usable, or the prune would keep only those writes.
+        source = self._make_source(ctx, backend, scroll_urns=listed)
+        source._update_document_state("urn:li:document:just-created", "fresh body")
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {
+            self.LIVE,
+            self.DELETED,
+            "urn:li:document:just-created",
+        }
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_prune_uses_only_the_latest_listing(self, ctx, backend):
+        # An earlier scroll in the same run (e.g. before an event-mode fallback) must
+        # not keep documents the latest complete listing no longer returns.
+        source = self._make_source(ctx, backend, scroll_urns=(self.LIVE, self.DELETED))
+        list(source._scroll_document_urns())
+        self._serve(source, (self.LIVE,))
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE}
 
 
 def test_datahub_documents_does_not_embed_when_only_v3_enabled():
