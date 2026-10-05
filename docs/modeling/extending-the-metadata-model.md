@@ -438,7 +438,7 @@ It takes the following parameters:
 - **hasValuesFilterNameOverride**: string (optional) - Display name for the "has values" filter in the UI
 
 - **boostScore**: double (optional) - **⚠️ DEPRECATED**: Boost multiplier to the match score. Matches on fields with higher boost score
-  ranks higher. **Use `searchLabel` instead for more sophisticated ranking control.**
+  ranks higher.
 
 - **hasValuesFieldName**: string (optional) - If set, add an index field of the given name that checks whether the field
   exists
@@ -466,12 +466,7 @@ It takes the following parameters:
 
 - **eagerGlobalOrdinals**: boolean (optional) - Whether to set `eager_global_ordinals` to true for this field. This improves aggregation performance for frequently aggregated keyword fields by pre-building ordinals at index time. **Note**: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types. Defaults to false.
 
-**⚠️ Note on deprecated parameters:** Some parameters like `boostScore` and `weightsPerFieldValue` are still functional when using search version 2 but will be replaced by newer features in future versions. Consider using the new label-based annotations for more advanced search functionality.
-
-**Migration from deprecated parameters:**
-
-- **`boostScore`** → Use `searchLabel` for more sophisticated ranking control
-- **`weightsPerFieldValue`** → Use `searchLabel` for value-based scoring control
+**⚠️ Note on deprecated parameters:** `boostScore` and `weightsPerFieldValue` still apply on Search V2 and Search V3 alike, since both run the same query builder, and will be replaced by newer features in future versions. `searchLabel` is not a replacement for either: it only copies the field value into `_search.{label}` and does not weight matches.
 
 ##### Example
 

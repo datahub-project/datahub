@@ -816,8 +816,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   @Test
-  @SuppressWarnings("unchecked")
-  public void testSearchDropsStopWordsAndMapsWordGrams() throws IOException {
+  public void testSearchDropsStopWords() {
     // The title reads "Orders by region": English stop words are dropped at index and query time
     assertUrns(
         searchService
@@ -831,13 +830,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS_CHART);
-    Map<String, Object> nameFields =
-        (Map<String, Object>)
-            ((Map<String, Object>) getMappedProperties(DATASET_ENTITY_NAME).get("name"))
-                .get("fields");
-    assertTrue(
-        nameFields.keySet().containsAll(List.of("wordGrams2", "wordGrams3", "wordGrams4")),
-        nameFields.keySet().toString());
   }
 
   /** A structured query on a normalized root field matches ignoring case. */

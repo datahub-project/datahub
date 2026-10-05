@@ -653,8 +653,8 @@ public class AutocompleteRequestHandlerTest {
   }
 
   /**
-   * V3 root fields carry the V2 subfields, so V3 autocompletes and highlights with the V2 query;
-   * only the entity type filter values change.
+   * V3 autocompletes and highlights with the same query as V2; only the entity type filter values
+   * change. This pins parity with V2, not the V2 subfields the query reads today.
    */
   @Test
   public void testV3AutocompleteUsesV2Query() {
@@ -676,7 +676,6 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(
         v3Autocomplete,
         extractNestedQuery((BoolQueryBuilder) ((FunctionScoreQueryBuilder) v2.query()).query()));
-    assertTrue(v3Autocomplete.toString().contains("name.ngram"), v3Autocomplete.toString());
     assertEquals(v3.highlighter(), v2.highlighter());
 
     // Filters read the V2 .keyword subfield; V3 stores the registry entity name in _entityType

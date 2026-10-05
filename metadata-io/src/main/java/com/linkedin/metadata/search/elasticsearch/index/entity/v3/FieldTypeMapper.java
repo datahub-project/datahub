@@ -392,8 +392,9 @@ public class FieldTypeMapper {
     // own mapping, which indexes the URN values analyzed too
     if (URN_FIELD_TYPES.contains(representativeType) && !URN_FIELD_TYPES.containsAll(fieldTypes)) {
       log.warn(
-          "Root field {} is {} across the entities of one index; full-text search skips it for the"
-              + " URN entities",
+          "Root field {} is {} across the entities of one index; it gets a keyword base with URN"
+              + " analysis on .delimited, so full-text search on it can miss values of any of"
+              + " these entities",
           representative.getSearchableAnnotation().getFieldName(),
           fieldTypes);
       return getMappingsForUrnSharedWithKeyword(representativeType, partialNgramConfig);
