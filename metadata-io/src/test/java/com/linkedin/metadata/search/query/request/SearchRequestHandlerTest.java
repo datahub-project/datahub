@@ -19,6 +19,8 @@ import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.exception.ESQueryException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,6 +53,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -69,10 +72,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -1887,6 +1892,88 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         withFlag.getEntities().get(0).getExtraFields().get("parentDomain"),
         "\"urn:li:domain:root\"");
+  }
+
+  @Test
+  public void testSearchTypeFlag() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    // DFS in either case; any other value is QUERY_THEN_FETCH
+    Map<String, SearchType> expected =
+        Map.of(
+            "DFS_QUERY_THEN_FETCH", SearchType.DFS_QUERY_THEN_FETCH,
+            "dfs_query_then_fetch", SearchType.DFS_QUERY_THEN_FETCH,
+            "QUERY_THEN_FETCH", SearchType.QUERY_THEN_FETCH,
+            "QUERY_AND_FETCH", SearchType.QUERY_THEN_FETCH);
+    for (Map.Entry<String, SearchType> entry : expected.entrySet()) {
+      SearchRequest request =
+          handler.getSearchRequest(
+              operationContext.withSearchFlags(
+                  flags -> flags.setFulltext(false).setSearchType(entry.getKey())),
+              "testQuery",
+              null,
+              null,
+              0,
+              10,
+              List.of());
+      assertEquals(request.searchType(), entry.getValue(), entry.getKey());
+    }
+
+    SearchRequest unset =
+        handler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    assertEquals(unset.searchType(), SearchType.QUERY_THEN_FETCH);
+  }
+
+  @Test
+  public void testExtractResultsAddExplanation() throws Exception {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,explained,PROD)");
+    when(hit.getExplanation())
+        .thenReturn(
+            Explanation.match(2.0f, "sum of:", Explanation.match(2.0f, "weight(name:explained)")));
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchEntity searched =
+        handler.extractResult(operationContext, mockResponse, null, 0, 10).getEntities().get(0);
+    JsonNode explain = new ObjectMapper().readTree(searched.getExtraFields().get("_explain"));
+    assertEquals(explain.get("value").floatValue(), 2.0f);
+    assertEquals(explain.get("description").asText(), "sum of:");
+    assertTrue(explain.get("match").asBoolean());
+    assertEquals(
+        explain.get("details").get(0).get("description").asText(), "weight(name:explained)");
+    assertFalse(explain.get("details").get(0).has("details"));
+
+    // Scroll adds its per-hit scrollId next to the explanation
+    SearchEntity scrolled =
+        handler
+            .extractScrollResult(operationContext, mockResponse, null, null, 10, false)
+            .getEntities()
+            .get(0);
+    assertTrue(scrolled.getExtraFields().keySet().containsAll(Set.of("_explain", "scrollId")));
   }
 
   private SearchHit mockHitWithUrn(String urn) {

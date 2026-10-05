@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Modal, message } from 'antd';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,11 +26,6 @@ describe('DeleteAction', () => {
 
     it('deletes an editable assertion after confirmation', async () => {
         const refetch = vi.fn();
-        const confirm = vi.spyOn(Modal, 'confirm').mockImplementation((config) => {
-            config.onOk?.();
-            return { destroy: vi.fn(), update: vi.fn() };
-        });
-        vi.spyOn(message, 'success').mockResolvedValue(undefined);
         mockDeleteAssertion.mockResolvedValue({ data: { deleteAssertion: true } });
 
         render(
@@ -41,18 +35,13 @@ describe('DeleteAction', () => {
         );
 
         await userEvent.click(screen.getByText('Delete'));
+        await userEvent.click(await screen.findByTestId('modal-confirm-button'));
 
-        expect(confirm).toHaveBeenCalled();
         expect(mockDeleteAssertion).toHaveBeenCalledWith({ variables: { urn: assertion.urn } });
         expect(refetch).toHaveBeenCalled();
     });
 
     it('does not open confirmation without permission', async () => {
-        const confirm = vi.spyOn(Modal, 'confirm').mockImplementation(() => ({
-            destroy: vi.fn(),
-            update: vi.fn(),
-        }));
-
         render(
             <CustomThemeProvider>
                 <DeleteAction assertion={assertion} canEdit={false} isExpandedView />
@@ -61,7 +50,7 @@ describe('DeleteAction', () => {
 
         await userEvent.click(screen.getByText('Delete'));
 
-        expect(confirm).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('modal-confirm-button')).not.toBeInTheDocument();
         expect(mockDeleteAssertion).not.toHaveBeenCalled();
     });
 });

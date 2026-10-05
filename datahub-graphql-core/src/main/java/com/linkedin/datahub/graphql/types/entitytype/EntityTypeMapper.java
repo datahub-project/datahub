@@ -64,6 +64,11 @@ public class EntityTypeMapper {
           .put(EntityType.DOCUMENT, Constants.DOCUMENT_ENTITY_NAME)
           .put(EntityType.METRIC, Constants.METRIC_ENTITY_NAME)
           .put(EntityType.SEMANTIC_MODEL, Constants.SEMANTIC_MODEL_ENTITY_NAME)
+          .put(EntityType.VERSION_SET, Constants.VERSION_SET_ENTITY_NAME)
+          .put(EntityType.DATAHUB_CONNECTION, Constants.DATAHUB_CONNECTION_ENTITY_NAME)
+          .put(EntityType.DATAHUB_PAGE_TEMPLATE, Constants.DATAHUB_PAGE_TEMPLATE_ENTITY_NAME)
+          .put(EntityType.DATAHUB_PAGE_MODULE, Constants.DATAHUB_PAGE_MODULE_ENTITY_NAME)
+          .put(EntityType.DATAHUB_FILE, Constants.DATAHUB_FILE_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

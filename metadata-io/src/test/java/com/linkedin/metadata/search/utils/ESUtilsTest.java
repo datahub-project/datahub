@@ -253,6 +253,32 @@ public class ESUtilsTest {
                 assertNotEquals(context.getSearchType(), QueryFilterRewriterSearchType.TIMESERIES));
   }
 
+  /** Unfiltered searches must hide non-latest versions just like filtered ones. */
+  @Test
+  public void testBuildFilterQueryNullFilterAppliesLatestVersionFlag() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    String withFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(true)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    String withoutFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+
+    assertTrue(withFlag.contains("isLatest"), withFlag);
+    assertFalse(withoutFlag.contains("isLatest"), withoutFlag);
+  }
+
   @Test
   public void testToV3EntityFilter() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();

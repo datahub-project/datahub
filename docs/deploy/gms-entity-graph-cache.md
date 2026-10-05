@@ -8,7 +8,7 @@ description: Configure the unified entity hierarchy graph cache for View-Based A
 
 This guide explains how to enable, configure, and operate the **GMS entity graph cache** — a distributed cache of pre-built hierarchy snapshots used to expand domain (and other) relationships without repeated primary-storage or search scroll work on every request.
 
-**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). MAE/MCE consumers and `datahub-upgrade` set **`enabled=false`** in module `application.properties` (and consumer Docker env) so [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
+**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). Standalone MCL (`SPRING_PROFILES_ACTIVE=mae`), MCP (`SPRING_PROFILES_ACTIVE=mce`), and datahub-upgrade (`SPRING_PROFILES_ACTIVE=upgrade`) default **`enabled=false`**. `ENTITY_GRAPH_CACHE_ENABLED` still overrides that default. When the flag is off, [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
 
 ## What this is — and is not
 
@@ -370,6 +370,10 @@ When `SearchFlags.skipCache=true`, `EntityGraphCacheClients` uses **`ReadMode.EP
 ### Hazelcast layout
 
 When `entityGraphCache.enabled=true`, GMS **automatically bootstraps** the shared `HazelcastInstance` — you do **not** need `searchService.cacheImplementation=hazelcast` or `SEARCH_SERVICE_ENABLE_CACHE`. GMS joins the cluster via `searchService.cache.hazelcast.serviceName` (default `hazelcast-service`, env `SEARCH_SERVICE_HAZELCAST_SERVICE_NAME`).
+
+Quickstart and CI, which are not running in Kubernetes, start a single member when the default discovery name `hazelcast-service` does not resolve. The lookup is retried before that choice. A failure inside Kubernetes keeps Kubernetes join so discovery can recover. A name that resolves only to loopback is a single node. A custom name that fails DNS outside Kubernetes also keeps Kubernetes join.
+
+GMS also starts that instance for access-token revocation when the graph cache is off.
 
 | Map                              | Purpose                                                                                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

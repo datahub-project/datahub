@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -140,7 +140,7 @@ export default function SelectedFilter({
             )}
             <RemoveButton
                 type="text"
-                icon={<CloseOutlined style={{ fontSize: 12 }} />}
+                icon={<X size={12} />}
                 onClick={onRemoveFilter}
                 data-testid={`remove-filter-${field.field}`}
             />

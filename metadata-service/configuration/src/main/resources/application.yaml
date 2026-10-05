@@ -818,6 +818,16 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:}
+      # Optional HTTP proxy for this cluster only. An explicit host wins; otherwise JVM
+      # http(s).proxyHost / http.nonProxyHosts are honored when useSystemProxyProperties is true.
+      # Apache HttpAsyncClientBuilder.useSystemProperties() is never called.
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST:${ELASTICSEARCH_PROXY_HOST:}}
+        port: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT:${ELASTICSEARCH_PROXY_PORT:}}
+        scheme: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME:${ELASTICSEARCH_PROXY_SCHEME:http}}
+        username: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME:${ELASTICSEARCH_PROXY_USERNAME:}}
+        password: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD:${ELASTICSEARCH_PROXY_PASSWORD:}}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
     # Optional second cluster. Its engine is resolved independently — an unset shim block
     # auto-detects rather than copying primary's engineType, since primary may be pinned to an
     # older version.
@@ -851,6 +861,13 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD:}
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST:}
+        port: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT:}
+        scheme: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME:http}
+        username: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME:}
+        password: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD:}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
 
   # Which cluster hosts each subsystem; values are cluster names from `clusters` above. Startup
   # fails if a component names a cluster with a blank uri. searchV2 and searchV3 are separately
@@ -1581,10 +1598,14 @@ systemUpdate:
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
   dataProductAssets:
-    # First-time population of asset-side dataProducts is driven by dataProductProperties
-    # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
-    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
+    # First-time (and repair) population of asset-side dataProducts: scan stored
+    # dataProductProperties and invoke DataProductAssetsSideEffect via RESTATE MCLs
+    # (not a no-op parent upsert). Skips once the versioned upgrade marker SUCCEEDED
+    # unless reprocess.enabled is set.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT:0}
     reprocess:
       enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
   browsePathsV2Iceberg:
@@ -1895,6 +1916,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
@@ -2051,7 +2073,7 @@ graphQL:
     # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
     maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
-    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2010}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
     # Parent chain traversal (glossary, domains, containers, documents)
