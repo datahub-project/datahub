@@ -302,8 +302,9 @@ class UpgradeNonBlockingPhase(Phase):
         # those vars are missing from the parent-process env. -e flags only
         # populate the container env, not Compose's substitution layer.
         compose_env = dict(token_env)
-        # Run the NEW image to match the NEW jar mounted below. Unpinned, it
-        # falls back to DATAHUB_VERSION (`head` in CI), which can lag master.
+        # Pin the upgrade image to the NEW tag, the same side as the NEW
+        # worktree mounts below. Unpinned, it falls back to DATAHUB_VERSION
+        # (`head` in CI), which can lag master.
         compose_env["DATAHUB_UPDATE_VERSION"] = self._config.new_image_tag
         # G20c — pin the host mounts on the one-shot upgrade container to
         # the NEW worktree so the bundled jar gets overlaid with NEW build
