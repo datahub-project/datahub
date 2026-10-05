@@ -2570,3 +2570,33 @@ def test_query_custom_properties_from_latest_observation(
     ]
     assert len(query_properties) == 1
     assert query_properties[0].customProperties == expected
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_known_query_lineage_keeps_observed_custom_properties() -> None:
+    query = "insert into my_db.my_schema.dst select a from my_db.my_schema.src"
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(query=query, timestamp=_ts(20), custom_properties=_DAG_A_LABELS)
+    )
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text=query,
+            downstream=DatasetUrn("bigquery", "my_db.my_schema.dst").urn(),
+            upstreams=[DatasetUrn("bigquery", "my_db.my_schema.src").urn()],
+        ),
+        merge_lineage=True,
+    )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == _DAG_A_LABELS

@@ -1120,7 +1120,8 @@ class SqlParsingAggregator(Closeable):
                 origin=parsed.origin,
                 custom_properties=parsed.custom_properties,
                 redacted_query_text=parsed.redacted_query_text,
-            )
+            ),
+            replace_custom_properties=True,
         )
 
         if not parsed.downstream:
@@ -1455,7 +1456,10 @@ class SqlParsingAggregator(Closeable):
         return parsed
 
     def _add_to_query_map(
-        self, new: QueryMetadata, merge_lineage: bool = False
+        self,
+        new: QueryMetadata,
+        merge_lineage: bool = False,
+        replace_custom_properties: bool = False,
     ) -> None:
         query_fingerprint = new.query_id
 
@@ -1469,7 +1473,10 @@ class SqlParsingAggregator(Closeable):
             current.actor = new.actor or current.actor
             # Unlike actor, the latest observation wins even when empty, so the result
             # doesn't depend on whether earlier runs fell in the same ingestion window.
-            current.custom_properties = new.custom_properties
+            # Only callers that carry custom properties opt in; known lineage and view
+            # definitions never set them and must not wipe an observed query's.
+            if replace_custom_properties:
+                current.custom_properties = new.custom_properties
 
             if current.used_temp_tables and not new.used_temp_tables:
                 # If we see the same query again, but in a different session,

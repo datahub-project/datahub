@@ -4,10 +4,11 @@ import pathlib
 import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, Set, TypedDict
+from typing import Collection, Dict, Iterable, List, Optional, Set
 
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt, model_validator
+from typing_extensions import NotRequired, TypedDict
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
@@ -24,6 +25,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    CAPTURE_JOB_LABELS_DESCRIPTION,
     DEFAULT_REGION_QUALIFIERS,
     BigQueryBaseConfig,
 )
@@ -96,7 +98,7 @@ class BigQueryJob(TypedDict):
     destination_table: Optional[BigQueryTableReference]
     referenced_tables: List[BigQueryTableReference]
     # Only selected when capture_job_labels_as_query_properties is enabled.
-    labels: List[BigQueryJobLabel]
+    labels: NotRequired[List[BigQueryJobLabel]]
     # NOTE: This does not capture referenced_view unlike GCP Logging Event
 
 
@@ -155,7 +157,7 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_operations: bool = True
     capture_job_labels_as_query_properties: bool = Field(
         default=False,
-        description="If enabled, capture BigQuery job labels (for example the `airflow-dag` and `airflow-task` labels set by Airflow's `BigQueryInsertJobOperator`) as custom properties on Query entities. When the same query runs with different labels, the most recently observed labels are kept.",
+        description=CAPTURE_JOB_LABELS_DESCRIPTION,
     )
 
     region_qualifiers: List[str] = Field(
@@ -364,6 +366,8 @@ class BigQueryQueriesExtractor(Closeable):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         # TODO: Add some logic to check if the cached audit log is stale or not.
+        # The cache key should then also cover capture_job_labels_as_query_properties,
+        # since a cache written with the flag off has no labels to replay.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
@@ -461,13 +465,15 @@ class BigQueryQueriesExtractor(Closeable):
             if observed_query is not query:
                 observed_query.usage_multiplier += 1
                 # Entries are time-ordered only within one project and region, so keep
-                # the newest job's timestamp and labels rather than the last one read.
+                # the newest job's timestamp, labels and extra_info (job_id etc.) rather
+                # than the last one read. user and session_id stay first-seen.
                 if observed_query.timestamp is None or (
                     query.timestamp is not None
                     and query.timestamp >= observed_query.timestamp
                 ):
                     observed_query.timestamp = query.timestamp
                     observed_query.custom_properties = query.custom_properties
+                    observed_query.extra_info = query.extra_info
 
         return queries_deduped
 
@@ -896,7 +902,9 @@ def _job_labels_to_custom_properties(
 ) -> Optional[Dict[str, str]]:
     if not labels:
         return None
-    return {label["key"]: label["value"] for label in labels}
+    # The STRUCT field is nullable in INFORMATION_SCHEMA.JOBS, and a None value would
+    # fail MCP serialization of the whole Query aspect.
+    return {label["key"]: label["value"] or "" for label in labels}
 
 
 def _build_enriched_query_log_query(

@@ -1419,6 +1419,7 @@ class TestJobLabelsAsQueryProperties:
                     query="select * from `my_dataset`.`a`",
                     timestamp=datetime(2024, 1, 1, hour, tzinfo=timezone.utc),
                     custom_properties=labels,
+                    extra_info={"job_id": f"job_{hour}"},
                 )
             )
 
@@ -1429,3 +1430,4 @@ class TestJobLabelsAsQueryProperties:
         assert query.usage_multiplier == len(observations)
         assert query.custom_properties == expected_labels
         assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)
+        assert query.extra_info == {"job_id": f"job_{expected_ts}"}

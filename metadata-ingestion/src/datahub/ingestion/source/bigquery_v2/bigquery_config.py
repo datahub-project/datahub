@@ -67,6 +67,9 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.getLogger(__name__)
 
+# Shared with BigQueryQueriesExtractorConfig so the two generated docs stay in sync.
+CAPTURE_JOB_LABELS_DESCRIPTION = "If enabled, capture BigQuery job labels (for example the `airflow-dag` and `airflow-task` labels set by Airflow's `BigQueryInsertJobOperator`) as custom properties on Query entities. When the same query runs with different labels, the most recently observed labels are kept."
+
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
@@ -543,7 +546,7 @@ class BigQueryV2Config(
     )
     capture_job_labels_as_query_properties: bool = Field(
         default=False,
-        description="If enabled, capture BigQuery job labels (for example the `airflow-dag` and `airflow-task` labels set by Airflow's `BigQueryInsertJobOperator`) as custom properties on Query entities. When the same query runs with different labels, the most recently observed labels are kept. Only applicable if `use_queries_v2` is enabled.",
+        description=f"{CAPTURE_JOB_LABELS_DESCRIPTION} Only applicable if `use_queries_v2` is enabled.",
     )
 
     @property
