@@ -38,7 +38,8 @@ type Api implements EntityWithRelationships & Entity {
   REST-specific properties (HTTP method + path). Present only for APIs of
   subtype REST_ENDPOINT.
   """
-  restProperties: RestApiProperties @aspectMapping(aspects: ["restApiProperties"])
+  restProperties: RestApiProperties
+    @aspectMapping(aspects: ["restApiProperties"])
 
   """
   The subtypes of the API (e.g. MCP_TOOL, REST_ENDPOINT, FUNCTION)
