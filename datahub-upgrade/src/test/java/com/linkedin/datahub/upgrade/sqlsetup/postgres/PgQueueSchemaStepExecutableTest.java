@@ -29,6 +29,8 @@ import org.testng.annotations.Test;
 
 public class PgQueueSchemaStepExecutableTest {
 
+  private static final String PGQUEUE_SCHEMA = "queue";
+
   private Database database;
   private Connection connection;
   private Statement statement;
@@ -78,23 +80,33 @@ public class PgQueueSchemaStepExecutableTest {
             });
 
     when(connection.prepareStatement(anyString()))
-        .thenAnswer(
-            inv -> {
-              String sql = inv.getArgument(0, String.class);
-              PreparedStatement ps = mock(PreparedStatement.class);
-              if (sql.contains("pg_advisory_xact_lock")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(true);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else if (sql.contains("schema_migration") && sql.trim().startsWith("SELECT")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(false);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else {
-                when(ps.executeUpdate()).thenReturn(1);
-              }
-              return ps;
-            });
+        .thenAnswer(inv -> stubPreparedStatement(inv.getArgument(0, String.class)));
+  }
+
+  /**
+   * Prepared statements issued by the migration runner and {@code PostgresSqlSetupSession}. {@code
+   * current_schema()} must echo the pgQueue schema or the session's search_path guard fails the
+   * step.
+   */
+  private static PreparedStatement stubPreparedStatement(String sql) throws SQLException {
+    PreparedStatement ps = mock(PreparedStatement.class);
+    if (sql.contains("pg_advisory_xact_lock")) {
+      ResultSet rs = mock(ResultSet.class);
+      when(rs.next()).thenReturn(true);
+      when(ps.executeQuery()).thenReturn(rs);
+    } else if (sql.contains("current_schema()")) {
+      ResultSet rs = mock(ResultSet.class);
+      when(rs.next()).thenReturn(true);
+      when(rs.getString(1)).thenReturn(PGQUEUE_SCHEMA);
+      when(ps.executeQuery()).thenReturn(rs);
+    } else if (sql.contains("schema_migration") && sql.trim().startsWith("SELECT")) {
+      ResultSet rs = mock(ResultSet.class);
+      when(rs.next()).thenReturn(false);
+      when(ps.executeQuery()).thenReturn(rs);
+    } else {
+      when(ps.executeUpdate()).thenReturn(1);
+    }
+    return ps;
   }
 
   @Test
@@ -172,19 +184,7 @@ public class PgQueueSchemaStepExecutableTest {
               if (sql.contains("INSERT INTO") && sql.contains("_topic")) {
                 return catalogPs;
               }
-              PreparedStatement ps = mock(PreparedStatement.class);
-              if (sql.contains("pg_advisory_xact_lock")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(true);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else if (sql.contains("schema_migration") && sql.trim().startsWith("SELECT")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(false);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else {
-                when(ps.executeUpdate()).thenReturn(1);
-              }
-              return ps;
+              return stubPreparedStatement(sql);
             });
 
     PgQueueSchemaStep step = new PgQueueSchemaStep(database, postgresProperties);
@@ -236,7 +236,7 @@ public class PgQueueSchemaStepExecutableTest {
                     "mcp", "MetadataChangeProposal_v1", 3, "0-9", 604800, 0L, 0L, false, 1))
             : List.of();
     return new PgQueueSetupOptions(
-        "queue",
+        PGQUEUE_SCHEMA,
         "metadata_queue",
         3,
         30,

@@ -423,9 +423,9 @@ public class PostgresSqlSetupProperties {
 
   /**
    * When {@link #schema} is unset and {@code jdbcUrl} targets PostgreSQL, sets it to {@code
-   * public}. Prefer configuring {@code DATAHUB_POSTGRES_SCHEMA} / {@code postgres.schema} explicitly
-   * for non-{@code public} metadata schemas. The JDBC URL path selects the database only; {@code
-   * currentSchema} is not used for DDL.
+   * public}. Prefer configuring {@code DATAHUB_POSTGRES_SCHEMA} / {@code postgres.schema}
+   * explicitly for non-{@code public} metadata schemas. The JDBC URL path selects the database
+   * only; {@code currentSchema} is not used for DDL.
    */
   public void applySqlSetupSchemaFromJdbcUrl(String jdbcUrl) {
     if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {

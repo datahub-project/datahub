@@ -642,9 +642,10 @@ cassandra:
 
 # PostgreSQL optional SqlSetup (pgQueue).
 # postgres.schema / DATAHUB_POSTGRES_SCHEMA: Ebean/metadata tables (default public). SqlSetup
-# CREATE SCHEMA and search_path use this value — not JDBC currentSchema. pgQueue uses
-# postgres.pgQueue.schema only (default queue)—queue DDL never lands in postgres.schema unless
-# you explicitly set both to the same value. The JDBC URL path selects the database only.
+# CREATE SCHEMA (unless CREATE_SCHEMA=false) and search_path use this value — not JDBC
+# currentSchema. pgQueue uses postgres.pgQueue.schema only (default queue)—queue DDL never
+# lands in postgres.schema unless you explicitly set both to the same value. The JDBC URL
+# path selects the database only.
 postgres:
   schema: ${DATAHUB_POSTGRES_SCHEMA:public}
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
