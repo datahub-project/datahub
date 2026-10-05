@@ -14,6 +14,7 @@ import requests
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.models import ProbeRunEnvelope
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka_connect.common import KafkaConnectSourceConfig
@@ -110,7 +111,7 @@ def _withheld_values(provided: List[Dict[str, str]]) -> Set[str]:
     return values
 
 
-def _run(command: str, **kwargs: object) -> Dict[str, object]:
+def _run(command: str, **kwargs: object) -> ProbeRunEnvelope:
     result = run_probe_method("kafka-connect", dict(RECIPE), command, dict(kwargs))
     assert result.failures == [], f"{command} {kwargs}: {result.failures}"
     return result.to_dict()
@@ -145,7 +146,7 @@ def test_probe_commands_answer_from_the_live_cluster_without_disclosing_secrets(
         "fixture seeds no credential-bearing config, so this proves nothing"
     )
 
-    outputs: List[Dict[str, object]] = []
+    outputs: List[ProbeRunEnvelope] = []
 
     listing = _run("connectors")
     outputs.append(listing)
