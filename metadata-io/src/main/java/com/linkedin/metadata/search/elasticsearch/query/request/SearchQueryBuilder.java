@@ -248,20 +248,12 @@ public class SearchQueryBuilder {
             normalizedQuery.equals(query) ? "" : " (was: \"" + query + "\")");
       }
 
-      // URN and storage-path lookups get a focused query on the identity fields, plus V2's
-      // all-terms match on the delimited urn and id, so a URN that differs in case or is cut short
-      // and a path stored without its scheme still match, as on V2
+      // URN and storage-path lookups get a focused query on the identity fields
       QueryBuilder strategyQuery = buildStrategyQuery(intent, normalizedQuery);
       queryBuilder =
           strategyQuery != null
-              ? QueryBuilders.boolQuery()
-                  .should(strategyQuery)
-                  .should(
-                      QueryBuilders.simpleQueryStringQuery(normalizedQuery)
-                          .field("urn.delimited")
-                          .field("id.delimited")
-                          .defaultOperator(Operator.AND))
-                  .minimumShouldMatch(1)
+              ? buildIdentityQuery(
+                  opContext, customQueryConfig, entitySpecs, normalizedQuery, strategyQuery)
               : buildInternalQueryV2_5(
                   opContext, customQueryConfig, entitySpecs, normalizedQuery, fulltext);
     } else {
@@ -441,6 +433,38 @@ public class SearchQueryBuilder {
     }
 
     return baseQuery;
+  }
+
+  /**
+   * URN and storage-path lookups: the focused identity query, OR'ed with V2's all-terms simple
+   * query, so a URN that differs in case or is cut short, a path stored without its scheme, and
+   * entities that reference the URN still match, as on V2. A custom search configuration's bool
+   * query wraps it as it wraps the Stage 1 query.
+   */
+  private QueryBuilder buildIdentityQuery(
+      @Nonnull OperationContext opContext,
+      @Nullable QueryConfiguration customQueryConfig,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      @Nonnull QueryBuilder strategyQuery) {
+    final String colonStripped = query.replaceFirst("^:+", "");
+    BoolQueryBuilder identityQuery =
+        QueryBuilders.boolQuery().should(strategyQuery).minimumShouldMatch(1);
+    getSimpleQuery(opContext, customQueryConfig, entitySpecs, colonStripped)
+        .ifPresent(identityQuery::should);
+    return Optional.ofNullable(customQueryConfig)
+        .flatMap(
+            cqc ->
+                CustomizedQueryHandler.boolQueryBuilder(
+                    opContext.getObjectMapper(), cqc, colonStripped))
+        .filter(
+            bool ->
+                !bool.filter().isEmpty()
+                    || !bool.must().isEmpty()
+                    || !bool.mustNot().isEmpty()
+                    || !bool.should().isEmpty())
+        .<QueryBuilder>map(bool -> bool.must(identityQuery))
+        .orElse(identityQuery);
   }
 
   /**
@@ -1151,7 +1175,7 @@ public class SearchQueryBuilder {
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query) {
-    String[] terms = WHITESPACE_PATTERN.split(query.trim());
+    String[] terms = WHITESPACE_PATTERN.split(unquote(query).trim());
     // Only apply to single-word queries >= 5 chars (multi-word wildcards are too expensive)
     if (terms.length != 1 || terms[0].length() < WILDCARD_MIN_LENGTH) {
       return Optional.empty();

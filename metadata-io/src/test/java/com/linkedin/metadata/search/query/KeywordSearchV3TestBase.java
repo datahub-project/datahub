@@ -1010,6 +1010,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // A URN that differs in case or is cut short still matches, as on V2
     assertTopHit(ENTITY_TYPES, ORDERS.toString().replace("sales.orders", "SALES.ORDERS"), ORDERS);
     assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
+    // An entity that references the URN, here through its tags
+    assertTopHit(ENTITY_TYPES, "urn:li:tag:Confidential", ORDERS_CHART);
     // A long description pasted as the query
     assertTopHit(List.of(DATASET_ENTITY_NAME), CUSTOMERS_DESCRIPTION, CUSTOMERS);
     // One edit away from "customers"

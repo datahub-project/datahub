@@ -1483,11 +1483,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         && ((TermQueryBuilder) clause).fieldName().equals("urn")
                         && urn.equals(((TermQueryBuilder) clause).value())),
         identity.toString());
-    // V2's all-terms match on the delimited urn and id, for URNs that differ in case or are cut
-    // short
-    SimpleQueryStringBuilder allTerms = (SimpleQueryStringBuilder) query.should().get(1);
-    assertEquals(allTerms.defaultOperator(), Operator.AND);
-    assertEquals(allTerms.fields().keySet(), Set.of("urn.delimited", "id.delimited"));
+    // V2's all-terms simple query, for URNs that differ in case or are cut short, and entities that
+    // reference the URN
+    BoolQueryBuilder allTerms = (BoolQueryBuilder) query.should().get(1);
+    assertTrue(
+        allTerms.should().stream()
+            .map(SimpleQueryStringBuilder.class::cast)
+            .allMatch(sqs -> sqs.defaultOperator() == Operator.AND),
+        allTerms.toString());
   }
 
   @Test(expectedExceptions = ValidationException.class)
