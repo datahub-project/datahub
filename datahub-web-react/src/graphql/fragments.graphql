@@ -622,6 +622,11 @@ fragment dataJobFields on DataJob {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
@@ -706,6 +711,11 @@ fragment dashboardFields on Dashboard {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     embed {
         ...embedFields
@@ -788,6 +798,11 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -869,6 +884,11 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -942,6 +962,11 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1146,6 +1171,11 @@ fragment nonRecursiveMLModel on MLModel {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1193,6 +1223,11 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
