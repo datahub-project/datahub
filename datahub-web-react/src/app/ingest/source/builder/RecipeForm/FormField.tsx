@@ -4,6 +4,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Checkbox, Form, Input, Select } from 'antd';
 import Button from 'antd/lib/button';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import DictField, {
@@ -34,6 +35,8 @@ interface CommonFieldProps {
 }
 
 function ListField({ field, removeMargin }: CommonFieldProps) {
+    const { t } = useTranslation('common.actions');
+
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -49,7 +52,18 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
                             <Form.Item {...item} noStyle>
                                 <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>
-                            <StyledRemoveIcon onClick={() => remove(item.name)} />
+                            <StyledRemoveIcon
+                                role="button"
+                                tabIndex={0}
+                                aria-label={t('remove')}
+                                onClick={() => remove(item.name)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        remove(item.name);
+                                    }
+                                }}
+                            />
                         </Form.Item>
                     ))}
                     <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<Plus />}>

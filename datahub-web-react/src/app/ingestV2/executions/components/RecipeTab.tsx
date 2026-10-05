@@ -1,8 +1,8 @@
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import YAML from 'yamljs';
-import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 import { DetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
