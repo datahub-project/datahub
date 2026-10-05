@@ -48,6 +48,8 @@ public class ESSearchDAOAggregateByValueTest {
             .toList();
 
     assertEquals(List.of(aggregationIndices(DUAL_WRITE)), v2Patterns);
+    // An empty entity list must not become an empty index list, which searches every index
+    assertEquals(List.of(aggregationIndices(DUAL_WRITE, List.of())), v2Patterns);
   }
 
   @Test
@@ -66,13 +68,18 @@ public class ESSearchDAOAggregateByValueTest {
   }
 
   private String[] aggregationIndices(EntityIndexConfiguration entityIndex) {
+    return aggregationIndices(entityIndex, null);
+  }
+
+  private String[] aggregationIndices(
+      EntityIndexConfiguration entityIndex, List<String> entityNames) {
     return new ESSearchDAO(
             false,
             TEST_OS_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build(),
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG)
-        .buildAggregateByValue(opContext, null, "platform", null, 10)
+        .buildAggregateByValue(opContext, entityNames, "platform", null, 10)
         .indices();
   }
 }
