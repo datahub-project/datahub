@@ -1,9 +1,9 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingestV2/source/builder/constants';

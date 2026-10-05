@@ -1,8 +1,8 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
