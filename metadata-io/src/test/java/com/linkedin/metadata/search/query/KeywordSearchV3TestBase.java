@@ -67,6 +67,7 @@ import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -342,7 +343,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   /**
    * The engine accepts the mapping and settings of every V3 entity index of the registry, not only
-   * the ones the other tests seed.
+   * the ones the other tests seed, and stores them in a form that compares equal on the next
+   * system-update, which would otherwise apply or reindex them again every time.
    */
   @Test
   public void testEngineAcceptsEveryRegistryIndex() throws IOException {
@@ -353,13 +355,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         continue;
       }
       String index = "accepted_" + mapping.getIndexName();
+      Map<String, Object> settings =
+          settingsBuilder.getSettings(indexConfiguration, mapping.getIndexName());
       indexBuilder.buildIndex(
           opContext,
-          indexBuilder.buildReindexState(
-              opContext,
-              index,
-              mapping.getMappings(),
-              settingsBuilder.getSettings(indexConfiguration, mapping.getIndexName())));
+          indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings));
+      ReindexConfig secondPass =
+          indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings);
+      assertFalse(secondPass.requiresApplyMappings(), index + " mapping changed in the engine");
+      assertFalse(secondPass.requiresApplySettings(), index + " settings changed in the engine");
       getSearchClient()
           .deleteIndex(
               OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
