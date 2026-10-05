@@ -15,8 +15,10 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
     QueryPropertiesClass,
+    QuerySubjectsClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 
 
 def test_clickhouse_uri_https():
@@ -667,6 +669,39 @@ def test_usage_credits_every_table_clickhouse_resolved(monkeypatch):
     assert _field_counts(by_urn[dim_users]) == {"col_c": 1}
 
 
+def test_query_subjects_exclude_undiscovered_tables(monkeypatch):
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=(
+                "my_db.raw_events",
+                "other_db.secret",
+                "my_db..inner_id.9f8e",
+            ),
+            columns=(
+                "my_db.raw_events.col_a",
+                "other_db.secret.col_s",
+                "my_db..inner_id.9f8e.col_i",
+            ),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    subjects = {
+        subject.entity
+        for workunit in source._extract_query_log()
+        if isinstance(workunit.metadata, MetadataChangeProposalWrapper)
+        and isinstance(workunit.metadata.aspect, QuerySubjectsClass)
+        for subject in workunit.metadata.aspect.subjects
+    }
+
+    assert subjects == {
+        _RAW_EVENTS,
+        SchemaFieldUrn(_RAW_EVENTS, "col_a").urn(),
+    }
+    assert source.report.query_log_usage_tables_skipped_due_to_filters == 2
+
+
 @pytest.mark.parametrize(
     ("raw", "normalized"),
     [
@@ -715,6 +750,7 @@ def test_usage_normalizes_backtick_quoted_dataset_names(monkeypatch):
 
 def test_usage_matches_columns_to_the_longest_dataset_name():
     source = _query_log_source()
+    source.discovered_datasets.update({"my_db.t", "my_db.t.x"})
     row = _select_row(
         tables=("my_db.t", "my_db.t.x"),
         columns=("my_db.t.x.col_a",),

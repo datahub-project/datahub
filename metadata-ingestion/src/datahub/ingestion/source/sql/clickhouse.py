@@ -110,8 +110,8 @@ _ARRAY_SEP = "\n"
 _ARRAY_SEP_SQL = "\\n"
 
 # Pseudo-tables ClickHouse reports in system.query_log.tables that are not user
-# data. Shared by the fetch's WHERE clause and the usage fan-out so the two
-# cannot drift apart.
+# data. The fetch drops rows that contain no table outside these namespaces;
+# schema-discovery membership filters individual tables during usage fan-out.
 _NON_USER_TABLE_PREFIXES = (
     "system.",
     "_table_function.",
@@ -691,6 +691,7 @@ class ClickHouseSourceReport(SQLSourceReport):
     query_log_aggregator: Optional[SqlAggregatorReport] = None
     query_log_usage_reads: int = 0
     query_log_usage_records: int = 0
+    query_log_usage_tables_skipped_due_to_filters: int = 0
     query_log_lineage_rows: int = 0
     query_log_queries_parsed: int = 0
 
@@ -1113,18 +1114,19 @@ ORDER BY event_time ASC
 
             # Query-log identifiers may backtick individual parts. Normalize them
             # to the unquoted names used by schema discovery.
-            dataset_names = [
-                (raw_name, _normalize_query_log_identifier(raw_name))
-                for raw_name in _split_joined(row.get("tables_joined"))
-            ]
+            dataset_names: List[Tuple[str, str]] = []
+            for raw_name in _split_joined(row.get("tables_joined")):
+                dataset_name = _normalize_query_log_identifier(raw_name)
+                if self._is_allowed_query_log_table(dataset_name):
+                    dataset_names.append((raw_name, dataset_name))
+                else:
+                    self.report.query_log_usage_tables_skipped_due_to_filters += 1
+
             urn_by_dataset_name = {
                 dataset_name: self._dataset_urn(dataset_name)
                 for _, dataset_name in dataset_names
-                if not dataset_name.startswith(_NON_USER_TABLE_PREFIXES)
             }
             if not urn_by_dataset_name:
-                # Defensive: the fetch keeps a row only if it names a real table,
-                # using this same prefix list, so this should not be reachable.
                 return None
 
             # And columns as db.table.column - but a Nested or Map subcolumn is
