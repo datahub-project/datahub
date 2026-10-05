@@ -72,7 +72,7 @@ export default function EmbeddedListSearchHeader({
             <TabToolbar>
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
-                        <Funnel />
+                        <Funnel className="anticon" />
                         <Typography.Text>{t('embeddedListSearch.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>

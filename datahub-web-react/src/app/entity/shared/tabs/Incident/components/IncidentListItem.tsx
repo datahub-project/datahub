@@ -341,7 +341,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     ) : (
                         <IncidentResolvedContainer>
                             <IncidentResolvedButton
-                                icon={<Check />}
+                                icon={<Check className="anticon" />}
                                 onClick={() => handleResolved()}
                                 data-testid="resolve-incident"
                             >

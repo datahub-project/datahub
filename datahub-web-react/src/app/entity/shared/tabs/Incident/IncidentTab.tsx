@@ -80,7 +80,11 @@ export const IncidentTab = () => {
         <>
             <Header>
                 <TabToolbar>
-                    <Button icon={<Plus />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
+                    <Button
+                        icon={<Plus className="anticon" />}
+                        onClick={() => setIsRaiseIncidentModalVisible(true)}
+                        type="text"
+                    >
                         {t('modal.title')}
                     </Button>
                     <AddIncidentModal

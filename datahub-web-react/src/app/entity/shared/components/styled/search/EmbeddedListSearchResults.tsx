@@ -1,11 +1,10 @@
 import { Text } from '@components';
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import { Button, Pagination, Spin, Typography } from 'antd';
+import { Button, Pagination, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled, { keyframes, useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     EntityActionProps,
@@ -18,6 +17,7 @@ import { combineSiblingsInSearchResults } from '@app/search/utils/combineSibling
 import { UnionType } from '@app/search/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 import { SearchCfg } from '@src/conf';
 
 import { Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
@@ -65,22 +65,14 @@ const StyledPagination = styled(Pagination)`
 
 const LoadingContainer = styled.div`
     padding-top: 40px;
-    padding-bottom: 40px;
+    padding-bottom: 58px;
     width: 100%;
     text-align: center;
     flex: 1;
 `;
 
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const StyledLoading = styled(CircleNotch)`
-    font-size: 32px;
+const StyledLoading = styled(StyledSpinner)`
     color: ${(props) => props.theme.colors.textSecondary};
-    padding-bottom: 18px;
-    animation: ${spin} 1s linear infinite;
 `;
 
 const ErrorMessage = styled.div`
@@ -219,7 +211,7 @@ export const EmbeddedListSearchResults = ({
                 <ResultContainer>
                     {loading && (
                         <LoadingContainer>
-                            <Spin indicator={<StyledLoading />} />
+                            <StyledLoading $height={32} />
                         </LoadingContainer>
                     )}
                     {isLineageTab && !loading && isServerOverloadError && (

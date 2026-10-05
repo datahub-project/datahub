@@ -63,7 +63,7 @@ export default function SearchExtendedMenu({
                   label: (
                       <MenuItemStyle>
                           <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
-                              <PencilLine />
+                              <PencilLine className="anticon" />
                               {t('searchExtendedMenu.edit')}
                           </SelectButton>
                       </MenuItemStyle>

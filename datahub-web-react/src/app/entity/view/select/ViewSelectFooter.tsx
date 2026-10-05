@@ -59,7 +59,7 @@ export const ViewSelectFooter = ({ hasViews, onClickCreateView, onClickManageVie
                 bordered={hasViews}
                 onClick={onClickCreateView}
             >
-                <Plus />
+                <Plus className="anticon" />
                 <Typography.Text>{t('viewSelect.createNewView')}</Typography.Text>
             </CreateViewButton>
             <ManageViewsButton type="text" ref={manageViewsButtonRef} onClick={onHandleClickManageViews}>

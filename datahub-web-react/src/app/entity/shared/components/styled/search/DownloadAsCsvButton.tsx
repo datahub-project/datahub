@@ -21,7 +21,7 @@ export default function DownloadAsCsvButton({ setShowDownloadAsCsvModal, isDownl
     return (
         <>
             <DownloadCsvButton type="text" onClick={() => setShowDownloadAsCsvModal(true)} disabled={isDownloadingCsv}>
-                <DownloadSimple />
+                <DownloadSimple className="anticon" />
                 {isDownloadingCsv ? t('downloadCsv.downloading') : tc('download')}
             </DownloadCsvButton>
         </>
