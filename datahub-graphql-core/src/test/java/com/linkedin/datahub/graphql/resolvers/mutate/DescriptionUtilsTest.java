@@ -9,6 +9,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
+
+import org.mockito.ArgumentCaptor;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.dataset.EditableDatasetProperties;
+
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -29,14 +34,38 @@ public class DescriptionUtilsTest {
   }
 
   @Test
-  public void testUpdateDatasetDescriptionCallsIngestProposal() throws Exception {
+  public void testUpdateDatasetDescriptionWithValidString() throws Exception {
     Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
     Urn actorUrn = Urn.createFromString(TEST_ACTOR_URN);
 
     DescriptionUtils.updateDatasetDescription(
         mockOpContext, TEST_DESCRIPTION, datasetUrn, actorUrn, mockEntityService);
 
-    verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), any(), eq(false));
+    ArgumentCaptor<MetadataChangeProposal> captor = ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockEntityService).ingestProposal(eq(mockOpContext), captor.capture(), any(), eq(false));
+
+    MetadataChangeProposal proposal = captor.getValue();
+    EditableDatasetProperties props = new EditableDatasetProperties(proposal.getAspect().data());
+    
+    assertTrue(props.hasDescription());
+    assertEquals(props.getDescription(), TEST_DESCRIPTION);
+  }
+
+  @Test
+  public void testUpdateDatasetDescriptionWithEmptyString() throws Exception {
+    Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
+    Urn actorUrn = Urn.createFromString(TEST_ACTOR_URN);
+
+    DescriptionUtils.updateDatasetDescription(
+        mockOpContext, "   ", datasetUrn, actorUrn, mockEntityService);
+
+    ArgumentCaptor<MetadataChangeProposal> captor = ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockEntityService).ingestProposal(eq(mockOpContext), captor.capture(), any(), eq(false));
+
+    MetadataChangeProposal proposal = captor.getValue();
+    EditableDatasetProperties props = new EditableDatasetProperties(proposal.getAspect().data());
+    
+    assertFalse(props.hasDescription(), "Description should be removed when empty string is provided");
   }
 
   @Test
