@@ -13,6 +13,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class FieldTypeMapperTest {
@@ -141,19 +142,13 @@ public class FieldTypeMapperTest {
   }
 
   @Test
-  public void testSearchableUrnFieldUsesSortableKeywordBaseWithAnalyzedSubfields() {
+  public void testSearchableUrnFieldUsesV2UrnMapping() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.URN);
-    // Keyword base keeps exact match/sort/agg working when the field name is shared with
-    // KEYWORD-typed fields on the consolidated index; analyzed URN search moves to .delimited.
-    assertEquals(mapping.get("type"), "keyword");
-
-    Map<String, Object> fields = getFields(mapping);
-    Map<String, Object> delimited = (Map<String, Object>) fields.get("delimited");
-    assertEquals(delimited.get("type"), "text");
-    assertEquals(delimited.get("analyzer"), "urn_component");
-    assertEquals(delimited.get("search_analyzer"), "query_urn_component");
-    assertTrue(fields.containsKey("keyword"));
-    assertFalse(fields.containsKey("ngram"));
+    // As on V2: the shared query builder runs analyzed URN search on the field itself
+    assertEquals(mapping.get("type"), "text");
+    assertEquals(mapping.get("analyzer"), "urn_component");
+    assertEquals(mapping.get("search_analyzer"), "query_urn_component");
+    assertEquals(getFields(mapping).keySet(), Set.of("keyword"));
   }
 
   @Test
@@ -222,6 +217,9 @@ public class FieldTypeMapperTest {
           mapping.get("type"),
           "keyword",
           "URN+KEYWORD collision must emit an exact-match-safe base regardless of spec order");
+      assertEquals(
+          ((Map<String, Object>) getFields(mapping).get("delimited")).get("analyzer"),
+          "urn_component");
     }
   }
 

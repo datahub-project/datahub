@@ -7,7 +7,6 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalVal
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
-import static com.linkedin.metadata.search.utils.ESUtils.INDEX;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -59,7 +58,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Real root-level projected fields for the V2.5-compatible search surface
  *   <li>Root-level projected fields own copy_to into the {@code _search} aggregate fields
  *   <li>Structured properties support under {@code structuredProperties} field
- *   <li>Search tier and label organization under {@code _search} object
+ *   <li>Search label organization under {@code _search} object
  * </ul>
  *
  * <p>Key features:
@@ -69,7 +68,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Type conflict resolution using configurable strategies
  *   <li>Support for field name aliases
  *   <li>Dynamic structured properties handling
- *   <li>Search tier and label organization
+ *   <li>Search label organization
  *   <li>Eager global ordinals optimization
  * </ul>
  *
@@ -87,10 +86,9 @@ import lombok.extern.slf4j.Slf4j;
  *         }
  *       }
  *     },
- *     "owners": { "type": "keyword", "copy_to": "_search.tier_2" },
+ *     "owners": { "type": "keyword" },
  *     "_search": {
  *       "properties": {
- *         "tier_1": { "type": "keyword" },
  *         "entityName": { "type": "keyword" }
  *       }
  *     }
@@ -382,7 +380,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    *   <li>Merges all mappings into a unified structure
    *   <li>Creates real root-level projected fields
    *   <li>Merges with base configuration if available
-   *   <li>Builds the _search section for tier and label organization
+   *   <li>Builds the _search section for label organization
    * </ul>
    *
    * @param entityRegistry entity registry containing all entity specifications
@@ -1114,26 +1112,27 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                         && isEagerGlobalOrdinalsSupported(
                             fieldSpec.getSearchableAnnotation().getFieldType()));
     if (hasEagerGlobalOrdinals) {
-      rootFieldMapping.put("eager_global_ordinals", true);
+      putEagerGlobalOrdinals(rootFieldMapping);
     }
+  }
 
-    final boolean hasSearchIndexedTrue =
-        sourceFieldSpecs.stream()
-            .anyMatch(
-                fieldSpec -> fieldSpec.getSearchableAnnotation().getSearchIndexed().orElse(false));
-    final boolean hasSearchIndexedFalse =
-        sourceFieldSpecs.stream()
-            .anyMatch(
-                fieldSpec ->
-                    fieldSpec.getSearchableAnnotation().getSearchIndexed().isPresent()
-                        && !fieldSpec.getSearchableAnnotation().getSearchIndexed().get());
-
-    if (hasSearchIndexedTrue) {
-      rootFieldMapping.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
-      rootFieldMapping.put(INDEX, true);
-    } else if (hasSearchIndexedFalse) {
-      rootFieldMapping.put(INDEX, false);
+  /**
+   * Turns on eager global ordinals on the field itself, or, for a URN field whose root is analyzed
+   * text as on V2, on its {@code .keyword} subfield, since a text field has no global ordinals.
+   */
+  @SuppressWarnings("unchecked")
+  private static void putEagerGlobalOrdinals(@Nonnull Map<String, Object> fieldMapping) {
+    if (ESUtils.TEXT_FIELD_TYPE.equals(fieldMapping.get(TYPE))
+        && fieldMapping.get(ESUtils.FIELDS) instanceof Map<?, ?> subfields
+        && subfields.get(ESUtils.KEYWORD) instanceof Map<?, ?> keyword) {
+      Map<String, Object> keywordMapping = new HashMap<>((Map<String, Object>) keyword);
+      keywordMapping.put("eager_global_ordinals", true);
+      Map<String, Object> subfieldMappings = new HashMap<>((Map<String, Object>) subfields);
+      subfieldMappings.put(ESUtils.KEYWORD, keywordMapping);
+      fieldMapping.put(ESUtils.FIELDS, subfieldMappings);
+      return;
     }
+    fieldMapping.put("eager_global_ordinals", true);
   }
 
   private static boolean isEagerGlobalOrdinalsSupported(@Nonnull final FieldType fieldType) {
@@ -1149,15 +1148,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     final Set<String> copyToDestinations = new LinkedHashSet<>();
 
     for (SearchableFieldSpec fieldSpec : sourceFieldSpecs) {
-      fieldSpec
-          .getSearchableAnnotation()
-          .getSearchTier()
-          .ifPresent(
-              tier -> {
-                if (tier >= 1) {
-                  copyToDestinations.add("_search.tier_" + tier);
-                }
-              });
       fieldSpec
           .getSearchableAnnotation()
           .getSearchLabel()
@@ -1210,7 +1200,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * <ul>
    *   <li>Field type mapping based on annotations
    *   <li>Eager global ordinals configuration
-   *   <li>Optional search tier, label, and entity field name copy_to fields
+   *   <li>Optional search label and entity field name copy_to fields
    *   <li>HasValues and numValues field creation
    *   <li>SystemModifiedAt field creation
    * </ul>
@@ -1300,7 +1290,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                 if (fieldType == FieldType.KEYWORD
                     || fieldType == FieldType.URN
                     || fieldType == FieldType.URN_PARTIAL) {
-                  mappingForField.put("eager_global_ordinals", true);
+                  putEagerGlobalOrdinals(mappingForField);
                   log.debug("Setting eager_global_ordinals=true for field '{}'", baseFieldName);
                 } else {
                   log.debug(

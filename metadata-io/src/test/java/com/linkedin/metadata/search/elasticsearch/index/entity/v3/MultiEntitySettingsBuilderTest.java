@@ -236,9 +236,9 @@ public class MultiEntitySettingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
 
-    assertNotNull(analyzers.get("full"), "full analyzer should be present");
-    assertNotNull(analyzers.get("full_removed_sep"), "full_removed_sep analyzer should be present");
-    assertNotNull(analyzers.get("full_stemmer"), "full_stemmer analyzer should be present");
+    // Search tier analyzers are gone; the merged V2 analyzers serve the per-field queries
+    assertNull(analyzers.get("full"), "tier analyzer full should be gone");
+    assertNotNull(analyzers.get("word_delimited"), "word_delimited analyzer should be present");
     assertNotNull(
         analyzers.get("browse_path_v2_hierarchy"),
         "browse_path_v2_hierarchy analyzer should be present");
@@ -253,19 +253,12 @@ public class MultiEntitySettingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> filters = (Map<String, Object>) analysis.get("filter");
 
-    assertNotNull(filters.get("stemmer_en"), "stemmer_en filter should be present");
-    assertNotNull(filters.get("word_separator_filter"), "word_separator_filter should be present");
-    assertNotNull(filters.get("synonyms"), "synonyms filter should be present");
+    assertNotNull(filters.get("stem_override"), "stem_override filter should be present");
 
     // Check tokenizers
     @SuppressWarnings("unchecked")
     Map<String, Object> tokenizers = (Map<String, Object>) analysis.get("tokenizer");
 
-    assertNotNull(
-        tokenizers.get("alphanumeric_tokenizer"), "alphanumeric_tokenizer should be present");
-    assertNotNull(
-        tokenizers.get("alphanumeric_tokenizer_full"),
-        "alphanumeric_tokenizer_full should be present");
     assertNotNull(
         tokenizers.get("unit_separator_path_tokenizer"),
         "unit_separator_path_tokenizer should be present");
@@ -308,10 +301,9 @@ public class MultiEntitySettingsBuilderTest {
     // Check specific analyzers from default config
     @SuppressWarnings("unchecked")
     Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
-    assertNotNull(analyzers.get("full"), "Default config should contain 'full' analyzer");
     assertNotNull(
-        analyzers.get("full_removed_sep"),
-        "Default config should contain 'full_removed_sep' analyzer");
+        analyzers.get("browse_path_v2_hierarchy"),
+        "Default config should contain 'browse_path_v2_hierarchy' analyzer");
   }
 
   @Test
@@ -451,8 +443,7 @@ public class MultiEntitySettingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
 
-    assertNotNull(analyzers.get("full"));
-    assertNotNull(analyzers.get("full_removed_sep"));
+    assertNotNull(analyzers.get("browse_path_v2_hierarchy"));
     assertNotNull(analyzers.get("word_delimited"));
     assertNotNull(analyzers.get("query_word_delimited"));
     assertNotNull(analyzers.get("urn_component"));
