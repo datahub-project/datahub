@@ -205,9 +205,9 @@ public class SearchQueryBuilder {
 
   /**
    * Light path: top-level identity fields whose {@code .delimited} analyzer keeps a hyphenated run
-   * (e.g. {@code load_job-2671a0cf}) as one token. Used to recover exact identifier matches that
-   * {@link #escapeSimpleQueryStringOperators} shreds by replacing the hyphen with a space. Exact
-   * field names (not shortName) so nested/reference {@code *.delimited} fields cannot sneak in.
+   * (e.g. {@code load_job-0001}) as one token. Used to recover exact identifier matches that {@link
+   * #escapeSimpleQueryStringOperators} shreds by replacing the hyphen with a space. Exact field
+   * names (not shortName) so nested/reference {@code *.delimited} fields cannot sneak in.
    */
   private static final Set<String> DELIMITED_IDENTITY_FIELDS =
       Set.of("name.delimited", "title.delimited", "urn.delimited");
@@ -1305,9 +1305,9 @@ public class SearchQueryBuilder {
    * Multi-match over the {@code .delimited} identity fields ({@code name}, {@code title}, {@code
    * urn}) queried with the pre-escape string, so a hyphenated identifier whose hyphen {@link
    * #escapeSimpleQueryStringOperators} replaced with a space still matches: the {@code .delimited}
-   * analyzer keeps e.g. {@code load_job-2671a0cf} as one token. AND-matched so a multi-token query
-   * only restores the intact-identifier match rather than broadening recall. Empty when none of
-   * these fields is queried.
+   * analyzer keeps e.g. {@code load_job-0001} as one token. AND-matched so a multi-token query only
+   * restores the intact-identifier match rather than broadening recall. Empty when none of these
+   * fields is queried.
    */
   private Optional<QueryBuilder> getDelimitedIdentityQuery(
       @Nonnull OperationContext opContext,

@@ -1124,6 +1124,56 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(nameMatch.getNumEntities().intValue(), 1);
     assertTrue(explain("archive", TITLE_MATCH).isMatch());
     assertFalse(explain("archive", DESCRIPTION_MATCH).isMatch());
+    // The explain API's default sort by score is relevance too
+    assertFalse(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING)),
+                null,
+                null,
+                10,
+                List.of())
+            .isMatch());
+    // The total decides, so a later page of a light result stays on the light query
+    SearchResult secondPage =
+        searchService.search(
+            fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 1, 10);
+    assertEquals(secondPage.getNumEntities().intValue(), 1);
+    assertTrue(secondPage.getEntities().isEmpty());
+    // Another sort order and scroll run the full query
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING)),
+                0,
+                10)
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+    assertUrns(
+        searchService
+            .fullTextScroll(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                null,
+                null,
+                10,
+                List.of())
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
 
     // A typo matches nothing on the light query, so the full fuzzy query runs. Fuzzy matching
     // reaches the stemmed token ("archiv"); 7 characters allow two edits

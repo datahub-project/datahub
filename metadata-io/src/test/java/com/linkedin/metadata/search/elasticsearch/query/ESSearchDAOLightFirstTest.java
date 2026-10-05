@@ -5,6 +5,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.search.utils.QueryUtils;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -58,6 +59,13 @@ public class ESSearchDAOLightFirstTest {
   @Test
   public void testLightSourceQueryWithoutBoolRoot() {
     assertSame(ESSearchDAO.buildLightSourceQuery(FULL, LIGHT), LIGHT);
+  }
+
+  @Test
+  public void testColumnNameFilter() {
+    assertTrue(ESSearchDAO.hasColumnNameFilter(QueryUtils.newFilter("fieldPaths", "customer_id")));
+    assertFalse(ESSearchDAO.hasColumnNameFilter(QueryUtils.newFilter("platform", "hive")));
+    assertFalse(ESSearchDAO.hasColumnNameFilter(null));
   }
 
   @Test

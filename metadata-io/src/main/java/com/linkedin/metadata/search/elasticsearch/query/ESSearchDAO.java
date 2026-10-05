@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -60,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -425,7 +427,8 @@ public class ESSearchDAO {
         searchRequestComponents.getMiddle(),
         from,
         size,
-        lightFirstQuery(opContext, searchRequestComponents.getRight(), input, sortCriteria),
+        lightFirstQuery(
+            opContext, searchRequestComponents.getRight(), input, sortCriteria, postFilters),
         input);
   }
 
@@ -440,11 +443,14 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String input,
-      @Nullable List<SortCriterion> sortCriteria) {
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nullable Filter filter) {
     String trimmed = input.trim();
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     if (!EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-        || (sortCriteria != null && !sortCriteria.isEmpty())
+        || !isRelevanceSort(sortCriteria)
+        // The name-focused light query would hide every dataset that only holds the column
+        || hasColumnNameFilter(filter)
         || searchFlags == null
         || !Boolean.TRUE.equals(searchFlags.isFulltext())
         || trimmed.isEmpty()
@@ -487,6 +493,12 @@ public class ESSearchDAO {
     }
     if (hasHits(lightResponse) || skipsFullQuery(input)) {
       return lightResponse;
+    }
+    if (lightResponse.getFailedShards() > 0) {
+      log.warn(
+          "Light query failed on {} of {} shards, running the full query",
+          lightResponse.getFailedShards(),
+          lightResponse.getTotalShards());
     }
     log.debug("Light query matched nothing, running the full query for \"{}\"", input);
     return searchClient(opContext, searchRequest)
@@ -537,6 +549,9 @@ public class ESSearchDAO {
     for (QueryBuilder filter : ((BoolQueryBuilder) boolCarrier).filter()) {
       lightBool.filter(filter);
     }
+    for (QueryBuilder mustNot : ((BoolQueryBuilder) boolCarrier).mustNot()) {
+      lightBool.mustNot(mustNot);
+    }
 
     if (originalFunctionScoreQuery == null) {
       return lightBool;
@@ -557,6 +572,34 @@ public class ESSearchDAO {
       lightFunctionScoreQuery.queryName(originalFunctionScoreQuery.queryName());
     }
     return lightFunctionScoreQuery;
+  }
+
+  /** No sort, or only by score (the explain API's default), orders by relevance. */
+  private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
+    return sortCriteria == null
+        || sortCriteria.stream().allMatch(criterion -> "_score".equals(criterion.getField()));
+  }
+
+  /**
+   * Whether the filter requires a column name: a positive criterion on fieldPaths, which is what
+   * the UI's Column Name filter sends. Covers both the or-of-and form and legacy criteria.
+   */
+  @VisibleForTesting
+  static boolean hasColumnNameFilter(@Nullable final Filter filter) {
+    if (filter == null) {
+      return false;
+    }
+    final Stream<Criterion> criteria =
+        Stream.concat(
+            filter.hasOr()
+                ? filter.getOr().stream().flatMap(conjunction -> conjunction.getAnd().stream())
+                : Stream.empty(),
+            filter.hasCriteria() ? filter.getCriteria().stream() : Stream.empty());
+    return criteria.anyMatch(
+        criterion ->
+            !Boolean.TRUE.equals(criterion.isNegated())
+                && ("fieldPaths".equals(criterion.getField())
+                    || criterion.getField().startsWith("fieldPaths.")));
   }
 
   /** Returns true if the query is wrapped in double or single quotes. */
@@ -1129,7 +1172,11 @@ public class ESSearchDAO {
               opContext,
               explainRequest.index(),
               searchRequest.getLeft().source().query(),
-              lightFirstQuery(opContext, searchRequest.getRight(), query, sortCriteria),
+              // Scroll never runs the light query
+              scrollId != null
+                  ? null
+                  : lightFirstQuery(
+                      opContext, searchRequest.getRight(), query, sortCriteria, postFilters),
               query));
       return searchClient(opContext, explainRequest.index())
           .explain(opContext, explainRequest, RequestOptions.DEFAULT);
