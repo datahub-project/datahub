@@ -102,7 +102,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.password",
           "elasticsearch.clusters.*.sslContext.keyPassword",
           "elasticsearch.clusters.*.sslContext.trustStorePassword",
-          "elasticsearch.clusters.*.sslContext.keyStorePassword");
+          "elasticsearch.clusters.*.sslContext.keyStorePassword",
+          "elasticsearch.clusters.*.proxy.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -194,6 +195,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.sslContext.trustStoreType",
           "elasticsearch.clusters.*.sslContext.keyStoreFile",
           "elasticsearch.clusters.*.sslContext.keyStoreType",
+          "elasticsearch.clusters.*.proxy.host",
+          "elasticsearch.clusters.*.proxy.port",
+          "elasticsearch.clusters.*.proxy.scheme",
+          "elasticsearch.clusters.*.proxy.username",
+          "elasticsearch.clusters.*.proxy.useSystemProxyProperties",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",
@@ -917,6 +923,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.browsePathsV2.batchSize",
           "systemUpdate.browsePathsV2.enabled",
           "systemUpdate.dataProductAssets.batchSize",
+          "systemUpdate.dataProductAssets.delayMs",
+          "systemUpdate.dataProductAssets.enabled",
+          "systemUpdate.dataProductAssets.limit",
           "systemUpdate.dataProductAssets.reprocess.enabled",
           "systemUpdate.browsePathsV2.reprocess.enabled",
           "systemUpdate.dashboardInfo.batchSize",

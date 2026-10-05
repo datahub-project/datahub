@@ -28,7 +28,7 @@ const Content = styled.div<{ $backgroundColor: string }>`
     overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 8px;
     background-color: ${(props) => props.$backgroundColor};
 `;
 
@@ -100,11 +100,19 @@ export default function QueriesTab() {
     const showEmptyView =
         !isLoading && !recentQueries.length && !highlightedQueries.length && !downstreamQueries.length;
 
+    const showHighlightedSection = highlightedQueries.length > 0 || highlightedQueriesLoading;
+    const showDownstreamSection = downstreamQueries.length > 0;
+    const showRecentSection = recentQueries.length > 0;
+    const visibleSections = [
+        { section: QueriesTabSection.Highlighted, isVisible: showHighlightedSection },
+        { section: QueriesTabSection.Downstream, isVisible: showDownstreamSection },
+        { section: QueriesTabSection.Recent, isVisible: showRecentSection },
+    ].filter(({ isVisible }) => isVisible);
+    const fillHeightSection = visibleSections[visibleSections.length - 1]?.section;
+
     // shared props with all of the QueriesListSection components below
     const props = {
         showDetails: false,
-        showDelete: false,
-        showEdit: false,
         onDeleted: onQueryDeleted,
         onEdited: onQueryEdited,
         selectedUsersFilter,
@@ -135,7 +143,7 @@ export default function QueriesTab() {
                 )}
                 {!showLoading && canViewQueries && (
                     <>
-                        {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
+                        {showHighlightedSection && (
                             <QueriesListSection
                                 title={t('queriesTab.highlightedQueriesTitle')}
                                 section={QueriesTabSection.Highlighted}
@@ -149,10 +157,11 @@ export default function QueriesTab() {
                                 addQueryDisabled={!canEditQueries}
                                 onAddQuery={() => setShowQueryBuilder(true)}
                                 isTopSection
+                                fillHeight={fillHeightSection === QueriesTabSection.Highlighted}
                                 {...props}
                             />
                         )}
-                        {highlightedQueries.length === 0 && !highlightedQueriesLoading && (
+                        {!showHighlightedSection && (
                             <EmptyQueriesSection
                                 sectionName={t('queriesTab.highlightedQueriesTitle')}
                                 tooltip={t('queriesTab.highlightedQueriesTooltip')}
@@ -163,23 +172,25 @@ export default function QueriesTab() {
                                 onButtonClick={() => setShowQueryBuilder(true)}
                             />
                         )}
-                        {downstreamQueries.length > 0 && (
+                        {showDownstreamSection && (
                             <QueriesListSection
                                 title={t('queriesTab.downstreamQueriesTitle')}
                                 section={QueriesTabSection.Downstream}
                                 tooltip={t('queriesTab.downstreamQueriesTooltip')}
                                 queries={downstreamQueries}
                                 totalQueries={downstreamQueries.length}
+                                fillHeight={fillHeightSection === QueriesTabSection.Downstream}
                                 {...props}
                             />
                         )}
-                        {recentQueries.length > 0 && (
+                        {showRecentSection && (
                             <QueriesListSection
                                 title={t('queriesTab.recentQueriesTitle')}
                                 section={QueriesTabSection.Recent}
                                 tooltip={t('queriesTab.recentQueriesTooltip')}
                                 queries={recentQueries}
                                 totalQueries={recentQueries.length}
+                                fillHeight={fillHeightSection === QueriesTabSection.Recent}
                                 {...props}
                             />
                         )}

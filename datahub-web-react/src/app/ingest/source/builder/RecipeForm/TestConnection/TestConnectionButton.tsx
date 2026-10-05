@@ -7,6 +7,7 @@ import { TestConnectionResult } from '@app/ingest/source/builder/RecipeForm/Test
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { FAILURE, RUNNING, yamlToJson } from '@app/ingest/source/utils';
 import { Button } from '@src/alchemy-components';
+import { pollingContext } from '@src/apolloPolling';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -47,9 +48,11 @@ function TestConnectionButton(props: Props) {
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
                 () =>
-                    getIngestionExecutionRequest({
-                        variables: { urn: requestData.createTestConnectionRequest as string },
-                    }),
+                    getIngestionExecutionRequest(
+                        pollingContext({
+                            variables: { urn: requestData.createTestConnectionRequest as string },
+                        }),
+                    ),
                 2000,
             );
             setIsLoading(true);

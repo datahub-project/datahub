@@ -696,6 +696,30 @@ def test_make_fine_grained_lineage_class_skips_unresolved_downstream_column():
     assert result[0].downstreams == []
 
 
+def test_make_fine_grained_lineage_class_ignores_out_columns_with_null_name():
+    upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)"
+    parsed_result = SqlParsingResult(
+        in_tables=[upstream_table_urn],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="my_col"),
+                upstreams=[ColumnRef(table=upstream_table_urn, column="src_col")],
+            )
+        ],
+    )
+
+    result = make_fine_grained_lineage_class(
+        parsed_result,
+        dataset_urn=dataset_urn,
+        out_columns=[{"name": None}, {"name": "My_Col"}],
+    )
+
+    assert len(result) == 1
+    assert result[0].downstreams == [f"urn:li:schemaField:({dataset_urn},My_Col)"]
+
+
 def test_database_hostname_to_platform_instance_map():
     # Simple - snowflake table
     assert (

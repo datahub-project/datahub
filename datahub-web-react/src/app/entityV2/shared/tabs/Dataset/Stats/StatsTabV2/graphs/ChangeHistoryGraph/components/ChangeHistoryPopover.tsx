@@ -138,7 +138,12 @@ export default function ChangeHistoryPopover({
                     <ColumnContainer>{operations.map((value) => renderOperation(value))}</ColumnContainer>
                     <LinkContainer>
                         {operations.length > 0 && (
-                            <Button variant="text" size="xs" onClick={() => onViewDetails?.()}>
+                            <Button
+                                variant="text"
+                                size="xs"
+                                onClick={() => onViewDetails?.()}
+                                style={{ pointerEvents: 'auto' }}
+                            >
                                 {t('changeHistoryPopover.viewDetails')}
                             </Button>
                         )}

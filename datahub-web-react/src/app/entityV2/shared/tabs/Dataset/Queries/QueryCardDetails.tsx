@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import QueryCardDetailsMenu from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardDetailsMenu';
-import QueryCardEditButton from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardEditButton';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
 
 const Title = styled(Heading)<{ secondary?: boolean }>`
@@ -29,18 +27,6 @@ const Header = styled.div`
     align-items: center;
     justify-content: space-between;
     white-space: nowrap;
-`;
-
-const Actions = styled.div`
-    flex-wrap: nowrap;
-`;
-
-const EditQueryAction = styled.span`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-left: 4px;
-    }
 `;
 
 const Description = styled.div`
@@ -69,30 +55,13 @@ const EmptyText = styled.div`
 `;
 
 type Props = {
-    urn?: string;
     title?: string;
     description?: string;
     createdAtMs?: number;
-    showDelete?: boolean;
-    showEdit?: boolean;
-    onDeleted?: (urn) => void;
     onClickExpand?: () => void;
-    onClickEdit?: () => void;
-    index?: number;
 };
 
-export default function QueryCardDetails({
-    urn,
-    title,
-    description,
-    createdAtMs,
-    showDelete,
-    showEdit,
-    onClickExpand,
-    onClickEdit,
-    onDeleted,
-    index,
-}: Props) {
+export default function QueryCardDetails({ title, description, createdAtMs, onClickExpand }: Props) {
     const { t } = useTranslation('entity.profile.queries');
     const { t: tc } = useTranslation('common.actions');
     return (
@@ -101,18 +70,6 @@ export default function QueryCardDetails({
                 <Title secondary={!title} type="h5">
                     {title || t('queryCard.noTitle')}
                 </Title>
-                <Actions>
-                    {showEdit && (
-                        <EditQueryAction>
-                            <QueryCardEditButton onClickEdit={onClickEdit} index={index} />
-                        </EditQueryAction>
-                    )}
-                    {showDelete && urn && (
-                        <EditQueryAction>
-                            <QueryCardDetailsMenu urn={urn} onDeleted={onDeleted} index={index} />
-                        </EditQueryAction>
-                    )}
-                </Actions>
             </Header>
             <Description>
                 {(description && (

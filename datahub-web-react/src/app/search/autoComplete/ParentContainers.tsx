@@ -1,4 +1,4 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Typography } from 'antd';
 import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
@@ -42,13 +42,13 @@ export default function ParentContainers({ parentContainers }: Props) {
         <ParentContainersWrapper>
             {hiddenContainers.map((container) => (
                 <Fragment key={container.urn}>
-                    <FolderOpenOutlined />
+                    <FolderOpen />
                     <ArrowWrapper>{BREADCRUMB_SEPARATOR}</ArrowWrapper>
                 </Fragment>
             ))}
             {visibleContainers.map((container, index) => (
                 <Fragment key={container.urn}>
-                    <FolderOpenOutlined />
+                    <FolderOpen />
                     <ParentContainer ellipsis={{ tooltip: '' }}>
                         {entityRegistry.getDisplayName(EntityType.Container, container)}
                     </ParentContainer>

@@ -102,7 +102,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     options: dict = pydantic.Field(
         default_factory=dict,
-        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
+        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
 
     scheme: HiddenFromDocs[str] = "snowflake"

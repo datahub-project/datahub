@@ -1,21 +1,10 @@
-import { Modal } from '@components';
-import { Button } from 'antd';
+import { Button, CodeBlock, Modal } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-
-const PreviewSyntax = styled(StyledSyntaxHighlighter)`
-    max-height: 68px;
-    overflow: hidden !important;
-    border-radius: 12px;
+const PreviewCode = styled(CodeBlock)`
     max-width: 100%;
-    background: ${(props) => props.theme.colors.bgSurface} !important;
-
-    span {
-        font-family: 'Roboto Mono', monospace;
-    }
 `;
 
 const ModalSyntaxContainer = styled.div`
@@ -30,16 +19,9 @@ const Container = styled.div`
     max-width: 400px;
 `;
 
-const StyledButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textBrand};
-    display: flex;
-    width: fit-content;
+const PREVIEW_MAX_HEIGHT = 68;
 
-    :hover {
-        color: ${(props) => props.theme.colors.buttonFillBrand};
-        background: transparent;
-    }
-`;
+const SQL_LANGUAGE = 'sql';
 
 interface Props {
     query: string;
@@ -66,18 +48,31 @@ const SummaryQuerySection = ({ query }: Props) => {
                 onCancel={() => setShowFullContentModal(false)}
             >
                 <ModalSyntaxContainer>
-                    <StyledSyntaxHighlighter language="sql" wrapLongLines showLineNumbers>
-                        {query}
-                    </StyledSyntaxHighlighter>
+                    <CodeBlock
+                        code={query}
+                        language={SQL_LANGUAGE}
+                        showHeader={false}
+                        showCopy={false}
+                        showFormat={false}
+                        showLineNumbers
+                        wrap
+                    />
                 </ModalSyntaxContainer>
             </Modal>
 
-            <PreviewSyntax language="sql" wrapLongLines>
-                {query}
-            </PreviewSyntax>
-            <StyledButton type="text" onClick={() => setShowFullContentModal(true)}>
+            <PreviewCode
+                code={query}
+                language={SQL_LANGUAGE}
+                showHeader={false}
+                showCopy={false}
+                showFormat={false}
+                wrap
+                maxHeight={PREVIEW_MAX_HEIGHT}
+                overflow="hidden"
+            />
+            <Button variant="text" onClick={() => setShowFullContentModal(true)}>
                 {tc('readMore')}
-            </StyledButton>
+            </Button>
         </Container>
     );
 };

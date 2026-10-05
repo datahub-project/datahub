@@ -8,7 +8,7 @@ description: Configure the unified entity hierarchy graph cache for View-Based A
 
 This guide explains how to enable, configure, and operate the **GMS entity graph cache** — a distributed cache of pre-built hierarchy snapshots used to expand domain (and other) relationships without repeated primary-storage or search scroll work on every request.
 
-**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). MAE/MCE consumers and `datahub-upgrade` set **`enabled=false`** in module `application.properties` (and consumer Docker env) so [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
+**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). Standalone MCL (`SPRING_PROFILES_ACTIVE=mae`), MCP (`SPRING_PROFILES_ACTIVE=mce`), and datahub-upgrade (`SPRING_PROFILES_ACTIVE=upgrade`) default **`enabled=false`**. `ENTITY_GRAPH_CACHE_ENABLED` still overrides that default. When the flag is off, [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
 
 ## What this is — and is not
 
@@ -64,7 +64,7 @@ All domain call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/ja
 2. **Authoritative verify** — `batchGetV2` on `domainProperties` for each candidate; a child counts only when `parentDomain` still points at the parent URN in primary storage.
 3. **Truncation safety** — when the filter page is **full** (`entities.size() >= 200`) and `numEntities > 200`, the walker returns `true` conservatively (true pagination). It does **not** treat `numEntities > entities.size()` alone as truncation: [`ValidationUtils.validateSearchResult`](../../metadata-io/src/main/java/com/linkedin/metadata/entity/validation/ValidationUtils.java) can strip index **ghosts** (entities deleted in primary storage but still counted in ES `numEntities`) without adjusting `numEntities`, so an empty validated entity list with a positive count must fall through to “no children” rather than blocking parent delete.
 
-After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ### Soft delete
 
@@ -371,6 +371,10 @@ When `SearchFlags.skipCache=true`, `EntityGraphCacheClients` uses **`ReadMode.EP
 
 When `entityGraphCache.enabled=true`, GMS **automatically bootstraps** the shared `HazelcastInstance` — you do **not** need `searchService.cacheImplementation=hazelcast` or `SEARCH_SERVICE_ENABLE_CACHE`. GMS joins the cluster via `searchService.cache.hazelcast.serviceName` (default `hazelcast-service`, env `SEARCH_SERVICE_HAZELCAST_SERVICE_NAME`).
 
+Quickstart and CI, which are not running in Kubernetes, start a single member when the default discovery name `hazelcast-service` does not resolve. The lookup is retried before that choice. A failure inside Kubernetes keeps Kubernetes join so discovery can recover. A name that resolves only to loopback is a single node. A custom name that fails DNS outside Kubernetes also keeps Kubernetes join.
+
+GMS also starts that instance for access-token revocation when the graph cache is off.
+
 | Map                              | Purpose                                                                                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `entityGraphSnapshots.full`      | FULL-scope snapshots — key `{graphId}@{source}`; serialized via `EntityGraphSnapshotSerializer` (format version **1**)                                                                                              |
@@ -615,7 +619,7 @@ PARTIAL graphs store **one Hazelcast entry per WCC** at `{graphId}@{source}:{fin
 
 ## Verification (smoke tests)
 
-Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-test/tests/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
+Python smoke tests under [`smoke-test/tests/e2e/entity_graph_cache/`](../../smoke-test/tests/e2e/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
 
 | Test                                                    | What it validates                                                                               |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -631,12 +635,12 @@ Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-te
 
 ```bash
 cd smoke-test
-pytest tests/entity_graph_cache -q
+pytest tests/e2e/entity_graph_cache -q
 ```
 
 Hierarchy setup uses batched `graph_client.emit_mcp` plus one `wait_for_writes_to_sync()` per test; GraphQL mutations are reserved for sync invalidation cases only. Prometheus counter tests skip when pytest-xdist is active, `BATCH_COUNT > 1`, or GMS management port (`4319`) is not reachable from the test runner — GraphQL assertions are the CI contract.
 
-Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ## Related documentation
 

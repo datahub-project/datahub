@@ -201,7 +201,13 @@ class MSSQLQuery:
         agent probe) apply that themselves, so both filter on the exact same
         raw listing rather than each re-deriving it.
         """
-        rows = conn.execute(
-            f"SELECT name FROM master.sys.databases WHERE name NOT IN ({_SYSTEM_DATABASE_EXCLUSION})"
-        ).fetchall()
+        rows = (
+            conn.execute(
+                text(
+                    f"SELECT name FROM master.sys.databases WHERE name NOT IN ({_SYSTEM_DATABASE_EXCLUSION})"
+                )
+            )
+            .mappings()
+            .fetchall()
+        )
         return [str(row["name"]) for row in rows]
