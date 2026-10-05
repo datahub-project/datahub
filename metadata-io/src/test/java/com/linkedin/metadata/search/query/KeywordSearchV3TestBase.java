@@ -350,6 +350,44 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
    * the ones the other tests seed, and stores them in a form that compares equal on the next
    * system-update, which would otherwise apply or reindex them again every time.
    */
+  @Test
+  public void testEngineAcceptsEveryRegistryIndex() throws IOException {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    int created = 0;
+    for (MappingsBuilder.IndexMapping mapping :
+        engineV3MappingsBuilder.getIndexMappings(opContext)) {
+      if (!indexConvention.isV3EntityIndexType(mapping.getIndexName())) {
+        continue;
+      }
+      String index = "accepted_" + mapping.getIndexName();
+      Map<String, Object> settings =
+          settingsBuilder.getSettings(indexConfiguration, mapping.getIndexName());
+      try {
+        indexBuilder.buildIndex(
+            opContext,
+            indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings));
+        ReindexConfig secondPass =
+            indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings);
+        assertFalse(
+            secondPass.requiresApplyMappings(),
+            index
+                + " mapping changed in the engine: "
+                + differingPaths(secondPass.currentMappings(), secondPass.targetMappings()));
+        assertFalse(
+            secondPass.requiresApplySettings(),
+            index
+                + " settings changed in the engine: "
+                + differingSettings(secondPass.currentSettings(), secondPass.targetSettings()));
+      } finally {
+        getSearchClient()
+            .deleteIndex(
+                OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+      }
+      created++;
+    }
+    assertTrue(created > 20, "Only " + created + " V3 indices");
+  }
+
   /** Field paths where two mappings differ, compared the way system-update compares them. */
   private static List<String> differingPaths(
       Map<String, Object> current, Map<String, Object> target) {
@@ -414,41 +452,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     if (!java.util.Objects.equals(String.valueOf(current), String.valueOf(target))) {
       paths.add(path + ": " + current + " != " + target);
     }
-  }
-
-  @Test
-  public void testEngineAcceptsEveryRegistryIndex() throws IOException {
-    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    int created = 0;
-    for (MappingsBuilder.IndexMapping mapping :
-        engineV3MappingsBuilder.getIndexMappings(opContext)) {
-      if (!indexConvention.isV3EntityIndexType(mapping.getIndexName())) {
-        continue;
-      }
-      String index = "accepted_" + mapping.getIndexName();
-      Map<String, Object> settings =
-          settingsBuilder.getSettings(indexConfiguration, mapping.getIndexName());
-      indexBuilder.buildIndex(
-          opContext,
-          indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings));
-      ReindexConfig secondPass =
-          indexBuilder.buildReindexState(opContext, index, mapping.getMappings(), settings);
-      assertFalse(
-          secondPass.requiresApplyMappings(),
-          index
-              + " mapping changed in the engine: "
-              + differingPaths(secondPass.currentMappings(), secondPass.targetMappings()));
-      assertFalse(
-          secondPass.requiresApplySettings(),
-          index
-              + " settings changed in the engine: "
-              + differingSettings(secondPass.currentSettings(), secondPass.targetSettings()));
-      getSearchClient()
-          .deleteIndex(
-              OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
-      created++;
-    }
-    assertTrue(created > 20, "Only " + created + " V3 indices");
   }
 
   @Test
