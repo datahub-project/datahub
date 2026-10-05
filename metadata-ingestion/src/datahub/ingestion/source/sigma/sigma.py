@@ -336,6 +336,19 @@ class _CustomSqlRegistration:
     label: str  # "DM element" or "workbook chart"
 
 
+def _cross_dm_source_url_ids(element: SigmaDataModelElement) -> Set[str]:
+    """The url ids of other Data Models this element reads.
+
+    Cross-DM source_ids are ``<dm-url-id>/<suffix>``; intra-DM ones are bare
+    elementIds and warehouse ones start with ``inode-``.
+    """
+    return {
+        sid.partition("/")[0]
+        for sid in element.source_ids
+        if "/" in sid and not sid.startswith("inode-")
+    }
+
+
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.GA)
@@ -419,6 +432,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Separate from _customsql_registered_urns (DM Dataset URNs) to prevent
         # counter bleed between the two namespaces.
         self._workbook_customsql_registered_urns: Set[str] = set()
+        # Upstream DM elements already warned about for an empty column list.
+        self._upstream_schema_unavailable_warned: Set[str] = set()
         # chart_urn → formula-derived InputField list stashed at emit time.
         # Merged at drain time so warehouse-resolved fields supplement
         # (not replace) formula-derived column entries.
@@ -2302,6 +2317,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns.sort()
         if not upstream_urns:
             return None
+        discovered_upstreams: Set[str] = set()
         fine_grained = self._build_dm_element_fine_grained_lineages(
             element=element,
             element_dataset_urn=element_dataset_urn,
@@ -2310,7 +2326,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
             warehouse_url_id_map=warehouse_url_id_map,
+            discovered_upstreams=discovered_upstreams,
         )
+        # An edge to a Dataset missing from ``upstreams`` is not rendered.
+        upstream_urns = sorted(set(upstream_urns) | discovered_upstreams)
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
@@ -2483,9 +2502,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         the two counters measure independent dimensions (cross-DM attempt outcome
         vs. warehouse-passthrough gate), and operators should not sum them.
         """
-        if not any(
-            "/" in sid and not sid.startswith("inode-") for sid in element.source_ids
-        ):
+        if not _cross_dm_source_url_ids(element):
             logger.debug(
                 "element %s: no cross-DM source_ids — skipping self-named cross-DM FGL",
                 element.elementId,
@@ -2538,13 +2555,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         assert (
             ref.column is not None
         )  # callers guard on ref.column is None before dispatching
-        # Cross-DM source_ids use the shape <dm-url-id>/<suffix>; intra-DM
-        # source_ids are bare elementIds (no "/"). Filter accordingly.
-        source_dm_url_ids = {
-            sid.partition("/")[0]
-            for sid in element.source_ids
-            if "/" in sid and not sid.startswith("inode-")
-        }
+        source_dm_url_ids = _cross_dm_source_url_ids(element)
         cross_dm_candidate_urns = sorted(
             {
                 urn
@@ -2605,6 +2616,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fgls: List[FineGrainedLineageClass],
         cross_dm_fgls: List[FineGrainedLineageClass],
         emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
     ) -> None:
         """Resolve a formula ref against intra-DM sibling elements.
 
@@ -2642,7 +2654,36 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 cross_dm_fgls=cross_dm_fgls,
             ):
                 return
-            self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+            # Sigma's /lineage does not always list a sibling a formula reads.
+            # A sibling that owns the referenced column makes the ref
+            # trustworthy, so emit it and promote the sibling to an upstream.
+            # Not when the element reads another Data Model: /lineage then
+            # pointed elsewhere, and a same-named sibling is a name collision
+            # the cross-DM rescue above failed to resolve. Not when two
+            # siblings own the column either: nothing breaks the tie.
+            owning = (
+                []
+                if _cross_dm_source_url_ids(element)
+                else [
+                    u
+                    for u in candidate_urns
+                    if urn_to_cols.get(u, {}).get(ref.column.lower()) is not None
+                ]
+            )
+            if len(owning) != 1:
+                self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+                return
+            chosen = owning[0]
+            self._append_intra_dm_fgl(
+                downstream_field=downstream_field,
+                upstream_field=builder.make_schema_field_urn(
+                    chosen, urn_to_cols[chosen][ref.column.lower()]
+                ),
+                fgls=fgls,
+                emitted_pairs=emitted_pairs,
+            )
+            discovered_upstreams.add(chosen)
+            self.reporter.data_model_element_fgl_orphan_recovered += 1
             return
 
         # Collision handling: multiple siblings passed /lineage filter.
@@ -2666,6 +2707,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Validate and normalise ref.column against the chosen upstream
         # element's schema winners to avoid a dangling schemaField URN.
         source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+        if not source_cols:
+            # The column cannot be checked; told apart from a missing column
+            # because the fix is a /columns fetch, not the formula.
+            self.reporter.data_model_element_fgl_upstream_schema_unavailable += 1
+            self._warn_upstream_schema_unavailable(
+                chosen_upstream_urn, element, data_model
+            )
+            return
         canonical_col = source_cols.get(ref.column.lower())
         if canonical_col is None:
             self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
@@ -2680,9 +2729,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        upstream_field = builder.make_schema_field_urn(
-            chosen_upstream_urn, canonical_col
+        self._append_intra_dm_fgl(
+            downstream_field=downstream_field,
+            upstream_field=builder.make_schema_field_urn(
+                chosen_upstream_urn, canonical_col
+            ),
+            fgls=fgls,
+            emitted_pairs=emitted_pairs,
         )
+
+    @staticmethod
+    def _append_intra_dm_fgl(
+        *,
+        downstream_field: str,
+        upstream_field: str,
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+    ) -> None:
         pair = (downstream_field, upstream_field)
         if pair in emitted_pairs:
             return
@@ -2697,6 +2760,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _warn_upstream_schema_unavailable(
+        self,
+        upstream_urn: str,
+        element: SigmaDataModelElement,
+        data_model: SigmaDataModel,
+    ) -> None:
+        """Warn once per upstream element whose column list came back empty."""
+        if upstream_urn in self._upstream_schema_unavailable_warned:
+            return
+        self._upstream_schema_unavailable_warned.add(upstream_urn)
+        self.reporter.warning(
+            title="Sigma DM element upstream schema unavailable",
+            message=(
+                "A formula references a column on an upstream Data Model element "
+                "whose column list came back empty, so the column-level lineage "
+                "edge was dropped. Check for a `Sigma paginated endpoint aborted` "
+                "warning naming that Data Model: if one is present its /columns "
+                "fetch failed partway through, and if none is present the "
+                "upstream element genuinely has no columns."
+            ),
+            context=(
+                f"upstream={upstream_urn}, element={element.elementId}, "
+                f"data_model={data_model.dataModelId}"
+            ),
+        )
+
     def _build_dm_element_fine_grained_lineages(
         self,
         *,
@@ -2707,8 +2796,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        discovered_upstreams: Set[str],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+
+        ``discovered_upstreams`` is an out-parameter: siblings an edge points at
+        that Sigma's /lineage did not list, for the caller to add to the
+        entity-level upstreams.
 
         element_name_to_eids maps lowercased element name → list of elementIds.
         Self-references are stripped before resolution: when a DM element is named
@@ -2853,6 +2947,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     fgls=fgls,
                     cross_dm_fgls=cross_dm_fgls,
                     emitted_pairs=emitted_pairs,
+                    discovered_upstreams=discovered_upstreams,
                 )
         # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
         # FGL (both appended to `fgls`). Cross-DM is tracked separately via
@@ -4643,6 +4738,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_upstreams.clear()
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
+        self._upstream_schema_unavailable_warned.clear()
         self._workbook_customsql_formula_fields.clear()
         self.sigma_api.fill_workspaces()
 

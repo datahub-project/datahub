@@ -335,12 +335,21 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
-    # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)
-    # also found no match; dropped to avoid orphan FGL the UI silently rejects.
+    # /lineage, whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl) found
+    # no match, and that orphan recovery did not take: no sibling owns the
+    # column, two do, or the element reads another DM. Dropped to avoid orphan
+    # FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Refs to an intra-DM sibling Sigma's /lineage did not list, emitted because
+    # that sibling alone owns the referenced column. Inferred, not reported by
+    # Sigma, so counted apart from the edges /lineage backs.
+    data_model_element_fgl_orphan_recovered: int = 0
+    # Refs whose upstream element came back with no columns, so the column
+    # could not be checked; usually a /columns fetch that failed partway.
+    data_model_element_fgl_upstream_schema_unavailable: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
