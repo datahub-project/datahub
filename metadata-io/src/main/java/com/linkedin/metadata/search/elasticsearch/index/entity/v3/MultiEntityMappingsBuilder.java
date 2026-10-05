@@ -1117,8 +1117,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Turns on eager global ordinals on the field that facets aggregate: the field itself, or the
-   * {@code .keyword} subfield of a URN field, whose root is analyzed text as on V2.
+   * Turns on eager global ordinals on the field itself, or, for a URN field whose root is analyzed
+   * text as on V2, on its {@code .keyword} subfield, since a text field has no global ordinals.
    */
   @SuppressWarnings("unchecked")
   private static void putEagerGlobalOrdinals(@Nonnull Map<String, Object> fieldMapping) {

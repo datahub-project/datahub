@@ -403,7 +403,7 @@ It takes the following parameters:
 
 **⚠️ Important Length Limitations:**
 
-- **Regular Fields**: Keyword forms skip values over **32,766 characters** (`ignore_above: 32766`, Lucene's term limit). On Search V3, the copies under `_aspects` skip strings over 8,191 characters and URNs over 255
+- **Regular Fields**: Keyword forms skip values over **32,766 characters** (`ignore_above: 32766`). Lucene's term limit is 32,766 UTF-8 bytes, so a shorter value with many multi-byte characters still fails the document write. On Search V3, the copies under `_aspects` skip strings over 8,191 characters and URNs over 255
 - **Object Fields**: Maximum **1000 object keys** and **4096 characters per value** to prevent mapping explosion
 - **Array Fields**: Maximum **1000 array elements** and **4096 characters per value**
 - **Field Names**: Maximum **255 characters** for Elasticsearch field name compatibility
@@ -415,7 +415,7 @@ It takes the following parameters:
   - `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`: Override default 1000 element limit for arrays
   - `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`: Override default 1000 key limit for objects
 - **Special Fields**: Some system fields have different limits:
-  - **URN fields**: Automatically set to **512 characters** (`ignore_above: 512`)
+  - **The `urn` field**: Automatically set to **512 characters** (`ignore_above: 512`)
 
 **Note**: The `ignore_above` settings are automatically applied by the system. While some limits can be configured via environment variables, the regular field limit is hard-coded and cannot be overridden through annotations or configuration.
 

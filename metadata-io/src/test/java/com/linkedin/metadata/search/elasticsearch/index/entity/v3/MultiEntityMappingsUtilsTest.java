@@ -462,9 +462,6 @@ public class MultiEntityMappingsUtilsTest {
     assertEquals(
         scoreField.get("normalizer"), "keyword_normalizer", "score should have normalizer");
 
-    // Note: tier destination fields are no longer explicitly created in _search section
-    // They will be created dynamically when data is copied to them via copy_to
-
     // Verify entity field name destinations
     assertTrue(properties.containsKey("customField"), "Should contain customField field");
 
