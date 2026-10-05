@@ -32,7 +32,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -256,9 +255,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull StructuredPropertyDefinition property) {
-    // V3 structured property mapping logic - stub for now
-    log.debug("Getting V3 index mappings with new structured property: {}", urn);
-    return Collections.emptyList();
+    return mappingsBuilder.getIndexMappingsWithNewStructuredProperty(opContext, urn, property);
   }
 
   @Override

@@ -37,6 +37,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -45,6 +46,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -491,14 +493,23 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
-  public void testGetIndexMappingsWithNewStructuredProperty() {
-    // Execute
-    Collection<MappingsBuilder.IndexMapping> mappings =
-        strategy.getIndexMappingsWithNewStructuredProperty(
-            operationContext, testUrn, new StructuredPropertyDefinition());
+  public void testGetIndexMappingsWithNewStructuredProperty() throws IOException {
+    StructuredPropertyDefinition property =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("retention")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:retention");
 
-    // Verify - should return empty collection (stub implementation)
-    assertTrue(mappings.isEmpty());
+    Collection<MappingsBuilder.IndexMapping> mappings =
+        strategy.getIndexMappingsWithNewStructuredProperty(operationContext, propertyUrn, property);
+
+    // As on V2, the strategy returns its mappings builder's mappings for the new property
+    assertFalse(mappings.isEmpty());
+    assertEquals(
+        mappings,
+        new MultiEntityMappingsBuilder(EntityIndexConfiguration.builder().v3(v3Config).build())
+            .getIndexMappingsWithNewStructuredProperty(operationContext, propertyUrn, property));
   }
 
   @Test

@@ -1,16 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
-import static com.linkedin.metadata.search.utils.ESUtils.PATH;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,146 +65,6 @@ public class AspectMappingBuilder {
             });
 
     return aspectsMappings;
-  }
-
-  /**
-   * Creates root-level aliases for field name aliases that don't have conflicts.
-   *
-   * @param entitySpec the entity spec to process
-   * @param fieldNameAliasConflicts map of field name aliases that have conflicts
-   * @return map of root-level aliases
-   */
-  public static Map<String, Object> createRootLevelAliases(
-      @Nonnull EntitySpec entitySpec, @Nullable Map<String, Set<String>> fieldNameAliasConflicts) {
-
-    Map<String, Object> rootAliases = new HashMap<>();
-
-    entitySpec
-        .getAspectSpecs()
-        .forEach(
-            aspectSpec -> {
-              String aspectName = aspectSpec.getName();
-
-              // Skip structuredProperties aspect - handled separately
-              if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-                return;
-              }
-
-              aspectSpec
-                  .getSearchableFieldSpecs()
-                  .forEach(
-                      searchableFieldSpec -> {
-                        String baseFieldName =
-                            searchableFieldSpec.getSearchableAnnotation().getFieldName();
-
-                        // Skip OBJECT field types that are not MAP fields - aliases cannot point to
-                        // dynamic object fields in Elasticsearch, but we can create aliases for
-                        // MAP fields that were converted from OBJECT to MAP_ARRAY
-                        FieldType fieldType =
-                            searchableFieldSpec.getSearchableAnnotation().getFieldType();
-                        if (OBJECT_FIELD_TYPES.contains(fieldType)) {
-                          // Check if this is a MAP field by examining the underlying PDL schema
-                          DataSchema currentSchema = searchableFieldSpec.getPegasusSchema();
-                          if (currentSchema.getDereferencedType() != DataSchema.Type.MAP) {
-                            // Skip non-MAP fields with OBJECT field types
-                            return;
-                          }
-                          // For MAP fields with OBJECT field types, we can create aliases
-                        }
-
-                        String aspectFieldPath =
-                            MappingConstants.ASPECTS_FIELD_NAME
-                                + "."
-                                + aspectName
-                                + "."
-                                + baseFieldName;
-
-                        // Create aliases for field name aliases that don't have conflicts
-                        if (searchableFieldSpec.getSearchableAnnotation().getFieldNameAliases()
-                            != null) {
-                          searchableFieldSpec
-                              .getSearchableAnnotation()
-                              .getFieldNameAliases()
-                              .forEach(
-                                  alias -> {
-                                    if (fieldNameAliasConflicts == null
-                                        || !fieldNameAliasConflicts.containsKey(alias)) {
-                                      Map<String, Object> aliasMapping = new HashMap<>();
-                                      aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-
-                                      // Special handling for _entityName alias - point to
-                                      // _search.entityName
-                                      if (MultiEntityMappingsUtils.isEntityNameField(alias)
-                                          && searchableFieldSpec
-                                              .getSearchableAnnotation()
-                                              .getSearchLabel()
-                                              .isPresent()
-                                          && "entityName"
-                                              .equals(
-                                                  searchableFieldSpec
-                                                      .getSearchableAnnotation()
-                                                      .getSearchLabel()
-                                                      .get())) {
-                                        aliasMapping.putAll(
-                                            MultiEntityMappingsUtils
-                                                .createEntityNameAliasMapping());
-                                      } else {
-                                        aliasMapping.put(PATH, aspectFieldPath);
-                                      }
-
-                                      rootAliases.put(alias, aliasMapping);
-                                    }
-                                    // Conflicted field name aliases are handled by the group-level
-                                    // root projection.
-                                  });
-                        }
-
-                        // Create aliases for hasValuesFieldName and numValuesFieldName fields
-                        // These fields are created directly in the aspect, not nested under the
-                        // array field
-                        searchableFieldSpec
-                            .getSearchableAnnotation()
-                            .getHasValuesFieldName()
-                            .ifPresent(
-                                hasValuesFieldName -> {
-                                  if (fieldNameAliasConflicts == null
-                                      || !fieldNameAliasConflicts.containsKey(hasValuesFieldName)) {
-                                    Map<String, Object> aliasMapping = new HashMap<>();
-                                    aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-                                    aliasMapping.put(
-                                        PATH,
-                                        MappingConstants.ASPECTS_FIELD_NAME
-                                            + "."
-                                            + aspectName
-                                            + "."
-                                            + hasValuesFieldName);
-                                    rootAliases.put(hasValuesFieldName, aliasMapping);
-                                  }
-                                });
-
-                        searchableFieldSpec
-                            .getSearchableAnnotation()
-                            .getNumValuesFieldName()
-                            .ifPresent(
-                                numValuesFieldName -> {
-                                  if (fieldNameAliasConflicts == null
-                                      || !fieldNameAliasConflicts.containsKey(numValuesFieldName)) {
-                                    Map<String, Object> aliasMapping = new HashMap<>();
-                                    aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-                                    aliasMapping.put(
-                                        PATH,
-                                        MappingConstants.ASPECTS_FIELD_NAME
-                                            + "."
-                                            + aspectName
-                                            + "."
-                                            + numValuesFieldName);
-                                    rootAliases.put(numValuesFieldName, aliasMapping);
-                                  }
-                                });
-                      });
-            });
-
-    return rootAliases;
   }
 
   /**

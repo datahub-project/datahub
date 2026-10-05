@@ -13,6 +13,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.DataSchemaConstants;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -995,6 +996,47 @@ public class MultiEntityMappingsBuilderTest {
         objectAliasMapping.get("dynamic"),
         true,
         "Conflicted object field alias root must have dynamic=true");
+  }
+
+  /** A long and a date field of one root name, the one type conflict resolved, map as the date. */
+  @Test
+  public void testLongAndDateRootFieldMapsAsTheDateField() {
+    EntitySpec counted =
+        createMockEntitySpecWithSearchMetadata(
+            "entity1",
+            "lastSeen",
+            FieldType.COUNT,
+            null,
+            "countAspect",
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    for (SearchableFieldSpec countSpec :
+        List.of(
+            counted.getSearchableFieldSpecs().get(0),
+            counted.getAspectSpecs().get(0).getSearchableFieldSpecs().get(0))) {
+      when(countSpec.getPegasusSchema()).thenReturn(DataSchemaConstants.LONG_DATA_SCHEMA);
+    }
+    EntitySpec dated =
+        createMockEntitySpecWithSearchMetadata(
+            "entity2",
+            "lastSeen",
+            FieldType.DATETIME,
+            null,
+            "dateAspect",
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    when(counted.getSearchGroup()).thenReturn("primary");
+    when(dated.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(counted, dated);
+
+    Map<String, Object> properties =
+        getProperties(
+            mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
+
+    assertEquals(
+        properties.get("lastSeen"), FieldTypeMapper.getMappingsForFieldType(FieldType.DATETIME));
   }
 
   @Test

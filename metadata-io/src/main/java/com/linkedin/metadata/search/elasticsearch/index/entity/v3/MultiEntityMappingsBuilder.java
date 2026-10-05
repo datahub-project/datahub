@@ -1076,28 +1076,28 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                         fieldSpec.getSearchableAnnotation().getFieldType(), fieldSpec))
             .collect(Collectors.toSet());
 
-    final Map<String, Object> rootFieldMapping;
-    if (elasticsearchTypes.size() == 1) {
-      rootFieldMapping =
-          new HashMap<>(
-              FieldTypeMapper.getRichestCompatibleMapping(sourceFieldSpecs, partialNgramConfig));
-    } else {
-      final String resolvedElasticsearchType;
-      try {
-        resolvedElasticsearchType = ConflictResolver.resolveTypeConflict(elasticsearchTypes);
-      } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Non-resolvable field type conflict for projected root field '%s' with types %s. %s",
-                rootFieldName, elasticsearchTypes, e.getMessage()),
-            e);
-      }
-      rootFieldMapping = new HashMap<>();
-      rootFieldMapping.put(TYPE, resolvedElasticsearchType);
-      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedElasticsearchType)) {
-        rootFieldMapping.put("dynamic", true);
-      }
+    final String resolvedElasticsearchType;
+    try {
+      resolvedElasticsearchType = ConflictResolver.resolveTypeConflict(elasticsearchTypes);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Non-resolvable field type conflict for projected root field '%s' with types %s. %s",
+              rootFieldName, elasticsearchTypes, e.getMessage()),
+          e);
     }
+    // The field is mapped as its source fields of the resolved type are, subfields included
+    final List<SearchableFieldSpec> resolvedFieldSpecs =
+        sourceFieldSpecs.stream()
+            .filter(
+                fieldSpec ->
+                    resolvedElasticsearchType.equals(
+                        FieldTypeMapper.getElasticsearchTypeForFieldType(
+                            fieldSpec.getSearchableAnnotation().getFieldType(), fieldSpec)))
+            .collect(Collectors.toList());
+    final Map<String, Object> rootFieldMapping =
+        new HashMap<>(
+            FieldTypeMapper.getRichestCompatibleMapping(resolvedFieldSpecs, partialNgramConfig));
 
     applyProjectedRootFieldOptions(rootFieldMapping, sourceFieldSpecs);
     return rootFieldMapping;
