@@ -167,6 +167,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._connection.close()
+        super().__exit__(*exc)
 
     @staticmethod
     def probe_error_code(exc: BaseException) -> Optional[str]:

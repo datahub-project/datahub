@@ -36,7 +36,12 @@ from sqlalchemy.exc import (
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Enables,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
@@ -299,7 +304,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
     # TODO: rename to include_procedures ?
-    include_stored_procedures: bool = Field(
+    # SQLAlchemySource.get_schema_level_workunits reaches
+    # loop_stored_procedures only when this is set.
+    include_stored_procedures: Annotated[
+        bool, Enables(JobContainerSubTypes.STORED_PROCEDURE)
+    ] = Field(
         default=True,
         description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
     )
@@ -685,10 +694,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             # ingestion -- always carrying current_database on this kind of
             # recipe -- never matches.
             warn(
-                "this recipe sets no `database`, so ingestion qualifies "
-                "each table with the database it was found in; pass that "
-                "database as the first --parent (a `tables --database` "
-                "result carries it) -- judged on 'schema.table' instead"
+                "this recipe sets no `database`, so ingestion qualifies each "
+                "table with the database it was found in; pass that database "
+                "as the first --parent, or the name is judged on 'schema.table', "
+                "which ingestion never matches"
             )
         source = SQLServerSource.__new__(SQLServerSource)
         source.config = self
@@ -696,15 +705,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return source.get_identifier(
             schema=schema, entity=entity, inspector=_NO_INSPECTOR
         )
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        # SQLAlchemySource.get_schema_level_workunits reaches
-        # loop_stored_procedures only when this is set.
-        return {
-            **super().probe_kind_switches(),
-            str(JobContainerSubTypes.STORED_PROCEDURE): "include_stored_procedures",
-        }
 
     @classmethod
     def probe_provider_class(cls) -> type:

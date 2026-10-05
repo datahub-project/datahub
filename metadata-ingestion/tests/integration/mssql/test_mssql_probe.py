@@ -45,20 +45,24 @@ def _run(
     source_type: str = "mssql",
     **kwargs: object,
 ) -> Dict[str, object]:
-    return run_probe_method(
-        source_type=source_type,
-        command=command,
-        config_dict=config if config is not None else _config(),
-        kwargs=dict(kwargs),
-    ).to_dict()
+    return dict(
+        run_probe_method(
+            source_type=source_type,
+            command=command,
+            config_dict=config if config is not None else _config(),
+            kwargs=dict(kwargs),
+        ).to_dict()
+    )
 
 
 def _run_with(
     command: str, config: Dict[str, object], params: Dict[str, object]
 ) -> Dict[str, object]:
-    return run_probe_method(
-        source_type="mssql", command=command, config_dict=config, kwargs=params
-    ).to_dict()
+    return dict(
+        run_probe_method(
+            source_type="mssql", command=command, config_dict=config, kwargs=params
+        ).to_dict()
+    )
 
 
 def _names(result: Dict[str, object]) -> List[str]:
