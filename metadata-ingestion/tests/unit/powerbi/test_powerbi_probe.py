@@ -6,6 +6,7 @@ import pytest
 import requests_mock as rm
 
 from datahub.ingestion.agent.api_gate import ApiScopeError, check_api_request
+from datahub.ingestion.agent.declarations import declared_kind_enablers
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
@@ -658,7 +659,7 @@ def test_the_paginated_report_kind_is_the_subtype_ingestion_emits() -> None:
     kind = ReportType.PaginatedReport.value
     config_cls = PowerBiDashboardSourceConfig
     assert kind in config_cls.probe_unfiltered_kinds()
-    assert config_cls.probe_kind_switches()[kind] == "extract_reports"
+    assert declared_kind_enablers(config_cls)[kind] == "extract_reports"
     config = config_cls.model_validate(_RECIPE)
     assert config.probe_ancestor_kinds(kind=kind) == ("Workspace",)
 

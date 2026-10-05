@@ -6,7 +6,6 @@ from typing import (
     Dict,
     List,
     Literal,
-    Mapping,
     Optional,
     Sequence,
     Set,
@@ -21,6 +20,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Enables,
     Filters,
     HiddenFromDocs,
     TransparentSecretStr,
@@ -692,10 +692,13 @@ class PowerBiDashboardSourceConfig(
         description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
         "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
-    # Enable/Disable extracting report information
-    extract_reports: bool = pydantic.Field(
-        default=True, description="Whether reports should be ingested"
-    )
+    # Enable/Disable extracting report information. When off,
+    # PowerBiAPI.fill_regular_metadata_detail skips the report listing outright.
+    extract_reports: Annotated[
+        bool,
+        Enables(BIAssetSubTypes.REPORT),
+        Enables(_PAGINATED_REPORT_KIND),
+    ] = pydantic.Field(default=True, description="Whether reports should be ingested")
     # Configure ingestion of ownership
     ownership: OwnershipMapping = pydantic.Field(
         default=OwnershipMapping(),
@@ -705,9 +708,13 @@ class PowerBiDashboardSourceConfig(
         default=None,
         description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludeInActiveWorkspaces limit to last 30 days",
     )
-    extract_dashboards: bool = pydantic.Field(
-        default=True,
-        description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+    # When off, PowerBiAPI.fill_regular_metadata_detail skips the dashboard
+    # listing outright.
+    extract_dashboards: Annotated[bool, Enables(BIAssetSubTypes.DASHBOARD)] = (
+        pydantic.Field(
+            default=True,
+            description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+        )
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
@@ -868,16 +875,6 @@ class PowerBiDashboardSourceConfig(
             str(BIAssetSubTypes.REPORT),
             _PAGINATED_REPORT_KIND,
             str(BIAssetSubTypes.DASHBOARD),
-        }
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        """PowerBiAPI.fill_regular_metadata_detail skips the report and
-        dashboard listings outright when these are off."""
-        return {
-            str(BIAssetSubTypes.REPORT): "extract_reports",
-            _PAGINATED_REPORT_KIND: "extract_reports",
-            str(BIAssetSubTypes.DASHBOARD): "extract_dashboards",
         }
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
