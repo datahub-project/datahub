@@ -27,6 +27,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -1078,5 +1079,34 @@ public class V2MappingsBuilderTest {
           analyzer.startsWith("partial"),
           "Analyzer should be a partial analyzer variant, got: " + analyzer);
     }
+  }
+
+  @Test
+  public void testDuplicateFieldNameMappingIndependentOfSpecOrder() {
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    for (EntitySpec entitySpec : entityRegistry.getEntitySpecs().values()) {
+      List<SearchableFieldSpec> reversed = new ArrayList<>(entitySpec.getSearchableFieldSpecs());
+      Collections.reverse(reversed);
+      EntitySpec flipped = mock(EntitySpec.class);
+      when(flipped.getSearchableFieldSpecs()).thenReturn(reversed);
+      when(flipped.getSearchScoreFieldSpecs()).thenReturn(entitySpec.getSearchScoreFieldSpecs());
+      when(flipped.getSearchableRefFieldSpecs())
+          .thenReturn(entitySpec.getSearchableRefFieldSpecs());
+
+      assertEquals(
+          mappingsBuilder.getIndexMappings(entityRegistry, flipped),
+          mappingsBuilder.getIndexMappings(entityRegistry, entitySpec),
+          "Mappings for " + entitySpec.getName() + " depend on searchable field order");
+    }
+
+    // glossaryTerm "id" is declared as WORD_GRAM and TEXT_PARTIAL; the richer WORD_GRAM wins.
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            mappingsBuilder
+                .getIndexMappings(entityRegistry, entityRegistry.getEntitySpec("glossaryTerm"))
+                .get("properties");
+    Map<String, Object> idSubFields =
+        (Map<String, Object>) ((Map<String, Object>) properties.get("id")).get("fields");
+    assertTrue(idSubFields.containsKey("wordGrams2"));
   }
 }

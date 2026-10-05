@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
@@ -25,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +39,33 @@ public class EntitySpecBuilder {
   private static final String URN_FIELD_NAME = "urn";
   private static final String ASPECTS_FIELD_NAME = "aspects";
   private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
+
+  /**
+   * Existing "entity.fieldName" pairs where more than one aspect of the entity declares the same
+   * {@code @Searchable} fieldName. Such aspects share a single field in the search document and
+   * mapping, so new cases are rejected when their field types differ and logged otherwise. Remove
+   * an entry once its models no longer share the field name.
+   */
+  private static final Set<String> SHARED_SEARCHABLE_FIELD_ALLOWLIST =
+      Set.of(
+          // glossaryTermKey.name is WORD_GRAM and glossaryTermInfo.id is TEXT_PARTIAL. Tolerated
+          // because the WORD_GRAM mapping is a superset of the TEXT_PARTIAL one and the v2 mapping
+          // merge always keeps the richer text type.
+          "glossaryTerm.id",
+          // The remaining entries declare the same field type in every aspect.
+          "assertion.customProperties",
+          "corpuser.displayName",
+          "dataFlow.customProperties",
+          "dataFlow.externalUrl",
+          "dataJob.customProperties",
+          "dataJob.externalUrl",
+          "dataProcessInstance.customProperties",
+          "dataProcessInstance.externalUrl",
+          "dataset.deprecated",
+          "dataset.platform",
+          "metric.platform",
+          "schemaField.schemaFieldAliases",
+          "semanticModel.platform");
 
   public static SchemaAnnotationHandler _searchHandler =
       new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
@@ -233,6 +263,7 @@ public class EntitySpecBuilder {
     EntitySpec entitySpec =
         new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
     RelationshipEdgeUniquenessValidator.validate(entitySpec);
+    validateSearchableFieldNames(entitySpec);
     return entitySpec;
   }
 
@@ -243,6 +274,7 @@ public class EntitySpecBuilder {
     EntitySpec entitySpec =
         new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
     RelationshipEdgeUniquenessValidator.validate(entitySpec);
+    validateSearchableFieldNames(entitySpec);
     return entitySpec;
   }
 
@@ -417,6 +449,7 @@ public class EntitySpecBuilder {
     }
 
     RelationshipEdgeUniquenessValidator.validate(entitySpec);
+    validateSearchableFieldNames(entitySpec);
 
     // Validate entity name
     if (_entityNames.contains(entitySpec.getName().toLowerCase())) {
@@ -429,6 +462,46 @@ public class EntitySpecBuilder {
     }
 
     _entityNames.add(entitySpec.getName().toLowerCase());
+  }
+
+  /**
+   * {@code @Searchable} fieldNames are entity-wide: every aspect that declares the same fieldName
+   * writes to one field of the entity's search document. Reject such sharing across aspects when
+   * the field types differ, since only one mapping can win, and log it when they match.
+   */
+  private void validateSearchableFieldNames(@Nonnull final EntitySpec entitySpec) {
+    final Map<String, Map<String, FieldType>> fieldTypesByFieldName = new TreeMap<>();
+    for (final AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+      for (final SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+        final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+        fieldTypesByFieldName
+            .computeIfAbsent(annotation.getFieldName(), k -> new TreeMap<>())
+            .put(aspectSpec.getName(), annotation.getFieldType());
+      }
+    }
+
+    fieldTypesByFieldName.forEach(
+        (fieldName, typesByAspect) -> {
+          if (typesByAspect.size() < 2
+              || SHARED_SEARCHABLE_FIELD_ALLOWLIST.contains(
+                  entitySpec.getName() + "." + fieldName)) {
+            return;
+          }
+          if (new HashSet<>(typesByAspect.values()).size() > 1) {
+            failValidation(
+                String.format(
+                    "Could not build entity spec for entity with name %s."
+                        + " Searchable field name %s is declared with conflicting field types"
+                        + " across aspects: %s",
+                    entitySpec.getName(), fieldName, typesByAspect));
+          }
+          log.warn(
+              "Searchable field name {} of entity {} is declared by multiple aspects {}; they share"
+                  + " one search document field.",
+              fieldName,
+              entitySpec.getName(),
+              typesByAspect.keySet());
+        });
   }
 
   private void validateAspect(final AspectSpec aspectSpec) {

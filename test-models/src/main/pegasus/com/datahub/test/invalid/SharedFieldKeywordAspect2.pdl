@@ -1,0 +1,12 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "sharedFieldKeywordAspect2"
+}
+record SharedFieldKeywordAspect2 {
+  @Searchable = {
+    "fieldName": "id",
+    "fieldType": "KEYWORD"
+  }
+  id: string
+}

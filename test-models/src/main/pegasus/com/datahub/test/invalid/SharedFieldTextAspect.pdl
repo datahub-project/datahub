@@ -1,0 +1,12 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "sharedFieldTextAspect"
+}
+record SharedFieldTextAspect {
+  @Searchable = {
+    "fieldName": "id",
+    "fieldType": "TEXT"
+  }
+  id: string
+}

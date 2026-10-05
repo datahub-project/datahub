@@ -32,6 +32,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,8 @@ public class V2MappingsBuilder implements MappingsBuilder {
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
 
   public static final String SYSTEM_CREATED_FIELD = "systemCreated";
+  private static final Map<FieldType, Integer> TEXT_MERGE_RANK =
+      ImmutableMap.of(FieldType.TEXT, 1, FieldType.TEXT_PARTIAL, 2, FieldType.WORD_GRAM, 3);
 
   // Subfields
   public static final String DELIMITED = "delimited";
@@ -249,8 +252,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
-    entitySpec
-        .getSearchableFieldSpecs()
+    sortedForMerge(entitySpec.getSearchableFieldSpecs())
         .forEach(searchableFieldSpec -> mappings.putAll(getMappingsForField(searchableFieldSpec)));
     entitySpec
         .getSearchScoreFieldSpecs()
@@ -272,6 +274,24 @@ public class V2MappingsBuilder implements MappingsBuilder {
     mappings.put(SYSTEM_CREATED_FIELD, getMappingsForSystemCreated());
 
     return ImmutableMap.of(PROPERTIES, mappings);
+  }
+
+  /**
+   * Orders searchable fields so the merged mapping does not depend on aspect iteration order.
+   * Aspects of one entity may declare the same fieldName, and the last spec merged wins. Text types
+   * are ranked so the richer one wins (WORD_GRAM's subfields are a superset of TEXT_PARTIAL's,
+   * which are a superset of TEXT's); remaining ties are broken by field path.
+   */
+  private static List<SearchableFieldSpec> sortedForMerge(
+      @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs) {
+    return searchableFieldSpecs.stream()
+        .sorted(
+            Comparator.comparingInt(
+                    (SearchableFieldSpec spec) ->
+                        TEXT_MERGE_RANK.getOrDefault(
+                            spec.getSearchableAnnotation().getFieldType(), 0))
+                .thenComparing(spec -> spec.getPath().toString()))
+        .collect(Collectors.toList());
   }
 
   private Map<String, Object> getMappingsForUrn() {
@@ -506,8 +526,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     }
     String entityType = searchableRefFieldSpec.getSearchableRefAnnotation().getRefType();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
-    entitySpec
-        .getSearchableFieldSpecs()
+    sortedForMerge(entitySpec.getSearchableFieldSpecs())
         .forEach(
             searchableFieldSpec ->
                 mappingForField.putAll(getMappingsForField(searchableFieldSpec)));

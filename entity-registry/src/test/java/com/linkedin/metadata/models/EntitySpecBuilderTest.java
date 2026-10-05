@@ -15,6 +15,9 @@ import com.datahub.test.invalid.MissingAspectAnnotation;
 import com.datahub.test.invalid.MissingRelationshipName;
 import com.datahub.test.invalid.NonNumericSearchScoreField;
 import com.datahub.test.invalid.NonSingularSearchScoreField;
+import com.datahub.test.invalid.SharedFieldKeywordAspect;
+import com.datahub.test.invalid.SharedFieldKeywordAspect2;
+import com.datahub.test.invalid.SharedFieldTextAspect;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -403,5 +406,35 @@ public class EntitySpecBuilderTest {
             .get(new PathSpec("feature2").toString())
             .getSearchScoreAnnotation()
             .getFieldName());
+  }
+
+  @Test
+  public void testBuildEntitySpecValidationSearchableFieldTypeConflictAcrossAspects() {
+    EntitySpecBuilder builder = new EntitySpecBuilder();
+    List<AspectSpec> aspectSpecs =
+        List.of(
+            builder.buildAspectSpec(new SharedFieldKeywordAspect().schema(), RecordTemplate.class),
+            builder.buildAspectSpec(new SharedFieldTextAspect().schema(), RecordTemplate.class));
+
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            builder.buildConfigEntitySpec(
+                "testEntity", "sharedFieldKeywordAspect", aspectSpecs, null));
+
+    // Allowlisted pre-existing conflict: same shape is tolerated.
+    builder.buildConfigEntitySpec("glossaryTerm", "sharedFieldKeywordAspect", aspectSpecs, null);
+  }
+
+  @Test
+  public void testBuildEntitySpecValidationSearchableFieldSameTypeAcrossAspects() {
+    EntitySpecBuilder builder = new EntitySpecBuilder();
+    List<AspectSpec> aspectSpecs =
+        List.of(
+            builder.buildAspectSpec(new SharedFieldKeywordAspect().schema(), RecordTemplate.class),
+            builder.buildAspectSpec(
+                new SharedFieldKeywordAspect2().schema(), RecordTemplate.class));
+
+    builder.buildConfigEntitySpec("testEntity", "sharedFieldKeywordAspect", aspectSpecs, null);
   }
 }
