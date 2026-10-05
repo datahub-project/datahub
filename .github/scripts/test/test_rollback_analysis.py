@@ -210,49 +210,99 @@ class TestClassifyPdlForRollback:
         safe = [f for f in findings if f.risk == ra.SAFE]
         assert any("required_field" in f.summary for f in safe)
 
-    def test_removed_field_requires_attention_and_reindex(self):
+    def _removed_bar(self, n_minus_1):
         with patch.object(ra.rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_V1_REMOVED_FIELD,
-            ("N-1", "test.pdl"): _ASPECT_V1,
+            ("N-1", "test.pdl"): n_minus_1,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        attention = [f for f in findings if f.risk == ra.REQUIRES_ATTENTION]
-        removed = [f for f in attention if "bar" in f.summary]
+        removed = [f for f in findings if "`bar`" in f.summary]
         assert len(removed) == 1
-        assert removed[0].reindex_required is True
+        return removed[0], findings
 
-    def test_type_change_requires_attention_and_reindex(self):
+    def test_removed_required_field_without_default_blocks_rollback(self):
+        f, findings = self._removed_bar(_ASPECT_V1)  # bar: int
+        assert f.risk == ra.BLOCKS_ROLLBACK
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("API fails", "fails", "yes")
+        assert ra.compute_verdict(findings) == ra.VERDICT_NOT_RECOMMENDED
+
+    def test_removed_required_field_with_default_requires_attention(self):
+        f, _ = self._removed_bar(_ASPECT_V1.replace("bar: int", "bar: int = 0"))
+        assert f.risk == ra.REQUIRES_ATTENTION
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("ok", "ok", "yes")
+
+    def test_removed_optional_field_requires_attention(self):
+        f, _ = self._removed_bar(_ASPECT_V1.replace("bar: int", "bar: optional int"))
+        assert f.risk == ra.REQUIRES_ATTENTION
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("ok", "ok", "yes")
+
+    def _bar_change(self, n, n_minus_1=None):
         with patch.object(ra.rac, "file_at", _mock_file_at({
-            ("N", "test.pdl"): _ASPECT_V1_TYPE_CHANGE,
-            ("N-1", "test.pdl"): _ASPECT_V1,
+            ("N", "test.pdl"): n,
+            ("N-1", "test.pdl"): n_minus_1 or _ASPECT_V1,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        attention = [f for f in findings if f.risk == ra.REQUIRES_ATTENTION]
-        changed = [f for f in attention if "bar" in f.summary]
+        changed = [f for f in findings if "`bar`" in f.summary]
         assert len(changed) == 1
-        assert changed[0].reindex_required is True
+        return changed[0]
 
-    def test_optional_to_required_requires_attention(self):
+    def test_widened_number_may_truncate_on_n1(self):
+        f = self._bar_change(_ASPECT_V1_TYPE_CHANGE)  # int -> long
+        assert f.risk == ra.REQUIRES_ATTENTION
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("ok, may truncate", "ok", "if out of range")
+        assert f.reindex_required is False
+
+    def test_narrowed_number_is_safe(self):
+        f = self._bar_change(_ASPECT_V1, n_minus_1=_ASPECT_V1_TYPE_CHANGE)  # long -> int
+        assert f.risk == ra.SAFE
+
+    def test_non_numeric_type_change_fails_on_n1(self):
+        f = self._bar_change(_ASPECT_V1.replace("bar: int", "bar: string"))
+        assert f.risk == ra.REQUIRES_ATTENTION
+        assert (f.read_impact, f.write_impact) == ("API fails", "fails")
+
+    def test_search_mapping_change_is_a_reindex_trigger(self):
+        n = _ASPECT_V1.replace("bar: int", '@Searchable = { "fieldType": "KEYWORD" }\n  bar: int')
+        n1 = _ASPECT_V1.replace("bar: int", '@Searchable = { "fieldType": "TEXT" }\n  bar: int')
+        f = self._bar_change(n, n_minus_1=n1)
+        assert f.summary.startswith("Search mapping changed")
+        assert f.reindex_required is True
+
+    def test_formatting_only_annotation_edit_is_ignored(self):
+        n = _ASPECT_V1.replace("bar: int", '@Searchable = {"fieldType": "TEXT",}\n  bar: int')
+        n1 = _ASPECT_V1.replace("bar: int", '@Searchable = { "fieldType": "TEXT" }\n  bar: int')
+        with patch.object(ra.rac, "file_at", _mock_file_at({("N", "test.pdl"): n, ("N-1", "test.pdl"): n1})), \
+             patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            assert ra.classify_pdl_for_rollback("test.pdl", "N", "N-1") == []
+
+    def test_optional_to_required_is_safe(self):
+        """N always writes a field it requires, so N-1 can read it."""
         with patch.object(ra.rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_V1_OPT_TO_REQ,
             ("N-1", "test.pdl"): _ASPECT_V1,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        attention = [f for f in findings if f.risk == ra.REQUIRES_ATTENTION]
-        assert any("foo" in f.summary for f in attention)
+        foo = [f for f in findings if "foo" in f.summary]
+        assert len(foo) == 1
+        assert foo[0].risk == ra.SAFE
+        assert ra.compute_verdict(findings) == ra.VERDICT_FEASIBLE
 
-    def test_required_to_optional_is_safe(self):
+    def test_required_to_optional_requires_attention(self):
+        """N may omit a field it made optional, which N-1 still requires."""
         with patch.object(ra.rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_V1,
             ("N-1", "test.pdl"): _ASPECT_V1_OPT_TO_REQ,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        safe = [f for f in findings if f.risk == ra.SAFE]
-        assert any("foo" in f.summary for f in safe)
+        foo = [f for f in findings if "foo" in f.summary]
+        assert len(foo) == 1
+        assert foo[0].risk == ra.REQUIRES_ATTENTION
+        assert ra.compute_verdict(findings) == ra.VERDICT_MANUAL
 
     def test_both_empty_returns_nothing(self):
         with patch.object(ra.rac, "file_at", _mock_file_at({})), \
@@ -301,25 +351,28 @@ record TestAspect {
 
 
 class TestEnumChanges:
-    def test_added_enum_value_is_safe(self):
+    def test_added_enum_value_requires_attention(self):
+        """N-1 can't trim an unknown enum symbol the way it trims unknown fields."""
         with patch.object(ra.rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_ENUM_ADDED,
             ("N-1", "test.pdl"): _ASPECT_ENUM_BASE,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        safe = [f for f in findings if f.risk == ra.SAFE]
-        assert any("ARCHIVED" in f.summary for f in safe)
+        archived = [f for f in findings if f.summary.startswith("Enum `Status`: added value `ARCHIVED`")]
+        assert len(archived) == 1
+        assert archived[0].risk == ra.REQUIRES_ATTENTION
+        assert ra.compute_verdict(findings) == ra.VERDICT_MANUAL
 
-    def test_removed_enum_value_requires_attention(self):
+    def test_removed_enum_value_is_not_reported(self):
+        """N never writes a value it removed, so N-1 is unaffected."""
         with patch.object(ra.rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_ENUM_REMOVED,
             ("N-1", "test.pdl"): _ASPECT_ENUM_BASE,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        attention = [f for f in findings if f.risk == ra.REQUIRES_ATTENTION]
-        assert any("INACTIVE" in f.summary for f in attention)
+        assert not any("INACTIVE" in f.summary for f in findings)
 
 
 # ---------------------------------------------------------------------------
@@ -362,25 +415,26 @@ record OldRecord {
 
 
 class TestRecordRename:
-    def test_rename_with_annotation_requires_attention(self):
-        with patch.object(ra.rac, "file_at", _mock_file_at({
-            ("N", "test.pdl"): _RENAMED_WITH_ANNOTATION,
-            ("N-1", "test.pdl"): _ORIGINAL_RECORD,
-        })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
-             patch.object(ra.rac, "last_author_for_file", return_value=None):
-            findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        attention = [f for f in findings if f.risk == ra.REQUIRES_ATTENTION]
-        assert any("renamed" in f.summary.lower() for f in attention)
+    """Aspects are stored by aspect name, so a record rename is safe either way."""
 
-    def test_rename_without_annotation_blocks_rollback(self):
+    def _rename_findings(self, renamed):
         with patch.object(ra.rac, "file_at", _mock_file_at({
-            ("N", "test.pdl"): _RENAMED_WITHOUT_ANNOTATION,
+            ("N", "test.pdl"): renamed,
             ("N-1", "test.pdl"): _ORIGINAL_RECORD,
         })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        blockers = [f for f in findings if f.risk == ra.BLOCKS_ROLLBACK]
-        assert any("renamed" in f.summary.lower() for f in blockers)
+        return [f for f in findings if "renamed" in f.summary.lower()]
+
+    def test_rename_with_annotation_is_safe(self):
+        renamed = self._rename_findings(_RENAMED_WITH_ANNOTATION)
+        assert len(renamed) == 1
+        assert renamed[0].risk == ra.SAFE
+
+    def test_rename_without_annotation_is_safe(self):
+        renamed = self._rename_findings(_RENAMED_WITHOUT_ANNOTATION)
+        assert len(renamed) == 1
+        assert renamed[0].risk == ra.SAFE
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +460,7 @@ class TestClassifyMutatorsForRollback:
             "author": "dev",
         }]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=mutator_java):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -414,8 +468,7 @@ class TestClassifyMutatorsForRollback:
         assert findings[0].risk == ra.REQUIRES_ATTENTION
         assert findings[0].dimension == ra.DIM_MUTATOR
         assert "MyMutator" in findings[0].summary
-        assert "retention" in findings[0].summary.lower() or \
-               "retention" in (findings[0].detail or "").lower()
+        assert findings[0].detail is None  # filled in by run() from field changes
 
     def test_mutator_with_version_hop_in_summary(self):
         mutator_java = """
@@ -432,7 +485,7 @@ class TestClassifyMutatorsForRollback:
             "author": None,
         }]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=mutator_java):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -453,7 +506,7 @@ class TestClassifyMutatorsForRollback:
              "target_aspect": "testAspect", "pr": "200", "author": "dev"},
         ]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=mutator_java):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -463,7 +516,7 @@ class TestClassifyMutatorsForRollback:
 
     def test_no_mutators_yields_empty(self):
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=[]):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
         assert findings == []
@@ -477,7 +530,7 @@ class TestClassifyMutatorsForRollback:
             "author": None,
         }]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=None):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -522,7 +575,10 @@ class TestAnalyzeSchemaVersionGaps:
             findings = ra.analyze_schema_version_gaps("N", "N-1", ["test.pdl"])
         assert len(findings) == 1
         assert findings[0].dimension == ra.DIM_SCHEMA_VERSION
-        assert findings[0].risk == ra.REQUIRES_ATTENTION
+        # N-1 reads higher versions fine and writes its own; field-level
+        # changes are reported separately.
+        assert findings[0].risk == ra.SAFE
+        assert (findings[0].read_impact, findings[0].write_impact, findings[0].data_loss) == ("ok", "ok", "no")
         assert "v1" in findings[0].summary and "v2" in findings[0].summary
 
     def test_no_gap_when_same_version(self):
@@ -879,6 +935,19 @@ class TestMainTargetDefault:
         run.assert_called_once_with("abc123", "v1.1.0")
 
 
+    def test_json_report_never_overwrites_markdown(self, tmp_path):
+        out = tmp_path / "report"
+        with patch.object(
+            ra, "run", return_value=([], "abc1234567", "def1234567")
+        ):
+            ra.main(
+                ["--current", "abc123", "--target", "v1.1.0",
+                 "--output", str(out), "--json"]
+            )
+        assert out.read_text().startswith("# Rollback Compatibility Report")
+        assert json.loads((tmp_path / "report.json").read_text())["target"] == "v1.1.0"
+
+
 class TestOrderWarning:
     def test_release_versions_in_order(self):
         assert ra.order_warning("v1.7.0.1", "v1.7.0", "a" * 10, "b" * 10) is None
@@ -909,3 +978,302 @@ class TestOrderWarning:
             )
         )
         assert data["warning"] == "swapped"
+
+
+class TestFindMutatorsAddedInWindow:
+    def test_skips_files_already_in_base(self):
+        """A root commit in the window re-adds files that already existed at
+        base; only files that are new between the base and head trees count."""
+        new_path = "metadata-service/factories/src/main/java/com/example/NewMutator.java"
+        old_path = "metadata-service/factories/src/main/java/com/example/OldMutator.java"
+        log_output = (
+            "COMMIT abc123fff feat: add mutator (#9999)\n"
+            f"{new_path}\n"
+            "COMMIT def456eee Stacked merge of clean commits\n"
+            f"{old_path}\n"
+        )
+        shown: list[str] = []
+
+        def fake_git(*args):
+            if args[:2] == ("log", "-1"):
+                return "Alice Example\n"
+            if args[0] == "log":
+                return log_output
+            if args[0] == "diff":
+                return f"{new_path}\n"
+            if args[0] == "show":
+                shown.append(args[1])
+                name = args[1].rsplit("/", 1)[-1].removesuffix(".java")
+                return f"public class {name} extends AspectMigrationMutator {{}}"
+            return ""
+
+        with patch.object(ra.rac, "_git", side_effect=fake_git), \
+             patch.object(ra.rac, "_load_aspect_name_constants", return_value={}):
+            results = ra.find_mutators_added_in_window(
+                "v1.0", "HEAD", {"AspectMigrationMutator"}
+            )
+        assert [r["class_name"] for r in results] == ["NewMutator"]
+        assert results[0]["pr"] == "9999"
+        assert not any(old_path in ref for ref in shown)
+
+
+class TestWhyColumn:
+    def test_attention_and_safe_tables_show_detail(self):
+        findings = [
+            _finding(
+                risk=ra.REQUIRES_ATTENTION,
+                summary="Required→optional flip on `foo` — N-1 requires it",
+                detail="N may omit it | check\nstored records first",
+            ),
+            _finding(risk=ra.SAFE, summary="Added field `bar`"),
+        ]
+        md = ra.render_rollback_report(
+            findings, "v2.0", "v1.0", "abc1234567", "def1234567"
+        )
+        attention = md.split("## Requires Attention", 1)[1].split("<details>", 1)[0]
+        safe = md.split("<details>", 1)[1]
+        assert "| Why / action |" in attention
+        assert "N may omit it \\| check stored records first" in attention
+        assert "Why / action" in safe
+        assert f"_{ra._TABLE_DESCRIPTIONS['Requires Attention']}_" in attention
+        assert f"_{ra._TABLE_DESCRIPTIONS['Safe Changes']}_" in safe
+
+
+class TestImpact:
+    def _classify(self, n, n1):
+        with patch.object(ra.rac, "file_at", _mock_file_at({
+            ("N", "test.pdl"): n, ("N-1", "test.pdl"): n1,
+        })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            return ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
+
+    def test_required_to_optional_fails_read_and_write(self):
+        f = [x for x in self._classify(_ASPECT_V1, _ASPECT_V1_OPT_TO_REQ) if "foo" in x.summary][0]
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("API fails", "fails", "no")
+
+    def test_added_field_is_dropped_on_n1_write(self):
+        f = [x for x in self._classify(_ASPECT_V1_ADDED_OPTIONAL, _ASPECT_V1) if "baz" in x.summary][0]
+        assert f.risk == ra.SAFE
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("ok", ra.DROPS_NEW_FIELD, "no")
+
+    def test_report_shows_read_write_data_loss_columns(self):
+        findings = [_finding(risk=ra.REQUIRES_ATTENTION, **ra._impact("fails", "fails", "no"))]
+        md = ra.render_rollback_report(findings, "v2.0", "v1.0", "abc1234567", "def1234567")
+        assert "| N-1 read | N-1 write | N-1 data loss |" in md
+        assert "| fails | fails | no |" in md
+        assert "<br>" not in md
+        data = json.loads(ra.render_json_report(findings, "v2.0", "v1.0", "abc1234567", "def1234567"))
+        assert data["findings"][0]["read_impact"] == "fails"
+
+
+class TestComparableType:
+    def test_inline_enum_equals_named_reference(self):
+        assert ra._comparable_type("enum Card { ONE N }") == ra._comparable_type("Card")
+
+    def test_default_only_change_is_not_a_type_change(self):
+        assert ra._comparable_type('EvalType = "METADATA"') == ra._comparable_type('EvalType = "SQL"')
+
+    def test_real_type_change_is_still_detected(self):
+        assert ra._comparable_type("string") != ra._comparable_type("int")
+
+    def test_enum_addition_is_reported_once_not_as_type_change(self):
+        with patch.object(ra.rac, "file_at", _mock_file_at({
+            ("N", "test.pdl"): _ASPECT_ENUM_ADDED,
+            ("N-1", "test.pdl"): _ASPECT_ENUM_BASE,
+        })), patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
+        assert not any(f.summary.startswith("Type change") for f in findings)
+        assert not any(f.reindex_required for f in findings)
+
+
+class TestMutatorImpact:
+    def test_mutator_takes_worst_impact_of_its_aspect_fields(self):
+        mutator = _finding(dimension=ra.DIM_MUTATOR, risk=ra.REQUIRES_ATTENTION, aspect_name="a")
+        findings = [
+            mutator,
+            _finding(aspect_name="a", **ra._impact("ok", ra.DROPS_NEW_FIELD, "no")),
+            _finding(aspect_name="a", **ra._impact("API fails", "fails", "no")),
+            _finding(aspect_name="other", **ra._impact("ok", "ok", "yes")),
+        ]
+        ra._set_mutator_impact(findings)
+        assert (mutator.read_impact, mutator.write_impact, mutator.data_loss) == ("API fails", "fails", "no")
+
+    def test_mutator_without_field_changes_is_ok(self):
+        mutator = _finding(dimension=ra.DIM_MUTATOR, risk=ra.REQUIRES_ATTENTION, aspect_name="a")
+        ra._set_mutator_impact([mutator])
+        assert (mutator.read_impact, mutator.write_impact, mutator.data_loss) == ("ok", "ok", "no")
+
+
+class TestMutatorDetail:
+    def test_detail_names_the_field_change_and_its_effect(self):
+        mutator = _finding(dimension=ra.DIM_MUTATOR, risk=ra.REQUIRES_ATTENTION, aspect_name="a")
+        added = _finding(aspect_name="a", summary="Added field `parent` — N-1 ignores unknown fields",
+                         **ra._impact("ok", ra.DROPS_NEW_FIELD, "no"))
+        ra._set_mutator_impact([mutator, added])
+        assert mutator.detail.startswith("Converts records to N's shape: added field `parent`.")
+        assert "N-1 drops the new field when it saves a record." in mutator.detail
+        assert "ASPECT_MIGRATION_MUTATOR_ENABLED" in mutator.detail
+        assert "Option F restore" in mutator.detail
+        assert mutator.risk == ra.REQUIRES_ATTENTION
+
+
+class TestEnumParser:
+    def test_commas_and_annotations_are_not_symbols(self):
+        src = 'record R { s: enum E {\n A,\n @deprecated = "Use B instead."\n C,\n /** doc */ B\n} }'
+        assert ra._enums(src) == {"E": ["A", "C", "B"]}
+
+    def test_annotation_with_braces_inside_enum(self):
+        assert ra._enums('enum F { X Y @symbolDocs = {"X": "x"} Z }') == {"F": ["X", "Y", "Z"]}
+
+
+class TestUnexplainedVersionGap:
+    def test_gap_without_field_changes_requires_attention(self):
+        gap = _finding(dimension=ra.DIM_SCHEMA_VERSION, aspect_name="a", **ra._impact("ok", "ok", "no"))
+        ra._flag_unexplained_version_gaps([gap])
+        assert gap.risk == ra.REQUIRES_ATTENTION
+        assert gap.read_impact == "not analysed"
+        assert "records it uses" in gap.detail
+
+    def test_gap_with_field_changes_stays_safe(self):
+        gap = _finding(dimension=ra.DIM_SCHEMA_VERSION, aspect_name="a", **ra._impact("ok", "ok", "no"))
+        ra._flag_unexplained_version_gaps([gap, _finding(aspect_name="a", summary="Added field `x`")])
+        assert gap.risk == ra.SAFE
+
+
+class TestFindUpgradeStepsAddedInWindow:
+    def test_implements_only_step_is_found(self):
+        path = "datahub-upgrade/src/main/java/com/example/MyStep.java"
+
+        def fake_git(*args):
+            if args[:2] == ("log", "-1"):
+                return "Alice\n"
+            if args[0] == "log":
+                return f"COMMIT abc123fff feat: add step (#4242)\n{path}\n"
+            if args[0] == "diff":
+                return f"{path}\n"
+            if args[0] == "show":
+                return "public class MyStep implements NonBlockingSystemUpgrade { }"
+            return ""
+
+        with patch.object(ra.rac, "_git", side_effect=fake_git), \
+             patch.object(ra, "discover_upgrade_step_hierarchy", return_value={}):
+            steps = ra.find_upgrade_steps_added_in_window("v1", "v2")
+        assert [(s["class_name"], s["step_type"], s["pr"]) for s in steps] == [
+            ("MyStep", "NonBlockingSystemUpgrade", "4242")
+        ]
+
+    def test_implements_among_other_interfaces(self):
+        src = "public class S implements Foo, BlockingSystemUpgrade {"
+        assert ra._IMPLEMENTS_STEP_RE.search(src).group(1) == "BlockingSystemUpgrade"
+
+
+_POLICY_V1 = """
+namespace com.linkedin.test
+record Criterion {
+  field: string
+}
+"""
+_POLICY_V2 = _POLICY_V1.replace("field: string", "field: string\n  extra: optional string")
+_ASPECT_USING = """
+namespace com.linkedin.test
+@Aspect = { "name": "policyAspect" }
+record PolicyAspect {
+  criteria: array[Criterion]
+}
+"""
+_P = "metadata-models/src/main/pegasus/com/linkedin/test/"
+
+
+class TestNestedChanges:
+    def test_aspects_using_follows_field_types_transitively(self):
+        contents = {
+            _P + "Criterion.pdl": _POLICY_V1,
+            _P + "Middle.pdl": "namespace com.linkedin.test\nrecord Middle { c: Criterion }",
+            _P + "PolicyAspect.pdl": _ASPECT_USING.replace("array[Criterion]", "Middle"),
+        }
+        users = ra._aspects_using({"com.linkedin.test.Criterion"}, contents)
+        assert users["com.linkedin.test.Criterion"] == {"policyAspect"}
+
+    def test_nested_added_field_is_attributed_to_using_aspect(self):
+        files = {("N", _P + "Criterion.pdl"): _POLICY_V2, ("N-1", _P + "Criterion.pdl"): _POLICY_V1}
+        with patch.object(ra.rac, "file_at", lambda ref, path: files.get((ref, path), "")), \
+             patch.object(ra.rac, "_git", return_value=_P + "Criterion.pdl\n" + _P + "PolicyAspect.pdl\n"), \
+             patch.object(ra, "_read_files_at", return_value={
+                 _P + "Criterion.pdl": _POLICY_V2, _P + "PolicyAspect.pdl": _ASPECT_USING}), \
+             patch.object(ra, "_first_pr", return_value="77"), \
+             patch.object(ra, "_file_author", return_value=None):
+            findings = ra.analyze_nested_changes("N", "N-1", [_P + "Criterion.pdl"])
+        assert [f.summary.split(" — ")[0] for f in findings] == ["In `Criterion`: Added field `extra`"]
+        assert findings[0].affected_aspects == ["policyAspect"]
+        assert "Used by: policyAspect." in findings[0].detail
+
+    def test_version_gap_explained_by_nested_change_stays_safe(self):
+        gap = _finding(dimension=ra.DIM_SCHEMA_VERSION, aspect_name="policyAspect")
+        nested = _finding(summary="In `Criterion`: Added field `extra`", affected_aspects=["policyAspect"])
+        ra._flag_unexplained_version_gaps([gap, nested])
+        assert gap.risk == ra.SAFE
+
+
+class TestRelationshipAndIncludes:
+    def test_relationship_change_requires_attention(self):
+        n1 = _ASPECT_V1.replace("bar: int", '@Relationship = { "name": "OwnedBy", "entityTypes": [ "corpuser" ] }\n  bar: int')
+        with patch.object(ra.rac, "file_at", _mock_file_at({("N", "test.pdl"): _ASPECT_V1, ("N-1", "test.pdl"): n1})), \
+             patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
+        rel = [f for f in findings if f.summary.startswith("Graph relationship changed on `bar`")]
+        assert len(rel) == 1 and rel[0].risk == ra.REQUIRES_ATTENTION
+
+    def test_new_include_adds_its_fields(self):
+        n1 = _ASPECT_V1
+        n = _ASPECT_V1.replace("record TestAspect {", "record TestAspect includes Extra {")
+        extra = "namespace com.linkedin.test\nrecord Extra {\n  customProperties: map[string, string] = { }\n}"
+        files = {("N", "test.pdl"): n, ("N-1", "test.pdl"): n1, ("N", _P + "Extra.pdl"): extra}
+        with patch.object(ra.rac, "file_at", lambda ref, path: files.get((ref, path), "")), \
+             patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
+        added = [f for f in findings if f.summary.startswith("Via includes `Extra`: Added field `customProperties`")]
+        assert len(added) == 1 and added[0].risk == ra.SAFE
+
+
+class TestUpgradeStepImpact:
+    def _step(self):
+        return _finding(dimension=ra.DIM_UPGRADE_STEP, risk=ra.REQUIRES_ATTENTION,
+                        path="datahub-upgrade/x/MyStep.java", **ra._impact("unknown", "unknown", "unknown"))
+
+    def test_step_aspects_from_constants_and_docs(self):
+        files = {
+            "datahub-upgrade/x/MyStep.java": "class MyStep { String a = POLICY_ASPECT_NAME; }",
+            "datahub-upgrade/x/MyStepStep.java": "/** writes a denormalized {@code dataProducts} aspect */",
+            "datahub-upgrade/x/Other.java": "String b = IGNORED_ASPECT_NAME;",
+        }
+        with patch.object(ra.rac, "_git", return_value="\n".join(files)), \
+             patch.object(ra, "_read_files_at", lambda ref, paths: {p: files[p] for p in paths}):
+            got = ra._step_aspects("datahub-upgrade/x/MyStep.java", "N", {
+                "POLICY_ASPECT_NAME": "dataHubPolicyInfo", "IGNORED_ASPECT_NAME": "other"})
+        assert got == {"dataHubPolicyInfo", "dataProducts"}
+
+    def _run(self, aspects, n1_aspects, findings):
+        step = self._step()
+        with patch.object(ra.rac, "_load_aspect_name_constants", return_value={}), \
+             patch.object(ra, "_aspect_names_at", return_value=n1_aspects), \
+             patch.object(ra, "_step_aspects", return_value=aspects):
+            ra._set_upgrade_step_impact([step, *findings], "N", "N-1")
+        return step
+
+    def test_aspect_unknown_to_n1_breaks_restore_indices(self):
+        step = self._run({"dataProducts", "dataHubUpgradeResult"}, {"dataHubUpgradeResult"}, [])
+        assert (step.read_impact, step.write_impact, step.data_loss) == ("restore-indices fails", "ok", "no")
+        assert "`dataProducts` (not in N-1)" in step.detail
+        assert "dataHubUpgradeResult" not in step.detail
+
+    def test_unchanged_known_aspect_is_ok(self):
+        step = self._run({"aliases"}, {"aliases"}, [])
+        assert (step.read_impact, step.write_impact, step.data_loss) == ("ok", "ok", "no")
+
+    def test_no_aspects_found_stays_unknown(self):
+        step = self._run(set(), set(), [])
+        assert step.read_impact == "unknown"
+        assert "Couldn't tell" in step.detail

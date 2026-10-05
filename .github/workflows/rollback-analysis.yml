@@ -66,7 +66,8 @@ jobs:
       - name: Upload report artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: rollback-report-${{ inputs.current }}-${{ inputs.target || 'last-release' }}
+          # Fixed name: refs can contain '/', which artifact names don't allow.
+          name: rollback-report
           path: |
             rollback-report.md
             rollback-report.json
