@@ -159,9 +159,8 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
   public void testAspectFieldFilterMatchesV3Documents() {
     if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
       throw new SkipException(
-          "DataHub refuses V3 semantic reads on OpenSearch before 3.5, whose k-NN pre-filters"
-              + " ignore fields under an underscore-prefixed object such as V3's _aspects; this"
-              + " test builds the service directly");
+          "DataHub refuses V3 semantic reads on OpenSearch before 3.5, where they are not"
+              + " validated; this test builds the service directly");
     }
     // V3 root fields carry the .keyword subfields V2 filters read
     SearchResult byDomain =

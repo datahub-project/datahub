@@ -478,15 +478,15 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
           "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ or Elasticsearch"
               + " 8.18+ on the Search V3 cluster, which runs OpenSearch "
               + version
-              + ": earlier OpenSearch k-NN pre-filters ignore the V3 _aspects fields that facet and"
-              + " View filters use");
+              + ", where V3 semantic reads have not been validated");
     }
   }
 
   /**
    * False for OpenSearch before 3.5, whose k-NN plugin runs a nested query's pre-filter in the
-   * nested scope for fields under an underscore-prefixed object. V3 keeps every aspect field under
-   * {@code _aspects}, so such filters match nothing there. Elasticsearch applies them.
+   * nested scope for fields under an underscore-prefixed object. V3 facet and View filters read
+   * such fields under {@code _aspects} until they moved to top-level fields; V3 semantic reads are
+   * validated only on OpenSearch 3.5+ and Elasticsearch, which applies them.
    */
   public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
     if (!isOpenSearch(client)) {
