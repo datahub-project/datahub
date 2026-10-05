@@ -388,16 +388,15 @@ public class FieldTypeMapper {
         sourceFieldSpecs.stream()
             .map(spec -> spec.getSearchableAnnotation().getFieldType())
             .collect(Collectors.toSet());
-    if (fieldTypes.stream().anyMatch(URN_FIELD_TYPES::contains)
-        && !URN_FIELD_TYPES.containsAll(fieldTypes)) {
+    // A text field with partial or word-gram analysis is richer than a URN field, so it keeps its
+    // own mapping, which indexes the URN values analyzed too
+    if (URN_FIELD_TYPES.contains(representativeType) && !URN_FIELD_TYPES.containsAll(fieldTypes)) {
       log.warn(
           "Root field {} is {} across the entities of one index; full-text search skips it for the"
               + " URN entities",
           representative.getSearchableAnnotation().getFieldName(),
           fieldTypes);
-      if (URN_FIELD_TYPES.contains(representativeType)) {
-        return getMappingsForUrnSharedWithKeyword(representativeType, partialNgramConfig);
-      }
+      return getMappingsForUrnSharedWithKeyword(representativeType, partialNgramConfig);
     }
     return getMappingsForFieldType(representativeType, representative, partialNgramConfig);
   }
@@ -591,9 +590,9 @@ public class FieldTypeMapper {
   }
 
   /**
-   * DataHub Cloud's URN mapping, for a root field name that is a keyword or text field for another
-   * entity of the index: a keyword base keeps exact match, sorting and aggregations working for
-   * that entity, and analyzed URN search moves to the delimited subfield.
+   * DataHub Cloud's URN mapping, for a root field name that is a keyword or plain text field for
+   * another entity of the index: a keyword base keeps exact match, sorting and aggregations working
+   * for that entity, and analyzed URN search moves to the delimited subfield.
    */
   @Nonnull
   private static Map<String, Object> getMappingsForUrnSharedWithKeyword(

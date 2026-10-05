@@ -1007,7 +1007,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
     assertEqualsNoOrder(
         keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
-    // A urn request matches and highlights the default fields
+    // A urn request matches the default fields; as on V2, it highlights the urn, whose ngram
+    // subfield returns a fragment for every hit
     assertEqualsNoOrder(
         urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", "urn", null, 10))
             .toArray(),
