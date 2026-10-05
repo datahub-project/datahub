@@ -395,6 +395,7 @@ def test_query_log_row_without_hash_is_skipped_and_reported():
 
     assert source._parse_query_log_row(row) is None
     assert len(source.report.warnings) == 1
+    assert source.report.warnings[0].title == "Failed to parse query log row"
 
     row["normalized_query_hash"] = 12345
     observed = source._parse_query_log_row(row)
@@ -479,6 +480,7 @@ def test_query_log_fetch_failing_mid_stream_is_reported(monkeypatch):
 
     assert list(source._extract_query_log()) == []
     assert len(source.report.failures) == 1
+    assert source.report.failures[0].title == "Query log fetch failed"
 
 
 def test_grouping_preserves_usage_counts(monkeypatch):
@@ -852,6 +854,42 @@ def test_query_log_respects_database_pattern(monkeypatch):
     assert _RAW_EVENTS in urns
 
 
+def test_query_log_respects_inherited_table_pattern(monkeypatch):
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_usage_statistics": True,
+            "table_pattern": {"deny": [r"my_db\.denied_.*"]},
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    denied_insert = _insert_row(query_id="i1")
+    denied_insert._mapping["query"] = (
+        "INSERT INTO denied_output SELECT col_a FROM denied_input"
+    )
+    rows = [
+        _select_row(
+            tables=("my_db.denied_input",),
+            columns=("my_db.denied_input.col_a",),
+        ),
+        denied_insert,
+        _select_row(query_id="allowed", hash_value=99999),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    }
+
+    assert not [urn for urn in urns if urn and "denied_" in urn]
+    assert _RAW_EVENTS in urns
+
+
 def test_usage_rows_are_deduplicated_before_the_aggregator(monkeypatch):
     # Selects skip the parser but not the aggregator, and each add() there costs
     # FileBackedDict writes plus a usage event per table. Nothing in the emitted
@@ -931,6 +969,7 @@ def test_usage_row_without_hash_is_skipped_and_reported(monkeypatch):
 
     assert _usage_for(source, _RAW_EVENTS) == []
     assert len(source.report.warnings) == 1
+    assert source.report.warnings[0].title == "Failed to read query log row"
 
 
 def _field_counts(aspect: DatasetUsageStatisticsClass) -> Dict[str, int]:

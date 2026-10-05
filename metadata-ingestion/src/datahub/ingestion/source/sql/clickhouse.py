@@ -945,6 +945,7 @@ ORDER BY event_time ASC
             connection = engine.connect()
         except Exception as e:
             self.report.failure(
+                title="Query log fetch failed",
                 message="Failed to fetch query log",
                 context="query_log_extraction",
                 exc=e,
@@ -956,6 +957,7 @@ ORDER BY event_time ASC
                 result = conn.execute(text(query))
             except Exception as e:
                 self.report.failure(
+                    title="Query log fetch failed",
                     message="Failed to fetch query log",
                     context="query_log_extraction",
                     exc=e,
@@ -972,6 +974,7 @@ ORDER BY event_time ASC
                     break
                 except Exception as e:
                     self.report.failure(
+                        title="Query log fetch failed",
                         message="Failed to fetch query log",
                         context="query_log_extraction",
                         exc=e,
@@ -1119,7 +1122,8 @@ ORDER BY event_time ASC
             )
         except Exception as e:
             self.report.warning(
-                "Failed to read usage from query log row",
+                title="Failed to read query log row",
+                message="Failed to read usage from query log row",
                 context=f"query_id={row.get('query_id', 'unknown')}",
                 exc=e,
             )
@@ -1153,7 +1157,8 @@ ORDER BY event_time ASC
             )
         except Exception as e:
             self.report.warning(
-                "Failed to parse query log row",
+                title="Failed to parse query log row",
+                message="Failed to parse query log row",
                 context=f"query_id={row.get('query_id', 'unknown')}",
                 exc=e,
             )
