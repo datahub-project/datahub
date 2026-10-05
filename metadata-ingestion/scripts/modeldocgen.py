@@ -9,7 +9,7 @@ from dataclasses import Field, dataclass, field
 from datetime import datetime, timezone
 from enum import auto
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
 
 import avro.schema
 import click
@@ -219,7 +219,9 @@ def load_schema_file(schema_file: str) -> None:
 
 
 def extract_lineage_fields_from_schema(
-    schema: avro.schema.Schema, current_path: str = ""
+    schema: avro.schema.Schema,
+    current_path: str = "",
+    ancestors: FrozenSet[str] = frozenset(),
 ) -> List[LineageField]:
     """
     Recursively extract lineage fields from an Avro schema.
@@ -227,13 +229,18 @@ def extract_lineage_fields_from_schema(
     Args:
         schema: The Avro schema to analyze
         current_path: The current field path (for nested fields)
+        ancestors: Fullnames of the records enclosing this schema, used to stop
+            at self-referencing records instead of recursing forever
 
     Returns:
         List of LineageField objects found in the schema
     """
-    lineage_fields = []
+    lineage_fields: List[LineageField] = []
 
     if isinstance(schema, avro.schema.RecordSchema):
+        if schema.fullname in ancestors:
+            return lineage_fields
+        ancestors = ancestors | {schema.fullname}
         logger.debug(f"Analyzing record schema at path: {current_path}")
         for field in schema.fields:
             field_path = f"{current_path}.{field.name}" if current_path else field.name
@@ -293,13 +300,17 @@ def extract_lineage_fields_from_schema(
                 logger.debug(f"Added lineage field: {field_path}")
 
             # Recursively check nested fields
-            nested_fields = extract_lineage_fields_from_schema(field.type, field_path)
+            nested_fields = extract_lineage_fields_from_schema(
+                field.type, field_path, ancestors
+            )
             lineage_fields.extend(nested_fields)
 
     elif isinstance(schema, avro.schema.ArraySchema):
         logger.debug(f"Analyzing array schema at path: {current_path}")
         # For arrays, check the items schema
-        nested_fields = extract_lineage_fields_from_schema(schema.items, current_path)
+        nested_fields = extract_lineage_fields_from_schema(
+            schema.items, current_path, ancestors
+        )
         lineage_fields.extend(nested_fields)
 
     elif isinstance(schema, avro.schema.UnionSchema):
@@ -307,7 +318,7 @@ def extract_lineage_fields_from_schema(
         # For unions, check all possible schemas
         for union_schema in schema.schemas:
             nested_fields = extract_lineage_fields_from_schema(
-                union_schema, current_path
+                union_schema, current_path, ancestors
             )
             lineage_fields.extend(nested_fields)
 
