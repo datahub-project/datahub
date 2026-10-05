@@ -22,6 +22,7 @@ def config() -> ZDUTestConfig:
     cfg.sweep_timeout_s = 30
     cfg.reader_workers = 0
     cfg.writer_workers = 0
+    cfg.new_image_tag = "zdu-new-abc12345"
     return cfg
 
 
@@ -188,6 +189,8 @@ class TestUpgradeNonBlockingPhase:
             )
             assert compose_env["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"] == "k"
             assert compose_env["DATAHUB_TOKEN_SERVICE_SALT"] == "s"
+            # Unpinned, system-update falls back to DATAHUB_VERSION (`head` in CI).
+            assert compose_env["DATAHUB_UPDATE_VERSION"] == "zdu-new-abc12345"
 
     def test_capture_result_skipped_when_mysql_returns_none(
         self,
