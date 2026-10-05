@@ -10,7 +10,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "assertionInfo",
-  "schemaVersion": 6
+  "schemaVersion": 7
 }
 record AssertionInfo includes CustomProperties, ExternalReference {
     /**
@@ -111,4 +111,17 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       "fieldName": "entity"
     }
     entityUrn: optional Urn
+
+    /**
+    * Exact column paths targeted by this assertion. Derived from the type-specific field
+    * associations during ingestion and indexing; callers should provide those associations.
+    */
+    @Searchable = {
+      "/*": {
+        "fieldName": "fieldPath",
+        "fieldType": "KEYWORD",
+        "addToFilters": true
+      }
+    }
+    fieldPaths: optional array[string]
 }
