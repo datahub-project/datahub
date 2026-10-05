@@ -4,10 +4,11 @@ import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -17,10 +18,17 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -48,13 +56,17 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
+    // Collect every (item, stage) reference in the batch first so all referenced stage types are
+    // read in a single batch fetch rather than one lookup per item.
+    List<Pair<BatchItem, Urn>> stageReferences = new ArrayList<>();
+
     for (BatchItem item : mcpItems) {
       if (!Constants.STATUS_ASPECT_NAME.equals(item.getAspectName())) {
         continue;
       }
 
       if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
-        validatePatchItem((MCPItem) item, operationContext, retrieverContext, exceptions);
+        collectPatchItemStages((MCPItem) item, stageReferences);
         continue;
       }
 
@@ -63,24 +75,37 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
         continue;
       }
 
-      validateStage(
-          item, status.getLifecycleStage(), operationContext, retrieverContext, exceptions);
+      stageReferences.add(Pair.of(item, status.getLifecycleStage()));
     }
+
+    if (stageReferences.isEmpty()) {
+      return exceptions.streamAllExceptions();
+    }
+
+    Map<Urn, LifecycleStageTypeInfo> stageInfos =
+        fetchStageInfos(
+            operationContext,
+            stageReferences.stream().map(Pair::getSecond).collect(Collectors.toSet()),
+            retrieverContext);
+
+    stageReferences.forEach(
+        reference ->
+            validateStage(
+                reference.getFirst(),
+                reference.getSecond(),
+                stageInfos.get(reference.getSecond()),
+                exceptions));
 
     return exceptions.streamAllExceptions();
   }
 
   /**
-   * A patch item carries only its delta, so validate the stage the patch itself writes: the value
-   * of a root or {@code /lifecycleStage} add/replace operation. Other Status fields (e.g. {@code
-   * /removed}) don't carry a stage, and unparseable values are left to schema validation at merge
-   * time.
+   * A patch item carries only its delta, so the stage to validate is the one the patch itself
+   * writes: the value of a root or {@code /lifecycleStage} add/replace operation. Other Status
+   * fields (e.g. {@code /removed}) don't carry a stage, and unparseable values are left to schema
+   * validation at merge time.
    */
-  private void validatePatchItem(
-      MCPItem item,
-      OperationFingerprint operationContext,
-      RetrieverContext retrieverContext,
-      ValidationExceptionCollection exceptions) {
+  private void collectPatchItemStages(MCPItem item, List<Pair<BatchItem, Urn>> stageReferences) {
     PatchOperationUtils.addAndReplaceValues(item)
         .forEach(
             op ->
@@ -91,12 +116,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
                             Status status =
                                 RecordUtils.toRecordTemplate(Status.class, nested.toString());
                             if (status.hasLifecycleStage()) {
-                              validateStage(
-                                  item,
-                                  status.getLifecycleStage(),
-                                  operationContext,
-                                  retrieverContext,
-                                  exceptions);
+                              stageReferences.add(Pair.of(item, status.getLifecycleStage()));
                             }
                           } catch (RuntimeException e) {
                             // unparseable delta — schema validation rejects it at merge time
@@ -107,11 +127,8 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
   private void validateStage(
       BatchItem item,
       Urn stageUrn,
-      OperationFingerprint operationContext,
-      RetrieverContext retrieverContext,
+      @Nullable LifecycleStageTypeInfo info,
       ValidationExceptionCollection exceptions) {
-    LifecycleStageTypeInfo info = fetchStageInfo(operationContext, stageUrn, retrieverContext);
-
     if (info == null) {
       exceptions.addException(
           AspectValidationException.forItem(
@@ -146,20 +163,31 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
     return Stream.empty();
   }
 
-  private LifecycleStageTypeInfo fetchStageInfo(
-      OperationFingerprint operationContext, Urn stageUrn, RetrieverContext retrieverContext) {
+  @Nonnull
+  private Map<Urn, LifecycleStageTypeInfo> fetchStageInfos(
+      OperationFingerprint operationContext,
+      Set<Urn> stageUrns,
+      RetrieverContext retrieverContext) {
     try {
-      RecordTemplate aspect =
-          retrieverContext
-              .getAspectRetriever()
-              .getLatestAspectObject(operationContext, stageUrn, LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
-      if (aspect == null) {
-        return null;
-      }
-      return new LifecycleStageTypeInfo(aspect.data());
+      Map<Urn, Map<String, Aspect>> aspects =
+          AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+              retrieverContext.getAspectRetriever(),
+              operationContext,
+              stageUrns,
+              Set.of(LIFECYCLE_STAGE_TYPE_INFO_ASPECT));
+
+      Map<Urn, LifecycleStageTypeInfo> stageInfos = new HashMap<>();
+      aspects.forEach(
+          (stageUrn, aspectsByName) -> {
+            Aspect aspect = aspectsByName.get(LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
+            if (aspect != null) {
+              stageInfos.put(stageUrn, new LifecycleStageTypeInfo(aspect.data()));
+            }
+          });
+      return stageInfos;
     } catch (Exception e) {
-      log.warn("Failed to fetch lifecycle stage info for {}", stageUrn, e);
-      return null;
+      log.warn("Failed to fetch lifecycle stage info for {}", stageUrns, e);
+      return Map.of();
     }
   }
 }

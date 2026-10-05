@@ -132,6 +132,7 @@ export default function ChangeHistoryGraph() {
                     />
                 }
                 isEmpty={buckets.length === 0 || !canViewDatasetOperations}
+                emptyMessage={t('changeHistoryGraph.empty')}
                 emptyContent={!canViewDatasetOperations && <NoPermission statName={t('changeHistoryGraph.statName')} />}
                 renderControls={() => (
                     <>

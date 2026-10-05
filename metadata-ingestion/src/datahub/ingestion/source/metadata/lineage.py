@@ -137,7 +137,7 @@ class LineageConfig(VersionedConfig):
 
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Specified in the lineage file.")
 @capability(SourceCapability.LINEAGE_FINE, "Specified in the lineage file.")
 @dataclass

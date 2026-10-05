@@ -31,6 +31,7 @@ from datahub.executor.execution.wrapper_common import (
     register_secrets_for_masking,
     run_datahub_subprocess,
     setup_memory_limit,
+    supports_stdin_envelope,
     validate_venv,
 )
 
@@ -42,13 +43,13 @@ def main():
 
     venv_path = sys.argv[1]
 
-    _raw_envelope, envelope = read_stdin_envelope()
+    raw_envelope, envelope = read_stdin_envelope()
     recipe_yaml = envelope["__recipe_yaml__"]
     secrets = envelope.get("__secrets__", {})
     report_out_file = envelope["__report_out_file__"]
     debug_mode = envelope.get("__debug_mode__", "false")
 
-    _venv_python, venv_datahub = validate_venv(venv_path)
+    venv_python, venv_datahub = validate_venv(venv_path)
     activate_venv(venv_path)
     setup_memory_limit()
     register_secrets_for_masking(secrets)
@@ -67,7 +68,17 @@ def main():
             file=sys.stderr,
         )
 
-    datahub_stdin = build_datahub_stdin(recipe_yaml, secrets)
+    # Forward the envelope so the CLI registers the secrets for its own
+    # masking (report file, logs); older CLIs get the recipe pre-resolved.
+    if supports_stdin_envelope(venv_python):
+        datahub_stdin = raw_envelope
+    else:
+        print(
+            "Warning: venv CLI predates the stdin secrets envelope; "
+            "its own output will not be masked",
+            file=sys.stderr,
+        )
+        datahub_stdin = build_datahub_stdin(recipe_yaml, secrets)
 
     cmd = [str(venv_datahub)]
     if debug_mode.lower() == "true":

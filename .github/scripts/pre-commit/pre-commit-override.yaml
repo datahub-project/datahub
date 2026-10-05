@@ -103,3 +103,16 @@ repos:
         # Keep pass_filenames: false: betterleaks reads the staged diff itself; passing files
         # would switch it to `dir` semantics (whole-file, and broken/slow on multiple file args).
         stages: [pre-commit]
+      - id: smoke-test-p0-dependencies
+        name: p0 smoke tests must not depend on non-p0 tests
+        description:
+          pytest-dependency skips a test whose dependency was deselected,
+          so a p0 test depending on a non-p0 test silently does nothing under -m p0
+        entry: python3 .github/scripts/check_p0_dependencies.py
+        language: system
+        files: ^smoke-test/.*\.py$
+        # The script globs smoke-test/ itself; it needs the whole tree, not the diff.
+        pass_filenames: false
+        # Also runs in CI via lint-jobs.yml smoke-test-lint, which is the real
+        # guard — pre-commit is local convenience and no workflow invokes it.
+        stages: [pre-commit]

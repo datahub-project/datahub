@@ -1,14 +1,9 @@
-import { useApolloClient } from '@apollo/client';
 import { toast } from '@components';
-import { Modal } from 'antd';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
-import {
-    DEFAULT_PAGE_SIZE,
-    removeFromListPoliciesCache,
-    updateListPoliciesCache,
-} from '@app/permissions/policy/policyUtils';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 
 import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '@graphql/policy.generated';
 import {
@@ -30,7 +25,7 @@ type PrivilegeOptionType = {
 };
 
 export function usePolicy(
-    policiesConfig,
+    policyPrivileges: PolicyPrivilegesConfig | undefined,
     focusPolicyUrn,
     policiesRefetch,
     setShowViewPolicyModal,
@@ -38,12 +33,10 @@ export function usePolicy(
     onClosePolicyBuilder,
 ) {
     const { t } = useTranslation('settings.permissions');
-    const { t: tc } = useTranslation('common.actions');
-    const client = useApolloClient();
 
     // Construct privileges
-    const platformPrivileges = policiesConfig?.platformPrivileges || [];
-    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
+    const platformPrivileges = policyPrivileges?.platformPrivileges || [];
+    const resourcePrivileges = policyPrivileges?.resourcePrivileges || [];
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
@@ -52,11 +45,12 @@ export function usePolicy(
 
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
+    const [policyToDelete, setPolicyToDelete] = useState<Policy | null>(null);
+
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
-        console.log({ state });
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
-                return {
+                const criterionInput: PolicyMatchCriterionInput = {
                     field: criterion.field,
                     values: criterion.values.map((criterionValue) =>
                         criterion.field === 'TAG' && state !== 'TOGGLE'
@@ -65,6 +59,16 @@ export function usePolicy(
                     ),
                     condition: criterion.condition,
                 };
+                // Include structuredPropertyValues if present
+                if ((criterion as any).structuredPropertyValues) {
+                    criterionInput.structuredPropertyValues = (criterion as any).structuredPropertyValues.map(
+                        (propValue: any) => ({
+                            propertyUrn: propValue.propertyUrn,
+                            values: propValue.values || [],
+                        }),
+                    );
+                }
+                return criterionInput;
             }),
         };
     };
@@ -127,30 +131,29 @@ export function usePolicy(
 
     // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
-        Modal.confirm({
-            title: t('deletePolicyTitle', { name: policy?.name }),
-            content: t('deletePolicyText'),
-            onOk() {
-                deletePolicy({ variables: { urn: policy?.urn as string } }).then(() => {
-                    // There must be a focus policy urn.
-                    analytics.event({
-                        type: EventType.DeleteEntityEvent,
-                        entityUrn: policy?.urn,
-                        entityType: EntityType.DatahubPolicy,
-                    });
-                    toast.success(t('removePolicySuccess'));
-                    removeFromListPoliciesCache(client, policy?.urn, DEFAULT_PAGE_SIZE);
-                    setTimeout(() => {
-                        policiesRefetch();
-                    }, 4000);
-                    onCancelViewPolicy();
+        setPolicyToDelete(policy);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (policyToDelete) {
+            deletePolicy({ variables: { urn: policyToDelete.urn as string } }).then(() => {
+                analytics.event({
+                    type: EventType.DeleteEntityEvent,
+                    entityUrn: policyToDelete.urn,
+                    entityType: EntityType.DatahubPolicy,
                 });
-            },
-            onCancel() {},
-            okText: tc('yes'),
-            maskClosable: true,
-            closable: true,
-        });
+                toast.success(t('removePolicySuccess'));
+                setTimeout(() => {
+                    policiesRefetch();
+                }, 2000);
+                onCancelViewPolicy();
+                setPolicyToDelete(null);
+            });
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        setPolicyToDelete(null);
     };
 
     // On Activate and deactivate Policy handler
@@ -166,15 +169,10 @@ export function usePolicy(
                 input: toPolicyInput(newPolicy, 'TOGGLE'),
             },
         }).then(() => {
-            const updatePolicies = {
-                ...newPolicy,
-                __typename: 'ListPoliciesResult',
-            };
-            updateListPoliciesCache(client, updatePolicies, DEFAULT_PAGE_SIZE);
             toast.success(newState === PolicyState.Active ? t('activatePolicySuccess') : t('deactivatePolicySuccess'));
             setTimeout(() => {
                 policiesRefetch();
-            }, 4000);
+            }, 2000);
         });
 
         setShowViewPolicyModal(false);
@@ -185,42 +183,26 @@ export function usePolicy(
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
             updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } }).then(() => {
-                const newPolicy = {
-                    __typename: 'ListPoliciesResult',
-                    urn: focusPolicyUrn,
-                    ...savePolicy,
-                    resources: null,
-                };
                 analytics.event({
                     type: EventType.UpdatePolicyEvent,
                     policyUrn: focusPolicyUrn,
                 });
                 toast.success(t('savePolicySuccess'));
-                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 setTimeout(() => {
                     policiesRefetch();
-                }, 1000);
+                }, 2000);
                 onClosePolicyBuilder();
             });
         } else {
             // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then((result) => {
-                const newPolicy = {
-                    __typename: 'ListPoliciesResult',
-                    urn: result?.data?.createPolicy,
-                    ...savePolicy,
-                    type: null,
-                    actors: null,
-                    resources: null,
-                };
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then(() => {
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
                 });
                 toast.success(t('savePolicySuccess'));
                 setTimeout(() => {
                     policiesRefetch();
-                }, 1000);
-                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
+                }, 2000);
                 onClosePolicyBuilder();
             });
         }
@@ -234,5 +216,8 @@ export function usePolicy(
         onToggleActiveDuplicate,
         onRemovePolicy,
         getPrivilegeNames,
+        policyToDelete,
+        handleDeleteConfirm,
+        handleDeleteCancel,
     };
 }

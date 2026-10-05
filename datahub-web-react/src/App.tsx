@@ -17,8 +17,10 @@ import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
+import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { installApolloPollingContextPatch } from '@src/apolloPolling';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
@@ -74,6 +76,9 @@ const client = new ApolloClient({
         typePolicies: {
             Query: {
                 fields: {
+                    latestProductUpdate: {
+                        keyArgs: ['locale'],
+                    },
                     dataset: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
@@ -85,6 +90,10 @@ const client = new ApolloClient({
                         },
                     },
                 },
+            },
+            // ProductUpdate.id is a release version, not a unique cache identity across locales.
+            ProductUpdate: {
+                keyFields: false,
             },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
@@ -101,12 +110,22 @@ const client = new ApolloClient({
     },
 });
 
+// Forward NetworkStatus.poll onto operation.context so GraphQL tracing links can skip
+// timer-driven poll ticks without an op-name denylist. Must run after `new ApolloClient`.
+installApolloPollingContextPatch(client);
+
 export const InnerApp: React.VFC = () => {
+    const isDarkMode = loadIsDarkMode();
+
     return (
         <HelmetProvider>
-            <CustomThemeProvider>
+            <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
-                <ToastRenderer />
+                {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                    so it needs one of its own while the locale bundle loads. */}
+                <Suspense fallback={null}>
+                    <ToastRenderer />
+                </Suspense>
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

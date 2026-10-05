@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContextForResource;
 import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 
@@ -10,6 +11,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
@@ -26,9 +28,11 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -43,6 +47,10 @@ import org.testng.annotations.Test;
 public class RaiseIncidentResolverTest {
 
   private static final Urn TEST_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:TEST");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)");
+  private static final Urn TEST_SCHEMA_FIELD_URN =
+      SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "user_id");
 
   @Test
   public void testGetSuccessAllFields() throws Exception {
@@ -402,5 +410,61 @@ public class RaiseIncidentResolverTest {
 
     Assert.assertEquals(proposalCaptor.getValue().getChangeType(), ChangeType.UPSERT);
     Assert.assertFalse(proposalCaptor.getValue().hasHeaders());
+  }
+
+  @Test
+  public void testRaiseOnSchemaFieldAllowedByParentDatasetPolicy() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.ingestProposal(
+                any(OperationContext.class),
+                Mockito.any(MetadataChangeProposal.class),
+                Mockito.anyBoolean()))
+        .thenReturn(TEST_INCIDENT_URN.toString());
+
+    // The actor holds EDIT_ENTITY_INCIDENTS on the parent dataset only. No policy can name the
+    // field itself, so this is the realistic grant for someone raising a column incident.
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test",
+            PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType(),
+            TEST_DATASET_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    RaiseIncidentInput testInput = new RaiseIncidentInput();
+    testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.OPERATIONAL);
+    testInput.setResourceUrn(TEST_SCHEMA_FIELD_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+
+    RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
+    Assert.assertEquals(resolver.get(mockEnv).get(), TEST_INCIDENT_URN.toString());
+  }
+
+  @Test
+  public void testRaiseOnSchemaFieldDeniedWhenParentPolicyDoesNotMatch() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test",
+            PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType(),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,OtherTable,PROD)"));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    RaiseIncidentInput testInput = new RaiseIncidentInput();
+    testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.OPERATIONAL);
+    testInput.setResourceUrn(TEST_SCHEMA_FIELD_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+
+    RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
+    try {
+      resolver.get(mockEnv).get();
+      Assert.fail("Expected exception was not thrown");
+    } catch (ExecutionException e) {
+      Assert.assertTrue(e.getCause() instanceof AuthorizationException);
+    }
+    Mockito.verifyNoInteractions(mockClient);
   }
 }

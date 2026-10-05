@@ -9,6 +9,7 @@ import io.ebean.datasource.DataSourceConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 
 @Configuration
@@ -76,6 +77,7 @@ public class EbeanServerConfig {
 
   @Bean("ebeanDataSourceConfig")
   @Primary
+  @DependsOn("defaultAwsCredentialsProvider")
   public DataSourceConfig buildDataSourceConfig(
       @Value("${ebean.url}") String dataSourceUrl, MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();

@@ -138,6 +138,7 @@
     "document.linkRelatedTooltip": "Link related assets or context docs",
     "document.name": "Document",
     "document.namePlural": "Documents",
+    "document.newDocumentPlaceholder": "New Document",
     "document.noChangeHistoryEmpty": "No change history yet!",
     "document.noContentPlaceholder": "No content",
     "document.previousVersionTitle": "Previous Version",
@@ -329,5 +330,8 @@
     "user.tab.ownerOf": "Owner Of",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Teams",
-    "user.titleRoleLabel": "Title/Role"
+    "user.titleRoleLabel": "Title/Role",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

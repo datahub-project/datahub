@@ -5,7 +5,6 @@ import static org.testng.Assert.*;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -38,6 +37,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -108,11 +108,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   public void testShimCreation() {
     // Test native client access
     Object nativeClient = searchClientShim.getNativeClient();
-    if (SearchEngineType.ELASTICSEARCH_7.equals(searchClientShim.getEngineType())) {
-      assertTrue(nativeClient instanceof org.opensearch.client.RestHighLevelClient);
-    } else {
-      assertTrue(nativeClient instanceof ElasticsearchClient);
-    }
+    assertTrue(nativeClient instanceof ElasticsearchClient);
   }
 
   @Test
@@ -149,21 +145,11 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
 
   @Test
   public void testFeatureSupport() {
-    if (SearchEngineType.ELASTICSEARCH_7.equals(searchClientShim.getEngineType())) {
-      // Test features that ES 7.17 should support
-      assertTrue(searchClientShim.supportsFeature("scroll"));
-      assertTrue(searchClientShim.supportsFeature("bulk"));
-      assertTrue(searchClientShim.supportsFeature("mapping_types"));
-      assertTrue(searchClientShim.supportsFeature("point_in_time"));
-      assertTrue(searchClientShim.supportsFeature("async_search"));
-    } else {
-      // Test features that ES 8.17 should support
-      assertTrue(searchClientShim.supportsFeature("scroll"));
-      assertTrue(searchClientShim.supportsFeature("bulk"));
-      assertFalse(searchClientShim.supportsFeature("mapping_types"));
-      assertTrue(searchClientShim.supportsFeature("point_in_time"));
-      assertTrue(searchClientShim.supportsFeature("async_search"));
-    }
+    assertTrue(searchClientShim.supportsFeature("scroll"));
+    assertTrue(searchClientShim.supportsFeature("bulk"));
+    assertFalse(searchClientShim.supportsFeature("mapping_types"));
+    assertTrue(searchClientShim.supportsFeature("point_in_time"));
+    assertTrue(searchClientShim.supportsFeature("async_search"));
   }
 
   @Test
@@ -211,6 +197,20 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     log.info(
         "Search completed successfully, found {} hits",
         searchResponse.getHits().getTotalHits().value);
+  }
+
+  @Test(dependsOnMethods = "testIndexOperations")
+  public void testDfsSearch() throws IOException {
+    // Checks that the engine accepts the search_type the shim sends.
+    // Es8SearchClientShimSearchTypeTest
+    // checks that the shim sends it; a one-shard index runs DFS as QUERY_THEN_FETCH anyway.
+    SearchRequest searchRequest =
+        new SearchRequest(TEST_INDEX)
+            .searchType(SearchType.DFS_QUERY_THEN_FETCH)
+            .source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery()));
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
+    assertNotNull(searchResponse.getHits());
   }
 
   @Test

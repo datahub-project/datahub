@@ -24,7 +24,6 @@ const DataProductLinkContainer = styled(Link)`
 
 const DataProductWrapper = styled.span`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const RemoveIcon = styled(PillRemoveIcon)`

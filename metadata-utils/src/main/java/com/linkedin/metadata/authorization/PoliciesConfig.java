@@ -35,7 +35,7 @@ public class PoliciesConfig {
 
   // Platform Privileges //
 
-  static final Privilege MANAGE_POLICIES_PRIVILEGE =
+  public static final Privilege MANAGE_POLICIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_POLICIES",
           "Manage Policies",
@@ -51,7 +51,7 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_SECRETS", "Manage Secrets", "Create & remove Secrets stored inside DataHub.");
 
-  static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
+  public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
       Privilege.of(
           "MANAGE_USERS_AND_GROUPS",
           "Manage Users & Groups",
@@ -84,7 +84,7 @@ public class PoliciesConfig {
   private static final Privilege VIEW_ANALYTICS_PRIVILEGE =
       Privilege.of("VIEW_ANALYTICS", "View Analytics", "View the DataHub analytics dashboard.");
 
-  private static final Privilege GET_ANALYTICS_PRIVILEGE =
+  public static final Privilege GET_ANALYTICS_PRIVILEGE =
       Privilege.of(
           "GET_ANALYTICS_PRIVILEGE",
           "Analytics API access",
@@ -252,6 +252,28 @@ public class PoliciesConfig {
           "Get Topic Events",
           "The ability to use the Events API to read events from custom Kafka topics.");
 
+  /**
+   * A distinct, platform-level privilege, not a resource-scoped one: it is not checked against any
+   * particular query's subject datasets, so an actor who holds it can view every Query entity's SQL
+   * text unconditionally, with no per-dataset restriction — see {@code
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities}, which checks this privilege first
+   * and short-circuits the ordinary {@code VIEW_ENTITY_QUERIES} subject-dataset logic entirely when
+   * it is held. This is what makes it useful for the one case {@code VIEW_ENTITY_QUERIES} can never
+   * cover on its own: a query with no recorded {@code querySubjects} has no dataset for a
+   * resource-scoped policy to grant against and is otherwise fail-closed to every actor, including
+   * root/admin — but the privilege is not limited to that case; holding it means seeing every
+   * query, subjects or not. It is READ-only by construction and is never consulted by any
+   * CREATE/EDIT/DELETE check, so granting it (e.g. to a read-only "Reader" role) cannot confer any
+   * write capability — unlike {@code MANAGE_} privileges, which this deliberately is not one of.
+   */
+  public static final Privilege VIEW_ALL_QUERIES_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ALL_QUERIES",
+          "View All Queries",
+          "The ability to view every Query's SQL text unconditionally, with no per-dataset "
+              + "restriction — including queries with no recorded subject dataset (orphan "
+              + "queries), which VIEW_ENTITY_QUERIES alone can never grant access to.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -297,7 +319,8 @@ public class PoliciesConfig {
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
-          GET_TOPIC_EVENTS_PRIVILEGE);
+          GET_TOPIC_EVENTS_PRIVILEGE,
+          VIEW_ALL_QUERIES_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -472,7 +495,9 @@ public class PoliciesConfig {
       Privilege.of(
           "VIEW_DATASET_USAGE",
           "View Dataset Usage",
-          "The ability to access dataset usage information (includes usage statistics and queries).");
+          "The ability to access dataset usage information (numeric usage statistics only —"
+              + " viewing the SQL text of the dataset's top queries additionally requires View"
+              + " Entity Queries or View All Queries).");
 
   public static final Privilege VIEW_DATASET_PROFILE_PRIVILEGE =
       Privilege.of(
@@ -491,6 +516,12 @@ public class PoliciesConfig {
           "EDIT_ENTITY_QUERIES",
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
+
+  public static final Privilege VIEW_ENTITY_QUERIES_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ENTITY_QUERIES",
+          "View Entity Queries",
+          "The ability to view Queries for a Dataset, Chart, or Data Job.");
 
   public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
       Privilege.of(
@@ -674,6 +705,7 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
+                      VIEW_ENTITY_QUERIES_PRIVILEGE,
                       // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE, TODO: Remove this once confirmed
                       // safe.
                       DATA_READ_ONLY_PRIVILEGE,
@@ -690,7 +722,11 @@ public class PoliciesConfig {
           "Charts indexed by DataHub",
           Stream.concat(
                   COMMON_ENTITY_PRIVILEGES.stream(),
-                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE, EDIT_ENTITY_EMBED_PRIVILEGE).stream())
+                  ImmutableList.of(
+                      EDIT_LINEAGE_PRIVILEGE,
+                      EDIT_ENTITY_EMBED_PRIVILEGE,
+                      VIEW_ENTITY_QUERIES_PRIVILEGE)
+                      .stream())
               .collect(Collectors.toList()));
 
   // Dashboard Privileges
@@ -725,7 +761,7 @@ public class PoliciesConfig {
           "Data Tasks indexed by DataHub",
           Stream.concat(
                   COMMON_ENTITY_PRIVILEGES.stream(),
-                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
+                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE, VIEW_ENTITY_QUERIES_PRIVILEGE).stream())
               .collect(Collectors.toList()));
 
   // Data Process Instance Privileges
@@ -1002,6 +1038,14 @@ public class PoliciesConfig {
       ResourcePrivileges.of(
           "mlFeature", "ML Features", "ML Features indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
 
+  // ML Feature Table Privileges
+  public static final ResourcePrivileges ML_FEATURE_TABLE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlFeatureTable",
+          "ML Feature Tables",
+          "ML Feature Tables indexed by DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1029,7 +1073,8 @@ public class PoliciesConfig {
           APPLICATION_PRIVILEGES,
           DATAHUB_VIEW_PRIVILEGES,
           ML_MODEL_PRIVILEGES,
-          ML_FEATURE_PRIVILEGES);
+          ML_FEATURE_PRIVILEGES,
+          ML_FEATURE_TABLE_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

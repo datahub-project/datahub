@@ -2,6 +2,15 @@
 
 We always welcome contributions to help make DataHub better. Take a moment to read this document if you would like to contribute.
 
+## Setting Up Your Development Environment
+
+To build DataHub from source and run your local changes:
+
+1. Follow the [Developer's Guide](developers.md) to install the required tools and build the project.
+2. Use [Using Docker Images During Development](docker/development.md) to run your local build (for example, `./gradlew quickstartDebug`) and reload changes as you work.
+
+Just want to try DataHub without building it? Use the [Quickstart Guide](quickstart.md) instead.
+
 ## Provide Feedback
 
 Have ideas about how to make DataHub better? Head over to [DataHub Feature Requests](https://feature-requests.datahubproject.io/) and tell us all about it!
@@ -34,6 +43,18 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 - PRs are squashed and merged, resulting in a single commit with the PR title as the commit message.
 - If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Updating DataHub under Next](how/updating-datahub.md).
 - That's it! Thank you for your contribution!
+
+### Product-update CTA merge check
+
+The Cloud/Core "What's New" toast CTA is a live URL republished from
+`product-update.json` / `product-update-saas.json`. Lint job
+`product_update_release_sync` GET-probes those links when a PR hits the
+product-update-sync path filter (the JSON files, release notes, or related
+cigate). Unrelated PRs skip that job. The Gradle release-sync tests stay
+hermetic; the probe is a following step so a 404 does not fail unit tests.
+
+After the URL returns 2xx, re-run `product_update_release_sync`. Do not rerun
+the full CI suite. There is no scheduled retry.
 
 ### PR Title Format
 

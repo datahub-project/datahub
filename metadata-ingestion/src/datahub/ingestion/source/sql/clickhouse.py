@@ -31,6 +31,9 @@ from datahub.configuration.time_window_config import (
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -260,9 +263,8 @@ class ClickHouseConfig(
             url = url.set(database=current_db)
 
         url = with_client_identity(url)
-        # Explicit about keeping the password: on SQLAlchemy 1.4 (currently pinned)
-        # str(URL) already renders it, but SQLAlchemy 2.0 masks it in str() — this
-        # keeps create_engine() working if/when the pin moves to 2.x.
+        # render_as_string(hide_password=False): str(URL) masks the password as "***"
+        # on SQLAlchemy 2.0, which would break the create_engine() connection.
         return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -293,6 +295,23 @@ class ClickHouseConfig(
             )
 
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # ClickHouse has information_schema, and its idiomatic catalog is the
+        # `system` database. Not allowed wholesale: system.query_log holds executed
+        # SQL -- our own usage extraction reads it -- and the *_log family generally
+        # carries statement text.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "system.tables",
+                    "system.columns",
+                    "system.databases",
+                    "system.dictionaries",
+                }
+            ),
+        )
 
 
 PROPERTIES_COLUMNS = (
@@ -516,7 +535,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -750,8 +769,9 @@ ORDER BY event_time ASC
         logger.info("Fetching query log from ClickHouse")
 
         try:
-            result = engine.execute(text(query))
-            rows = list(result)
+            with engine.connect() as conn:
+                result = conn.execute(text(query))
+                rows = list(result)
         except Exception as e:
             self.report.failure(
                 message="Failed to fetch query log",
@@ -795,11 +815,11 @@ ORDER BY event_time ASC
                 session_id=row.get("query_id"),
                 timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
-                # Don't pass current_database as default_db. ClickHouse uses 2-level
-                # naming (database.table), but sqlglot expects 3-level (database.schema.table).
-                # Passing current_database causes sqlglot to prepend it to already-qualified
-                # names, creating incorrect URNs like "default.analytics_marts.table".
+                # ClickHouse is 2-level: the database goes in the schema slot (as in
+                # TwoTierSQLAlchemySource.get_db_schema); default_db would fill the
+                # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
+                default_schema=row.get("current_database") or None,
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:
@@ -846,8 +866,9 @@ ORDER BY event_time ASC
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        for db_row in engine.execute(text(all_tables_query)):
-            all_tables_set.add(f"{db_row['database']}.{db_row['table_name']}")
+        with engine.connect() as conn:
+            for db_row in conn.execute(text(all_tables_query)).mappings():
+                all_tables_set.add(f"{db_row['database']}.{db_row['table_name']}")
 
         return all_tables_set
 
@@ -875,7 +896,9 @@ ORDER BY event_time ASC
         engine = create_engine(url, **self.config.options)
 
         try:
-            for db_row in engine.execute(text(query)):
+            with engine.connect() as conn:
+                rows = conn.execute(text(query)).mappings().fetchall()
+            for db_row in rows:
                 dataset_name = f"{db_row['target_schema']}.{db_row['target_table']}"
                 if not self.config.database_pattern.allowed(
                     db_row["target_schema"]

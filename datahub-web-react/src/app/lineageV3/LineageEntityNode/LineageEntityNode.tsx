@@ -5,6 +5,7 @@ import NodeContents from '@app/lineageV3/LineageEntityNode/NodeContents';
 import useDisplayedColumns from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import {
+    ENTITY_LEVEL_FIELD,
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
@@ -15,7 +16,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
-import { getMemberDataProductUrn } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
+import { getMemberBoundingBoxUrn } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 
 import { LineageDirection } from '@types';
 
@@ -24,11 +25,11 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, dataProducts } = data;
-    // Members render one node per data product; the box's urn is encoded in the (qualified) node id.
-    // Resolve the boolean here (rather than passing `dataProducts`) to avoid re-memoizing NodeContents.
-    const parentDataProduct = getMemberDataProductUrn(id);
-    const isOutputPort = !!dataProducts?.find((dataProduct) => dataProduct.urn === parentDataProduct)?.isOutputPort;
+    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, boundingBoxes } = data;
+    // Members render one node per bounding box; the box's urn is encoded in the (qualified) node id.
+    // Resolve the boolean here (rather than passing `boundingBoxes`) to avoid re-memoizing NodeContents.
+    const parentBoundingBoxUrn = getMemberBoundingBoxUrn(id);
+    const isOutputPort = !!boundingBoxes?.find((box) => box.urn === parentBoundingBoxUrn)?.isOutputPort;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn, rootType, nodes, adjacencyList, collapseColumnsVersion } = useContext(LineageNodesContext);
     const {
@@ -41,6 +42,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         displayedMenuNode,
         setDisplayedMenuNode,
         lineageFilters,
+        highlightedColumns,
     } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -74,6 +76,8 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
 
     const [selectedColumnUrn] = selectedColumn ? parseColumnRef(selectedColumn) : [null];
     const [hoveredColumnUrn] = hoveredColumn ? parseColumnRef(hoveredColumn) : [null];
+    // The entity itself reads or is read by the highlighted column, e.g. a metric reading a column
+    const highlighted = !!highlightedColumns.get(urn)?.has(ENTITY_LEVEL_FIELD);
 
     const hasParentDataJob = parentDataJob ? true : undefined;
     // Data flow lineage: members count only the neighbors outside their own data job
@@ -156,6 +160,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 numDownstreams,
                 entity?.numDownstreamChildren,
             )}
+            highlighted={highlighted}
         />
     );
 }

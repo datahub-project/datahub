@@ -19,7 +19,11 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryShardPatternMatcher,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
+    LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE,
+    BigQueryV2Config,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
@@ -27,6 +31,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
@@ -36,7 +43,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
@@ -62,7 +69,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
     "Platform instance is pre-set to the BigQuery project id",
@@ -75,6 +82,8 @@ logger: logging.Logger = logging.getLogger(__name__)
     subtype_modifier=[
         SourceCapabilityModifier.BIGQUERY_PROJECT,
         SourceCapabilityModifier.BIGQUERY_DATASET,
+        # Emitted in place of BIGQUERY_DATASET when include_linked_dataset_lineage is on.
+        SourceCapabilityModifier.BIGQUERY_LINKED_DATASET,
     ],
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -184,6 +193,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config, self.report, self.profiling_state_handler
         )
 
+        self.sharing_handler: Optional[BigQuerySharingHandler] = None
+        if self.config.include_linked_dataset_lineage:
+            self.sharing_handler = BigQuerySharingHandler(
+                config=self.config,
+                report=self.report,
+                identifiers=self.identifiers,
+                client=config.get_bigquery_client(),
+                projects_client=config.get_projects_client(),
+            )
+
         self.bq_schema_extractor = BigQuerySchemaGenerator(
             self.config,
             self.report,
@@ -195,6 +214,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.filters,
             self.shard_matcher,
             self.ctx.graph,
+            self.sharing_handler,
         )
 
         self.add_config_to_report()
@@ -287,6 +307,38 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     title="Config option deprecation warning",
                     log=False,
                 )
+            # `extract_column_lineage` defaults to False, so an explicit False is only
+            # detectable via `model_fields_set`.
+            if "extract_column_lineage" in self.config.model_fields_set:
+                self.report.warning(
+                    message=EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                    log=False,
+                )
+
+        # Config validators already log these pairings; dual-site to the report because
+        # UI-driven ingestion only surfaces report warnings.
+        if (
+            self.config.extract_subscriptions_from_analytics_hub
+            and not self.config.include_linked_dataset_lineage
+        ):
+            self.report.warning(
+                message="`extract_subscriptions_from_analytics_hub` has no effect while "
+                "`include_linked_dataset_lineage` is False; linked datasets are not "
+                "detected, so there is nothing to attach subscription properties to.",
+                title="Analytics Hub subscriptions will not be extracted",
+                log=False,
+            )
+        if (
+            self.config.include_linked_dataset_lineage
+            and not self.config.include_table_lineage
+        ):
+            self.report.warning(
+                message=LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE,
+                title="Linked-dataset COPY lineage will not be emitted",
+                log=False,
+            )
 
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:
         return BigQueryQueriesExtractorConfig(
@@ -319,6 +371,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         for project in projects:
             yield from self.bq_schema_extractor.get_project_workunits(project)
+
+        # Must run before the View and Snapshot Lineage stage below: that stage flushes the
+        # aggregator, so the COPY mappings have to be registered first to be emitted.
+        if self.sharing_handler is not None and self.config.include_table_lineage:
+            self.sharing_handler.register_known_lineage(
+                self.lineage_extractor.aggregator,
+                self.bq_schema_extractor.table_refs,
+            )
 
         with self.report.new_stage("*: View and Snapshot Lineage"):
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(

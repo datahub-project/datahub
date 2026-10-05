@@ -13,12 +13,13 @@ interface Props {
     content: React.ReactNode;
     className?: string;
     iconColor?: string;
+    placement?: string;
 }
 
-export default function InfoPopover({ content, className, iconColor }: Props) {
+export default function InfoPopover({ content, className, iconColor, placement = 'top' }: Props) {
     return (
         <InfoWrapper className={className} $iconColor={iconColor}>
-            <Popover placement="top" content={content} trigger="hover" showArrow={false}>
+            <Popover placement={placement as any} content={content} trigger="hover" showArrow={false}>
                 <Icon icon={Info} size="sm" weight="regular" color="inherit" />
             </Popover>
         </InfoWrapper>

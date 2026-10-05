@@ -320,7 +320,7 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Redash")
 @config_class(RedashConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class RedashSource(StatefulIngestionSourceBase):
     """

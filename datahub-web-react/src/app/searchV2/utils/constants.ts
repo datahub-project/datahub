@@ -152,6 +152,12 @@ export const FIELD_TO_LABEL: Record<string, string> = {
     get platformInstance() {
         return i18next.t('search:fieldLabel.platformInstance');
     },
+    get applications() {
+        return i18next.t('search:fieldLabel.application');
+    },
+    get topUsersLast30Days() {
+        return i18next.t('search:fieldLabel.topUsersLast30Days');
+    },
     get hasActiveIncidents() {
         return i18next.t('search:filters.incidents.hasActiveLabel');
     },

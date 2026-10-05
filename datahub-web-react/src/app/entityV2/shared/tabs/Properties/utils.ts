@@ -13,6 +13,19 @@ function matchesAnyFromValues(values: ValueColumnData[], filterText: string, ent
     );
 }
 
+function filterHiddenPropertiesRecursive(rows: PropertyRow[]): PropertyRow[] {
+    return rows
+        .filter((row) => !row.structuredProperty?.settings?.isHidden)
+        .map((row) => {
+            const filteredChildren = row.children ? filterHiddenPropertiesRecursive(row.children) : undefined;
+            return {
+                ...row,
+                children: filteredChildren,
+                childrenCount: filteredChildren ? filteredChildren.length : row.childrenCount,
+            };
+        });
+}
+
 export function filterStructuredProperties(
     entityRegistry: EntityRegistry,
     propertyRows: PropertyRow[],
@@ -49,4 +62,8 @@ export function filterStructuredProperties(
     const filteredRows = propertyRows.filter((row) => finalQualifiedNames.has(row.qualifiedName));
 
     return { filteredRows, expandedRowsFromFilter };
+}
+
+export function filterHiddenProperties(rows: PropertyRow[]): PropertyRow[] {
+    return filterHiddenPropertiesRecursive(rows);
 }

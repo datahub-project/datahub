@@ -89,7 +89,9 @@ class TestSetupMemoryLimit:
 class TestWrapperStdinContent:
     """Tests for what the wrapper pipes to `datahub ingest -c -` stdin.
 
-    The wrapper always resolves ${VAR} in memory and pipes plain YAML.
+    A venv CLI new enough to parse the JSON secrets envelope gets it forwarded
+    verbatim, so the CLI registers the secrets for its own masking. Older CLIs
+    get ${VAR} resolved in memory and plain YAML piped instead.
     """
 
     def test_resolves_secrets_in_yaml(self) -> None:
@@ -156,10 +158,14 @@ class TestWrapperStdinContent:
 
         assert order == ["handler", "popen"]
 
-    def test_ingestion_wrapper_pipes_resolved_yaml_to_subprocess(
-        self, tmp_path: Path
-    ) -> None:
-        """End-to-end: ingestion wrapper resolves secrets and pipes plain YAML to Popen."""
+    @staticmethod
+    def _run_ingestion_wrapper(
+        tmp_path: Path, envelope_support: bool
+    ) -> tuple[str, list[str]]:
+        """Drive run_ingest.main() end-to-end.
+
+        Returns what it piped to the child's stdin, and the command it spawned.
+        """
         recipe = {"source": {"type": "test", "config": {"pw": "${SECRET}"}}}
         envelope = json.dumps(
             {
@@ -185,6 +191,9 @@ class TestWrapperStdinContent:
             patch.object(sys, "stdin", io.StringIO(envelope)),
             patch.object(run_ingest, "check_cli_flag_support", return_value=True),
             patch.object(run_ingest, "register_secrets_for_masking"),
+            patch.object(
+                run_ingest, "supports_stdin_envelope", return_value=envelope_support
+            ),
             patch(
                 "datahub.executor.execution.wrapper_common.subprocess.Popen",
                 return_value=mock_process,
@@ -193,14 +202,37 @@ class TestWrapperStdinContent:
         ):
             run_ingest.main()
 
-        # Wrapper pipes plain resolved YAML, not JSON envelope
-        written = mock_process.stdin.write.call_args[0][0]
+        written: str = mock_process.stdin.write.call_args[0][0]
+        cmd: list[str] = mock_popen.call_args[0][0]
+        return written, cmd
+
+    def test_forwards_the_raw_envelope_when_the_cli_supports_it(
+        self, tmp_path: Path
+    ) -> None:
+        """The CLI needs the envelope to learn the secret values, so that what it
+        writes itself -- the --report-to file, its own log masking -- is redacted
+        too. Pre-substituting leaves its registry empty."""
+        written, _cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
+
+        forwarded = json.loads(written)
+        assert forwarded["__secrets__"] == {"SECRET": "hidden"}
+        assert "${SECRET}" in forwarded["__recipe_yaml__"]
+
+    def test_pre_substitutes_yaml_for_a_cli_that_predates_the_envelope(
+        self, tmp_path: Path
+    ) -> None:
+        """An older CLI parses the envelope as a recipe, so the wrapper resolves
+        ${VAR} in memory and pipes plain YAML instead."""
+        written, _cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=False)
+
         parsed = yaml.safe_load(written)
         assert parsed["source"]["config"]["pw"] == "hidden"
         assert "${SECRET}" not in written
 
-        # Venv isolation, asserted on the command actually spawned rather than by
-        # grepping the wrapper's source: the CLI must come from the target venv, not
-        # from whatever `datahub` happens to be on PATH.
-        cmd = mock_popen.call_args[0][0]
-        assert cmd[0] == str(venv_dir / "datahub")
+    def test_cli_comes_from_the_target_venv(self, tmp_path: Path) -> None:
+        """Venv isolation, asserted on the command actually spawned rather than by
+        grepping the wrapper's source: the CLI must come from the target venv, not
+        from whatever `datahub` happens to be on PATH."""
+        _written, cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
+
+        assert cmd[0] == str(tmp_path / "venv" / "bin" / "datahub")

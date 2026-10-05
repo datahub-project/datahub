@@ -3,7 +3,7 @@ services:
     container_name: datahub-mock
     image: mockserver/mockserver:5.15.0
     ports:
-      - "8080:8080"
+      - "8080"
     volumes:
       - ./expectations/datahub-expectations.json:/tmp/expectations.json:ro
     environment:

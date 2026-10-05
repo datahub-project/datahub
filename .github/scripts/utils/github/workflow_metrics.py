@@ -107,12 +107,27 @@ class WorkflowMetrics:
     base_branch: str | None
     head_branch: str | None
     head_sha: str | None
+    is_community_contribution: bool
     conclusion: str | None
     created_at: str | None
     started_at: str | None
     completed_at: str | None
     duration_seconds: int | None
     attempt: AttemptInfo
+
+    @staticmethod
+    def _is_community_contribution(
+        trigger_event: str | None, data: dict[str, Any], repository: str
+    ) -> bool:
+        """True for PR runs whose head repo differs from the workflow repo (fork PRs).
+
+        Mirrors IS_FORK in docker-unified.yml:
+        event is a PR trigger and head.repo.full_name != github.repository.
+        """
+        if trigger_event not in _PR_TRIGGER_EVENTS:
+            return False
+        head_repo = (data.get("head_repository") or {}).get("full_name")
+        return head_repo is not None and head_repo != repository
 
     @classmethod
     def from_api(
@@ -121,6 +136,7 @@ class WorkflowMetrics:
         run_id: int,
         attempt: int,
         rerun_type: str,
+        repository: str,
     ) -> "WorkflowMetrics":
         run_started = parse_dt(data.get("run_started_at"))
         run_completed = parse_dt(data.get("updated_at"))
@@ -146,6 +162,9 @@ class WorkflowMetrics:
             base_branch=base_branch,
             head_branch=data.get("head_branch"),
             head_sha=data.get("head_sha"),
+            is_community_contribution=cls._is_community_contribution(
+                trigger_event, data, repository
+            ),
             conclusion=data.get("conclusion"),
             created_at=data.get("created_at"),
             started_at=data.get("run_started_at"),

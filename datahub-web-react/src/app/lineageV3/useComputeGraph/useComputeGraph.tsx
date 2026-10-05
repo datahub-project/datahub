@@ -2,11 +2,17 @@ import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
-import { LineageFilter, LineageNodesContext, NodeContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import {
+    BOUNDING_BOX_ENTITY_TYPES,
+    LineageFilter,
+    LineageNodesContext,
+    NodeContext,
+    useIgnoreSchemaFieldStatus,
+} from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
+import computeBoundingBoxGraph from '@app/lineageV3/useComputeGraph/boundingBoxes/computeBoundingBoxGraph';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
-import computeDataProductGraph from '@app/lineageV3/useComputeGraph/dataProduct/computeDataProductGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 import { useAppConfig } from '@app/useAppConfig';
@@ -49,7 +55,7 @@ export default function useComputeGraph(): ProcessedData {
         showDataProcessInstances,
         showGhostEntities,
         outputPortsOnly,
-        dataProductEntities,
+        boundingBoxEntities,
     } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
     const { isModuleView } = useContext(LineageGraphContext);
@@ -82,7 +88,7 @@ export default function useComputeGraph(): ProcessedData {
                 showDataProcessInstances,
                 showGhostEntities,
                 outputPortsOnly,
-                dataProductEntities,
+                boundingBoxEntities,
             };
 
             if (rootType === EntityType.DataFlow) {
@@ -100,8 +106,8 @@ export default function useComputeGraph(): ProcessedData {
                 };
             }
 
-            if (rootType === EntityType.DataProduct) {
-                const result = computeDataProductGraph(
+            if (BOUNDING_BOX_ENTITY_TYPES.has(rootType)) {
+                const result = computeBoundingBoxGraph(
                     rootUrn,
                     context,
                     ignoreSchemaFieldStatus,
@@ -125,7 +131,8 @@ export default function useComputeGraph(): ProcessedData {
                 isModuleView,
                 showLineageFilterNodes,
             );
-        }, // eslint-disable-next-line react-hooks/exhaustive-deps
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             rootUrn,
             rootType,

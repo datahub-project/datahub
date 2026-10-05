@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.featureflags;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.resolver.ConfigKeyConstants;
+import javax.annotation.Nonnull;
 import lombok.Data;
 
 @Data
@@ -39,6 +42,9 @@ public class FeatureFlags {
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
   private boolean themeV2Toggleable = false;
+  // Gates the user-facing light/dark mode toggle and applying the dark color theme.
+  // Default OFF until dark mode is ready to ship. Preference is still stored locally when enabled.
+  private boolean themeDarkModeEnabled = false;
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
@@ -66,14 +72,18 @@ public class FeatureFlags {
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
-  private boolean metricsEnabled = false;
+  private boolean metricsEnabled = true;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
   private boolean dataProductLineageEnabled = false;
   private boolean contextDocumentsEnabled = false;
+  // When true, document body edits stay local until the user saves. When false, the editor
+  // auto-saves. Default OFF so existing editors keep the current behavior.
+  private boolean documentExplicitSaveEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
+  private boolean structuredPropertiesInPoliciesEnabled = false;
   private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
@@ -89,8 +99,17 @@ public class FeatureFlags {
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
+  private boolean siblingsSearchBatchLoadEnabled = true;
+  private boolean entityExistsBatchLoadEnabled = true;
+  private boolean parentContainersBatchLoadEnabled = true;
+  private boolean parentNodesBatchLoadEnabled = true;
   // Kill switch for schema-driven GraphQL aspect optimization. When true, entity hydration fetches
   // only the aspects required by the selected fields. When false, every loader falls back to
   // fetching its full default aspect set (legacy behavior). Default ON.
   private boolean graphQLAspectOptimizationEnabled = true;
+
+  /** Per-operation read: the operation's resolved value, else the bound one. */
+  public boolean isMetricsEnabled(@Nonnull final OperationFingerprint operation) {
+    return operation.getConfig(ConfigKeyConstants.FeatureFlags.METRICS_ENABLED, metricsEnabled);
+  }
 }

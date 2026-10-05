@@ -27,6 +27,12 @@ This guide will show you how to
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
+### Required Privileges
+
+- Creating, updating, deleting, assigning, or unassigning forms through the GraphQL API (including the `batchAssignForm`, `batchRemoveForm`, and `createDynamicFormAssignment` mutations used below) requires the **Manage Compliance Forms** Platform privilege. Admins and Editors hold it by default.
+- Writing the `forms` or `dynamicFormAssignment` aspects directly through OpenAPI, Rest.li, or a CLI metadata emitter requires **Manage Compliance Forms** _and_ **Edit Entity** on the target entity, because those APIs authorize every aspect write as a generic entity update (unless REST API authorization is disabled).
+- Completing or verifying a form that is already assigned to you does not require **Manage Compliance Forms**.
+
 <Tabs>
 <TabItem value="CLI" label="CLI">
 

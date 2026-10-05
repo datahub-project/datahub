@@ -1,5 +1,4 @@
-import { Popover } from '@components';
-import { TooltipProps } from 'antd';
+import { Popover, PopoverProps } from '@components';
 import * as React from 'react';
 
 import {
@@ -15,9 +14,9 @@ import {
 import { StructuredPopoverProps } from '@components/components/StructuredPopover/types';
 
 /**
- * Note: Depends on styling set in global-overrides-v2.less to override ant padding
+ * Note: Depends on styling set in global-overrides-v2.less to remove the base overlay padding.
  */
-export function StructuredPopover(props: StructuredPopoverProps & TooltipProps) {
+export function StructuredPopover(props: StructuredPopoverProps & PopoverProps) {
     const { header: Header, width, title, sections, ...otherProps } = props;
 
     if (!title && !sections?.length) return <>{props.children}</>;
@@ -28,8 +27,9 @@ export function StructuredPopover(props: StructuredPopoverProps & TooltipProps) 
             {title && <Title>{title}</Title>}
             {sections && (
                 <SectionsContainer>
-                    {sections?.map((section) => (
-                        <Section>
+                    {sections?.map((section, i) => (
+                        // eslint-disable-next-line react/no-array-index-key
+                        <Section key={i}>
                             <SectionHeader>
                                 <SectionTitle>{section.title}</SectionTitle>
                                 {section.titleSuffix && <TitleSuffix>{section.titleSuffix}</TitleSuffix>}

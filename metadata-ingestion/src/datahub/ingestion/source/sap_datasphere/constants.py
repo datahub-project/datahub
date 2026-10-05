@@ -160,6 +160,11 @@ CSN_FUNC: Final[str] = "func"
 CSN_XPR: Final[str] = "xpr"
 CSN_CASE: Final[str] = "case"
 CSN_CAST: Final[str] = "cast"
+# CQN literal ({"val": ...}) and IN-list ({"list": [...]}).
+CSN_VAL: Final[str] = "val"
+CSN_LIST: Final[str] = "list"
+# A calculated element's inline CQN expression (elements[<col>]["value"]).
+CSN_KEY_VALUE: Final[str] = "value"
 CSN_TYPE: Final[str] = "type"
 CSN_TYPE_ASSOCIATION: Final[str] = "cds.Association"
 # A Composition is a containment association (parent-owns-child); for lineage it

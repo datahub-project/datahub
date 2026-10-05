@@ -50,10 +50,11 @@ public class ReindexConfigTest {
     // Verify constants are properly defined
     Assert.assertNotNull(ReindexConfig.OBJECT_MAPPER);
     Assert.assertEquals(ReindexConfig.SETTINGS_DYNAMIC, Arrays.asList("refresh_interval"));
-    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards"));
-    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 2);
+    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards", "knn"));
+    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 3);
     Assert.assertTrue(ReindexConfig.SETTINGS.contains("refresh_interval"));
     Assert.assertTrue(ReindexConfig.SETTINGS.contains("number_of_shards"));
+    Assert.assertTrue(ReindexConfig.SETTINGS.contains("knn"));
   }
 
   @Test
@@ -257,7 +258,7 @@ public class ReindexConfigTest {
 
   @Test
   void testImplicitObjectTypeNormalizedAcrossSides() {
-    // ES8 echoes "type":"object" back for any field that has "properties"; ES7 / OpenSearch
+    // ES8 echoes "type":"object" back for any field that has "properties"; OpenSearch
     // omit it. Mapping builders that don't emit the explicit type must not cause a perpetual
     // mapping diff (and therefore a perpetual reindex loop) when running against ES8.
     Map<String, Object> currentMappings = new HashMap<>();
@@ -590,29 +591,8 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testEngineRoundTrip_ES7_PreservesImplicitObject() {
-    // ES7 round-trip: stored mapping looks the same as what was sent.
-    // Both sides remain implicit-object form. Comparison must report no diff.
-    ReindexConfig config =
-        ReindexConfig.builder()
-            .name(TEST_INDEX_NAME)
-            .exists(true)
-            .currentMappings(implicitObjectMapping())
-            .targetMappings(implicitObjectMapping())
-            .currentSettings(Settings.EMPTY)
-            .targetSettings(new HashMap<>())
-            .enableIndexMappingsReindex(true)
-            .build();
-
-    Assert.assertFalse(
-        config.requiresApplyMappings(),
-        "ES7 preserves implicit-object form on round-trip — both sides should match");
-    Assert.assertFalse(config.requiresReindex());
-  }
-
-  @Test
   void testEngineRoundTrip_OpenSearch_PreservesImplicitObject() {
-    // OpenSearch behaves like ES7 on object round-trips: implicit form preserved.
+    // OpenSearch preserves implicit-object form on object round-trips.
     // The universal normalization should be a no-op (both sides already match).
     ReindexConfig config =
         ReindexConfig.builder()
@@ -697,10 +677,10 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testEngineRoundTrip_ES7_RealMappingChangeStillDetected() {
+  void testEngineRoundTrip_ImplicitObject_RealMappingChangeStillDetected() {
     // Sanity check that the universal normalization does not inadvertently mask real changes
-    // on ES7/OpenSearch either.
-    Map<String, Object> currentEs7 = implicitObjectMapping();
+    // on OpenSearch either.
+    Map<String, Object> currentOpenSearch = implicitObjectMapping();
 
     Map<String, Object> targetCode = new HashMap<>();
     targetCode.put(
@@ -719,7 +699,7 @@ public class ReindexConfigTest {
         ReindexConfig.builder()
             .name(TEST_INDEX_NAME)
             .exists(true)
-            .currentMappings(currentEs7)
+            .currentMappings(currentOpenSearch)
             .targetMappings(targetCode)
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
@@ -728,7 +708,7 @@ public class ReindexConfigTest {
 
     Assert.assertTrue(
         config.requiresApplyMappings(),
-        "Real schema change must still be detected on ES7/OpenSearch — universal "
+        "Real schema change must still be detected on OpenSearch — universal "
             + "normalization is mathematically incapable of masking a content diff");
   }
 
@@ -822,6 +802,118 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.requiresApplySettings());
     Assert.assertTrue(config.isSettingsReindex());
     Assert.assertTrue(config.requiresReindex()); // Static setting change requires reindex
+  }
+
+  @Test
+  void testKnnMismatchRequiresSettingsReindexWhenEnabled() {
+    Settings currentSettings =
+        Settings.builder().put("index.number_of_shards", "1").put("index.knn", "false").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1", "knn", true));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertTrue(config.requiresReindex());
+    Assert.assertFalse(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testKnnMismatchDoesNotReindexWhenSettingsReindexDisabled() {
+    Settings currentSettings = Settings.builder().put("index.number_of_shards", "1").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1", "knn", true));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(false)
+            .build();
+
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertTrue(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testOmittedTargetKnnDoesNotReindexWhenCurrentKnnFalse() {
+    Settings currentSettings =
+        Settings.builder().put("index.number_of_shards", "1").put("index.knn", "false").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1"));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplySettings());
+    Assert.assertFalse(config.isSettingsReindex());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertFalse(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testMappingsWithoutKnnVectorFieldsDropsVectorLeavesAndKeepsProvenance() {
+    Map<String, Object> original =
+        ImmutableMap.of(
+            PROPERTIES_KEY,
+            ImmutableMap.of(
+                "urn",
+                ImmutableMap.of(TYPE_KEY, "keyword"),
+                "resolvedTextSha256",
+                ImmutableMap.of(TYPE_KEY, "keyword"),
+                "embeddings",
+                ImmutableMap.of(
+                    PROPERTIES_KEY,
+                    ImmutableMap.of(
+                        "model_a",
+                        ImmutableMap.of(
+                            PROPERTIES_KEY,
+                            ImmutableMap.of(
+                                "vector",
+                                ImmutableMap.of(
+                                    TYPE_KEY,
+                                    ReindexConfig.KNN_VECTOR_TYPE,
+                                    "dimension",
+                                    8,
+                                    "method",
+                                    ImmutableMap.of("name", "hnsw")),
+                                "sourceTextSha256",
+                                ImmutableMap.of(TYPE_KEY, "keyword")))))));
+
+    Map<String, Object> stripped = ReindexConfig.mappingsWithoutKnnVectorFields(original);
+
+    Assert.assertTrue(original.toString().contains(ReindexConfig.KNN_VECTOR_TYPE));
+    Assert.assertFalse(stripped.toString().contains(ReindexConfig.KNN_VECTOR_TYPE));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) stripped.get(PROPERTIES_KEY);
+    Assert.assertTrue(properties.containsKey("urn"));
+    Assert.assertTrue(properties.containsKey("resolvedTextSha256"));
+    Assert.assertTrue(properties.containsKey("embeddings"));
+    Assert.assertTrue(ReindexConfig.mappingHasProperties(stripped));
   }
 
   @Test

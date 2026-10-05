@@ -27,7 +27,6 @@ const StatusContainer = styled.div`
     justify-content: left;
     align-items: center;
 `;
-
 const AllStatusWrapper = styled.div`
     display: flex;
     flex-direction: column;

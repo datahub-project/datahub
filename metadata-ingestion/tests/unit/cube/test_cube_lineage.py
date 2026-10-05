@@ -194,6 +194,43 @@ def test_warehouse_columns_snapped_to_gms_casing() -> None:
     assert any(f.endswith(",Amount)") for f in upstreams)
 
 
+def test_resolver_init_failure_degrades_once_with_warning() -> None:
+    # Regression: _resolver_ready used to be set before the resolver-creation
+    # call succeeded, so a transient failure surfaced as a per-entity "Failed
+    # to emit Cube entity" error attributed to whichever entity triggered it
+    # first, with every later entity silently losing schema-aware lineage.
+    entity = CubeEntity(
+        name="orders",
+        table_references=[CubeColumnReference(schema_name="public", table="orders")],
+        measures=[
+            CubeMember(
+                name="total_amount",
+                is_measure=True,
+                column_references=[
+                    CubeColumnReference(
+                        schema_name="public", table="orders", column="amount"
+                    )
+                ],
+            )
+        ],
+    )
+    builder = _builder(warehouse_platform="snowflake", warehouse_database="analytics")
+    builder.ctx.graph = object()  # type: ignore[assignment]
+    with patch(
+        "datahub.ingestion.source.cube.cube_lineage.create_and_cache_schema_resolver",
+        side_effect=RuntimeError("GMS unreachable"),
+    ) as mock_create:
+        lineage_first = builder.build(entity)
+        lineage_second = builder.build(entity)
+
+    assert lineage_first is not None
+    assert lineage_second is not None
+    mock_create.assert_called_once()
+    assert len(builder.report.warnings) == 1
+    warning = list(builder.report.warnings)[0]
+    assert warning.title == "Could not initialize schema-aware lineage resolution"
+
+
 def test_core_column_lineage_name_matched_to_warehouse_schema() -> None:
     # Cube Core members carry no column references. When the warehouse schema is
     # in DataHub, members are matched by name to real columns; members that do

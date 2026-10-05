@@ -193,6 +193,15 @@ import {
     HIVE_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/hive';
 import {
+    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+    INFORMIX_DATABASE,
+    INFORMIX_HOST_PORT,
+    INFORMIX_INCLUDE_VIEW_LINEAGE,
+    INFORMIX_PASSWORD,
+    INFORMIX_SERVER,
+    INFORMIX_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/informix';
+import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
     KAFKA_SASL_PASSWORD,
@@ -449,14 +458,19 @@ import {
     TRINO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/trino';
 import {
+    AUTHENTICATION_TYPE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    AZURE_CLIENT_ID as DATABRICKS_AZURE_CLIENT_ID,
+    AZURE_CLIENT_SECRET as DATABRICKS_AZURE_CLIENT_SECRET,
+    AZURE_TENANT_ID as DATABRICKS_AZURE_TENANT_ID,
     INCLUDE_COLUMN_LINEAGE,
     TOKEN,
     UNITY_CATALOG_ALLOW,
     UNITY_CATALOG_DENY,
-    UNITY_METASTORE_ID_ALLOW,
-    UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
+    WAREHOUSE_ID,
     WORKSPACE_URL,
 } from '@app/ingestV2/source/builder/RecipeForm/unity_catalog';
 import {
@@ -477,6 +491,7 @@ import {
     DATABRICKS,
     DBT_CLOUD,
     GITHUB_DOCUMENTS,
+    INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
     MYSQL,
@@ -732,6 +747,19 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
     },
+    [INFORMIX]: {
+        fields: [
+            INFORMIX_HOST_PORT,
+            INFORMIX_SERVER,
+            INFORMIX_DATABASE,
+            INFORMIX_USERNAME,
+            INFORMIX_PASSWORD,
+            INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+        ],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INFORMIX_INCLUDE_VIEW_LINEAGE, STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Schemas (owners), Tables and Views from ingestion.',
+    },
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
@@ -811,10 +839,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [DATABRICKS]: {
-        fields: [WORKSPACE_URL, TOKEN],
+        fields: [
+            AUTHENTICATION_TYPE,
+            WORKSPACE_URL,
+            WAREHOUSE_ID,
+            TOKEN,
+            CLIENT_ID,
+            CLIENT_SECRET,
+            DATABRICKS_AZURE_TENANT_ID,
+            DATABRICKS_AZURE_CLIENT_ID,
+            DATABRICKS_AZURE_CLIENT_SECRET,
+        ],
         filterFields: [
-            UNITY_METASTORE_ID_ALLOW,
-            UNITY_METASTORE_ID_DENY,
             UNITY_CATALOG_ALLOW,
             UNITY_CATALOG_DENY,
             SCHEMA_ALLOW,
@@ -823,7 +859,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             UNITY_TABLE_DENY,
         ],
         advancedFields: [INCLUDE_TABLE_LINEAGE, INCLUDE_COLUMN_LINEAGE, STATEFUL_INGESTION_ENABLED],
-        filterSectionTooltip: 'Include or exclude specific Metastores, Catalogs, Schemas, and Tables from ingestion.',
+        filterSectionTooltip: 'Include or exclude specific Catalogs, Schemas, and Tables from ingestion.',
     },
     [DBT_CLOUD]: {
         fields: [

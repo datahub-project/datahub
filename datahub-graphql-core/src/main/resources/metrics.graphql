@@ -94,7 +94,8 @@ type Metric implements EntityWithRelationships & Entity {
   metricUpstreams: MetricUpstreams @aspectMapping(aspects: ["metricUpstreams"])
 
   """
-  The SemanticModel that defines this Metric.
+  The SemanticModel that owns this Metric, from `metricInfo.semanticModel`.
+  Null when the metric is not a member of any SemanticModel.
   """
   semanticModel: SemanticModel @aspectMapping(aspects: ["metricInfo"])
 
@@ -257,9 +258,17 @@ type SemanticModel implements EntityWithRelationships & Entity {
     @aspectMapping(aspects: ["upstreamLineage"])
 
   """
-  Metrics defined within this SemanticModel (field-resolver in CAT-2566).
+  Metrics defined within this SemanticModel (search-backed, paginated).
+  Filters to root metrics (no parent) belonging to this model.
   """
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults @noAspects
+
+  """
+  Contained entities (logical datasets and metrics) of this SemanticModel.
+  Search-backed filter on member-side `semanticModel` / `hasSemanticModel`.
+  Used by the lineage explorer.
+  """
+  entities(input: SearchAcrossEntitiesInput): SearchResults @noAspects
 
   """
   Ownership metadata of the SemanticModel.
@@ -442,7 +451,7 @@ type SemanticModelProperties {
   alias: String!
 
   """
-  The SemanticModel that this Dataset is a logical dataset of.
+  The SemanticModel that this Dataset is a logical dataset of (member-side membership).
   """
   semanticModel: SemanticModel
 }

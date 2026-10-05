@@ -6,7 +6,8 @@ This module integrates OpenLineage with DataHub's Spark lineage collection. It c
 
 This module:
 
-- Builds shadow JARs for multiple Scala versions (2.12 and 2.13)
+- Builds shadow JARs for multiple Scala versions (2.12 and 2.13), compiling its own sources once per
+  Scala binary version — see "Scala cross-compilation" below
 - Contains custom OpenLineage class implementations
 - Depends on `io.openlineage:openlineage-spark` as specified by `ext.openLineageVersion` in the root `build.gradle`
 
@@ -82,6 +83,9 @@ Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
 8. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
 9. **`MergeIntoCommandInputDatasetBuilder.patch`**: Enables recursive traversal for merge command subqueries
 10. **`SparkOpenLineageExtensionVisitorWrapper.patch`**: Extension visitor customizations
+11. **`TopicPartitionProxy.patch`**: Assembles the expected `org.apache.kafka.common.TopicPartition`
+    name at runtime so the shadow-jar relocator cannot rewrite it (issue #19005) — see
+    "Shading vs. reflection by class name" below
 
 **DataHub-specific files (not patch-tracked — no upstream equivalent to diff against):**
 
@@ -90,6 +94,85 @@ Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
   is maintained as a standalone DataHub file rather than a patch.
 - **`JdbcSparkUtils`**, **`FileStreamMicroBatchStreamStrategy`**: DataHub additions.
 - **Redshift vendor** (`spark/agent/vendor/redshift/*`): Complete custom implementation.
+
+### Shading vs. reflection by class name (recurring hazard)
+
+Shadow rewrites **string constants** in the constant pool, not just bytecode symbols. A relocation is
+only safe if every runtime reference to the package is a bytecode symbol. The moment a class name
+crosses into a `String` — `Class.forName`, `loadClass`, comparing `getCanonicalName()`, an SPI
+descriptor — shading rewrites it too, and the failure is silent: visitors stop matching and lineage
+is simply absent, with no stack trace an operator would notice.
+
+This has now bitten three times, so treat it as a standing review item when touching relocations:
+
+| Case                                    | Why it broke                                                       | Fix                          |
+| --------------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
+| `io.openlineage.sql` (#18558)           | JNI symbols baked into the Rust lib as `Java_io_openlineage_sql_*` | `exclude` from relocation    |
+| `io.openlineage.spark.extension`        | SPI that connectors implement at its canonical name                | `exclude` from relocation    |
+| `org.apache.kafka` (#19005)             | `TopicPartitionProxy` compares `getCanonicalName()` to a constant  | assemble the name at runtime |
+| `io.github.spark_redshift_...` (#19005) | `compileOnly`, so the rewritten name resolves nowhere              | `exclude` from relocation    |
+
+**Choosing between the two fixes:**
+
+- The package is **never bundled** (`compileOnly`/`provided`) or must keep its canonical name →
+  `exclude` it from the relocation. This also fixes `checkcast`/method references, which a
+  string-level workaround cannot.
+- The package **is** bundled and genuinely needs relocating (the agent ships a Kafka client for its
+  emitter) → keep the relocation and stop the _name_ from being a single relocatable literal, e.g.
+  `String.join(".", "org", "apache", "kafka", "common", "TopicPartition")`. Note that
+  `"prefix " + CONSTANT` does **not** work: javac folds compile-time constants into one literal.
+
+Both are enforced by `scripts/check_jar.sh`, which scans the constant pools of the shaded
+OpenLineage/DataHub classes for host-supplied package names rewritten under `io.acryl.shaded.`.
+`ShadedReflectionClassNameTest` (in `sparkSmoke4`) covers the same invariant behaviourally against
+the real jar. When debugging by hand, use `grep -a`, **not** `strings`: a `.class` file begins with
+`0xCAFEBABE`, the same magic as a Mach-O universal binary, so macOS `strings` refuses to scan it.
+
+### Scala cross-compilation (2.12 vs 2.13)
+
+The module's sources are compiled **twice**: `main` against a Scala 2.12 Spark/OpenLineage classpath,
+and the `scala213` source set (same `src/main/java`, declared in `build.gradle`) against the 2.13
+one. `shadowJar_2_12` packages `sourceSets.main.output`, `shadowJar_2_13` packages
+`sourceSets.scala213.output`.
+
+**Why one compilation cannot serve both** (issue #19289): javac bakes the declared return type of a
+call into its `invokevirtual` descriptor, and the JVM resolves methods on the _full_ descriptor,
+return type included. Every Spark API returning a `Seq` therefore has a different descriptor per
+cross-build:
+
+| Call site                                         | Scala 2.12                 | Scala 2.13                           |
+| ------------------------------------------------- | -------------------------- | ------------------------------------ |
+| `FileScanRDD.filePartitions()`, `UnionRDD.rdds()` | `()Lscala/collection/Seq;` | `()Lscala/collection/immutable/Seq;` |
+| `LogicalPlan.output()`, `TreeNode.children()`     | `()Lscala/collection/Seq;` | `()Lscala/collection/immutable/Seq;` |
+| `ArrayBuffer.toSeq()`                             | `()Lscala/collection/Seq;` | `()Lscala/collection/immutable/Seq;` |
+
+Shipping the 2.12 output inside `_2.13` threw `NoSuchMethodError` at each of those. On the RDD path
+that is _fatal_, not merely lossy: it is an `Error`, so `catch (Exception)` does not stop it and it
+is not covered by `PlanUtils.safeApply`'s `NoSuchMethodError` guard — Spark's `tryOrStopSparkContext`
+shuts the SparkContext down and the application fails.
+
+Note this was **masked** until the duplicate-entry fix in #19254: the jar previously carried both our
+copy and upstream's genuinely cross-compiled `openlineage-spark_2.13` copy at the same path, and the
+JVM resolves the _last_ zip entry — so on 2.13 the correct upstream classes loaded and every DataHub
+customization was silently inert. Two invariants have to hold together: our copy must win, **and**
+the winning copy must be compiled for the artifact's Scala binary version.
+
+**Keeping the two classpaths in step.** The 2.13 declarations mirror the `main` ones with `_2.13`
+coordinates. Spark 3.5.0 publishes both cross-builds, so both compilations target the same Spark API
+baseline. Two `compileOnly` reference points have no 2.13 release at the version the 2.12 side pins,
+so the nearest published 2.13 builds are used non-transitively (`delta-core_2.13`,
+`spark-redshift_2.13`); neither contributes a Scala-collection descriptor, so the exact versions do
+not affect the shipped bytecode. `scala213*` configurations are excluded from dependency locking, for
+the same reason the per-Scala shadow jars use detached configurations.
+
+**Enforcement.** `scripts/check_jar.sh` asserts the discriminator `()Lscala/collection/Seq;` is
+_present_ in this project's classes in `_2.12` and _absent_ everywhere in `_2.13` — both directions,
+so the two assertions are mutually exclusive and one output feeding both jars cannot pass.
+`ShadedScalaBinaryVersionTest` (in `sparkSmoke4`) covers it behaviourally on a real Spark 4 runtime,
+driving `RddDatasetInfoExtractor` over a genuine `FileScanRDD` and `UnionRDD`. Descriptors live in
+the constant pool as plain UTF-8, so `grep -a '()Lscala/collection/Seq;'` over a `.class` file is a
+valid hand check — but the mirror image is not: `ScalaConversionUtils.asScalaSeqEmpty()` returns
+`immutable.Seq` in _both_ cross-builds.
 
 ### Relationship to upstream trimmers & the CLL consistency gap
 
@@ -177,8 +260,12 @@ optional first pass only.
 
    ```bash
    ./gradlew :metadata-integration:java:openlineage-converter:compileJava \
-             :metadata-integration:java:acryl-spark-lineage:compileTestJava
+             :metadata-integration:java:acryl-spark-lineage:compileTestJava \
+             :metadata-integration:java:acryl-spark-lineage:compileScala213Java
    ```
+
+   `compileScala213Java` is the second (Scala 2.13) compilation of the same sources — an OL or Spark
+   API change can break only that one, and `compileTestJava` would not notice.
 
 7. **Drop backports upstream now ships natively.** Check the OL changelog for the intervening
    versions and remove any DataHub workaround that became redundant (e.g. the `AwsUtils` Glue-ARN
@@ -304,3 +391,135 @@ To see resolved dependencies for each Scala version:
 
 - `acryl-spark-lineage_2.12-<version>.jar`
 - `acryl-spark-lineage_2.13-<version>.jar`
+
+## Changelog and Release Notes
+
+The agent's release notes are the `## Changelog` section of [`README.md`](README.md). There is no
+separate `CHANGELOG.md`, and nothing generates it — regenerate it by hand whenever the released
+versions have drifted ahead of the newest documented one.
+
+### Why this is manual
+
+The jar is published on **every** DataHub release and takes that release's version from
+`versioning.gradle`, which reads `build/version.json` derived from the git tag. Nothing in this
+module declares a version. Most releases therefore ship a jar with no agent changes in it. The
+changelog lists only the versions that changed, and you attribute every entry to a release by
+hand.
+
+### Attribute commits to releases
+
+Collect commits over a **date window on `origin/master`**, then resolve each one with
+`git tag --contains`. Both ends of that recipe avoid branch topology, which is the part that goes
+wrong. Two traps make the obvious approaches return nonsense:
+
+- **Release tags are not on `master`.** Patch lines are tagged on release branches, so
+  `git merge-base --is-ancestor v1.7.0.10 master` is false and a `v1.7.0.10..HEAD` range comes
+  back nearly empty.
+- **Version order is not time order.** `v1.8.0rc3` was tagged 2026-09-07, ten days _before_
+  `v1.7.0.11rc4` on 2026-09-17, and `v1.7.0.1` (2026-09-03) came a month after `v1.7.0.2`
+  (2026-08-06). Neither `sort -V | tail -1` nor a range between adjacent tags means what it looks
+  like it means.
+
+Run this from the repository root, with `<last-documented>` set to the newest version already in
+the changelog:
+
+```bash
+# Releases are tagged on the acryl remote; master lives on origin.
+git fetch acryl --tags && git fetch origin
+
+# Collect every commit that reaches the published jar, from the last documented release onward.
+SINCE=$(git log -1 --format=%cI v<last-documented>)
+git log --format='%H|%ci|%s' --since="$SINCE" origin/master -- \
+  metadata-integration/java/acryl-spark-lineage/ \
+  metadata-integration/java/openlineage-converter/ \
+  metadata-integration/java/datahub-client/src/main/ > /tmp/spark_commits.txt
+
+# Map each commit to the lowest-numbered GA release that contains it.
+while IFS='|' read -r sha date subj; do
+  tag=$(git tag --contains "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | head -1)
+  printf "%-12s %s  %s\n" "${tag:--unreleased-}" "${date:0:10}" "$subj"
+done < /tmp/spark_commits.txt | tac
+```
+
+Commits that resolve to no tag are unreleased and belong under `### Next`. A commit that reached a
+release only as a cherry-pick keeps a different SHA on the release branch. Spot-check anything that
+looks like it should have shipped: `git log --all --grep '#<pr-number>)'`.
+
+### Which paths count
+
+| Path                                                 | Why it reaches the jar                              |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `metadata-integration/java/acryl-spark-lineage/`     | The agent itself                                    |
+| `metadata-integration/java/openlineage-converter/`   | Shared OpenLineage-to-DataHub conversion, shaded in |
+| `metadata-integration/java/datahub-client/src/main/` | The REST, Kafka, file and S3 emitters, shaded in    |
+
+Skip changes confined to `src/test/`, `spark-smoke-test/`, or test-only `build.gradle`
+dependencies — they never reach users. To decide whether a dependency bump is user-visible, look
+at the runtime entries in its lockfile diff:
+
+```bash
+git show <sha> --format="" -- metadata-integration/java/acryl-spark-lineage/gradle.lockfile \
+  | grep '^[-+]' | grep 'runtimeClasspath' | grep -v 'testRuntimeClasspath$'
+```
+
+### Confirm what was actually published
+
+Tags and published jars are not the same set: some tags never reach GA, and release candidates are
+published too. Check Maven Central before writing version headings:
+
+```bash
+curl -s https://repo1.maven.org/maven2/io/acryl/acryl-spark-lineage_2.12/maven-metadata.xml \
+  | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g'
+```
+
+Give a heading only to GA versions. Keep changes that exist solely in an `rc` under `### Next`
+until that GA release ships.
+
+### Write the entries
+
+Match the conventions already in `README.md`:
+
+- Order versions newest first, above `### Version 0.2.18`.
+- Group bullets under `_Changes_`, `_Fixes_` and `_Dependencies_`.
+- Link each PR as `([#19254](https://github.com/datahub-project/datahub/pull/19254))`.
+- Describe the user-visible symptom of a fix, not the patch. Readers decide whether to upgrade
+  from the symptom.
+- Name any config key a change adds or alters, and update the "Configuration Options" table in the
+  same pass.
+- After a run of unlisted versions, state the gap — for example,
+  `_No agent changes in 1.7.0, 1.7.0.1, 1.7.0.2, 1.7.0.3, 1.7.0.6 or 1.7.0.7._` — so a reader can
+  tell a deliberate gap from a missing entry.
+
+Before committing, format with Gradle (never `npx prettier`):
+
+```bash
+./gradlew :datahub-web-react:mdPrettierWrite
+```
+
+### Prompt to hand an agent
+
+Run this from the repository root:
+
+> Update the `## Changelog` section of
+> `metadata-integration/java/acryl-spark-lineage/README.md` to cover every DataHub release
+> published since the newest version documented there.
+>
+> Follow the "Changelog and Release Notes" runbook in
+> `metadata-integration/java/acryl-spark-lineage/CLAUDE.md`. In particular:
+>
+> - Run `git fetch acryl --tags && git fetch origin` first; releases are tagged on the `acryl`
+>   remote and `master` lives on `origin`.
+> - Collect candidate commits with a `--since` date window on `origin/master`, then attribute each
+>   one with `git tag --contains <sha>`. Never range between two tags and never use `HEAD` as the
+>   endpoint: release tags sit on release branches, and version order is not time order.
+> - Cover `acryl-spark-lineage/`, `openlineage-converter/` and `datahub-client/src/main/`, and
+>   ignore test-only changes.
+> - Cross-check against the published versions in
+>   `https://repo1.maven.org/maven2/io/acryl/acryl-spark-lineage_2.12/maven-metadata.xml`, and give
+>   a heading only to GA versions.
+> - State explicitly which versions shipped no agent changes.
+> - For each user-facing change, read the diff and describe the symptom a user would see, and name
+>   any config key involved.
+> - Finish with `./gradlew :datahub-web-react:mdPrettierWrite`.
+>
+> Show me the diff. Do not commit or push.

@@ -61,6 +61,18 @@ task installPythonDeps(type: Exec, dependsOn: environmentSetup) {
     "touch ${sentinel_file}"
 }
 
+task testPythonScripts(type: Exec, dependsOn: installPythonDeps) {
+  inputs.files(project.fileTree(dir: 'sphinx', include: '*.py'))
+  inputs.files(project.fileTree(dir: 'sphinx/tests', include: '*.py'))
+  outputs.dir('sphinx/test-results')
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "pytest -vv sphinx/tests --junit-xml=sphinx/test-results/junit.sphinx.xml" +
+    // Both this suite and the metadata-ingestion script suite are published to the
+    // same job summary, so name it for the summary to stay attributable.
+    " -o junit_suite_name=docs-website-sphinx-pytest"
+}
+
 /*
   Re-trigger build if any markdown files change anywhere in the project
 */

@@ -1,7 +1,7 @@
 import { grey } from '@ant-design/colors';
-import { PlusOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
 import { Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Divider, Typography, message } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -164,6 +164,13 @@ const TagHeader = styled.div`
     align-items: top;
 `;
 
+const OwnersContainer = styled.div`
+    display: flex;
+    align-items: top;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
+
 const { Paragraph } = Typography;
 
 type Props = {
@@ -229,7 +236,8 @@ export default function TagStyleEntity({
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets only — result body is unused.
+                count: 0,
                 orFilters: generateOrFilters(UnionType.OR, entityFilters),
             },
         },
@@ -433,7 +441,7 @@ export default function TagStyleEntity({
                 </StatsBox>
                 <div>
                     <StatsLabel>{tcLabels('owners')}</StatsLabel>
-                    <div>
+                    <OwnersContainer>
                         {data?.tag?.ownership?.owners?.map((owner) => (
                             <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
                         ))}
@@ -444,14 +452,14 @@ export default function TagStyleEntity({
                             </Text>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                            <PlusOutlined />
+                            <Plus size={16} style={{ marginRight: 8 }} />
                             {ownersEmpty ? (
                                 <OwnerButtonEmptyTitle>{t('addOwners')}</OwnerButtonEmptyTitle>
                             ) : (
                                 <OwnerButtonTitle>{t('addOwners')}</OwnerButtonTitle>
                             )}
                         </Button>
-                    </div>
+                    </OwnersContainer>
                     <div>
                         {showAddModal && (
                             <EditOwnersModal

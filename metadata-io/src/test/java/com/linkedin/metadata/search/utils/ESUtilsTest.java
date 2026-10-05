@@ -9,8 +9,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -24,18 +27,29 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterSearchType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.core.rest.RestStatus;
@@ -157,6 +171,162 @@ public class ESUtilsTest {
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropUnderscoresAndDotsDefinitionV1.data()))));
+  }
+
+  /**
+   * Every hierarchical condition has to reach the rewrite chain carrying its own condition -- that
+   * is the seam the rewriters' condition switch keys off, and the single arm in {@code
+   * getQueryBuilderFromCriterionForSingleField} has to serve all three. Every other {@code
+   * ESUtilsTest} case passes {@link QueryFilterRewriteChain#EMPTY} or a bare mock, so the seam was
+   * untested in either direction.
+   */
+  @Test
+  public void testRewriteChainReceivesTheCriterionCondition() {
+    QueryFilterRewriteChain chain = mock(QueryFilterRewriteChain.class);
+    when(chain.rewrite(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+
+    OperationContext opContext = mock(OperationContext.class);
+    // EMPTY carries SearchContext's own default flags, which leave `fulltext` unset -- the shape
+    // that used to blow up deriving a search type on the way into the chain.
+    when(opContext.getSearchContext()).thenReturn(SearchContext.EMPTY);
+
+    List<Condition> conditions =
+        List.of(Condition.ANCESTORS_INCL, Condition.DESCENDANTS_INCL, Condition.RELATED_INCL);
+    for (Condition condition : conditions) {
+      ESUtils.getQueryBuilderFromCriterion(
+          buildCriterion("container", condition, "urn:li:container:foo"),
+          false,
+          new HashMap<>(),
+          opContext,
+          chain);
+    }
+
+    ArgumentCaptor<QueryFilterRewriterContext> contexts =
+        ArgumentCaptor.forClass(QueryFilterRewriterContext.class);
+    verify(chain, Mockito.times(conditions.size())).rewrite(any(), contexts.capture(), any());
+    assertEquals(
+        contexts.getAllValues().stream()
+            .map(QueryFilterRewriterContext::getCondition)
+            .collect(Collectors.toList()),
+        conditions,
+        "Expected each condition to reach the rewrite chain unchanged");
+  }
+
+  /**
+   * Search V3 entity indices keep keyword fields at the root: skipping the .keyword subfield must
+   * not switch the rewrite chain to its timeseries mode.
+   */
+  @Test
+  public void testBuildFilterQuerySkipsKeywordSuffixWithoutTimeseriesRewrites() {
+    QueryFilterRewriteChain chain = mock(QueryFilterRewriteChain.class);
+    when(chain.rewrite(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive"),
+                                buildCriterion(
+                                    "container",
+                                    Condition.ANCESTORS_INCL,
+                                    "urn:li:container:foo")))));
+
+    String rootFields =
+        ESUtils.buildFilterQuery(filter, false, true, new HashMap<>(), opContext, chain).toString();
+    String keywordSubfields =
+        ESUtils.buildFilterQuery(filter, false, new HashMap<>(), opContext, chain).toString();
+
+    assertFalse(rootFields.contains(".keyword"), rootFields);
+    assertTrue(rootFields.contains("\"platform\""), rootFields);
+    assertTrue(keywordSubfields.contains("platform.keyword"), keywordSubfields);
+    ArgumentCaptor<QueryFilterRewriterContext> contexts =
+        ArgumentCaptor.forClass(QueryFilterRewriterContext.class);
+    verify(chain, Mockito.times(2)).rewrite(any(), contexts.capture(), any());
+    contexts
+        .getAllValues()
+        .forEach(
+            context ->
+                assertNotEquals(context.getSearchType(), QueryFilterRewriterSearchType.TIMESERIES));
+  }
+
+  /** Unfiltered searches must hide non-latest versions just like filtered ones. */
+  @Test
+  public void testBuildFilterQueryNullFilterAppliesLatestVersionFlag() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    String withFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(true)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    String withoutFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+
+    assertTrue(withFlag.contains("isLatest"), withFlag);
+    assertFalse(withoutFlag.contains("isLatest"), withoutFlag);
+  }
+
+  @Test
+  public void testToV3EntityFilter() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    true,
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion(
+                                    "structuredProperties.retention.keyword",
+                                    Condition.EQUAL,
+                                    "90"),
+                                buildCriterion(
+                                    "_entityType",
+                                    Condition.EQUAL,
+                                    "DATA_PRODUCT",
+                                    "dataset",
+                                    "NOT_AN_ENTITY"),
+                                new Criterion()
+                                    .setField("owners.keyword")
+                                    .setCondition(Condition.EQUAL)))))
+            .setCriteria(
+                new CriterionArray(
+                    buildCriterion("domains.keyword", Condition.EQUAL, "urn:li:domain:a")));
+
+    Filter result = ESUtils.toV3EntityFilter(opContext, filter);
+
+    CriterionArray and = result.getOr().get(0).getAnd();
+    assertEquals(
+        and.get(0), buildCriterion("platform", Condition.EQUAL, true, "urn:li:dataPlatform:hive"));
+    // Structured property names resolve through the property definition
+    assertEquals(and.get(1).getField(), "structuredProperties.retention.keyword");
+    // UI and GraphQL send entity type enum names; V3 stores the registry entity name
+    assertEquals(and.get(2).getValues(), List.of("dataProduct", "dataset", "NOT_AN_ENTITY"));
+    // A criterion without values stays without values, so it is still skipped as on V2
+    assertEquals(and.get(3).getField(), "owners");
+    assertFalse(and.get(3).hasValues());
+    assertEquals(result.getCriteria().get(0).getField(), "domains");
+    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+    // The search DAO and the request handlers both normalize, so a second pass changes nothing
+    assertEquals(ESUtils.toV3EntityFilter(opContext, result), result);
   }
 
   @Test

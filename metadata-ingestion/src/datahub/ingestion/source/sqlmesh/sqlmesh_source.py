@@ -83,7 +83,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("SQLMesh")
 @config_class(SqlmeshSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(

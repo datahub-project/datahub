@@ -35,7 +35,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "Alle assertioner består",
     "health.noActiveIncidents": "Ingen aktive hendelser",
-    "health.testsPassing": "Alle tester består",
+    "health.noFailingGovernanceTests": "Ingen feilende styringstester",
     "lineage.downstreamCount_one": "{{count}} nedstrøms",
     "lineage.downstreamCount_other": "{{count}} nedstrøms",
     "lineage.upstreamCount_one": "{{count}} oppstrøms",

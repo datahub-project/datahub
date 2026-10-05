@@ -15,6 +15,7 @@ import {
     SEMANTIC_MODEL_METRICS_MODULE,
     SEMANTIC_MODEL_RELATIONSHIPS_MODULE,
     SQL_MODULE,
+    SUB_DATA_PRODUCTS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -41,7 +42,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            rows = [{ modules: [OUTPUT_PORTS_MODULE, ASSETS_MODULE] }];
+            rows = [{ modules: [OUTPUT_PORTS_MODULE, SUB_DATA_PRODUCTS_MODULE] }, { modules: [ASSETS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:

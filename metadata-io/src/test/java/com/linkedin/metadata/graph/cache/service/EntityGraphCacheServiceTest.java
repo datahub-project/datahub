@@ -262,7 +262,7 @@ public class EntityGraphCacheServiceTest {
   }
 
   @Test
-  public void expandReturnsHitForPresentSeedsWhenSomeSeedsMissingFromFullSnapshot() {
+  public void expandMissesWhenSomeSeedsMissingFromFullSnapshot() {
     String root = "urn:li:domain:root";
     String child = "urn:li:domain:child";
     String missing = "urn:li:domain:missing";
@@ -293,13 +293,20 @@ public class EntityGraphCacheServiceTest {
     when(distributedStore.getGeneration(CACHE_KEY)).thenReturn(1L);
     when(localViews.get(CACHE_KEY, 1L)).thenReturn(Optional.of(new EntityGraphView(edges)));
 
-    Set<String> expanded =
-        expandCached(
-            service, GRAPH_ID, SOURCE, TraversalDirection.REVERSE, Set.of(root, missing), 100);
+    GraphReadResult result =
+        service.expand(
+            GRAPH_ID,
+            SOURCE,
+            TraversalDirection.REVERSE,
+            Set.of(root, missing),
+            100,
+            EntityGraphCache.USE_DEFINITION_MAX_DEPTH,
+            ReadMode.CACHED);
 
-    assertTrue(expanded.contains(root));
-    assertTrue(expanded.contains(child));
-    assertFalse(expanded.contains(missing));
+    // Fail closed: mixed present+absent must not return a partial HIT expanding only present roots.
+    assertTrue(result.isMiss());
+    assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.ABSENT);
+    assertTrue(result.verticesOrEmpty().isEmpty());
   }
 
   @Test

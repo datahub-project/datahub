@@ -1,7 +1,7 @@
 """Unit tests for platform adapters."""
 
 import re
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import SQLAlchemyError
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import AthenaAdapter
@@ -39,7 +39,10 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import DEFAULT_QUANTILES
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    DEFAULT_QUANTILES,
+    ProfilingConnection,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -145,10 +148,10 @@ def mock_trino_engine() -> Any:
 @pytest.fixture
 def mock_athena_engine() -> Any:
     """Mock Athena engine with correct dialect."""
-    from pyathena import sqlalchemy_athena
+    from pyathena.sqlalchemy.rest import AthenaRestDialect
 
     engine = MagicMock()
-    engine.dialect = sqlalchemy_athena.AthenaDialect()
+    engine.dialect = AthenaRestDialect()
     return engine
 
 
@@ -363,8 +366,8 @@ class TestGenericAdapter:
         This prevents:
           - MSSQL integer truncation (`AVG(int_col)` returns int there).
           - MySQL/Doris precision loss (DECIMAL(N,4) for AVG over int columns).
-        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Catches future
-        regressions that drop `* 1.0` from base or re-add an MSSQL-specific override.
+        Catches future regressions that drop `* 1.0` from base or re-add an
+        MSSQL-specific override.
         """
         expr = adapter.get_mean_expr("my_col")
         rendered = compile_expr_to_sql(expr, mock_generic_engine.dialect)
@@ -375,11 +378,6 @@ class TestGenericAdapter:
         """Test generic adapter returns None for quantiles (not supported)."""
         expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
         assert expr is None
-
-    def test_get_sample_clause(self, adapter):
-        """Test generic adapter returns None for sample clause (not supported)."""
-        clause = adapter.get_sample_clause(1000)
-        assert clause is None
 
     def test_supports_row_count_estimation(self, adapter):
         """Test generic adapter doesn't support row count estimation."""
@@ -425,13 +423,13 @@ class TestMySQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 12345
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_rows.return_value = mock_result
 
         row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
 
         # Verify query was executed
-        assert mock_conn.execute.called
-        executed_query = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_rows.called
+        executed_query = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_mysql_engine.dialect)
 
         # Validate information_schema.tables query
@@ -481,13 +479,13 @@ class TestMSSQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 1.5
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_aggregate.return_value = mock_result
 
         adapter.get_column_stdev(real_table, "value_col", mock_conn)
 
-        assert mock_conn.execute.called
-        executed_query = mock_conn.execute.call_args[0][0]
-        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+        assert mock_conn.execute_aggregate.called
+        executed_expr = mock_conn.execute_aggregate.call_args[0][1]
+        sql = compile_expr_to_sql(executed_expr, mock_mssql_engine.dialect)
 
         # Must use STDEV (MSSQL's sample stddev function), never stddev_samp.
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
@@ -505,7 +503,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 1
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -520,7 +518,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 5
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result == 0.0
@@ -535,7 +533,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 0
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -547,14 +545,14 @@ class TestMSSQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.fetchone.return_value = (1.0, 2.0, 3.0, 4.0, 5.0)
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_rows.return_value = mock_result
 
         quantiles = adapter.get_column_quantiles(
             real_table, "value_col", mock_conn, quantiles=DEFAULT_QUANTILES
         )
 
         assert quantiles == [1.0, 2.0, 3.0, 4.0, 5.0]
-        executed_query = mock_conn.execute.call_args[0][0]
+        executed_query = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
 
         # Verify PERCENTILE_DISC, WITHIN GROUP, OVER (), and DISTINCT all present.
@@ -614,12 +612,12 @@ class TestPostgresAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 98765
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_rows.return_value = mock_result
 
         row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
 
-        assert mock_conn.execute.called
-        executed_query = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_rows.called
+        executed_query = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_postgres_engine.dialect)
 
         # Validate query uses pg_class and pg_namespace for reltuples
@@ -782,8 +780,10 @@ class TestSnowflakeAdapter:
         assert result.temp_table == "dh_sample_abc123"
         mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
 
-    def test_setup_profiling_no_row_count_conservative_sampling(self, adapter, config):
-        """When INFORMATION_SCHEMA row count is unavailable, be conservative and sample."""
+    def test_setup_profiling_no_row_count_uses_fixed_size_sampling(
+        self, adapter, config
+    ):
+        """When the row count is unavailable, sample by row count, not by fraction."""
         config.use_sampling = True
         config.sample_size = 10000
         adapter.config = config
@@ -795,14 +795,15 @@ class TestSnowflakeAdapter:
 
         with (
             patch.object(adapter, "_get_row_count_from_metadata", return_value=None),
+            patch.object(adapter, "_create_sampled_temp_table") as mock_fraction,
             patch.object(
-                adapter, "_create_sampled_temp_table", return_value=context
-            ) as mock_sample,
+                adapter, "_create_fixed_size_sampled_temp_table", return_value=context
+            ) as mock_fixed_size,
         ):
             adapter.setup_profiling(context, mock_conn)
 
-        # Should use sample_size * 10 as effective row count
-        mock_sample.assert_called_once_with(context, mock_conn, 100_000)
+        mock_fraction.assert_not_called()
+        mock_fixed_size.assert_called_once_with(context, mock_conn)
 
     def test_setup_profiling_sampling_disabled(self, adapter, config):
         """When use_sampling=False, profile the original table directly."""
@@ -879,7 +880,7 @@ class TestSnowflakeAdapter:
         assert result.is_sampled
 
     def test_setup_profiling_custom_sql_rejected(self, adapter):
-        """custom_sql is GE-only; the SQLAlchemy adapter rejects it."""
+        """The SQLAlchemy adapter rejects custom_sql."""
         context = ProfilingContext(
             schema="MY_SCHEMA",
             table="MY_TABLE",
@@ -1004,6 +1005,51 @@ class TestSnowflakeAdapter:
         # Temp name should NOT be quoted (no double quotes around dh_sample_...)
         assert '"dh_sample_' not in executed_sql
         assert "dh_sample_" in executed_sql
+
+    def test_fixed_size_sampled_temp_table_sql(self, adapter, config):
+        """An unknown row count samples a fixed number of rows, not a percentage."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_fixed_size_sampled_temp_table(context, mock_conn)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "CREATE OR REPLACE TEMPORARY TABLE" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (10000 ROWS)" in executed_sql
+        # Fixed-size sampling is incompatible with both of these.
+        assert "BLOCK" not in executed_sql
+        assert "SEED" not in executed_sql
+        assert context.is_sampled
+        assert context.temp_table is not None
+        # The fraction of the table sampled is unknowable without a row count.
+        assert context.sample_percentage is None
+
+    def test_fixed_size_sample_clamped_to_snowflake_limit(
+        self, adapter, config, report
+    ):
+        """sample_size above Snowflake's fixed-size cap is clamped and reported."""
+        config.sample_size = 5_000_000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_fixed_size_sampled_temp_table(context, mock_conn)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "TABLESAMPLE BERNOULLI (1000000 ROWS)" in executed_sql
+        assert any("sample size reduced" in w.title.lower() for w in report.warnings)
 
     # =========================================================================
     # _get_row_count_from_metadata tests
@@ -1261,7 +1307,7 @@ class TestBigQueryAdapter:
         mock_raw_conn.close.assert_called_once()
 
     def test_setup_sampling_samples_partition_temp_table(self, adapter, config):
-        """A partition temp table (from step 1) is itself sampled, matching GE."""
+        """A partition temp table (from step 1) is itself sampled."""
         config.use_sampling = True
         config.sample_size = 1000
         adapter.config = config
@@ -1379,6 +1425,174 @@ class TestDatabricksAdapter:
         # Validate approx_percentile(latency, 0.5)
         pattern = r"\bapprox_percentile\b.*\blatency\b.*\b0\.5\b"
         assert_sql_matches_pattern(sql, pattern)
+
+    def test_map_databricks_column_type_variant(self, adapter):
+        from databricks.sqlalchemy._types import TIMESTAMP, TIMESTAMP_NTZ
+        from sqlalchemy.sql import sqltypes
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            map_databricks_column_type,
+        )
+
+        assert map_databricks_column_type("variant") is sqltypes.NullType
+        assert map_databricks_column_type("VARIANT") is sqltypes.NullType
+        # ^\w+ strips the precision suffix so "decimal(10,2)" still resolves to decimal.
+        assert map_databricks_column_type("decimal(10,2)") is sqltypes.Numeric
+        assert map_databricks_column_type("int") is sqltypes.Integer
+        assert map_databricks_column_type("timestamp_ntz") is TIMESTAMP_NTZ
+        # Missing from the vendor map, which would otherwise raise KeyError.
+        assert map_databricks_column_type("timestamp_ltz") is TIMESTAMP
+        assert map_databricks_column_type("geography") is sqltypes.NullType
+        # Unparseable / missing type names fall back to NULL instead of raising.
+        assert map_databricks_column_type("") is sqltypes.NullType
+        assert map_databricks_column_type(None) is sqltypes.NullType
+
+    def test_get_columns_tolerates_variant(self, adapter, mock_databricks_engine):
+        from databricks.sqlalchemy._types import TIMESTAMP
+        from sqlalchemy.sql import sqltypes
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
+
+        class _Col:
+            def __init__(self, name: str, type_name: str) -> None:
+                self.COLUMN_NAME = name
+                self.TYPE_NAME = type_name
+                self.NULLABLE = 1
+                self.COLUMN_DEF = None
+                self.REMARKS = None
+
+        class _Cursor:
+            def __init__(self) -> None:
+                self.calls = 0
+                self.captured_kwargs: Dict[str, Any] = {}
+
+            def columns(self, **kwargs: Any) -> "_Cursor":
+                self.calls += 1
+                self.captured_kwargs = kwargs
+                return self
+
+            def fetchall(self) -> list:
+                return [
+                    _Col("id", "int"),
+                    _Col("payload", "variant"),
+                    _Col("event_time", "timestamp_ltz"),
+                    _Col("amount", "DECIMAL(10,2)"),
+                ]
+
+            def __enter__(self) -> "_Cursor":
+                return self
+
+            def __exit__(self, *args: Any) -> None:
+                return None
+
+        cursor = _Cursor()
+        dialect.get_connection_cursor = lambda connection: cursor
+        columns = dialect.get_columns(None, "events_with_variant")
+        assert cursor.calls == 1
+        # Reflection resolves catalog/schema off the dialect.
+        assert cursor.captured_kwargs == {
+            "catalog_name": "my_catalog",
+            "schema_name": "my_schema",
+            "table_name": "events_with_variant",
+        }
+        assert [col["name"] for col in columns] == [
+            "id",
+            "payload",
+            "event_time",
+            "amount",
+        ]
+        assert columns[0]["type"] is sqltypes.Integer
+        assert columns[1]["type"] is sqltypes.NullType
+        assert columns[2]["type"] is TIMESTAMP
+        # Known types still go through the vendor parser, which keeps precision.
+        assert (columns[3]["type"].precision, columns[3]["type"].scale) == (10, 2)
+
+    def test_vendor_get_columns_calls_our_parser(self, mock_databricks_engine):
+        # The patch replaces a private vendor module global. If databricks-
+        # sqlalchemy renames it or stops resolving through it, the patch is a
+        # silent no-op; this fails instead. patch.object also raises if the
+        # attribute is gone.
+        import databricks.sqlalchemy.base as databricks_dialect_base
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        parser_attr = "parse_column_info_from_tgetcolumnsresponse"
+        assert getattr(databricks_dialect_base, parser_attr) is (
+            _tolerant_parse_column_info
+        )
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
+        row = Mock(
+            COLUMN_NAME="payload",
+            TYPE_NAME="variant",
+            NULLABLE=1,
+            COLUMN_DEF=None,
+            REMARKS=None,
+        )
+        cursor = MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.columns.return_value.fetchall.return_value = [row]
+        dialect.get_connection_cursor = lambda connection: cursor
+
+        with patch.object(
+            databricks_dialect_base, parser_attr, wraps=_tolerant_parse_column_info
+        ) as spy:
+            dialect.get_columns(None, "events")
+        spy.assert_called_once_with(row)
+
+    def test_unmapped_type_reported_once_per_type(self, adapter, report):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        def _table(name: str) -> sa.Table:
+            # Mirrors what reflection builds: SQLAlchemy copies the parsed
+            # column's "info" onto Column.info.
+            parsed = [
+                _tolerant_parse_column_info(
+                    Mock(
+                        COLUMN_NAME=col,
+                        TYPE_NAME=type_name,
+                        NULLABLE=1,
+                        COLUMN_DEF=None,
+                        REMARKS=None,
+                    )
+                )
+                for col, type_name in [
+                    ("geo", "geography"),
+                    ("payload", "variant"),
+                    ("ts", "timestamp_ltz"),
+                ]
+            ]
+            return sa.Table(
+                name,
+                sa.MetaData(),
+                *[
+                    sa.Column(p["name"], p["type"], info=p.get("info", {}))
+                    for p in parsed
+                ],
+            )
+
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.base_adapter."
+            "PlatformAdapter._create_sqlalchemy_table",
+            side_effect=[_table("t1"), _table("t2")],
+        ):
+            adapter._create_sqlalchemy_table("s", "t1")
+            adapter._create_sqlalchemy_table("s", "t2")
+
+        # VARIANT is deliberately NULL and TIMESTAMP_LTZ is mapped, so only the
+        # genuinely unknown type is reported -- once, despite two tables.
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert len(warnings[0].context) == 1
+        assert "geography" in warnings[0].context[0]
 
 
 class TestTrinoAdapter:
@@ -1506,7 +1720,7 @@ class TestClickHouseAdapter:
         assert_sql_matches_pattern(sql, r'quantile\(0\.5\)\(\s*"score"\s*\)')
         # Verify the label renders inside a SELECT — query combiner extracts by name.
         select_sql = compile_expr_to_sql(
-            sa.select([expr]), mock_clickhouse_engine.dialect
+            sa.select(expr), mock_clickhouse_engine.dialect
         )
         assert_sql_matches_pattern(select_sql, r"\bAS\s+median\b")
 
@@ -1525,12 +1739,12 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp() result is returned directly when ClickHouse returns a number."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = 12.5
+        mock_conn.execute_aggregate.return_value.scalar.return_value = 12.5
 
         result = adapter.get_column_stdev(real_table, "score", mock_conn)
 
         assert result == 12.5
-        executed = mock_conn.execute.call_args[0][0]
+        executed = mock_conn.execute_aggregate.call_args[0][1]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
 
@@ -1539,7 +1753,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.side_effect = [
+        mock_conn.execute_aggregate.return_value.scalar.side_effect = [
             None,  # stddevSamp result
             1,  # non-null count
         ]
@@ -1553,7 +1767,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.side_effect = [None, 10]
+        mock_conn.execute_aggregate.return_value.scalar.side_effect = [None, 10]
 
         result = adapter.get_column_stdev(mock_table, "score", mock_conn)
 
@@ -1564,7 +1778,9 @@ class TestClickHouseAdapter:
     ):
         """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = sa.exc.SQLAlchemyError("permission denied")
+        mock_conn.execute_aggregate.side_effect = sa.exc.SQLAlchemyError(
+            "permission denied"
+        )
 
         result = adapter.get_column_stdev(mock_table, "score", mock_conn)
 
@@ -1646,15 +1862,15 @@ class TestClickHouseAdapter:
     ):
         """Default quantiles use batched quantiles(...) call returning a list."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [
+        mock_conn.execute_rows.return_value.scalar.return_value = [
             float(i) for i in range(len(DEFAULT_QUANTILES))
         ]
 
         result = adapter.get_column_quantiles(real_table, "value", mock_conn)
 
         assert result == [float(i) for i in range(len(DEFAULT_QUANTILES))]
-        assert mock_conn.execute.call_count == 1
-        executed = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_rows.call_count == 1
+        executed = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         levels_pattern = ", ".join(re.escape(str(q)) for q in DEFAULT_QUANTILES)
         assert_sql_matches_pattern(
@@ -1666,7 +1882,7 @@ class TestClickHouseAdapter:
     ):
         """Result list ordering matches the input quantile ordering."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [10.0, 20.0]
+        mock_conn.execute_rows.return_value.scalar.return_value = [10.0, 20.0]
 
         result = adapter.get_column_quantiles(
             mock_table, "value", mock_conn, quantiles=[0.9, 0.1]
@@ -1677,7 +1893,7 @@ class TestClickHouseAdapter:
     def test_get_column_quantiles_empty_table_returns_nones(self, adapter, mock_table):
         """Driver returning None for empty table → list of Nones with correct length."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = None
+        mock_conn.execute_rows.return_value.scalar.return_value = None
 
         result = adapter.get_column_quantiles(
             mock_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
@@ -1696,12 +1912,12 @@ class TestClickHouseAdapter:
             adapter.get_column_quantiles(
                 mock_table, "value", mock_conn, quantiles=[-0.1]
             )
-        mock_conn.execute.assert_not_called()
+        mock_conn.execute_rows.assert_not_called()
 
     def test_get_column_quantiles_accepts_boundary_values(self, adapter, mock_table):
         """Boundary quantiles 0.0 and 1.0 are mathematically valid and accepted."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [0.0, 1.0]
+        mock_conn.execute_rows.return_value.scalar.return_value = [0.0, 1.0]
         result = adapter.get_column_quantiles(
             mock_table, "value", mock_conn, quantiles=[0.0, 1.0]
         )
@@ -1712,7 +1928,7 @@ class TestClickHouseAdapter:
     ):
         """Batch failure triggers per-quantile fallback; results length preserved."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             sa.exc.SQLAlchemyError("batch failed"),
             MagicMock(scalar=MagicMock(return_value=11.0)),
             MagicMock(scalar=MagicMock(return_value=22.0)),
@@ -1731,7 +1947,7 @@ class TestClickHouseAdapter:
     ):
         """When fallback succeeds for some and fails for others, per-position None."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             sa.exc.SQLAlchemyError("batch"),
             MagicMock(scalar=MagicMock(return_value=1.0)),
             sa.exc.SQLAlchemyError("q2"),
@@ -1752,7 +1968,7 @@ class TestClickHouseAdapter:
     ):
         """Non-numeric value in batch result (ValueError on float()) triggers fallback."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             MagicMock(scalar=MagicMock(return_value=["not_a_number"])),
             MagicMock(scalar=MagicMock(return_value=5.0)),
         ]
@@ -1769,7 +1985,7 @@ class TestClickHouseAdapter:
     ):
         """If the inner non_null_count query fails, the failure is still reported."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_aggregate.side_effect = [
             MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
             sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
         ]
@@ -1782,7 +1998,7 @@ class TestClickHouseAdapter:
     ):
         """Successful stdev should not pollute the report."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = 7.5
+        mock_conn.execute_aggregate.return_value.scalar.return_value = 7.5
 
         adapter.get_column_stdev(real_table, "score", mock_conn)
 
@@ -1793,7 +2009,7 @@ class TestClickHouseAdapter:
     ):
         """Successful batched quantiles should not emit any warnings."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [1.0, 2.0, 3.0]
+        mock_conn.execute_rows.return_value.scalar.return_value = [1.0, 2.0, 3.0]
 
         adapter.get_column_quantiles(
             real_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
@@ -1804,7 +2020,10 @@ class TestClickHouseAdapter:
     def test_get_column_quantiles_arity_mismatch_raises(self, adapter, real_table):
         """If the driver returns a wrong-length list, raise rather than silently truncate."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [1.0, 2.0]  # wrong length
+        mock_conn.execute_rows.return_value.scalar.return_value = [
+            1.0,
+            2.0,
+        ]  # wrong length
 
         with pytest.raises(RuntimeError, match=r"returned \d+ values for \d+"):
             adapter.get_column_quantiles(
@@ -1817,7 +2036,7 @@ class TestClickHouseAdapter:
         """Non-iterable batch result (TypeError on `for v in raw`) triggers fallback."""
         mock_conn = MagicMock()
         # Non-iterable int from driver triggers TypeError → per-quantile fallback.
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             MagicMock(scalar=MagicMock(return_value=42)),
             MagicMock(scalar=MagicMock(return_value=7.0)),
         ]
@@ -1834,7 +2053,7 @@ class TestClickHouseAdapter:
     ):
         """Per-quantile fallback that returns a non-numeric scalar yields None for that slot."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             sa.exc.SQLAlchemyError("batch failed"),
             MagicMock(scalar=MagicMock(return_value=1.0)),
             MagicMock(scalar=MagicMock(return_value="oops")),  # ValueError on float()
@@ -1858,7 +2077,7 @@ class TestClickHouseAdapter:
         )
 
         assert result == []
-        mock_conn.execute.assert_not_called()
+        mock_conn.execute_rows.assert_not_called()
 
     def test_format_context_with_missing_parts(self):
         """`_format_context` skips None parts and falls back to <unknown>."""
@@ -1882,3 +2101,106 @@ class TestClickHouseAdapter:
         t3.schema = None
         t3.name = None
         assert _format_context(t3) == "<unknown>"
+
+
+class TestExecuteAggregateGuard:
+    def test_plain_column_runs_untagged(self) -> None:
+        # A plain column merged with real aggregates returns one row on MySQL
+        # and SQLite, silently dropping the rest. It must still run.
+        table = sa.table("t", sa.column("v"))
+
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_EXECUTION_OPTION,
+        )
+
+        exprs: Any = (sa.column("v"), sa.column("v").label("x"))
+        for expr in exprs:
+            raw = MagicMock()
+            ProfilingConnection(raw).execute_aggregate(table, expr)
+            opts = raw.execute.call_args.args[0].get_execution_options()
+            # Untagged: it still runs, it just cannot be merged.
+            assert not opts.get(FLATTENABLE_EXECUTION_OPTION, False)
+
+    def test_aggregates_and_literal_columns_are_accepted(self) -> None:
+        # literal_column is how several adapters build their median.
+        conn = ProfilingConnection(MagicMock())
+        table = sa.table("t", sa.column("v"))
+
+        conn.execute_aggregate(table, sa.func.count())
+        conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)"))
+        conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)").label("median"))
+
+
+class TestRowCountRungChoice:
+    """get_row_count counts a whole table, so it must take the flattenable rung."""
+
+    @staticmethod
+    def _adapter() -> Any:
+        return GenericAdapter(
+            config=ProfilingConfig(enabled=True),
+            report=SQLSourceReport(),
+            base_engine=sa.create_engine("sqlite://"),
+        )
+
+    def test_unsampled_row_count_is_flattenable(self) -> None:
+        conn = MagicMock()
+        conn.execute_aggregate.return_value.scalar.return_value = 10
+        table = sa.table("t", sa.column("v"))
+
+        self._adapter().get_row_count(table, conn)
+
+        conn.execute_single_row.assert_not_called()
+        conn.execute_aggregate.assert_called_once()
+
+
+class TestExecuteAggregateTagging:
+    """Dropping the tag on this one line disables flattening everywhere."""
+
+    def test_aggregates_are_tagged_flattenable(self) -> None:
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_EXECUTION_OPTION,
+            SINGLE_ROW_EXECUTION_OPTION,
+        )
+
+        raw = MagicMock()
+        table = sa.table("t", sa.column("v"))
+        ProfilingConnection(raw).execute_aggregate(table, sa.func.count())
+
+        opts = raw.execute.call_args.args[0].get_execution_options()
+        assert opts[SINGLE_ROW_EXECUTION_OPTION] is True
+        assert opts[FLATTENABLE_EXECUTION_OPTION] is True
+
+    def test_the_built_statement_carries_no_clause(self) -> None:
+        # This is what makes the flatten path safe now that the combiner no
+        # longer re-derives it: execute_aggregate builds the statement, so a
+        # tagged query cannot carry a clause. If this ever stops holding --
+        # someone widening it to accept a pre-built query -- the combiner will
+        # merge whatever it is handed.
+        raw = MagicMock()
+        table = sa.table("t", sa.column("v"))
+        ProfilingConnection(raw).execute_aggregate(table, sa.func.count())
+
+        stmt = raw.execute.call_args.args[0]
+        assert stmt.whereclause is None
+        assert not stmt._group_by_clauses
+        assert not stmt._order_by_clauses
+        assert stmt._limit_clause is None
+        assert stmt._offset_clause is None
+        assert not stmt._distinct
+        assert len(list(stmt.inner_columns)) == 1
+
+    def test_opaque_literal_needs_an_explicit_claim(self) -> None:
+        # Nothing can tell MEDIAN(v) from v inside a literal_column, so the
+        # caller has to say which it is.
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_EXECUTION_OPTION,
+        )
+
+        table = sa.table("t", sa.column("v"))
+        for claim, expected in ((False, False), (True, True)):
+            raw = MagicMock()
+            ProfilingConnection(raw).execute_aggregate(
+                table, sa.literal_column("MEDIAN(v)"), literal_is_aggregate=claim
+            )
+            opts = raw.execute.call_args.args[0].get_execution_options()
+            assert opts.get(FLATTENABLE_EXECUTION_OPTION, False) is expected

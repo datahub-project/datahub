@@ -144,6 +144,19 @@ export const DATA_PRODUCTS_MODULE: PageModuleFragment = {
     },
 };
 
+export const SUB_DATA_PRODUCTS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:sub_data_products',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:subDataProducts.moduleName');
+        },
+        type: DataHubPageModuleType.SubDataProducts,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const RELATED_TERMS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:related_terms',
     type: EntityType.DatahubPageModule,

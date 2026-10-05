@@ -27,10 +27,7 @@ import org.springframework.util.StringUtils;
 @Slf4j
 public class EntityGraphCacheConfigLoader {
 
-  /**
-   * JSON overlay env var — merged after Spring defaults and optional config file (see rate
-   * limiter).
-   */
+  /** JSON overlay env var — merged after Spring defaults and the optional config file. */
   public static final String ENTITY_GRAPH_CACHE_CONFIG_JSON_ENV = "ENTITY_GRAPH_CACHE_CONFIG_JSON";
 
   private final ObjectMapper jsonMapper;

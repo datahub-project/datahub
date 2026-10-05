@@ -8,8 +8,14 @@ from typing import Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -26,11 +32,15 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -186,14 +196,18 @@ class SemanticViewsConfig(ConfigModel):
 
 
 class SnowflakeFilterConfig(SQLFilterConfig):
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         AllowDenyPattern(
             deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"],
         ),
         description="Regex patterns for databases to filter in ingestion.",
     )
 
-    schema_pattern: AllowDenyPattern = Field(
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter in ingestion. Will match against the full `database.schema` name if `match_fully_qualified_names` is enabled.",
     )
@@ -492,12 +506,15 @@ class SnowflakeV2Config(
 
     fetch_views_from_information_schema: bool = Field(
         default=False,
-        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
-        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
-        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
-        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
-        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
-        "to populate the missing definitions.",
+        description="If enabled, uses information_schema.views to fetch views instead of the SHOW VIEWS command. "
+        "Enable this if you need `view_pattern` pushdown (see `push_down_metadata_patterns`, which cannot push a "
+        "pattern list into SHOW VIEWS) or an accurate `last_altered`, which SHOW VIEWS does not report. "
+        "Trade-offs: information_schema.views only exposes VIEW_DEFINITION to a view's owner, so definitions for "
+        "views you don't own are backfilled with batched SHOW VIEWS queries; it needs a running warehouse, whereas "
+        "SHOW VIEWS does not; and it does not report materialized views, which are absent from "
+        "information_schema.views and not covered by the default `table_types`. "
+        "This option is no longer needed for databases with more than 10K views - the SHOW VIEWS path now "
+        "paginates per schema and is exact at any scale.",
     )
 
     include_technical_schema: bool = Field(

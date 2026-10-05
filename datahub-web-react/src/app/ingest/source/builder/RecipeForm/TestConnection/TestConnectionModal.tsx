@@ -1,6 +1,7 @@
 import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { Button, Divider, Modal, Typography } from 'antd';
+import { Button } from '@components';
+import { Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -13,6 +14,7 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
@@ -109,7 +111,11 @@ function TestConnectionModal({
         <Modal
             open
             onCancel={hideModal}
-            footer={<Button onClick={hideModal}>Done</Button>}
+            footer={
+                <ModalButtonContainer>
+                    <Button onClick={hideModal}>Done</Button>
+                </ModalButtonContainer>
+            }
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     <SourceIcon alt="source logo" src={logoUrl} />
