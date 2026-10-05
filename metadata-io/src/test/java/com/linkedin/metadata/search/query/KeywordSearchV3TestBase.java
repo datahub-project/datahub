@@ -184,6 +184,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final Urn TITLE_MATCH = UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_title)");
   private static final Urn DESCRIPTION_MATCH =
       UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_description)");
+  // Titled with a synonym of "staging" in the default synonym file, next to a title holding the
+  // word itself
+  private static final Urn STG_DASHBOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,stg)");
+  private static final Urn STAGING_DASHBOARD =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,staging_notes)");
+  // A one-word title that a query only matches as a substring
+  private static final Urn LIFETIME_DASHBOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,ltv)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -397,6 +404,27 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DashboardInfo()
                         .setTitle("Revenue totals")
                         .setDescription("Quarterly revenue archive")
+                        .setLastModified(new ChangeAuditStamps())),
+                STG_DASHBOARD,
+                events(
+                    STG_DASHBOARD,
+                    new DashboardInfo()
+                        .setTitle("stg")
+                        .setDescription("Load checks")
+                        .setLastModified(new ChangeAuditStamps())),
+                STAGING_DASHBOARD,
+                events(
+                    STAGING_DASHBOARD,
+                    new DashboardInfo()
+                        .setTitle("Staging notes")
+                        .setDescription("Load checks")
+                        .setLastModified(new ChangeAuditStamps())),
+                LIFETIME_DASHBOARD,
+                events(
+                    LIFETIME_DASHBOARD,
+                    new DashboardInfo()
+                        .setTitle("customerlifetimevalue")
+                        .setDescription("Load checks")
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
@@ -771,10 +799,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           type.getValue());
     }
 
-    // A quoted query runs no simple query, so only the phrase prefix reaches the description
+    // A quoted query runs no simple query, so only the exact and prefix matches on the identity
+    // fields (name, title, qualified name, id and urn) remain
     assertUrns(
         searchService
-            .search(fulltext, ENTITY_TYPES, "\"monthly orders\"", null, null, 0, 10)
+            .search(fulltext, ENTITY_TYPES, "\"orders by region\"", null, null, 0, 10)
             .getEntities(),
         ORDERS_CHART);
 
@@ -923,9 +952,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         ORDERS);
   }
 
-  /** The exact-match term reaches values longer than the removed tier keywords' 100 characters. */
+  /**
+   * A quoted phrase of four or more words matches a description holding all of them, here one
+   * longer than the 100 characters the removed tier keywords indexed.
+   */
   @Test
-  public void testExactMatchOnLongValue() {
+  public void testQuotedDescriptionPhrase() {
     ExplainResponse explain =
         searchService.explain(
             opContext.withSearchFlags(flags -> flags.setFulltext(true)),
@@ -940,7 +972,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             List.of());
     assertTrue(explain.isMatch());
     assertTrue(
-        explain.getExplanation().toString().contains("description.keyword"),
+        explain.getExplanation().toString().contains("description.delimited"),
         explain.getExplanation().toString());
   }
 
@@ -962,6 +994,40 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .map(SearchEntity::getEntity)
             .collect(Collectors.toList()),
         List.of(TITLE_MATCH, DESCRIPTION_MATCH));
+  }
+
+  /**
+   * The Stage 1 query puts the intended entity first for each kind of query it adds recall or
+   * ranking for. V2's all-terms query finds none of the typo, synonym or substring entities.
+   */
+  @Test
+  public void testStage1TopHits() {
+    // Exact name: the dataset named "orders" outranks the chart whose title starts with it
+    assertTopHit(ENTITY_TYPES, "orders", ORDERS);
+    // Fully qualified name, here the dataset key id
+    assertTopHit(ENTITY_TYPES, "sales.orders", ORDERS);
+    assertTopHit(ENTITY_TYPES, ORDERS.toString(), ORDERS);
+    // One edit away from "customers"
+    assertTopHit(List.of(DATASET_ENTITY_NAME), "custmers", CUSTOMERS);
+    // "staging" expands to its synonym "stg", an exact title, ahead of the title holding "staging"
+    assertTopHit(List.of(DASHBOARD_ENTITY_NAME), "staging", STG_DASHBOARD);
+    assertTopHit(List.of(DASHBOARD_ENTITY_NAME), "lifetime", LIFETIME_DASHBOARD);
+  }
+
+  private void assertTopHit(List<String> entityTypes, String query, Urn expected) {
+    SearchEntityArray hits =
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                entityTypes,
+                query,
+                null,
+                null,
+                0,
+                10)
+            .getEntities();
+    assertFalse(hits.isEmpty(), query);
+    assertEquals(hits.get(0).getEntity(), expected, query + ": " + hits);
   }
 
   /** The function scores of the custom search configuration rank an explore-all query. */
