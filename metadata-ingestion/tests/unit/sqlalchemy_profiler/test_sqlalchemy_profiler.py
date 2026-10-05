@@ -19,8 +19,14 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+    GenericAdapter,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombiner,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
@@ -34,6 +40,15 @@ from datahub.metadata.schema_classes import (
     PartitionTypeClass,
 )
 from datahub.utilities.stats_collections import float_top_k_dict
+
+
+def _inactive_combiner() -> SQLAlchemyQueryCombiner:
+    """A combiner that runs each query as it is scheduled, for tests with mocks."""
+    return SQLAlchemyQueryCombiner(
+        enabled=False,
+        catch_exceptions=True,
+        serial_execution_fallback_enabled=True,
+    )
 
 
 @pytest.fixture
@@ -107,6 +122,45 @@ def profiler(sqlite_engine, profiler_config, mock_report):
         platform="sqlite",
         env="TEST",
     )
+
+
+class TestNullStdevResolution:
+    """A NULL stddev is settled from the count already in hand, not a requery."""
+
+    @staticmethod
+    def _stdev_for(profiler, non_null_count):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        runner = MagicMock()
+        runner.adapter = GenericAdapter(profiler.config, SQLSourceReport(), MagicMock())
+        future = MagicMock()
+        future.result.return_value = None
+        column_profile = DatasetFieldProfileClass(fieldPath="value_col")
+        profiler._process_numeric_column_stats(
+            runner=runner,
+            sql_table=MagicMock(),
+            col_name="value_col",
+            column_profile=column_profile,
+            col_type=ProfilerDataType.INT,
+            cardinality=Cardinality.MANY,
+            non_null_count=non_null_count,
+            numeric_stats_futures={"value_col": {"stdev": future}},
+            pretty_name="test.table",
+        )
+        # No second query may be issued to settle it.
+        runner.get_column_non_null_count.assert_not_called()
+        return column_profile.stdev
+
+    def test_single_value_is_undefined(self, profiler):
+        assert self._stdev_for(profiler, 1) is None
+
+    def test_several_equal_values_are_zero_variance(self, profiler):
+        assert self._stdev_for(profiler, 5) is not None
+
+    def test_all_null_column_defers_to_the_adapter(self, profiler):
+        assert self._stdev_for(profiler, 0) is None
 
 
 class TestSQLAlchemyProfiler:
@@ -254,7 +308,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -325,7 +379,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -395,7 +449,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -431,7 +485,7 @@ class TestSQLAlchemyProfiler:
 
             # Should return tuple (request, None) and log warning, not raise
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Should return None for profile (error was caught)
@@ -530,6 +584,7 @@ class TestSQLAlchemyProfiler:
             column_profile=mock_column_profile,
             col_type=ProfilerDataType.FLOAT,
             cardinality=Cardinality.MANY,
+            non_null_count=10,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
         )
@@ -566,6 +621,7 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
                 },
@@ -581,6 +637,7 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
                 },
@@ -696,7 +753,7 @@ class TestSQLAlchemyProfiler:
 
             # Attempt to profile - should return None for failed profiling
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Verify that None is returned (no profile emitted on failure)
@@ -738,9 +795,8 @@ class TestSQLAlchemyProfiler:
         )
 
         # Define side effect that sets profile.rowCount = 0 and returns 0
-        def mock_profile_row_count(*args, **kwargs):
-            # The profile parameter is at index 3 (after self, runner, query_combiner, sql_table)
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -749,7 +805,7 @@ class TestSQLAlchemyProfiler:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -767,7 +823,7 @@ class TestSQLAlchemyProfiler:
 
             # Attempt to profile - should return basic profile
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
             # Verify that a basic profile is returned (not None)
@@ -937,8 +993,8 @@ class TestProfilingIsolationLevelRejection:
         metadata = sa.MetaData()
         sql_table = sa.Table("test_table", metadata, sa.Column("id", sa.Integer))
 
-        def mock_profile_row_count(*args, **kwargs):
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -947,7 +1003,7 @@ class TestProfilingIsolationLevelRejection:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -966,7 +1022,7 @@ class TestProfilingIsolationLevelRejection:
             mock_get_adapter.return_value = mock_adapter
 
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
         assert result_request == request
@@ -1028,8 +1084,8 @@ class TestProfilingIsolationLevelRejection:
         metadata = sa.MetaData()
         sql_table = sa.Table("test_table", metadata, sa.Column("id", sa.Integer))
 
-        def mock_profile_row_count(*args, **kwargs):
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -1049,7 +1105,7 @@ class TestProfilingIsolationLevelRejection:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -1102,8 +1158,8 @@ class TestProfilingIsolationLevelRejection:
         metadata = sa.MetaData()
         sql_table = sa.Table("test_table", metadata, sa.Column("id", sa.Integer))
 
-        def mock_profile_row_count(*args, **kwargs):
-            profile = args[3] if len(args) > 3 else kwargs.get("profile")
+        def mock_extract_row_count(*args, **kwargs):
+            profile = kwargs.get("profile")
             if profile:
                 profile.rowCount = 0
             return 0
@@ -1112,7 +1168,7 @@ class TestProfilingIsolationLevelRejection:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             patch.object(
-                profiler, "_profile_row_count", side_effect=mock_profile_row_count
+                profiler, "_extract_row_count", side_effect=mock_extract_row_count
             ),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
@@ -1126,7 +1182,7 @@ class TestProfilingIsolationLevelRejection:
             mock_get_adapter.return_value = mock_adapter
 
             result_request, result_profile = profiler._generate_profile_from_request(
-                None, request
+                _inactive_combiner(), request
             )
 
         assert result_request == request
@@ -1519,20 +1575,14 @@ class TestSampledPartitionSpec:
         profile = DatasetProfileClass(timestampMillis=0, partitionSpec=spec)
         context = ProfilingContext(pretty_name="t", table="t", is_sampled=True)
 
-        runner = MagicMock()
         row_count = MagicMock()
         row_count.result.return_value = 997
-        runner.batch.return_value.__enter__.return_value.get_row_count.return_value = (
-            row_count
-        )
 
-        measured = profiler._profile_row_count(
-            runner=runner,
-            sql_table=MagicMock(),
+        measured = profiler._extract_row_count(
+            row_count_future=row_count,
             profile=profile,
             context=context,
             pretty_name="t",
-            adapter=MagicMock(),
         )
 
         assert measured == 997
@@ -1562,3 +1612,188 @@ class TestSampledPartitionSpec:
 
         assert spec.type == PartitionTypeClass.PARTITION
         assert spec.partition == "20230906 SAMPLE"
+
+
+class TestEndToEndFailureHandling:
+    """Driven through generate_profiles, so the wiring is covered, not just the
+    helpers. Unit tests on the helpers alone let a reverted fix pass."""
+
+    @staticmethod
+    def _db(tmp_path, columns=12, rows=10):
+        engine = sa.create_engine(f"sqlite:///{tmp_path}/probe.db")
+        meta = sa.MetaData()
+        table = sa.Table(
+            "probe", meta, *[sa.Column(f"c{i}", Integer) for i in range(columns)]
+        )
+        conn = engine.connect()
+        meta.create_all(conn)
+        if rows:
+            conn.execute(
+                table.insert(),
+                [{f"c{i}": n for i in range(columns)} for n in range(rows)],
+            )
+        conn.commit()
+        return engine, conn
+
+    @staticmethod
+    def _profile(conn, flatten, **overrides):
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_enabled=True,
+            query_combiner_flatten_enabled=flatten,
+            include_field_sample_values=False,
+            include_field_median_value=False,
+            **overrides,
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=conn,
+            report=SQLSourceReport(),
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        request = ProfilerRequest(
+            pretty_name="main.probe", batch_kwargs={"table": "probe"}
+        )
+        results = list(
+            profiler.generate_profiles([request], max_workers=1, platform="sqlite")
+        )
+        return profiler, results[0][1]
+
+    @staticmethod
+    def _deny_table(engine, seen):
+        def deny(c, cur, statement, *_):
+            text = " ".join(statement.split())
+            if "probe" in text and text.upper().startswith(("SELECT", "WITH")):
+                seen.append(text)
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny)
+
+    @pytest.mark.parametrize("flatten", [False, True])
+    def test_unreadable_table_does_not_retry_every_column(self, tmp_path, flatten):
+        # The row count is a gate: once it fails alone the table cannot be read,
+        # so the remaining queries are resolved rather than issued.
+        engine, conn = self._db(tmp_path)
+        attempted: List[str] = []
+        self._deny_table(engine, attempted)
+
+        profiler, profile = self._profile(conn, flatten)
+
+        assert len(attempted) <= 3, attempted
+        assert profile is not None
+        assert profile.rowCount is None
+        assert not profile.fieldProfiles
+        assert profiler.report.query_combiner.queries_skipped_after_gate > 0
+
+    def test_a_single_column_unreadable_table_skips_the_unmatched_group(self, tmp_path):
+        # One column means one flatten group plus a lone distinct count, which
+        # lands in the unmatched set. Both the group loop and the unmatched
+        # block must honour the gate, and the serial retry must read the
+        # flush's record rather than starting from None.
+        engine, conn = self._db(tmp_path, columns=1)
+        attempted: List[str] = []
+        self._deny_table(engine, attempted)
+
+        profiler, profile = self._profile(conn, True)
+
+        assert len(attempted) <= 3, attempted
+        assert profile is not None
+        assert not profile.fieldProfiles
+
+    def test_one_failing_column_does_not_serialize_the_whole_table(self, tmp_path):
+        # Recovery is scoped to the chunk that failed, so later chunks are still
+        # combined instead of going one query per round trip.
+        engine, conn = self._db(tmp_path, columns=6)
+        failed = []
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split())
+            if "count(c3)" in text.replace('"', "") and "count(c0)" not in text:
+                failed.append(text)
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        # stddev_samp does not exist on SQLite, so leaving it on would fail
+        # every chunk and the assertion below would be met by the chunks that
+        # ran before the failure rather than by the scoping.
+        profiler, profile = self._profile(
+            conn,
+            False,
+            include_field_stddev_value=False,
+        )
+        report = profiler.report.query_combiner
+
+        assert profile is not None
+        # Only the chunk holding c3 goes one query per round trip. Without
+        # scoping the whole queue is demoted and this is an order of magnitude
+        # larger.
+        assert report.uncombined_queries_issued <= 3
+
+    def test_empty_table_with_a_failing_column_stops_at_the_count(self, tmp_path):
+        # Merging the row count into the column batch used to mean an empty
+        # table retried every column; an exact 0 now resolves the rest.
+        engine, conn = self._db(tmp_path, columns=12, rows=0)
+        issued: List[str] = []
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split()).replace('"', "")
+            if "probe" in text and text.upper().startswith(("SELECT", "WITH")):
+                issued.append(text)
+                if "count(c3)" in text:
+                    raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        profiler, profile = self._profile(conn, False)
+
+        assert len(issued) <= 2, issued
+        assert profile is not None
+        assert profile.rowCount == 0
+        assert not profile.fieldProfiles
+        assert profiler.report.query_combiner.queries_skipped_empty_table > 0
+        # An empty table is not an unreadable one.
+        assert profiler.report.query_combiner.queries_skipped_after_gate == 0
+
+    def test_non_empty_table_with_a_failing_column_keeps_its_field_profiles(
+        self, tmp_path
+    ):
+        # The count is read twice: once to decide whether to skip, once by the
+        # profiler. Consuming it the first time would report 0 rows here and
+        # drop every field profile without a warning.
+        engine, conn = self._db(tmp_path, columns=6, rows=10)
+
+        def deny_one(c, cur, statement, *_):
+            text = " ".join(statement.split()).replace('"', "")
+            if "count(c3)" in text and "count(c0)" not in text:
+                raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_one)
+
+        profiler, profile = self._profile(conn, False)
+
+        assert profile is not None
+        assert profile.rowCount == 10
+        assert len(profile.fieldProfiles or []) == 6
+        assert profiler.report.query_combiner.queries_skipped_empty_table == 0
+
+    def test_an_estimated_row_count_is_never_a_gate(self, tmp_path):
+        # The estimate is allowed to say 0 for a table that has data, so it must
+        # never short-circuit the column queries. Only the exact count may.
+        engine, conn = self._db(tmp_path, columns=3, rows=10)
+        with (
+            patch.object(
+                GenericAdapter, "supports_row_count_estimation", return_value=True
+            ),
+            patch.object(GenericAdapter, "get_estimated_row_count", return_value=0),
+        ):
+            profiler, profile = self._profile(
+                conn, False, profile_table_row_count_estimate_only=True
+            )
+
+        assert profile is not None
+        assert profile.rowCount == 0
+        # Stale statistics must not cost the table its column profiles.
+        assert len(profile.fieldProfiles or []) == 3
+        assert profiler.report.query_combiner.queries_skipped_empty_table == 0
