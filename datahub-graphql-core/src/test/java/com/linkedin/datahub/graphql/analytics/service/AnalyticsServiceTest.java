@@ -359,7 +359,7 @@ public class AnalyticsServiceTest {
             false),
         List.of());
     verify(mockClient, times(1)).search(any(), any(SearchRequest.class), any());
-    // The usage index is not a V3 entity index, so its .keyword field names are kept
+    // Field names pass through as given
     assertTrue(request.getValue().source().toString().contains("actorUrn.keyword"));
   }
 

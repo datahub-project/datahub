@@ -829,7 +829,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .toString();
     assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
-    // V3 stores the registry entity name in _entityType
+    // V3 stores the registry entity name in _entityType, a keyword field without a subfield
+    assertTrue(v3Filter.contains("\"_entityType\""), v3Filter);
+    assertFalse(v3Filter.contains("_entityType.keyword"), v3Filter);
     assertTrue(v3Filter.contains("\"dataProduct\""), v3Filter);
     assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
     // The caller's filter is left as given

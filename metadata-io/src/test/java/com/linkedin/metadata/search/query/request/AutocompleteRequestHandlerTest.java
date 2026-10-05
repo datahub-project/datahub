@@ -1260,7 +1260,7 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(query.contains("match_bool_prefix"));
     assertTrue(query.contains("_search.tier_1.full"));
     assertTrue(query.contains("_search.entityName"));
-    // V2 subfields do not exist on V3 indices
+    // V3 autocomplete still reads the tier fields, not the V2 subfields
     assertFalse(query.contains(".ngram"));
     assertFalse(query.contains(".delimited"));
     assertFalse(query.contains(".keyword"));

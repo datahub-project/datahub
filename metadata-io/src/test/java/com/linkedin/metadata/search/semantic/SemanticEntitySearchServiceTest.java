@@ -687,12 +687,17 @@ public class SemanticEntitySearchServiceTest {
             .setField("platform.keyword")
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(List.of("urn:li:dataPlatform:notion")));
+    Criterion entityType =
+        new Criterion()
+            .setField("_entityType")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(List.of("DOCUMENT")));
 
     v3Service.search(
         mockOpContext,
         List.of("document"),
         TEST_QUERY,
-        new Filter().setCriteria(new CriterionArray(platform)),
+        new Filter().setCriteria(new CriterionArray(platform, entityType)),
         null,
         0,
         10);
@@ -702,6 +707,8 @@ public class SemanticEntitySearchServiceTest {
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
     assertTrue(filter.contains("platform.keyword=[urn:li:dataPlatform:notion]"), filter);
+    // The entity type criterion of the deprecated form is rewritten to the V3 index too
+    assertTrue(filter.contains("_index=[documentindex_v3]"), filter);
   }
 
   @Test
