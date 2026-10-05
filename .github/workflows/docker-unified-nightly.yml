@@ -98,8 +98,8 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           else
             {
-              echo "test_runner_type=ubuntu-latest"
-              echo "test_runner_type_small=ubuntu-latest"
+              echo "test_runner_type=ubuntu-24.04"
+              echo "test_runner_type_small=ubuntu-24.04"
               echo "use_depot_cache=false"
             } >> "$GITHUB_OUTPUT"
           fi

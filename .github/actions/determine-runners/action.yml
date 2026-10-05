@@ -106,7 +106,7 @@ runs:
       env:
         IS_COMMUNITY_PR: ${{ inputs.is-community-pr }}
         DEPOT_CONFIG_SET: ${{ steps.depot-config-set.outputs.value }}
-      # depot-small for internal, ubuntu-latest for forks.
+      # depot-small for internal, GitHub-hosted ubuntu-24.04 for forks.
       run: |
         if [[ "$IS_COMMUNITY_PR" == "false" && "$DEPOT_CONFIG_SET" == "true" ]]; then
           echo "value=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"

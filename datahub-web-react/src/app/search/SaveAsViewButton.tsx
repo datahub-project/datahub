@@ -1,5 +1,5 @@
-import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Tooltip } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';

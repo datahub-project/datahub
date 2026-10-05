@@ -131,6 +131,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String modelEmbeddingKey;
   private final String nestedPath;
   private final String vectorField;
+  private final int expectedVectorDimension;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
   private final Set<String> warnedSharedIndexEntities = ConcurrentHashMap.newKeySet();
 
@@ -168,7 +169,31 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nonnull EmbeddingProvider embeddingProvider,
       @Nonnull MappingsBuilder mappingsBuilder,
       @Nonnull String modelEmbeddingKey) {
-    this(searchClient, embeddingProvider, mappingsBuilder, modelEmbeddingKey, null);
+    this(searchClient, embeddingProvider, mappingsBuilder, modelEmbeddingKey, 0, null);
+  }
+
+  /**
+   * Constructs a semantic entity search service that validates query embedding dimensions.
+   *
+   * @param searchClient shim abstraction over the underlying search cluster
+   * @param embeddingProvider provider capable of generating query embeddings
+   * @param mappingsBuilder mappings builder for the semantic indices
+   * @param modelEmbeddingKey the model embedding key (e.g., "cohere_embed_v3")
+   * @param expectedVectorDimension configured mapping dimension for the model; 0 disables the check
+   */
+  public SemanticEntitySearchService(
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull EmbeddingProvider embeddingProvider,
+      @Nonnull MappingsBuilder mappingsBuilder,
+      @Nonnull String modelEmbeddingKey,
+      int expectedVectorDimension) {
+    this(
+        searchClient,
+        embeddingProvider,
+        mappingsBuilder,
+        modelEmbeddingKey,
+        expectedVectorDimension,
+        null);
   }
 
   /**
@@ -187,12 +212,41 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nonnull MappingsBuilder mappingsBuilder,
       @Nonnull String modelEmbeddingKey,
       @Nullable EntityIndexConfiguration entityIndexConfiguration) {
+    this(
+        searchClient,
+        embeddingProvider,
+        mappingsBuilder,
+        modelEmbeddingKey,
+        0,
+        entityIndexConfiguration);
+  }
+
+  /**
+   * Constructs a semantic entity search service with both the embedding dimension guard and Search
+   * V3 read support.
+   *
+   * @param searchClient shim for the V2 semantic indices (the {@code semantic} component)
+   * @param embeddingProvider provider capable of generating query embeddings
+   * @param mappingsBuilder mappings builder for the semantic indices
+   * @param modelEmbeddingKey the model embedding key (e.g., "cohere_embed_v3")
+   * @param expectedVectorDimension configured mapping dimension for the model; 0 disables the check
+   * @param entityIndexConfiguration V2/V3 index flags and semantic settings; null keeps every read
+   *     on the V2 semantic indices
+   */
+  public SemanticEntitySearchService(
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull EmbeddingProvider embeddingProvider,
+      @Nonnull MappingsBuilder mappingsBuilder,
+      @Nonnull String modelEmbeddingKey,
+      int expectedVectorDimension,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     this.searchClient = Objects.requireNonNull(searchClient, "searchClientShim");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
     // Initialize with empty chain for POC - in production this would be injected
     this.queryFilterRewriteChain = QueryFilterRewriteChain.EMPTY;
     this.mappingsBuilder = Objects.requireNonNull(mappingsBuilder, "mappingsBuilder");
     this.modelEmbeddingKey = Objects.requireNonNull(modelEmbeddingKey, "modelEmbeddingKey");
+    this.expectedVectorDimension = expectedVectorDimension;
     this.nestedPath = EMBEDDINGS_PREFIX + modelEmbeddingKey + CHUNKS_SUFFIX;
     this.vectorField = nestedPath + VECTOR_SUFFIX;
     this.entityIndexConfiguration = entityIndexConfiguration;
@@ -252,6 +306,15 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     // 2) Generate query embedding
     // TODO: Make model configurable
     float[] queryEmbedding = embeddingProvider.embed(input, null, EmbeddingTaskType.QUERY);
+    if (expectedVectorDimension > 0 && queryEmbedding.length != expectedVectorDimension) {
+      throw new IllegalStateException(
+          "Embedding provider returned "
+              + queryEmbedding.length
+              + " dimensions for model '"
+              + modelEmbeddingKey
+              + "'; configured mapping expects "
+              + expectedVectorDimension);
+    }
 
     // 3) Get entity specs to extract field types
     List<EntitySpec> entitySpecs =

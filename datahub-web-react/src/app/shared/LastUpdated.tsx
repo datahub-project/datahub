@@ -1,6 +1,6 @@
 import { green, orange, red } from '@ant-design/colors';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Popover } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Image } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';

@@ -37,7 +37,11 @@ public class SemanticEntitySearchServiceFactory {
       @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder) {
 
     String modelEmbeddingKey = deriveModelEmbeddingKey();
-    log.info("Creating SemanticEntitySearchService with modelEmbeddingKey={}", modelEmbeddingKey);
+    int expectedVectorDimension = expectedVectorDimension(modelEmbeddingKey);
+    log.info(
+        "Creating SemanticEntitySearchService with modelEmbeddingKey={}, expectedVectorDimension={}",
+        modelEmbeddingKey,
+        expectedVectorDimension);
 
     EntityIndexConfiguration entityIndex =
         configurationProvider.getElasticSearch().getEntityIndex();
@@ -48,7 +52,25 @@ public class SemanticEntitySearchServiceFactory {
         embeddingProvider,
         mappingsBuilder,
         modelEmbeddingKey,
+        expectedVectorDimension,
         entityIndex);
+  }
+
+  /**
+   * Resolves the configured vector dimension for the active model so query embeddings are validated
+   * before hitting the engine; 0 disables the check when no dimension is configured.
+   */
+  private int expectedVectorDimension(@Nonnull final String modelEmbeddingKey) {
+    SemanticSearchConfiguration semanticSearchConfig =
+        configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+    if (semanticSearchConfig == null
+        || !semanticSearchConfig.isEnabled()
+        || semanticSearchConfig.getModels() == null
+        || semanticSearchConfig.getModels().get(modelEmbeddingKey) == null) {
+      return 0;
+    }
+    return Math.max(
+        0, semanticSearchConfig.getModels().get(modelEmbeddingKey).getVectorDimension());
   }
 
   /**

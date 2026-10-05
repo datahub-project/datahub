@@ -1,6 +1,6 @@
+import { Tooltip } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
-import { Tooltip } from '@components';
 import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';

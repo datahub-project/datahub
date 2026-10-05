@@ -68,6 +68,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     SchemaMetadataClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.field_paths import (
     get_simple_field_path_from_v2_field_path,
 )
@@ -89,11 +90,38 @@ KNOWN_CONNECTOR_PLATFORM_MAPPING = {
     "snowflake_distributed": "snowflake",
     "snowflake_parallel": "snowflake",
     "snowflake_jdbc": "snowflake",
+    "oracle": "oracle",
+    "starrocks": "starrocks",
 }
 
-TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg"]
+# Default tier layout used when no connector_database is configured for a catalog:
+# connectors listed here build two-tier (schema.table) URNs, others build three-tier.
+# Oracle defaults to two-tier (matching the `oracle` source with
+# add_database_name_to_urn=false); setting connector_database overrides this to force a
+# three-tier URN (e.g. Oracle with add_database_name_to_urn=true, or StarRocks reached
+# via the mysql connector).
+TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg", "oracle"]
 
 PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg", "lakehouse", "delta_lake"]
+
+
+def normalize_connector_database(platform: str, database: str) -> str:
+    """Normalize a configured connector_database the way the native source would.
+
+    Oracle stores unquoted identifiers in uppercase and the `oracle` source lowercases
+    them via SQLAlchemy's ``normalize_name``, so a `connector_database` copied verbatim
+    from Oracle (e.g. ``ORCLPDB1``) would otherwise build a URN the native ingestion
+    never produces. The rule is deliberately duplicated from ``oracle.normalize_db_name``
+    rather than imported: that module imports ``oracledb`` at module scope, which the
+    trino plugin does not depend on.
+
+    Only applied to Oracle -- the uppercase-means-unquoted convention is Oracle-specific
+    and would corrupt names for platforms that fold the other way (e.g. Snowflake).
+    """
+    if platform == "oracle":
+        return database.lower() if database.isupper() else database
+    return database
+
 
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
@@ -340,17 +368,26 @@ class TrinoSource(SQLAlchemySource):
             logging.debug(f"Platform '{connector_platform_name}' is not yet supported.")
             return None
 
-        if connector_platform_name in TWO_TIER_CONNECTORS:  # connector is two tier
+        # An explicit connector_database always produces a three-tier
+        # (database.schema.table) URN, taking precedence over TWO_TIER_CONNECTORS. This
+        # lets connectors DataHub can model either way opt into three-tier without a
+        # hard-coded assumption here -- e.g. Oracle ingested with
+        # add_database_name_to_urn=true. Without connector_database, a connector listed
+        # in TWO_TIER_CONNECTORS falls back to a two-tier (schema.table) URN.
+        if connector_details.connector_database:  # three tier
+            connector_database = normalize_connector_database(
+                connector_platform_name, connector_details.connector_database
+            )
             return make_dataset_urn_with_platform_instance(
                 platform=connector_platform_name,
-                name=f"{schema}.{table}",
+                name=f"{connector_database}.{schema}.{table}",
                 platform_instance=connector_details.platform_instance,
                 env=connector_details.env,
             )
-        elif connector_details.connector_database:  # else connector is three tier
+        elif connector_platform_name in TWO_TIER_CONNECTORS:  # two tier
             return make_dataset_urn_with_platform_instance(
                 platform=connector_platform_name,
-                name=f"{connector_details.connector_database}.{schema}.{table}",
+                name=f"{schema}.{table}",
                 platform_instance=connector_details.platform_instance,
                 env=connector_details.env,
             )
@@ -373,12 +410,20 @@ class TrinoSource(SQLAlchemySource):
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=source_dataset_urn,
-            aspect=Siblings(
-                primary=not self.config.trino_as_primary, siblings=[dataset_urn]
-            ),
-        ).as_workunit()
+        # The connector dataset belongs to the native source (e.g. the `oracle` source),
+        # not to Trino. Patch its Siblings rather than upserting the aspect, so an
+        # existing pairing (e.g. dbt <-> Oracle) is not overwritten, and mark the
+        # workunit non-primary so stateful ingestion does not record the native dataset
+        # in Trino's checkpoint -- otherwise Trino would soft-delete a dataset another
+        # source owns once the URN stops being emitted.
+        patch = DatasetPatchBuilder(source_dataset_urn)
+        patch.add_sibling(dataset_urn, primary=not self.config.trino_as_primary)
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
 
     def gen_lineage_workunit(
         self,

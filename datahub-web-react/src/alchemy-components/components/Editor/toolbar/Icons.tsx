@@ -8,6 +8,8 @@ export const CodeIcon = (props: SVGProps<SVGSVGElement>) => (
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 14 14"
         {...props}
+        aria-hidden="true"
+        focusable="false"
     >
         <path
             fillRule="evenodd"
