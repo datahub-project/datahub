@@ -1,6 +1,7 @@
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.engine.url import make_url
@@ -1013,15 +1014,12 @@ def test_query_log_aggregator_report_is_attached():
     assert source.report.query_log_aggregator is source._query_log_aggregator.report
 
 
-def test_query_log_respects_database_pattern(monkeypatch):
-    # The query log names every database on the instance, not just the ones this
-    # recipe ingests. Without the filter, excluded databases become datasets.
+def test_query_log_skips_undiscovered_tables(monkeypatch):
     config = ClickHouseConfig.model_validate(
         {
             "host_port": "localhost:8123",
             "include_query_log_lineage": True,
             "include_usage_statistics": True,
-            "database_pattern": {"allow": ["my_db"]},
             "start_time": "2020-04-14T00:00:00Z",
             "end_time": "2020-04-16T00:00:00Z",
         }
@@ -1047,20 +1045,38 @@ def test_query_log_respects_database_pattern(monkeypatch):
     assert _RAW_EVENTS in urns
 
 
-def test_query_log_respects_table_pattern_with_explicit_view_pattern(monkeypatch):
+def test_query_log_respects_inherited_table_pattern(monkeypatch):
     config = ClickHouseConfig.model_validate(
         {
             "host_port": "localhost:8123",
             "include_query_log_lineage": True,
             "include_usage_statistics": True,
             "table_pattern": {"deny": [r"my_db\.denied_.*"]},
-            "view_pattern": {"allow": [r"my_db\..*"]},
             "start_time": "2020-04-14T00:00:00Z",
             "end_time": "2020-04-16T00:00:00Z",
         }
     )
     source = ClickHouseSource(config, PipelineContext(run_id="test"))
-    source.discovered_datasets.add("my_db.raw_events")
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["raw_events", "denied_table"]
+    inspector.get_view_names.return_value = ["allowed_view", "denied_view"]
+    monkeypatch.setattr(source, "make_data_reader", lambda _: None)
+
+    def register_table(dataset_name: str, *args: Any, **kwargs: Any) -> List[Any]:
+        source.discovered_datasets.add(dataset_name)
+        return []
+
+    def register_view(*, dataset_name: str, **kwargs: Any) -> List[Any]:
+        source.discovered_datasets.add(dataset_name)
+        return []
+
+    monkeypatch.setattr(source, "_process_table", register_table)
+    monkeypatch.setattr(source, "_process_view", register_view)
+    list(source.loop_tables(inspector, "my_db", source.config))
+    list(source.loop_views(inspector, "my_db", source.config))
+
+    assert source.discovered_datasets == {"my_db.raw_events", "my_db.allowed_view"}
+
     denied_insert = _insert_row(query_id="i1")
     denied_insert._mapping["query"] = (
         "INSERT INTO denied_output SELECT col_a FROM denied_input"
@@ -1069,6 +1085,12 @@ def test_query_log_respects_table_pattern_with_explicit_view_pattern(monkeypatch
         _select_row(
             tables=("my_db.denied_input",),
             columns=("my_db.denied_input.col_a",),
+        ),
+        _select_row(
+            query_id="denied-view",
+            hash_value=77777,
+            tables=("my_db.denied_view",),
+            columns=("my_db.denied_view.col_a",),
         ),
         denied_insert,
         _select_row(query_id="allowed", hash_value=99999),
