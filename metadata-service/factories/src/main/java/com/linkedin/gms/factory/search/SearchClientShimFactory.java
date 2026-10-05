@@ -99,6 +99,8 @@ public class SearchClientShimFactory {
             "Search cluster '{}' resolves to an already-connected endpoint; reusing that client",
             clusterName);
         shims.put(clusterName, existing);
+        // Pool gauges stay registered under the first cluster's name only; the pool is shared, so
+        // registering it again would double-count its leased and waiting connections.
         continue;
       }
 

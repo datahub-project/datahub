@@ -93,6 +93,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
             ? pitExecutor
             : MicrometerMetricsRegistry.monitorExecutor(
                 PIT_EXECUTOR_METRIC_NAME, pitExecutor, metricUtils.getRegistry());
+    if (metricUtils != null && pitTaskExecutor == pitExecutor) {
+      // Executor metric names are registered once per JVM, so only the first DAO is monitored.
+      log.warn(
+          "Executor metrics for '{}' are already registered by another instance; this PIT pool is"
+              + " not monitored",
+          PIT_EXECUTOR_METRIC_NAME);
+    }
 
     log.info("Initialized PIT thread pool with {} threads and bounded queue", maxThreads);
   }
@@ -416,6 +423,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       }
     }
     if (metricUtils != null && response != null && response.getTook() != null) {
+      // recordTimer caches timers JVM-wide by name and tags, not by registry. That is fine with
+      // GMS's single registry, but a test reading these from its own registry must record first.
       long tookNanos = response.getTook().nanos();
       metricUtils.recordTimer(
           SEARCH_TOOK_METRIC, tookNanos, OPERATION_TAG, OPERATION_GRAPH_QUERY_PIT);

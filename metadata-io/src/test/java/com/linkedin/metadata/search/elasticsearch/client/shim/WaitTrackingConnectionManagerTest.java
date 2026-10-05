@@ -1,12 +1,19 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.expectThrows;
 
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpHost;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.NHttpClientConnection;
@@ -16,17 +23,32 @@ import org.testng.annotations.Test;
 
 public class WaitTrackingConnectionManagerTest {
 
+  private static WaitTrackingConnectionManager newManager() throws Exception {
+    return new WaitTrackingConnectionManager(
+        new DefaultConnectingIOReactor(IOReactorConfig.custom().setIoThreadCount(1).build()),
+        RegistryBuilder.<SchemeIOSessionStrategy>create()
+            .register("http", NoopIOSessionStrategy.INSTANCE)
+            .build());
+  }
+
+  private static HttpRoute loopbackRoute(int port) {
+    return new HttpRoute(new HttpHost(InetAddress.getLoopbackAddress(), port, "http"));
+  }
+
+  // The future completes before its callback runs, so the counter can lag get() briefly.
+  private static void awaitWaiting(WaitTrackingConnectionManager manager, int expected)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    while (manager.getWaiting() != expected && System.nanoTime() < deadline) {
+      Thread.sleep(5);
+    }
+    assertEquals(manager.getWaiting(), expected);
+  }
+
   @Test
   public void countsRequestsUntilTheLeaseEnds() throws Exception {
     // The reactor is never started, so lease requests stay queued until cancelled.
-    DefaultConnectingIOReactor ioReactor =
-        new DefaultConnectingIOReactor(IOReactorConfig.custom().setIoThreadCount(1).build());
-    WaitTrackingConnectionManager manager =
-        new WaitTrackingConnectionManager(
-            ioReactor,
-            RegistryBuilder.<SchemeIOSessionStrategy>create()
-                .register("http", NoopIOSessionStrategy.INSTANCE)
-                .build());
+    WaitTrackingConnectionManager manager = newManager();
     HttpRoute route = new HttpRoute(new HttpHost("localhost", 9200));
     try {
       Future<NHttpClientConnection> first =
@@ -44,6 +66,51 @@ public class WaitTrackingConnectionManagerTest {
       assertEquals(manager.getWaiting(), 0);
     } finally {
       manager.shutdown();
+    }
+  }
+
+  @Test(timeOut = 10000)
+  public void stopsCountingOnceALeaseIsGranted() throws Exception {
+    WaitTrackingConnectionManager manager = newManager();
+    manager.setDefaultMaxPerRoute(1);
+    try (ServerSocket server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        CloseableHttpAsyncClient client =
+            HttpAsyncClients.custom().setConnectionManager(manager).build()) {
+      client.start(); // runs the IO reactor
+      HttpRoute route = loopbackRoute(server.getLocalPort());
+
+      Future<NHttpClientConnection> first =
+          manager.requestConnection(route, null, 5000, 0, TimeUnit.MILLISECONDS, null);
+      NHttpClientConnection conn = first.get(5, TimeUnit.SECONDS);
+      assertNotNull(conn);
+      awaitWaiting(manager, 0);
+
+      // The only connection is leased, so the next request has to wait for it.
+      Future<NHttpClientConnection> second =
+          manager.requestConnection(route, null, 5000, 0, TimeUnit.MILLISECONDS, null);
+      assertEquals(manager.getWaiting(), 1);
+
+      manager.releaseConnection(conn, null, 1, TimeUnit.MINUTES);
+      assertNotNull(second.get(5, TimeUnit.SECONDS));
+      awaitWaiting(manager, 0);
+    }
+  }
+
+  @Test(timeOut = 10000)
+  public void stopsCountingWhenTheConnectFails() throws Exception {
+    int closedPort;
+    try (ServerSocket probe = new ServerSocket(0, 50, InetAddress.getLoopbackAddress())) {
+      closedPort = probe.getLocalPort();
+    }
+    WaitTrackingConnectionManager manager = newManager();
+    try (CloseableHttpAsyncClient client =
+        HttpAsyncClients.custom().setConnectionManager(manager).build()) {
+      client.start();
+      Future<NHttpClientConnection> lease =
+          manager.requestConnection(
+              loopbackRoute(closedPort), null, 5000, 0, TimeUnit.MILLISECONDS, null);
+      expectThrows(ExecutionException.class, () -> lease.get(5, TimeUnit.SECONDS));
+      awaitWaiting(manager, 0);
     }
   }
 }
