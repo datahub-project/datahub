@@ -49,7 +49,12 @@ export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => 
             <Header>
                 <Title>{t('docHint.title')}</Title>
                 <Tooltip showArrow={false} title={t('docHint.hideTooltip')}>
-                    <Button type="text" icon={<StyledCloseOutlined />} onClick={onHide} />
+                    <Button
+                        type="text"
+                        icon={<StyledCloseOutlined />}
+                        onClick={onHide}
+                        aria-label={t('docHint.hideTooltip')}
+                    />
                 </Tooltip>
             </Header>
             <Description>

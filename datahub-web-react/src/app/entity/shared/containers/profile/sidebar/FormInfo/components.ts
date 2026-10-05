@@ -54,7 +54,7 @@ export const StyledReadOutlined = styled(BookOpen)<{ addLineHeight?: boolean }>`
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;
 
-export const StyledReadFilled = styled(BookOpen)<{ addLineHeight?: boolean }>`
+export const StyledReadFilled = styled(BookOpen).attrs({ weight: 'fill' })<{ addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 13.72px;
     width: 17.5px;

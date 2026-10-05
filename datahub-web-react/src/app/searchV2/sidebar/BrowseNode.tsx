@@ -1,5 +1,5 @@
-import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Loader } from '@components';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Typography } from 'antd';
 import React, { CSSProperties } from 'react';
 import styled, { useTheme } from 'styled-components';

@@ -1,11 +1,11 @@
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import { Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DataHubViewType } from '@types';
-import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 
 const StyledLockOutlined = styled(Lock)<{ color }>`
     color: ${(props) => props.color};

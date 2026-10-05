@@ -1,5 +1,6 @@
 import { green, orange, red } from '@ant-design/colors';
 import { Popover } from '@components';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { Image } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -11,7 +12,6 @@ import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
-import { Question } from '@phosphor-icons/react/dist/csr/Question';
 
 const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${(props) => props.theme.colors.border};

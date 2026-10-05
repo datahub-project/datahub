@@ -1,11 +1,11 @@
 import { Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Button, Dropdown } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 
 const DownArrow = styled(CaretDown)`
     && {

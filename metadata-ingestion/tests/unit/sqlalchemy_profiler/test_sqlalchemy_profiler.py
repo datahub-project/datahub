@@ -4,7 +4,7 @@ import logging
 import sqlite3
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,12 +19,20 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
     format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
-from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
+)
 from datahub.utilities.stats_collections import float_top_k_dict
 
 
@@ -1494,3 +1502,63 @@ class TestFormatProfileValue:
     def test_string_type(self) -> None:
         assert format_profile_value("hello", ProfilerDataType.STRING) == "hello"
         assert format_profile_value(42, ProfilerDataType.STRING) == "42"
+
+
+class TestSampledPartitionSpec:
+    """A sampled profile's partitionSpec must be reproducible.
+
+    It is part of the emitted aspect, so anything derived from the sample's
+    actual size makes an unchanged table produce a different profile each run --
+    a BERNOULLI sample never lands on the same row count twice.
+    """
+
+    @staticmethod
+    def _partition_spec_for(
+        profiler: SQLAlchemyProfiler, spec: Optional[PartitionSpecClass]
+    ) -> PartitionSpecClass:
+        profile = DatasetProfileClass(timestampMillis=0, partitionSpec=spec)
+        context = ProfilingContext(pretty_name="t", table="t", is_sampled=True)
+
+        runner = MagicMock()
+        row_count = MagicMock()
+        row_count.result.return_value = 997
+        runner.batch.return_value.__enter__.return_value.get_row_count.return_value = (
+            row_count
+        )
+
+        measured = profiler._profile_row_count(
+            runner=runner,
+            sql_table=MagicMock(),
+            profile=profile,
+            context=context,
+            pretty_name="t",
+            adapter=MagicMock(),
+        )
+
+        assert measured == 997
+        assert profile.partitionSpec is not None
+        return profile.partitionSpec
+
+    def test_full_table_becomes_a_bare_sample_marker(
+        self, profiler: SQLAlchemyProfiler
+    ) -> None:
+        spec = self._partition_spec_for(
+            profiler,
+            PartitionSpecClass(
+                type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
+            ),
+        )
+
+        assert spec.type == PartitionTypeClass.QUERY
+        assert spec.partition == "SAMPLE"
+
+    def test_partition_keeps_its_id_and_gains_only_the_marker(
+        self, profiler: SQLAlchemyProfiler
+    ) -> None:
+        spec = self._partition_spec_for(
+            profiler,
+            PartitionSpecClass(type=PartitionTypeClass.PARTITION, partition="20230906"),
+        )
+
+        assert spec.type == PartitionTypeClass.PARTITION
+        assert spec.partition == "20230906 SAMPLE"

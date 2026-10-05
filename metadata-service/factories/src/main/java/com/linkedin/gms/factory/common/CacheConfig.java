@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.datahub.authentication.token.TokenRevocationMap;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.EvictionConfig;
@@ -202,6 +203,12 @@ public class CacheConfig {
     mapConfig.setEvictionConfig(evictionConfig);
     mapConfig.setName("default");
     return mapConfig;
+  }
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig accessTokenRevocationMapConfig() {
+    return TokenRevocationMap.mapConfig();
   }
 
   @Bean

@@ -1,3 +1,5 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Button, Dropdown } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,8 +11,6 @@ import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 
 import { AndFilterInput } from '@types';
-import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 const MenuIcon = styled(DotsThreeVertical)`
     font-size: 20px;
@@ -63,7 +63,7 @@ export default function SearchExtendedMenu({
                   label: (
                       <MenuItemStyle>
                           <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
-                              <PencilLine  />
+                              <PencilLine className="anticon" />
                               {t('searchExtendedMenu.edit')}
                           </SelectButton>
                       </MenuItemStyle>

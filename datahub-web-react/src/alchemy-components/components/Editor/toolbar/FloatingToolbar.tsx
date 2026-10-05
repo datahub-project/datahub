@@ -1,9 +1,9 @@
-import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
-import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
-import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
 import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
+import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
+import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { FloatingWrapper, useActive, useAttrs, useCommands } from '@remirror/react';
 import React, { useMemo, useState } from 'react';
 import { createMarkPositioner } from 'remirror/extensions';

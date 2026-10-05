@@ -30,6 +30,7 @@ import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -67,7 +68,9 @@ public class CreateStructuredPropertyResolver
             final Urn propertyUrn =
                 EntityKeyUtils.convertEntityKeyToUrn(key, STRUCTURED_PROPERTY_ENTITY_NAME);
 
-            if (_entityClient.exists(context.getOperationContext(), propertyUrn)) {
+            if (_entityClient.exists(
+                context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                propertyUrn)) {
               throw new IllegalArgumentException(
                   "A structured property already exists with this urn");
             }

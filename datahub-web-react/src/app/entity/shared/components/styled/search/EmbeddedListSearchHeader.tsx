@@ -1,3 +1,4 @@
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +13,6 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput } from '@types';
-import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -72,7 +72,7 @@ export default function EmbeddedListSearchHeader({
             <TabToolbar>
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
-                        <Funnel  />
+                        <Funnel className="anticon" />
                         <Typography.Text>{t('embeddedListSearch.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>

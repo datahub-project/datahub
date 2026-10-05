@@ -1,7 +1,7 @@
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 import { DetailsContainer } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
@@ -39,9 +39,13 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
             <SectionSubHeader>
                 <SubHeaderParagraph>{t('executions.logsSubtitle')}</SubHeaderParagraph>
                 <Tooltip title={t('executions.downloadLogs')}>
-                    <Button variant="text" onClick={downloadLogs}>
-                        <DownloadSimple />
-                    </Button>
+                    <Button
+                        variant="text"
+                        isCircle
+                        icon={{ icon: DownloadSimple, size: 'lg' }}
+                        aria-label={t('executions.downloadLogs')}
+                        onClick={downloadLogs}
+                    />
                 </Tooltip>
             </SectionSubHeader>
             <DetailsContainer>

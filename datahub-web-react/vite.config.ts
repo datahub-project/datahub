@@ -9,8 +9,11 @@ import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
-// eslint-disable-next-line import-alias/import-alias
+/* eslint-disable import-alias/import-alias */
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
+import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
+
+/* eslint-enable import-alias/import-alias */
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -203,6 +206,8 @@ export default defineConfig(async ({ mode }) => {
                 gitService: 'github',
             }),
             stripDotSlashFromAssets(),
+            // closeBundle order: 'post' — runs after vite-plugin-static-copy writes Monaco etc.
+            precompressAssetsPlugin(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -213,6 +218,10 @@ export default defineConfig(async ({ mode }) => {
             // Emit dist/.vite/manifest.json so the Play server can map entrypoints to
             // hashed filenames. Distinct from the PWA file at dist/manifest.json.
             manifest: true,
+            // Emit .map files without a sourceMappingURL comment, so browsers do not
+            // request maps from the public asset host. `vite build --sourcemap`
+            // (-Psourcemap, used by Cloudflare Pages) overrides this to linked maps.
+            sourcemap: 'hidden',
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,

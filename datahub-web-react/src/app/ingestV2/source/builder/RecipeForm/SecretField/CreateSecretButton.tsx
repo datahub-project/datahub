@@ -1,8 +1,8 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
 import { SecretBuilderState } from '@app/ingestV2/secret/types';

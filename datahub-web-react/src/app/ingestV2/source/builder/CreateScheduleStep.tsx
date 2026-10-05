@@ -1,11 +1,11 @@
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
-import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';

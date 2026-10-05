@@ -30,7 +30,7 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 # stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
 # current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
 # `apk add` whenever base packages need refreshing.
-ARG WOLFI_PKG_REFRESH=2026-08-31
+ARG WOLFI_PKG_REFRESH=2026-10-02
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
     apk add --no-cache --update-cache \
@@ -346,6 +346,16 @@ RUN rm -rf $HOME/.config/uv && \
     # in site-packages remain the source of truth.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
+# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. Load the shim from every venv so
+# snowflake-connector-python can import even if a subprocess clears PYTHONPATH.
+COPY --chown=datahub:datahub \
+    ./docker/snippets/openssl4_ssl_compat.py \
+    ./docker/snippets/openssl4-ssl-compat.pth \
+    ./docker/snippets/install_openssl4_ssl_compat.sh \
+    /tmp/openssl4-ssl-compat/
+RUN sh /tmp/openssl4-ssl-compat/install_openssl4_ssl_compat.sh /tmp/openssl4-ssl-compat \
+    && rm -rf /tmp/openssl4-ssl-compat
+
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
@@ -428,6 +438,16 @@ RUN rm -rf $HOME/.config/uv && \
     # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
     # in site-packages remain the source of truth.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
+
+# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. Load the shim from every venv so
+# snowflake-connector-python can import even if a subprocess clears PYTHONPATH.
+COPY --chown=datahub:datahub \
+    ./docker/snippets/openssl4_ssl_compat.py \
+    ./docker/snippets/openssl4-ssl-compat.pth \
+    ./docker/snippets/install_openssl4_ssl_compat.sh \
+    /tmp/openssl4-ssl-compat/
+RUN sh /tmp/openssl4-ssl-compat/install_openssl4_ssl_compat.sh /tmp/openssl4-ssl-compat \
+    && rm -rf /tmp/openssl4-ssl-compat
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -517,6 +537,16 @@ USER datahub
 # Defense in depth: if any pip/uv-style tool is reintroduced, default index URL is unusable.
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. Load the shim from every venv so
+# snowflake-connector-python can import even if a subprocess clears PYTHONPATH.
+COPY --chown=datahub:datahub \
+    ./docker/snippets/openssl4_ssl_compat.py \
+    ./docker/snippets/openssl4-ssl-compat.pth \
+    ./docker/snippets/install_openssl4_ssl_compat.sh \
+    /tmp/openssl4-ssl-compat/
+RUN sh /tmp/openssl4-ssl-compat/install_openssl4_ssl_compat.sh /tmp/openssl4-ssl-compat \
+    && rm -rf /tmp/openssl4-ssl-compat
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
