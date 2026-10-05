@@ -1,9 +1,9 @@
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 
 type Props = {
     key: string;
@@ -17,11 +17,7 @@ export const RemoveUserDefaultItem = ({ key, onClick }: Props) => {
     const { t } = useTranslation('entity.views');
     return (
         <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-remove-user-default">
-            <IconItemTitle
-                tip={t('menu.removeDefaultTooltip')}
-                title={t('menu.removeDefault')}
-                icon={<Prohibit  />}
-            />
+            <IconItemTitle tip={t('menu.removeDefaultTooltip')} title={t('menu.removeDefault')} icon={<Prohibit />} />
         </MenuItemStyle>
     );
 };

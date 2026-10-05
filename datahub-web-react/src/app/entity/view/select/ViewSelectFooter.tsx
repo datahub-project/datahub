@@ -1,10 +1,10 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Typography } from 'antd';
 import React, { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { NoMarginButton } from '@app/entity/view/select/styledComponents';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 const ButtonContainer = styled.div`
     display: flex;
@@ -59,7 +59,7 @@ export const ViewSelectFooter = ({ hasViews, onClickCreateView, onClickManageVie
                 bordered={hasViews}
                 onClick={onClickCreateView}
             >
-                <Plus  />
+                <Plus />
                 <Typography.Text>{t('viewSelect.createNewView')}</Typography.Text>
             </CreateViewButton>
             <ManageViewsButton type="text" ref={manageViewsButtonRef} onClick={onHandleClickManageViews}>

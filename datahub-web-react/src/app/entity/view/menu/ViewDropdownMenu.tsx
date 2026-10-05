@@ -1,4 +1,5 @@
 import { useApolloClient } from '@apollo/client';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +23,6 @@ import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
 import { useDeleteViewMutation } from '@graphql/view.generated';
 import { DataHubView, DataHubViewType } from '@types';
-import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 
 const MenuButton = styled(DotsThreeVertical)`
     width: 20px;

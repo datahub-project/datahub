@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -20,7 +21,6 @@ import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
 import { Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -236,7 +236,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }}  />
+                            <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
                                 {t('viewAll.resultsIncomplete')}{' '}
                                 {platform && (

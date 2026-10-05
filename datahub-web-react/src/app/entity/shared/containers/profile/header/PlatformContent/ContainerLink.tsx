@@ -1,3 +1,4 @@
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
@@ -7,7 +8,6 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Container, EntityType } from '@types';
-import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 
 const ContainerText = styled(Typography.Text)`
     font-size: 12px;

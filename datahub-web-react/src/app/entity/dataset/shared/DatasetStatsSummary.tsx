@@ -1,4 +1,9 @@
 import { Popover } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TerminalWindow } from '@phosphor-icons/react/dist/csr/TerminalWindow';
+import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
@@ -9,11 +14,6 @@ import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary'
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
-import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
-import { Table } from '@phosphor-icons/react/dist/csr/Table';
-import { TerminalWindow } from '@phosphor-icons/react/dist/csr/TerminalWindow';
-import { Users } from '@phosphor-icons/react/dist/csr/Users';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
@@ -62,7 +62,7 @@ export const DatasetStatsSummary = ({
                 disabled={isTooltipMode || !needsFormatting(rowCount)}
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
-                        <Table style={{ marginRight: 8, color: displayedColor }}  />
+                        <Table style={{ marginRight: 8, color: displayedColor }} />
                         {columnCount
                             ? t('dataset.rowsColumnsCount', {
                                   count: rowCount,
@@ -85,13 +85,13 @@ export const DatasetStatsSummary = ({
         ),
         !!sizeInBytes && (
             <StatText color={displayedColor}>
-                <HardDrives style={{ marginRight: 8, color: displayedColor }}  />
+                <HardDrives style={{ marginRight: 8, color: displayedColor }} />
                 <FormattedBytesStat bytes={sizeInBytes} />
             </StatText>
         ),
         (!!queryCountLast30Days || !!totalSqlQueries) && (
             <StatText color={displayedColor}>
-                <TerminalWindow style={{ marginRight: 8, color: displayedColor }}  />
+                <TerminalWindow style={{ marginRight: 8, color: displayedColor }} />
                 {queryCountLast30Days
                     ? t('dataset.queriesLastMonthCount', {
                           count: queryCountLast30Days,
@@ -105,7 +105,7 @@ export const DatasetStatsSummary = ({
         ),
         !!uniqueUserCountLast30Days && (
             <StatText color={displayedColor}>
-                <Users style={{ marginRight: 8, color: displayedColor }}  />
+                <Users style={{ marginRight: 8, color: displayedColor }} />
                 {t('dataset.uniqueUsersCount', {
                     count: uniqueUserCountLast30Days,
                     formattedCount: formatNumberWithoutAbbreviation(uniqueUserCountLast30Days),
@@ -126,7 +126,7 @@ export const DatasetStatsSummary = ({
                 }
             >
                 <StatText color={displayedColor}>
-                    <Clock style={{ marginRight: 8, color: theme.colors.textTertiary }}  />
+                    <Clock style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                     {tt('lastUpdated.updatedRelative', { relativeTime: toRelativeTimeString(lastUpdatedMs) })}
                 </StatText>
             </Popover>

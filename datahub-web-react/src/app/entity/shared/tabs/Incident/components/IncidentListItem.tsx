@@ -1,4 +1,8 @@
 import { Popover, Tooltip } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Button, Dropdown, List, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -18,10 +22,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useUpdateIncidentStatusMutation } from '@graphql/mutations.generated';
 import { useGetUserQuery } from '@graphql/user.generated';
 import { EntityType, Incident, IncidentState, IncidentType } from '@types';
-import { Check } from '@phosphor-icons/react/dist/csr/Check';
-import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
-import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 type Props = {
     incident: Incident;
@@ -330,9 +330,10 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     )}
                                 </IncidentResolvedText>
                             </Popover>
-                            <CheckCircle weight="fill"
+                            <CheckCircle
+                                weight="fill"
                                 style={{ fontSize: '28px', color: theme.colors.iconSuccess, marginLeft: '16px' }}
-                             />
+                            />
                             <Dropdown menu={{ items }} trigger={['click']}>
                                 <MenuIcon data-testid="incident-menu" />
                             </Dropdown>
@@ -340,15 +341,16 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     ) : (
                         <IncidentResolvedContainer>
                             <IncidentResolvedButton
-                                icon={<Check  />}
+                                icon={<Check />}
                                 onClick={() => handleResolved()}
                                 data-testid="resolve-incident"
                             >
                                 {t('resolution.resolveButton')}
                             </IncidentResolvedButton>
-                            <Warning weight="fill"
+                            <Warning
+                                weight="fill"
                                 style={{ fontSize: '28px', marginLeft: '16px', color: theme.colors.iconError }}
-                             />
+                            />
                         </IncidentResolvedContainer>
                     )}
                 </IncidentItemContainer>

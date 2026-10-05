@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
-import styled from 'styled-components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import styled from 'styled-components';
 
 export const StyledRightOutlined = styled(CaretRight)`
     color: ${(props) => props.theme.colors.textTertiary};
