@@ -34,4 +34,6 @@ export type ButtonTabsProps = {
     onTabClick?: (key: string) => void;
     fit?: TabButtonsFit;
     className?: string;
+    /** Fill the parent's height and let the active panel shrink, so panel content can scroll internally. */
+    fillHeight?: boolean;
 };
