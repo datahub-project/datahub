@@ -44,9 +44,13 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
             <SectionSubHeader>
                 <SubHeaderParagraph>{t('executions.recipeSubtitle')}</SubHeaderParagraph>
                 <Tooltip title={t('executions.downloadRecipe')}>
-                    <Button variant="text" onClick={downloadRecipe}>
-                        <DownloadSimple />
-                    </Button>
+                    <Button
+                        variant="text"
+                        isCircle
+                        icon={{ icon: DownloadSimple, size: 'lg' }}
+                        aria-label={t('executions.downloadRecipe')}
+                        onClick={downloadRecipe}
+                    />
                 </Tooltip>
             </SectionSubHeader>
             <DetailsContainer>

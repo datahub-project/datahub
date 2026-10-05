@@ -39,9 +39,13 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
             <SectionSubHeader>
                 <SubHeaderParagraph>{t('executions.logsSubtitle')}</SubHeaderParagraph>
                 <Tooltip title={t('executions.downloadLogs')}>
-                    <Button variant="text" onClick={downloadLogs}>
-                        <DownloadSimple />
-                    </Button>
+                    <Button
+                        variant="text"
+                        isCircle
+                        icon={{ icon: DownloadSimple, size: 'lg' }}
+                        aria-label={t('executions.downloadLogs')}
+                        onClick={downloadLogs}
+                    />
                 </Tooltip>
             </SectionSubHeader>
             <DetailsContainer>

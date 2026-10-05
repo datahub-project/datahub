@@ -1,9 +1,10 @@
-import { Tooltip } from '@components';
+import { Button as AlchemyButton, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button, Form, Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { StyledFormItem } from '@app/ingestV2/source/builder/RecipeForm/SecretField/SecretField';
@@ -42,7 +43,7 @@ const FieldsWrapper = styled.div`
     flex: 1;
 `;
 
-const StyledDeleteButton = styled(Button)`
+const DeleteButton = styled(AlchemyButton)`
     margin-left: 10px;
 `;
 
@@ -57,6 +58,8 @@ interface Props {
 }
 
 export default function DictField({ field, removeMargin }: Props) {
+    const { t } = useTranslation('common.actions');
+
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -96,9 +99,14 @@ export default function DictField({ field, removeMargin }: Props) {
                                     </StyledFormItem>
                                 ))}
                             </FieldsWrapper>
-                            <StyledDeleteButton onClick={() => remove(name)} type="text" shape="circle" danger>
-                                <Trash />
-                            </StyledDeleteButton>
+                            <DeleteButton
+                                variant="text"
+                                isCircle
+                                color="red"
+                                icon={{ icon: Trash, size: 'lg' }}
+                                aria-label={t('remove')}
+                                onClick={() => remove(name)}
+                            />
                         </SectionWrapper>
                     ))}
                     <StyledButton type="dashed" onClick={() => add()} icon={<Plus />}>

@@ -106,9 +106,13 @@ export const SummaryTab = ({
                             {tc('viewAll')}
                         </Button>
                         <Tooltip title={t('executions.downloadLogs')}>
-                            <Button variant="text" onClick={downloadLogs}>
-                                <DownloadSimple />
-                            </Button>
+                            <Button
+                                variant="text"
+                                isCircle
+                                icon={{ icon: DownloadSimple, size: 'lg' }}
+                                aria-label={t('executions.downloadLogs')}
+                                onClick={downloadLogs}
+                            />
                         </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
@@ -130,9 +134,13 @@ export const SummaryTab = ({
                                 {t('executions.viewMore')}
                             </Button>
                             <Tooltip title={t('executions.downloadRecipe')}>
-                                <Button variant="text" onClick={downloadRecipe}>
-                                    <DownloadSimple />
-                                </Button>
+                                <Button
+                                    variant="text"
+                                    isCircle
+                                    icon={{ icon: DownloadSimple, size: 'lg' }}
+                                    aria-label={t('executions.downloadRecipe')}
+                                    onClick={downloadRecipe}
+                                />
                             </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>
