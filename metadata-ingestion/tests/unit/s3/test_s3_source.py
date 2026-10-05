@@ -403,6 +403,67 @@ def test_ingest_table_records_schema_and_tagging_instrumentation(s3_resource):
     assert source.report.tables_tagged == 1
 
 
+def test_ingest_table_drops_schema_inferred_from_on_extraction_failure(s3_resource):
+    """With inference enabled but get_fields failing (e.g. credentials can list
+    but not read the object), ingest_table emits no SchemaMetadata and must not
+    leave a dangling schema_inferred_from naming a file whose schema was never
+    emitted."""
+    from datahub.metadata.schema_classes import (
+        DatasetPropertiesClass,
+        SchemaMetadataClass,
+    )
+
+    path_spec = PathSpec(
+        include="s3://my-bucket/my-folder/{table}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    bucket.put_object(Key="my-folder/table1/data.csv", Body="a,b\n1,2\n3,4\n")
+
+    source = S3Source.create(
+        config_dict={
+            "path_spec": {
+                "include": path_spec.include,
+                "table_name": path_spec.table_name,
+            },
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
+
+    # Simulate a read failure during schema inference while listing still works.
+    source.get_fields = Mock(side_effect=OSError("cannot read object"))
+
+    full_path = "s3://my-bucket/my-folder/table1/data.csv"
+    table_data = TableData(
+        display_name="table1",
+        is_s3=True,
+        full_path=full_path,
+        timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        table_path=full_path,
+        size_in_bytes=12,
+        number_of_files=1,
+    )
+
+    workunits = list(source.ingest_table(table_data, path_spec))
+    aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if hasattr(wu.metadata, "aspect") and wu.metadata.aspect is not None
+    ]
+
+    assert not any(isinstance(a, SchemaMetadataClass) for a in aspects)
+    source.get_fields.assert_called_once()
+
+    dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
+    assert "schema_inferred_from" not in dataset_props.customProperties
+
+
 def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     """
     Test S3Source.get_folder_info skips disallowed files and logs a message

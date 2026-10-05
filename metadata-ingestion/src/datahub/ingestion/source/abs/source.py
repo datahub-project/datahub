@@ -360,6 +360,9 @@ class ABSSource(StatefulIngestionSourceBase):
                 logger.error(
                     f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"

@@ -562,6 +562,9 @@ class S3Source(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"
