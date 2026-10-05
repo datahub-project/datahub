@@ -541,7 +541,24 @@ class SQLAlchemyQueryCombiner:
             if self.flatten_enabled:
                 self._execute_queue_flattened(pending_queue)
             else:
-                self._execute_cte_combine(pending_queue)
+                try:
+                    self._execute_cte_combine(pending_queue)
+                except Exception as e:
+                    # Recover only this chunk, as the flatten path does. Letting
+                    # it reach flush() would fall back the whole queue, so one
+                    # bad column would serialize every other query for the table.
+                    if not self.serial_execution_fallback_enabled:
+                        raise
+                    self.report.query_exceptions += 1
+                    logger.warning(
+                        f"Failed to execute combined query of "
+                        f"{len(pending_queue)} queries ({type(e).__name__}); "
+                        f"will run them one at a time."
+                    )
+                    logger.debug("Failed to execute combined query", exc_info=e)
+                    self._execute_futures_serially(
+                        [fut for fut in pending_queue.values() if not fut.done]
+                    )
 
     def _execute_cte_combine(self, pending_queue: Dict[str, _QueryFuture]) -> None:
         # Two or more queries are combined by putting each into its own CTE and
