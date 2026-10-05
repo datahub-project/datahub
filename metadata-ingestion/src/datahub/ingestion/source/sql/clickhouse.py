@@ -158,7 +158,7 @@ def _normalize_query_log_identifier(value: str) -> str:
     """Canonicalize a ClickHouse identifier using the query parser's dialect."""
     try:
         table = sqlglot.to_table(value, dialect="clickhouse")
-    except sqlglot.errors.SqlglotError:
+    except (sqlglot.errors.SqlglotError, TypeError, ValueError):
         return value
     return ".".join(part.name for part in table.parts)
 

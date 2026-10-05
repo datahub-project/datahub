@@ -711,6 +711,8 @@ def test_query_subjects_exclude_undiscovered_tables(monkeypatch):
         (r"`a\\b`", r"a\b"),
         ("a.b.c.d", "a.b.c.d"),
         ("`unterminated", "`unterminated"),
+        ("my_db..inner_id.9f8e-abc", "my_db..inner_id.9f8e-abc"),
+        ("a;b", "a;b"),
     ],
 )
 def test_normalize_query_log_identifier(raw: str, normalized: str) -> None:
