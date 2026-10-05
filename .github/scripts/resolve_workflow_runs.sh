@@ -26,6 +26,7 @@ MIN_LOOKBACK_DAYS=3
 MAX_LOOKBACK_DAYS=7
 
 usage() {
+    local exit_code="${1:-1}"
     cat <<EOF
 Usage: $0 --workflow NAME --repository OWNER/REPO [OPTIONS]
 
@@ -46,28 +47,43 @@ OPTIONS:
                                (default: 7)
     -h, --help                 Show this help message
 EOF
-    exit 1
+    exit "$exit_code"
+}
+
+# Value-taking flags must not read $2 when it is absent: set -u would abort
+# with "unbound variable" instead of this script's validation error.
+require_value() {
+    local flag="$1"
+    if [[ $# -lt 2 ]]; then
+        echo "Error: ${flag} requires a value" >&2
+        usage 1
+    fi
 }
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --workflow)
+            require_value "$@"
             WORKFLOW_NAME="$2"
             shift 2
             ;;
         --repository)
+            require_value "$@"
             REPOSITORY="$2"
             shift 2
             ;;
         --branch)
+            require_value "$@"
             BRANCH="$2"
             shift 2
             ;;
         --event)
+            require_value "$@"
             EVENT="$2"
             shift 2
             ;;
         --run-count)
+            require_value "$@"
             RUN_COUNT="$2"
             shift 2
             ;;
@@ -80,26 +96,28 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --min-lookback-days)
+            require_value "$@"
             MIN_LOOKBACK_DAYS="$2"
             shift 2
             ;;
         --max-lookback-days)
+            require_value "$@"
             MAX_LOOKBACK_DAYS="$2"
             shift 2
             ;;
         -h|--help)
-            usage
+            usage 0
             ;;
         *)
             echo "Unknown option: $1" >&2
-            usage
+            usage 1
             ;;
     esac
 done
 
 if [[ -z "$WORKFLOW_NAME" || -z "$REPOSITORY" ]]; then
     echo "Error: --workflow and --repository are required" >&2
-    usage
+    usage 1
 fi
 
 if ! [[ "$RUN_COUNT" =~ ^[1-9][0-9]*$ ]]; then
@@ -134,10 +152,13 @@ fi
 gh_api_retry() {
     local max_attempts=3 attempt=1 delay=5 rc=0
     while [ "$attempt" -le "$max_attempts" ]; do
+        # $? after a failed `if` is the status of the `if`, which is 0.
+        # Capture the command status in the else branch.
         if gh api "$@"; then
             return 0
+        else
+            rc=$?
         fi
-        rc=$?
         if [ "$attempt" -lt "$max_attempts" ]; then
             echo "gh api call failed (exit $rc); retrying in ${delay}s..." >&2
             sleep "$delay"

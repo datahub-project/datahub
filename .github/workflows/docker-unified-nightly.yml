@@ -155,10 +155,24 @@ jobs:
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
 
           # grep exits 1 when nothing matches; the empty check below reports that.
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print \
+          # Reject anything that is not a registry/name:tag so later jobs can
+          # split the list on whitespace without evaluating it as shell.
+          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          tags_file=$(mktemp)
+          depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print \
             | jq -cr '.target[].tags[]' \
             | { grep ':sha-' || true; } \
-            | sort -u | tr '\n' ' ')"
+            | sort -u > "$tags_file"
+          images=""
+          while IFS= read -r image; do
+            [[ -n "$image" ]] || continue
+            if [[ ! "$image" =~ $image_ref_re ]]; then
+              echo "Error: invalid image reference: ${image}" >&2
+              exit 1
+            fi
+            images+="${image} "
+          done < "$tags_file"
+          rm -f "$tags_file"
           if [[ -z "${images// }" ]]; then
             echo "Error: bake spec has no :sha- image tags" >&2
             exit 1
@@ -348,23 +362,32 @@ jobs:
       - name: Pull head images from registry
         if: |
           steps.parse-pytest-failures.outputs.parse_result != 'all_passed'
+        env:
+          DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
-          echo collected images "${{ needs.setup.outputs.datahub_images }}"
-          # Pull the latest head/master images from registry
+          printf '%s\n' "$DATAHUB_IMAGES"
+          # Split on whitespace. Do not eval the list: tags come from a build artifact.
+          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          read -r -a image_refs <<< "$DATAHUB_IMAGES"
+          if [[ ${#image_refs[@]} -eq 0 ]]; then
+            echo "Error: no images to pull" >&2
+            exit 1
+          fi
           failed_pulls=0
-          eval "set -- ${{ needs.setup.outputs.datahub_images }}"
-          for image do
-            if [ -n "$image" ]; then
-              echo "Pulling $image"
-              if ! docker pull "$image"; then
-                echo "Failed to pull $image"
-                failed_pulls=$((failed_pulls + 1))
-              else
-                # Re-tag the sha image with the nightly tag for smoke tests
-                newImage="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
-                echo "Tagging $image as $newImage"
-                docker tag "$image" "$newImage"
-              fi
+          for image in "${image_refs[@]}"; do
+            if [[ ! "$image" =~ $image_ref_re ]]; then
+              echo "Error: invalid image reference: ${image}" >&2
+              exit 1
+            fi
+            echo "Pulling $image"
+            if ! docker pull "$image"; then
+              echo "Failed to pull $image"
+              failed_pulls=$((failed_pulls + 1))
+            else
+              # Re-tag the sha image with the nightly tag for smoke tests
+              newImage="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
+              echo "Tagging $image as $newImage"
+              docker tag "$image" "$newImage"
             fi
           done
 
@@ -584,16 +607,25 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: Pull head images
+        env:
+          DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
+          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          read -r -a image_refs <<< "$DATAHUB_IMAGES"
+          if [[ ${#image_refs[@]} -eq 0 ]]; then
+            echo "Error: no images to pull" >&2
+            exit 1
+          fi
           failed_pulls=0
-          eval "set -- ${{ needs.setup.outputs.datahub_images }}"
-          for image do
-            if [ -n "$image" ]; then
-              echo "Pulling $image"
-              if ! docker pull "$image"; then
-                echo "Failed to pull $image"
-                failed_pulls=$((failed_pulls + 1))
-              fi
+          for image in "${image_refs[@]}"; do
+            if [[ ! "$image" =~ $image_ref_re ]]; then
+              echo "Error: invalid image reference: ${image}" >&2
+              exit 1
+            fi
+            echo "Pulling $image"
+            if ! docker pull "$image"; then
+              echo "Failed to pull $image"
+              failed_pulls=$((failed_pulls + 1))
             fi
           done
 
@@ -603,35 +635,44 @@ jobs:
           fi
 
       - name: Tag images with nightly and daily tags
+        env:
+          DATAHUB_IMAGES: ${{ needs.setup.outputs.datahub_images }}
         run: |
           # Tag all images with nightly and daily tags
 
+          image_ref_re='^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          read -r -a image_refs <<< "$DATAHUB_IMAGES"
+          if [[ ${#image_refs[@]} -eq 0 ]]; then
+            echo "Error: no images to tag" >&2
+            exit 1
+          fi
           failed_tags=0
           failed_pushes=0
-          eval "set -- ${{ needs.setup.outputs.datahub_images }}"
-          for image do
-            if [ -n "$image" ]; then
-              imageWithNightlyTag="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
-              echo "Tagging $image as $imageWithNightlyTag"
-              if ! docker tag "$image" "$imageWithNightlyTag"; then
-                echo "Failed to tag $imageWithNightlyTag"
-                failed_tags=$((failed_tags + 1))
-              fi
-              if ! docker push "$imageWithNightlyTag"; then
-                echo "Failed to push $imageWithNightlyTag"
-                failed_pushes=$((failed_pushes + 1))
-              fi
+          for image in "${image_refs[@]}"; do
+            if [[ ! "$image" =~ $image_ref_re ]]; then
+              echo "Error: invalid image reference: ${image}" >&2
+              exit 1
+            fi
+            imageWithNightlyTag="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
+            echo "Tagging $image as $imageWithNightlyTag"
+            if ! docker tag "$image" "$imageWithNightlyTag"; then
+              echo "Failed to tag $imageWithNightlyTag"
+              failed_tags=$((failed_tags + 1))
+            fi
+            if ! docker push "$imageWithNightlyTag"; then
+              echo "Failed to push $imageWithNightlyTag"
+              failed_pushes=$((failed_pushes + 1))
+            fi
 
-              imageWithDateTag="${image/:sha-???????/:${{ needs.setup.outputs.date_tag }}}"
-              echo "Tagging $image as $imageWithDateTag"
-              if ! docker tag "$image" "$imageWithDateTag"; then
-                echo "Failed to tag $imageWithDateTag"
-                failed_tags=$((failed_tags + 1))
-              fi
-              if ! docker push "$imageWithDateTag"; then
-                echo "Failed to push $imageWithDateTag"
-                failed_pushes=$((failed_pushes + 1))
-              fi
+            imageWithDateTag="${image/:sha-???????/:${{ needs.setup.outputs.date_tag }}}"
+            echo "Tagging $image as $imageWithDateTag"
+            if ! docker tag "$image" "$imageWithDateTag"; then
+              echo "Failed to tag $imageWithDateTag"
+              failed_tags=$((failed_tags + 1))
+            fi
+            if ! docker push "$imageWithDateTag"; then
+              echo "Failed to push $imageWithDateTag"
+              failed_pushes=$((failed_pushes + 1))
             fi
           done
 
