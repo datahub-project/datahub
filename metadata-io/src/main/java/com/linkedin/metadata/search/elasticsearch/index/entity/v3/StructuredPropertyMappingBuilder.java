@@ -108,7 +108,9 @@ public class StructuredPropertyMappingBuilder {
    * Per-property opt-out from the full-text field. Read only when the property's mapping is built:
    * system-update leaves the structuredProperties subtree out of its mapping diff, and copy_to
    * applies at index time, so changing it on a property already in an index needs that index
-   * rebuilt.
+   * recreated. Two properties whose names collide on one field (rejected by
+   * PropertyDefinitionValidator) and disagree on it get different mappings, so the collision
+   * resolver omits the field, as for any other divergent mapping.
    */
   private static boolean isExcludedFromFullTextSearch(
       @Nonnull StructuredPropertyDefinition definition) {
