@@ -729,11 +729,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
   }
 
-  /**
-   * V3 entity indices keep keyword fields at the root, so filters and value counts skip .keyword.
-   */
+  /** V3 root fields keep the V2 .keyword subfield, so filters and value counts use it as on V2. */
   @Test
-  public void testV3FiltersAndValueCountsUseRootKeywordFields() {
+  public void testV3FiltersAndValueCountsUseKeywordSubfields() {
     EntityIndexConfiguration entityIndex =
         EntityIndexConfiguration.builder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
@@ -766,8 +764,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY)
             .toString();
-    assertFalse(v3Filter.contains("platform.keyword"), v3Filter);
-    assertTrue(v3Filter.contains("\"platform\""), v3Filter);
+    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
 
     SearchRequestHandler v3Handler =
@@ -780,19 +777,18 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TEST_SEARCH_SERVICE_CONFIG);
     String valueCounts =
         v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
-    assertTrue(valueCounts.contains("\"field\":\"platform\""), valueCounts);
-    // A caller that names the V2 .keyword subfield counts the V3 root field
+    assertTrue(valueCounts.contains("\"field\":\"platform.keyword\""), valueCounts);
     String keywordValueCounts =
         v3Handler
             .getAggregationRequest(operationContext, "platform.keyword", null, 10)
             .source()
             .toString();
-    assertTrue(keywordValueCounts.contains("\"field\":\"platform\""), keywordValueCounts);
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform.keyword\""), keywordValueCounts);
   }
 
   /**
-   * Callers that name the V2 .keyword subfield, or send entity type enum names as the UI does,
-   * still match the V3 fields.
+   * V3 root fields keep the V2 .keyword subfield, so filters resolve as on V2; entity type enum
+   * names, as the UI sends them, still match the V3 _entityType field.
    */
   @Test
   public void testV3FilterNormalizesCallerFilters() {
@@ -831,10 +827,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY)
             .toString();
-    assertFalse(v3Filter.contains(".keyword"), v3Filter);
-    assertTrue(v3Filter.contains("\"platform\""), v3Filter);
+    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
-    // V3 stores the registry entity name in _entityType
+    // V3 stores the registry entity name in _entityType, a keyword field without a subfield
+    assertTrue(v3Filter.contains("\"_entityType\""), v3Filter);
+    assertFalse(v3Filter.contains("_entityType.keyword"), v3Filter);
     assertTrue(v3Filter.contains("\"dataProduct\""), v3Filter);
     assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
     // The caller's filter is left as given

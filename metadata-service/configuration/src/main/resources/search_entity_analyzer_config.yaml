@@ -16,7 +16,6 @@ entity_analyzer_config:
             type: word_delimiter_graph
             stem_english_possessive: true
           synonyms:
-            synonym_analyzer: standard
             type: synonym_graph
             lenient: false
             synonyms:
@@ -79,9 +78,6 @@ entity_analyzer_config:
               - lowercase
               - asciifolding
             type: custom
-            index_prefixes:
-              min_chars: 3
-              max_chars: 16
             tokenizer: alphanumeric_tokenizer_full
           full_syn_stemmer:
             filter:
@@ -96,11 +92,9 @@ entity_analyzer_config:
             tokenizer: unit_separator_pattern_tokenizer
         tokenizer:
           alphanumeric_tokenizer_full:
-            lowercase: true
             pattern: "[^a-zA-Z0-9]+"
             type: pattern
           alphanumeric_tokenizer:
-            lowercase: true
             pattern: "[^a-zA-Z0-9_-]+"
             type: pattern
           unit_separator_path_tokenizer:

@@ -42,9 +42,6 @@ entity_mapping_config:
         properties:
           entityName:
             type: keyword
-          browsePathV2:
-            type: text
-            analyzer: browse_path_v2_hierarchy
           _system_aspectCreated_actor:
             type: keyword
           _system_aspectCreated_time:
