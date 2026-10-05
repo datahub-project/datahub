@@ -1,11 +1,11 @@
 """Configuration classes for Fabric OneLake connector."""
 
-from typing import Annotated, Literal, Mapping, Optional, Sequence
+from typing import Annotated, Literal, Optional, Sequence
 
 from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, Filters
+from datahub.configuration.common import AllowDenyPattern, Enables, Filters
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -212,18 +212,23 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    # Feature flags
-    extract_lakehouses: bool = Field(
+    # Feature flags. source.py _process_workspace_items and _process_lakehouse /
+    # _process_warehouse never list a kind whose switch is off.
+    extract_lakehouses: Annotated[
+        bool, Enables(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
+    ] = Field(
         default=True,
         description="Whether to extract lakehouses and their tables.",
     )
 
-    extract_warehouses: bool = Field(
+    extract_warehouses: Annotated[
+        bool, Enables(DatasetContainerSubTypes.FABRIC_WAREHOUSE)
+    ] = Field(
         default=True,
         description="Whether to extract warehouses and their tables.",
     )
 
-    extract_views: bool = Field(
+    extract_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
         default=True,
         description=(
             "Whether to extract views and their definitions. "
@@ -289,16 +294,6 @@ class FabricOneLakeSourceConfig(
         )
 
         return FabricOneLakeMetadataProbe
-
-    @classmethod
-    def probe_kind_switches(cls) -> Mapping[str, str]:
-        # source.py _process_workspace_items and _process_lakehouse /
-        # _process_warehouse never list these kinds when the switch is off.
-        return {
-            str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE): "extract_lakehouses",
-            str(DatasetContainerSubTypes.FABRIC_WAREHOUSE): "extract_warehouses",
-            str(DatasetSubTypes.VIEW): "extract_views",
-        }
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """What contains each kind, outermost first.
