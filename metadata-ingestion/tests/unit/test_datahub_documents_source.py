@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -2271,24 +2271,49 @@ class TestFingerprintFollowsServerEmbeddingConfig:
     TEXT = "Analytics Knowledge -- how revenue is defined"
 
     def _run_source(
-        self, tmp_path: Path, server_config: ServerSemanticSearchConfig
+        self,
+        tmp_path: Path,
+        server_config: Union[ServerSemanticSearchConfig, Exception],
     ) -> DataHubDocumentsSource:
         config = DataHubDocumentsSourceConfig(
             datahub={"server": "http://test-server:8080"},
             incremental={"state_file_path": str(tmp_path / "state.json")},
+            locking={"enabled": False},
             stateful_ingestion={"enabled": False},
         )
         ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+        lookup: dict[str, Any] = (
+            {"side_effect": server_config}
+            if isinstance(server_config, Exception)
+            else {"return_value": server_config}
+        )
         with (
             patch(
                 "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
             ),
             patch(
                 "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config",
-                return_value=server_config,
+                **lookup,
             ),
         ):
             return DataHubDocumentsSource(ctx, config)
+
+    def _run_batch(self, source: DataHubDocumentsSource) -> Mock:
+        """One scheduled batch run over the test document; returns the embed mock."""
+        with (
+            patch.object(
+                source,
+                "_fetch_documents_graphql",
+                return_value=[{"urn": self.URN, "text": self.TEXT}],
+            ),
+            patch.object(
+                source.chunking_source,
+                "process_elements_inline",
+                return_value=iter([]),
+            ) as embed,
+        ):
+            list(source.get_workunits_internal())
+        return embed
 
     def _record_processed(self, source: DataHubDocumentsSource) -> None:
         source._update_document_state(self.URN, self.TEXT)
@@ -2352,6 +2377,23 @@ class TestFingerprintFollowsServerEmbeddingConfig:
         source = self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)
 
         assert "onnx_pooling" not in source._get_processing_config_fingerprint()
+
+    def test_failed_config_lookup_fails_run_and_keeps_saved_hashes(self, tmp_path):
+        # A transient AppConfig failure must not look like "semantic search off":
+        # that would re-hash every document without embedding it, then re-embed
+        # the whole corpus once the lookup recovers.
+        self._run_batch(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))
+        saved_state = (tmp_path / "state.json").read_text()
+
+        with pytest.raises(ValueError, match="embedding configuration"):
+            self._run_batch(
+                self._run_source(tmp_path, GraphError("AppConfig unavailable"))
+            )
+
+        assert (tmp_path / "state.json").read_text() == saved_state
+        recovered = self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3)
+        self._run_batch(recovered).assert_not_called()
+        assert recovered.report.num_documents_skipped_unchanged == 1
 
     def test_skips_unchanged_document_under_same_server_config(self, tmp_path):
         self._record_processed(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))

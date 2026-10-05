@@ -213,11 +213,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             embedding=self.config.embedding,
             max_documents=self.config.max_documents,
         )
+        # A failed config lookup must stop the run: treating it as "semantic search
+        # off" would re-hash every document unembedded, then re-embed them all.
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
             config=chunking_config,
             standalone=False,
             graph=self.graph,
+            fail_on_config_lookup_error=True,
         )
 
         # Initialize state tracking for incremental mode
