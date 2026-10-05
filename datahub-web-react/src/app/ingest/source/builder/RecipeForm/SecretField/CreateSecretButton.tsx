@@ -1,8 +1,8 @@
 import { blue } from '@ant-design/colors';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
 import { SecretBuilderState } from '@app/ingest/secret/types';

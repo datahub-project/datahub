@@ -17,6 +17,9 @@ dependencies {
   implementation externalDependency.guice
 
   annotationProcessor externalDependency.lombok
+  testImplementation(externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   testImplementation externalDependency.springBootTest

@@ -41,6 +41,9 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+# application-mce.yaml holds the port, health checks, GMS URI, and cache defaults.
+# An explicit SPRING_PROFILES_ACTIVE still overrides this image default.
+ENV SPRING_PROFILES_ACTIVE=mce
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
     OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=16777215 \
     OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \

@@ -73,7 +73,7 @@ ExpandableNode.HeaderLeft = styled.div`
     }
 `;
 
-const ChevronRightIconStyle = styled(CaretRight).attrs({ size: 18 })<{ isVisible?: boolean }>`
+const ChevronRightIconStyle = styled(CaretRight).attrs({ size: 12 })<{ isVisible?: boolean }>`
     &&& {
         color: ${(props) => props.theme.colors.icon};
         visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};

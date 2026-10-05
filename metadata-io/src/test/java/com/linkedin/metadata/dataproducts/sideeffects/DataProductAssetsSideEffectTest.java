@@ -524,6 +524,68 @@ public class DataProductAssetsSideEffectTest {
     return urns;
   }
 
+  @Test
+  public void testRestateEmitsAddForEveryUnmirroredMember() {
+    List<MCPItem> output =
+        runRestate(propsWith(DATASET_1, DATASET_2), propsWith(DATASET_1, DATASET_2));
+
+    assertEquals(
+        output.size(),
+        2,
+        "RESTATE should ADD every unmirrored member even when the parent payload is unchanged: "
+            + output);
+    assertTrue(output.stream().anyMatch(item -> DATASET_1.equals(item.getUrn())));
+    assertTrue(output.stream().anyMatch(item -> DATASET_2.equals(item.getUrn())));
+  }
+
+  @Test
+  public void testRestateEmitsAddForSingleAsset() {
+    List<MCPItem> output = runRestate(propsWith(DATASET_1), propsWith(DATASET_1));
+
+    assertEquals(output.size(), 1, "RESTATE must backfill a 1-asset Data Product: " + output);
+    assertEquals(output.get(0).getUrn(), DATASET_1);
+    assertEquals(output.get(0).getAspectName(), DATA_PRODUCTS_ASPECT_NAME);
+  }
+
+  @Test
+  public void testRestateEmitsNothingForZeroAssets() {
+    List<MCPItem> output = runRestate(propsWith(), propsWith());
+
+    assertEquals(
+        output.size(), 0, "RESTATE of an empty assets list should emit nothing: " + output);
+  }
+
+  private List<MCPItem> runRestate(DataProductProperties current, DataProductProperties previous) {
+    DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
+    test.setConfig(CONFIG);
+
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setEntityUrn(PRODUCT_URN);
+    mcl.setEntityType(DATA_PRODUCT_ENTITY_NAME);
+    mcl.setAspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.RESTATE);
+    mcl.setSystemMetadata(new SystemMetadata());
+
+    return test.postMCPSideEffect(
+            OperationFingerprint.EMPTY,
+            List.of(
+                TestMCL.builder()
+                    .changeType(ChangeType.RESTATE)
+                    .urn(PRODUCT_URN)
+                    .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+                    .aspectSpec(
+                        TEST_REGISTRY
+                            .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                            .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+                    .recordTemplate(current)
+                    .previousRecordTemplate(previous)
+                    .metadataChangeLog(mcl)
+                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                    .build()),
+            retrieverContext)
+        .toList();
+  }
+
   private static Aspect mirroredAspect() {
     DataProductAssociation association = new DataProductAssociation();
     association.setDestinationUrn(PRODUCT_URN);

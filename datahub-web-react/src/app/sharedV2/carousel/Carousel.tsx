@@ -50,9 +50,6 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
     ${({ right }) => right && 'right: -10px;'}
 `;
 
-const NavigateBeforeOutlinedIconStyle = styled(CaretLeft).attrs({ size: 14 })``;
-const NavigateNextOutlinedIconStyle = styled(CaretRight).attrs({ size: 14 })``;
-
 type Props = {
     children: React.ReactNode;
     className?: string;
@@ -134,12 +131,12 @@ export function Carousel({ children, className }: Props) {
         <Wrapper>
             {showPrevButton && (
                 <ButtonContainer className="scroll-btn" left onClick={prev}>
-                    <NavigateBeforeOutlinedIconStyle />
+                    <CaretLeft size={14} />
                 </ButtonContainer>
             )}
             {showNextButton && (
                 <ButtonContainer className="scroll-btn" right onClick={next}>
-                    <NavigateNextOutlinedIconStyle />
+                    <CaretRight size={14} />
                 </ButtonContainer>
             )}
             <CarouselHorizontalList ref={scrollRef} hideMask={!showNextButton} className={className}>

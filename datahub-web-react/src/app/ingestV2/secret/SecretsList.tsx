@@ -34,11 +34,11 @@ const ButtonsContainer = styled.div`
     gap: 8px;
 
     button {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 20px;
-        width: 24px;
-        height: 24px;
-        padding: 3px;
+        border: none;
+        border-radius: 0;
+        width: auto;
+        height: auto;
+        padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -302,7 +302,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             onClick={() => onEditSecret(record)}
                             aria-label={t('secret.editAriaLabel')}
                         >
-                            <Icon icon={PencilSimpleLine} />
+                            <Icon icon={PencilSimpleLine} size="lg" />
                         </button>
                         <button
                             type="button"
@@ -312,7 +312,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             data-testid="delete-secret-action"
                             data-icon="delete"
                         >
-                            <Icon icon={Trash} color="red" />
+                            <Icon icon={Trash} size="lg" color="red" />
                         </button>
                     </ButtonsContainer>
                 </>

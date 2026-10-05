@@ -1,11 +1,15 @@
+import { Tooltip } from '@components';
 import { Binary } from '@phosphor-icons/react/dist/csr/Binary';
+import { BracketsCurly } from '@phosphor-icons/react/dist/csr/BracketsCurly';
+import { BracketsSquare } from '@phosphor-icons/react/dist/csr/BracketsSquare';
 import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Empty } from '@phosphor-icons/react/dist/csr/Empty';
 import { Hash } from '@phosphor-icons/react/dist/csr/Hash';
-import { IdentificationCard } from '@phosphor-icons/react/dist/csr/IdentificationCard';
-import { TextAa } from '@phosphor-icons/react/dist/csr/TextAa';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { TextAUnderline } from '@phosphor-icons/react/dist/csr/TextAUnderline';
 import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
-import { Tooltip } from '@components';
 import React from 'react';
 
 import { SchemaFieldDataType } from '@types';
@@ -15,7 +19,7 @@ function CompactFieldIcon(type?: SchemaFieldDataType): JSX.Element | null {
         return <Hash />;
     }
     if (type === SchemaFieldDataType.String) {
-        return <TextAa />;
+        return <TextAUnderline />;
     }
     if (type === SchemaFieldDataType.Date) {
         return <CalendarBlank />;
@@ -29,7 +33,19 @@ function CompactFieldIcon(type?: SchemaFieldDataType): JSX.Element | null {
     if (type === SchemaFieldDataType.Bytes) {
         return <Binary />;
     }
-    return <IdentificationCard />;
+    if (type === SchemaFieldDataType.Struct) {
+        return <BracketsCurly />;
+    }
+    if (type === SchemaFieldDataType.Array) {
+        return <BracketsSquare />;
+    }
+    if (type === SchemaFieldDataType.Map) {
+        return <Key />;
+    }
+    if (type === SchemaFieldDataType.Null) {
+        return <Empty />;
+    }
+    return <Question />;
 }
 
 export function CompactFieldIconWithTooltip({

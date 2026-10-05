@@ -1,3 +1,4 @@
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -21,7 +22,6 @@ import { Message } from '@app/shared/Message';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
-import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;

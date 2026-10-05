@@ -162,11 +162,7 @@ function RecipeForm(props: Props) {
                 onValuesChange={updateFormValues}
             >
                 <StyledCollapse defaultActiveKey="0">
-                    <Collapse.Panel
-                        forceRender
-                        header={<SectionHeader icon={<Plugs />} text="Connection" />}
-                        key="0"
-                    >
+                    <Collapse.Panel forceRender header={<SectionHeader icon={<Plugs />} text="Connection" />} key="0">
                         {fields.map((field, i) => {
                             // Check if field has conditional visibility logic
                             if (field.shouldShow && !field.shouldShow(formValues)) {
@@ -200,11 +196,7 @@ function RecipeForm(props: Props) {
                         <Collapse.Panel
                             forceRender
                             header={
-                                <SectionHeader
-                                    icon={<Funnel />}
-                                    text="Filter"
-                                    sectionTooltip={filterSectionTooltip}
-                                />
+                                <SectionHeader icon={<Funnel />} text="Filter" sectionTooltip={filterSectionTooltip} />
                             }
                             key="1"
                         >

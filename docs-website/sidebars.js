@@ -1706,6 +1706,7 @@ module.exports = {
         description: "Learn about DataHub community.",
       },
       items: [
+        "docs/community",
         "docs/slack",
         { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
@@ -1713,6 +1714,8 @@ module.exports = {
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",
+        "docs/ecosystem",
+        "ADOPTERS",
         "docs/rfc",
         {
           type: "category",
@@ -1728,6 +1731,11 @@ module.exports = {
     },
     {
       "Release History": ["releases", "docs/how/updating-datahub"],
+    },
+    {
+      type: "doc",
+      label: "FAQ",
+      id: "docs/faq",
     },
 
     // "Candidates for Deprecation": [

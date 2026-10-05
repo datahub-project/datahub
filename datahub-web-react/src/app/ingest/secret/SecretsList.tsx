@@ -33,11 +33,11 @@ const DeleteButtonContainer = styled.div`
     gap: 8px;
 
     button {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 20px;
-        width: 28px;
-        height: 28px;
-        padding: 4px;
+        border: none;
+        border-radius: 0;
+        width: auto;
+        height: auto;
+        padding: 0;
         color: ${(props) => props.theme.colors.icon};
         display: flex;
         align-items: center;
@@ -46,14 +46,12 @@ const DeleteButtonContainer = styled.div`
         cursor: pointer;
         :hover {
             color: ${(props) => props.theme.colors.iconHover};
-            border-color: ${(props) => props.theme.colors.borderHover};
         }
 
         &.delete-action {
             color: ${(props) => props.theme.colors.iconError};
             :hover {
                 color: ${(props) => props.theme.colors.iconError};
-                border-color: ${(props) => props.theme.colors.borderHover};
             }
         }
     }

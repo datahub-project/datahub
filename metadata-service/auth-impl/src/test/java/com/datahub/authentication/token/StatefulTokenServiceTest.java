@@ -41,26 +41,40 @@ public class StatefulTokenServiceTest {
   @Test
   public void testConstructor() {
     assertThrows(
-        () -> new StatefulTokenService(mock(OperationContext.class), null, null, null, null, null));
+        () ->
+            new StatefulTokenService(
+                mock(OperationContext.class), null, null, null, null, null, null));
     assertThrows(
         () ->
             new StatefulTokenService(
-                mock(OperationContext.class), TEST_SIGNING_KEY, null, null, null, null));
+                mock(OperationContext.class), TEST_SIGNING_KEY, null, null, null, null, null));
     assertThrows(
         () ->
             new StatefulTokenService(
-                opContext, TEST_SIGNING_KEY, "UNSUPPORTED_ALG", null, null, null));
+                opContext, TEST_SIGNING_KEY, "UNSUPPORTED_ALG", null, null, null, null));
 
     // Succeeds:
     new StatefulTokenService(
-        opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+        opContext,
+        TEST_SIGNING_KEY,
+        "HS256",
+        null,
+        mockService,
+        TEST_SALTING_KEY,
+        TestHazelcast.instance());
   }
 
   @Test
   public void testGenerateAccessTokenPersonalToken() throws Exception {
     StatefulTokenService tokenService =
         new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+            opContext,
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            mockService,
+            TEST_SALTING_KEY,
+            TestHazelcast.instance());
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
@@ -92,7 +106,13 @@ public class StatefulTokenServiceTest {
   public void testGenerateAccessTokenPersonalTokenEternal() throws Exception {
     StatefulTokenService tokenService =
         new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+            opContext,
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            mockService,
+            TEST_SALTING_KEY,
+            TestHazelcast.instance());
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
@@ -126,7 +146,13 @@ public class StatefulTokenServiceTest {
   public void testGenerateAccessTokenSessionToken() throws Exception {
     StatefulTokenService tokenService =
         new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+            opContext,
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            mockService,
+            TEST_SALTING_KEY,
+            TestHazelcast.instance());
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
@@ -159,7 +185,13 @@ public class StatefulTokenServiceTest {
   public void testValidateAccessTokenFailsDueToExpiration() {
     StatefulTokenService tokenService =
         new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+            opContext,
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            mockService,
+            TEST_SALTING_KEY,
+            TestHazelcast.instance());
     // Generate token that expires immediately.
     Date date = new Date();
     // This method returns the time in millis
@@ -184,7 +216,13 @@ public class StatefulTokenServiceTest {
   public void testValidateAccessTokenFailsDueToManipulation() {
     StatefulTokenService tokenService =
         new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+            opContext,
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            mockService,
+            TEST_SALTING_KEY,
+            TestHazelcast.instance());
 
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
@@ -227,7 +265,13 @@ public class StatefulTokenServiceTest {
 
     StatefulTokenService tokenService =
         new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+            opContext,
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            mockService,
+            TEST_SALTING_KEY,
+            TestHazelcast.instance());
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
