@@ -51,6 +51,9 @@ _PASSWORD = str(
         "services"
     ][_CONTAINER]["environment"]["MYSQL_ROOT_PASSWORD"]
 )
+# Each docker call's ceiling: a wedged daemon fails the fixture, not the
+# whole batch at the process backstop.
+_DOCKER_TIMEOUT_SECONDS = 120
 _SECRET = "seeded-secret-value"
 # CLI exit codes (recipe_cli): 2 is the caller's input, 3 the source.
 _EXIT_USER = 2
@@ -66,7 +69,10 @@ def test_resources_dir(pytestconfig: pytest.Config) -> Path:
 
 def _is_mysql_up() -> bool:
     logs = subprocess.run(
-        ["docker", "logs", _CONTAINER], capture_output=True, text=True
+        ["docker", "logs", _CONTAINER],
+        capture_output=True,
+        text=True,
+        timeout=_DOCKER_TIMEOUT_SECONDS,
     )
     return any(
         "/usr/sbin/mysqld: ready for connections." in line and str(_MYSQL_PORT) in line
@@ -100,6 +106,7 @@ def mysql_port(
                 "source /setup/probe_setup.sql",
             ],
             check=True,
+            timeout=_DOCKER_TIMEOUT_SECONDS,
         )
         yield docker_services.port_for(_CONTAINER, _MYSQL_PORT)
 
