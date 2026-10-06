@@ -920,23 +920,36 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 .map(word -> word + "-" + word + "-v2")
                 .collect(Collectors.joining(" ")),
             words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)),
-            words[0] + "2017 " + String.join(" ", Arrays.copyOfRange(words, 1, 20)));
-    for (List<String> entityTypes :
-        List.of(List.of(DATASET_ENTITY_NAME), List.of(DASHBOARD_ENTITY_NAME), ENTITY_TYPES)) {
+            words[0] + "2017 " + String.join(" ", Arrays.copyOfRange(words, 1, 20)),
+            Arrays.stream(words)
+                .limit(12)
+                .map(word -> "db." + word)
+                .collect(Collectors.joining(" ")),
+            Arrays.stream(words)
+                .limit(8)
+                .map(word -> "prod." + word + "." + word)
+                .collect(Collectors.joining(" ")));
+    // A failed shard only drops that index's results, so each scope checks its own entity
+    for (Map.Entry<List<String>, Urn> scope :
+        Map.of(
+                List.of(DATASET_ENTITY_NAME),
+                vocabularyDataset,
+                List.of(DASHBOARD_ENTITY_NAME),
+                vocabularyDashboard,
+                ENTITY_TYPES,
+                vocabularyDataset)
+            .entrySet()) {
+      List<String> entityTypes = scope.getKey();
       for (String query : queries) {
         // Fails with too_many_nested_clauses past the limit
-        searchService.search(fulltext, entityTypes, query, null, null, 0, 10);
+        assertTrue(
+            searchService
+                .search(fulltext, entityTypes, query, null, null, 0, 10)
+                .getEntities()
+                .stream()
+                .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
+            entityTypes + ": " + query);
       }
-      assertTrue(
-          searchService
-              .search(fulltext, entityTypes, queries.get(1), null, null, 0, 10)
-              .getEntities()
-              .stream()
-              .anyMatch(
-                  entity ->
-                      entity.getEntity().equals(vocabularyDataset)
-                          || entity.getEntity().equals(vocabularyDashboard)),
-          entityTypes.toString());
     }
   }
 
