@@ -416,14 +416,32 @@ public class ESIndexBuilder {
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put(NUMBER_OF_SHARDS, indexConfig.getNumShards());
     baseSettings.put(NUMBER_OF_REPLICAS, indexConfig.getNumReplicas());
-    baseSettings.put(
-        REFRESH_INTERVAL, String.format("%ss", indexConfig.getRefreshIntervalSeconds()));
     // Use zstd in OS only and only if KNN is not enabled (codec settings conflict with KNN)
     // In ES we can use it in the future with best_compression
     if (isOpenSearch29OrHigher(opContext) && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
-    mergeSettings(baseSettings, indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    // refresh_interval is owned by refreshIntervals, not the generic settings override map.
+    // Remaining overrides are deep-merged so a nested key (for example analysis.filter) does not
+    // replace the generated settings object.
+    Map<String, Object> settingOverrides =
+        new HashMap<>(indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    if (settingOverrides.containsKey(REFRESH_INTERVAL)) {
+      log.warn(
+          "Index {} ignores settingsOverrides refresh_interval={}. Set elasticsearch.index.refreshIntervals instead.",
+          indexName,
+          settingOverrides.get(REFRESH_INTERVAL));
+    }
+    settingOverrides.remove(REFRESH_INTERVAL);
+    mergeSettings(baseSettings, settingOverrides);
+    String refreshInterval =
+        RefreshIntervalResolver.toSetting(
+            RefreshIntervalResolver.resolveSeconds(
+                indexConfig.getRefreshIntervals(),
+                opContext.getSearchContext().getIndexConvention(),
+                opContext,
+                indexName));
+    baseSettings.put(REFRESH_INTERVAL, refreshInterval);
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
 
@@ -434,6 +452,7 @@ public class ESIndexBuilder {
 
     // If index doesn't exist, no reindex
     if (!exists) {
+      log.info("Index {}: creating with refresh_interval={}", indexName, refreshInterval);
       builder.targetMappings(mappings);
       return builder.build();
     }
@@ -447,6 +466,14 @@ public class ESIndexBuilder {
             .iterator()
             .next();
     builder.currentSettings(currentSettings);
+    String currentRefresh = currentSettings.get(INDEX_REFRESH_INTERVAL);
+    if (!RefreshIntervalResolver.sameDuration(refreshInterval, currentRefresh)) {
+      log.info(
+          "Index {}: refresh_interval desired={} current={}",
+          indexName,
+          refreshInterval,
+          currentRefresh);
+    }
 
     Map<String, Object> currentMappings =
         searchClient
@@ -621,9 +648,15 @@ public class ESIndexBuilder {
             searchClient
                 .updateIndexSettings(opContext, request, requestOptionsLong)
                 .isAcknowledged();
+        String currentRefresh =
+            indexState.currentSettings() == null
+                ? null
+                : indexState.currentSettings().get(INDEX_REFRESH_INTERVAL);
         log.info(
-            "Updated index {} with new settings. Settings: {}, Acknowledged: {}",
+            "Updated index {} settings. desired refresh_interval={} current refresh_interval={} settings={} acknowledged={}",
             indexState.name(),
+            indexSettings.get(INDEX_REFRESH_INTERVAL),
+            currentRefresh,
             ReindexConfig.OBJECT_MAPPER.writeValueAsString(indexSettings),
             ack);
       }

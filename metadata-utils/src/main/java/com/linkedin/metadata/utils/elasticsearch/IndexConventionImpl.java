@@ -164,6 +164,13 @@ public class IndexConventionImpl implements IndexConvention {
     return prefix.isEmpty() ? "" : prefix + "_";
   }
 
+  @Override
+  @Nullable
+  public SearchComponent componentForIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
+    return componentForIndexName(operation, indexName);
+  }
+
   @Nullable
   private SearchComponent componentForIndexName(
       @Nonnull OperationFingerprint operation, @Nonnull String indexOrBase) {

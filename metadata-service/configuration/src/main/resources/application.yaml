@@ -1074,7 +1074,21 @@ elasticsearch:
     prefix: ${INDEX_PREFIX:}
     # numShards / numReplicas are per-cluster sizing; see clusters.<name>.index.
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
-    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
+    # Fallback copied into entity, graph, and system-metadata refresh intervals below.
+    # Timeseries and usage do not follow this value.
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}
+    # Two levels: a seconds field per index service, then entities / aspects overrides.
+    # A higher interval delays search visibility of writes. Timeseries and usage are not
+    # interactive search, so they default to 60s. Everything else stays at 3s.
+    refreshIntervals:
+      entitySeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITY_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      graphSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_GRAPH_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      systemMetadataSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_SYSTEM_METADATA_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      timeseriesSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS:60}
+      usageSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS:60}
+      # JSON objects, e.g. {"dataset": 10} and {"datasetProfile": 60}. Null when unset.
+      entities: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITIES:#{null}}
+      aspects: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ASPECTS:#{null}}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
@@ -1096,6 +1110,8 @@ elasticsearch:
     waitForUnresolvedReindexTask: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK:true} # skip stall resubmit while the ES reindex task is still running or status lookup failed
     # Parallel reindexing configuration
     enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    # Bounded pool for refresh_interval and other non-reindex settings updates.
+    maxConcurrentSettingsUpdates: ${ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_SETTINGS_UPDATES:8}
     taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
     # Cost-based reindexing configuration (P=2 enhancements)
