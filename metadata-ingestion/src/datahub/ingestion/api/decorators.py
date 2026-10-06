@@ -129,8 +129,10 @@ def _derived_probe_capability(source_cls: type) -> Optional[CapabilitySetting]:
     """The Probe capability, where the source's config declares a probe provider.
 
     Never raises: a config or provider that fails to resolve leaves the
-    capability absent, so get_capabilities() always works. Cached per class,
-    since the answer only depends on class attributes.
+    capability absent, so get_capabilities() always works. That failure is the
+    connector's defect, which `probe run` reports loudly, so it is logged at
+    WARNING rather than dropped silently. Cached per class, since the answer
+    only depends on class attributes.
     """
     try:
         # Lazy: the probe framework is heavy, and every source module imports
@@ -143,8 +145,10 @@ def _derived_probe_capability(source_cls: type) -> Optional[CapabilitySetting]:
         if provider_class_for_config(get_config_class()) is None:
             return None
     except Exception:
-        logger.debug(
-            "Probe capability not derived for %s", source_cls.__name__, exc_info=True
+        logger.warning(
+            "Probe capability not derived for %s: its probe provider lookup failed",
+            source_cls.__name__,
+            exc_info=True,
         )
         return None
     return CapabilitySetting(

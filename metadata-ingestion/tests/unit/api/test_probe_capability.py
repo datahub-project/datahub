@@ -1,4 +1,7 @@
+import logging
 from typing import List
+
+import pytest
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.introspect import describe_source
@@ -48,7 +51,9 @@ def test_explicit_unsupported_declaration_wins() -> None:
     assert not probe[0].supported
 
 
-def test_failing_provider_lookup_leaves_probe_absent() -> None:
+def test_failing_provider_lookup_leaves_probe_absent_and_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     class BrokenProbeConfig(ConfigModel):
         @classmethod
         def probe_provider_class(cls) -> type:
@@ -59,7 +64,14 @@ def test_failing_provider_lookup_leaves_probe_absent() -> None:
     class BrokenProbeSource(Source):
         pass
 
-    assert _capabilities(BrokenProbeSource) == [SourceCapability.DESCRIPTIONS]
+    with caplog.at_level(logging.WARNING):
+        assert _capabilities(BrokenProbeSource) == [SourceCapability.DESCRIPTIONS]
+    # A defective connector must not drop Probe silently: `probe run` reports
+    # the same defect loudly.
+    assert any(
+        record.levelno == logging.WARNING and "BrokenProbeSource" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_subclass_derives_probe_from_its_own_config() -> None:
