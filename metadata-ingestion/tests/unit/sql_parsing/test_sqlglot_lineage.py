@@ -2282,6 +2282,60 @@ FROM db1.raw_events
     )
 
 
+def test_clickhouse_xml_dictionary_dictget_query_log_path() -> None:
+    # A registered XML dictionary resolves to its exact-case URN, not a lowercased guess.
+    assert_sql_result(
+        """\
+INSERT INTO db.target
+SELECT dictGet('db.My_Dict', 'v', id) AS v
+FROM db.src
+""",
+        dialect="clickhouse",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_xml_dictionary_dictget_query_log.json",
+    )
+
+
+def test_clickhouse_xml_dictionary_dictget_materialized_view_path() -> None:
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW db.mv_enriched TO db.target
+AS SELECT
+    id,
+    dictGet('db.My_Dict', 'v', id) AS v
+FROM db.src
+""",
+        dialect="clickhouse",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_xml_dictionary_dictget_materialized_view.json",
+    )
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 

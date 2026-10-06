@@ -1,3 +1,4 @@
+import itertools
 import json
 import re
 import textwrap
@@ -29,7 +30,7 @@ from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import RowMapping, reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
@@ -58,11 +59,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
     SQLSourceReport,
     SqlWorkUnit,
+    get_column_type,
+    get_schema_metadata,
     logger,
     register_custom_type,
 )
@@ -83,7 +89,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     DatasetSnapshotClass,
+    SchemaFieldClass,
+    StatusClass,
+    SubTypesClass,
     UpstreamClass,
 )
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
@@ -118,6 +128,12 @@ _NON_USER_TABLE_PREFIXES = (
     "_temporary_and_external_tables.",
     "information_schema.",
     "INFORMATION_SCHEMA.",
+)
+
+# ClickHouseDictionarySource::toString() emits "ClickHouse: db.table".
+_CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
+    r"^ClickHouse:\s*`?([^\s.`]+)`?\.`?([^\s.`]+)`?",
+    re.IGNORECASE,
 )
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
@@ -302,6 +318,58 @@ class _DeduplicatedQueries(Generic[_Query]):
                 records.values(),
                 key=lambda counted: counted.query.timestamp or _MIN_TIMESTAMP,
             )
+
+
+@dataclass(frozen=True)
+class _XmlDictionary:
+    """A dictionary defined in server config files rather than with DDL."""
+
+    # Set only when the config declares <database>; otherwise the dictionary is global.
+    database: Optional[str]
+    name: str
+    key_names: List[str]
+    key_types: List[str]
+    attribute_names: List[str]
+    attribute_types: List[str]
+    source: str
+    origin: str
+    comment: str
+    status: str
+    dict_type: str
+
+    @property
+    def dataset_name(self) -> str:
+        return f"{self.database}.{self.name}" if self.database else self.name
+
+
+def _json_str_list(value: object) -> List[str]:
+    if not value:
+        return []
+    return [str(item) for item in json.loads(str(value))]
+
+
+def _dictionary_source_table(source: str) -> Optional[str]:
+    """Return ``db.table`` from a ``ClickHouse: db.table`` dictionary source."""
+    match = _CLICKHOUSE_DICT_SOURCE_TABLE_RE.match(source.strip())
+    if not match:
+        return None
+    return f"{match.group(1)}.{match.group(2)}"
+
+
+def _xml_dictionary_from_row(row: RowMapping) -> _XmlDictionary:
+    return _XmlDictionary(
+        database=str(row["database"] or "") or None,
+        name=str(row["name"]),
+        key_names=_json_str_list(row["key_names"]),
+        key_types=_json_str_list(row["key_types"]),
+        attribute_names=_json_str_list(row["attribute_names"]),
+        attribute_types=_json_str_list(row["attribute_types"]),
+        source=str(row["source"] or ""),
+        origin=str(row["origin"] or ""),
+        comment=str(row["comment"] or ""),
+        status=str(row["status"] or ""),
+        dict_type=str(row["type"] or ""),
+    )
 
 
 class ClickHouseConfig(
@@ -747,6 +815,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
         self._query_log_aggregator: Optional[SqlParsingAggregator] = None
+        self._xml_dictionaries: Optional[List[_XmlDictionary]] = None
 
         # Initialize query log aggregator if needed
         if self._should_extract_query_log():
@@ -1205,8 +1274,16 @@ ORDER BY event_time ASC
             return None
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        # Config-file dictionaries are not in system.tables, so the base scan never
+        # emits them. They go first so their schemas are registered before view and
+        # materialized view SQL is parsed.
+        xml_dictionary_workunits = (
+            self._emit_xml_dictionaries() if self.config.include_tables else []
+        )
         # Emit schema and definition-based lineage workunits
-        for wu in super().get_workunits_internal():
+        for wu in itertools.chain(
+            xml_dictionary_workunits, super().get_workunits_internal()
+        ):
             if (
                 self.config.include_table_lineage
                 and isinstance(wu, SqlWorkUnit)
@@ -1227,6 +1304,216 @@ ORDER BY event_time ASC
         # Emit query log based lineage and usage workunits
         if self._should_extract_query_log():
             yield from self._extract_query_log()
+
+    def _fetch_xml_dictionaries(self) -> List[_XmlDictionary]:
+        if self._xml_dictionaries is not None:
+            return self._xml_dictionaries
+
+        # DDL dictionaries are already ingested via system.tables. Config-file
+        # dictionaries are not listed there, with or without a <database> tag.
+        # NOT IN rather than LEFT JOIN ... IS NULL: ClickHouse fills unmatched
+        # LEFT JOIN columns with defaults, not NULL, unless join_use_nulls=1.
+        # Arrays go through JSON because the HTTP driver returns them as text.
+        query = textwrap.dedent(
+            """\
+            SELECT database
+                 , name
+                 , toJSONString(`key.names`) AS key_names
+                 , toJSONString(`key.types`) AS key_types
+                 , toJSONString(`attribute.names`) AS attribute_names
+                 , toJSONString(`attribute.types`) AS attribute_types
+                 , source
+                 , origin
+                 , comment
+                 , toString(status) AS status
+                 , type
+              FROM system.dictionaries
+             WHERE (database, name) NOT IN (SELECT database, name FROM system.tables)"""
+        )
+
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            dictionaries = [
+                _xml_dictionary_from_row(row)
+                for row in conn.execute(text(query)).mappings()
+            ]
+
+        self._xml_dictionaries = dictionaries
+        return dictionaries
+
+    def _xml_dictionary_columns(
+        self, dictionary: _XmlDictionary
+    ) -> List[Dict[str, Any]]:
+        dialect = ClickHouseDialect()
+        columns = [
+            dialect._get_column_info(name=name, format_type=type_name, comment="")
+            for name, type_name in zip(
+                dictionary.key_names + dictionary.attribute_names,
+                dictionary.key_types + dictionary.attribute_types,
+                strict=False,
+            )
+        ]
+        # Simple types come back as classes; Inspector.get_columns instantiates them too.
+        for column in columns:
+            if isinstance(column["type"], type):
+                column["type"] = column["type"]()
+        return columns
+
+    def _emit_xml_dictionaries(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        try:
+            dictionaries = self._fetch_xml_dictionaries()
+        except Exception as e:
+            # A failure, not a warning, so stale entity removal does not
+            # soft-delete previously ingested dictionaries.
+            self.report.failure(
+                "Failed to fetch XML-defined ClickHouse dictionaries",
+                exc=e,
+            )
+            return
+
+        for dictionary in dictionaries:
+            dataset_name = dictionary.dataset_name
+            self.report.report_entity_scanned(dataset_name, ent_type="table")
+            # A global dotted name is filtered like db.table too, matching how dictGet names parse.
+            database, dot, _ = dataset_name.partition(".")
+            if (
+                dot and not self.config.database_pattern.allowed(database)
+            ) or not self.config.table_pattern.allowed(dataset_name):
+                self.report.report_dropped(dataset_name)
+                continue
+
+            try:
+                yield from self._emit_xml_dictionary(dictionary)
+            except Exception as e:
+                self.report.warning(
+                    "Error processing XML-defined dictionary",
+                    context=dataset_name,
+                    exc=e,
+                )
+
+    def _emit_xml_dictionary(
+        self, dictionary: _XmlDictionary
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        dataset_name = dictionary.dataset_name
+        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        columns = self._xml_dictionary_columns(dictionary)
+        schema_fields = [
+            SchemaFieldClass(
+                fieldPath=column["name"],
+                type=get_column_type(self.report, dataset_name, column["type"]),
+                nativeDataType=column.get("full_type") or str(column["type"]),
+                description=column.get("comment") or None,
+                nullable=bool(column.get("nullable")),
+                recursive=False,
+                isPartOfKey=column["name"] in dictionary.key_names,
+            )
+            for column in columns
+        ]
+        schema_metadata = get_schema_metadata(
+            self.report,
+            dataset_name,
+            self.platform,
+            columns,
+            canonical_schema=schema_fields,
+        )
+
+        custom_properties = {
+            "engine": "Dictionary",
+            "origin": dictionary.origin,
+            "status": dictionary.status,
+            "type": dictionary.dict_type,
+        }
+        if dictionary.source:
+            custom_properties["source"] = dictionary.source
+
+        dataset_snapshot = DatasetSnapshotClass(
+            urn=dataset_urn,
+            aspects=[
+                StatusClass(removed=False),
+                DatasetPropertiesClass(
+                    name=dictionary.name,
+                    description=dictionary.comment or None,
+                    customProperties=custom_properties,
+                ),
+                schema_metadata,
+            ],
+        )
+
+        if self._save_schema_to_resolver():
+            self.aggregator.register_schema(dataset_urn, schema_metadata)
+            self.discovered_datasets.add(dataset_name)
+
+        if dictionary.database:
+            yield from self.add_table_to_schema_container(
+                dataset_urn=dataset_urn,
+                db_name=dictionary.database,
+                schema=dictionary.database,
+            )
+
+        yield SqlWorkUnit(
+            id=dataset_name,
+            mce=MetadataChangeEvent(proposedSnapshot=dataset_snapshot),
+        )
+
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+
+        yield MetadataWorkUnit(
+            id=f"{dataset_name}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
+            ),
+        )
+
+    def _populate_xml_dictionary_lineage(
+        self, dictionaries: List[_XmlDictionary]
+    ) -> None:
+        assert self._lineage_map is not None
+        if not self._all_tables_set:
+            self._all_tables_set = self._get_all_tables()
+
+        for dictionary in dictionaries:
+            source_path = _dictionary_source_table(dictionary.source)
+            if source_path is None:
+                continue
+            if source_path not in self._all_tables_set:
+                logger.warning(
+                    "Skipping dictionary source lineage for "
+                    f"{dictionary.dataset_name}: {source_path} missing table"
+                )
+                continue
+
+            target_path = (
+                f"{self.config.platform_instance}.{dictionary.dataset_name}"
+                if self.config.platform_instance
+                else dictionary.dataset_name
+            )
+            target = self._lineage_map.get(target_path)
+            if target is None:
+                target = LineageItem(
+                    dataset=LineageDataset(
+                        platform=LineageDatasetPlatform.CLICKHOUSE, path=target_path
+                    ),
+                    upstreams=set(),
+                    collector_type=LineageCollectorType.TABLE,
+                )
+                self._lineage_map[target_path] = target
+            target.upstreams.add(
+                LineageDataset(
+                    platform=LineageDatasetPlatform.CLICKHOUSE, path=source_path
+                )
+            )
 
     def _get_all_tables(self) -> Set[str]:
         all_tables_query: str = textwrap.dedent(
@@ -1424,6 +1711,13 @@ ORDER BY event_time ASC
             self._populate_lineage_map(
                 query=table_lineage_query, lineage_type=LineageCollectorType.TABLE
             )
+            try:
+                self._populate_xml_dictionary_lineage(self._fetch_xml_dictionaries())
+            except Exception as e:
+                logger.warning(
+                    f"Extracting XML dictionary lineage from ClickHouse failed. "
+                    f"Continuing...\nError was {e}."
+                )
 
         if self.config.include_views:
             # Populate table level lineage for views

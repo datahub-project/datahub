@@ -27,6 +27,15 @@ Usage attributed to `INSERT`/`CREATE` queries still comes from SQL parsing, so i
 columns that contribute to the written output — a column read solely in an `INSERT ... SELECT`'s
 `WHERE` clause is not counted.
 
+#### XML-Defined Dictionaries
+
+Dictionaries defined in server XML config files are not listed in `system.tables`, so they are
+read from `system.dictionaries`. A dictionary that declares `<database>` is ingested as
+`<database>.<name>` under that database's container. Otherwise it belongs to the server and is
+ingested under its full name without a container; a dotted name such as `db.my_dict` is filtered
+like a table, with `database_pattern` applied to `db`. If the dictionary's source is a ClickHouse
+table, that table is added as its upstream.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

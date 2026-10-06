@@ -1,0 +1,62 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "c34f1665d02a0ba7d3130977faeda448f7ef385cbb6cc1ba8ad1d3a092ed55ed",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.mv_enriched,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "UInt64"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"src\".\"id\" AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "dictGet('db.My_Dict', 'v', \"src\".\"id\") AS \"v\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.425,
+        "generalized_statement": "CREATE MATERIALIZED VIEW db.mv_enriched TO db.target AS SELECT id, dictGet({?: }, {?: }, id) AS v FROM db.src"
+    }
+}
