@@ -24,10 +24,6 @@ _SYSTEM_DATABASE_EXCLUSION = ", ".join(f"'{name}'" for name in MSSQL_SYSTEM_DATA
 class MSSQLQuery:
     """SQL queries for extracting query history from MS SQL Server."""
 
-    # MS_Description on a table: what ingestion reads as its description
-    # (SQLServerSource._populate_table_descriptions) and what the probe's
-    # table_comment reports. One constant so the two cannot read different
-    # properties.
     # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
     # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
     TABLE_DESCRIPTIONS = """

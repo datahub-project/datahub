@@ -16,13 +16,14 @@ from typing import (
     Sequence,
     Set,
     Tuple,
-    cast,
+    Union,
 )
 
 import sqlalchemy.dialects.mssql
-from pydantic import ValidationInfo, field_validator, model_validator
+from pydantic import PrivateAttr, ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import (
@@ -234,16 +235,16 @@ def _is_permission_denied(exc: DBAPIError) -> bool:
     )
 
 
-def database_name_from_url(url: Any) -> str:
+def database_name_from_url(url: URL) -> str:
     """What ingestion calls the database an engine is on (get_db_name).
 
     The URL's database, or DATABASE= inside an ODBC connect string; "" when
     neither names one, in which case the login's default database is used and
     ingestion qualifies nothing with it.
     """
-    if getattr(url, "database", None):
+    if url.database:
         return str(url.database).strip('"')
-    query = getattr(url, "query", None) or {}
+    query = url.query
     if "odbc_connect" in query:
         # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
         database = re.search(
@@ -293,10 +294,30 @@ def _read_sql_variant_on_each_connection(engine: Engine) -> None:
     event.listen(engine, "connect", _on_connect)
 
 
-# SQLServerSource.get_identifier takes an inspector and never reads it; the
-# probe has none to give, and opening one to satisfy the signature would be a
-# connection for nothing.
-_NO_INSPECTOR = cast(Inspector, None)
+def procedure_full_name(database: str, schema: str, procedure: str) -> str:
+    """The name procedure_pattern is matched against, never lowercased."""
+    return f"{database}.{schema}.{procedure}"
+
+
+def qualified_identifier(
+    config: "SQLServerConfig",
+    current_database: Optional[str],
+    schema: str,
+    entity: str,
+) -> str:
+    """SQLServerSource.get_identifier, given the database ingestion is
+    walking (None for a recipe that reads one database)."""
+    regular = f"{schema}.{entity}"
+    qualified_table_name = regular
+    if config.database:
+        qualified_table_name = f"{config.database}.{regular}"
+    if current_database:
+        qualified_table_name = f"{current_database}.{regular}"
+    return (
+        qualified_table_name.lower()
+        if config.convert_urns_to_lowercase
+        else qualified_table_name
+    )
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
@@ -370,6 +391,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default=False,
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
+    _is_odbc: bool = PrivateAttr(default=False)
+    _pinned_database: Optional[str] = PrivateAttr(default=None)
     is_aws_rds: Optional[bool] = Field(
         default=None,
         description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
@@ -441,21 +464,31 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # and validate_uri_args reads it from the context.
         return {"is_odbc": source_type == "mssql-odbc"}
 
-    def uses_odbc(self) -> bool:
-        """Whether this recipe connects through pyodbc.
+    @model_validator(mode="after")
+    def _record_odbc(self, info: ValidationInfo) -> "SQLServerConfig":
+        # Only when validated with a context: validate_assignment reruns this
+        # without one, and must not forget the driver.
+        if info.context and "is_odbc" in info.context:
+            self._is_odbc = bool(info.context["is_odbc"])
+        return self
 
-        Exact once validated with the source type's context: validate_uri_args
-        refuses uri_args on the pytds type and demands a `driver` in them on
-        the ODBC one unless sqlalchemy_uri is set -- and with sqlalchemy_uri the
-        URL is taken verbatim, so is_odbc changes nothing get_sql_alchemy_url
-        builds.
-        """
-        return bool(self.uri_args)
+    def uses_odbc(self) -> bool:
+        """Whether this recipe connects through pyodbc: the source type it
+        was validated for (probe_validation_context)."""
+        return self._is_odbc
+
+    def database_url(self, database: Optional[str] = None) -> str:
+        """The URL ingestion opens `database` with; the recipe's own when
+        None. get_inspectors and the probe both dial this."""
+        return self.get_sql_alchemy_url(current_db=database, is_odbc=self.uses_odbc())
 
     def probe_sql_alchemy_url(self) -> str:
-        # get_sql_alchemy_url() alone defaults is_odbc=False, so the probe
-        # would dial mssql+pytds for an mssql-odbc recipe; ingestion passes it.
-        return self.get_sql_alchemy_url(is_odbc=self.uses_odbc())
+        return self.database_url()
+
+    def schema_argument(self, schema: str) -> Union[str, quoted_name]:
+        """`schema` as get_allowed_schemas hands it to the dialect, which reads
+        an unquoted `a.b` as database `a`, owner `b`."""
+        return quoted_name(schema, True) if self.quote_schemas else schema
 
     def is_single_database_recipe(self) -> bool:
         # The condition get_inspectors branches on: one inspector, no
@@ -468,10 +501,12 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         "" when the connection names no database, so the login's default one
         is read and its name is not knowable without connecting.
         """
-        # lazy: URL parsing is only needed once a probe asks
-        from sqlalchemy.engine import make_url
-
-        return database_name_from_url(make_url(self.probe_sql_alchemy_url()))
+        # Cached: several hooks ask per verdict, and the URL never changes.
+        if self._pinned_database is None:
+            self._pinned_database = database_name_from_url(
+                make_url(self.database_url())
+            )
+        return self._pinned_database
 
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
         return (
@@ -598,7 +633,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         else:
             database = ctx.parent_path[-2] if len(ctx.parent_path) > 1 else ""
         if database:
-            return f"{database}.{schema}.{ctx.name}"
+            return procedure_full_name(database, schema, ctx.name)
         if self.is_single_database_recipe():
             # No target to get right: ingestion emits no procedure here, and
             # probe_verdict_override says so and why.
@@ -696,12 +731,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
                 "as the first --parent, or the name is judged on 'schema.table', "
                 "which ingestion never matches"
             )
-        source = SQLServerSource.__new__(SQLServerSource)
-        source.config = self
-        source.current_database = database
-        return source.get_identifier(
-            schema=schema, entity=entity, inspector=_NO_INSPECTOR
-        )
+        return qualified_identifier(self, database, schema, entity)
 
     @classmethod
     def probe_provider_class(cls) -> type:
@@ -789,11 +819,17 @@ class SQLServerSource(SQLAlchemySource):
     report: SQLSourceReport
 
     def __init__(
-        self, config: SQLServerConfig, ctx: PipelineContext, is_odbc: bool = False
+        self,
+        config: SQLServerConfig,
+        ctx: PipelineContext,
+        is_odbc: Optional[bool] = None,
     ):
         super().__init__(config, ctx, "mssql")
         self.config: SQLServerConfig = config
-        self._is_odbc = is_odbc
+        if is_odbc is not None:
+            # For a config validated without the source type's context.
+            config._is_odbc = is_odbc
+        self._is_odbc = config.uses_odbc()
         self.current_database: Optional[str] = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
@@ -905,10 +941,8 @@ class SQLServerSource(SQLAlchemySource):
             SQLServerConfig.probe_validation_context(source_type=source_type or "")
             or {}
         )
-        is_odbc = bool(context.get("is_odbc", False))
-
         config = SQLServerConfig.model_validate(config_dict, context=context)
-        return cls(config, ctx, is_odbc=is_odbc)
+        return cls(config, ctx)
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
@@ -1366,9 +1400,9 @@ class SQLServerSource(SQLAlchemySource):
             procedures_data_list = self._get_stored_procedures(conn, db_name, schema)
             procedures: List[StoredProcedure] = []
             for procedure_data in procedures_data_list:
-                procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
-                if not self.config.procedure_pattern.allowed(procedure_full_name):
-                    self.report.report_dropped(procedure_full_name)
+                full_name = procedure_full_name(db_name, schema, procedure_data["name"])
+                if not self.config.procedure_pattern.allowed(full_name):
+                    self.report.report_dropped(full_name)
                     continue
                 procedures.append(
                     StoredProcedure(flow=mssql_default_job, **procedure_data)
@@ -1819,7 +1853,7 @@ class SQLServerSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
-        url = self.config.get_sql_alchemy_url(is_odbc=self._is_odbc)
+        url = self.config.database_url()
         logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
@@ -1832,9 +1866,7 @@ class SQLServerSource(SQLAlchemySource):
 
             for db_name in databases:
                 if self.config.database_pattern.allowed(db_name):
-                    url = self.config.get_sql_alchemy_url(
-                        current_db=db_name, is_odbc=self._is_odbc
-                    )
+                    url = self.config.database_url(db_name)
                     try:
                         engine = create_engine(url, **self.config.options)
                         inspector = inspect(engine)
@@ -1857,17 +1889,7 @@ class SQLServerSource(SQLAlchemySource):
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
-        regular = f"{schema}.{entity}"
-        qualified_table_name = regular
-        if self.config.database:
-            qualified_table_name = f"{self.config.database}.{regular}"
-        if self.current_database:
-            qualified_table_name = f"{self.current_database}.{regular}"
-        return (
-            qualified_table_name.lower()
-            if self.config.convert_urns_to_lowercase
-            else qualified_table_name
-        )
+        return qualified_identifier(self.config, self.current_database, schema, entity)
 
     def _is_discovered_procedure(self, urn: str) -> bool:
         """True if this run emitted a dataJob for the procedure that URN names.
@@ -2187,10 +2209,7 @@ class SQLServerSource(SQLAlchemySource):
 
     def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
         for schema in super().get_allowed_schemas(inspector, db_name):
-            if self.config.quote_schemas:
-                yield quoted_name(schema, True)
-            else:
-                yield schema
+            yield self.config.schema_argument(schema)
 
     def get_db_name(self, inspector: Inspector) -> str:
         engine = inspector.engine

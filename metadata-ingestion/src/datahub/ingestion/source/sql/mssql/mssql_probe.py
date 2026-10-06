@@ -26,25 +26,9 @@ from datahub.ingestion.source.sql.sqlalchemy_probe import (
 
 
 def _server_spelling(name: str, known: List[str], what: str, hint: str) -> str:
-    """The server's own spelling of `name`, or a refusal.
-
-    Every database, schema and table a caller names goes through here before
-    it reaches SQL or the dialect: the mssql dialect reads a schema `a.b` as
-    database `a`, owner `b`, and switches to `a` with USE -- so an unchecked
-    `--schema OtherDb.dbo` would read a database the command was not scoped
-    to. Matching against what the server lists means only real names travel.
-
-    Exact first: a case-sensitive collation can hold both spellings. Then
-    case-insensitively, which is what the default collation does -- but only
-    to a single listed name. Two that fold together can only come from a
-    case-sensitive collation, where the caller's spelling names neither.
-
-    This deliberately departs from sql_identifier_resolver.resolve_listed_name,
-    which the base class uses and which refuses a case-only mismatch: SQL
-    Server's default collation is case-insensitive, so ingestion itself treats
-    `Sales` and `sales` as one object here. Only a listed string is returned,
-    and callers warn with the server's spelling when it differs.
-    """
+    """The server's spelling of `name`: an exact match, else a unique
+    case-insensitive match, else refuse. Only listed names reach SQL or the
+    dialect, which reads `a.b` as database.owner."""
     if name in known:
         return name
     folded = name.casefold()
@@ -85,8 +69,9 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
     def __init__(self, engine: Engine, config: SQLServerConfig) -> None:
         super().__init__(engine)
         self._config = config
-        self._database_engines: Dict[str, Engine] = {}
-        self._database_inspectors: Dict[str, Inspector] = {}
+        # Per database ingestion opens one connection for, keyed by the
+        # server's spelling.
+        self._databases: Dict[str, Tuple[Engine, Inspector]] = {}
         self._known_databases: Optional[List[str]] = None
         # From the config the constructor is given, so a provider built
         # without for_config still parses `sql` as T-SQL.
@@ -105,11 +90,10 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
 
     def __exit__(self, *exc: object) -> None:
         try:
-            for engine in self._database_engines.values():
+            for engine, _ in self._databases.values():
                 engine.dispose()
         finally:
-            self._database_engines.clear()
-            self._database_inspectors.clear()
+            self._databases.clear()
             super().__exit__(*exc)
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
@@ -123,24 +107,24 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             return self._config.list_databases(conn)
 
     def _open_database_engine(self, name: str) -> Engine:
-        # get_inspectors' own URL for one database.
-        url = self._config.get_sql_alchemy_url(
-            current_db=name, is_odbc=self._config.uses_odbc()
-        )
         settings = self._config.probe_engine_settings(type(self).query_budget)
-        return build_probe_engine(self._config, url, settings)
+        return build_probe_engine(
+            self._config, self._config.database_url(name), settings
+        )
 
     # -- resolution --
 
-    def _inspector_for(self, database: Optional[str]) -> Tuple[Inspector, str]:
-        """The Inspector ingestion walks `database` with, and the name it calls it.
+    def _connection_for(self, database: Optional[str]) -> Tuple[Engine, Inspector, str]:
+        """The engine and Inspector ingestion walks `database` with, and the
+        name it calls it.
 
         Refuses rather than guesses: answering from a database ingestion never
         opens is the confidently-wrong result this interface exists to prevent.
         """
         config = self._config
         if config.is_single_database_recipe():
-            return self._insp, self._check_pin(database)
+            # The base engine, not inspector.bind, which may be a Connection.
+            return self._engine, self._insp, self._check_pin(database)
         if database is None:
             raise ProbeArgumentError(
                 "this recipe sets no `database`, so ingestion walks every database "
@@ -161,13 +145,18 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
                 f"name ingestion qualifies with; pass '{name}' as the --parent "
                 f"to `probe filter`"
             )
-        inspector = self._database_inspectors.get(name)
-        if inspector is None:
+        opened = self._databases.get(name)
+        if opened is None:
             engine = self._open_database_engine(name)
-            self._database_engines[name] = engine
-            inspector = inspect(engine)
-            self._database_inspectors[name] = inspector
-        return inspector, name
+            try:
+                # inspect() connects, so it can fail; the engine is only kept
+                # (and later disposed by __exit__) once it has.
+                opened = (engine, inspect(engine))
+            except Exception:
+                engine.dispose()
+                raise
+            self._databases[name] = opened
+        return opened[0], opened[1], name
 
     def _check_pin(self, database: Optional[str]) -> str:
         config = self._config
@@ -186,20 +175,16 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         )
 
     def _schema_arg(self, schema: str) -> Union[str, quoted_name]:
-        # get_allowed_schemas: unquoted, the mssql dialect reads `a.b` as
-        # database `a`, owner `b` -- and so does ingestion, unless quote_schemas.
-        if self._config.quote_schemas:
-            return quoted_name(schema, True)
-        if "." in schema:
+        if not self._config.quote_schemas and "." in schema:
             self._warn(
                 f"schema '{schema}' contains a dot and quote_schemas is off, so "
                 f"ingestion (and this command) reads it as database.owner; set "
                 f"quote_schemas: true to read it as one schema"
             )
-        return schema
+        return self._config.schema_argument(schema)
 
     def _schema(self, schema: str, database: Optional[str]) -> _Located:
-        inspector, db_name = self._inspector_for(database)
+        engine, inspector, db_name = self._connection_for(database)
         name = _server_spelling(
             schema,
             list(inspector.get_schema_names()),
@@ -214,13 +199,6 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
                 f"the name ingestion matches patterns against; pass '{name}' as "
                 f"the --parent to `probe filter`"
             )
-        # The engine itself rather than inspector.bind, which may be a
-        # Connection: a pinned recipe reads through the base engine.
-        engine = (
-            self._engine
-            if self._config.is_single_database_recipe()
-            else self._database_engines[db_name]
-        )
         return _Located(inspector, engine, db_name, name, self._schema_arg(name))
 
     def _relation(
@@ -266,7 +244,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         """Schemas in one database, including ones schema_pattern would exclude
         and SQL Server's own (`sys`, `db_owner`, ...), which ingestion does not
         skip either. --database is required unless the recipe pins one."""
-        inspector, _ = self._inspector_for(database)
+        _, inspector, _ = self._connection_for(database)
         return list(inspector.get_schema_names())[:limit]
 
     @probe_method(
