@@ -7,6 +7,24 @@ All SQLMesh model kinds are supported: `FULL`, `INCREMENTAL_BY_TIME_RANGE`,
 `EXTERNAL`, and `EMBEDDED`. Each maps to a DataHub dataset subtype (`Model`, `Seed`,
 `Source`, or `Embedded`).
 
+#### Lineage to warehouse tables
+
+As with dbt, each SQLMesh dataset is a sibling of its warehouse table and is linked into
+the lineage graph, so lineage runs through SQLMesh from table to table:
+
+- Each model that builds a table adds a `model → warehouse table` edge to it, with
+  column mappings. The edge is patched, so the warehouse source plugin's own lineage on that
+  table is kept.
+- Each external model (a `Source`) takes the table it declares as its upstream.
+- `skip_external_models_in_lineage: true` takes external models off the path: models
+  read their warehouse tables directly, like dbt's `skip_sources_in_lineage`.
+- The GMS flag `HIDE_SQLMESH_SOURCE_IN_LINEAGE` (default `false`) is the counterpart of
+  `HIDE_DBT_SOURCE_IN_LINEAGE`. It removes no nodes from the graph. Opening a SQLMesh `Source`
+  shows its warehouse table's lineage, and that table shows both platform icons.
+
+Column field paths use the same casing as column lineage: lowercased when
+`convert_urns_to_lowercase` is in effect, unless `convert_column_urns_to_lowercase: false`.
+
 #### Data quality assertions
 
 SQLMesh audits become DataHub **`CUSTOM`** assertions attached to the SQLMesh
