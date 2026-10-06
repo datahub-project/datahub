@@ -1,4 +1,3 @@
-import { SubType } from '@app/entityV2/shared/components/subtypes';
 import {
     LINEAGE_FILTER_PAGINATION,
     LINEAGE_FILTER_TYPE,
@@ -10,10 +9,10 @@ import {
     getEdgeId,
     getParents,
     isQuery,
-    isTransformationPlatform,
     isTransformational,
     setDefault,
 } from '@app/lineageV3/common';
+import { isSourceSubtype, isTransformationPlatform } from '@app/lineageV3/transformationPlatforms';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { LineageDirection } from '@types';
@@ -213,7 +212,7 @@ function applyFilters(
 /**
  * Returns the set of children to filter for the given parent node.
  * This is calculated as: all adjacent non-transformational nodes and any transformational leaves.
- * Drops dbt and SQLMesh sources that are transformational leaves, because they add no information.
+ * Drops sources that are transformational leaves, because they add no information.
  * Loop invariant: all nodes in `queue` are transformational.
  * @param parent The parent node, whose children are to be filtered.
  * @param direction Direction of children.
@@ -242,7 +241,7 @@ function getChildrenToFilter(
             !(
                 direction === LineageDirection.Downstream &&
                 isTransformationPlatform(node) &&
-                node.entity?.subtype === SubType.DbtSource
+                isSourceSubtype(node.entity?.subtype)
             )
         ) {
             childrenToFilter.add(node.urn);
