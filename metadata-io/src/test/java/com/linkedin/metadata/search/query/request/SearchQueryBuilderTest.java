@@ -1599,8 +1599,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             datasetSpec,
             "alpha's bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike"
                 + " november oscar papa quebec romeo sierra tango");
-    assertTrue(paragraph.stream().anyMatch(sqs -> sqs.value().contains("papa")));
-    assertTrue(paragraph.stream().noneMatch(sqs -> sqs.value().contains("quebec")));
+    assertTrue(paragraph.stream().anyMatch(sqs -> sqs.value().contains("oscar")));
+    assertTrue(paragraph.stream().noneMatch(sqs -> sqs.value().contains("papa")));
     // A letter/digit run counts its parts and its unsplit copy
     List<SimpleQueryStringBuilder> runs =
         v3SimpleQueries(
@@ -1615,6 +1615,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "alpha2017 bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike");
     assertTrue(mixed.stream().anyMatch(sqs -> sqs.value().contains("india")));
     assertTrue(mixed.stream().noneMatch(sqs -> sqs.value().contains("juliet")));
+    // The analyzers split qualified names at the dots, so each part counts
+    List<SimpleQueryStringBuilder> dotted =
+        v3SimpleQueries(
+            datasetSpec,
+            "db.alpha db.bravo db.charlie db.delta db.echo db.foxtrot db.golf db.hotel db.india"
+                + " db.juliet db.kilo db.lima");
+    assertTrue(dotted.stream().anyMatch(sqs -> sqs.value().contains("hotel")));
+    assertTrue(dotted.stream().noneMatch(sqs -> sqs.value().contains("india")));
   }
 
   private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {

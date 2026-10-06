@@ -87,6 +87,9 @@ public class SearchQueryBuilder {
   private static final Pattern DIGIT_LETTER_BOUNDARY = Pattern.compile("(?<=\\d)(?=[a-zA-Z])");
   private static final Pattern FUZZY_SPLIT_PATTERN = Pattern.compile("[\\s_\\-]+");
 
+  /** What the search analyzers split terms at: anything but letters and digits. */
+  private static final Pattern NON_ALPHANUMERIC_PATTERN = Pattern.compile("[^\\p{L}\\p{N}]+");
+
   /** A query in quotes, the rule the quoted query configuration of search_config.yaml uses. */
   private static final Pattern FULLY_QUOTED_PATTERN = Pattern.compile("^[\"'].+[\"']$");
 
@@ -789,12 +792,17 @@ public class SearchQueryBuilder {
     return new IndexFieldCounts(fields, wordGramFields);
   }
 
-  /** The terms the per-term queries match in {@code text}: words split at _, - and letter/digit. */
-  private static int termCount(@Nonnull String text) {
+  /** The letter and digit runs of {@code text}, the terms the search analyzers produce. */
+  private static int runCount(@Nonnull String text) {
     return (int)
-        Arrays.stream(FUZZY_SPLIT_PATTERN.split(splitAlphanumericTokens(text).trim()))
-            .filter(term -> !term.isEmpty())
-            .count();
+        Arrays.stream(NON_ALPHANUMERIC_PATTERN.split(text)).filter(term -> !term.isEmpty()).count();
+  }
+
+  /**
+   * The terms the per-term queries match in {@code text}, also split at letter/digit boundaries.
+   */
+  private static int termCount(@Nonnull String text) {
+    return runCount(splitAlphanumericTokens(text));
   }
 
   /**
@@ -812,7 +820,7 @@ public class SearchQueryBuilder {
       @Nonnull String operatorEscaped, @Nonnull IndexFieldCounts counts) {
     return termClauses(
         termCount(operatorEscaped),
-        WHITESPACE_PATTERN.split(operatorEscaped.trim()).length,
+        runCount(operatorEscaped),
         splitsLetterDigitRun(operatorEscaped),
         counts);
   }
@@ -834,7 +842,7 @@ public class SearchQueryBuilder {
     for (String word : words) {
       String escaped = escapeSimpleQueryStringOperators(word);
       int wordTerms = termCount(escaped);
-      int wordUnsplit = WHITESPACE_PATTERN.split(escaped.trim()).length;
+      int wordUnsplit = runCount(escaped);
       boolean withRuns = runs || splitsLetterDigitRun(escaped);
       if (kept > 0
           && termClauses(terms + wordTerms, unsplitWords + wordUnsplit, withRuns, counts)
