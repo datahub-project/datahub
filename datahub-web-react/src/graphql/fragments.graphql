@@ -404,6 +404,8 @@ fragment institutionalMemoryFields on InstitutionalMemory {
         settings {
             showInAssetPreview
         }
+        linkType
+        linkDescription
     }
 }
 

@@ -105,7 +105,15 @@ public class LinkUtilsTest {
 
       // Execute
       LinkUtils.addLink(
-          mockOpContext, TEST_URL, TEST_LABEL, resourceUrn, actorUrn, null, mockEntityService);
+          mockOpContext,
+          TEST_URL,
+          TEST_LABEL,
+          resourceUrn,
+          actorUrn,
+          null,
+          null,
+          null,
+          mockEntityService);
 
       // Verify
       assertTrue(emptyMemory.hasElements());
@@ -146,7 +154,15 @@ public class LinkUtilsTest {
 
       // Execute
       LinkUtils.addLink(
-          mockOpContext, TEST_URL, TEST_LABEL, resourceUrn, actorUrn, settings, mockEntityService);
+          mockOpContext,
+          TEST_URL,
+          TEST_LABEL,
+          resourceUrn,
+          actorUrn,
+          settings,
+          null,
+          null,
+          mockEntityService);
 
       // Verify
       InstitutionalMemoryMetadata addedLink = emptyMemory.getElements().get(0);
@@ -182,6 +198,8 @@ public class LinkUtilsTest {
                 TEST_LABEL,
                 resourceUrn,
                 actorUrn,
+                null,
+                null,
                 null,
                 mockEntityService);
           });
@@ -223,6 +241,8 @@ public class LinkUtilsTest {
           resourceUrn,
           actorUrn,
           null,
+          null,
+          null,
           mockEntityService);
 
       // Verify
@@ -263,6 +283,8 @@ public class LinkUtilsTest {
                 NEW_LABEL,
                 resourceUrn,
                 actorUrn,
+                null,
+                null,
                 null,
                 mockEntityService);
           });
@@ -314,6 +336,8 @@ public class LinkUtilsTest {
                 resourceUrn,
                 actorUrn,
                 null,
+                null,
+                null,
                 mockEntityService);
           });
     }
@@ -346,7 +370,15 @@ public class LinkUtilsTest {
 
       // Execute
       LinkUtils.upsertLink(
-          mockOpContext, TEST_URL, TEST_LABEL, resourceUrn, actorUrn, null, mockEntityService);
+          mockOpContext,
+          TEST_URL,
+          TEST_LABEL,
+          resourceUrn,
+          actorUrn,
+          null,
+          null,
+          null,
+          mockEntityService);
 
       // Verify - should act like add
       assertTrue(emptyMemory.hasElements());
@@ -385,7 +417,15 @@ public class LinkUtilsTest {
 
       // Execute
       LinkUtils.upsertLink(
-          mockOpContext, TEST_URL, TEST_LABEL, resourceUrn, actorUrn, null, mockEntityService);
+          mockOpContext,
+          TEST_URL,
+          TEST_LABEL,
+          resourceUrn,
+          actorUrn,
+          null,
+          null,
+          null,
+          mockEntityService);
 
       // Verify - should act like update (same URL and label, so it updates existing)
       assertEquals(existingMemory.getElements().size(), 1);
@@ -532,6 +572,76 @@ public class LinkUtilsTest {
     for (String url : safeUrls) {
       // Should not throw
       LinkUtils.validateAddRemoveInput(mockOpContext, url, resourceUrn, mockEntityService);
+    }
+  }
+
+  @Test
+  public void testLinkTypeAndDescriptionRoundTrip() throws Exception {
+    InstitutionalMemory memory = new InstitutionalMemory();
+
+    try (MockedStatic<EntityUtils> entityUtilsMock = Mockito.mockStatic(EntityUtils.class)) {
+      entityUtilsMock
+          .when(
+              () ->
+                  EntityUtils.getAspectFromEntity(
+                      eq(mockOpContext),
+                      eq(TEST_ENTITY_URN),
+                      eq(INSTITUTIONAL_MEMORY_ASPECT_NAME),
+                      eq(mockEntityService),
+                      any(InstitutionalMemory.class)))
+          .thenReturn(memory);
+      AuditStamp stamp = new AuditStamp();
+      stamp.setActor(actorUrn);
+      stamp.setTime(Clock.systemUTC().millis());
+      entityUtilsMock.when(() -> EntityUtils.getAuditStamp(eq(actorUrn))).thenReturn(stamp);
+
+      LinkUtils.addLink(
+          mockOpContext,
+          TEST_URL,
+          TEST_LABEL,
+          resourceUrn,
+          actorUrn,
+          null,
+          "Runbook",
+          "On-call steps",
+          mockEntityService);
+      InstitutionalMemoryMetadata link = memory.getElements().get(0);
+      assertEquals(link.getLinkType(), "Runbook");
+      assertEquals(link.getLinkDescription(), "On-call steps");
+
+      // Null keeps existing values (e.g. callers that don't know about these fields).
+      LinkUtils.updateLink(
+          mockOpContext,
+          TEST_URL,
+          TEST_LABEL,
+          NEW_URL,
+          NEW_LABEL,
+          resourceUrn,
+          actorUrn,
+          null,
+          null,
+          null,
+          mockEntityService);
+      link = memory.getElements().get(0);
+      assertEquals(link.getLinkType(), "Runbook");
+      assertEquals(link.getLinkDescription(), "On-call steps");
+
+      // Empty string clears.
+      LinkUtils.updateLink(
+          mockOpContext,
+          NEW_URL,
+          NEW_LABEL,
+          NEW_URL,
+          NEW_LABEL,
+          resourceUrn,
+          actorUrn,
+          null,
+          "",
+          "",
+          mockEntityService);
+      link = memory.getElements().get(0);
+      assertFalse(link.hasLinkType());
+      assertFalse(link.hasLinkDescription());
     }
   }
 }

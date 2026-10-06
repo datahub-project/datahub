@@ -67,6 +67,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                         label: generalizedFormValues.label,
                         resourceUrn: mutationUrn,
                         settings: { showInAssetPreview },
+                        linkType: generalizedFormValues.linkType ?? '',
+                        linkDescription: generalizedFormValues.linkDescription ?? '',
                     },
                 },
             });
@@ -98,6 +100,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                         label: generalizedFormValues.label,
                         linkUrl: generalizedFormValues.url,
                         settings: { showInAssetPreview },
+                        linkType: generalizedFormValues.linkType ?? '',
+                        linkDescription: generalizedFormValues.linkDescription ?? '',
                     },
                 },
             });
