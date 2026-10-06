@@ -617,7 +617,27 @@ To send primary through a JVM proxy but keep secondary direct, set `ELASTICSEARC
 | `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                                               | Maximum reindex hours (0 = no timeout)                                                                                                                               | System Update      |
 | `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                                            | Index builder settings overrides, JSON `{"<index>": {"<setting>": <value>}}`. Nested objects (e.g. `analysis`) are deep-merged                                       | System Update      |
 | `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                                               | Minimum search filter length                                                                                                                                         | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                                            | Entity settings overrides, same format as `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                                                                           | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                                            | Entity settings overrides, JSON `{"<entity>": {"<setting>": <value>}}`, keyed by entity name (e.g. `dataset`). Nested objects are deep-merged                                                                           | System Update      |
+
+For entity indices, use `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES` with
+the entity name (for example, `dataset`), not the physical index name
+(`datasetindex_v2`). The entity index naming convention adds the configured prefix
+and entity index suffix. In contrast, `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`
+uses index names to which the configured prefix is added.
+
+For example, set `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES` to the
+following JSON to retain two-character tokens, such as Korean words:
+
+```json
+{ "dataset": { "analysis": { "filter": { "min_length": { "min": 2 } } } } }
+```
+
+This changes only the existing `min_length` filter's `min` value. Both
+`word_delimited` and `query_word_delimited` already reference this filter, so their
+generated filter chains and the filter's other settings are preserved. Nested
+objects are merged recursively, but lists are replaced in full. Prefer overriding
+the shared filter definition instead of copying an analyzer's filter list, so
+upstream filter-chain changes continue to apply on upgrades.
 
 #### Search Configuration
 
