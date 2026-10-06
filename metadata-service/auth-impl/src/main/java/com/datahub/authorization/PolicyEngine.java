@@ -154,7 +154,7 @@ public class PolicyEngine {
       if (actorFilter.isAllUsers()) {
         allUsers = true;
       }
-      if (actorFilter.isAllUsers()) {
+      if (actorFilter.isAllGroups()) {
         allGroups = true;
       }
 
