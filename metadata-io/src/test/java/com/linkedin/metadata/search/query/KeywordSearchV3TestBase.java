@@ -905,18 +905,19 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * A long query over an index rich in similar words stays under OpenSearch's default limit of 1024
-   * clauses: fuzzy terms share a budget of expansions, and only the first 16 words are matched.
+   * Long queries over indices rich in similar words stay under OpenSearch's default limit of 1024
+   * clauses: a query keeps the words whose clauses fit, and its fuzzy terms share what is left.
+   * Runs last, since the documents it adds would change other tests' counts.
    */
-  @Test
+  @Test(priority = 1)
   public void testLongQueryStaysUnderClauseLimit() throws Exception {
     String[] words = {
       "zorbel", "quintax", "valdrin", "morphex", "brintel", "caldris", "fenwold", "glarvon",
       "hestrin", "jorvald", "kelstor", "lumbrix", "nervant", "orzelle", "pyxtral", "quorvex",
-      "rendalt", "sylvorn", "tarquel", "umbrisk"
+      "rendalt", "sylvorn", "tarquel", "umbrisk", "vintrel", "wexmore", "yarlund", "zephrin",
+      "brockan", "cindral", "dravish", "elstorm", "fyndell"
     };
-    // Close neighbours of every word give each fuzzy term its full expansions in the title and the
-    // description
+    // Close neighbours of every word give each fuzzy term its full expansions
     StringBuilder vocabulary = new StringBuilder();
     for (String word : words) {
       vocabulary.append(word).append(' ');
@@ -924,6 +925,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         vocabulary.append(word, 0, word.length() - 1).append(last).append(' ');
       }
     }
+    String text = vocabulary.toString().trim();
+    Urn vocabularyDataset =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,vocabulary,PROD)");
     Urn vocabularyDashboard = UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
     new UpdateIndicesV3Strategy(
             config.getEntityIndex().getV3(),
@@ -934,26 +938,53 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         .processBatch(
             opContext,
             Map.of(
+                vocabularyDataset,
+                events(
+                    vocabularyDataset,
+                    new DatasetProperties()
+                        .setName(text)
+                        .setDescription(text)
+                        .setQualifiedName(text)),
                 vocabularyDashboard,
                 events(
                     vocabularyDashboard,
                     new DashboardInfo()
-                        .setTitle(vocabulary.toString().trim())
-                        .setDescription(vocabulary.toString().trim())
+                        .setTitle(text)
+                        .setDescription(text)
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
 
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
-    for (int length : new int[] {3, 8, 20}) {
-      String query = String.join(" ", Arrays.copyOf(words, length));
+    List<String> queries =
+        List.of(
+            String.join(" ", Arrays.copyOf(words, 3)),
+            String.join(" ", Arrays.copyOf(words, 20)),
+            Arrays.stream(words)
+                .limit(12)
+                .map(word -> word + "2017")
+                .collect(Collectors.joining(" ")),
+            Arrays.stream(words)
+                .limit(8)
+                .map(word -> word + "-" + word + "-v2")
+                .collect(Collectors.joining(" ")),
+            words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)));
+    for (List<String> entityTypes :
+        List.of(List.of(DATASET_ENTITY_NAME), List.of(DASHBOARD_ENTITY_NAME), ENTITY_TYPES)) {
+      for (String query : queries) {
+        // Fails with too_many_nested_clauses past the limit
+        searchService.search(fulltext, entityTypes, query, null, null, 0, 10);
+      }
       assertTrue(
           searchService
-              .search(fulltext, List.of(DASHBOARD_ENTITY_NAME), query, null, null, 0, 10)
+              .search(fulltext, entityTypes, queries.get(1), null, null, 0, 10)
               .getEntities()
               .stream()
-              .anyMatch(entity -> entity.getEntity().equals(vocabularyDashboard)),
-          query);
+              .anyMatch(
+                  entity ->
+                      entity.getEntity().equals(vocabularyDataset)
+                          || entity.getEntity().equals(vocabularyDashboard)),
+          entityTypes.toString());
     }
   }
 
