@@ -8,13 +8,13 @@ Extracts lineage and usage statistics by analyzing SQL queries:
 
 - **Table-level lineage**: Tables read from and written to
 - **Column-level lineage**: Data flow between columns
-- **Query entities**: Every extracted query, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab
+- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped
 - **Usage patterns**: Per-query and per-table execution counts for the ingestion time window
 
 ##### Known Limitations
 
 - **User attribution not supported**: SQL Server Query Store and DMVs do not preserve historical user session context. Query extraction focuses on query content, frequency, and performance metrics.
-- **DMV execution counts are cumulative**: The plan cache only records a running total and the last execution time per plan, so with the DMV fallback a query's whole cached count is attributed to its last execution. Enable Query Store for accurate per-window counts.
+- **DMV execution counts are approximate**: The plan cache only records a running total and the last execution time per plan. With the DMV fallback, a query is counted at its last execution with its full total if the plan was cached inside the window, and as a single execution otherwise. Enable Query Store for exact per-window counts.
 
 ##### Configuration
 
@@ -87,7 +87,7 @@ DataHub automatically selects the best available method:
 1. **Query Store (Preferred)** - SQL Server 2016+
 
    - Provides comprehensive query history
-   - Execution counts are broken down per Query Store runtime interval within `start_time`/`end_time`
+   - Exact execution counts per usage bucket (`bucket_duration`) within `start_time`/`end_time`; queries that ran in the window are prioritized for `max_queries_to_extract`
    - Better performance and reliability
    - Requires Query Store to be enabled
 
