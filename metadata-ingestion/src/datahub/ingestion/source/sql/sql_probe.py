@@ -135,7 +135,9 @@ def _judged_on_identifier(config: SQLCommonConfig, ctx: ClassifyContext) -> bool
         DatasetContainerSubTypes.DATABASE,
     ):
         return False
-    if config.probe_ancestor_kinds(kind=ctx.kind) == ():
+    # () is a kind with no container; None one the chain does not describe,
+    # so neither is a table or view whose identifier the shim could build.
+    if not config.probe_ancestor_kinds(kind=ctx.kind):
         return False
     # Without the container the shim builds ".orders", which ingestion
     # never matches.

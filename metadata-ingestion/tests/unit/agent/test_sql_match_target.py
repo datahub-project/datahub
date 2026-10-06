@@ -279,6 +279,8 @@ def _ctx(
         (PostgresConfig(**_PG), "Database", (), None, []),
         (MySQLConfig(**_MY), "Table", ("shop",), "shop.orders", []),
         (MySQLConfig(**_MY), "Database", (), None, []),
+        # A kind the container chain does not describe is no table or view.
+        (PostgresConfig(**_PG), "Stored Procedure", ("db", "public"), None, []),
     ],
 )
 def test_the_sql_hook_answers_tables_and_views_and_leaves_containers_bare(
