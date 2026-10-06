@@ -1,5 +1,6 @@
 import subprocess
 import time
+from datetime import datetime
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -8,17 +9,27 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.elements import TextClause
 
-from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.mssql.query import MSSQLQuery, QueryHistoryWindow
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
 )
-from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
+from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.metadata.schema_classes import (
+    QueryPropertiesClass,
+    QuerySubjectsClass,
+    QueryUsageStatisticsClass,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from tests.test_helpers.docker_helpers import wait_for_port
 
 MSSQL_PORT = 1433
+# Wide naive-UTC window so executions from the test run always fall inside it.
+_HISTORY_WINDOW = QueryHistoryWindow(
+    start_time=datetime(2000, 1, 1), end_time=datetime(2100, 1, 1)
+)
 
 
 @pytest.fixture(scope="module")
@@ -200,7 +211,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -242,7 +253,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -271,6 +282,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
+            window=_HISTORY_WINDOW,
             limit=100,
             min_calls=1,
             exclude_patterns=["%sys.%", "%@@%"],
@@ -290,6 +302,7 @@ class TestMSSQLLineageIntegration:
         malicious_pattern = "'; DROP TABLE lineage_test.source_orders; --"
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
+            window=_HISTORY_WINDOW,
             limit=10,
             min_calls=1,
             exclude_patterns=[malicious_pattern],
@@ -374,7 +387,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=3, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=3, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -458,7 +471,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -486,7 +499,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_dmv(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
         queries = list(result)
@@ -509,12 +522,12 @@ class TestMSSQLLineageIntegration:
         assert isinstance(MSSQLQuery.get_mssql_version(), TextClause)
 
         query, _ = MSSQLQuery.get_query_history_from_query_store(
-            limit=10, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=10, min_calls=1, exclude_patterns=None
         )
         assert isinstance(query, TextClause)
 
         query, _ = MSSQLQuery.get_query_history_from_dmv(
-            limit=10, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=10, min_calls=1, exclude_patterns=None
         )
         assert isinstance(query, TextClause)
 
@@ -1171,6 +1184,15 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
                 )
             )
 
+            # One batch, two statements: DMV stats are per statement while
+            # sql_handle is per batch, so these must come back as two entries.
+            conn.execute(
+                text(
+                    "SELECT customer_name FROM customers WHERE customer_id = 1; "
+                    "SELECT order_date FROM orders WHERE order_id = 100"
+                )
+            )
+
             # Execute queries multiple times to increase DMV caching probability
             for _ in range(5):
                 conn.execute(text("SELECT customer_id, customer_name FROM customers"))
@@ -1222,21 +1244,41 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
 
             queries = extractor.extract_query_history()
 
-            # DMV cache is unpredictable - test validates mechanism not cache state
-            if len(queries) > 0:
-                assert report.num_queries_extracted > 0
+            # Ad-hoc statements have a NULL sql_text.dbid; the plan dbid filter
+            # must still find them in a fresh container's plan cache.
+            assert queries, "DMV extraction returned no ad-hoc queries"
+            assert report.num_queries_extracted == len(queries)
+            for query in queries:
+                assert query.query_text
+                assert query.execution_count > 0
+                assert query.database_name == "dmv_test_db"
 
-                for query in queries:
-                    assert query.query_id is not None
-                    assert query.query_text is not None
-                    assert query.execution_count > 0
-                    assert query.database_name == "dmv_test_db"
-                    assert not hasattr(query, "user_name")
+            # SQL Server may auto-parameterize these into bracketed form.
+            batch_entries = [
+                q
+                for q in queries
+                if any(
+                    fragment in q.query_text.replace("[", "").replace("]", "")
+                    for fragment in (
+                        "customer_name FROM customers WHERE",
+                        "order_date FROM orders WHERE",
+                    )
+                )
+            ]
+            assert len(batch_entries) == 2
+            assert len({q.query_id for q in batch_entries}) == 2
+            for entry in batch_entries:
+                # Ran before config fixed end_time, so inside the window.
+                assert entry.executions
+                # Statement text only, not the whole batch.
+                assert not (
+                    "customers" in entry.query_text and "orders" in entry.query_text
+                )
 
-                extractor.populate_lineage_from_queries()
-                assert report.num_queries_parsed >= 0
-            else:
-                assert report.num_queries_extracted == 0
+            # Re-extracts; the plan cache may have grown since the first call.
+            extractor.populate_lineage_from_queries()
+            assert report.num_queries_parse_failures == 0
+            assert report.num_queries_parsed >= len(queries)
 
     finally:
         test_engine.dispose()
@@ -1248,3 +1290,71 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
             )
             master_conn.execute(text("DROP DATABASE dmv_test_db"))
         master_engine.dispose()
+
+
+@pytest.mark.integration
+def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
+    """Read-only queries in Query Store become Query entities with usage counts.
+
+    Uses the source's own aggregator so the real query-usage and system-object
+    wiring is exercised, and the default time window so the UTC conversion of
+    Query Store timestamps is checked against SQL Server.
+    """
+    conn = mssql_connection
+    select_sql = "SELECT customer_name, country FROM lineage_test.source_customers"
+    for _ in range(3):
+        conn.execute(text(select_sql))
+    conn.execute(text("SELECT name FROM sys.objects WHERE object_id = 1"))
+    time.sleep(2)
+
+    config = SQLServerConfig.model_validate(
+        {
+            "username": "sa",
+            "password": "test!Password",
+            "host_port": f"localhost:{mssql_runner}",
+            "database": "lineage_test",
+            "include_query_lineage": True,
+            "max_queries_to_extract": 1000,
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="select-query-entity"))
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        connection=conn,
+        report=source.report,
+        sql_aggregator=source.aggregator,
+        default_schema="dbo",
+    )
+    extractor.populate_lineage_from_queries()
+    mcps = list(source.aggregator.gen_metadata())
+
+    statements = {
+        mcp.entityUrn: mcp.aspect.statement.value
+        for mcp in mcps
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    }
+    matching = [
+        urn
+        for urn, statement in statements.items()
+        if "source_customers" in statement and "country" in statement
+    ]
+    assert len(matching) == 1, f"SELECT not emitted as a Query: {statements}"
+    assert not any(
+        "sys.objects" in statement.lower() for statement in statements.values()
+    )
+
+    query_urn = matching[0]
+    subjects = {
+        subject.entity
+        for mcp in mcps
+        if mcp.entityUrn == query_urn and isinstance(mcp.aspect, QuerySubjectsClass)
+        for subject in mcp.aspect.subjects
+    }
+    assert any("source_customers" in subject for subject in subjects)
+    query_count = sum(
+        mcp.aspect.queryCount or 0
+        for mcp in mcps
+        if mcp.entityUrn == query_urn
+        and isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    )
+    assert query_count >= 3

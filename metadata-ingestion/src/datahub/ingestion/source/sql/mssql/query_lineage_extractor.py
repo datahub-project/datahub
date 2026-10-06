@@ -1,10 +1,11 @@
 import logging
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Set
 
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
-from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
+from datahub.ingestion.source.sql.mssql.query import MSSQLQuery, QueryHistoryWindow
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -31,6 +32,19 @@ class PrerequisiteResult(NamedTuple):
     method: str  # "query_store", "dmv", or "none"
 
 
+@dataclass(frozen=True)
+class MSSQLQueryExecution:
+    """Executions of a query attributed to one usage bucket in the window.
+
+    With Query Store this is the exact in-window count for the bucket. With the
+    DMV fallback it is the plan's cumulative count when the plan was cached
+    inside the window, otherwise 1 (see MSSQLQuery.get_query_history_from_dmv).
+    """
+
+    timestamp: datetime
+    count: int
+
+
 @dataclass
 class MSSQLQueryEntry:
     """Represents a single query entry from MS SQL Server query history."""
@@ -40,6 +54,23 @@ class MSSQLQueryEntry:
     execution_count: int
     total_exec_time_ms: float
     database_name: str
+    # Executions inside the ingestion window; execution_count above is the
+    # lifetime total used only for ranking.
+    executions: List[MSSQLQueryExecution] = field(default_factory=list)
+
+
+_UNDATED = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _to_naive_utc(value: datetime) -> datetime:
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _to_aware_utc(value: datetime) -> datetime:
+    # The history SQL already converts to UTC; drivers return it as naive.
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class MSSQLLineageExtractor:
@@ -212,14 +243,21 @@ class MSSQLLineageExtractor:
 
         logger.info("Prerequisites check: %s", prereq.message)
 
+        window = QueryHistoryWindow(
+            start_time=_to_naive_utc(self.config.start_time),
+            end_time=_to_naive_utc(self.config.end_time),
+            bucket_duration=self.config.bucket_duration,
+        )
         if prereq.method == "query_store":
             query, params = MSSQLQuery.get_query_history_from_query_store(
+                window=window,
                 limit=self.config.max_queries_to_extract,
                 min_calls=self.config.min_query_calls,
                 exclude_patterns=self.config.query_exclude_patterns,
             )
         else:  # dmv
             query, params = MSSQLQuery.get_query_history_from_dmv(
+                window=window,
                 limit=self.config.max_queries_to_extract,
                 min_calls=self.config.min_query_calls,
                 exclude_patterns=self.config.query_exclude_patterns,
@@ -229,19 +267,34 @@ class MSSQLLineageExtractor:
             try:
                 result = self.connection.execute(query, params)
 
-                queries = []
+                # Query Store returns one row per (query, usage bucket) with
+                # executions in the window, so fold rows back into one entry
+                # per query.
+                queries_by_id: Dict[str, MSSQLQueryEntry] = {}
                 for row in result.mappings():
-                    self.queries_extracted += 1
-
-                    queries.append(
-                        MSSQLQueryEntry(
-                            query_id=str(row["query_id"]),
+                    query_id = str(row["query_id"])
+                    entry = queries_by_id.get(query_id)
+                    if entry is None:
+                        entry = MSSQLQueryEntry(
+                            query_id=query_id,
                             query_text=row["query_text"],
                             execution_count=row["execution_count"],
                             total_exec_time_ms=float(row["total_exec_time_ms"]),
                             database_name=row["database_name"],
                         )
-                    )
+                        queries_by_id[query_id] = entry
+                        self.queries_extracted += 1
+
+                    last_execution_time = row["last_execution_time_utc"]
+                    window_execution_count = row["window_execution_count"]
+                    if last_execution_time is not None and window_execution_count:
+                        entry.executions.append(
+                            MSSQLQueryExecution(
+                                timestamp=_to_aware_utc(last_execution_time),
+                                count=int(window_execution_count),
+                            )
+                        )
+                queries = list(queries_by_id.values())
 
                 logger.info(
                     "Extracted %d queries from %s in %.2f seconds",
@@ -297,6 +350,42 @@ class MSSQLLineageExtractor:
                 )
                 return []
 
+    def _build_observed_queries(
+        self, query_entry: MSSQLQueryEntry
+    ) -> List[ObservedQuery]:
+        """One ObservedQuery per in-window execution bucket, oldest first.
+
+        Each carries a timestamp and its execution count so the aggregator can
+        emit per-query usage and Query entities for read-only queries. A query
+        with no in-window executions is still added once without a timestamp
+        so lineage from older history is kept. Query Store and DMVs do not
+        record the executing user.
+        """
+        session_id = f"queryid:{query_entry.query_id}"
+        if not query_entry.executions:
+            return [
+                ObservedQuery(
+                    query=query_entry.query_text,
+                    default_db=query_entry.database_name,
+                    default_schema=self.default_schema,
+                    timestamp=None,
+                    user=None,
+                    session_id=session_id,
+                )
+            ]
+        return [
+            ObservedQuery(
+                query=query_entry.query_text,
+                default_db=query_entry.database_name,
+                default_schema=self.default_schema,
+                timestamp=execution.timestamp,
+                user=None,
+                session_id=session_id,
+                usage_multiplier=execution.count,
+            )
+            for execution in sorted(query_entry.executions, key=lambda e: e.timestamp)
+        ]
+
     def populate_lineage_from_queries(self) -> None:
         """Extract lineage from query history and add to SQL aggregator."""
         if not self.config.include_query_lineage:
@@ -310,22 +399,26 @@ class MSSQLLineageExtractor:
 
         queries = self.extract_query_history()
 
+        # The aggregator assumes observations arrive in increasing timestamp
+        # order (latest_timestamp, session handling), so order across queries,
+        # not just within one. Undated (out-of-window) entries go first.
+        observations = [
+            (query_entry, observed_query)
+            for query_entry in queries
+            for observed_query in self._build_observed_queries(query_entry)
+        ]
+        observations.sort(key=lambda pair: pair[1].timestamp or _UNDATED)
+        self.report.num_queries_without_window_executions = sum(
+            1 for query_entry in queries if not query_entry.executions
+        )
+
+        failed_query_ids: Set[str] = set()
         with PerfTimer() as timer:
-            for query_entry in queries:
+            for query_entry, observed_query in observations:
+                if query_entry.query_id in failed_query_ids:
+                    continue
                 try:
-                    self.sql_aggregator.add_observed_query(
-                        ObservedQuery(
-                            query=query_entry.query_text,
-                            default_db=query_entry.database_name,
-                            default_schema=self.default_schema,
-                            timestamp=None,
-                            user=None,
-                            session_id=f"queryid:{query_entry.query_id}",
-                        )
-                    )
-
-                    self.queries_parsed += 1
-
+                    self.sql_aggregator.add_observed_query(observed_query)
                 except (
                     SqlUnderstandingError,
                     UnsupportedStatementTypeError,
@@ -336,7 +429,7 @@ class MSSQLLineageExtractor:
                         e,
                         query_entry.query_text[:100],
                     )
-                    self.queries_failed += 1
+                    failed_query_ids.add(query_entry.query_id)
                 except (ValueError, KeyError, AttributeError) as e:
                     logger.error(
                         "Data structure error processing query %s: %s (%s). Query: %s... "
@@ -348,7 +441,7 @@ class MSSQLLineageExtractor:
                         query_entry.query_text[:100],
                         exc_info=True,
                     )
-                    self.queries_failed += 1
+                    failed_query_ids.add(query_entry.query_id)
                 except Exception as e:
                     logger.error(
                         "Unexpected error processing query %s: %s (%s). Query: %s... "
@@ -359,8 +452,10 @@ class MSSQLLineageExtractor:
                         query_entry.query_text[:100],
                         exc_info=True,
                     )
-                    self.queries_failed += 1
+                    failed_query_ids.add(query_entry.query_id)
 
+        self.queries_failed = len(failed_query_ids)
+        self.queries_parsed = len(queries) - self.queries_failed
         logger.info(
             "Processed %d queries for lineage extraction (%d failed) in %.2f seconds",
             self.queries_parsed,

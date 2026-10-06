@@ -74,6 +74,10 @@ class SQLSourceReport(
     num_queries_extracted: int = 0
     num_queries_parsed: int = 0
     num_queries_parse_failures: int = 0
+    # Extracted queries with no executions in the start_time/end_time window:
+    # they still feed lineage but get no per-query usage, so read-only ones
+    # produce no Query entity.
+    num_queries_without_window_executions: int = 0
 
     # Query-history references the aggregator resolved lineage through but did
     # not emit, because the table is absent from discovered_datasets. This is
