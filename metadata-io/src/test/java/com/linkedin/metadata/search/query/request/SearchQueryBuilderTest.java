@@ -1413,6 +1413,10 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertTrue(
         wildcards.stream().allMatch(w -> "*revenue*".equals(w.value()) && !w.caseInsensitive()),
         wildcards.toString());
+    // At 0.3x the boost of the delimited subfield, 4 for both name and title
+    for (WildcardQueryBuilder wildcard : wildcards) {
+      assertEquals(wildcard.boost(), 4.0f * 0.3f, 0.001f, wildcard.toString());
+    }
   }
 
   @Test
