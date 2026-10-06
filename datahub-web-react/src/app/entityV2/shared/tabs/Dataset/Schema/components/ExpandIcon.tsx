@@ -98,7 +98,7 @@ export default function ExpandIcon(props: Props) {
     const { t } = useTranslation('entity.profile.schema');
     const { expanded, onExpand, expandable, record, isCompact = false } = props;
 
-    function toggleExpand(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+    function toggleExpand(e: React.MouseEvent) {
         e.stopPropagation();
         onExpand(record, e);
     }
