@@ -649,10 +649,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             return Verdict.include()
         if ctx.name.casefold() == pinned.casefold():
             return Verdict.include()
-        return Verdict(
-            included=False,
-            excluded_by="sqlalchemy_uri" if self.sqlalchemy_uri else "database",
-        )
+        return Verdict.exclude("sqlalchemy_uri" if self.sqlalchemy_uri else "database")
 
     def _unpinned_procedure_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
         # loop_stored_procedures reads `[{get_db_name}].[sys].[procedures]`;
@@ -670,7 +667,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             "procedures; name the database in sqlalchemy_uri (a `database` "
             "field beside it does not reach that query)"
         )
-        return Verdict(included=False, excluded_by="sqlalchemy_uri")
+        return Verdict.exclude("sqlalchemy_uri")
 
     def probe_filter_target(
         self,
