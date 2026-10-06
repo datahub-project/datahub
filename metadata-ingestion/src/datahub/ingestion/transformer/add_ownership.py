@@ -6,7 +6,7 @@ variants in ``add_dataset_ownership.py`` delegate to these with
 """
 
 import logging
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -20,7 +20,10 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
+from datahub.ingestion.transformer.dataset_transformer import (
+    OwnershipTransformer,
+    dedupe_preserving_order,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     MetadataChangeProposalClass,
@@ -172,29 +175,26 @@ class AddOwnership(OwnershipTransformer):
         return mcps
 
     @staticmethod
+    def _owner_identity(owner: OwnerClass) -> Tuple[str, str, str, str]:
+        # Key matches HasOwnershipPatch.
+        source = (
+            owner.attribution.source
+            if (owner.attribution and owner.attribution.source)
+            else ""
+        )
+        return (
+            owner.owner,
+            str(owner.type) if owner.type else "",
+            str(owner.typeUrn) if owner.typeUrn else "",
+            source,
+        )
+
+    @staticmethod
     def _dedupe_owners(owners: List[OwnerClass]) -> List[OwnerClass]:
         # Container rollup concatenates owners from every child. Without
         # dedup, large folders emit one identical add_owner op per child
-        # and can exceed GMS's payload limit. Key matches HasOwnershipPatch.
-        seen: Set[Tuple[str, str, str, str]] = set()
-        deduped: List[OwnerClass] = []
-        for owner in owners:
-            source = (
-                owner.attribution.source
-                if (owner.attribution and owner.attribution.source)
-                else ""
-            )
-            key = (
-                owner.owner,
-                str(owner.type) if owner.type else "",
-                str(owner.typeUrn) if owner.typeUrn else "",
-                source,
-            )
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(owner)
-        return deduped
+        # and can exceed GMS's payload limit.
+        return dedupe_preserving_order(owners, key=AddOwnership._owner_identity)
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]

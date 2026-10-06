@@ -56,6 +56,7 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     SimpleAddDatasetTags,
 )
 from datahub.ingestion.transformer.add_dataset_terms import (
+    AddDatasetTerms,
     PatternAddDatasetTerms,
     SimpleAddDatasetTerms,
 )
@@ -5296,3 +5297,83 @@ def test_simple_dataset_domain_collapses_preexisting_duplicates(
     domains_aspect = output[0].record.aspect
     assert isinstance(domains_aspect, models.DomainsClass)
     assert sorted(domains_aspect.domains) == sorted([domain, other_domain])
+
+
+def test_simple_dataset_tags_collapses_preexisting_duplicates():
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    tag = builder.make_tag_urn("Certified")
+    other_tag = builder.make_tag_urn("Validated")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTags,
+        aspect=models.GlobalTagsClass(tags=[models.TagAssociationClass(tag=tag)] * 88),
+        config={"tag_urns": [other_tag]},
+    )
+
+    tags_aspect = output[0].record.aspect
+    assert isinstance(tags_aspect, models.GlobalTagsClass)
+    assert len(tags_aspect.tags) == 2
+    assert {t.tag for t in tags_aspect.tags} == {tag, other_tag}
+
+
+def test_simple_dataset_ownership_dedupes_on_patch_semantics(
+    mock_datahub_graph_instance,
+):
+    """Dedup runs before the semantics branch, so it applies on PATCH too: an
+    owner present in the stream, on the server and in config yields one entry."""
+    owner = builder.make_user_urn("jdoe")
+
+    pipeline_context = PipelineContext(run_id="test_ownership_patch_dedup")
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_ownership = lambda entity_urn: models.OwnershipClass(  # type: ignore[method-assign]
+        owners=[
+            models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
+        ]
+    )
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
+            ]
+        ),
+        config={
+            "semantics": TransformerSemantics.PATCH,
+            "owner_urns": [owner],
+            "ownership_type": "DATAOWNER",
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+
+
+def test_simple_dataset_terms_dedup_keeps_the_configured_entry():
+    """When the stream and the config carry the same urn, the configured entry
+    wins - matching the `{**server, **aspect}` precedence the server-merge
+    helpers use, so dedup is a no-op for the PATCH path that follows it."""
+    term = builder.make_term_urn("Pii")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=AddDatasetTerms,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=term, context="from-stream")
+            ],
+            auditStamp=models.AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
+        ),
+        config={
+            "get_terms_to_add": lambda _: [
+                models.GlossaryTermAssociationClass(urn=term, context="from-config")
+            ]
+        },
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+    assert terms_aspect.terms[0].context == "from-config"
