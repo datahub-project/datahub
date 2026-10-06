@@ -56,6 +56,14 @@ RUN for f in /usr/bin/unix_chkpwd /usr/sbin/unix_chkpwd; do \
 RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     ln -sf /usr/bin/python3 /usr/bin/python
 
+# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. sitecustomize restores it for this
+# interpreter and every venv created from it, including bundled ingestion
+# venvs built later and `uv venv --python` subprocesses. A .pth copied into
+# venvs that already exist does not cover those.
+COPY ./docker/snippets/openssl4_ssl_compat.py /tmp/openssl4_ssl_compat.py
+RUN python3 -c 'import pathlib, shutil, sysconfig; dest = pathlib.Path(sysconfig.get_path("stdlib")) / "sitecustomize.py"; shutil.copyfile("/tmp/openssl4_ssl_compat.py", dest)' \
+ && rm /tmp/openssl4_ssl_compat.py
+
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "${PYTHON_VERSION}"
@@ -346,16 +354,6 @@ RUN rm -rf $HOME/.config/uv && \
     # in site-packages remain the source of truth.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
-# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. Load the shim from every venv so
-# snowflake-connector-python can import even if a subprocess clears PYTHONPATH.
-COPY --chown=datahub:datahub \
-    ./docker/snippets/openssl4_ssl_compat.py \
-    ./docker/snippets/openssl4-ssl-compat.pth \
-    ./docker/snippets/install_openssl4_ssl_compat.sh \
-    /tmp/openssl4-ssl-compat/
-RUN sh /tmp/openssl4-ssl-compat/install_openssl4_ssl_compat.sh /tmp/openssl4-ssl-compat \
-    && rm -rf /tmp/openssl4-ssl-compat
-
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
@@ -438,16 +436,6 @@ RUN rm -rf $HOME/.config/uv && \
     # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
     # in site-packages remain the source of truth.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
-
-# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. Load the shim from every venv so
-# snowflake-connector-python can import even if a subprocess clears PYTHONPATH.
-COPY --chown=datahub:datahub \
-    ./docker/snippets/openssl4_ssl_compat.py \
-    ./docker/snippets/openssl4-ssl-compat.pth \
-    ./docker/snippets/install_openssl4_ssl_compat.sh \
-    /tmp/openssl4-ssl-compat/
-RUN sh /tmp/openssl4-ssl-compat/install_openssl4_ssl_compat.sh /tmp/openssl4-ssl-compat \
-    && rm -rf /tmp/openssl4-ssl-compat
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -537,16 +525,6 @@ USER datahub
 # Defense in depth: if any pip/uv-style tool is reintroduced, default index URL is unusable.
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
-
-# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. Load the shim from every venv so
-# snowflake-connector-python can import even if a subprocess clears PYTHONPATH.
-COPY --chown=datahub:datahub \
-    ./docker/snippets/openssl4_ssl_compat.py \
-    ./docker/snippets/openssl4-ssl-compat.pth \
-    ./docker/snippets/install_openssl4_ssl_compat.sh \
-    /tmp/openssl4-ssl-compat/
-RUN sh /tmp/openssl4-ssl-compat/install_openssl4_ssl_compat.sh /tmp/openssl4-ssl-compat \
-    && rm -rf /tmp/openssl4-ssl-compat
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
