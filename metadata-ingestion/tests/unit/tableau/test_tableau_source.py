@@ -2333,3 +2333,46 @@ def test_emit_workbooks_distinguishes_unresolved_from_unselected_project() -> No
     assert _report_titles(source.report.infos) == [
         "Skipping Workbook in Unselected Project"
     ]
+
+
+def test_emit_workbooks_resolves_missing_workbook_via_rest_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(
+        project_id="project-1"
+    )
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.workbook_project_map = {}
+
+    workbook = {
+        c.ID: "wb-resolved",
+        c.NAME: "Resolved",
+        c.LUID: "wb-luid-resolved",
+        c.PROJECT_NAME: "default",
+        c.SHEETS: [{c.ID: "sheet-1"}],
+        c.DASHBOARDS: [{c.ID: "dashboard-1"}],
+        c.EMBEDDED_DATA_SOURCES: [{c.ID: "embedded-ds-1"}],
+    }
+
+    with mock.patch.object(source, "get_connection_objects", return_value=[workbook]):
+        work_units = list(source.emit_workbooks())
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-resolved")
+
+    aspects = [
+        wu.metadata.aspect
+        for wu in work_units
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.entityUrn == source.gen_workbook_key("wb-resolved").as_urn()
+    ]
+    container_props = [a for a in aspects if isinstance(a, ContainerPropertiesClass)]
+    assert [p.name for p in container_props] == ["Resolved"]
+    parent = [a for a in aspects if isinstance(a, ContainerClass)]
+    assert [p.container for p in parent] == [
+        source.gen_project_key("project-1").as_urn()
+    ]
+
+    assert source.sheet_ids == ["sheet-1"]
+    assert source.dashboard_ids == ["dashboard-1"]
+    assert source.embedded_datasource_ids_being_used == ["embedded-ds-1"]
+    assert _report_titles(source.report.warnings) == []

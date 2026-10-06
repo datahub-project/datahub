@@ -1213,10 +1213,7 @@ class TableauSiteSource:
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
         self.tableau_project_registry: Dict[str, TableauProject] = {}
-        self.workbook_project_map: Dict[str, str] = {}
-        # Workbook luids already resolved via a point lookup, so a workbook the bulk
-        # listing missed costs at most one extra REST call per run.
-        self.workbook_luids_looked_up: Set[str] = set()
+        self.workbook_project_map: Dict[str, Optional[str]] = {}
         self.datasource_project_map: Dict[str, str] = {}
         self.db_tables_lookup: Dict[str, dict] = {}
 
@@ -1528,9 +1525,6 @@ class TableauSiteSource:
                     message="A workbook returned by the Tableau API has no id and was excluded from the workbook-to-project map.",
                     context=f"name={wb.name}, project_id={wb.project_id}",
                 )
-                continue
-            if wb.project_id is None:
-                logger.debug(f"workbook {wb.name} ({wb.id}) has no project id")
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
 
@@ -1914,7 +1908,7 @@ class TableauSiteSource:
                     if project_luid is None:
                         self.report.warning(
                             title="Unable to Resolve Workbook Project",
-                            message="Skipping workbook because the Tableau REST API did not return it, so its project could not be determined. Check that the ingestion user can view the workbook. If it was published or modified during this run, it will be picked up on the next run.",
+                            message="Skipping workbook because its project could not be resolved: the workbook has no luid, or the Tableau REST API did not return it or returned it without a project. Check that the ingestion user can view the workbook. If it was published or modified during this run, it will be picked up on the next run.",
                             context=f"workbook={wrk_name}({wrk_id}), project={prj_name}",
                         )
                     else:
@@ -2704,27 +2698,22 @@ class TableauSiteSource:
             return None
 
         if wb_luid not in self.workbook_project_map:
-            # The bulk REST listing in _init_workbook_registry can miss workbooks: it is
-            # offset-paginated, so content published or modified while the listing is in
-            # progress can fall between pages. Resolve the project with a point lookup
-            # instead of dropping the workbook, mirroring the published datasource path.
-            self._query_workbook_for_project_luid(wb_luid)
+            # A None result is recorded too, so a failed lookup is not repeated.
+            self.workbook_project_map[wb_luid] = self._query_workbook_for_project_luid(
+                wb_luid
+            )
 
-        project_luid: Optional[str] = self.workbook_project_map.get(wb_luid)
+        project_luid: Optional[str] = self.workbook_project_map[wb_luid]
         if project_luid is None:
             logger.debug(f"workbook {wb.get(c.NAME)} project_luid not found")
 
         return project_luid
 
-    def _query_workbook_for_project_luid(self, wb_luid: str) -> None:
-        if self.server is None or wb_luid in self.workbook_luids_looked_up:
-            return
-
-        self.workbook_luids_looked_up.add(wb_luid)
+    def _query_workbook_for_project_luid(self, wb_luid: str) -> Optional[str]:
         self.report.num_workbook_project_lookups += 1
 
         try:
-            wb_result = self.server.workbooks.get_by_id(wb_luid)
+            return self.server.workbooks.get_by_id(wb_luid).project_id
         except Exception as e:
             self.report.num_get_workbook_query_failures += 1
             self.report.warning(
@@ -2733,10 +2722,7 @@ class TableauSiteSource:
                 exc=e,
                 context=f"workbook_luid={wb_luid}",
             )
-            return
-
-        if wb_result.project_id:
-            self.workbook_project_map[wb_luid] = wb_result.project_id
+            return None
 
     def _get_embedded_datasource_project_luid(self, ds: dict) -> Optional[str]:
         if ds.get(c.WORKBOOK):
