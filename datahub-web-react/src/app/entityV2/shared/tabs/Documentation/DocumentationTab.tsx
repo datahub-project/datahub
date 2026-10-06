@@ -18,8 +18,6 @@ import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentat
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import { Button, Editor, Text, Tooltip } from '@src/alchemy-components';
 
-// Stable, locale-independent tab id used for routing (see issue #19658). Must match the tab's `id`.
-const DOCUMENTATION_TAB_NAME = DOCUMENTATION_TAB_ID;
 const DOCUMENTATION_TAB = 'documentation';
 
 const DocumentationContainer = styled.div`
@@ -74,14 +72,14 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({
-                tabName: DOCUMENTATION_TAB_NAME,
+                tabName: DOCUMENTATION_TAB_ID,
                 tabParams: { editing: true, modal: !!showModal },
             });
         }
     }, [urn, routeToTab, showModal, localStorageDictionary]);
 
     return isEditing && !showModal ? (
-        <DescriptionEditor onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_NAME })} />
+        <DescriptionEditor onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_ID })} />
     ) : (
         <>
             {displayedDescription || links.length ? (
@@ -102,7 +100,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                         disabled={!canEditDescription}
                                         onClick={() =>
                                             routeToTab({
-                                                tabName: DOCUMENTATION_TAB_NAME,
+                                                tabName: DOCUMENTATION_TAB_ID,
                                                 tabParams: { editing: true },
                                             })
                                         }
@@ -118,7 +116,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 icon={{ icon: ArrowsOutSimple }}
                                 onClick={() =>
                                     routeToTab({
-                                        tabName: DOCUMENTATION_TAB_NAME,
+                                        tabName: DOCUMENTATION_TAB_ID,
                                         tabParams: { modal: true },
                                     })
                                 }
@@ -159,7 +157,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                     icon={{ icon: Plus }}
                                     disabled={!canEditDescription}
                                     onClick={() =>
-                                        routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
+                                        routeToTab({ tabName: DOCUMENTATION_TAB_ID, tabParams: { editing: true } })
                                     }
                                 >
                                     {t('addDocumentation')}
@@ -174,7 +172,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     editMode={(isEditing && true) || false}
                     description={displayedDescription}
                     onClose={() => {
-                        routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: false } });
+                        routeToTab({ tabName: DOCUMENTATION_TAB_ID, tabParams: { editing: false } });
                     }}
                 />
             )}

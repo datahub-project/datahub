@@ -9,9 +9,6 @@ import { DescriptionPreview } from '@app/entityV2/shared/tabs/Documentation/comp
 import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
-// Stable, locale-independent tab id used for routing (see issue #19658). Must match the tab's `id`.
-const DOCUMENTATION_TAB_NAME = DOCUMENTATION_TAB_ID;
-
 const modalStyle = {
     top: '5%',
     maxWidth: 1400,
@@ -59,13 +56,13 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
             >
                 {(editMode && (
                     <DescriptionEditor
-                        onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { modal: true } })}
+                        onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_ID, tabParams: { modal: true } })}
                     />
                 )) || (
                     <DescriptionPreview
                         description={description}
                         onEdit={() =>
-                            routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true, modal: true } })
+                            routeToTab({ tabName: DOCUMENTATION_TAB_ID, tabParams: { editing: true, modal: true } })
                         }
                     />
                 )}

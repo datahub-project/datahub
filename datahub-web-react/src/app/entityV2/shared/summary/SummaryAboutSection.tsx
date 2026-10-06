@@ -15,8 +15,6 @@ import { ResourceLinkPill } from '@app/entityV2/shared/tabs/Documentation/compon
 import { Button, Editor } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
-// Stable, locale-independent tab id used for routing (see issue #19658). Must match the tab's `id`.
-const DOCUMENTATION_TAB_NAME = DOCUMENTATION_TAB_ID;
 
 const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
     position: relative;
@@ -98,9 +96,7 @@ export default function SummaryAboutSection() {
                         <AddLinkModal />
                         <Button
                             data-testid="add-documentation"
-                            onClick={() =>
-                                routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
-                            }
+                            onClick={() => routeToTab({ tabName: DOCUMENTATION_TAB_ID, tabParams: { editing: true } })}
                         >
                             <PencilSimple /> {t('summary.addDocumentation')}
                         </Button>

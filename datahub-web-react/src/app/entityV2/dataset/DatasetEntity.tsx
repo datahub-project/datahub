@@ -27,7 +27,7 @@ import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stat
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
+import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID, SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -157,6 +157,7 @@ export class DatasetEntity implements Entity<Dataset> {
             ...(showSummaryTab
                 ? [
                       {
+                          id: SUMMARY_TAB_ID,
                           name: i18next.t('entity.types:tab.summary'),
                           component: SummaryTab,
                           icon: SUMMARY_TAB_ICON,

@@ -60,9 +60,6 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, EntityType } from '@types';
 
-// Stable, locale-independent tab id passed to getEntityPath as the URL segment (see issue #19658).
-const INCIDENTS_TAB_NAME = INCIDENTS_TAB_ID;
-
 interface Options {
     hideDeleteMessage?: boolean;
     skipDeleteWait?: boolean;
@@ -589,7 +586,7 @@ const EntityDropdown = (props: Props) => {
                                     entityRegistryV2,
                                     false,
                                     isHideSiblingMode,
-                                    INCIDENTS_TAB_NAME,
+                                    INCIDENTS_TAB_ID,
                                 )}`,
                             );
                         }, 3000);

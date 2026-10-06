@@ -17,9 +17,6 @@ import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-// Stable, locale-independent tab id passed to getEntityPath as the URL segment (see issue #19658).
-const INCIDENTS_TAB_NAME = INCIDENTS_TAB_ID;
-
 export default function RaiseIncidentMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { urn, entityType, entityData } = useEntityData();
@@ -50,7 +47,7 @@ export default function RaiseIncidentMenuAction() {
                                     entityRegistry,
                                     false,
                                     isHideSiblingMode,
-                                    INCIDENTS_TAB_NAME,
+                                    INCIDENTS_TAB_ID,
                                 )}`,
                             );
                         }, 3000);

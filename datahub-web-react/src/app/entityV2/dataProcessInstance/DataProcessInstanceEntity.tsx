@@ -8,6 +8,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import Preview from '@app/entityV2/dataProcessInstance/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -80,6 +81,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             }
             tabs={[
                 {
+                    id: SUMMARY_TAB_ID,
                     name: i18next.t('entity.types:tab.summary'),
                     component: DataProcessInstanceSummary,
                 },

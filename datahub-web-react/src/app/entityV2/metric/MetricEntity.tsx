@@ -8,6 +8,7 @@ import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.util
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
@@ -96,6 +97,7 @@ export class MetricEntity implements Entity<Metric> {
     getProfileTabs = (): EntityTab[] => {
         return [
             {
+                id: SUMMARY_TAB_ID,
                 name: i18next.t('entity.types:tab.summary'),
                 component: SummaryTab,
                 properties: {

@@ -21,7 +21,7 @@ import { DashboardStatsSummarySubHeader } from '@app/entityV2/dashboard/profile/
 import DashboardSummaryTab from '@app/entityV2/dashboard/summary/DashboardSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
+import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID, SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -132,6 +132,7 @@ export class DashboardEntity implements Entity<Dashboard> {
 
         return [
             {
+                id: SUMMARY_TAB_ID,
                 name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : DashboardSummaryTab,
                 icon: SUMMARY_TAB_ICON,

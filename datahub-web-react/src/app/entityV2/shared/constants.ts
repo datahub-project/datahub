@@ -226,21 +226,14 @@ export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
 
 // only values for Domain Entity for custom configurable default tab
 export enum EntityProfileTab {
-    DOMAIN_ENTITIES_TAB = 'DOMAIN_ENTITIES_TAB',
-    DOCUMENTATION_TAB = 'DOCUMENTATION_TAB',
-    DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
-    SUMMARY_TAB = 'SUMMARY_TAB',
+    DOMAIN_ENTITIES_TAB = 'Assets',
+    DOCUMENTATION_TAB = 'Documentation',
+    DATA_PRODUCTS_TAB = 'Data Products',
+    SUMMARY_TAB = 'Summary',
 }
 
-/**
- * Stable, locale-independent identifiers for entity profile tabs.
- *
- * Tab `name` values are translated via i18next, but routing resolves the active tab by matching the
- * URL path segment. Routing on the translated `name` breaks under non-English locales (see issue
- * datahub-project/datahub#19658). These ids are assigned to a tab's `id` and passed as the `tabName`
- * (URL segment) by callers so routing is independent of the UI language. The values match the legacy
- * English `name` literals so existing English URLs keep resolving.
- */
+// Tab ids are the URL segment for a tab, so they stay fixed while tab names are translated.
+export const SUMMARY_TAB_ID = 'Summary';
 export const DOCUMENTATION_TAB_ID = 'Documentation';
 export const INCIDENTS_TAB_ID = 'Incidents';
 
