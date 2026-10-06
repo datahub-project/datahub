@@ -235,11 +235,12 @@ def is_variable_reference(value: str) -> bool:
 
 
 def names_a_dotted_path(value: str) -> bool:
-    """Whether a `${a.b}` in this string names a dotted path, which ingestion
-    reads as `${a}` followed by a modifier: the name it looks up stops where
-    the written one goes on with a dot."""
+    """Whether a `${a.b}` or a leading `$a.b` in this string names a dotted
+    path, which ingestion reads as `${a}` followed by a modifier or by the
+    literal `.b`: the name it looks up stops where the written one goes on
+    with a dot."""
     names = _names_ingest_reads(value) or set()
-    return any(f"${{{name}." in value for name in names)
+    return any(f"${{{name}." in value or f"${name}." in value for name in names)
 
 
 def resolve_config(

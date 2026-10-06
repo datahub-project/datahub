@@ -117,6 +117,8 @@ def _warnings_naming(result: RecipeValidation, path: str) -> List[str]:
     ("extra", "path"),
     [
         ({"host_port": "${gms.server}"}, "host_port"),
+        # Unbraced, which ingestion expands only at the start of a value.
+        ({"host_port": "$gms.server"}, "host_port"),
         (
             {"options": {"connect_args": {"application_name": "pre-${gms.server}"}}},
             "options.connect_args.application_name",
@@ -138,7 +140,7 @@ def test_a_reference_naming_a_dotted_path_is_warned_about_by_path(
 
 @pytest.mark.parametrize(
     "value",
-    ["${DATAHUB_GMS_URL}", "${PROBE_T_UNSET:-a.b}", "a.b"],
+    ["${DATAHUB_GMS_URL}", "${PROBE_T_UNSET:-a.b}", "a.b", "x $gms.server"],
 )
 def test_no_dotted_path_warning_without_a_dotted_name(
     monkeypatch: pytest.MonkeyPatch, value: str
