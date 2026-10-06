@@ -89,6 +89,9 @@ class _Config(ConfigModel):
         return _Provider
 
 
+_REAL_CONFIG_CLASS_FOR = probe_methods.config_class_for
+
+
 @pytest.fixture(autouse=True)
 def _fake_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
@@ -149,7 +152,9 @@ def test_a_refused_connection_stays_the_sources() -> None:
 def test_a_url_sqlalchemy_cannot_use_is_the_callers(
     monkeypatch: pytest.MonkeyPatch, uri: str
 ) -> None:
-    monkeypatch.undo()
+    # The real registry, restored alone: undo() would also revert every other
+    # fixture's patches on this monkeypatch.
+    monkeypatch.setattr(probe_methods, "config_class_for", _REAL_CONFIG_CLASS_FOR)
     with pytest.raises(ProbeArgumentError) as info:
         run_probe_method(
             "sqlalchemy", {"connect_uri": uri, "platform": "x"}, "containers", {}

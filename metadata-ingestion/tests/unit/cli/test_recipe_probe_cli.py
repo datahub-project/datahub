@@ -2927,7 +2927,12 @@ class _PatternReadingOverrideConfig(ConfigModel):
     )
 
     def probe_verdict_override(self, ctx: object) -> None:
-        # Compiles the (possibly hypothetical) pattern lazily, inside the hook.
+        # Only --try-allow reaches here (a malformed --try-deny is refused
+        # before any hook runs), and the hook must see that hypothetical, not
+        # the recipe's allow-all; otherwise exit 1 fails the test.
+        if list(self.table_pattern.allow) != ["^ord"]:
+            raise AssertionError("the --try-allow pattern did not reach the hook")
+        # Compiles the hypothetical pattern lazily, inside the hook.
         self.table_pattern.allowed("orders")
 
 
