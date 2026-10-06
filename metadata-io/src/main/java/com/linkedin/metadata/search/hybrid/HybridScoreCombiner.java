@@ -15,7 +15,7 @@ public class HybridScoreCombiner {
   }
 
   public HybridScoreCombiner(final double vectorWeight) {
-    if (vectorWeight < 0d || vectorWeight > 1d) {
+    if (!Double.isFinite(vectorWeight) || vectorWeight < 0d || vectorWeight > 1d) {
       throw new IllegalArgumentException("vectorWeight must be between 0 and 1");
     }
     this.vectorWeight = vectorWeight;

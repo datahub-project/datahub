@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.hybrid;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,7 +25,6 @@ import javax.annotation.Nullable;
  */
 public class V3HybridKnnRequestBuilder {
 
-  private static final String EMBEDDINGS_PREFIX = "embeddings.";
   private static final String CHUNKS_SUFFIX = ".chunks";
   private static final String VECTOR_SUFFIX = ".vector";
 
@@ -79,7 +79,11 @@ public class V3HybridKnnRequestBuilder {
     if (modelEmbeddingKey.isBlank()) {
       throw new IllegalArgumentException("modelEmbeddingKey must not be blank");
     }
-    return EMBEDDINGS_PREFIX + modelEmbeddingKey + CHUNKS_SUFFIX + VECTOR_SUFFIX;
+    return SemanticEmbeddingMappings.EMBEDDINGS_FIELD
+        + "."
+        + modelEmbeddingKey
+        + CHUNKS_SUFFIX
+        + VECTOR_SUFFIX;
   }
 
   @Nonnull

@@ -114,7 +114,9 @@ public class HybridSearchResultReranker {
 
   /**
    * Fills the positions of the rows that have a candidate with those rows in candidate order; every
-   * other row keeps its position. A URN listed twice keeps its later rows where they are.
+   * other row keeps its position. A moved row takes the score of the position it moves into, so the
+   * rows stay in score order for callers that sort by score. A URN listed twice keeps its later
+   * rows where they are.
    */
   @Nonnull
   static List<SearchEntity> reorder(
@@ -133,11 +135,18 @@ public class HybridSearchResultReranker {
         slots.add(i);
       }
     }
+    final List<Double> slotScores = new ArrayList<>(slots.size());
+    slots.forEach(index -> slotScores.add(rows.get(index).getScore()));
     final List<SearchEntity> reordered = new ArrayList<>(rows);
     final Iterator<Integer> slot = slots.iterator();
+    final Iterator<Double> slotScore = slotScores.iterator();
     for (HybridCandidate candidate : candidates) {
       final SearchEntity row = candidateRows.get(candidate.entity());
       if (row != null) {
+        final Double score = slotScore.next();
+        if (score != null) {
+          row.setScore(score);
+        }
         reordered.set(slot.next(), row);
       }
     }

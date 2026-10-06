@@ -197,7 +197,8 @@ public class ESSearchDAOHybridTest {
 
     Map<String, Object> filter = ESSearchDAO.extractRootFilterForKnn(request);
 
-    assertEquals(((Map<?, ?>) filter.get("term")).keySet(), java.util.Set.of("platform"));
+    Map<?, ?> platform = (Map<?, ?>) ((Map<?, ?>) filter.get("term")).get("platform");
+    assertEquals(platform.get("value"), "notion");
     assertEquals(
         ESSearchDAO.extractRootFilterForKnn(
             new SearchRequest().source(new SearchSourceBuilder().query(QueryBuilders.boolQuery()))),

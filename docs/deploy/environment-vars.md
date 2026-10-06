@@ -521,8 +521,8 @@ cluster instead of the semantic indices, independent of the keyword read flag. I
 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster; services given it refuse to start on older OpenSearch.
 Hybrid search has its own flag too, `ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED` (default
 `false`): it reranks the documents among full-text keyword results with their V3 vectors. Services
-given it refuse to start unless V3 keyword and semantic reads are on and semantic search has an
-embedding provider.
+given it refuse to start unless V3 keyword and semantic reads are on, semantic search is enabled
+with an embedding provider, and the active embedding model has a mapping.
 
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 

@@ -55,7 +55,17 @@ public class HybridScoreMapBuilder {
     if (sourceUrn instanceof String && !((String) sourceUrn).isBlank()) {
       return urn((String) sourceUrn);
     }
-    return urn(hit.id()).or(() -> urn(URLDecoder.decode(hit.id(), StandardCharsets.UTF_8)));
+    return urn(hit.id()).or(() -> decode(hit.id()).flatMap(HybridScoreMapBuilder::urn));
+  }
+
+  @Nonnull
+  private static Optional<String> decode(@Nonnull final String id) {
+    try {
+      return Optional.of(URLDecoder.decode(id, StandardCharsets.UTF_8));
+    } catch (IllegalArgumentException e) {
+      log.warn("Skipping hybrid vector hit with an undecodable id: {}", id);
+      return Optional.empty();
+    }
   }
 
   @Nonnull

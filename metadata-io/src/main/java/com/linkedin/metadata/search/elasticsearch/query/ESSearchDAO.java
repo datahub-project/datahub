@@ -481,7 +481,9 @@ public class ESSearchDAO {
         || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
       return 0;
     }
-    return Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
+    final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
+    // A fetch above the result limit would be cut short, or rejected in strict mode
+    return fetchSize <= searchServiceConfig.getLimit().getResults().getMax() ? fetchSize : 0;
   }
 
   /**
@@ -529,10 +531,15 @@ public class ESSearchDAO {
         .setPageSize(pageSize);
   }
 
-  /** No sort, or only by score, orders by relevance. */
+  /** No sort, or only by descending score, orders by relevance. */
   private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
     return sortCriteria == null
-        || sortCriteria.stream().allMatch(criterion -> "_score".equals(criterion.getField()));
+        || sortCriteria.stream()
+            .allMatch(
+                criterion ->
+                    "_score".equals(criterion.getField())
+                        && criterion.getOrder()
+                            != com.linkedin.metadata.query.filter.SortOrder.ASCENDING);
   }
 
   /**

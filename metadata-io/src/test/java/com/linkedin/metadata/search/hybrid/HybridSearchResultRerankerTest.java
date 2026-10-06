@@ -83,6 +83,10 @@ public class HybridSearchResultRerankerTest {
 
     // The vector scores reorder the documents; the dataset and the chart keep their positions
     assertEquals(urns(reranked), List.of(DOC_B, DATASET, DOC_C, CHART, DOC_A));
+    // Moved rows take the scores of their new positions, so callers sorting by score keep the order
+    assertEquals(
+        reranked.stream().map(SearchEntity::getScore).collect(Collectors.toList()),
+        List.of(80d, 70d, 60d, 50d, 40d));
     ArgumentCaptor<KnnSearchRequest> request = ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3Client).searchKnn(any(OperationContext.class), request.capture());
     assertEquals(
