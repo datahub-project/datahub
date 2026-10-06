@@ -22,6 +22,8 @@ This means that Actions will keep track of their processing offsets of the upstr
 stop an Action and restart it sometime later, it will first "catch up" by processing the messages that the topic
 has received since the Action last ran. Be mindful of this - if your Action is computationally expensive, it may be preferable to start consuming from the end of the log, instead of playing catch up. The easiest way to achieve this is to simply rename the Action inside the Action configuration file - this will create a new Kafka Consumer Group which will begin processing new messages at the end of the log (latest policy).
 
+When a new Consumer Group is first assigned its partitions, the Kafka Event Source commits that starting position right away (the end of the log, or the beginning if `auto.offset.reset` is set to `earliest` in `connection.consumer_config`). Without that commit, a pipeline that stopped before its first commit, for example after failing an event with `failure_mode: THROW`, would start again from the end of the log on restart and skip the events in between.
+
 ### Processing Guarantees
 
 This event source implements an "ack" function which is invoked if and only if an event is successfully processed
