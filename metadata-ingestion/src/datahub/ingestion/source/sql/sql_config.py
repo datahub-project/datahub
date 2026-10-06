@@ -29,7 +29,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.agent.declarations import declared_qualifier
 from datahub.ingestion.agent.pattern_path import pattern_at
-from datahub.ingestion.agent.sql_gate import CatalogScope
+from datahub.ingestion.agent.sql_gate import SESSION_TEXT_RELATIONS, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
@@ -216,12 +216,12 @@ def sql_structural_verdict(
 
 
 # On the MySQL protocol, information_schema.processlist and innodb_trx hold
-# other sessions' SQL text. The SQL family withholds them from every scope:
-# SQLCommonConfig.probe_catalog_scope by default, and
-# SqlAlchemyMetadataProbe.for_config from a config's own, since a config's URL
-# can name a MySQL-protocol server whatever its type. Where the relations do
-# not exist, withholding them changes nothing.
-MYSQL_SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
+# other sessions' SQL text. CatalogScope withholds them by default; the SQL
+# family also adds them back to a config's own scope
+# (SqlAlchemyMetadataProbe.for_config), since a config's URL can name a
+# MySQL-protocol server whatever its type and its scope may replace the
+# default exclusions.
+MYSQL_SESSION_TEXT_RELATIONS: FrozenSet[str] = SESSION_TEXT_RELATIONS
 
 
 # The hooks source/sql/ reads off a SQLCommonConfig, beyond the framework's

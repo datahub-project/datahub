@@ -19,6 +19,7 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
+    SESSION_TEXT_RELATIONS,
     CatalogScope,
     SqlScopeError,
     check_query_scope,
@@ -356,8 +357,8 @@ def test_cockroachdb_is_parsed_as_postgres_because_that_is_what_it_speaks():
 
 # Sources reviewed as safe on a default scope -- a schema-level allow of
 # information_schema: the framework's bare CatalogScope(), or the SQL family's
-# (SQLCommonConfig.probe_catalog_scope), which also withholds the MySQL
-# protocol's processlist and innodb_trx. Safe here means: this dialect's
+# (SQLCommonConfig.probe_catalog_scope); both withhold the MySQL protocol's
+# processlist and innodb_trx. Safe here means: this dialect's
 # information_schema holds schema shape only, with no view carrying the text of
 # user queries.
 #
@@ -529,12 +530,15 @@ def test_the_postgres_declaration_is_inherited_by_its_derivatives():
 
 def test_the_default_is_information_schema_and_nothing_else():
     # What a connector that declares nothing gets: enough for a standard
-    # dialect. Whole: what a dialect keeps in it beyond schema shape is the
-    # connector's to exclude, as the SQL family does below.
+    # dialect, minus the MySQL protocol's session-text views, so a provider
+    # outside the SQL family on a MySQL-protocol server cannot read them.
     scope = CatalogScope()
     assert scope.schemas == frozenset({INFORMATION_SCHEMA})
     assert scope.relations == frozenset()
-    assert scope.excluded_relations == frozenset()
+    assert scope.excluded_relations == SESSION_TEXT_RELATIONS
+    assert not scope.permits_path([INFORMATION_SCHEMA, "processlist"])
+    assert not scope.permits_path([INFORMATION_SCHEMA, "INNODB_TRX"])
+    assert scope.permits_path([INFORMATION_SCHEMA, "tables"])
     assert not scope.split_dotted_identifiers
 
 

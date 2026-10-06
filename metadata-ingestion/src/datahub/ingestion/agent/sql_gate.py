@@ -23,6 +23,13 @@ from datahub.sql_parsing.sqlglot_utils import get_dialect
 # it. Everything beyond this is the connector's to declare.
 INFORMATION_SCHEMA = "information_schema"
 
+# The MySQL protocol's information_schema views holding other sessions' SQL
+# text (PROCESSLIST.INFO, INNODB_TRX.trx_query), WHERE-clause literals and
+# IDENTIFIED BY passwords included. Withheld by default, so a scope admitting
+# information_schema whole cannot forget them; where they do not exist,
+# withholding them changes nothing.
+SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
+
 
 @dataclass(frozen=True)
 class CatalogScope:
@@ -35,8 +42,8 @@ class CatalogScope:
 
     A ceiling, not the bound: the recipe's credential decides what an admitted
     relation reveals. Even `information_schema` can hold other sessions' SQL
-    text, so a connector whose dialect keeps any there lists those relations in
-    `excluded_relations`; the default excludes nothing.
+    text, so the default withholds SESSION_TEXT_RELATIONS, and a connector whose
+    dialect keeps more there adds them to `excluded_relations`.
     """
 
     # Whole schemas whose every relation is metadata by definition.
@@ -50,8 +57,11 @@ class CatalogScope:
     relations: FrozenSet[str] = field(default_factory=frozenset)
 
     # Relations refused inside a permitted schema; sound only where the schema
-    # is metadata apart from a known few.
-    excluded_relations: FrozenSet[str] = field(default_factory=frozenset)
+    # is metadata apart from a known few. A scope that sets its own replaces
+    # the default, so it keeps SESSION_TEXT_RELATIONS by naming them too.
+    excluded_relations: FrozenSet[str] = field(
+        default_factory=lambda: SESSION_TEXT_RELATIONS
+    )
 
     # Split an identifier slot holding dots into path parts. Some parsers leave
     # a path's dots inside one slot (`ds.INFORMATION_SCHEMA.TABLES` with the
