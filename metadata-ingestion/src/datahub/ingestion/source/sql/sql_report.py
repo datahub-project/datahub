@@ -78,6 +78,11 @@ class SQLSourceReport(
     # they still feed lineage but get no per-query usage, so read-only ones
     # produce no Query entity.
     num_queries_without_window_executions: int = 0
+    # MSSQL audit / Extended Events query logs: statements Azure SQL Auditing
+    # truncated at 4000 characters (skipped), and driver RPC wrappers
+    # (sp_executesql / sp_prepexec) unwrapped to the inner SQL.
+    num_query_log_truncated_statements: int = 0
+    num_query_log_rpc_statements_unwrapped: int = 0
 
     # Query-history references the aggregator resolved lineage through but did
     # not emit, because the table is absent from discovered_datasets. This is

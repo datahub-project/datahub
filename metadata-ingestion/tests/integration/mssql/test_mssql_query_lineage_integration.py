@@ -1,6 +1,7 @@
 import subprocess
 import time
 from datetime import datetime
+from typing import Dict, List, Set, Tuple
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -9,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.elements import TextClause
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery, QueryHistoryWindow
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
@@ -1358,3 +1360,193 @@ def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
         and isinstance(mcp.aspect, QueryUsageStatisticsClass)
     )
     assert query_count >= 3
+
+
+@pytest.fixture(scope="module")
+def query_log_targets(mssql_connection, mssql_runner):
+    """A file audit capturing BATCH_COMPLETED_GROUP and an Extended Events
+    session capturing completed batches/RPCs, plus a non-admin login whose
+    queries should be attributed to it."""
+    master_engine = sa.create_engine(
+        f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        isolation_level="AUTOCOMMIT",
+    )
+    with master_engine.connect() as master:
+        master.execute(
+            text(
+                "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'qh_analyst') "
+                "CREATE LOGIN qh_analyst WITH PASSWORD = 'Analyst!Passw0rd', CHECK_POLICY = OFF"
+            )
+        )
+        master.execute(
+            text(
+                "IF NOT EXISTS (SELECT 1 FROM sys.server_audits WHERE name = 'qh_audit') "
+                "CREATE SERVER AUDIT qh_audit TO FILE (FILEPATH = '/var/opt/mssql/data/')"
+            )
+        )
+        master.execute(text("ALTER SERVER AUDIT qh_audit WITH (STATE = ON)"))
+        master.execute(
+            text(
+                "IF EXISTS (SELECT 1 FROM sys.server_event_sessions WHERE name = 'qh_xe') "
+                "DROP EVENT SESSION qh_xe ON SERVER"
+            )
+        )
+        master.execute(
+            text("""
+            CREATE EVENT SESSION qh_xe ON SERVER
+            ADD EVENT sqlserver.sql_batch_completed(
+                ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
+            ADD EVENT sqlserver.rpc_completed(
+                ACTION(sqlserver.server_principal_name, sqlserver.database_name))
+            ADD TARGET package0.event_file(SET filename = N'/var/opt/mssql/data/qh_xe.xel')
+            WITH (MAX_DISPATCH_LATENCY = 1 SECONDS)
+        """)
+        )
+        master.execute(text("ALTER EVENT SESSION qh_xe ON SERVER STATE = START"))
+
+    conn = mssql_connection
+    conn.execute(
+        text(
+            "IF USER_ID('qh_analyst') IS NULL CREATE USER qh_analyst FOR LOGIN qh_analyst"
+        )
+    )
+    conn.execute(text("GRANT SELECT ON SCHEMA::lineage_test TO qh_analyst"))
+    conn.execute(
+        text(
+            "CREATE DATABASE AUDIT SPECIFICATION qh_spec FOR SERVER AUDIT qh_audit "
+            "ADD (BATCH_COMPLETED_GROUP) WITH (STATE = ON)"
+        )
+    )
+
+    analyst_engine = sa.create_engine(
+        f"mssql+pyodbc://qh_analyst:Analyst!Passw0rd@127.0.0.1:{mssql_runner}/lineage_test?"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        isolation_level="AUTOCOMMIT",
+    )
+    conn.execute(text("DROP TABLE IF EXISTS dbo.qh_restricted"))
+    conn.execute(text("CREATE TABLE dbo.qh_restricted (secret_id INT)"))
+    lookup = text(
+        "SELECT customer_name FROM lineage_test.source_customers "
+        "WHERE customer_id = :customer_id"
+    )
+    with analyst_engine.connect() as analyst:
+        # Bound parameters -> sp_prepexec RPCs, one raw statement per value.
+        for customer_id in (101, 102, 103):
+            analyst.execute(lookup, {"customer_id": customer_id})
+        # No parameters -> a plain batch.
+        analyst.exec_driver_sql("SELECT order_id FROM lineage_test.source_orders")
+        # Permission denied -> must not become a query.
+        with pytest.raises(sa.exc.DBAPIError):
+            analyst.exec_driver_sql("SELECT secret_id FROM dbo.qh_restricted")
+    analyst_engine.dispose()
+    # The connector's own login runs the same lookup; it must not be counted.
+    conn.execute(lookup, {"customer_id": 101})
+    time.sleep(3)  # event_file / audit buffers flush
+
+    yield
+
+    conn.execute(text("DROP TABLE IF EXISTS dbo.qh_restricted"))
+    conn.execute(text("ALTER DATABASE AUDIT SPECIFICATION qh_spec WITH (STATE = OFF)"))
+    conn.execute(text("DROP DATABASE AUDIT SPECIFICATION qh_spec"))
+    with master_engine.connect() as master:
+        master.execute(text("ALTER EVENT SESSION qh_xe ON SERVER STATE = STOP"))
+        master.execute(text("DROP EVENT SESSION qh_xe ON SERVER"))
+        master.execute(text("ALTER SERVER AUDIT qh_audit WITH (STATE = OFF)"))
+        master.execute(text("DROP SERVER AUDIT qh_audit"))
+    master_engine.dispose()
+
+
+def _run_query_log(
+    mssql_connection: sa.engine.Connection,
+    mssql_runner: int,
+    query_history_source: str,
+    **overrides: str,
+) -> Tuple[List[MetadataChangeProposalWrapper], SQLServerSource]:
+    config = SQLServerConfig.model_validate(
+        {
+            "username": "sa",
+            "password": "test!Password",
+            "host_port": f"localhost:{mssql_runner}",
+            "database": "lineage_test",
+            "include_query_lineage": True,
+            "query_history_source": query_history_source,
+            "email_domain": "example.com",
+            **overrides,
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id=query_history_source))
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        connection=mssql_connection,
+        report=source.report,
+        sql_aggregator=source.aggregator,
+        default_schema="dbo",
+    )
+    extractor.populate_lineage_from_queries()
+    assert not source.report.failures
+    return list(source.aggregator.gen_metadata()), source
+
+
+def _query_usage_by_statement(
+    mcps: List[MetadataChangeProposalWrapper],
+) -> Dict[str, Tuple[int, Set[str]]]:
+    statements = {
+        mcp.entityUrn: mcp.aspect.statement.value
+        for mcp in mcps
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    }
+    usage: Dict[str, Tuple[int, Set[str]]] = {}
+    for urn, statement in statements.items():
+        aspects = [
+            mcp.aspect
+            for mcp in mcps
+            if mcp.entityUrn == urn
+            and isinstance(mcp.aspect, QueryUsageStatisticsClass)
+        ]
+        usage[statement] = (
+            sum(a.queryCount or 0 for a in aspects),
+            {u.user for a in aspects for u in (a.userCounts or [])},
+        )
+    return usage
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_attributes_queries_to_users(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """Queries read from the audit log / Extended Events carry the login that
+    ran them, with the target discovered automatically. One parameterized
+    query run with three values is one query; the connector's own login and a
+    failed query are not counted; a plain batch is attributed too."""
+    mcps, source = _run_query_log(mssql_connection, mssql_runner, query_history_source)
+    usage = _query_usage_by_statement(mcps)
+    analyst = {"urn:li:corpuser:qh_analyst@example.com"}
+
+    lookups = {s: u for s, u in usage.items() if "source_customers" in s}
+    assert len(lookups) == 1, usage
+    assert list(lookups.values())[0] == (3, analyst)
+    assert source.report.num_query_log_rpc_statements_unwrapped >= 3
+
+    batches = [u for s, u in usage.items() if "source_orders" in s and "order_id" in s]
+    assert batches == [(1, analyst)], usage
+    if query_history_source == "audit_log":
+        # Extended Events reports statement-level errors (e.g. permission
+        # denied) with result OK, so only the audit log can drop them.
+        assert not any("qh_restricted" in s for s in usage)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_respects_time_window(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    mcps, _ = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        start_time="2000-01-01T00:00:00Z",
+        end_time="2000-01-02T00:00:00Z",
+    )
+    assert not any("source_customers" in s for s in _query_usage_by_statement(mcps))
