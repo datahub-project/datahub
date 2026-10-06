@@ -6,21 +6,39 @@ MS_Description, pytds' paramstyle with a `%` in a literal -- and, above all,
 that `probe filter` says "included" for exactly the objects ingestion emits.
 """
 
-import json
 import os
+import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set
 
 import pytest
 import yaml
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import run_probe_method
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.metadata.urns import DatasetUrn
-from tests.integration.mssql.test_sql_server import mssql_runner  # noqa: F401
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
+    DataJobInfoClass,
+    SubTypesClass,
+)
+from datahub.metadata.urns import DataJobUrn, DatasetUrn
+from tests.test_helpers.probe_parity import (
+    EmittedIndex,
+    FanOut,
+    JudgedRecord,
+    ParityListing,
+    ParityReport,
+    assert_probe_parity,
+    pipeline_ingestion,
+)
 
 _PROC = "Stored Procedure"
+_STORED_PROCEDURES = ".stored_procedures"
 
 
 def _fixture_password() -> str:
@@ -51,16 +69,6 @@ def _run(
             command=command,
             config_dict=config if config is not None else _config(),
             kwargs=dict(kwargs),
-        ).to_dict()
-    )
-
-
-def _run_with(
-    command: str, config: Dict[str, object], params: Dict[str, object]
-) -> Dict[str, object]:
-    return dict(
-        run_probe_method(
-            source_type="mssql", command=command, config_dict=config, kwargs=params
         ).to_dict()
     )
 
@@ -109,40 +117,181 @@ def _included(
     return {v.name: v.included for v in verdicts.results}
 
 
-def _ingest(config: Dict[str, object], tmp_path: Path) -> Tuple[Set[str], Set[str]]:
-    """Run real ingestion; return the datasets and procedures it emitted, as
-    `database.schema.name` (dataset) and `database.schema.procedure`."""
-    out = tmp_path / "mces.json"
-    pipeline = Pipeline.create(
-        {
-            "run_id": "mssql-probe-test",
-            "source": {"type": "mssql", "config": config},
-            "sink": {"type": "file", "config": {"filename": str(out)}},
-        }
+def _sqlcmd(*statements: str) -> None:
+    """Run statements in the fixture container, as its setup.sql is run."""
+    subprocess.run(
+        [
+            "docker",
+            "exec",
+            "testsqlserver",
+            "/opt/mssql-tools18/bin/sqlcmd",
+            "-C",
+            "-S",
+            "localhost",
+            "-U",
+            "sa",
+            "-P",
+            _fixture_password(),
+            "-b",
+            "-Q",
+            "; ".join(statements),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=120,
     )
-    pipeline.run()
-    pipeline.raise_from_status()
-    datasets: Set[str] = set()
-    procedures: Set[str] = set()
-    for record in json.loads(out.read_text()):
-        # Tables and views are emitted as DatasetSnapshot MCEs; an upstream
-        # lineage edge only names a dataset, so MCP urns would overcount.
-        snapshot = (record.get("proposedSnapshot") or {}).get(
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
-        )
-        if snapshot:
-            datasets.add(DatasetUrn.from_string(str(snapshot["urn"])).name)
-        urn = str(record.get("entityUrn") or "")
-        aspect = record.get("aspectName")
-        if urn.startswith("urn:li:dataJob:") and aspect == "dataJobInfo":
-            # urn:li:dataJob:(urn:li:dataFlow:(mssql,<db>.<schema>.stored_procedures,PROD),<name>)
-            flow, name = urn.rsplit("),", 1)
-            container = flow.split(",")[1]
-            if container.endswith(".stored_procedures"):
-                procedures.add(
-                    f"{container[: -len('.stored_procedures')]}.{name.rstrip(')')}"
-                )
-    return datasets, procedures
+
+
+@pytest.fixture(scope="module")
+def odd_databases(mssql_runner: object) -> Iterator[None]:
+    """Two databases setup.sql (and so the goldens) leaves out: one whose
+    name holds `]` with a schema holding `'` and a procedure in it, and one
+    with a case-sensitive collation holding schemas `Foo` and `FOO`."""
+    _sqlcmd("CREATE DATABASE [Odd]]Db]")
+    _sqlcmd(
+        "USE [Odd]]Db]",
+        "EXEC('CREATE SCHEMA [It''s]')",
+        "EXEC('CREATE TABLE [It''s].t1 (id int)')",
+        "EXEC('CREATE VIEW [It''s].v1 AS SELECT id FROM [It''s].t1')",
+        "EXEC('CREATE PROCEDURE [It''s].[Proc1] AS SELECT 1')",
+    )
+    _sqlcmd("CREATE DATABASE CsData COLLATE Latin1_General_CS_AS")
+    _sqlcmd(
+        "USE CsData",
+        "EXEC('CREATE SCHEMA Foo')",
+        "EXEC('CREATE SCHEMA FOO')",
+        "EXEC('CREATE TABLE Foo.t_lower (id int)')",
+        "EXEC('CREATE TABLE FOO.t_upper (id int)')",
+    )
+    yield
+
+
+def _database_of(index: EmittedIndex, urn: str) -> Optional[str]:
+    """The name of the container `urn` sits in, if it sits in one."""
+    parent = next(
+        (a.container for a in index.aspects[urn] if isinstance(a, ContainerClass)),
+        None,
+    )
+    if parent is None:
+        return None
+    return next(
+        (
+            a.name
+            for a in index.aspects.get(parent, [])
+            if isinstance(a, ContainerPropertiesClass)
+        ),
+        None,
+    )
+
+
+def _schemas_in(database: str) -> Callable[[EmittedIndex], Set[str]]:
+    """Schema containers under `database`, by bare name: every database has a
+    `dbo`, so EmittedIndex.container_names would merge them."""
+
+    def emitted(index: EmittedIndex) -> Set[str]:
+        names: Set[str] = set()
+        for urn, aspects in index.aspects.items():
+            if not urn.startswith("urn:li:container:"):
+                continue
+            is_schema = any(
+                isinstance(a, SubTypesClass)
+                and DatasetContainerSubTypes.SCHEMA in a.typeNames
+                for a in aspects
+            )
+            properties = next(
+                (a for a in aspects if isinstance(a, ContainerPropertiesClass)), None
+            )
+            if is_schema and properties and _database_of(index, urn) == database:
+                names.add(properties.name)
+        return names
+
+    return emitted
+
+
+def _datasets_in(database: str, sub_type: str) -> Callable[[EmittedIndex], Set[str]]:
+    """Emitted datasets of one subtype in `database`, as database.schema.name."""
+
+    def emitted(index: EmittedIndex) -> Set[str]:
+        return {
+            name
+            for urn in index.urns("dataset", with_aspect=SubTypesClass)
+            if any(
+                isinstance(a, SubTypesClass) and sub_type in a.typeNames
+                for a in index.aspects[urn]
+            )
+            and (name := DatasetUrn.from_string(urn).name).startswith(f"{database}.")
+        }
+
+    return emitted
+
+
+def _procedures_in(database: str) -> Callable[[EmittedIndex], Set[str]]:
+    """Emitted procedures in `database`, as database.schema.procedure: the
+    flow is `<database>.<schema>.stored_procedures`."""
+
+    def emitted(index: EmittedIndex) -> Set[str]:
+        names: Set[str] = set()
+        for urn in index.urns("dataJob", with_aspect=DataJobInfoClass):
+            job = DataJobUrn.from_string(urn)
+            flow = job.get_data_flow_urn().flow_id
+            if flow.endswith(_STORED_PROCEDURES) and flow.startswith(f"{database}."):
+                names.add(f"{flow[: -len(_STORED_PROCEDURES)]}.{job.job_id}")
+        return names
+
+    return emitted
+
+
+def _under(database: str) -> Callable[[JudgedRecord], str]:
+    """database.schema.name, whether or not the database is in parent_path
+    (a pinned recipe's listings carry only the schema)."""
+
+    def identity(record: JudgedRecord) -> str:
+        return ".".join((database, record.parent_path[-1], record.name))
+
+    return identity
+
+
+def _listings_for(
+    database: str,
+    pinned: bool,
+    expect_empty: bool = False,
+    commands: Sequence[str] = ("tables", "views", "procedures"),
+) -> List[ParityListing]:
+    """Schemas, then `commands` in one database, every schema fanned out
+    whether the recipe keeps it or not."""
+    db_arg: Dict[str, object] = {} if pinned else {"database": database}
+    fan_out = FanOut("containers", "schema", parent_kwargs=db_arg)
+    identity = _under(database)
+    return [
+        ParityListing(
+            f"schemas in {database}",
+            "containers",
+            emitted=_schemas_in(database),
+            kwargs=db_arg,
+            expect_empty=expect_empty,
+        ),
+        *(
+            ParityListing(
+                f"{command} in {database}",
+                command,
+                emitted=emitted,
+                kwargs=db_arg,
+                fan_out=fan_out,
+                identity=identity,
+                expect_empty=expect_empty,
+            )
+            for command, emitted in (
+                ("tables", _datasets_in(database, DatasetSubTypes.TABLE)),
+                ("views", _datasets_in(database, DatasetSubTypes.VIEW)),
+                ("procedures", _procedures_in(database)),
+            )
+            if command in commands
+        ),
+    ]
+
+
+def _excluded(report: ParityReport, label: str) -> Set[str]:
+    return set(report.excluded_by(label))
 
 
 # The filters a recipe may combine, each pointed at objects setup.sql creates.
@@ -157,95 +306,57 @@ _FILTERS: Dict[str, object] = {
 }
 
 
-def _assert_probe_agrees_with_ingestion(
-    config: Dict[str, object], tmp_path: Path
-) -> Dict[str, Set[bool]]:
-    """Walk what the probe lists, and check every verdict `probe filter` gives
-    against what ingestion emitted -- including for the objects inside an
-    excluded database, which the probe lists and ingestion never reaches."""
-    datasets, procedures = _ingest(config, tmp_path)
-    assert datasets, "ingestion emitted nothing; the comparison would be vacuous"
-
-    pinned = bool(config.get("database"))
-    databases = _names(_run("databases", config=config))
-    database_verdicts = _included(config, "Database", [], databases)
-    # Per kind, so one kind with both answers cannot hide another with one.
-    outcomes: Dict[str, Set[bool]] = {"Table": set(), "View": set(), _PROC: set()}
-    probed_datasets: Set[str] = set()
-    probed_procedures: Set[str] = set()
-    for database in databases:
-        # A pinned recipe reads its own database through the base connection.
-        db_arg: Dict[str, object] = {} if pinned else {"database": database}
-        schemas = _run_with("containers", config, db_arg)
-        schema_names = _names(schemas)
-        assert schemas["parent_path"] == ([] if pinned else [database])
-        for schema in schema_names:
-            if schema.startswith("db_") or schema in ("sys", "INFORMATION_SCHEMA"):
-                # Ingestion walks these too, but they hold nothing to compare.
-                continue
-            if "." in schema and not config.get("quote_schemas"):
-                # Unquoted, the dialect -- ingestion's and the probe's alike --
-                # reads `John.Doe` as database `John`; test_quoted_schema_with_a_dot
-                # covers the quoted form.
-                continue
-            for command, kind in (("tables", "Table"), ("views", "View")):
-                listing = _run_with(command, config, {"schema": schema, **db_arg})
-                names = _names(listing)
-                parent = _strings(listing, "parent_path")
-                verdicts = _included(config, kind, parent, names)
-                for name in names:
-                    qualified = f"{database}.{schema}.{name}"
-                    probed_datasets.add(qualified)
-                    emitted = qualified in datasets
-                    assert verdicts[name] == emitted, (
-                        f"{kind} {database}.{schema}.{name}: probe says "
-                        f"{verdicts[name]}, ingestion emitted {emitted}"
-                    )
-                    outcomes[kind].add(emitted)
-            listing = _run_with("procedures", config, {"schema": schema, **db_arg})
-            names = _names(listing)
-            parent = _strings(listing, "parent_path")
-            verdicts = _included(config, _PROC, parent, names)
-            for name in names:
-                qualified = f"{database}.{schema}.{name}"
-                probed_procedures.add(qualified)
-                emitted = qualified in procedures
-                assert verdicts[name] == emitted, (
-                    f"procedure {database}.{schema}.{name}: probe says "
-                    f"{verdicts[name]}, ingestion emitted {emitted}"
-                )
-                outcomes[_PROC].add(emitted)
-        if not database_verdicts[database]:
-            assert not any(d.startswith(f"{database}.") for d in datasets)
-    # Nothing ingestion emitted escaped the probe's listings.
-    assert datasets <= probed_datasets, datasets - probed_datasets
-    assert procedures <= probed_procedures, procedures - probed_procedures
-    return outcomes
-
-
 @pytest.mark.integration
 def test_multi_database_verdicts_match_ingestion(
-    mssql_runner: object,  # noqa: F811
-    tmp_path: Path,
+    mssql_runner: object, tmp_path: Path
 ) -> None:
     config = _config(
-        database_pattern={"deny": ["^NewData$", ".*SPEC_SYMB.*"]}, **_FILTERS
+        database_pattern={"allow": ["^DemoData$"]},
+        **_FILTERS,
     )
-    outcomes = _assert_probe_agrees_with_ingestion(config, tmp_path)
-    # Each kind saw both answers, or its filter above tested nothing.
-    assert outcomes == {k: {True, False} for k in ("Table", "View", _PROC)}
+    report = assert_probe_parity(
+        "mssql",
+        config,
+        pipeline_ingestion("mssql", tmp_path),
+        [
+            ParityListing(
+                "databases",
+                "databases",
+                emitted=lambda index: index.container_names(
+                    DatasetContainerSubTypes.DATABASE
+                ),
+            ),
+            *_listings_for("DemoData", pinned=False),
+            # database_pattern drops it, so ingestion emits nothing from it.
+            # It holds no procedure, so there is none to list.
+            *_listings_for(
+                "NewData",
+                pinned=False,
+                expect_empty=True,
+                commands=("tables", "views"),
+            ),
+        ],
+    )
+    # Each filter above excluded something, or it tested nothing.
+    assert "DemoData.Foo.Persons" in _excluded(report, "tables in DemoData")
+    assert "DemoData.Foo.NewProc" in _excluded(report, "procedures in DemoData")
+    assert "NewData.FooNew.View1" in _excluded(report, "views in NewData")
+    assert report.excluded_by("databases")["NewData"] == "database_pattern"
 
 
 @pytest.mark.integration
 def test_pinned_database_verdicts_match_ingestion(
-    mssql_runner: object,  # noqa: F811
-    tmp_path: Path,
+    mssql_runner: object, tmp_path: Path
 ) -> None:
     config = _config(database="DemoData", **_FILTERS)
-    outcomes = _assert_probe_agrees_with_ingestion(config, tmp_path)
-    # DemoData's one view is allowed; the denied one lives in NewData, which a
-    # recipe pinned to DemoData never walks.
-    assert outcomes == {"Table": {True, False}, "View": {True}, _PROC: {True, False}}
+    report = assert_probe_parity(
+        "mssql",
+        config,
+        pipeline_ingestion("mssql", tmp_path),
+        _listings_for("DemoData", pinned=True),
+    )
+    assert "DemoData.Foo.Persons" in _excluded(report, "tables in DemoData")
+    assert "DemoData.Foo.NewProc" in _excluded(report, "procedures in DemoData")
     # Ingestion never opens another database on a pinned recipe, whatever
     # database_pattern says, and the probe refuses to answer about one.
     assert _included(config, "Database", [], ["NewData", "demodata"]) == {
@@ -260,9 +371,32 @@ def test_pinned_database_verdicts_match_ingestion(
 
 
 @pytest.mark.integration
-def test_every_command_answers_across_databases(
-    mssql_runner: object,  # noqa: F811
+def test_a_quote_and_a_bracket_in_names_still_reach_their_procedures(
+    odd_databases: None, tmp_path: Path
 ) -> None:
+    """_get_stored_procedures binds the schema and bracket-quotes the
+    database, so `Odd]Db`.`It's` is read rather than breaking the query."""
+    config = _config(database="Odd]Db", include_jobs=False, include_lineage=False)
+    report = assert_probe_parity(
+        "mssql",
+        config,
+        pipeline_ingestion("mssql", tmp_path),
+        _listings_for("Odd]Db", pinned=True),
+    )
+    assert report.kinds["procedures in Odd]Db"].included == {"Odd]Db.It's.Proc1"}
+
+
+@pytest.mark.integration
+def test_a_name_two_server_spellings_fold_to_is_refused(odd_databases: None) -> None:
+    """A case-sensitive collation holds `Foo` and `FOO`; `foo` names neither,
+    and picking one would read an object the caller did not name."""
+    with pytest.raises(ValueError, match="FOO"):
+        _run("tables", schema="foo", database="CsData")
+    assert _names(_run("tables", schema="FOO", database="CsData")) == ["t_upper"]
+
+
+@pytest.mark.integration
+def test_every_command_answers_across_databases(mssql_runner: object) -> None:
     databases = _names(_run("databases"))
     assert {"DemoData", "NewData"} <= set(databases)
     assert "master" not in databases
@@ -325,7 +459,7 @@ def test_every_command_answers_across_databases(
     ],
 )
 def test_injection_shaped_arguments_never_reach_the_server(
-    mssql_runner: object,  # noqa: F811
+    mssql_runner: object,
     schema: str,
 ) -> None:
     for command in ("tables", "views", "procedures"):
@@ -339,7 +473,7 @@ def test_injection_shaped_arguments_never_reach_the_server(
 
 @pytest.mark.integration
 def test_quoted_schema_with_a_dot(
-    mssql_runner: object,  # noqa: F811
+    mssql_runner: object,
 ) -> None:
     config = _config(database="DB_WITH@SPEC_SYMB", quote_schemas=True)
     procedures = _run("procedures", config=config, schema="John.Doe")
@@ -348,7 +482,7 @@ def test_quoted_schema_with_a_dot(
 
 @pytest.mark.integration
 def test_an_odbc_recipe_reads_sql_variant(
-    mssql_runner: object,  # noqa: F811
+    mssql_runner: object,
 ) -> None:
     pytest.importorskip("pyodbc")
     config = _config(
@@ -360,10 +494,23 @@ def test_an_odbc_recipe_reads_sql_variant(
     assert "DemoData" in _names(
         _run("databases", config=config, source_type="mssql-odbc")
     )
+    # extended_properties.value is sql_variant: pyodbc raises on it unless the
+    # converter is installed, and returns bytes if it decodes nothing.
     result = _run(
         "sql",
         config=config,
         source_type="mssql-odbc",
         query="SELECT value FROM DemoData.sys.extended_properties",
     )
-    assert _rows(result)
+    assert "Description for table Items of schema Foo." in [
+        row[0] for row in _rows(result)
+    ]
+    comment = _run(
+        "table_comment",
+        config=config,
+        source_type="mssql-odbc",
+        schema="Foo",
+        table="Items",
+        database="DemoData",
+    )
+    assert comment["result"] == {"text": "Description for table Items of schema Foo."}
