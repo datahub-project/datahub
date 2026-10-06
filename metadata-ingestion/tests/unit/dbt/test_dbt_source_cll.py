@@ -15,6 +15,11 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )
@@ -375,3 +380,156 @@ def test_glue_cll_v2_fieldpath_schema_from_graph_resolves() -> None:
     assert len(model.upstream_cll) == 1
     assert model.upstream_cll[0].upstream_col == "event_id"
     assert model.upstream_cll[0].downstream_col == "event_id"
+
+
+def _make_bigquery_camel_case_nodes(
+    upstream_dbt_name: str, model_dbt_name: str
+) -> tuple:
+    def _columns() -> List[DBTColumn]:
+        return [
+            DBTColumn(
+                name=name, comment="", description="", index=i, data_type="STRING"
+            )
+            for i, name in enumerate(["id", "columnNameFirst"])
+        ]
+
+    upstream = _make_upstream_node(upstream_dbt_name)
+    upstream.columns = _columns()
+    model = _make_model_node(model_dbt_name, upstream_dbt_name)
+    model.columns = _columns()
+    model.compiled_code = (
+        "SELECT id, columnNameFirst "
+        "FROM `myproject`.`internal_staging`.`stg_utm_campaigns`"
+    )
+    return upstream, model
+
+
+def test_bigquery_cll_downstream_column_keeps_catalog_casing() -> None:
+    """Regression: BigQuery columns are case-insensitive, so the SQL parser lowercases
+    the output columns of dbt's bare SELECT. The downstream column must be mapped back
+    to the model's catalog casing, otherwise the lineage points at a missing field."""
+    upstream_dbt_name = "source.mypackage.mydb.stg_utm_campaigns"
+    model_dbt_name = "model.mypackage.my_model"
+    upstream, model = _make_bigquery_camel_case_nodes(upstream_dbt_name, model_dbt_name)
+
+    source = _make_dbt_source()
+    source.ctx.graph = None
+    source._infer_schemas_and_update_cll(
+        {upstream_dbt_name: upstream, model_dbt_name: model}
+    )
+
+    assert {(c.upstream_col, c.downstream_col) for c in model.upstream_cll} == {
+        ("id", "id"),
+        ("columnNameFirst", "columnNameFirst"),
+    }
+    assert model.raw_sql_parsing_result is not None
+    assert {
+        cll.downstream.column
+        for cll in model.raw_sql_parsing_result.column_lineage or []
+    } == {"id", "columnNameFirst"}
+
+
+def test_bigquery_cll_downstream_column_lowercased_when_configured() -> None:
+    upstream_dbt_name = "source.mypackage.mydb.stg_utm_campaigns"
+    model_dbt_name = "model.mypackage.my_model"
+    upstream, model = _make_bigquery_camel_case_nodes(upstream_dbt_name, model_dbt_name)
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    source = DBTCoreSource(
+        DBTCoreConfig(
+            manifest_path="temp/",
+            catalog_path="temp/",
+            target_platform="bigquery",
+            enable_meta_mapping=False,
+            convert_column_urns_to_lowercase=True,
+        ),
+        ctx,
+    )
+    source._infer_schemas_and_update_cll(
+        {upstream_dbt_name: upstream, model_dbt_name: model}
+    )
+
+    assert {(c.upstream_col, c.downstream_col) for c in model.upstream_cll} == {
+        ("id", "id"),
+        ("columnnamefirst", "columnnamefirst"),
+    }
+
+
+def test_bigquery_cll_lowercase_mode_ignores_mixed_case_graph_schema() -> None:
+    """With convert_column_urns_to_lowercase, the emitted schema is lowercased, so
+    downstream columns must stay lowercase even when the model has no catalog columns
+    and its schema comes from the graph with mixed casing."""
+    upstream_dbt_name = "source.mypackage.mydb.stg_utm_campaigns"
+    model_dbt_name = "model.mypackage.my_model"
+    upstream, model = _make_bigquery_camel_case_nodes(upstream_dbt_name, model_dbt_name)
+    model.columns = []
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = mock.MagicMock()
+    ctx.graph.get_aspect.return_value = SchemaMetadataClass(
+        schemaName="my_model",
+        platform="urn:li:dataPlatform:bigquery",
+        version=0,
+        hash="",
+        platformSchema=None,  # type: ignore[arg-type]
+        fields=[
+            SchemaFieldClass(
+                fieldPath=name,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="STRING",
+            )
+            for name in ["id", "columnNameFirst"]
+        ],
+    )
+    source = DBTCoreSource(
+        DBTCoreConfig(
+            manifest_path="temp/",
+            catalog_path="temp/",
+            target_platform="bigquery",
+            enable_meta_mapping=False,
+            convert_column_urns_to_lowercase=True,
+        ),
+        ctx,
+    )
+    source._infer_schemas_and_update_cll(
+        {upstream_dbt_name: upstream, model_dbt_name: model}
+    )
+
+    assert {c.downstream_col for c in model.upstream_cll} == {
+        "id",
+        "columnnamefirst",
+    }
+    emitted_fields = {
+        f.fieldPath
+        for f in source.get_schema_metadata(source.report, model, "bigquery").fields
+    }
+    assert {c.downstream_col for c in model.upstream_cll} <= emitted_fields
+
+
+def test_restore_downstream_column_casing_skips_ambiguous_names() -> None:
+    sql_result = SqlParsingResult(
+        in_tables=[],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column=column), upstreams=[]
+            )
+            for column in ["columnnamefirst", "dupe", "unknown"]
+        ],
+    )
+    schema_fields = [
+        SchemaFieldClass(
+            fieldPath=name,
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+            nativeDataType="STRING",
+        )
+        for name in ["columnNameFirst", "Dupe", "DUPE"]
+    ]
+
+    DBTCoreSource._restore_downstream_column_casing(sql_result, schema_fields)
+
+    assert [cll.downstream.column for cll in sql_result.column_lineage or []] == [
+        "columnNameFirst",
+        "dupe",
+        "unknown",
+    ]

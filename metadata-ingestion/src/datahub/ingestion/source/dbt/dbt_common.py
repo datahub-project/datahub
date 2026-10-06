@@ -2920,6 +2920,29 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             schema_info[simple_field_path] = column.nativeDataType
         return schema_info
 
+    @staticmethod
+    def _restore_downstream_column_casing(
+        sql_result: SqlParsingResult, schema_fields: List[SchemaField]
+    ) -> None:
+        # dbt compiled code is a bare SELECT, so the SQL parser has no output table
+        # to resolve casing against and, for case-insensitive dialects (e.g. BigQuery),
+        # emits lowercased downstream columns. Map them back to the node's known
+        # schema so fine-grained lineage points at fields that actually exist.
+        casing_by_lower: Dict[str, Optional[str]] = {}
+        for column_name in DBTSourceBase._to_schema_info(schema_fields):
+            key = column_name.lower()
+            # None marks names that differ only by case; those are left untouched.
+            casing_by_lower[key] = (
+                None
+                if key in casing_by_lower and casing_by_lower[key] != column_name
+                else column_name
+            )
+
+        for column_lineage in sql_result.column_lineage or []:
+            restored = casing_by_lower.get(column_lineage.downstream.column.lower())
+            if restored:
+                column_lineage.downstream.column = restored
+
     def _determine_cll_required_nodes(
         self, all_nodes_map: Dict[str, DBTNode]
     ) -> Tuple[Set[str], Set[str]]:
@@ -3154,6 +3177,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         depends_on_ephemeral_models = True
 
                     sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
+                    # The emitted schema is lowercased in this mode, so restoring
+                    # graph casing here would make the CLL miss its own fields.
+                    if (
+                        schema_fields
+                        and not self.config.convert_column_urns_to_lowercase
+                    ):
+                        self._restore_downstream_column_casing(
+                            sql_result, schema_fields
+                        )
                 else:
                     self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
                     if self.config.include_column_lineage:
