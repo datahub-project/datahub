@@ -748,6 +748,23 @@ public class OpenSearchSearchClientShimTest {
   }
 
   @Test
+  public void rejectedAddDoesNotLeaveItsOriginBehind() {
+    OpenSearchSearchClientShim shim = shimWith(mock(RestClient.class));
+    shim.generateBulkProcessor(
+        WriteRequest.RefreshPolicy.NONE, mock(MetricUtils.class), 10, 10_000L, 1L, 0, 1);
+    shim.closeBulkProcessor(); // a closed processor rejects adds
+    shim.configureBulkTelemetry(telemetry(new BulkTelemetryTest.Collector(), false, null));
+    try (io.opentelemetry.context.Scope ignored = attributionSpan().makeCurrent()) {
+      assertThrows(
+          IllegalStateException.class,
+          () ->
+              shim.addBulk(
+                  OP, "urn:li:test:1", new IndexRequest("idx").id("1").source(Map.of("f", "v"))));
+    }
+    assertEquals(shim.getBulkTelemetry().pendingCount(), 0, "the rejected action's origin is gone");
+  }
+
+  @Test
   public void reconfiguringOrClosingReleasesBulkTelemetry() {
     OpenSearchSearchClientShim shim = shimWith(mock(RestClient.class));
     BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();

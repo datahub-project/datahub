@@ -545,7 +545,7 @@ public class BulkTelemetryTest {
   }
 
   @Test
-  public void carriedOriginsAreBoundedKeepingTheNewest() {
+  public void carriedOriginsAreBoundedByClearingOnOverflow() {
     BulkTelemetry t = create(tracer(new Collector()), true, false, null);
     // Two failed batches of 15,000 linked actions each: 30,000 failures, MAX_PENDING carried.
     List<List<DocWriteRequest<?>>> batches = new ArrayList<>();
@@ -569,16 +569,17 @@ public class BulkTelemetryTest {
         t.afterBulk(key, new RuntimeException("reset"));
       }
     }
-    assertEquals(t.carriedCount(), 20_000);
-    assertEquals(t.droppedOrigins(), 10_000L, "the oldest 10,000 were evicted");
+    // 15,000 + 5,000 filled the table; the next failure cleared it and recording resumed.
+    assertEquals(t.carriedCount(), 10_000);
+    assertEquals(t.droppedOrigins(), 20_000L, "the cleared origins are counted");
     t.onRequeue(batches.get(0).get(0));
-    assertEquals(t.pendingCount(), 0, "the oldest failure's origin was evicted");
+    assertEquals(t.pendingCount(), 0, "an origin recorded before the overflow was dropped");
     t.onRequeue(batches.get(1).get(14_999));
-    assertEquals(t.pendingCount(), 1, "the newest failure's origin is kept");
+    assertEquals(t.pendingCount(), 1, "origins recorded after the overflow are kept");
   }
 
   @Test
-  public void pendingOriginsAreBoundedKeepingTheNewest() {
+  public void pendingOriginsAreBoundedByClearingOnOverflow() {
     Collector collector = new Collector();
     BulkTelemetry t = create(tracer(collector), true, false, null);
     List<DocWriteRequest<?>> actions = new ArrayList<>();
@@ -591,8 +592,9 @@ public class BulkTelemetryTest {
         actions.add(r);
       }
     }
-    assertEquals(t.pendingCount(), 20_000);
-    assertEquals(t.droppedOrigins(), 10L);
+    // The 20,001st add found the table full, cleared it and was recorded; nine more followed.
+    assertEquals(t.pendingCount(), 10);
+    assertEquals(t.droppedOrigins(), 20_000L);
     Object key = new Object();
     t.beforeBulk(key, actions);
     t.afterBulk(key, 1L, List.of());
@@ -600,23 +602,76 @@ public class BulkTelemetryTest {
     assertEquals(
         collector.spans.get(0).getLinks().get(0).getSpanContext().getTraceId(),
         TRACE_A,
-        "the oldest origins were the ones evicted");
+        "the origins recorded before the overflow were the ones dropped");
   }
 
   @Test
-  public void unflushedActionsAreNotRetained() throws InterruptedException {
+  public void rejectedAddReleasesItsOrigin() {
     BulkTelemetry t = create(tracer(new Collector()), true, false, null);
-    List<WeakReference<IndexRequest>> probes = new ArrayList<>();
+    IndexRequest r = new IndexRequest("idx").id("1");
     try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
-      for (int i = 0; i < 1_000; i++) {
-        // Added, then never flushed: the processor rejected or dropped it.
-        IndexRequest r = new IndexRequest("idx").id("" + i).source(Map.of("big", "x".repeat(100)));
-        t.onAdd(r);
-        probes.add(new WeakReference<>(r));
-      }
+      t.onAdd(r);
     }
-    collectUntil(() -> probes.stream().allMatch(p -> p.get() == null) && t.pendingCount() == 0);
-    assertEquals(t.droppedOrigins(), 1_000L, "purged once collected, and counted");
+    assertEquals(t.pendingCount(), 1);
+    t.onAddFailed(r);
+    assertEquals(t.pendingCount(), 0, "the processor never took it, so nothing waits for a batch");
+    assertEquals(t.droppedOrigins(), 0L, "a release is not a loss");
+    t.onAddFailed(null); // no-op
+    BulkTelemetry.disabled().onAddFailed(r); // no-op
+  }
+
+  @Test
+  public void equalButDistinctActionsKeepTheirOwnOrigins() {
+    Collector collector = new Collector();
+    BulkTelemetry t = create(tracer(collector), true, false, null);
+    // Same index, id and source: still two actions, each with the span that added it.
+    IndexRequest first = new IndexRequest("idx").id("same").source(Map.of("f", "v"));
+    IndexRequest second = new IndexRequest("idx").id("same").source(Map.of("f", "v"));
+    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+      t.onAdd(first);
+    }
+    try (Scope ignored = remoteSpan(TRACE_B, "b7ad6b7169203331").makeCurrent()) {
+      t.onAdd(second);
+    }
+    assertEquals(t.pendingCount(), 2, "keys compare by identity");
+    Object key = new Object();
+    t.beforeBulk(key, List.of(first, second));
+    t.afterBulk(key, 1L, List.of());
+    assertEquals(collector.spans.get(0).getLinks().size(), 2);
+  }
+
+  @Test
+  public void lossesAreLoggedOnceThenDebounced() {
+    ch.qos.logback.classic.Logger logger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(BulkTelemetry.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      BulkTelemetry t = create(tracer(new Collector()), true, false, null);
+      try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+        for (int i = 0; i < 20_000; i++) {
+          t.onAdd(new IndexRequest("idx").id("" + i));
+        }
+        assertTrue(appender.list.isEmpty(), "nothing is logged while nothing is lost");
+        t.onAdd(new IndexRequest("idx").id("overflow-1")); // clears 20,000
+        for (int i = 0; i < 20_000; i++) {
+          t.onAdd(new IndexRequest("idx").id("again-" + i)); // fills it again, clears again
+        }
+      }
+      assertEquals(t.droppedOrigins(), 40_000L);
+      List<ch.qos.logback.classic.spi.ILoggingEvent> warnings =
+          appender.list.stream()
+              .filter(e -> e.getLevel() == ch.qos.logback.classic.Level.WARN)
+              .toList();
+      assertEquals(warnings.size(), 1, "the second overflow falls inside the debounce interval");
+      String line = warnings.get(0).getFormattedMessage();
+      assertTrue(line.contains("20000 origin span(s) discarded"), line);
+      assertTrue(line.contains("writes are unaffected"), line);
+    } finally {
+      logger.detachAppender(appender);
+    }
   }
 
   @Test

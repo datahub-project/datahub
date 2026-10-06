@@ -26,9 +26,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.client.RequestOptions;
 
@@ -63,22 +65,26 @@ import org.opensearch.client.RequestOptions;
  * successful action once its batch ends, and nothing depends on how many other batches complete
  * between a failure and its requeue.
  *
- * <p>Memory is bounded and nothing here keeps a request alive. {@code pending}, {@code carried} and
- * the open batches are {@link WeakIdentityTable}s: keyed by identity through weak references, so an
- * action that never reaches a batch (its add was rejected, its processor closed) or a batch whose
- * {@code afterBulk} never runs is purged once the client lets go of it, and the source documents
- * are never retained by this class. Each table also has a fixed size; at the limit the oldest entry
- * is evicted, so tracking degrades for the oldest origins instead of stopping. At {@value
- * #MAX_PENDING} entries an origin table costs roughly 2 MB (a weak key and a map entry each; the
- * span contexts are shared by all actions added under the same span). A batch dropped that way, or
- * still open at {@link #close}, has its span ended with {@code datahub.bulk.abandoned=true}. With a
- * meter registry the table sizes and drop counts are published as gauges and counters (see {@link
- * #METRIC_PREFIX}).
+ * <p>Memory is bounded. {@code pending} and {@code carried} are {@link OriginTable}s: concurrent
+ * maps with strong keys, so recording an origin on the add path takes no table-wide lock and
+ * allocates one map node. Strong keys do not extend an action's life on the normal path (the
+ * processor holds it until its batch is sent), and every path that drops an action removes its
+ * origin: batch start, a rejected add ({@link #onAddFailed}), requeue, give-up ({@link #forget})
+ * and {@link #close}. A table that still reaches {@value #MAX_PENDING} origins is leaking; it is
+ * cleared and recording resumes, so attribution never stops for good. The open batches are a {@link
+ * WeakIdentityTable} (one put per batch, not per action) capped at {@value #MAX_OPEN_BATCHES}; a
+ * batch evicted there, collected without completing, or still open at {@link #close} has its span
+ * ended with {@code datahub.bulk.abandoned=true}.
+ *
+ * <p>Every loss is reported twice: as meters when a registry is configured (see {@link
+ * #METRIC_PREFIX}), and as a WARN log line, the first loss at once and then at most one summary per
+ * {@link #LOSS_LOG_INTERVAL_NANOS} with the counts since the previous line.
  *
  * <p>Everything is off unless {@code telemetry.requestAttribution.enabled} is set (span) and {@code
  * telemetry.requestAttribution.opensearchOpaqueId} is set (header). When disabled every method is a
- * no-op and allocates nothing. Nothing here logs, blocks or throws.
+ * no-op and allocates nothing. Nothing here blocks or throws.
  */
+@Slf4j
 public final class BulkTelemetry {
 
   public static final String SPAN_NAME = "index bulk";
@@ -97,8 +103,10 @@ public final class BulkTelemetry {
   /**
    * Prefix of the meters published when a registry is configured, each tagged {@code
    * processor=<batch id prefix>}: gauges {@code .pending}, {@code .carried}, {@code .open_batches}
-   * and counters {@code .origins_dropped} (origins evicted at the size limit or purged because the
-   * action was collected unflushed) and {@code .batches_abandoned}.
+   * and counters {@code .origins_dropped} (origin spans discarded because {@code pending} or {@code
+   * carried} reached {@value #MAX_PENDING}; the writes themselves are unaffected, their batch spans
+   * just lack those links) and {@code .batches_abandoned} (batch spans ended without the batch's
+   * result).
    */
   public static final String METRIC_PREFIX = "datahub.bulk.telemetry";
 
@@ -113,8 +121,8 @@ public final class BulkTelemetry {
 
   /**
    * Bound on actions whose originating span is remembered between add and flush ({@code pending}),
-   * and separately on failed actions whose origin is held for a requeue ({@code carried}). At the
-   * limit the oldest entry is evicted.
+   * and separately on failed actions whose origin is held for a requeue ({@code carried}). Normal
+   * use stays far below it (unflushed actions per processor); at the limit the table is cleared.
    */
   static final int MAX_PENDING = 20_000;
 
@@ -123,6 +131,9 @@ public final class BulkTelemetry {
    * thread count times their concurrent requests; this only matters if {@code afterBulk} is lost.
    */
   static final int MAX_OPEN_BATCHES = 1_024;
+
+  /** Least time between two loss warnings; the first loss is logged at once. */
+  static final long LOSS_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
   private static final BulkTelemetry DISABLED =
       new BulkTelemetry(null, false, DEFAULT_SERVICE, null);
@@ -134,9 +145,16 @@ public final class BulkTelemetry {
   private final AtomicLong seq = new AtomicLong();
   private final AtomicLong abandoned = new AtomicLong();
 
-  // Weak identity tables: DocWriteRequest and BulkRequest do not define equals, we want the exact
-  // instances the processor hands back in beforeBulk / afterBulk, and we must not keep them alive.
-  private final WeakIdentityTable<SpanContext> pending = new WeakIdentityTable<>(MAX_PENDING, null);
+  // Loss warnings: when the next line may be written, and the totals the previous line reported.
+  private final AtomicLong nextLossLogNanos = new AtomicLong(Long.MIN_VALUE);
+  private final AtomicLong loggedDropped = new AtomicLong();
+  private final AtomicLong loggedAbandoned = new AtomicLong();
+
+  /** Actions added and not yet in a batch. Strong keys; see the class comment. */
+  private final OriginTable pending = new OriginTable(MAX_PENDING);
+
+  // One put per batch, so a weak identity table is affordable here: a batch whose afterBulk never
+  // runs is purged (and its span ended as abandoned) once the client lets go of the bulk request.
   private final WeakIdentityTable<Batch> batches =
       new WeakIdentityTable<>(MAX_OPEN_BATCHES, this::abandon);
 
@@ -144,7 +162,7 @@ public final class BulkTelemetry {
    * Origins of failed actions between the end of their batch and the listener's decision to requeue
    * ({@link #onRequeue}) or give up ({@link #forget}). Only populated when spans are on.
    */
-  private final WeakIdentityTable<SpanContext> carried = new WeakIdentityTable<>(MAX_PENDING, null);
+  private final OriginTable carried = new OriginTable(MAX_PENDING);
 
   @Nullable private final MeterRegistry meterRegistry;
   private final List<Meter> meters = new ArrayList<>();
@@ -232,6 +250,18 @@ public final class BulkTelemetry {
   }
 
   /**
+   * Drops the origin {@link #onAdd} recorded when the action did not make it into the processor
+   * after all (the add threw, the processor was closed), so it does not wait for a batch that will
+   * never contain it. No-op when spans are off or nothing is recorded for the action.
+   */
+  public void onAddFailed(@Nullable Object action) {
+    if (tracer == null || action == null) {
+      return;
+    }
+    pending.remove(action);
+  }
+
+  /**
    * Carries a failed action's origin over to its next batch when the listener requeues it. Called
    * from the requeue path, before the action is re-added to the processor; consumes the carried
    * origin. No-op when spans are off or the action failed in no batch this instance ended.
@@ -259,7 +289,49 @@ public final class BulkTelemetry {
   }
 
   private void remember(@Nonnull Object action, @Nonnull SpanContext ctx) {
-    pending.put(action, ctx);
+    if (pending.put(action, ctx) > 0) {
+      reportLoss();
+    }
+  }
+
+  private void carry(@Nonnull Object action, @Nonnull SpanContext ctx) {
+    if (carried.put(action, ctx) > 0) {
+      reportLoss();
+    }
+  }
+
+  /**
+   * Writes the debounced loss warning: called only when something was just dropped, so the add path
+   * pays nothing in steady state. One thread wins the slot for each interval; the line reports what
+   * was lost since the previous line, so no loss goes unreported once the next line is written.
+   */
+  private void reportLoss() {
+    long now = System.nanoTime();
+    long next = nextLossLogNanos.get();
+    if (next != Long.MIN_VALUE && now - next < 0) {
+      return;
+    }
+    if (!nextLossLogNanos.compareAndSet(next, now + LOSS_LOG_INTERVAL_NANOS)) {
+      return;
+    }
+    long droppedNow = droppedOrigins();
+    long abandonedNow = abandoned.get();
+    long droppedSince = droppedNow - loggedDropped.getAndSet(droppedNow);
+    long abandonedSince = abandonedNow - loggedAbandoned.getAndSet(abandonedNow);
+    log.warn(
+        "Bulk-write attribution lost telemetry (processor {}): {} origin span(s) discarded and {}"
+            + " batch span(s) ended incomplete since the last report ({} and {} in total);"
+            + " writes are unaffected. pending={}, carried={}, open_batches={}, limits {}/{}",
+        prefix,
+        droppedSince,
+        abandonedSince,
+        droppedNow,
+        abandonedNow,
+        pending.size(),
+        carried.size(),
+        batches.size(),
+        MAX_PENDING,
+        MAX_OPEN_BATCHES);
   }
 
   /**
@@ -370,7 +442,7 @@ public final class BulkTelemetry {
       for (Object action : failedActions) {
         SpanContext ctx = batch.origins.get(action); // identity map: a null action finds nothing
         if (ctx != null) {
-          carried.put(action, ctx);
+          carry(action, ctx);
         }
       }
     }
@@ -392,7 +464,7 @@ public final class BulkTelemetry {
       return;
     }
     for (Map.Entry<Object, SpanContext> origin : batch.origins.entrySet()) {
-      carried.put(origin.getKey(), origin.getValue());
+      carry(origin.getKey(), origin.getValue());
     }
     batch.span.setAttribute(FAILURES, (long) batch.actions);
     batch.span.recordException(failure);
@@ -424,6 +496,7 @@ public final class BulkTelemetry {
       batch.span.setStatus(StatusCode.ERROR, "batch abandoned before completion");
       batch.span.end();
     }
+    reportLoss();
   }
 
   /**
@@ -469,8 +542,8 @@ public final class BulkTelemetry {
   }
 
   /**
-   * Origins dropped without being linked: evicted at {@value #MAX_PENDING} or purged because their
-   * action was collected before reaching a batch (rejected add, closed processor).
+   * Origin spans discarded without being linked because {@code pending} or {@code carried} reached
+   * {@value #MAX_PENDING}. Telemetry only: the writes are unaffected.
    */
   public long droppedOrigins() {
     return pending.dropped() + carried.dropped();
