@@ -14,8 +14,13 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -34,6 +39,7 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ESSearchDAOLightFirstTest {
@@ -41,6 +47,25 @@ public class ESSearchDAOLightFirstTest {
   private static final QueryBuilder FULL = QueryBuilders.matchQuery("name", "full");
   private static final QueryBuilder LIGHT = QueryBuilders.matchQuery("name", "light");
   private static final QueryBuilder FILTER = QueryBuilders.termQuery("platform", "hive");
+
+  private SearchClientShim<?> client;
+  private OperationContext opContext;
+  private ESSearchDAO dao;
+
+  @BeforeMethod
+  public void setup() {
+    client = mock(SearchClientShim.class);
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), client);
+    dao =
+        new ESSearchDAO(
+            false,
+            TEST_OS_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+  }
 
   @Test
   public void testLightSourceQueryKeepsFilters() {
@@ -93,24 +118,7 @@ public class ESSearchDAOLightFirstTest {
 
   @Test
   public void testLightResultWithFailedShardsNeverStops() throws Exception {
-    SearchClientShim<?> client = mock(SearchClientShim.class);
-    OperationContext opContext =
-        TestOperationContexts.withFixedSearchClient(
-            TestOperationContexts.systemContextNoValidate(), client);
-    ESSearchDAO dao =
-        new ESSearchDAO(
-            false,
-            TEST_OS_SEARCH_CONFIG,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    SearchRequest request =
-        new SearchRequest(
-                opContext
-                    .getSearchContext()
-                    .getIndexConvention()
-                    .getEntityIndexName(opContext, "dashboard"))
-            .source(new SearchSourceBuilder().query(QueryBuilders.boolQuery().must(FULL)));
+    SearchRequest request = request(QueryBuilders.boolQuery().must(FULL));
     // An ID lookup the light query does not find stops there
     SearchResponse cleanEmpty = response(0, 0);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
@@ -139,6 +147,26 @@ public class ESSearchDAOLightFirstTest {
     assertSame(((BoolQueryBuilder) request.source().query()).must().get(0), FULL);
   }
 
+  @Test
+  public void testRootQueryTheLightQueryCannotCarryRunsOnlyTheFullQuery() throws Exception {
+    SearchRequest request = request(FULL);
+    SearchResponse full = response(3, 0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(full);
+    assertSame(dao.searchLightFirst(opContext, request, LIGHT, "orders"), full);
+    verify(client).search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
+    assertSame(request.source().query(), FULL);
+  }
+
+  private SearchRequest request(QueryBuilder query) {
+    return new SearchRequest(
+            opContext
+                .getSearchContext()
+                .getIndexConvention()
+                .getEntityIndexName(opContext, "dashboard"))
+        .source(new SearchSourceBuilder().query(query));
+  }
+
   private static SearchResponse response(long totalHits, int failedShards) {
     SearchResponse response = mock(SearchResponse.class);
     when(response.getHits())
@@ -156,6 +184,15 @@ public class ESSearchDAOLightFirstTest {
     assertTrue(ESSearchDAO.hasColumnNameFilter(QueryUtils.newFilter("fieldPaths", "customer_id")));
     assertFalse(ESSearchDAO.hasColumnNameFilter(QueryUtils.newFilter("platform", "hive")));
     assertFalse(ESSearchDAO.hasColumnNameFilter(null));
+    // Legacy criteria
+    Criterion columnName = CriterionUtils.buildCriterion("fieldPaths", Condition.EQUAL, "id");
+    assertTrue(
+        ESSearchDAO.hasColumnNameFilter(new Filter().setCriteria(new CriterionArray(columnName))));
+    // Excluding a column name requires none
+    assertFalse(
+        ESSearchDAO.hasColumnNameFilter(
+            QueryUtils.newFilter(
+                CriterionUtils.buildCriterion("fieldPaths", Condition.EQUAL, true, "id"))));
   }
 
   @Test

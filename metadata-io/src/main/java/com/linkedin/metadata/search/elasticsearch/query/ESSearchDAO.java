@@ -428,8 +428,7 @@ public class ESSearchDAO {
         from,
         size,
         // A search without hits runs the full query, as in DataHub Cloud. The UI's facet counts
-        // reach
-        // here through the search cache, which fetches hits, so they follow the light query
+        // reach here through the search cache, which fetches hits, so they follow the light query
         size != null && size == 0
             ? null
             : lightFirstQuery(
@@ -616,7 +615,7 @@ public class ESSearchDAO {
             metricUtils -> metricUtils.increment(ESSearchDAO.class, "lightFirst_" + served, 1));
   }
 
-  /** No sort, or only by score (the explain API's default), orders by relevance. */
+  /** No sort, or only by descending score (the explain API's default), orders by relevance. */
   private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
     return sortCriteria == null
         || sortCriteria.stream()

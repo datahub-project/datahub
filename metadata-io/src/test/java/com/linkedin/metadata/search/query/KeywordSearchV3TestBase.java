@@ -1243,7 +1243,22 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10,
                 List.of())
             .isMatch());
-    // A search that reaches the DAO without hits runs the full query, as in DataHub Cloud
+    // A search that reaches the DAO without hits runs the full query, as in DataHub Cloud, and so
+    // does its explain
+    assertTrue(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                null,
+                null,
+                null,
+                0,
+                List.of())
+            .isMatch());
     assertEquals(
         searchService
             .search(fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 0, 0)
@@ -1256,7 +1271,20 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 1, 10);
     assertEquals(secondPage.getNumEntities().intValue(), 1);
     assertTrue(secondPage.getEntities().isEmpty());
-    // Another sort order and scroll run the full query
+    // Another sort order, including an ascending score, and scroll run the full query
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                List.of(new SortCriterion().setField("_score").setOrder(SortOrder.ASCENDING)),
+                0,
+                10)
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
     assertUrns(
         searchService
             .search(
@@ -1300,6 +1328,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         search.apply(DATASET_ENTITY_NAME, "orderz_20240101").getNumEntities().intValue(), 0);
     assertEquals(
         search.apply(DATASET_ENTITY_NAME, "orderz_aa_bb_cc").getNumEntities().intValue(), 0);
+    assertFalse(explain("orderz_20240101", ORDERS).isMatch());
     assertUrns(search.apply(DATASET_ENTITY_NAME, "orderz_aa").getEntities(), ORDERS);
 
     // A letter and digit run matches whole or by all its parts on the light query. "Cargo

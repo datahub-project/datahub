@@ -221,7 +221,8 @@ public class SearchQueryBuilder {
           "title.delimited",
           "urn.delimited",
           "qualifiedName.delimited",
-          "id.delimited");
+          "id.delimited",
+          "displayName.delimited");
 
   /**
    * Light path: max query length before truncation at a word boundary. Long S3 paths and URLs
@@ -1470,12 +1471,13 @@ public class SearchQueryBuilder {
 
   /**
    * Multi-match over the {@code .delimited} identity fields ({@code name}, {@code title}, {@code
-   * urn}) queried with the pre-escape string, so an identifier that {@link
-   * #escapeSimpleQueryStringOperators} or {@link #splitAlphanumericTokens} broke up ({@code
-   * load_job-0001}, {@code orders2017}) still matches the whole token the {@code .delimited}
-   * analyzer indexes. Every term is required, but that analyzer also emits the {@code _} and {@code
-   * -} separated parts of an identifier at the same position, so for such an identifier a name
-   * holding one part matches as well. Empty when none of these fields is queried.
+   * urn}, {@code qualifiedName}, {@code id}, {@code displayName}) queried with the pre-escape
+   * string, so an identifier that {@link #escapeSimpleQueryStringOperators} or {@link
+   * #splitAlphanumericTokens} broke up ({@code load_job-0001}, {@code orders2017}) still matches
+   * the whole token the {@code .delimited} analyzer indexes. Every term is required, but that
+   * analyzer also emits the {@code _} and {@code -} separated parts of an identifier at the same
+   * position, so for such an identifier a name holding one part matches as well. Empty when none of
+   * these fields is queried.
    */
   private Optional<QueryBuilder> getDelimitedIdentityQuery(
       @Nonnull OperationContext opContext,

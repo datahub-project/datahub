@@ -1838,6 +1838,32 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertEquals(v3LightMultiMatches("cargo").size(), 1);
   }
 
+  @Test
+  public void testV3LightQueryRequeriesEveryNameField() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext,
+            List.of(
+                operationContext.getEntityRegistry().getEntitySpec("dataset"),
+                operationContext.getEntityRegistry().getEntitySpec("corpuser")),
+            "cargo2017",
+            true,
+            true),
+        clauses);
+    Set<String> fields =
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .filter(multiMatch -> multiMatch.operator() == Operator.AND)
+            .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
+            .collect(Collectors.toSet());
+    assertTrue(
+        fields.containsAll(
+            Set.of("name.delimited", "qualifiedName.delimited", "displayName.delimited")),
+        fields.toString());
+  }
+
   private List<MultiMatchQueryBuilder> v3LightMultiMatches(String query) {
     List<QueryBuilder> clauses = new ArrayList<>();
     collectClauses(
