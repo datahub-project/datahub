@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -30,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.search.TotalHits;
@@ -64,14 +64,15 @@ public class ESSearchDAOHybridTest {
             .withSearchFlags(flags -> flags.setFulltext(true));
     reranker = mock(HybridSearchResultReranker.class);
     // Reverses the rows it is given, so the test can tell reranked rows from keyword ones
-    when(reranker.rerank(
-            any(OperationContext.class), any(), any(), anyList(), anyInt(), any(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
         .thenAnswer(
             invocation -> {
               List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
               Collections.reverse(rows);
               return rows;
             });
+    when(reranker.vectorEntityNames(any(OperationContext.class), any()))
+        .thenReturn(Set.of("document"));
     dao =
         new ESSearchDAO(
             false,
@@ -108,7 +109,6 @@ public class ESSearchDAOHybridTest {
             eq(ENTITY_NAMES),
             eq("revenue"),
             rows.capture(),
-            eq(200),
             eq(List.of("urn")),
             any());
     assertEquals(rows.getValue().size(), 100);
@@ -168,12 +168,41 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testSearchWithoutVectorTypesStaysKeywordOnly() throws IOException {
+    SearchResponse keywordResponse = response(10);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    when(reranker.vectorEntityNames(any(OperationContext.class), any())).thenReturn(Set.of());
+
+    dao.search(opContext, List.of("corpuser"), "zelda", null, null, 0, 10, List.of());
+
+    assertEquals(searchedSource().size(), 10);
+  }
+
+  @Test
+  public void testSlowRerankServesTheKeywordRanking() throws IOException {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(5_000);
+              return List.of();
+            });
+
+    SearchResult result =
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+
+    assertEquals(rowIds(result), range(0, 10));
+  }
+
+  @Test
   public void testFailedRerankServesTheKeywordRanking() throws IOException {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(
-            any(OperationContext.class), any(), any(), anyList(), anyInt(), any(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
         .thenThrow(new IOException("kNN unavailable"));
 
     SearchResult result =

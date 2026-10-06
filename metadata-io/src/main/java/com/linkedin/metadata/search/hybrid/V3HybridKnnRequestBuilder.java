@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.hybrid;
 
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -53,24 +55,31 @@ public class V3HybridKnnRequestBuilder {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String modelEmbeddingKey,
       @Nonnull final float[] queryVector,
-      final int k,
+      @Nonnull final Collection<Urn> urns,
       @Nonnull final Collection<String> fieldsToFetch,
       @Nullable final Map<String, Object> rootFilter) {
     final Map<String, String> indices =
         SemanticEntitySearchService.v3SemanticIndices(
             opContext, entityNames, semanticSearchConfiguration);
-    if (indices.isEmpty()) {
+    if (indices.isEmpty() || urns.isEmpty()) {
       return Optional.empty();
     }
+    // Only the given rows are scored, so the search is exact and repeatable and every row with a
+    // vector gets its score
+    final List<String> urnValues = urns.stream().map(Urn::toString).collect(Collectors.toList());
 
     return Optional.of(
         KnnSearchRequest.builder()
             .indexName(String.join(",", indices.values()))
             .vectorField(vectorField(modelEmbeddingKey))
             .queryVector(queryVector)
-            .k(Math.max(1, Math.min(k, MAX_K)))
+            .k(Math.min(urnValues.size(), MAX_K))
             .fieldsToFetch(new ArrayList<>(fieldsToFetch))
-            .filter(combineRootFilters(rootFilter, entityTypeFilter(indices.keySet())))
+            .filter(
+                combineFilters(
+                    rootFilter,
+                    entityTypeFilter(indices.keySet()),
+                    Map.of("terms", Map.of("urn", urnValues))))
             .build());
   }
 
@@ -93,14 +102,18 @@ public class V3HybridKnnRequestBuilder {
   }
 
   @Nonnull
-  private static Map<String, Object> combineRootFilters(
+  private static Map<String, Object> combineFilters(
       @Nullable final Map<String, Object> rootFilter,
-      @Nonnull final Map<String, Object> entityTypeFilter) {
-    if (rootFilter == null || rootFilter.isEmpty()) {
-      return entityTypeFilter;
+      @Nonnull final Map<String, Object> entityTypeFilter,
+      @Nonnull final Map<String, Object> urnFilter) {
+    final List<Map<String, Object>> filters = new ArrayList<>();
+    if (rootFilter != null && !rootFilter.isEmpty()) {
+      filters.add(rootFilter);
     }
+    filters.add(entityTypeFilter);
+    filters.add(urnFilter);
     final Map<String, Object> bool = new LinkedHashMap<>();
-    bool.put("filter", List.of(rootFilter, entityTypeFilter));
+    bool.put("filter", filters);
     return Map.of("bool", bool);
   }
 }

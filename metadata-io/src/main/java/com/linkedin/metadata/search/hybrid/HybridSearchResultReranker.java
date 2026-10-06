@@ -46,6 +46,13 @@ public class HybridSearchResultReranker {
     this.candidateMerger = candidateMerger;
   }
 
+  /** Canonical names of the requested entity types whose rows can be reranked. */
+  @Nonnull
+  public Set<String> vectorEntityNames(
+      @Nonnull final OperationContext opContext, @Nonnull final Collection<String> entityNames) {
+    return knnRequestBuilder.vectorEntityNames(opContext, entityNames);
+  }
+
   /**
    * Returns {@code lexicalRows} with the rows of entity types that have vectors reordered by
    * combined lexical and vector score, each moved into a position such a row held before.
@@ -56,19 +63,18 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
-      final int k,
       @Nonnull final Collection<String> fieldsToFetch,
       @Nullable final Map<String, Object> rootFilter)
       throws IOException {
     return reorder(
         lexicalRows,
-        candidates(opContext, entityNames, query, lexicalRows, k, fieldsToFetch, rootFilter));
+        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, rootFilter));
   }
 
   /**
-   * Scores the rows of entity types that have vectors, highest combined score first. Empty when the
-   * query is a wildcard or no row has an entity type with vectors, in which case no embedding or
-   * kNN request is made.
+   * Scores the rows that have vectors, highest combined score first. The kNN query scores exactly
+   * these rows. Empty when the query is a wildcard or no row has an entity type with vectors, in
+   * which case no embedding or kNN request is made.
    */
   @Nonnull
   public List<HybridCandidate> candidates(
@@ -76,7 +82,6 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
-      final int k,
       @Nonnull final Collection<String> fieldsToFetch,
       @Nullable final Map<String, Object> rootFilter)
       throws IOException {
@@ -99,7 +104,7 @@ public class HybridSearchResultReranker {
             entityNames,
             queryEmbedding.modelEmbeddingKey(),
             queryEmbedding.vector(),
-            k,
+            lexicalScores.keySet(),
             fieldsToFetch,
             rootFilter);
     if (knnRequest.isEmpty()) {
@@ -109,7 +114,10 @@ public class HybridSearchResultReranker {
     final KnnSearchResponse knnResponse =
         SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3)
             .searchKnn(opContext, knnRequest.get());
-    return candidateMerger.merge(lexicalScores, scoreMapBuilder.vectorScores(knnResponse));
+    final Map<Urn, Double> vectorScores = scoreMapBuilder.vectorScores(knnResponse);
+    // A row without vectors, e.g. not embedded yet, has nothing to compare and keeps its position
+    lexicalScores.keySet().retainAll(vectorScores.keySet());
+    return candidateMerger.merge(lexicalScores, vectorScores);
   }
 
   /**

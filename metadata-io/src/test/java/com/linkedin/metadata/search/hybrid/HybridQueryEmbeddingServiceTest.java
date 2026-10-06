@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.hybrid;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
@@ -24,6 +26,20 @@ public class HybridQueryEmbeddingServiceTest {
 
     assertEquals(embedding.modelEmbeddingKey(), "text_embedding_3_small");
     assertEquals(embedding.vector(), new float[] {0.1f, 0.2f});
+  }
+
+  @Test
+  public void testRepeatQueryReusesTheEmbedding() {
+    EmbeddingProvider provider = mock(EmbeddingProvider.class);
+    when(provider.embed("revenue", null, EmbeddingTaskType.QUERY))
+        .thenReturn(new float[] {0.1f, 0.2f});
+    HybridQueryEmbeddingService service =
+        new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
+
+    service.embed("revenue");
+    service.embed("revenue");
+
+    verify(provider, times(1)).embed("revenue", null, EmbeddingTaskType.QUERY);
   }
 
   @Test

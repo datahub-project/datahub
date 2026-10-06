@@ -5,6 +5,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
@@ -19,6 +21,8 @@ import org.testng.annotations.Test;
 public class V3HybridKnnRequestBuilderTest {
 
   private static final String MODEL_KEY = "text_embedding_3_small";
+  private static final Urn DOC_A = UrnUtils.getUrn("urn:li:document:a");
+  private static final Urn DOC_B = UrnUtils.getUrn("urn:li:document:b");
 
   private OperationContext opContext;
   private V3HybridKnnRequestBuilder builder;
@@ -33,7 +37,7 @@ public class V3HybridKnnRequestBuilderTest {
   public void testMixedQuerySearchesOnlyTheDocumentIndex() {
     List<String> entityNames = List.of("dataset", "document", "chart");
 
-    KnnSearchRequest request = build(builder, entityNames, 25, null);
+    KnnSearchRequest request = build(builder, entityNames, List.of(DOC_A, DOC_B), null);
 
     assertEquals(
         request.indexName(),
@@ -42,9 +46,10 @@ public class V3HybridKnnRequestBuilderTest {
             .getIndexConvention()
             .getEntityIndexNameV3(opContext, "document"));
     assertEquals(request.vectorField(), "embeddings.text_embedding_3_small.chunks.vector");
-    assertEquals(request.k(), 25);
+    // Exactly the given rows are scored
+    assertEquals(request.k(), 2);
     assertEquals(request.fieldsToFetch(), List.of("urn"));
-    assertEquals(request.filter().get(), documentTypeFilter());
+    assertEquals(request.filter().get(), filters(documentTypeFilter(), urnFilter(DOC_A, DOC_B)));
     assertEquals(builder.vectorEntityNames(opContext, entityNames), Set.of("document"));
   }
 
@@ -57,7 +62,7 @@ public class V3HybridKnnRequestBuilderTest {
                 List.of("dataset", "chart"),
                 MODEL_KEY,
                 new float[] {0.1f},
-                10,
+                List.of(DOC_A),
                 List.of("urn"),
                 null)
             .isPresent());
@@ -69,7 +74,7 @@ public class V3HybridKnnRequestBuilderTest {
                 List.of("document"),
                 MODEL_KEY,
                 new float[] {0.1f},
-                10,
+                List.of(DOC_A),
                 List.of("urn"),
                 null)
             .isPresent());
@@ -79,19 +84,25 @@ public class V3HybridKnnRequestBuilderTest {
   public void testRootFilterIsCombinedWithTheEntityTypeScope() {
     Map<String, Object> rootFilter = Map.of("term", Map.of("platform", "notion"));
 
-    KnnSearchRequest request = build(builder, List.of("document"), 10, rootFilter);
+    KnnSearchRequest request = build(builder, List.of("document"), List.of(DOC_A), rootFilter);
 
     assertEquals(
-        request.filter().get(),
-        Map.of("bool", Map.of("filter", List.of(rootFilter, documentTypeFilter()))));
+        request.filter().get(), filters(rootFilter, documentTypeFilter(), urnFilter(DOC_A)));
   }
 
   @Test
-  public void testCapsKSoCandidatesStayWithinEngineLimits() {
-    KnnSearchRequest request = build(builder, List.of("document"), Integer.MAX_VALUE, null);
-
-    assertEquals(request.k(), V3HybridKnnRequestBuilder.MAX_K);
-    assertEquals(request.numCandidates(), 10_000);
+  public void testNoRequestWithoutRows() {
+    assertFalse(
+        builder
+            .build(
+                opContext,
+                List.of("document"),
+                MODEL_KEY,
+                new float[] {0.1f},
+                List.of(),
+                List.of("urn"),
+                null)
+            .isPresent());
   }
 
   @Test
@@ -102,7 +113,7 @@ public class V3HybridKnnRequestBuilderTest {
   private KnnSearchRequest build(
       V3HybridKnnRequestBuilder builder,
       List<String> entityNames,
-      int k,
+      List<Urn> urns,
       Map<String, Object> rootFilter) {
     return builder
         .build(
@@ -110,10 +121,25 @@ public class V3HybridKnnRequestBuilderTest {
             entityNames,
             MODEL_KEY,
             new float[] {0.1f, 0.2f},
-            k,
+            urns,
             List.of("urn"),
             rootFilter)
         .orElseThrow();
+  }
+
+  @SafeVarargs
+  private static Map<String, Object> filters(Map<String, Object>... filters) {
+    return Map.of("bool", Map.of("filter", List.of(filters)));
+  }
+
+  private static Map<String, Object> urnFilter(Urn... urns) {
+    return Map.of(
+        "terms",
+        Map.of(
+            "urn",
+            java.util.Arrays.stream(urns)
+                .map(Urn::toString)
+                .collect(java.util.stream.Collectors.toList())));
   }
 
   private static Map<String, Object> documentTypeFilter() {

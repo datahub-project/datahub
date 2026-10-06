@@ -77,7 +77,6 @@ public class HybridSearchResultRerankerTest {
             "revenue",
             List.of(
                 row(DOC_A, 80), row(DATASET, 70), row(DOC_B, 60), row(CHART, 50), row(DOC_C, 40)),
-            200,
             List.of("urn"),
             null);
 
@@ -95,13 +94,14 @@ public class HybridSearchResultRerankerTest {
             .getSearchContext()
             .getIndexConvention()
             .getEntityIndexNameV3(opContext, "document"));
-    assertEquals(request.getValue().k(), 200);
+    // The kNN query scores exactly the three document rows
+    assertEquals(request.getValue().k(), 3);
     verify(primaryClient, never())
         .searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
   }
 
   @Test
-  public void testDocumentWithoutVectorHitRanksBelowCloseOnes() throws Exception {
+  public void testRowWithoutVectorKeepsItsPosition() throws Exception {
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(knnHits(Map.of(DOC_B, 0.4d)));
 
@@ -111,11 +111,11 @@ public class HybridSearchResultRerankerTest {
             ENTITY_NAMES,
             "revenue",
             List.of(row(DOC_A, 50), row(DOC_B, 50)),
-            200,
             List.of("urn"),
             null);
 
-    assertEquals(urns(reranked), List.of(DOC_B, DOC_A));
+    // DOC_A has no vector, e.g. not embedded yet, so it stays first
+    assertEquals(urns(reranked), List.of(DOC_A, DOC_B));
   }
 
   @Test
@@ -123,7 +123,7 @@ public class HybridSearchResultRerankerTest {
     List<SearchEntity> rows = List.of(row(DATASET, 70), row(CHART, 50));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, 200, List.of("urn"), null), rows);
+        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), null), rows);
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
@@ -131,8 +131,7 @@ public class HybridSearchResultRerankerTest {
   public void testWildcardQuerySkipsEmbeddingAndKnn() throws Exception {
     List<SearchEntity> rows = List.of(row(DOC_A, 1));
 
-    assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "*", rows, 200, List.of("urn"), null), rows);
+    assertEquals(reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn"), null), rows);
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
