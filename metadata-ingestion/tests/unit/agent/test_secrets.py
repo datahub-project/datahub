@@ -157,3 +157,35 @@ def test_only_what_a_resolver_supplied_is_collected(
         _resolvers,
     )
     assert resolved.secret_values == {"foo-val", "bar-val", "piped-val"}
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "${PROBE_T_FOO:0:3}",
+        "${PROBE_T_FOO:3}",
+        "${PROBE_T_FOO: -2}",
+        "${#PROBE_T_FOO}",
+        "pre-${PROBE_T_FOO:0:1}-post",
+        "${PROBE_T_UNSET:-${PROBE_T_FOO:1}}",
+        {"block": ["${PROBE_T_PIPED:2}"]},
+    ],
+)
+def test_a_reference_to_part_of_a_value_is_refused_by_name(
+    _resolvers: List[SecretResolver], value: object
+) -> None:
+    # Only whole resolved values are masked, so a slice would print in clear
+    # and two slices rebuild the secret. Refused before anything resolves.
+    with pytest.raises(ValueError, match=r"part of \$\{PROBE_T_") as refused:
+        resolve_config_collecting({"value": value}, _resolvers)
+    for secret in (*_ENV.values(), *_PIPED.values()):
+        assert secret not in str(refused.value)
+
+
+@pytest.mark.parametrize("value", ["${PROBE_T_FOO:+set}", "${PROBE_T_FOO:?needed}"])
+def test_a_modifier_that_keeps_the_whole_value_or_recipe_text_resolves(
+    _resolvers: List[SecretResolver], value: str
+) -> None:
+    config: Dict[str, object] = {"value": value}
+    probe = resolve_config_collecting(config, _resolvers).config
+    assert probe == resolve_env_variables(config, _ingest_environ())

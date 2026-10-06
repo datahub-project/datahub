@@ -1,7 +1,16 @@
 import copy
 import os
+import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterator, List, MutableMapping, Optional, Protocol, Set
+from typing import (
+    Dict,
+    Iterator,
+    List,
+    MutableMapping,
+    Optional,
+    Protocol,
+    Set,
+)
 
 from expandvars import ExpandvarsException, UnboundVariable
 
@@ -125,6 +134,42 @@ class _ResolverEnviron(MutableMapping[str, str]):
 
 _UNBOUND_SUFFIX = ": unbound variable"
 
+# A reference whose expansion is part of a value rather than all of it:
+# `${#X}` (its length), and `${X:` followed by an offset (`${X:0:8}`,
+# `${X:8}`, `${X: -3}`) rather than `-`, `=`, `?` or `+`. Only whole values a
+# resolver supplies are registered for masking, so a slice would print in
+# clear; two slices rebuild the secret.
+_PARTIAL_EXPANSION = re.compile(
+    r"\$\{(?:#(?P<length>[A-Za-z_][A-Za-z0-9_]*)"
+    r"|(?P<slice>[A-Za-z_][A-Za-z0-9_]*):(?![-=?+]))"
+)
+
+
+def _strings(node: object) -> Iterator[str]:
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for value in node.values():
+            yield from _strings(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _strings(item)
+
+
+def _refuse_partial_expansions(config_dict: Dict[str, object]) -> None:
+    """Refuse a reference that expands to part of a value. `datahub ingest`
+    accepts these, but the probe's output goes to a caller, and only whole
+    values can be masked. Named by variable, never by value."""
+    for text in _strings(config_dict):
+        match = _PARTIAL_EXPANSION.search(text)
+        if match:
+            name = match.group("length") or match.group("slice")
+            raise ValueError(
+                f"the recipe takes part of ${{{name}}} (a substring or its "
+                f"length); the probe masks only whole values, so it refuses "
+                f"this. Reference the whole value as ${{{name}}}"
+            )
+
 
 def resolve_config_collecting(
     config_dict: Dict[str, object], resolvers: List[SecretResolver]
@@ -132,11 +177,14 @@ def resolve_config_collecting(
     """The config with its variable references resolved exactly as
     `datahub ingest` resolves them (EnvResolver: `${X}` anywhere, `$X` when it
     starts the value, `${X:-default}`), each looked up through `resolvers` in
-    order, and the values they supplied.
+    order, and the values they supplied. One difference: a reference that
+    expands to part of a value (`${X:0:8}`, `${#X}`) is refused, since only
+    whole values are masked.
 
     A reference nothing resolves and no default covers fails ingestion too;
     here it is a ValueError naming it, as is any other reference expandvars
     cannot parse, so it reads as the caller's input (exit 2)."""
+    _refuse_partial_expansions(config_dict)
     environ = _ResolverEnviron(resolvers)
     resolver = EnvResolver(environ=environ, register_secrets=False)
     try:
