@@ -80,6 +80,8 @@ public class SqlSetupConfig {
     // Configure based on SqlSetup-specific environment variables only
     boolean createTables = EnvironmentUtils.getBoolean("CREATE_TABLES", true);
     boolean createDatabase = EnvironmentUtils.getBoolean("CREATE_DB", true);
+    // When false, schema must already exist (pre-provisioned); SqlSetup only sets search_path.
+    boolean createSchema = EnvironmentUtils.getBoolean("CREATE_SCHEMA", true);
     boolean createUser = EnvironmentUtils.getBoolean("CREATE_USER", false);
     boolean cdcEnabled = EnvironmentUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
     String cdcUser = EnvironmentUtils.getString("CDC_USER", "datahub_cdc");
@@ -138,6 +140,7 @@ public class SqlSetupConfig {
         new SqlSetupArgs(
             createTables,
             createDatabase,
+            createSchema,
             createUser,
             iamAuthEnabled,
             dbType,

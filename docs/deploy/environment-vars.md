@@ -363,19 +363,23 @@ export EBEAN_CLOUD_PROVIDER=auto
 
 The SQL Setup system provides automated database initialization and user management capabilities. These environment variables control the behavior of the `SqlSetup` upgrade step.
 
-| Environment Variable         | Default       | Description                                                                  | Components    |
-| ---------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------- |
-| `DATAHUB_SQL_SETUP_ENABLED`  | `false`       | Enable SQL setup functionality (alternative to passing SqlSetup upgrade arg) | System Update |
-| `CREATE_TABLES`              | `true`        | Whether to create database tables                                            | System Update |
-| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                             | System Update |
-| `CREATE_USER`                | `false`       | Whether to create a new database user                                        | System Update |
-| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true)  | System Update |
-| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required for traditional auth) | System Update |
-| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                           | System Update |
-| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                    | System Update |
-| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                    | System Update |
+| Environment Variable         | Default       | Description                                                                                                                                        | Components                       |
+| ---------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `DATAHUB_SQL_SETUP_ENABLED`  | `false`       | Enable SQL setup functionality (alternative to passing SqlSetup upgrade arg)                                                                       | System Update                    |
+| `CREATE_TABLES`              | `true`        | Whether to create database tables                                                                                                                  | System Update                    |
+| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                                                                                                   | System Update                    |
+| `CREATE_SCHEMA`              | `true`        | Whether to run `CREATE SCHEMA` for `DATAHUB_POSTGRES_SCHEMA` (set `false` when the schema is pre-provisioned)                                      | System Update                    |
+| `CREATE_USER`                | `false`       | Whether to create a new database user                                                                                                              | System Update                    |
+| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true)                                                                        | System Update                    |
+| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required for traditional auth)                                                                       | System Update                    |
+| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                                                                                                 | System Update                    |
+| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                                                                                          | System Update                    |
+| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                                                                                          | System Update                    |
+| `DATAHUB_POSTGRES_SCHEMA`    | `public`      | PostgreSQL schema for metadata tables. SqlSetup DDL and the GMS/MCE Ebean search path both use it. Default `public` does not rewrite the JDBC URL. | GMS, MCE Consumer, System Update |
 
 **Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` environment variable. The system will not fall back to Ebean connection credentials for security reasons.
+
+**PostgreSQL custom schema:** Set `DATAHUB_POSTGRES_SCHEMA` to your schema name (e.g. `dhub`) so SqlSetup creates metadata tables there and GMS / MCE set the Ebean pool search path to that schema (JDBC `currentSchema`). The deploy user needs `CREATE` on the database to create a missing schema, and `USAGE` and `CREATE` on a pre-existing schema to create metadata tables. The runtime role needs `USAGE` on that schema. Set `CREATE_SCHEMA=false` when the schema is pre-provisioned so SqlSetup only sets `search_path` and skips `CREATE SCHEMA`. Leaving the variable at `public` does not rewrite a JDBC URL that omits `currentSchema`. If the URL already sets `currentSchema` and its first entry names a different schema, startup fails — this variable is the schema both SqlSetup and the Ebean pool use. A `currentSchema` search-path list is kept when its first entry is this schema.
 
 ### Kubernetes scale-down (system update)
 
