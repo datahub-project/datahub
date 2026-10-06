@@ -5115,9 +5115,9 @@ def test_simple_dataset_ownership_dedupes_owner_already_in_stream():
     """A source that already emits the owner the transformer is configured to add
     must not produce two identical entries.
 
-    Sources that merge server state back into the stream (dbt's
-    write_semantics=PATCH) feed the transformer's own owner from the previous run
-    back in; without dedup the aspect grows one entry per ingestion run.
+    A source that merges current server state into the stream hands the
+    transformer back the owner it added on the previous run; without dedup the
+    aspect grows by one entry per ingestion run.
     """
     group_owner = "urn:li:corpGroup:data-engineering"
     ownership_type_urn = "urn:li:ownershipType:__system__data_steward"

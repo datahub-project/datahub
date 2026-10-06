@@ -216,11 +216,13 @@ class AddOwnership(OwnershipTransformer):
         if owners_to_add is not None:
             out_ownership_aspect.owners.extend(owners_to_add)
 
-        # Sources that merge server state back into the stream (notably dbt with
-        # write_semantics=PATCH) hand us the owners we added on the previous run.
-        # Appending ours on top would then grow the aspect by one identical entry
-        # per ingestion, because GMS stores an UPSERT collection verbatim. The
-        # PATCH branch below already dedupes; do the same for OVERWRITE.
+        # The incoming aspect may already carry owners we are about to add, for
+        # example when a source merges current server state into the stream
+        # before transformers run. Appending unconditionally would then store a
+        # second identical entry: the aspect is written as an UPSERT and the
+        # collection is persisted verbatim, so nothing downstream collapses it
+        # and the duplicate recurs on every run. The PATCH branch below already
+        # dedupes; match it here.
         out_ownership_aspect.owners = self._dedupe_owners(out_ownership_aspect.owners)
 
         if self.config.semantics == TransformerSemantics.PATCH:
