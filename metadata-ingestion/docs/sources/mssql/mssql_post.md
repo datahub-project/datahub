@@ -8,12 +8,13 @@ Extracts lineage and usage statistics by analyzing SQL queries:
 
 - **Table-level lineage**: Tables read from and written to
 - **Column-level lineage**: Data flow between columns
-- **Usage patterns**: Frequently accessed tables and user activity
-- **Query performance**: Execution counts and timing
+- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped
+- **Usage patterns**: Per-query and per-table execution counts for the ingestion time window
 
 ##### Known Limitations
 
 - **User attribution not supported**: SQL Server Query Store and DMVs do not preserve historical user session context. Query extraction focuses on query content, frequency, and performance metrics.
+- **DMV execution counts are approximate**: The plan cache only records a running total and the last execution time per plan. With the DMV fallback, a query is counted at its last execution with its full total if the plan was cached inside the window, and as a single execution otherwise. Enable Query Store for exact per-window counts.
 
 ##### Configuration
 
@@ -54,7 +55,13 @@ source:
       - "%SELECT @@%" # Driver metadata queries
       - "%ReportServer%" # SSRS system tables
 
-    # Enable usage statistics (requires graph connection)
+    # Emit a Query entity for every extracted query, including SELECTs (default: true)
+    include_query_usage_statistics: true
+
+    # Time window for execution counts (default: the last day)
+    # start_time: "-7 days"
+
+    # Enable table-level usage statistics (requires graph connection)
     # include_usage_statistics: true
 
 sink:
@@ -63,13 +70,15 @@ sink:
 
 ##### Configuration Options
 
-| Option                     | Type         | Default | Description                                                       |
-| -------------------------- | ------------ | ------- | ----------------------------------------------------------------- |
-| `include_query_lineage`    | boolean      | `false` | Enable query-based lineage extraction                             |
-| `max_queries_to_extract`   | integer      | `1000`  | Maximum queries to analyze (range: 1-10000)                       |
-| `min_query_calls`          | integer      | `1`     | Minimum execution count to include query                          |
-| `query_exclude_patterns`   | list[string] | `[]`    | SQL LIKE patterns to exclude queries (max 100 patterns)           |
-| `include_usage_statistics` | boolean      | `false` | Extract usage statistics (requires `include_query_lineage: true`) |
+| Option                           | Type         | Default  | Description                                                                                 |
+| -------------------------------- | ------------ | -------- | ------------------------------------------------------------------------------------------- |
+| `include_query_lineage`          | boolean      | `false`  | Enable query-based lineage extraction                                                       |
+| `max_queries_to_extract`         | integer      | `1000`   | Maximum queries to analyze (range: 1-10000)                                                 |
+| `min_query_calls`                | integer      | `1`      | Minimum execution count to include query                                                    |
+| `query_exclude_patterns`         | list[string] | `[]`     | SQL LIKE patterns to exclude queries (max 100 patterns)                                     |
+| `include_query_usage_statistics` | boolean      | `true`   | Emit Query entities for all queries executed in the window, with per-query execution counts |
+| `include_usage_statistics`       | boolean      | `false`  | Extract usage statistics (requires `include_query_lineage: true`)                           |
+| `start_time` / `end_time`        | datetime     | last day | Window used for execution counts; queries outside it still contribute lineage               |
 
 ##### Query Extraction Methods
 
@@ -78,6 +87,7 @@ DataHub automatically selects the best available method:
 1. **Query Store (Preferred)** - SQL Server 2016+
 
    - Provides comprehensive query history
+   - Exact execution counts per usage bucket (`bucket_duration`) within `start_time`/`end_time`; queries that ran in the window are prioritized for `max_queries_to_extract`
    - Better performance and reliability
    - Requires Query Store to be enabled
 

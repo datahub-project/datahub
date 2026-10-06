@@ -1,22 +1,37 @@
 import time
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
+from datahub.ingestion.source.sql.mssql.query import (
+    MSSQLQuery,
+    QueryHistoryWindow,
+    is_mssql_system_object,
+)
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
+    MSSQLQueryExecution,
     PrerequisiteResult,
 )
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    QueryPropertiesClass,
+    QuerySubjectsClass,
+    QueryUsageStatisticsClass,
+    UpstreamLineageClass,
+)
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
+
+_HISTORY_WINDOW = QueryHistoryWindow(
+    start_time=datetime(2026, 1, 1), end_time=datetime(2026, 1, 2)
+)
 
 
 def _base_config():
@@ -473,6 +488,8 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "total_exec_time_ms": 100.5,
             "user_name": "test_user",
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         },
         {
             "query_id": "2",
@@ -481,6 +498,8 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "total_exec_time_ms": 50.2,
             "user_name": "admin",
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         },
     ]
 
@@ -529,6 +548,8 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
             "total_exec_time_ms": 100.5,
             "user_name": "test_user",
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         },
         # Query with execution_count=3 would be filtered by SQL WHERE clause
     ]
@@ -580,6 +601,8 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
             "total_exec_time_ms": 100.5,
             "user_name": "test_user",
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         },
         # Queries with sys.tables and msdb.dbo.jobs would be filtered by SQL WHERE clause
     ]
@@ -675,6 +698,7 @@ def test_mssql_lineage_extractor_populate_lineage():
 def test_query_store_sql_without_exclusions():
     """Test Query Store SQL generation without exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_query_store(
+        window=_HISTORY_WINDOW,
         limit=100,
         min_calls=5,
         exclude_patterns=None,
@@ -688,12 +712,15 @@ def test_query_store_sql_without_exclusions():
 
     assert params["limit"] == 100
     assert params["min_calls"] == 5
-    assert len(params) == 2
+    assert params["start_time"] == _HISTORY_WINDOW.start_time
+    assert params["end_time"] == _HISTORY_WINDOW.end_time
+    assert len(params) == 4
 
 
 def test_query_store_sql_with_exclusions():
     """Test Query Store SQL generation with exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_query_store(
+        window=_HISTORY_WINDOW,
         limit=100,
         min_calls=5,
         exclude_patterns=["%sys.%", "%temp%", "%msdb%"],
@@ -715,6 +742,7 @@ def test_query_store_sql_with_exclusions():
 def test_dmv_sql_without_exclusions():
     """Test DMV SQL generation without exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_dmv(
+        window=_HISTORY_WINDOW,
         limit=50,
         min_calls=10,
         exclude_patterns=None,
@@ -734,6 +762,7 @@ def test_dmv_sql_without_exclusions():
 def test_dmv_sql_with_exclusions():
     """Test DMV SQL generation with exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_dmv(
+        window=_HISTORY_WINDOW,
         limit=50,
         min_calls=10,
         exclude_patterns=["%INFORMATION_SCHEMA%", "%#%"],
@@ -741,8 +770,8 @@ def test_dmv_sql_with_exclusions():
 
     query_str = str(query)
     assert query_str.count("NOT LIKE") == 2
-    assert "CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_0" in query_str
-    assert "CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_1" in query_str
+    assert "stmt.statement_text NOT LIKE :exclude_0" in query_str
+    assert "stmt.statement_text NOT LIKE :exclude_1" in query_str
 
     assert params["exclude_0"] == "%INFORMATION_SCHEMA%"
     assert params["exclude_1"] == "%#%"
@@ -841,6 +870,8 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "total_exec_time_ms": 100.0,
             "user_name": "test_user",
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         },
         {
             "query_id": "2",
@@ -849,6 +880,8 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "total_exec_time_ms": 50.0,
             "user_name": "admin",
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         },
     ]
 
@@ -1240,6 +1273,7 @@ def test_mssql_query_parameterized_patterns():
     """Test that query patterns are properly parameterized."""
     # Build query with multiple exclude patterns
     query, params = MSSQLQuery.get_query_history_from_query_store(
+        window=_HISTORY_WINDOW,
         limit=100,
         min_calls=1,
         exclude_patterns=["%sys.%", "%temp%", "%msdb.%"],
@@ -1406,6 +1440,8 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
             "execution_count": 10,
             "total_exec_time_ms": 100.0,
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
             "user_name": None,
         }
     ]
@@ -1490,6 +1526,8 @@ def test_mssql_very_long_query_text_handling():
             "execution_count": 10,
             "total_exec_time_ms": 100.0,
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
             "user_name": "testuser",
         }
     ]
@@ -1582,6 +1620,8 @@ def test_mssql_user_attribution_not_supported():
             "execution_count": 10,
             "total_exec_time_ms": 100.0,
             "database_name": "TestDB",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
         }
     ]
 
@@ -1620,3 +1660,221 @@ def test_mssql_user_attribution_not_supported():
     assert len(queries) == 1
     assert queries[0].query_id is not None
     assert queries[0].query_text is not None
+
+
+def test_mssql_query_store_rows_grouped_into_windowed_executions():
+    """Per-interval Query Store rows fold into one entry per query.
+
+    A query with no executions inside the window comes back as a single row
+    with NULL execution columns and must still be returned (for lineage) with
+    no executions.
+    """
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+    extractor = MSSQLLineageExtractor(config, conn_mock, report, Mock(), "dbo")
+
+    common = {
+        "query_text": "SELECT id FROM orders",
+        "execution_count": 30,
+        "total_exec_time_ms": 10.0,
+        "database_name": "TestDB",
+    }
+    mock_result = Mock()
+    mock_result.mappings.return_value = [
+        {
+            **common,
+            "query_id": "1",
+            "last_execution_time_utc": datetime(2026, 1, 1, 9, 30),
+            "window_execution_count": 4,
+        },
+        {
+            **common,
+            "query_id": "1",
+            "last_execution_time_utc": datetime(2026, 1, 1, 10, 45),
+            "window_execution_count": 6,
+        },
+        {
+            **common,
+            "query_id": "2",
+            "query_text": "INSERT INTO archive SELECT * FROM orders",
+            "last_execution_time_utc": None,
+            "window_execution_count": None,
+        },
+    ]
+    conn_mock.execute.return_value = mock_result
+
+    with patch.object(
+        extractor,
+        "check_prerequisites",
+        return_value=PrerequisiteResult(
+            is_ready=True, message="Query Store is enabled", method="query_store"
+        ),
+    ):
+        queries = extractor.extract_query_history()
+
+    assert [q.query_id for q in queries] == ["1", "2"]
+    assert report.num_queries_extracted == 2
+    assert queries[0].executions == [
+        MSSQLQueryExecution(
+            timestamp=datetime(2026, 1, 1, 9, 30, tzinfo=timezone.utc), count=4
+        ),
+        MSSQLQueryExecution(
+            timestamp=datetime(2026, 1, 1, 10, 45, tzinfo=timezone.utc), count=6
+        ),
+    ]
+    assert queries[1].executions == []
+
+    _, params = conn_mock.execute.call_args.args
+    assert params["start_time"].tzinfo is None
+    assert params["end_time"].tzinfo is None
+
+
+def test_mssql_observed_queries_carry_execution_timestamps_and_counts(
+    mssql_extractor_setup,
+):
+    extractor = mssql_extractor_setup["extractor"]
+    entry = MSSQLQueryEntry(
+        query_id="9",
+        query_text="SELECT id FROM orders",
+        execution_count=10,
+        total_exec_time_ms=1.0,
+        database_name="TestDB",
+        executions=[
+            MSSQLQueryExecution(
+                timestamp=datetime(2026, 1, 1, 12, tzinfo=timezone.utc), count=3
+            ),
+            MSSQLQueryExecution(
+                timestamp=datetime(2026, 1, 1, 8, tzinfo=timezone.utc), count=7
+            ),
+        ],
+    )
+
+    observed = extractor._build_observed_queries(entry)
+
+    # Oldest first: the aggregator assumes increasing timestamps.
+    assert [(q.timestamp.hour, q.usage_multiplier) for q in observed] == [
+        (8, 7),
+        (12, 3),
+    ]
+    assert all(q.user is None for q in observed)
+    assert all(q.session_id == "queryid:9" for q in observed)
+
+    # No in-window executions: still observed once, undated, so older lineage is kept.
+    undated = extractor._build_observed_queries(
+        MSSQLQueryEntry(
+            query_id="10",
+            query_text="INSERT INTO archive SELECT * FROM orders",
+            execution_count=4,
+            total_exec_time_ms=1.0,
+            database_name="TestDB",
+        )
+    )
+    assert len(undated) == 1
+    assert undated[0].timestamp is None
+
+
+@pytest.mark.parametrize("include_query_usage_statistics", [True, False])
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_select_query_emitted_as_query_entity(
+    create_engine_mock, include_query_usage_statistics
+):
+    """A read-only query produces no lineage, so before query usage statistics it
+    was never emitted. With the flag on it must become a Query entity linked to
+    the table it reads, with execution counts for the window."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "include_query_usage_statistics": include_query_usage_statistics,
+            "start_time": "2026-01-01T00:00:00Z",
+            "end_time": "2026-01-02T00:00:00Z",
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+    table_urn = DatasetUrn("mssql", "testdb.dbo.orders")
+    source.aggregator._schema_resolver.add_raw_schema_info(
+        urn=table_urn.urn(), schema_info={"id": "int", "name": "varchar"}
+    )
+
+    extractor = MSSQLLineageExtractor(
+        config, Mock(), source.report, source.aggregator, "dbo"
+    )
+    entry = MSSQLQueryEntry(
+        query_id="7",
+        query_text="SELECT id, name FROM orders",
+        execution_count=12,
+        total_exec_time_ms=1.0,
+        database_name="TestDB",
+        executions=[
+            MSSQLQueryExecution(
+                timestamp=datetime(2026, 1, 1, 9, tzinfo=timezone.utc), count=7
+            ),
+            MSSQLQueryExecution(
+                timestamp=datetime(2026, 1, 1, 15, tzinfo=timezone.utc), count=5
+            ),
+        ],
+    )
+    # DataHub's own catalog queries must not become Query entities.
+    system_entry = MSSQLQueryEntry(
+        query_id="8",
+        query_text="SELECT name FROM sys.objects",
+        execution_count=3,
+        total_exec_time_ms=1.0,
+        database_name="TestDB",
+        executions=[
+            MSSQLQueryExecution(
+                timestamp=datetime(2026, 1, 1, 10, tzinfo=timezone.utc), count=3
+            )
+        ],
+    )
+    with patch.object(
+        extractor, "extract_query_history", return_value=[entry, system_entry]
+    ):
+        extractor.populate_lineage_from_queries()
+
+    with patch.object(source, "_populate_aggregator_with_query_history"):
+        workunits = list(source._generate_aggregator_workunits())
+
+    query_properties = [
+        wu for wu in workunits if wu.get_aspect_of_type(QueryPropertiesClass)
+    ]
+    if not include_query_usage_statistics:
+        assert query_properties == []
+        return
+
+    assert len(query_properties) == 1
+    query_urn = query_properties[0].get_urn()
+    subject_entities = {
+        subject.entity
+        for wu in workunits
+        if wu.get_urn() == query_urn
+        for aspect in [wu.get_aspect_of_type(QuerySubjectsClass)]
+        if aspect is not None
+        for subject in aspect.subjects
+    }
+    assert table_urn.urn() in subject_entities
+    query_counts = [
+        aspect.queryCount or 0
+        for wu in workunits
+        for aspect in [wu.get_aspect_of_type(QueryUsageStatisticsClass)]
+        if aspect is not None
+    ]
+    assert sum(query_counts) == 12
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("mydb.dbo.orders", False),
+        ("mydb.sales.fn_totals", False),
+        ("mydb.sys.procedures", True),
+        ("mydb.INFORMATION_SCHEMA.COLUMNS", True),
+        ("msdb.dbo.sysjobs", True),
+        ("mydb.dbo.fn_listextendedproperty", True),
+    ],
+)
+def test_is_mssql_system_object(name: str, expected: bool) -> None:
+    """System catalog objects in query history are not datasets; filtering them
+    keeps DataHub's own metadata queries from becoming Query entities."""
+    assert is_mssql_system_object(name) == expected
