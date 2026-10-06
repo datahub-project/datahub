@@ -907,9 +907,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   /**
    * Long queries over indices rich in similar words stay under OpenSearch's default limit of 1024
    * clauses: a query keeps the words whose clauses fit, and its fuzzy terms share what is left.
-   * Runs last, since the documents it adds would change other tests' counts.
    */
-  @Test(priority = 1)
+  @Test
   public void testLongQueryStaysUnderClauseLimit() throws Exception {
     String[] words = {
       "zorbel", "quintax", "valdrin", "morphex", "brintel", "caldris", "fenwold", "glarvon",
@@ -929,30 +928,28 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     Urn vocabularyDataset =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,vocabulary,PROD)");
     Urn vocabularyDashboard = UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
-    new UpdateIndicesV3Strategy(
+    UpdateIndicesV3Strategy indexer =
+        new UpdateIndicesV3Strategy(
             config.getEntityIndex().getV3(),
             searchService,
             new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
             mock(TimeseriesAspectService.class),
-            null)
-        .processBatch(
-            opContext,
-            Map.of(
+            null);
+    indexer.processBatch(
+        opContext,
+        Map.of(
+            vocabularyDataset,
+            events(
                 vocabularyDataset,
-                events(
-                    vocabularyDataset,
-                    new DatasetProperties()
-                        .setName(text)
-                        .setDescription(text)
-                        .setQualifiedName(text)),
+                new DatasetProperties().setName(text).setDescription(text).setQualifiedName(text)),
+            vocabularyDashboard,
+            events(
                 vocabularyDashboard,
-                events(
-                    vocabularyDashboard,
-                    new DashboardInfo()
-                        .setTitle(text)
-                        .setDescription(text)
-                        .setLastModified(new ChangeAuditStamps()))),
-            false);
+                new DashboardInfo()
+                    .setTitle(text)
+                    .setDescription(text)
+                    .setLastModified(new ChangeAuditStamps()))),
+        false);
     syncAfterWrite(getBulkProcessor());
 
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
@@ -978,27 +975,40 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 .limit(8)
                 .map(word -> "prod." + word + "." + word)
                 .collect(Collectors.joining(" ")));
-    // A failed shard only drops that index's results, so each scope checks its own entity
-    for (Map.Entry<List<String>, Urn> scope :
-        Map.of(
-                List.of(DATASET_ENTITY_NAME),
-                vocabularyDataset,
-                List.of(DASHBOARD_ENTITY_NAME),
-                vocabularyDashboard,
-                ENTITY_TYPES,
-                vocabularyDataset)
-            .entrySet()) {
-      List<String> entityTypes = scope.getKey();
-      for (String query : queries) {
-        // Fails with too_many_nested_clauses past the limit
-        assertTrue(
-            searchService
-                .search(fulltext, entityTypes, query, null, null, 0, 10)
-                .getEntities()
-                .stream()
-                .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
-            entityTypes + ": " + query);
+    try {
+      // A failed shard only drops that index's results, so each scope checks its own entity
+      for (Map.Entry<List<String>, Urn> scope :
+          Map.of(
+                  List.of(DATASET_ENTITY_NAME),
+                  vocabularyDataset,
+                  List.of(DASHBOARD_ENTITY_NAME),
+                  vocabularyDashboard,
+                  ENTITY_TYPES,
+                  vocabularyDataset)
+              .entrySet()) {
+        List<String> entityTypes = scope.getKey();
+        for (String query : queries) {
+          // Fails with too_many_nested_clauses past the limit
+          assertTrue(
+              searchService
+                  .search(fulltext, entityTypes, query, null, null, 0, 10)
+                  .getEntities()
+                  .stream()
+                  .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
+              entityTypes + ": " + query);
+        }
       }
+    } finally {
+      // Other tests count the datasets and dashboards
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              vocabularyDataset,
+              keyDeletion(vocabularyDataset),
+              vocabularyDashboard,
+              keyDeletion(vocabularyDashboard)),
+          false);
+      syncAfterWrite(getBulkProcessor());
     }
   }
 
@@ -1621,6 +1631,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       seeded.put((Urn) urnsAndEvents[i], (List<MCLItem>) urnsAndEvents[i + 1]);
     }
     return seeded;
+  }
+
+  private List<MCLItem> keyDeletion(Urn urn) {
+    return List.of(
+        ((TestMCL) events(urn).get(0)).toBuilder().changeType(ChangeType.DELETE).build());
   }
 
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {
