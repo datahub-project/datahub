@@ -1617,6 +1617,22 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 + " db.juliet db.kilo db.lima");
     assertTrue(dotted.stream().anyMatch(sqs -> sqs.value().contains("hotel")));
     assertTrue(dotted.stream().noneMatch(sqs -> sqs.value().contains("india")));
+    // A single word that does not fit, a deep dotted path or a long letter/digit run, keeps its
+    // leading terms
+    List<SimpleQueryStringBuilder> path =
+        v3SimpleQueries(
+            datasetSpec,
+            "alpha.bravo.charlie.delta.echo.foxtrot.golf.hotel.india.juliet.kilo.lima.mike"
+                + ".november.oscar.papa.quebec.romeo.sierra.tango.uniform.victor.whiskey.xray");
+    assertTrue(path.stream().anyMatch(sqs -> sqs.value().contains("hotel")), path.toString());
+    assertTrue(path.stream().noneMatch(sqs -> sqs.value().contains("xray")), path.toString());
+    List<SimpleQueryStringBuilder> run =
+        v3SimpleQueries(
+            datasetSpec,
+            "alpha2001bravo2002charlie2003delta2004echo2005foxtrot2006golf2007hotel2008"
+                + "india2009juliet2010kilo2011lima2012mike2013november2014oscar2015");
+    assertTrue(run.stream().anyMatch(sqs -> sqs.value().contains("hotel")), run.toString());
+    assertTrue(run.stream().noneMatch(sqs -> sqs.value().contains("oscar")), run.toString());
   }
 
   private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {

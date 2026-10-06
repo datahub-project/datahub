@@ -180,7 +180,7 @@ public class SearchQueryBuilder {
    * (1024 by default on OpenSearch, which fails the search with too_many_nested_clauses past it).
    * Each term adds a clause per field to the synonym-priority query, the word gram queries and,
    * when fuzzy, the simple query, so a query keeps the words that fit and its fuzzy terms share
-   * what is left. The rest of 1024 covers the exact, prefix, wildcard and FQN clauses.
+   * what is left. The rest of 1024 covers the exact, prefix and wildcard clauses.
    */
   private static final int CLAUSE_BUDGET = 850;
 
@@ -682,7 +682,8 @@ public class SearchQueryBuilder {
 
   /**
    * The leading words of {@code query} whose per-term clauses fit {@link #CLAUSE_BUDGET}, so a
-   * pasted paragraph stays under the clause limit. A fully quoted query keeps its quotes.
+   * pasted paragraph stays under the clause limit. A first word that does not fit alone keeps its
+   * leading terms. A fully quoted query keeps its quotes.
    */
   private static String firstTermsWithinBudget(
       @Nonnull String query, @Nonnull IndexFieldCounts counts) {
@@ -699,9 +700,8 @@ public class SearchQueryBuilder {
       int wordTerms = termCount(escaped);
       int wordUnsplit = runCount(escaped);
       boolean withRuns = runs || splitsLetterDigitRun(escaped);
-      if (kept > 0
-          && termClauses(terms + wordTerms, unsplitWords + wordUnsplit, withRuns, counts)
-              > CLAUSE_BUDGET) {
+      if (termClauses(terms + wordTerms, unsplitWords + wordUnsplit, withRuns, counts)
+          > CLAUSE_BUDGET) {
         break;
       }
       terms += wordTerms;
@@ -712,10 +712,40 @@ public class SearchQueryBuilder {
     if (kept == words.length) {
       return query;
     }
-    String keptWords = String.join(" ", Arrays.copyOf(words, kept));
+    String keptWords =
+        kept == 0
+            ? leadingTermsWithinBudget(words[0], counts)
+            : String.join(" ", Arrays.copyOf(words, kept));
     return quoted
         ? trimmed.charAt(0) + keptWords + trimmed.charAt(trimmed.length() - 1)
         : keptWords;
+  }
+
+  /**
+   * The leading terms of {@code word} whose clauses fit {@link #CLAUSE_BUDGET}, cut where a term
+   * ends, at a separator or a letter/digit boundary: a deep dotted path or a long letter/digit run
+   * is one word with more terms than a query can match. Keeps at least the first term.
+   */
+  private static String leadingTermsWithinBudget(
+      @Nonnull String word, @Nonnull IndexFieldCounts counts) {
+    String kept = null;
+    for (int i = 1; i < word.length(); i++) {
+      char previous = word.charAt(i - 1);
+      char next = word.charAt(i);
+      boolean termEnds =
+          Character.isLetterOrDigit(previous)
+              && (!Character.isLetterOrDigit(next)
+                  || Character.isDigit(previous) != Character.isDigit(next));
+      if (termEnds) {
+        String prefix = word.substring(0, i);
+        if (kept != null
+            && termClauses(escapeSimpleQueryStringOperators(prefix), counts) > CLAUSE_BUDGET) {
+          break;
+        }
+        kept = prefix;
+      }
+    }
+    return kept == null ? word : kept;
   }
 
   /**
