@@ -6,6 +6,8 @@ import {
     mergeEnvIntoOriginFacets,
 } from '@app/searchV2/utils/filterUtils';
 
+import { FacetMetadata } from '@types';
+
 describe('getAutoCompleteInputFromQuickFilter', () => {
     it('should create a platform filter if the selected quick filter is a platform', () => {
         const selectedQuickFilter = { field: QuickFilterField.Platform, value: 'urn:li:dataPlatform:dbt' };
@@ -93,7 +95,7 @@ describe('mergeEnvIntoOriginFacets', () => {
             field,
             displayName: field === 'origin' ? 'Environment' : field,
             aggregations: Object.entries(aggregations).map(([value, count]) => ({ value, count })),
-        }) as any;
+        }) as FacetMetadata;
 
     it('should return facets unchanged when origin is present', () => {
         const facets = [makeFacet('origin', { PROD: 10 }), makeFacet('env', { PROD: 5 }), makeFacet('platform')];

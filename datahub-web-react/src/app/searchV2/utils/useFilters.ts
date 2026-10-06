@@ -2,7 +2,13 @@ import * as QueryString from 'query-string';
 import { useMemo } from 'react';
 
 import { decodeComma } from '@app/entity/shared/utils';
-import { ENTITY_FILTER_NAME, FILTER_URL_PREFIX, LEGACY_ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import {
+    ENTITY_FILTER_NAME,
+    ENV_FILTER_NAME,
+    FILTER_URL_PREFIX,
+    LEGACY_ENTITY_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import { URL_PARAM_SEPARATOR } from '@app/searchV2/utils/filtersToQueryStringParams';
 
 import { FacetFilterInput, FilterOperator } from '@types';
@@ -10,6 +16,9 @@ import { FacetFilterInput, FilterOperator } from '@types';
 function ifLegacyFieldNameTranslate(fieldName) {
     if (fieldName === LEGACY_ENTITY_FILTER_NAME) {
         return ENTITY_FILTER_NAME;
+    }
+    if (fieldName === ENV_FILTER_NAME) {
+        return ORIGIN_FILTER_NAME;
     }
     return fieldName;
 }
