@@ -283,6 +283,16 @@ fragment searchResultCardFields on Entity {
             name
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+    }
     ... on Container {
         properties {
             name
@@ -1322,6 +1332,33 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on Application {
         ...applicationSearchFields
     }
+    ... on Api {
+        properties {
+            name
+            description
+            externalUrl
+        }
+        subTypes {
+            typeNames
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -1555,6 +1592,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on Application {
+                properties {
+                    name
+                }
+            }
+            ... on Api {
                 properties {
                     name
                 }

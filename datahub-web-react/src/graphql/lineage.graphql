@@ -546,6 +546,27 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
     }
+    ... on Api {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+    }
     ... on Restricted {
         urn
         type
@@ -846,6 +867,11 @@ fragment entityLineageV2 on Entity {
         }
         queryPlatform: platform {
             ...platformFields
+        }
+    }
+    ... on Api {
+        properties {
+            name
         }
     }
     ... on DataProcessInstance {

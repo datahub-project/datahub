@@ -9,7 +9,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.search.elasticsearch.index.BaseConfigurationLoader;
-import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -91,7 +90,7 @@ public class MultiEntityMappingsUtils {
   }
 
   /**
-   * Checks if a field has other copy_to destinations besides tier fields.
+   * Checks if a field has copy_to destinations.
    *
    * @param searchableFieldSpec the field specification to check
    * @return true if the field has other copy_to destinations
@@ -338,11 +337,6 @@ public class MultiEntityMappingsUtils {
     com.linkedin.metadata.models.annotation.SearchableAnnotation annotation =
         fieldSpec.getSearchableAnnotation();
     FieldType fieldType = annotation.getFieldType();
-
-    // For searchIndexed fields, use keyword type
-    if (annotation.getSearchIndexed().orElse(false)) {
-      return ESUtils.KEYWORD_FIELD_TYPE;
-    }
 
     return FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType);
   }
