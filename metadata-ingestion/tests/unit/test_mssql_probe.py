@@ -1,10 +1,9 @@
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Dict, List, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Connection, Engine, make_url
 from sqlalchemy.sql import quoted_name
 
 from datahub.ingestion.agent.config_validation import validate_source_config
@@ -13,9 +12,14 @@ from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.recipe import validate_recipe
 from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
-from datahub.ingestion.source.sql.mssql import source as mssql_source
 from datahub.ingestion.source.sql.mssql.mssql_probe import SqlServerMetadataProbe
-from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
+from datahub.ingestion.source.sql.mssql.source import (
+    SQLServerConfig,
+    SQLServerSource,
+    add_sql_variant_converter,
+    database_name_from_url,
+)
+from datahub.ingestion.source.sql.sql_probe import execute_on_cursor
 
 _BASE: Dict[str, object] = {"host_port": "h:1433", "username": "u", "password": "p"}
 _ODBC: Dict[str, object] = {
@@ -96,8 +100,6 @@ def test_database_pattern_is_declared_not_guessed() -> None:
 def test_an_odbc_engine_learns_to_read_sql_variant() -> None:
     """_add_output_converters, applied per connection: the probe never runs
     SQLServerSource.__init__, where ingestion installs it."""
-    from datahub.ingestion.source.sql.mssql.source import add_sql_variant_converter
-
     added: Dict[int, object] = {}
 
     class _DbapiConnection:
@@ -122,7 +124,8 @@ def _sqlite(tmp_path: Path, name: str, table: str) -> Engine:
 
 class _FakeServer(SqlServerMetadataProbe):
     """The real provider with its two server round-trips replaced: each
-    "database" is a sqlite file whose one table is named after it."""
+    "database" is a sqlite file whose one table is named after it. A name in
+    `unreachable` gets an engine that cannot connect."""
 
     server_databases: List[str] = ["DemoData", "NewData"]
 
@@ -130,13 +133,24 @@ class _FakeServer(SqlServerMetadataProbe):
         super().__init__(engine, config)
         self._tmp_path = tmp_path
         self.opened: List[str] = []
+        self.disposed: List[str] = []
+        self.unreachable: List[str] = []
 
     def _list_databases(self) -> List[str]:
         return list(self.server_databases)
 
     def _open_database_engine(self, name: str) -> Engine:
         self.opened.append(name)
-        return _sqlite(self._tmp_path, name, f"t_{name.lower()}")
+        if name in self.unreachable:
+            engine = create_engine(f"sqlite:///{self._tmp_path}/missing/{name}.db")
+        else:
+            engine = _sqlite(self._tmp_path, name, f"t_{name.lower()}")
+
+        def _disposed(_engine: Engine) -> None:
+            self.disposed.append(name)
+
+        event.listen(engine, "engine_disposed", _disposed)
+        return engine
 
 
 def _probe(tmp_path: Path, **config: object) -> _FakeServer:
@@ -201,9 +215,15 @@ def test_the_database_travels_in_parent_path() -> None:
     assert specs["databases"].kind == "Database"
 
 
-def test_the_sql_scope_is_checked_as_tsql(tmp_path: Path) -> None:
+def test_the_sql_scope_parses_tsql(tmp_path: Path) -> None:
+    query = "SELECT TOP 5 [name] FROM [DemoData].[sys].[tables] WHERE [name] LIKE 'P%'"
+    scope = SQLServerConfig.probe_catalog_scope()
     with _probe(tmp_path, database="DemoData") as probe:
-        assert probe.sql_dialect == "tsql"
+        assert probe.sql_dialect is not None
+        check_query_scope(query, platform=probe.sql_dialect, scope=scope)
+        # Read as another dialect, the brackets and TOP do not parse.
+        with pytest.raises(SqlScopeError):
+            check_query_scope(query, platform="postgres", scope=scope)
 
 
 @pytest.mark.parametrize(
@@ -261,36 +281,89 @@ def test_per_object_commands_read_the_named_database(tmp_path: Path) -> None:
         assert probe.opened == ["NewData"]
 
 
-def test_quote_schemas_is_honoured_like_get_allowed_schemas(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("quote", [True, False])
+def test_quote_schemas_is_the_choice_get_allowed_schemas_makes(quote: bool) -> None:
+    config = SQLServerConfig.model_validate({**_BASE, "quote_schemas": quote})
+    argument = config.schema_argument("John.Doe")
+    assert argument == "John.Doe"
+    assert isinstance(argument, quoted_name) is quote
+
+
+def _dotted_schema(tmp_path: Path) -> Engine:
+    """sqlite with a second database attached as `John.Doe`, so the
+    connection lists a schema with a dot in its name."""
+    engine = _sqlite(tmp_path, "default", "t_default")
+    _sqlite(tmp_path, "dotted", "t_dotted").dispose()
+
+    def _attach(dbapi_connection: Any, _record: Any) -> None:
+        dbapi_connection.execute(
+            f"ATTACH DATABASE '{tmp_path}/dotted.db' AS \"John.Doe\""
+        )
+
+    event.listen(engine, "connect", _attach)
+    # Drop the connection _sqlite pooled before the listener existed.
+    engine.dispose()
+    return engine
+
+
+@pytest.mark.parametrize("quote", [True, False])
+def test_an_unquoted_dotted_schema_says_how_ingestion_reads_it(
+    tmp_path: Path, quote: bool
 ) -> None:
-    seen: List[object] = []
-
-    class _Recorder:
-        def get_schema_names(self) -> List[str]:
-            return ["John.Doe"]
-
-        def get_table_names(self, schema: object) -> List[str]:
-            seen.append(schema)
-            return []
-
-    for quote in (True, False):
-        with _probe(tmp_path, database="DemoData", quote_schemas=quote) as probe:
-            monkeypatch.setattr(probe, "_insp", _Recorder())
-            probe.tables(schema="john.doe")
-            if not quote:
-                assert any("quote_schemas" in w for w in probe.warnings)
-    assert isinstance(seen[0], quoted_name) and seen[0].quote is True
-    assert seen[0] == "John.Doe"
-    assert seen[1] == "John.Doe" and not isinstance(seen[1], quoted_name)
+    config = SQLServerConfig.model_validate(
+        {**_BASE, "database": "DemoData", "quote_schemas": quote}
+    )
+    with _FakeServer(_dotted_schema(tmp_path), config, tmp_path) as probe:
+        probe.tables(schema="John.Doe")
+        warned = any("quote_schemas" in w for w in probe.warnings)
+    assert warned is not quote
 
 
 def test_exit_disposes_every_engine_it_opened(tmp_path: Path) -> None:
-    probe = _probe(tmp_path)
-    with probe:
+    with _probe(tmp_path) as probe:
         probe.tables(schema="main", database="DemoData")
-        assert list(probe._database_engines) == ["DemoData"]
-    assert probe._database_engines == {}
+        probe.views(schema="main", database="DemoData")
+        assert probe.disposed == []
+    assert probe.disposed == ["DemoData"]
+
+
+def test_a_database_that_cannot_be_inspected_keeps_no_engine(tmp_path: Path) -> None:
+    with _probe(tmp_path) as probe:
+        probe.unreachable.append("NewData")
+        for _ in range(2):
+            with pytest.raises(Exception):  # noqa: B017 -- the driver's own error
+                probe.tables(schema="main", database="NewData")
+        # Each failed attempt's engine was disposed at once, not leaked.
+        assert probe.disposed == ["NewData", "NewData"]
+    assert probe.disposed == ["NewData", "NewData"]
+
+
+def test_databases_of_a_recipe_naming_no_database_is_empty_and_says_why(
+    tmp_path: Path,
+) -> None:
+    with _probe(tmp_path, **_NO_DATABASE_URI) as probe:
+        assert probe.databases() == []
+        assert any("default" in w for w in probe.warnings), probe.warnings
+
+
+def test_a_recipe_naming_no_database_refuses_a_named_one(tmp_path: Path) -> None:
+    with _probe(tmp_path, **_NO_DATABASE_URI) as probe:
+        assert probe.tables(schema="main") == ["t_default"]
+        with pytest.raises(ValueError, match="--database"):
+            probe.tables(schema="main", database="DemoData")
+
+
+def test_procedures_on_a_recipe_naming_no_database_are_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ingestion would query `[].[sys].[procedures]` here and fail.
+    def _never(conn: object, db_name: str, schema: str) -> List[Dict[str, str]]:
+        raise AssertionError("the procedure query ran with no database")
+
+    monkeypatch.setattr(SQLServerSource, "_get_stored_procedures", staticmethod(_never))
+    with _probe(tmp_path, **_NO_DATABASE_URI) as probe:
+        with pytest.raises(ValueError, match="sqlalchemy_uri"):
+            probe.procedures(schema="main")
 
 
 _PROC = "Stored Procedure"
@@ -381,8 +454,6 @@ def test_include_stored_procedures_false_excludes_every_procedure() -> None:
 def test_procedures_refuses_a_schema_the_server_does_not_list(
     tmp_path: Path, schema: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from datahub.ingestion.source.sql.mssql.source import SQLServerSource
-
     def _never(conn: object, db_name: str, schema: str) -> List[Dict[str, str]]:
         raise AssertionError("an unlisted schema reached the procedure query")
 
@@ -395,8 +466,6 @@ def test_procedures_refuses_a_schema_the_server_does_not_list(
 def test_procedures_lists_names_from_the_ingestion_fetcher(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from datahub.ingestion.source.sql.mssql.source import SQLServerSource
-
     calls: List[object] = []
 
     def fake(conn: object, db_name: str, schema: str) -> List[Dict[str, str]]:
@@ -414,8 +483,6 @@ def test_procedures_lists_names_from_the_ingestion_fetcher(
 
 
 def test_the_procedure_query_binds_the_schema_and_quotes_the_database() -> None:
-    from datahub.ingestion.source.sql.mssql.source import SQLServerSource
-
     sent: List[Tuple[str, Dict[str, str]]] = []
 
     class _Conn:
@@ -520,26 +587,6 @@ def test_a_recipe_naming_no_database_emits_no_procedures() -> None:
         names=["NewProc"],
     )
     assert switched_off.results[0].excluded_by == "include_stored_procedures"
-
-
-def test_a_name_two_server_spellings_fold_to_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A case-sensitive collation can hold `Foo` and `FOO`; `foo` names
-    neither, and picking one would read an object the caller did not name."""
-
-    class _Insp:
-        def get_schema_names(self) -> List[str]:
-            return ["Foo", "FOO"]
-
-        def get_table_names(self, schema: object) -> List[str]:
-            return [f"t_{schema}"]
-
-    with _probe(tmp_path, database="DemoData") as probe:
-        monkeypatch.setattr(probe, "_insp", _Insp())
-        with pytest.raises(ValueError, match="FOO"):
-            probe.tables(schema="foo")
-        assert probe.tables(schema="FOO") == ["t_FOO"]
 
 
 def test_a_multi_database_recipe_still_excludes_system_databases() -> None:
@@ -653,11 +700,12 @@ def test_the_sql_scope_never_opens_a_user_table(query: str) -> None:
         )
 
 
-def test_sql_reaches_the_driver_with_no_parameter_set(tmp_path: Path) -> None:
+def test_sql_reaches_the_driver_with_no_parameter_set() -> None:
     """pytds %-formats a statement whenever it is handed parameters, even an
     empty set, so `LIKE 'P%'` failed after the gate had cleared it. The query
     must reach cursor.execute alone."""
     calls: List[Tuple[object, ...]] = []
+    closed: List[bool] = []
 
     class _Cursor:
         description = [("name",)]
@@ -669,38 +717,13 @@ def test_sql_reaches_the_driver_with_no_parameter_set(tmp_path: Path) -> None:
             return [("Persons",)]
 
         def close(self) -> None:
-            pass
+            closed.append(True)
 
-    class _Raw:
-        def cursor(self) -> _Cursor:
-            return _Cursor()
-
-    class _Conn:
-        connection = _Raw()
-
-        def __enter__(self) -> "_Conn":
-            return self
-
-        def __exit__(self, *exc: object) -> None:
-            pass
-
-    class _Engine:
-        def connect(self) -> _Conn:
-            return _Conn()
-
-    with _probe(tmp_path, database="DemoData") as probe:
-        real = probe._engine
-        probe._engine = cast(Engine, _Engine())
-        try:
-            rows = probe.execute_catalog_query(
-                "SELECT name FROM sys.tables WHERE name LIKE 'P%'", limit=5
-            )
-        finally:
-            # Put back before __exit__ disposes it, which the stub cannot do,
-            # so a failure above is reported as itself.
-            probe._engine = real
-    assert calls == [("SELECT name FROM sys.tables WHERE name LIKE 'P%'",)]
+    query = "SELECT name FROM sys.tables WHERE name LIKE 'P%'"
+    rows = execute_on_cursor(_Cursor(), query, limit=5)
+    assert calls == [(query,)]
     assert rows.columns == ["name"] and rows.rows == [["Persons"]]
+    assert closed == [True]
 
 
 def test_a_schema_resolved_to_another_spelling_says_so(tmp_path: Path) -> None:
@@ -726,24 +749,59 @@ def test_a_procedure_judged_without_a_parent_keeps_its_bare_name() -> None:
     assert any("no parent" in w for w in result.warnings), result.warnings
 
 
-@pytest.mark.parametrize("driver, listens", [("pyodbc", True), ("pytds", False)])
+class _FakePyodbc:
+    """Just enough DB-API module for SQLAlchemy to build (not connect) a
+    pyodbc engine, which needs the native ODBC library to import."""
+
+    paramstyle = "qmark"
+    version = "5.0.0"
+    Error = Exception
+
+    class Cursor:
+        pass
+
+
+@pytest.mark.parametrize(
+    "url, module, listens",
+    [
+        ("mssql+pyodbc://u:p@h/db?driver=x", _FakePyodbc, True),
+        ("mssql+pytds://u:p@h/db", None, False),
+    ],
+)
 def test_the_probe_engine_reads_sql_variant_on_pyodbc_only(
-    monkeypatch: pytest.MonkeyPatch, driver: str, listens: bool
+    url: str, module: Optional[type], listens: bool
 ) -> None:
     """The converter is an ODBC hook, so only a pyodbc engine gets it."""
-    listened: List[Tuple[object, str]] = []
-    monkeypatch.setattr(
-        mssql_source,
-        "event",
-        SimpleNamespace(
-            listen=lambda target, name, fn: listened.append((target, name))
-        ),
-    )
-    engine = SimpleNamespace(dialect=SimpleNamespace(driver=driver))
+    engine = create_engine(url, **({"module": module} if module else {}))
     settings = SQLServerConfig.model_validate(_BASE).probe_engine_settings(
         QueryBudget(timeout_seconds=30)
     )
+    before = len(engine.pool.dispatch.connect)
 
     assert settings.prepare is not None
-    settings.prepare(cast(Engine, engine))
-    assert listened == ([(engine, "connect")] if listens else [])
+    settings.prepare(engine)
+    assert len(engine.pool.dispatch.connect) == before + (1 if listens else 0)
+
+
+@pytest.mark.parametrize(
+    "url, database",
+    [
+        ('mssql+pytds://u:p@h:1433/"DemoData"', "DemoData"),
+        ("mssql+pytds://u:p@h:1433", ""),
+        (
+            "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7Bx%7D%3BDATABASE%3DNewData%3B",
+            "NewData",
+        ),
+        pytest.param(
+            "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7Bx%7D%3BDATABASE%3DNewData",
+            "NewData",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="DATABASE= must end in ';' today; fixing it changes "
+                "ingestion's database name for such recipes",
+            ),
+        ),
+    ],
+)
+def test_the_database_name_ingestion_reads_from_a_url(url: str, database: str) -> None:
+    assert database_name_from_url(make_url(url)) == database

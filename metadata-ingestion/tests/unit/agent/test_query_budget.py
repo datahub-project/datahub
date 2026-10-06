@@ -19,7 +19,10 @@ from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadata
 from datahub.ingestion.source.sql.cockroachdb import CockroachDBConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig
-from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
+from datahub.ingestion.source.sql.protocol_probe_settings import (
+    probe_url,
+    set_redshift_statement_timeout,
+)
 from datahub.ingestion.source.sql.sql_config import (
     ProbeEngineSettings,
     SQLCommonConfig,
@@ -635,10 +638,6 @@ def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() 
     """The Redshift provider holds a bare redshift_connector connection rather
     than an engine, so the ceiling has to be applicable without the engine
     listener -- and must not leave the session's autocommit changed."""
-    from datahub.ingestion.source.sql.protocol_probe_settings import (
-        set_redshift_statement_timeout,
-    )
-
     seen: List[Tuple[str, bool]] = []
 
     class _Conn:
