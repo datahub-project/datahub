@@ -84,6 +84,11 @@ def main(argv: Optional[list[str]] = None) -> None:
         help="Also emit a JSON report alongside markdown",
     )
     args = parser.parse_args(argv)
+    if args.emit_json and args.output and Path(args.output).suffix == ".json":
+        # The JSON report goes next to the markdown with a .json suffix.
+        parser.error(
+            "with --json, --output is the markdown path; don't end it in .json"
+        )
 
     # Same baseline rule as the PDL change report, so both tools agree on N-1.
     if args.target is None:

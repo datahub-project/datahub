@@ -934,6 +934,13 @@ class TestMixedFindings:
 
 
 class TestMainTargetDefault:
+    def test_json_output_path_is_rejected_with_json_flag(self, tmp_path):
+        with patch.object(pipeline, "run") as run, pytest.raises(SystemExit) as exc:
+            cli.main(["--current", "a", "--target", "b", "--json",
+                      "--output", str(tmp_path / "report.json")])
+        assert exc.value.code == 2
+        run.assert_not_called()
+
     def test_target_defaults_to_latest_release(self, tmp_path):
         out = tmp_path / "report.md"
         with patch.object(
@@ -1220,6 +1227,28 @@ class TestFindUpgradeStepsAddedInWindow:
         assert [(s["class_name"], s["step_type"], s["pr"]) for s in steps] == [
             ("MyStep", "NonBlockingSystemUpgrade", "4242")
         ]
+
+    def test_step_made_by_a_later_commit_is_found(self):
+        path = "datahub-upgrade/src/main/java/com/example/MyStep.java"
+
+        def fake_git(*args):
+            if args[:2] == ("log", "-1"):
+                return "Alice\n"
+            if args[0] == "log":
+                return f"COMMIT abc123fff add helper (#1)\n{path}\n"
+            if args[0] == "diff":
+                return f"{path}\n"
+            if args[0] == "show":
+                # Plain class when added; a later commit made it a step.
+                if args[1].startswith("abc123fff:"):
+                    return "public class MyStep { }"
+                return "public class MyStep implements BlockingSystemUpgrade { }"
+            return ""
+
+        with patch.object(rac, "_git", side_effect=fake_git), \
+             patch.object(java_scan, "discover_upgrade_step_hierarchy", return_value={}):
+            steps = java_scan.find_upgrade_steps_added_in_window("v1", "v2")
+        assert [s["class_name"] for s in steps] == ["MyStep"]
 
     def test_implements_among_other_interfaces(self):
         src = "public class S implements Foo, BlockingSystemUpgrade {"

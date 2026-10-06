@@ -68,7 +68,9 @@ def find_mutators_added_in_window(
         ):
             continue
         try:
-            content = repo.git("show", f"{current_sha}:{line}")
+            # Classify the file as it is at `head`: a later commit in the
+            # window can turn it into a mutator or step.
+            content = repo.git("show", f"{head}:{line}")
         except subprocess.CalledProcessError:
             continue
         cp = repo.class_and_parent_extends(content)
@@ -243,7 +245,9 @@ def find_upgrade_steps_added_in_window(base: str, head: str) -> list[dict]:
         ):
             continue
         try:
-            content = repo.git("show", f"{current_sha}:{line}")
+            # Classify the file as it is at `head`: a later commit in the
+            # window can turn it into a mutator or step.
+            content = repo.git("show", f"{head}:{line}")
         except subprocess.CalledProcessError:
             continue
 

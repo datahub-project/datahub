@@ -25,6 +25,10 @@ on:
         type: string
         required: false
         default: ""
+      json:
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
