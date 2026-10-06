@@ -175,7 +175,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "table.arn": "arn:aws:dynamodb:us-west-2:123456789012:table/Location",
+                "table.arn": "arn:aws:dynamodb:us-west-2:000000000000:table/Location",
                 "table.totalItems": "1",
                 "Sort Key": "city",
                 "Partition Key": "partitionKey"

@@ -6,13 +6,13 @@ import time_machine
 
 from datahub.ingestion.source.sql.mysql import MySQLSource
 from datahub.testing import mce_helpers
-from tests.test_helpers import test_connection_helpers
+from tests.test_helpers import mysql_usage_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
-MYSQL_PORT = 3306
+MYSQL_PORT = 3306  # container-internal MySQL port
 
 
 @pytest.fixture(scope="module")
@@ -32,7 +32,7 @@ def is_mysql_up(container_name: str, port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
-def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "mysql"
     ) as docker_services:
@@ -43,7 +43,14 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_mysql_up("testmysql", MYSQL_PORT),
         )
-        yield docker_services
+        # The compose file exposes the MySQL port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. Recipe ymls in this directory pick it up via ${MYSQL_HOST_PORT}.
+        host_port = docker_services.port_for("testmysql", MYSQL_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("MYSQL_HOST_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
+        yield host_port
 
 
 @pytest.mark.parametrize(
@@ -80,12 +87,81 @@ def test_mysql_ingest_no_db(
     )
 
 
+@pytest.fixture(scope="module")
+def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.usage.yml", "mysql-usage"
+    ) as docker_services:
+        wait_for_port(
+            docker_services,
+            "testmysqlusage",
+            MYSQL_PORT,
+            timeout=120,
+            checker=lambda: is_mysql_up("testmysqlusage", MYSQL_PORT),
+        )
+        # The compose file exposes the MySQL port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs.
+        host_port = docker_services.port_for("testmysqlusage", MYSQL_PORT)
+        mysql_usage_helpers.execute_usage_workload(port=host_port, password="example")
+        yield host_port
+
+
+@pytest.mark.integration
+def test_mysql_usage_performance_schema(mysql_usage_runner, tmp_path):
+    mcps = mysql_usage_helpers.run_usage_pipeline(
+        platform="mysql",
+        usage_source="performance_schema",
+        port=mysql_usage_runner,
+        password="example",
+        output_path=tmp_path / "perf.json",
+    )
+
+    usage = mysql_usage_helpers.aspects(mcps, "datasetUsageStatistics")
+    assert any("raw_customer_data" in m["entityUrn"] for m in usage), (
+        "expected usage statistics for raw_customer_data"
+    )
+    # performance_schema digests are aggregated across users: no per-user breakdown.
+    assert all(not m["aspect"]["json"].get("userCounts") for m in usage)
+
+    mysql_usage_helpers.assert_query_lineage_present(mcps)
+    mysql_usage_helpers.assert_top_sql_queries(mcps, usage_source="performance_schema")
+
+
+@pytest.mark.integration
+def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
+    mcps = mysql_usage_helpers.run_usage_pipeline(
+        platform="mysql",
+        usage_source="general_log",
+        port=mysql_usage_runner,
+        password="example",
+        output_path=tmp_path / "glog.json",
+    )
+
+    usage = mysql_usage_helpers.aspects(mcps, "datasetUsageStatistics")
+    assert any("raw_customer_data" in m["entityUrn"] for m in usage), (
+        "expected usage statistics for raw_customer_data"
+    )
+    # general_log carries the executing user, so usage is attributed per user.
+    user_urns = {
+        uc["user"]
+        for m in usage
+        for uc in (m["aspect"]["json"].get("userCounts") or [])
+    }
+    assert "urn:li:corpuser:root" in user_urns, (
+        f"expected per-user attribution for root, got {user_urns}"
+    )
+
+    mysql_usage_helpers.assert_query_lineage_present(mcps)
+    mysql_usage_helpers.assert_top_sql_queries(mcps, usage_source="general_log")
+
+
 @pytest.mark.parametrize(
     "config_dict, is_success",
     [
         (
             {
-                "host_port": "localhost:53307",
+                "host_port": None,  # filled in from mysql_runner's ephemeral port below
                 "database": "northwind",
                 "username": "root",
                 "password": "example",
@@ -107,6 +183,8 @@ def test_mysql_ingest_no_db(
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
 def test_mysql_test_connection(mysql_runner, config_dict, is_success):
+    if config_dict["host_port"] is None:
+        config_dict = {**config_dict, "host_port": f"localhost:{mysql_runner}"}
     report = test_connection_helpers.run_test_connection(MySQLSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)

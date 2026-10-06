@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Grafana")
 @config_class(GrafanaSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
@@ -150,10 +150,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 )
                 response.raise_for_status()
             except requests.exceptions.RequestException as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Dashboard Search Error",
                     message="Failed to fetch dashboards in basic mode",
-                    context=str(e),
                     exc=e,
                 )
                 return

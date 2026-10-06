@@ -27,6 +27,12 @@ dependencies {
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
   implementation externalDependency.opentelemetryApi
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation project(':metadata-service:configuration')
+  testImplementation externalDependency.jacksonDataFormatYaml
+  testImplementation project(':metadata-operation-context')
 }
 
 configurations.all{

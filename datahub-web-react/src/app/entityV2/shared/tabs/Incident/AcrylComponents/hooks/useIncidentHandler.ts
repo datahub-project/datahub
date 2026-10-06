@@ -1,6 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import { Form, message } from 'antd';
-import _ from 'lodash';
+import omit from 'lodash/omit';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,7 +9,7 @@ import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
+import { useRaiseIncidentMutation, useUpsertIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 
 import { IncidentResultFieldsFragment } from '@graphql/incident.generated';
@@ -93,7 +93,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
-    const [updateIncidentMutation] = useUpdateIncidentMutation();
+    const [upsertIncidentMutation] = useUpsertIncidentMutation();
     const [form] = Form.useForm();
     const client = useApolloClient();
     const isAddIncidentMode = mode === IncidentAction.CREATE;
@@ -114,15 +114,18 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
     };
 
     const handleUpdateIncident = async (input: any, incidentUpdateUrn: string) => {
-        return updateIncidentMutation({
+        return upsertIncidentMutation({
             variables: {
                 input: {
-                    ...input,
+                    title: input.title || null,
+                    description: input.description || null,
                     priority: input.priority || null,
                     status: {
                         ...input.status,
                         stage: input.status.stage || null,
                     },
+                    resourceUrns: input.resourceUrns || [],
+                    assigneeUrns: input.assigneeUrns || [],
                 },
                 urn: incidentUpdateUrn,
             },
@@ -162,9 +165,8 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                     message: values.message,
                 },
             };
-            const newInput = _.omit(baseInput, ['state', 'message']);
-            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'resourceUrns', 'customType']);
-            const input = !isAddIncidentMode ? newUpdateInput : newInput;
+            const newInput = omit(baseInput, ['state', 'message']);
+            const input = newInput;
 
             if (isAddIncidentMode) {
                 const responseData: any = await handleAddIncident(input);

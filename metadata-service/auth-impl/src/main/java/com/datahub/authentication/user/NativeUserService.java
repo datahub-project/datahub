@@ -56,7 +56,6 @@ public class NativeUserService {
         // put in
         || userUrn.toString().equals(SYSTEM_ACTOR)
         || userUrn.toString().equals(new CorpuserUrn(_authConfig.getSystemClientId()).toString())
-        || userUrn.toString().equals(DATAHUB_ACTOR)
         || userUrn.toString().equals(UNKNOWN_ACTOR)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
     }

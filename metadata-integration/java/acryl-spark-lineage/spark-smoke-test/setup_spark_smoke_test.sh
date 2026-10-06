@@ -12,7 +12,11 @@ echo "--------------------------------------------------------------------"
 
 
 cd test-spark-lineage
-./gradlew build
+# This nested build uses Gradle 8.14.3, which does not support JDK 25 (its Groovy can't read
+# class-file v69 -> "Unsupported class file major version 69" during _BuildScript_ compilation).
+# It's a Spark 3.x app that must build+run on Java 17/21 anyway, so build it with JDK 21 (exported by
+# the workflow's setup-java as JAVA_HOME_21_X64); fall back to the ambient JAVA_HOME for local runs.
+JAVA_HOME="${JAVA_HOME_21_X64:-${JAVA_HOME_21_ARM64:-$JAVA_HOME}}" ./gradlew build
 cd ..
 
 echo "--------------------------------------------------------------------"

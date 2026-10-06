@@ -515,47 +515,77 @@ def restore_indices(
 
 
 @check.command()
+@click.option(
+    "-o",
+    "--output",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format.",
+)
 @upgrade.check_upgrade
-def get_kafka_consumer_offsets() -> None:
+def get_kafka_consumer_offsets(output_format: str) -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
     result = graph.get_kafka_consumer_offsets()
 
-    table_data = []
-    headers = [
-        "Topic",
-        "Consumer Group",
-        "Schema",
-        "Partition",
-        "Offset",
-        "Lag",
-        "Avg Lag",
-        "Max Lag",
-        "Total Lag",
-    ]
-
-    for topic, consumers in result.items():
-        for consumer_group, schemas in consumers.items():
-            for schema, data in schemas.items():
-                metrics = data.get("metrics", {})
-                partitions = data.get("partitions", {})
+    rows = []
+    for consumer_type, payload in result.items():
+        if not isinstance(payload, dict):
+            continue
+        if "consumerGroups" in payload:
+            # /openapi/operations/messaging envelope: {"transport": ..., "consumerGroups": {group: {topic: ...}}}
+            consumers = payload["consumerGroups"]
+        elif "consumerGroupId" in payload:
+            # /openapi/operations/kafka object format: {"consumerGroupId": ..., "topics": {topic: ...}}
+            consumers = {payload["consumerGroupId"]: payload.get("topics", {})}
+        else:
+            # /openapi/operations/kafka map format: {group: {topic: ...}}
+            consumers = payload
+        for consumer_group, topics in consumers.items():
+            if not isinstance(topics, dict):
+                continue
+            for topic, data in topics.items():
+                if not isinstance(data, dict):
+                    continue
+                # The API serializes metrics/partitions as null when unavailable.
+                metrics = data.get("metrics") or {}
+                partitions = data.get("partitions") or {}
 
                 for partition, partition_data in partitions.items():
-                    table_data.append(
-                        [
-                            topic,
-                            consumer_group,
-                            schema,
-                            partition,
-                            partition_data.get("offset", "N/A"),
-                            partition_data.get("lag", "N/A"),
-                            metrics.get("avgLag", "N/A"),
-                            metrics.get("maxLag", "N/A"),
-                            metrics.get("totalLag", "N/A"),
-                        ]
+                    rows.append(
+                        {
+                            "consumerType": consumer_type,
+                            "consumerGroup": consumer_group,
+                            "topic": topic,
+                            "partition": partition,
+                            "offset": partition_data.get("offset"),
+                            "lag": partition_data.get("lag"),
+                            "avgLag": metrics.get("avgLag"),
+                            "maxLag": metrics.get("maxLag"),
+                            "totalLag": metrics.get("totalLag"),
+                        }
                     )
 
-    if table_data:
-        click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+    if output_format == "json":
+        click.echo(json.dumps(rows, indent=2))
+    elif rows:
+        headers = {
+            "consumerType": "Consumer Type",
+            "consumerGroup": "Consumer Group",
+            "topic": "Topic",
+            "partition": "Partition",
+            "offset": "Offset",
+            "lag": "Lag",
+            "avgLag": "Avg Lag",
+            "maxLag": "Max Lag",
+            "totalLag": "Total Lag",
+        }
+        table_data = [
+            ["N/A" if row[key] is None else row[key] for key in headers] for row in rows
+        ]
+        click.echo(
+            tabulate(table_data, headers=list(headers.values()), tablefmt="grid")
+        )
     else:
         click.echo("No Kafka consumer offset data found.")

@@ -79,7 +79,7 @@ class MSSQLLineageExtractor:
     ) -> bool:
         """Execute query and check boolean field, logging the result."""
         result = self.connection.execute(query)
-        row = result.fetchone()
+        row = result.mappings().fetchone()
 
         if row and row[field_name]:
             logger.info(success_msg)
@@ -94,7 +94,7 @@ class MSSQLLineageExtractor:
     def _check_version(self) -> Optional[int]:
         """Check SQL Server version and return major version number."""
         result = self.connection.execute(MSSQLQuery.get_mssql_version())
-        row = result.fetchone()
+        row = result.mappings().fetchone()
 
         if row:
             major_version = row["major_version"] if row["major_version"] else 0
@@ -230,7 +230,7 @@ class MSSQLLineageExtractor:
                 result = self.connection.execute(query, params)
 
                 queries = []
-                for row in result:
+                for row in result.mappings():
                     self.queries_extracted += 1
 
                     queries.append(
@@ -260,9 +260,10 @@ class MSSQLLineageExtractor:
                     prereq.method,
                     e,
                 )
-                self.report.report_failure(
-                    message=f"Database error: {e}",
+                self.report.failure(
+                    message="Database error during query history extraction",
                     context="query_history_extraction_database_error",
+                    exc=e,
                 )
                 return []
             except (KeyError, TypeError) as e:
@@ -274,9 +275,10 @@ class MSSQLLineageExtractor:
                     e,
                     exc_info=True,
                 )
-                self.report.report_failure(
-                    message=f"Query structure error: {e} - check SQL Server version compatibility",
+                self.report.failure(
+                    message="Query structure error - check SQL Server version compatibility",
                     context="query_history_extraction_structure_error",
+                    exc=e,
                 )
                 return []
             except Exception as e:
@@ -288,9 +290,10 @@ class MSSQLLineageExtractor:
                     type(e).__name__,
                     exc_info=True,
                 )
-                self.report.report_failure(
-                    message=f"Unexpected error: {e} ({type(e).__name__})",
+                self.report.failure(
+                    message="Unexpected error during query history extraction",
                     context="query_history_extraction_unexpected_error",
+                    exc=e,
                 )
                 return []
 

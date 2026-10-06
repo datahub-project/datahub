@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "Gå tilbake",
+    "confirmationModal.areYouSure": "Er du sikker?",
+    "copyUrn.tooltip": "Kopier URN. En URN identifiserer en entitet i DataHub entydig.",
+    "customIcon.alt": "Ikon",
+    "entityCountCard.viewCountTooltip": "Vis {{formattedCount}} {{tooltipDescriptor}}",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "Fyll ut alle obligatoriske felt før du går videre til neste trinn",
+    "noEntityFound.subtitle": "Beklager, vi finner ikke denne entiteten i DataHub",
+    "noEntityFound.title": "Ikke funnet",
+    "noPageFound.backToHome": "Tilbake til startsiden",
+    "noPageFound.subtitle": "Siden du ba om, ble ikke funnet.",
+    "platformIcon.alt": "Plattformlogo"
+}

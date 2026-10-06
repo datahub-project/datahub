@@ -50,20 +50,30 @@ public abstract class AspectPayloadValidator extends PluginSpec {
 
   /**
    * Validate the proposed aspect as its about to be written with the context of the previous
-   * version of the aspect (if it existed)
+   * version of the aspect (if it existed).
    *
-   * @return whether the aspect proposal is valid
+   * @param session optional authorization session (user request). Null/system on MCE consumer.
    */
   public final Stream<AspectValidationException> validatePreCommit(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    return validatePreCommitAspects(
-        operationContext,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    Collection<ChangeMCP> filtered =
         changeMCPs.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
-            .collect(Collectors.toList()),
-        retrieverContext);
+            .collect(Collectors.toList());
+    return Stream.concat(
+        validatePreCommitAspects(operationContext, filtered, retrieverContext),
+        validatePreCommitAspectsWithAuth(operationContext, filtered, retrieverContext, session));
+  }
+
+  /** Backward-compatible overload without an authorization session. */
+  public final Stream<AspectValidationException> validatePreCommit(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    return validatePreCommit(operationContext, changeMCPs, retrieverContext, null);
   }
 
   protected abstract Stream<AspectValidationException> validateProposedAspects(
@@ -93,4 +103,12 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext);
+
+  protected Stream<AspectValidationException> validatePreCommitAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    return Stream.empty();
+  }
 }

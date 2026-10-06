@@ -70,7 +70,7 @@ fi
 
 mkdir -p "$OTEL_JMX_DIR"
 
-wget --no-verbose "${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.27.0/opentelemetry-javaagent.jar" \
+wget --no-verbose "${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.28.0/opentelemetry-javaagent.jar" \
   -O "${OTEL_JMX_DIR}/opentelemetry-javaagent.jar"
 
 wget --no-verbose \

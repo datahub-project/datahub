@@ -2,6 +2,8 @@ package com.linkedin.metadata.schemafields.sideeffects;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ALIASES_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
@@ -11,10 +13,14 @@ import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -29,6 +35,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.key.SchemaFieldKey;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -37,16 +44,20 @@ import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schemafield.SchemaFieldAliases;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -64,8 +75,42 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   @Nonnull private AspectPluginConfig config;
   @Nonnull private EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
 
-  private static final Set<String> REQUIRED_ASPECTS =
-      Set.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME);
+  /**
+   * When true, mirror dataset {@code domains} onto each schemaField (upsert + cascade delete).
+   *
+   * <p>Turning this off stops further live mirroring. Re-run {@code
+   * GenerateSchemaFieldsFromSchemaMetadata} after enabling to backfill; disabling does not delete
+   * leftover field aspects.
+   */
+  private boolean domainEnabled;
+
+  /**
+   * When true, mirror dataset {@code ownership} onto each schemaField (upsert + cascade delete).
+   *
+   * <p>Same enable/disable behavior as {@link #domainEnabled}.
+   */
+  private boolean ownershipEnabled;
+
+  /** Factories for mirrored aspects — single place to add a third mirrored aspect. */
+  private static final Map<String, Function<DataMap, RecordTemplate>> MIRROR_FACTORIES =
+      Map.of(
+          DOMAINS_ASPECT_NAME, Domains::new,
+          OWNERSHIP_ASPECT_NAME, Ownership::new);
+
+  private record MirrorAspectPolicy(
+      @Nonnull String aspectName, @Nonnull Class<? extends RecordTemplate> aspectClass) {}
+
+  @Nonnull
+  private List<MirrorAspectPolicy> enabledMirrorPolicies() {
+    List<MirrorAspectPolicy> policies = new ArrayList<>();
+    if (domainEnabled) {
+      policies.add(new MirrorAspectPolicy(DOMAINS_ASPECT_NAME, Domains.class));
+    }
+    if (ownershipEnabled) {
+      policies.add(new MirrorAspectPolicy(OWNERSHIP_ASPECT_NAME, Ownership.class));
+    }
+    return policies;
+  }
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -91,14 +136,23 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     // fetch existing aspects, if not already in the batch just committed
     Map<Urn, Map<String, Aspect>> aspectData =
         fetchRequiredAspects(
-            operationContext, mclItems, REQUIRED_ASPECTS, retrieverContext.getAspectRetriever());
+            operationContext, mclItems, requiredAspects(), retrieverContext.getAspectRetriever());
 
     return Stream.concat(
         processUpserts(mclItems, aspectData, retrieverContext),
         processDelete(mclItems, aspectData, retrieverContext));
   }
 
-  private static Stream<MCPItem> processDelete(
+  @Nonnull
+  private Set<String> requiredAspects() {
+    Set<String> aspects = new HashSet<>();
+    aspects.add(SCHEMA_METADATA_ASPECT_NAME);
+    aspects.add(STATUS_ASPECT_NAME);
+    enabledMirrorPolicies().forEach(policy -> aspects.add(policy.aspectName()));
+    return aspects;
+  }
+
+  private Stream<MCPItem> processDelete(
       Collection<MCLItem> mclItems,
       Map<Urn, Map<String, Aspect>> aspectData,
       @Nonnull RetrieverContext retrieverContext) {
@@ -147,7 +201,18 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                           retrieverContext.getAspectRetriever()));
     }
 
-    return Stream.concat(schemaMetadataSchemaFieldMCPs, statusSchemaFieldMCPs);
+    Stream<MCPItem> mirroredAspectDeletes =
+        enabledMirrorPolicies().stream()
+            .flatMap(
+                policy ->
+                    buildMirroredAspectDeleteMCPs(
+                        mclItems,
+                        aspectData,
+                        policy.aspectName(),
+                        retrieverContext.getAspectRetriever()));
+
+    return Stream.of(schemaMetadataSchemaFieldMCPs, statusSchemaFieldMCPs, mirroredAspectDeletes)
+        .flatMap(s -> s);
   }
 
   private Stream<ChangeMCP> processUpserts(
@@ -206,8 +271,21 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                     buildRemovedSchemaFieldStatusAspect(
                         item, retrieverContext.getAspectRetriever()));
 
+    Stream<ChangeMCP> mirroredAspectSideEffects =
+        enabledMirrorPolicies().stream()
+            .flatMap(
+                policy ->
+                    mirrorAspectUpserts(
+                        mclItems,
+                        aspectData,
+                        policy.aspectName(),
+                        policy.aspectClass(),
+                        retrieverContext.getAspectRetriever()));
+
     return optimizedKeyAspectMCPsConcat(
-        Stream.concat(schemaFieldSideEffects, statusSideEffects), removedFieldStatusSideEffects);
+        Stream.of(schemaFieldSideEffects, statusSideEffects, mirroredAspectSideEffects)
+            .flatMap(s -> s),
+        removedFieldStatusSideEffects);
   }
 
   /**
@@ -342,13 +420,31 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   }
 
   /**
-   * Expand dataset schemaMetadata to schemaFields
-   *
-   * @param parentDatasetMetadataSchemaItem dataset mcp item
-   * @param aspectRetriever aspectRetriever context
-   * @return side effect schema field aspects
+   * Expand dataset schemaMetadata to schemaFields, and when domain/ownership inheritance is on,
+   * also apply already-stored parent domains/ownership (same pattern as status-before-schema).
    */
-  private static Stream<ChangeMCP> buildSchemaFieldKeyMCPs(
+  private Stream<ChangeMCP> buildSchemaFieldKeyMCPs(
+      MCLItem parentDatasetMetadataSchemaItem,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    Stream<ChangeMCP> base =
+        buildSchemaFieldKeyMCPsStatic(parentDatasetMetadataSchemaItem, aspectData, aspectRetriever);
+
+    Stream<ChangeMCP> mirroredFromStored =
+        enabledMirrorPolicies().stream()
+            .flatMap(
+                policy ->
+                    mirrorStoredAspectOntoFields(
+                        parentDatasetMetadataSchemaItem,
+                        aspectData,
+                        policy.aspectName(),
+                        aspectRetriever));
+
+    return Stream.concat(base, mirroredFromStored);
+  }
+
+  private static Stream<ChangeMCP> buildSchemaFieldKeyMCPsStatic(
       MCLItem parentDatasetMetadataSchemaItem,
       Map<Urn, Map<String, Aspect>> aspectData,
       @Nonnull AspectRetriever aspectRetriever) {
@@ -408,12 +504,11 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     return schemaMetadata.getFields().stream()
         .filter(
             schemaField ->
-                ChangeType.RESTATE.equals(parentDatasetMetadataSchemaItem.getChangeType())
-                    || previousSchemaMetadata == null
-                    // avoid processing already existing fields
-                    || !previousSchemaMetadata.getFields().contains(schemaField)
-                    // system update pass through
-                    || isSystemUpdate(systemMetadata))
+                shouldProcessFieldOnSchemaMetadataChange(
+                    parentDatasetMetadataSchemaItem.getChangeType(),
+                    previousSchemaMetadata,
+                    schemaField,
+                    systemMetadata))
         .map(
             schemaField ->
                 ChangeItemImpl.builder()
@@ -547,6 +642,216 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                       .aspectSpec(parentDatasetStatusDelete.getAspectSpec())
                       .build(aspectRetriever));
     }
+  }
+
+  private static Stream<ChangeMCP> mirrorAspectUpserts(
+      Collection<MCLItem> mclItems,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      @Nonnull String aspectName,
+      @Nonnull Class<? extends RecordTemplate> aspectClass,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    // Always fan out parent domains/ownership upserts to every current field. Do not skip when
+    // schemaMetadata is co-batched: the schemaMetadata path only mirrors onto new fields (or
+    // RESTATE/system-update), so skipping here would leave existing fields with stale mirrors.
+    return mclItems.stream()
+        .filter(
+            changeMCP ->
+                changeMCP.getChangeType() != ChangeType.DELETE
+                    && DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
+                    && aspectName.equals(changeMCP.getAspectName()))
+        .flatMap(
+            item ->
+                mirrorRecordAspectOntoFields(
+                    item.getUrn(),
+                    item.getAspect(aspectClass),
+                    aspectName,
+                    aspectData,
+                    item.getAuditStamp(),
+                    item.getSystemMetadata(),
+                    aspectRetriever));
+  }
+
+  private static Stream<ChangeMCP> mirrorStoredAspectOntoFields(
+      MCLItem parentDatasetMetadataSchemaItem,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      @Nonnull String aspectName,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    Aspect stored =
+        aspectData.getOrDefault(parentDatasetMetadataSchemaItem.getUrn(), Map.of()).get(aspectName);
+    if (stored == null) {
+      return Stream.empty();
+    }
+    RecordTemplate record = toRecordTemplate(aspectName, stored);
+    if (record == null) {
+      return Stream.empty();
+    }
+
+    // Prefer the schema from the schemaMetadata MCL itself (same as key generation). Fall back to
+    // aspectData when the item is not a schemaMetadata MCL.
+    SchemaMetadata schemaMetadata =
+        SCHEMA_METADATA_ASPECT_NAME.equals(parentDatasetMetadataSchemaItem.getAspectName())
+            ? parentDatasetMetadataSchemaItem.getAspect(SchemaMetadata.class)
+            : Optional.ofNullable(
+                    aspectData
+                        .getOrDefault(parentDatasetMetadataSchemaItem.getUrn(), Map.of())
+                        .getOrDefault(SCHEMA_METADATA_ASPECT_NAME, null))
+                .map(aspect -> new SchemaMetadata(aspect.data()))
+                .orElse(null);
+    if (schemaMetadata == null || !schemaMetadata.hasFields()) {
+      return Stream.empty();
+    }
+
+    SchemaMetadata previousSchemaMetadata =
+        parentDatasetMetadataSchemaItem.getPreviousRecordTemplate() != null
+            ? parentDatasetMetadataSchemaItem.getPreviousAspect(SchemaMetadata.class)
+            : null;
+    SystemMetadata systemMetadata = parentDatasetMetadataSchemaItem.getSystemMetadata();
+
+    // Match key-aspect filtering: only new fields on routine upserts; full fan-out on RESTATE /
+    // system update (enable backfill).
+    return schemaMetadata.getFields().stream()
+        .filter(
+            schemaField ->
+                shouldProcessFieldOnSchemaMetadataChange(
+                    parentDatasetMetadataSchemaItem.getChangeType(),
+                    previousSchemaMetadata,
+                    schemaField,
+                    systemMetadata))
+        .map(
+            schemaField ->
+                ChangeItemImpl.builder()
+                    .urn(
+                        SchemaFieldUtils.generateSchemaFieldUrn(
+                            parentDatasetMetadataSchemaItem.getUrn(), schemaField))
+                    .changeType(ChangeType.UPSERT)
+                    .aspectName(aspectName)
+                    .recordTemplate(copyAspectRecord(aspectName, record))
+                    .auditStamp(parentDatasetMetadataSchemaItem.getAuditStamp())
+                    .systemMetadata(systemMetadata)
+                    .build(aspectRetriever));
+  }
+
+  /**
+   * Whether a schemaMetadata change should process this field for key materialization or
+   * stored-aspect mirroring: skip unchanged fields on routine upserts; process all on RESTATE /
+   * system update.
+   */
+  private static boolean shouldProcessFieldOnSchemaMetadataChange(
+      ChangeType changeType,
+      @Nullable SchemaMetadata previousSchemaMetadata,
+      SchemaField schemaField,
+      @Nullable SystemMetadata systemMetadata) {
+    return ChangeType.RESTATE.equals(changeType)
+        || previousSchemaMetadata == null
+        || !previousSchemaMetadata.getFields().contains(schemaField)
+        || isSystemUpdate(systemMetadata);
+  }
+
+  @Nullable
+  private static RecordTemplate toRecordTemplate(
+      @Nonnull String aspectName, @Nonnull Aspect stored) {
+    Function<DataMap, RecordTemplate> factory = MIRROR_FACTORIES.get(aspectName);
+    return factory == null ? null : factory.apply(new DataMap(stored.data()));
+  }
+
+  /**
+   * Per-field copy of a mirrored aspect. Mutation hooks (e.g. DomainsSyncMutationHook,
+   * OwnershipOwnerTypes) mutate RecordTemplates in place; sharing one instance across field MCPs
+   * would let processing field N corrupt field N+1 (and the parent proposal).
+   */
+  @Nullable
+  private static RecordTemplate copyAspectRecord(
+      @Nonnull String aspectName, @Nonnull RecordTemplate aspectRecord) {
+    Function<DataMap, RecordTemplate> factory = MIRROR_FACTORIES.get(aspectName);
+    return factory == null ? aspectRecord : factory.apply(new DataMap(aspectRecord.data()));
+  }
+
+  private static Stream<ChangeMCP> mirrorRecordAspectOntoFields(
+      @Nonnull Urn parentUrn,
+      @Nullable RecordTemplate aspectRecord,
+      @Nonnull String aspectName,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      AuditStamp auditStamp,
+      SystemMetadata systemMetadata,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    if (aspectRecord == null) {
+      return Stream.empty();
+    }
+
+    SchemaMetadata schemaMetadata =
+        Optional.ofNullable(
+                aspectData
+                    .getOrDefault(parentUrn, Map.of())
+                    .getOrDefault(SCHEMA_METADATA_ASPECT_NAME, null))
+            .map(aspect -> new SchemaMetadata(aspect.data()))
+            .orElse(null);
+
+    if (schemaMetadata == null) {
+      return Stream.empty();
+    }
+
+    // Parent domains/ownership change: fan out to every current field (aspect content changed).
+    return schemaMetadata.getFields().stream()
+        .map(
+            schemaField ->
+                ChangeItemImpl.builder()
+                    .urn(SchemaFieldUtils.generateSchemaFieldUrn(parentUrn, schemaField))
+                    .changeType(ChangeType.UPSERT)
+                    .aspectName(aspectName)
+                    .recordTemplate(copyAspectRecord(aspectName, aspectRecord))
+                    .auditStamp(auditStamp)
+                    .systemMetadata(systemMetadata)
+                    .build(aspectRetriever));
+  }
+
+  private static Stream<MCPItem> buildMirroredAspectDeleteMCPs(
+      Collection<MCLItem> mclItems,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      @Nonnull String aspectName,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    return mclItems.stream()
+        .filter(
+            item ->
+                ChangeType.DELETE.equals(item.getChangeType())
+                    && DATASET_ENTITY_NAME.equals(item.getUrn().getEntityType())
+                    && aspectName.equals(item.getAspectName()))
+        .flatMap(
+            item -> {
+              SchemaMetadata schemaMetadata =
+                  Optional.ofNullable(
+                          aspectData
+                              .getOrDefault(item.getUrn(), Map.of())
+                              .get(SCHEMA_METADATA_ASPECT_NAME))
+                      .map(aspect -> new SchemaMetadata(aspect.data()))
+                      .orElse(null);
+              if (schemaMetadata == null) {
+                return Stream.empty();
+              }
+              EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+              AspectSpec aspectSpec =
+                  entityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME).getAspectSpec(aspectName);
+              if (aspectSpec == null) {
+                return Stream.empty();
+              }
+              return schemaMetadata.getFields().stream()
+                  .map(
+                      schemaField ->
+                          (MCPItem)
+                              DeleteItemImpl.builder()
+                                  .urn(
+                                      SchemaFieldUtils.generateSchemaFieldUrn(
+                                          item.getUrn(), schemaField))
+                                  .aspectName(aspectName)
+                                  .auditStamp(item.getAuditStamp())
+                                  .entitySpec(
+                                      entityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
+                                  .aspectSpec(aspectSpec)
+                                  .build(aspectRetriever));
+            });
   }
 
   /**

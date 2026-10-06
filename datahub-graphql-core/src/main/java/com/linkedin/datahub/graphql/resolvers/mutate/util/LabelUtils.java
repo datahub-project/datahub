@@ -33,6 +33,8 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -294,16 +296,45 @@ public class LabelUtils {
       Urn labelUrn,
       String labelEntityType,
       EntityService<?> entityService) {
-    if (!labelUrn.getEntityType().equals(labelEntityType)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to validate label with urn %s. Urn type does not match entity type %s..",
-              labelUrn, labelEntityType));
+    validateLabels(opContext, List.of(labelUrn), labelEntityType, entityService);
+  }
+
+  /**
+   * Batched form of {@link #validateLabel}: resolves existence for every label in a single call
+   * rather than one per label. Labels are still inspected in input order, so the same label is
+   * rejected first as when validating one at a time.
+   */
+  public static void validateLabels(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<Urn> labelUrns,
+      String labelEntityType,
+      EntityService<?> entityService) {
+    final Set<Urn> existingLabelUrns = existingUrns(opContext, labelUrns, entityService);
+    for (Urn labelUrn : labelUrns) {
+      if (!labelUrn.getEntityType().equals(labelEntityType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to validate label with urn %s. Urn type does not match entity type %s..",
+                labelUrn, labelEntityType));
+      }
+      if (!existingLabelUrns.contains(labelUrn)) {
+        throw new IllegalArgumentException(
+            String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
+      }
     }
-    if (!entityService.exists(opContext, labelUrn, true)) {
-      throw new IllegalArgumentException(
-          String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
-    }
+  }
+
+  /** Resolves, in a single call, which of the given resources exist. */
+  public static Set<Urn> existingResourceUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<ResourceRefInput> resources,
+      EntityService<?> entityService) {
+    return existingUrns(
+        opContext,
+        resources.stream()
+            .map(resource -> UrnUtils.getUrn(resource.getResourceUrn()))
+            .collect(Collectors.toList()),
+        entityService);
   }
 
   // TODO: Move this out into a separate utilities class.
@@ -313,7 +344,28 @@ public class LabelUtils {
       String subResource,
       SubResourceType subResourceType,
       EntityService<?> entityService) {
-    if (!entityService.exists(opContext, resourceUrn, true)) {
+    validateResource(
+        opContext,
+        existingUrns(opContext, List.of(resourceUrn), entityService),
+        resourceUrn,
+        subResource,
+        subResourceType,
+        entityService);
+  }
+
+  /**
+   * Variant of {@link #validateResource} taking a pre-resolved set of existing urns, so a caller
+   * validating many resources can resolve existence once for the whole batch instead of once per
+   * resource. Obtain the set from {@link #existingResourceUrns}.
+   */
+  public static void validateResource(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> existingResourceUrns,
+      Urn resourceUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      EntityService<?> entityService) {
+    if (!existingResourceUrns.contains(resourceUrn)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update resource with urn %s. Entity does not exist.", resourceUrn));

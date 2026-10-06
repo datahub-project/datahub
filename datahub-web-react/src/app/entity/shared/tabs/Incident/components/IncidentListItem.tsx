@@ -1,5 +1,6 @@
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
-import { Button, Dropdown, List, Popover, Tag, Tooltip, Typography, message } from 'antd';
+import { Popover, Tooltip } from '@components';
+import { Button, Dropdown, List, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -7,10 +8,10 @@ import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
 import { ResolveIncidentModal } from '@app/entity/shared/tabs/Incident/components/ResolveIncidentModal';
 import { getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -185,7 +186,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     actionType: EntityActionType.ResolvedIncident,
                 });
                 message.success({ content: t('resolution.success'), duration: 2 });
-                refetchEntity?.();
+                setTimeout(() => {
+                    refetchEntity?.();
+                }, 3000);
                 refetch?.();
                 setIsResolvedModalVisible(false);
             })
@@ -233,7 +236,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </TitleContainer>
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>{tc('common.labels:description')}</IncidentDescriptionLabel>
-                                <MarkdownViewer source={incident?.description || ''} />
+                                <CompactMarkdownViewer content={incident?.description || ''} />
                                 {incident.incidentStatus?.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>

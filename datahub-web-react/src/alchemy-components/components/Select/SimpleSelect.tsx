@@ -1,5 +1,5 @@
 import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,7 +28,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 
-export const selectDefaults: Partial<SelectProps> = {
+const selectDefaults: Partial<SelectProps> = {
     label: '',
     size: 'md',
     showSearch: false,
@@ -51,6 +51,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     initialValues,
     onUpdate,
     onClear,
+    onOpenChange,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
@@ -65,6 +66,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     optionListTestId,
+    optionDataTestId,
     renderCustomOptionText,
     renderCustomSelectedValue,
     filterResultsByQuery = selectDefaults.filterResultsByQuery,
@@ -81,8 +83,10 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     dataTestId,
     visibilityDeps,
     placement = 'bottomLeft',
+    defaultOpen = false,
     renderSelectBase,
     renderOptionsFooter,
+    sortSelectedFirst = true,
     emptyState,
     ...props
 }: SelectProps<OptionType>) => {
@@ -98,7 +102,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
+    } = useSelectDropdown(defaultOpen, selectRef, dropdownRef, visibilityDeps);
     const [areAllSelected, setAreAllSelected] = useState(false);
     const [openSelectedValues, setOpenSelectedValues] = useState<string[]>([]);
 
@@ -113,6 +117,10 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     }, [options, selectedValues]);
 
     useEffect(() => {
+        onOpenChange?.(isOpen);
+    }, [isOpen, onOpenChange]);
+
+    useEffect(() => {
         if (isOpen) {
             setOpenSelectedValues(selectedValues);
         }
@@ -123,7 +131,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
             ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
             : options;
 
-        if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
+        if (!isMultiSelect || openSelectedValues.length === 0 || !sortSelectedFirst) return filtered;
 
         const selectedSet = new Set(openSelectedValues);
         return [...filtered].sort((a, b) => {
@@ -131,7 +139,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues]);
+    }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues, sortSelectedFirst]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
@@ -232,7 +240,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
-                                        data-testid={`option-${option.value}`}
+                                        data-testid={optionDataTestId?.(option) ?? `option-${option.value}`}
                                         onClick={() => {
                                             const isOptionDisabled = !!disabledValues?.includes(option.value);
                                             if (!isOptionDisabled && !isMultiSelect) {

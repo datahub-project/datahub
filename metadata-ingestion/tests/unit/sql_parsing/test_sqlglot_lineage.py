@@ -191,6 +191,52 @@ SELECT id, name FROM my_db.my_schema.my_table
     )
 
 
+def test_snowflake_create_view_copy_grants_with_casts() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE VIEW my_view
+COPY GRANTS
+                (
+    "COL_STR",
+    "COL_NUM",
+    "COL_TS",
+    "COL_BOOL"
+)
+AS SELECT
+    "COL_STR"::VARCHAR(134217728) AS "COL_STR",
+    "COL_NUM"::NUMBER(19,0) AS "COL_NUM",
+    "COL_TS"::TIMESTAMP_NTZ(6) AS "COL_TS",
+    "COL_BOOL"::BOOLEAN AS "COL_BOOL"
+FROM my_db.my_schema.my_source_table
+WHERE _FIVETRAN_DELETED != TRUE
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_create_view_copy_grants_with_casts.json",
+    )
+
+
+def test_create_view_block_semicolon_with_comment() -> None:
+    """Block([Create, Semicolon]) from a trailing semicolon with attached comment.
+
+    A semicolon followed by a comment (e.g. "; -- comment") causes sqlglot to
+    produce Block([Create, Semicolon]). Without filtering the Semicolon node,
+    parse_statement raises "Block contains 2 statements" and lineage is lost.
+
+    This is the pattern behind ~2,600 view parse failures observed in a
+    Snowflake ingestion run.
+    """
+    assert_sql_result(
+        """
+CREATE VIEW my_view AS SELECT id, name FROM my_db.my_schema.my_table
+WHERE active = TRUE; -- end of view
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_create_view_block_semicolon_with_comment.json",
+    )
+
+
 def test_create_view_as_block_statement() -> None:
     """Test Block with multiple statements where only 1 is not None.
 
@@ -258,6 +304,23 @@ def test_block_with_multiple_statements() -> None:
     assert result.debug_info.table_error is not None
     assert "Block contains 2 statements" in str(result.debug_info.table_error)
     assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
+
+
+def test_identifier_dynamic_arg_skips_only_that_table() -> None:
+    """A non-literal IDENTIFIER(...) can't be resolved, but it must not drop lineage for the
+    real tables in the same query."""
+    result = sqlglot_lineage(
+        "SELECT r.x FROM db.schema.real_table r "
+        "JOIN IDENTIFIER('prefix_' || r.col) d ON r.id = d.id",
+        schema_resolver=SchemaResolver(
+            platform="snowflake",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is None
+    assert len(result.in_tables) == 1
+    assert any("real_table" in urn for urn in result.in_tables)
 
 
 def test_snowflake_create_table_as_select_with_tag() -> None:
@@ -394,6 +457,101 @@ WHERE post_id LIKE '%12345%'
             },
         },
         expected_file=RESOURCE_DIR / "test_select_from_struct_subfields.json",
+    )
+
+
+def test_select_struct_subfields_from_cte() -> None:
+    # The struct subfield access happens inside the CTE, so the leaf's immediate
+    # parent is the CTE's select expression -- the outer select doesn't mention
+    # `widget` at all. This guards subfield reconstruction across nesting levels.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT
+        post_id,
+        widget.asset.id AS asset_id,
+        min(widget.metric.metricA, widget.metric.metric_b) AS min_metric
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, asset_id, min_metric
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+                "widget.metric.metricA": "int",
+                "widget.metric.metric_b": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_struct_subfields_from_cte.json",
+    )
+
+
+def test_select_struct_subfield_through_cte_passthrough() -> None:
+    # Here the CTE selects the bare `widget` struct and the subfield access
+    # (`widget.asset.id`) happens in the *outer* query. The leaf's immediate
+    # parent is the CTE projection `widget AS widget`, which no longer carries
+    # the subfield, so reconstruction can only recover the base column. Lineage
+    # correctly coarsens to `widget` rather than inventing a subfield. This is a
+    # known limitation: subfield access does not propagate across scope boundaries.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT post_id, widget
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, widget.asset.id AS asset_id
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_select_struct_subfield_through_cte_passthrough.json",
+    )
+
+
+def test_join_struct_subfields_shared_base_name() -> None:
+    # Two joined tables both expose a struct column named `widget`, each accessed
+    # with a different subfield. sqlglot inserts an intermediate projection per
+    # joined table (`widget AS widget`), so the subfield access in the root select
+    # is one scope above each leaf and lineage coarsens to the base column. The
+    # important guarantee: each base column still resolves to the *correct* table
+    # (a_color -> table_a.widget, b_size -> table_b.widget) -- the shared base name
+    # never causes a subfield to attach to the wrong table.
+    assert_sql_result(
+        """
+SELECT
+    a.widget.color AS a_color,
+    b.widget.size AS b_size
+FROM my_schema.table_a a
+JOIN my_schema.table_b b ON a.id = b.a_id
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)": {
+                "id": "int",
+                "widget": "struct",
+                "widget.color": "string",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)": {
+                "a_id": "int",
+                "widget": "struct",
+                "widget.size": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_join_struct_subfields_shared_base_name.json",
     )
 
 
@@ -2010,6 +2168,99 @@ FROM db1.events
 """,
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget_unqualified.json",
+    )
+
+
+def test_clickhouse_table_function_is_not_a_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT e.id, r.name
+FROM db1.events e
+JOIN mysql('host:3306', 'remote_db', 'remote_table', 'user', 'pass') r ON e.id = r.id
+""",
+        dialect="clickhouse",
+        default_schema="db1",
+        expected_file=RESOURCE_DIR / "test_clickhouse_table_function.json",
+    )
+
+
+def test_postgres_table_function_without_default_schema() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO s.target
+SELECT a.id, g.n FROM s.a CROSS JOIN generate_series(1, 10) AS g(n)
+""",
+        dialect="postgres",
+        expected_file=RESOURCE_DIR / "test_postgres_table_function.json",
+    )
+
+
+def test_postgres_qualified_table_function() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO public.target
+SELECT a.id, f.v FROM public.a a JOIN public.my_fn(1) f ON a.id = f.id
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_postgres_qualified_table_function.json",
+    )
+
+
+def test_postgres_join_through_subquery_with_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id FROM s.a a
+JOIN (SELECT b.id, b.v, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) s2
+  ON a.id = s2.id AND a.n = s2.x
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_join_through_subquery_with_table_function.json",
+    )
+
+
+def test_postgres_cross_join_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT 1
+FROM (SELECT b.id, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) t
+CROSS JOIN s.b
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_cross_join_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_postgres_lateral_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id, l.n FROM s.a a, LATERAL (SELECT n FROM generate_series(1, 3) AS g(n)) l
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_lateral_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_bigquery_table_inside_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT * FROM ML.PREDICT(MODEL `p.d.model`, TABLE `p.d.features`)
+""",
+        dialect="bigquery",
+        default_db="p",
+        default_schema="d",
+        expected_file=RESOURCE_DIR / "test_bigquery_table_inside_table_function.json",
     )
 
 

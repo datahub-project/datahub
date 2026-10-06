@@ -722,6 +722,51 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(content().string("Container logs"));
   }
 
+  // ==================== K8s API Error Surfacing Tests ====================
+
+  @Test
+  public void testListPodsSurfacesKubernetesClientError() throws Exception {
+    MixedOperation podsOp = mock(MixedOperation.class);
+    NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+
+    when(kubernetesClient.pods()).thenReturn(podsOp);
+    when(podsOp.inNamespace(NAMESPACE)).thenReturn(nsOp);
+    when(nsOp.list())
+        .thenThrow(
+            new KubernetesClientException(
+                "pods is forbidden: cannot list resource \"pods\"", 403, null));
+
+    mockMvc
+        .perform(MockMvcRequestBuilders.get(BASE_PATH + "/pods").accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("forbidden")));
+  }
+
+  @Test
+  public void testGetPodLogsSurfacesKubernetesClientError() throws Exception {
+    Pod pod = createTestPod("log-pod");
+
+    MixedOperation podsOp = mock(MixedOperation.class);
+    NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+    PodResource podResource = mock(PodResource.class);
+    ContainerResource containerResource = mock(ContainerResource.class);
+
+    when(kubernetesClient.pods()).thenReturn(podsOp);
+    when(podsOp.inNamespace(NAMESPACE)).thenReturn(nsOp);
+    when(nsOp.withName("log-pod")).thenReturn(podResource);
+    when(podResource.get()).thenReturn(pod);
+    when(podResource.inContainer("main")).thenReturn(containerResource);
+    when(containerResource.getLog())
+        .thenThrow(new KubernetesClientException("pods \"log-pod\" not found", 404, null));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(BASE_PATH + "/pods/log-pod/logs")
+                .accept(MediaType.TEXT_PLAIN))
+        .andExpect(status().isNotFound())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("not found")));
+  }
+
   // ==================== Trigger CronJob Success Tests ====================
 
   @Test

@@ -4,11 +4,11 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.airbyte.config import (
-    KNOWN_SOURCE_TYPE_MAPPING,
     AirbyteDeploymentType,
     AirbyteSourceConfig,
     PlatformDetail,
 )
+from datahub.ingestion.source.airbyte.constants import KNOWN_SOURCE_TYPE_MAPPING
 from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbyteSourcePartial,

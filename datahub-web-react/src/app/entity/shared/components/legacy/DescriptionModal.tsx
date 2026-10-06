@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;

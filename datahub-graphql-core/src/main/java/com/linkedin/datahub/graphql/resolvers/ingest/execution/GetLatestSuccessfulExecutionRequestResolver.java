@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.ingestion.ExecutionRequestType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -59,6 +60,8 @@ public class GetLatestSuccessfulExecutionRequestResolver
               return null;
             }
 
+            // Direct batchLoad bypasses DataLoader selection merge; widen to fetch-all first.
+            AspectUtils.ensureFetchAllForDirectLoad(context, _executionRequestType.name());
             Optional<DataFetcherResult<ExecutionRequest>> resp =
                 _executionRequestType
                     .batchLoad(List.of(executionRequestUrn.toString()), context)

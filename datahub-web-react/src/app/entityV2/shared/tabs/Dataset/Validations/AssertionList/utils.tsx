@@ -19,6 +19,7 @@ import {
     AssertionTable,
     AssertionWithDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     ASSERTION_INFO,
     createAssertionGroups,
@@ -27,7 +28,15 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
+import { getCustomAssertionFields } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
+import {
+    ASSERTION_FIELD_PATH_FILTER_NAME,
+    ASSERTION_SOURCE_FILTER_NAME,
+    ASSERTION_STATUS_FILTER_NAME,
+    ASSERTION_TYPE_FILTER_NAME,
+    OWNERS_FILTER_NAME,
+    TAGS_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import {
     Assertion,
     AssertionInfo,
@@ -37,6 +46,9 @@ import {
     AssertionSourceType,
     AssertionType,
     AuditStamp,
+    EntityType,
+    FacetMetadata,
+    Tag,
     TagAssociation,
 } from '@src/types.generated';
 
@@ -90,12 +102,6 @@ const RECOMMENDED_FILTER_NAME_MAP = {
     get [AssertionSourceType.External]() {
         return i18next.t('entity.profile.validations:sourceType.external');
     },
-    get [AssertionSourceType.Native]() {
-        return i18next.t('entity.profile.validations:sourceType.native');
-    },
-    get [AssertionSourceType.Inferred]() {
-        return i18next.t('entity.profile.validations:sourceType.smartAssertions');
-    },
 };
 
 // Create Group's Summary to name and number of records for each group
@@ -144,13 +150,14 @@ const getGroupNameBySummary = (record) => {
 };
 
 // transform assertions into table data
-const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
+export const mapAssertionDataToTableProperties = (assertions: Assertion[]): AssertionListTableRow[] => {
     return assertions.map((assertion: Assertion) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
         const rowData: AssertionListTableRow = {
+            key: assertion.urn,
             type: getAssertionType(assertion),
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
             tags: assertion.tags?.tags as TagAssociation[],
@@ -163,6 +170,7 @@ const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
             lastEvaluationResult: (isCompleted && mostRecentRun?.result?.type) as AssertionResultType,
             lastEvaluationUrl: (isCompleted && mostRecentRun?.result?.externalUrl) || '',
             assertion: assertion as Assertion,
+            ownership: assertion.ownership,
             status: mostRecentRun?.status as AssertionRunStatus,
         };
         return rowData;
@@ -195,7 +203,7 @@ const generateAssertionGroupByStatus = (assertions: Assertion[]): AssertionStatu
             });
             const group: AssertionStatusGroup = {
                 name: status,
-                assertions: mapAssertionData(filteredAssertions),
+                assertions: mapAssertionDataToTableProperties(filteredAssertions),
                 summary,
             };
             assertionGroup.push({ ...group, groupName: getGroupNameBySummary(group) });
@@ -218,28 +226,46 @@ export const getAssertionGroupsByDisplayOrder = (assertionGroups: AssertionGroup
 };
 
 // Build the Filter Options as per the type & status
-const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
+const buildFilterOptions = (
+    key: keyof AssertionFilterOptions['filterGroupOptions'],
+    value: Record<string, number>,
+    filterOptions: AssertionFilterOptions,
+    displayNames: Record<string, string> = {},
+) => {
     Object.entries(value).forEach(([name, count]) => {
-        let displayName = key === 'type' ? getAssertionGroupName(name) : getStatusGroupDisplayName(name);
+        let displayName =
+            displayNames[name] || (key === 'type' ? getAssertionGroupName(name) : getStatusGroupDisplayName(name));
         if (key === 'source') {
             displayName = RECOMMENDED_FILTER_NAME_MAP[name];
         }
-        const filterItem = { name, category: key, count, displayName } as AssertionRecommendedFilter;
+        const filterItem: AssertionRecommendedFilter = { name, category: key, count, displayName };
 
         filterOptions.recommendedFilters.push(filterItem);
         filterOptions.filterGroupOptions[key].push(filterItem);
     });
 };
 
-// get columnId from Column/Field Assertion
-const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
+// Column paths targeted by Field / Custom / legacy Dataset assertions.
+export const getColumnIdsFromAssertion = (assertion: Assertion): string[] => {
     const info = assertion?.info;
-    const fieldAssertion = info?.fieldAssertion;
+
     if (info?.type === AssertionType.Field) {
+        const fieldAssertion = info?.fieldAssertion;
         const field = (fieldAssertion?.fieldMetricAssertion || fieldAssertion?.fieldValuesAssertion)?.field;
-        return field?.path || null;
+        return field?.path ? [field.path] : [];
     }
-    return null;
+
+    if (info?.type === AssertionType.Custom) {
+        return getCustomAssertionFields(info.customAssertion)
+            .map((f) => f.path)
+            .filter((path): path is string => Boolean(path));
+    }
+
+    if (info?.type === AssertionType.Dataset && info.datasetAssertion?.fields?.length) {
+        return info.datasetAssertion.fields.map((f) => f.path).filter((path): path is string => Boolean(path));
+    }
+
+    return [];
 };
 
 /** Create filter option list as per the assertion data present 
@@ -264,6 +290,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
             column: [],
             tags: [],
             source: [],
+            owners: [],
         },
         recommendedFilters: [],
     };
@@ -275,6 +302,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
         tags: {} as Record<string, number>,
         source: {} as Record<string, number>,
     };
+    const tagDisplayNames: Record<string, string> = {};
 
     // maintain array to show all the Assertion Type count even if it is not present
     const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
@@ -291,6 +319,19 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
+        // getAssertionType prefers customAssertion.type (e.g. GREAT_EXPECTATIONS). When that
+        // differs from CUSTOM, also count the Custom ASSERTION_INFO bucket. Skip when type is
+        // already CUSTOM to avoid double-counting subtype-less customs.
+        if (assertion.info?.type === AssertionType.Custom) {
+            if (type !== AssertionType.Custom) {
+                filterGroupCounts.type[AssertionType.Custom] = (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
+            }
+            const customIndex = remainingAssertionTypes.indexOf(AssertionType.Custom);
+            if (customIndex > -1) {
+                remainingAssertionTypes.splice(customIndex, 1);
+            }
+        }
+
         // filter out tracked statuses
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
@@ -305,15 +346,17 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
         const tags = assertion.tags?.tags || [];
         tags.forEach((tag) => {
-            const tagName = tag.tag.properties?.name || '';
-            filterGroupCounts.tags[tagName] = (filterGroupCounts.tags[tagName] || 0) + 1;
+            const tagUrn = tag.tag.urn;
+            if (tagUrn) {
+                filterGroupCounts.tags[tagUrn] = (filterGroupCounts.tags[tagUrn] || 0) + 1;
+                tagDisplayNames[tagUrn] = tag.tag.properties?.name || tag.tag.name || tagUrn;
+            }
         });
 
-        // count columnIds assertion
-        const columnId = getColumnIdFromAssertion(assertion);
-        if (columnId) {
+        // count columnIds assertion - handles multi-column Custom assertions
+        getColumnIdsFromAssertion(assertion).forEach((columnId) => {
             filterGroupCounts.column[columnId] = (filterGroupCounts.column[columnId] || 0) + 1;
-        }
+        });
 
         // count source type assertion
         let sourceType = assertion.info?.source?.type as AssertionSourceType;
@@ -326,7 +369,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
         }
         const sourceTypeIndex = remainingAssertionSources.indexOf(sourceType);
         if (sourceTypeIndex > -1) {
-            remainingAssertionSources.splice(index, 1);
+            remainingAssertionSources.splice(sourceTypeIndex, 1);
         }
     });
 
@@ -349,6 +392,84 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
     buildFilterOptions('type', filterGroupCounts.type, filterOptions);
     buildFilterOptions('column', filterGroupCounts.column, filterOptions);
     buildFilterOptions('source', filterGroupCounts.source, filterOptions);
+    buildFilterOptions('tags', filterGroupCounts.tags, filterOptions, tagDisplayNames);
+    return filterOptions;
+};
+
+const normalizeStatusFacet = (value: string): string => {
+    if (value === 'PASSING') return AssertionResultType.Success;
+    if (value === 'FAILING') return AssertionResultType.Failure;
+    return value;
+};
+
+export const extractFilterOptionsFromFacets = (
+    assertions: Assertion[],
+    facets?: FacetMetadata[],
+): AssertionFilterOptions => {
+    if (!facets) {
+        return extractFilterOptionListFromAssertions(assertions);
+    }
+
+    const filterOptions: AssertionFilterOptions = {
+        filterGroupOptions: {
+            type: [],
+            status: [],
+            column: [],
+            tags: [],
+            source: [],
+            owners: [],
+        },
+        recommendedFilters: [],
+    };
+    const fields: Array<{ field: string; category: keyof AssertionFilterOptions['filterGroupOptions'] }> = [
+        { field: ASSERTION_STATUS_FILTER_NAME, category: 'status' },
+        { field: ASSERTION_TYPE_FILTER_NAME, category: 'type' },
+        { field: ASSERTION_FIELD_PATH_FILTER_NAME, category: 'column' },
+        { field: ASSERTION_SOURCE_FILTER_NAME, category: 'source' },
+        { field: TAGS_FILTER_NAME, category: 'tags' },
+        { field: OWNERS_FILTER_NAME, category: 'owners' },
+    ];
+
+    fields.forEach(({ field, category }) => {
+        const facet = facets.find((item) => item.field === field);
+        const counts: Record<string, number> = {};
+        const displayNames: Record<string, string> = {};
+        facet?.aggregations?.forEach((aggregation) => {
+            if (!aggregation.value) return;
+            const value = category === 'status' ? normalizeStatusFacet(aggregation.value) : aggregation.value;
+            counts[value] = aggregation.count || 0;
+            if (category === 'tags' && aggregation.entity?.type === EntityType.Tag) {
+                const tag = aggregation.entity as Tag;
+                displayNames[value] = tag.properties?.name || tag.name || value;
+            } else if (category === 'owners' && aggregation.entity) {
+                const owner = aggregation.entity as typeof aggregation.entity & {
+                    info?: { displayName?: string; fullName?: string };
+                    properties?: { displayName?: string };
+                    username?: string;
+                    name?: string;
+                };
+                displayNames[value] =
+                    owner.info?.displayName ||
+                    owner.info?.fullName ||
+                    owner.properties?.displayName ||
+                    owner.username ||
+                    owner.name ||
+                    value;
+            }
+        });
+        buildFilterOptions(category, counts, filterOptions, displayNames);
+    });
+
+    ASSERTION_INFO.map((item) => item.type)
+        .filter((type) => !filterOptions.filterGroupOptions.type.some((item) => item.name === type))
+        .forEach((type) => buildFilterOptions('type', { [type]: 0 }, filterOptions));
+    CORE_STATUSES.filter(
+        (status) => !filterOptions.filterGroupOptions.status.some((item) => item.name === status),
+    ).forEach((status) => buildFilterOptions('status', { [status]: 0 }, filterOptions));
+    ASSERTION_SOURCES.filter(
+        (source) => !filterOptions.filterGroupOptions.source.some((item) => item.name === source),
+    ).forEach((source) => buildFilterOptions('source', { [source]: 0 }, filterOptions));
+
     return filterOptions;
 };
 
@@ -357,19 +478,20 @@ const groupColumnAssertions = (assertions: Assertion[]): AssertionColumnGroup[] 
     const columnIdGroups: AssertionColumnGroup[] = [];
     const columnIdToAssertionMap = new Map<string, Assertion[]>();
     assertions.forEach((assertion: Assertion) => {
-        const columnId = getColumnIdFromAssertion(assertion);
-        if (columnId) {
+        // Add assertion to each column group it belongs to (multi-column Custom assertions
+        // appear under every referenced column).
+        getColumnIdsFromAssertion(assertion).forEach((columnId) => {
             const columnAssertions = columnIdToAssertionMap.get(columnId) || [];
             columnAssertions.push(assertion);
             columnIdToAssertionMap.set(columnId, columnAssertions);
-        }
+        });
     });
 
     // transform columnIds group data into table render Row
     columnIdToAssertionMap.forEach((columnAssertions: Assertion[], columnId: string) => {
         const assertionColumnGroup: AssertionColumnGroup = {
             name: columnId,
-            assertions: mapAssertionData(columnAssertions),
+            assertions: mapAssertionDataToTableProperties(columnAssertions),
         };
         columnIdGroups.push(assertionColumnGroup);
     });
@@ -381,15 +503,16 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     const assertionRawData: AssertionTable = {
         ...ASSERTION_DEFAULT_RAW_DATA,
     };
-    assertionRawData.assertions = mapAssertionData(filteredAssertions);
+    assertionRawData.assertions = mapAssertionDataToTableProperties(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
-    // separate out column assertion list for filter
-    const columnTypeAssertions =
-        assertionRawData.groupBy.type?.find((item) => item.type === AssertionType.Field)?.assertions || [];
+    // Column grouping: Field, Custom, and legacy Dataset assertions that target columns
+    const columnTypeAssertions = filteredAssertions.filter(
+        (assertion) => getColumnIdsFromAssertion(assertion).length > 0,
+    );
 
     assertionRawData.groupBy.type?.forEach((item) => {
-        const transformedData = mapAssertionData(item.assertions);
+        const transformedData = mapAssertionDataToTableProperties(item.assertions);
         // eslint-disable-next-line  no-param-reassign
         item.assertions = transformedData;
         // eslint-disable-next-line  no-param-reassign
@@ -402,16 +525,32 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     return assertionRawData;
 };
 
+/**
+ * Type filter matching. `getAssertionType` prefers `customAssertion.type` (provider key),
+ * so selecting Custom must also match any assertion whose top-level type is CUSTOM.
+ */
+export const assertionMatchesTypeFilter = (assertion: Assertion, selectedTypes: AssertionType[]): boolean => {
+    if (selectedTypes.length === 0) {
+        return true;
+    }
+    const resolvedType = getAssertionType(assertion) as AssertionType;
+    if (selectedTypes.includes(resolvedType)) {
+        return true;
+    }
+    return selectedTypes.includes(AssertionType.Custom) && assertion.info?.type === AssertionType.Custom;
+};
+
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
     const { type, status, source, column } = filter.filterCriteria;
 
     // Apply type, status, and other filters
     return assertions.filter((assertion: Assertion) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
-        const columnId = getColumnIdFromAssertion(assertion) || '';
-        const matchesType = type.length === 0 || type.includes(getAssertionType(assertion) as AssertionType);
+        const columnIds = getColumnIdsFromAssertion(assertion);
+        const matchesType = assertionMatchesTypeFilter(assertion, type);
         const matchesStatus = status.length === 0 || status.includes(resultType);
-        const matchesColumn = column.length === 0 || column.includes(columnId);
+        // Match if ANY of the assertion's columns is in the filter
+        const matchesColumn = column.length === 0 || columnIds.some((id) => column.includes(id));
         const matchesOthers =
             source.length === 0 ||
             source.includes(assertion.info?.source?.type as AssertionSourceType) ||
@@ -427,7 +566,7 @@ const fuse = new Fuse<AssertionWithDescription>([], {
     threshold: 0.4,
 });
 
-/** Return return filter assertion as per selected type status and other things
+/** Return filter assertion as per selected type status and other things
  * it returns transformated into
  * 1. group of assertions as per type , status
  * 2. Transform data into {@link AssertionListTableRow }  data

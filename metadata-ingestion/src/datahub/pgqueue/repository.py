@@ -208,11 +208,29 @@ class PgQueueRepository:
             self._topic_row_by_name[topic_name] = parsed
             return parsed
 
-    def _ensure_mime_registered(self, conn: PGConnection, mime: str) -> int:
-        """Resolve MIME to catalog id without burning smallint identity on existing MIME rows."""
+    def _ensure_mime_registered(
+        self,
+        conn: PGConnection,
+        mime: str,
+        tx_content_types: Optional[Dict[str, int]] = None,
+    ) -> int:
+        """Resolve MIME to catalog id.
+
+        Lookup first; ``INSERT … ON CONFLICT DO NOTHING`` keeps the transaction
+        valid under concurrent registration (plain INSERT + catch would abort it).
+        Identity may still advance on concurrent first-time inserts of a new MIME.
+
+        IDs from the DB are stored only in ``tx_content_types`` until the surrounding
+        transaction commits. Publishing to the process-wide cache earlier would let
+        concurrent transactions use an uncommitted FK target.
+        """
         cached = self._content_type_id_by_mime.get(mime)
         if cached is not None:
             return cached
+        if tx_content_types is not None:
+            tx_cached = tx_content_types.get(mime)
+            if tx_cached is not None:
+                return tx_cached
         with conn.cursor() as cur:
             cur.execute(
                 f"SELECT id FROM {self._content_type} WHERE mime = %s",
@@ -221,7 +239,11 @@ class PgQueueRepository:
             row = cur.fetchone()
             if row is not None:
                 cid = int(row[0])
-                self._content_type_id_by_mime[mime] = cid
+                if tx_content_types is not None:
+                    tx_content_types[mime] = cid
+                else:
+                    # Standalone callers (tests / no open multi-statement TX): safe to cache.
+                    self._content_type_id_by_mime[mime] = cid
                 return cid
             cur.execute(
                 f"INSERT INTO {self._content_type} (mime) VALUES (%s) "
@@ -235,8 +257,15 @@ class PgQueueRepository:
             row = cur.fetchone()
             assert row is not None
             cid = int(row[0])
-            self._content_type_id_by_mime[mime] = cid
+            if tx_content_types is not None:
+                tx_content_types[mime] = cid
+            else:
+                self._content_type_id_by_mime[mime] = cid
             return cid
+
+    def _publish_content_type_cache(self, tx_content_types: Dict[str, int]) -> None:
+        if tx_content_types:
+            self._content_type_id_by_mime.update(tx_content_types)
 
     def ensure_topic(
         self,
@@ -248,10 +277,11 @@ class PgQueueRepository:
         max_total_payload_bytes: int,
         default_content_type_mime: Optional[str] = None,
         aggressive_retention: bool = False,
+        tx_content_types: Optional[Dict[str, int]] = None,
     ) -> int:
         """Upsert topic catalog row and return ``topic_id``."""
         mime = default_content_type_mime or "application/avro"
-        default_ct_id = self._ensure_mime_registered(conn, mime)
+        default_ct_id = self._ensure_mime_registered(conn, mime, tx_content_types)
         with conn.cursor() as cur:
             cur.execute(
                 f"""
@@ -297,10 +327,11 @@ class PgQueueRepository:
         conn: PGConnection,
         topic_default_id: Optional[int],
         content_type: Optional[str],
+        tx_content_types: Optional[Dict[str, int]] = None,
     ) -> Optional[int]:
         if not content_type:
             return None
-        cid = self._ensure_mime_registered(conn, content_type)
+        cid = self._ensure_mime_registered(conn, content_type, tx_content_types)
         if topic_default_id is not None and topic_default_id == cid:
             return None
         return cid
@@ -316,6 +347,7 @@ class PgQueueRepository:
         content_type: Optional[str],
         headers: Sequence[Tuple[str, bytes]],
         payload_compression: int = 0,
+        tx_content_types: Optional[Dict[str, int]] = None,
     ) -> PgQueueMessageHandle:
         """Insert one row inside the caller's open transaction (no commit)."""
         topic_id, pc, topic_default_ct_id = topic_row
@@ -323,7 +355,7 @@ class PgQueueRepository:
             raise ValueError(f"priority {priority} out of range [0, 9]")
         partition_id = stable_partition_id(routing_key, pc)
         stored_ct_id = self._compute_stored_content_type_id(
-            conn, topic_default_ct_id, content_type
+            conn, topic_default_ct_id, content_type, tx_content_types
         )
 
         lock_k = advisory_lock_key(topic_id, partition_id)
@@ -391,6 +423,7 @@ class PgQueueRepository:
         flush_pg_connection(conn)
         old_autocommit = conn.autocommit
         conn.autocommit = False
+        tx_content_types: Dict[str, int] = {}
         try:
             self.ensure_topic(
                 conn,
@@ -401,6 +434,7 @@ class PgQueueRepository:
                 max_total_payload_bytes,
                 default_content_type_mime=default_content_type_mime,
                 aggressive_retention=aggressive_retention,
+                tx_content_types=tx_content_types,
             )
             topic_row = self._get_topic_row(conn, topic_name)
             handle = self._enqueue_message_in_transaction(
@@ -412,8 +446,10 @@ class PgQueueRepository:
                 content_type=content_type,
                 headers=headers,
                 payload_compression=payload_compression,
+                tx_content_types=tx_content_types,
             )
             conn.commit()
+            self._publish_content_type_cache(tx_content_types)
             return handle
         except Exception:
             conn.rollback()
@@ -439,6 +475,7 @@ class PgQueueRepository:
         flush_pg_connection(conn)
         old_autocommit = conn.autocommit
         conn.autocommit = False
+        tx_content_types: Dict[str, int] = {}
         try:
             handles: List[PgQueueMessageHandle] = []
             topic_rows_in_batch: Dict[str, TopicRow] = {}
@@ -454,6 +491,7 @@ class PgQueueRepository:
                         max_total_payload_bytes,
                         default_content_type_mime=default_content_type_mime,
                         aggressive_retention=aggressive_retention,
+                        tx_content_types=tx_content_types,
                     )
                     topic_row = self._get_topic_row(conn, it.topic_name)
                     topic_rows_in_batch[it.topic_name] = topic_row
@@ -467,9 +505,11 @@ class PgQueueRepository:
                         content_type=it.content_type,
                         headers=it.headers,
                         payload_compression=it.payload_compression,
+                        tx_content_types=tx_content_types,
                     )
                 )
             conn.commit()
+            self._publish_content_type_cache(tx_content_types)
             return handles
         except Exception:
             conn.rollback()

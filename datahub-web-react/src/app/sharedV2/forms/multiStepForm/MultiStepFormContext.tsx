@@ -1,6 +1,6 @@
+import deepmerge from 'deepmerge';
 import deepEqual from 'fast-deep-equal';
 import React, { useCallback, useMemo, useState } from 'react';
-import { deepMerge } from 'remirror';
 
 import {
     MultiStepFormContextType,
@@ -76,7 +76,12 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     const totalSteps = useMemo(() => steps.length, [steps]);
 
     const updateState = useCallback((newState: Partial<TState>) => {
-        setState((currentState) => deepMerge(currentState ?? {}, newState));
+        // arrayMerge replaces rather than concatenates, matching the previous hand-rolled behaviour.
+        setState((currentState) =>
+            deepmerge<TState>(currentState ?? ({} as TState), newState as TState, {
+                arrayMerge: (_, source) => source,
+            }),
+        );
     }, []);
 
     const [currentStepIndex, setCurrentStepIndex] = useState<number>(initialStepIndex);

@@ -5,8 +5,8 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.usage.instrumentation.UsageMetadataChangeProposalEnricher;
 import com.linkedin.metadata.utils.arch.OperationContextExempt;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -89,7 +89,15 @@ public abstract class EventProducer {
    * MetadataChangeProposal}), mirroring {@link #produceFailedMetadataChangeProposalAsync}.
    */
   @WithSpan
-  public abstract Future<?> produceMetadataChangeProposal(
+  public final Future<?> produceMetadataChangeProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull MetadataChangeProposal metadataChangeProposal) {
+    UsageMetadataChangeProposalEnricher.enrich(opContext, metadataChangeProposal);
+    return doProduceMetadataChangeProposal(opContext, urn, metadataChangeProposal);
+  }
+
+  protected abstract Future<?> doProduceMetadataChangeProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal);
@@ -152,14 +160,4 @@ public abstract class EventProducer {
 
   @OperationContextExempt(reason = "Pure topic-name lookup; no per-event context needed.")
   public abstract String getPlatformEventTopicName();
-
-  /**
-   * Creates an entry on the history log of when the indices were last rebuilt with the latest
-   * configuration.
-   *
-   * @param opContext per-event operation context.
-   * @param event the history event to send to the DataHub Upgrade history topic
-   */
-  public abstract void produceDataHubUpgradeHistoryEvent(
-      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event);
 }

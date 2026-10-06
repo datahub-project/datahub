@@ -6,7 +6,6 @@ import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -149,7 +148,7 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
   }
 
   @Override
-  public Future<?> produceMetadataChangeProposal(
+  protected Future<?> doProduceMetadataChangeProposal(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal) {
@@ -185,12 +184,6 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
   @Override
   public String getPlatformEventTopicName() {
     return "no-op-platform-topic";
-  }
-
-  @Override
-  public void produceDataHubUpgradeHistoryEvent(
-      @Nonnull final OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event) {
-    log.debug("NoOpKafkaEventProducer: Skipping DataHub upgrade history event production");
   }
 
   @Override

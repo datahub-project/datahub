@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -199,9 +200,12 @@ public final class IncrementalReindexState {
       @Nonnull String indexName,
       @Nullable IndexConvention indexConvention,
       boolean rollbackDualWriteEnabled) {
+    // This static upgrade-state utility has no OperationContext available from its callers
+    // (e.g. CleanIndicesStep); the index naming convention resolves to the deploy-wide prefix
+    // regardless of caller context.
     return rollbackDualWriteEnabled
         && indexConvention != null
-        && indexConvention.getEntityName(indexName).isPresent();
+        && indexConvention.getEntityName(OperationFingerprint.EMPTY, indexName).isPresent();
   }
 
   private static boolean hasEmptyCatchUpWindow(@Nonnull Map<String, String> indexState) {
@@ -243,11 +247,29 @@ public final class IncrementalReindexState {
     return result;
   }
 
-  /** Record Phase 1 completion time. */
+  /**
+   * Record Phase 1 reindex (data copy) completion time. Deliberately does NOT change the status:
+   * the index stays {@link Status#IN_PROGRESS} until the alias swap actually succeeds, at which
+   * point {@link #setPhase1Completed} flips it to {@link Status#COMPLETED}. Marking COMPLETED here
+   * (before the swap) makes a failed swap unrecoverable — a resumed run would hit the "already
+   * COMPLETED, skipping" branch and silently succeed while the alias still points at the stale
+   * index, instead of retrying the swap.
+   */
   public static Map<String, String> setReindexCompleteTime(
       @Nonnull Map<String, String> existing, @Nonnull String indexName, long completeTime) {
     Map<String, String> result = new HashMap<>(existing);
     result.put(key(indexName, REINDEX_COMPLETE_TIME), String.valueOf(completeTime));
+    return result;
+  }
+
+  /**
+   * Mark Phase 1 fully complete for an index. Must be called ONLY after the alias swap has
+   * succeeded. A failed swap must leave the index {@link Status#IN_PROGRESS} so a resumed run
+   * re-polls and retries the swap rather than skipping the index.
+   */
+  public static Map<String, String> setPhase1Completed(
+      @Nonnull Map<String, String> existing, @Nonnull String indexName) {
+    Map<String, String> result = new HashMap<>(existing);
     result.put(key(indexName, STATUS), Status.COMPLETED.name());
     return result;
   }

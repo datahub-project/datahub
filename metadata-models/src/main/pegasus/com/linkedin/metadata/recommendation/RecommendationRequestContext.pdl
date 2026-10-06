@@ -11,6 +11,13 @@ record RecommendationRequestContext {
   scenario: ScenarioType
 
   /**
+   * List of recommendation modules to fetch.
+   * When set, acts as an additional filter to selectively load modules for a given scenario.
+   * Does NOT take precedence over scenario.
+   */
+  modules: optional array[RecommendationModuleID]
+
+  /**
    * Additional context for defining the search page requesting recommendations
    */
   searchRequestContext: optional SearchRequestContext

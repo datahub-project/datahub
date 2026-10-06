@@ -250,8 +250,9 @@ public class CreateIngestionExecutionRequestResolverTest {
     Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));
     String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
 
-    com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource(url, 3600);
+    com.linkedin.metadata.ingestion.PollingIngestionCliVersionMatrixSource httpSource =
+        new com.linkedin.metadata.ingestion.PollingIngestionCliVersionMatrixSource(
+            new com.linkedin.metadata.ingestion.HttpMatrixDocumentReader(url), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, serverVersion, null);
 

@@ -20,11 +20,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
-    SemanticModelDimension,
-    SemanticModelEntity,
-    SemanticModelMeasure,
     convert_semantic_model_fields_to_columns,
     get_column_type,
+    parse_semantic_model,
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -42,6 +40,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
     make_assertion_from_freshness,
+    make_assertion_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
@@ -51,8 +50,11 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -114,6 +116,71 @@ def create_base_dbt_config() -> Dict:
             "enable_meta_mapping": False,
         },
     )
+
+
+def _make_sql_model_node(
+    *,
+    compiled_code: Optional[str] = "select 1 as id",
+) -> DBTNode:
+    return DBTNode(
+        database="test_db",
+        schema="test_schema",
+        name="my_model",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code="select 1 as id",
+        dbt_adapter="postgres",
+        dbt_name="model.package.my_model",
+        dbt_file_path="models/my_model.sql",
+        dbt_package_name="package",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=compiled_code,
+    )
+
+
+def test_create_view_properties_includes_compiled_code() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is not None
+    assert "select" in aspect.formattedViewLogic.lower()
+    assert aspect.materialized is True
+
+
+def test_create_view_properties_skips_compiled_code_when_missing() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(
+        _make_sql_model_node(compiled_code=None)
+    )
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
+
+
+def test_create_view_properties_respects_include_compiled_code_false() -> None:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **{
+            **create_base_dbt_config(),
+            "include_compiled_code": False,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
 
 
 def test_dbt_source_patching_no_new():
@@ -2051,6 +2118,63 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
 
 
+def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="not_null_id",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.test.not_null_id",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = DBTTest(
+        qualified_test_name="not_null",
+        column_name="id",
+        kw_args={"column_name": "id"},
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.users,PROD)"
+    field_urn = f"urn:li:schemaField:({upstream_urn},id)"
+
+    mcp = make_assertion_from_test(
+        {"dbt_unique_id": node.dbt_name},
+        node,
+        "urn:li:assertion:test",
+        upstream_urn,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.datasetAssertion is None
+    assert mcp.aspect.customAssertion is not None
+    assert mcp.aspect.customAssertion.type == "dbt"
+    assert mcp.aspect.customAssertion.entity == upstream_urn
+    assert mcp.aspect.customAssertion.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert mcp.aspect.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    assert (
+        mcp.aspect.customAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+    )
+    assert mcp.aspect.customAssertion.field == field_urn
+    assert mcp.aspect.customAssertion.fields == [field_urn]
+    assert mcp.aspect.customAssertion.nativeType == "not_null_id"
+    assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+
+
 @pytest.mark.parametrize(
     ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
@@ -2576,80 +2700,6 @@ def test_create_exposure_mcps_with_strip_user_ids_from_email():
     assert ownership_mcp.aspect.owners[0].owner == "urn:li:corpuser:analytics"
 
 
-def test_has_glob_characters():
-    from datahub.ingestion.source.dbt.dbt_core import _has_glob_characters
-
-    assert _has_glob_characters("s3://bucket/results/*/run_results.json")
-    assert _has_glob_characters("s3://bucket/results/?/run_results.json")
-    assert _has_glob_characters("/local/path/[abc]/file.json")
-    assert not _has_glob_characters("s3://bucket/results/run_results.json")
-    assert not _has_glob_characters("/simple/path/file.json")
-
-
-def test_expand_s3_glob():
-    s3_objects = [
-        {"Key": "results/model_a/run_results.json"},
-        {"Key": "results/model_b/run_results.json"},
-        {"Key": "results/model_c/run_results.json"},
-        {"Key": "results/model_a/manifest.json"},
-        {"Key": "results/other_file.json"},
-    ]
-
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": s3_objects}]
-
-    result = DBTCoreSource._expand_object_store_glob(
-        "s3://my-bucket/results/*/run_results.json", mock_aws, "s3"
-    )
-
-    assert result == [
-        "s3://my-bucket/results/model_a/run_results.json",
-        "s3://my-bucket/results/model_b/run_results.json",
-        "s3://my-bucket/results/model_c/run_results.json",
-    ]
-
-    mock_s3_client.get_paginator.assert_called_once_with("list_objects_v2")
-    mock_paginator.paginate.assert_called_once_with(
-        Bucket="my-bucket", Prefix="results/"
-    )
-
-
-def test_expand_s3_glob_no_matches():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": []}]
-
-    result = DBTCoreSource._expand_object_store_glob(
-        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws, "s3"
-    )
-
-    assert result == []
-
-
-def test_expand_s3_glob_prefix_calculation():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": []}]
-
-    DBTCoreSource._expand_object_store_glob(
-        "s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws, "s3"
-    )
-    mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="a/b/c/")
-
-
 def test_expand_run_results_paths_plain_paths():
     source = create_mocked_dbt_source()
     source.config.run_results_paths = [
@@ -2771,99 +2821,6 @@ def test_run_results_s3_glob_valid_config():
     assert config.run_results_paths == ["s3://bucket/results/*/run_results.json"]
 
 
-def test_expand_s3_glob_multiple_pages():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [
-        {"Contents": [{"Key": "results/model_a/run_results.json"}]},
-        {"Contents": [{"Key": "results/model_b/run_results.json"}]},
-        {"Contents": [{"Key": "results/model_c/run_results.json"}]},
-    ]
-
-    result = DBTCoreSource._expand_object_store_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws, "s3"
-    )
-    assert result == [
-        "s3://bucket/results/model_a/run_results.json",
-        "s3://bucket/results/model_b/run_results.json",
-        "s3://bucket/results/model_c/run_results.json",
-    ]
-
-
-def test_expand_s3_glob_wildcard_at_root():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [
-        {
-            "Contents": [
-                {"Key": "run_results_a.json"},
-                {"Key": "run_results_b.json"},
-                {"Key": "other.txt"},
-            ]
-        }
-    ]
-
-    result = DBTCoreSource._expand_object_store_glob(
-        "s3://bucket/run_results_*.json", mock_aws, "s3"
-    )
-    mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="")
-    assert result == [
-        "s3://bucket/run_results_a.json",
-        "s3://bucket/run_results_b.json",
-    ]
-
-
-def test_expand_s3_glob_client_error():
-    from botocore.exceptions import ClientError
-
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.side_effect = ClientError(
-        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
-        "ListObjectsV2",
-    )
-
-    with pytest.raises(ClientError, match="Access Denied"):
-        DBTCoreSource._expand_object_store_glob(
-            "s3://bucket/results/*/run_results.json", mock_aws, "s3"
-        )
-
-
-def test_expand_s3_glob_no_cross_slash_matching():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [
-        {
-            "Contents": [
-                {"Key": "results/a/run_results.json"},
-                {"Key": "results/a/b/run_results.json"},
-                {"Key": "results/a/b/c/run_results.json"},
-            ]
-        }
-    ]
-
-    result = DBTCoreSource._expand_object_store_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws, "s3"
-    )
-    assert result == ["s3://bucket/results/a/run_results.json"]
-
-
 def test_expand_run_results_paths_s3_error_reports_failure():
     from botocore.exceptions import ClientError
 
@@ -2885,7 +2842,7 @@ def test_expand_run_results_paths_s3_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("S3 glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_aws_connection():
@@ -2897,7 +2854,7 @@ def test_expand_run_results_paths_missing_aws_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing AWS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def _make_dbt_node(dbt_name, node_type="model", **overrides):
@@ -3081,6 +3038,36 @@ def test_load_run_results_failed_test():
     assert tr.native_results["failures"] == "3"
 
 
+def test_load_run_results_skipped_test_has_no_result():
+    # A skipped test (e.g. an upstream model failed in `dbt build`) never ran,
+    # so it must not be reported as an assertion failure. Matches dbt Cloud.
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-004",
+        },
+        "results": [
+            {
+                "unique_id": "test.project.skipped_test",
+                "status": "skipped",
+                "message": None,
+                "failures": None,
+                "timing": [],
+            },
+        ],
+    }
+    test_node = _make_dbt_node("test.project.skipped_test", node_type="test")
+    test_node.test_info = DBTTest(
+        qualified_test_name="dbt_utils.skipped_test", column_name=None, kw_args={}
+    )
+
+    load_run_results(mock.MagicMock(), run_results_json, [test_node])
+
+    assert test_node.test_results == []
+
+
 def test_load_run_results_unknown_node_skipped():
     run_results_json = {
         "metadata": {
@@ -3191,35 +3178,6 @@ def test_load_file_as_json_gcs():
     )
 
 
-def test_expand_object_store_glob_gcs():
-    gcs_objects = [
-        {"Key": "dbt/model_a/run_results.json"},
-        {"Key": "dbt/model_b/run_results.json"},
-        {"Key": "dbt/model_b/manifest.json"},
-    ]
-
-    mock_conn = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_conn.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": gcs_objects}]
-
-    result = DBTCoreSource._expand_object_store_glob(
-        "gs://my-gcs-bucket/dbt/*/run_results.json", mock_conn, "gs"
-    )
-
-    assert result == [
-        "gs://my-gcs-bucket/dbt/model_a/run_results.json",
-        "gs://my-gcs-bucket/dbt/model_b/run_results.json",
-    ]
-    mock_s3_client.get_paginator.assert_called_once_with("list_objects_v2")
-    mock_paginator.paginate.assert_called_once_with(
-        Bucket="my-gcs-bucket", Prefix="dbt/"
-    )
-
-
 def test_expand_run_results_paths_gcs_glob():
     source = create_mocked_dbt_source()
     source.config.run_results_paths = [
@@ -3273,7 +3231,7 @@ def test_expand_run_results_paths_gcs_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("GCS glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_gcs_connection():
@@ -3285,7 +3243,7 @@ def test_expand_run_results_paths_missing_gcs_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing GCS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def test_gcs_connection_config_builds_s3_compatible():
@@ -3544,20 +3502,36 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
 
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "order_id", "type": "primary", "description": "Primary order key"},
-        {"name": "customer_id", "type": "foreign", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "order_date", "type": "time", "description": "When order was placed"},
-        {"name": "status", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
-        {"name": "order_count", "agg": "count", "description": ""},
-    ]
+    definition = parse_semantic_model(
+        {
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "description": "Primary order key",
+                },
+                {"name": "customer_id", "type": "foreign", "description": ""},
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "description": "When order was placed",
+                },
+                {"name": "status", "type": "categorical", "description": ""},
+            ],
+            "measures": [
+                {
+                    "name": "total_revenue",
+                    "agg": "sum",
+                    "description": "Sum of order amounts",
+                },
+                {"name": "order_count", "agg": "count", "description": ""},
+            ],
+        }
+    ).definition
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 6
 
@@ -3580,17 +3554,17 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
 def test_convert_semantic_model_fields_empty_descriptions():
     """Test default description generation when descriptions are empty."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "id", "type": "primary", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "category", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total", "agg": "sum", "description": ""},
-    ]
+    definition = parse_semantic_model(
+        {
+            "entities": [{"name": "id", "type": "primary", "description": ""}],
+            "dimensions": [
+                {"name": "category", "type": "categorical", "description": ""}
+            ],
+            "measures": [{"name": "total", "agg": "sum", "description": ""}],
+        }
+    ).definition
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 3
 
@@ -3645,6 +3619,134 @@ def test_extract_semantic_models_partial_node_relation():
     assert node.dbt_adapter == "snowflake"
 
 
+def _make_semantic_model_node(
+    *,
+    dbt_name: str = "semantic_model.my_project.order_metrics",
+    name: str = "order_metrics",
+    database: Optional[str] = "analytics",
+    schema: Optional[str] = "public",
+    convert_urns_to_lowercase: bool = False,
+) -> DBTNode:
+    return DBTNode(
+        database=database,
+        schema=schema,
+        name=name,
+        alias=name,
+        dbt_name=dbt_name,
+        dbt_adapter="postgres",
+        node_type="semantic_model",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="",
+        dbt_file_path="models/semantic_models/order_metrics.yml",
+        catalog_type=None,
+        language="yaml",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner=None,
+        convert_urns_to_lowercase=convert_urns_to_lowercase,
+    )
+
+
+def test_semantic_model_urn_does_not_collide_with_its_model() -> None:
+    """dbt's documented convention names a semantic model after the model it sits on.
+
+    Both used to resolve to <database>.<schema>.<name>, so the semantic model - emitted
+    last - silently overwrote the model's schema, subtype and properties.
+    """
+    model = DBTNode(
+        database="pagila",
+        schema="public",
+        name="orders",
+        alias="orders",
+        dbt_name="model.my_project.orders",
+        dbt_adapter="postgres",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        comment="",
+        description="",
+        dbt_file_path="models/orders.sql",
+        catalog_type="table",
+        language="sql",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+    semantic_model = _make_semantic_model_node(
+        dbt_name="semantic_model.my_project.orders",
+        name="orders",
+        database="pagila",
+        schema="public",
+    )
+
+    assert model.get_urn("dbt", "PROD", None) != semantic_model.get_urn(
+        "dbt", "PROD", None
+    )
+    assert semantic_model.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.my_project.orders,PROD)"
+    )
+
+
+def test_semantic_model_urn_uses_dbt_unique_id() -> None:
+    """The name is dbt's own unique id, as it already is for exposures."""
+    assert _make_semantic_model_node().get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_urn_is_independent_of_database_and_schema() -> None:
+    """dbt Cloud's Discovery API returns neither, and dbt Core derives them from the
+    first upstream node it finds - so neither may take part in the identity."""
+    with_warehouse_address = _make_semantic_model_node()
+    without_warehouse_address = _make_semantic_model_node(database=None, schema=None)
+    moved_to_another_schema = _make_semantic_model_node(schema="staging")
+
+    urn = with_warehouse_address.get_urn("dbt", "PROD", None)
+    assert without_warehouse_address.get_urn("dbt", "PROD", None) == urn
+    assert moved_to_another_schema.get_urn("dbt", "PROD", None) == urn
+
+
+def test_semantic_model_urn_with_platform_instance() -> None:
+    """The instance is prefixed by the urn builder, not baked into the name."""
+    assert _make_semantic_model_node().get_urn("dbt", "PROD", "my_instance") == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "my_instance.semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_urn_respects_convert_urns_to_lowercase() -> None:
+    node = _make_semantic_model_node(
+        dbt_name="semantic_model.My_Project.Order_Metrics",
+        convert_urns_to_lowercase=True,
+    )
+    assert node.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_does_not_exist_in_target_platform() -> None:
+    assert _make_semantic_model_node().exists_in_target_platform is False
+
+
+def test_materialized_node_pattern_does_not_filter_semantic_models() -> None:
+    """A semantic model has no materialized location, so the borrowed database/schema
+    of the model it sits on must not decide whether it is ingested."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **create_base_dbt_config(),
+        materialized_node_pattern={"database_pattern": {"deny": ["analytics"]}},
+    )
+    source = DBTCoreSource(config, ctx)
+
+    assert source._is_allowed_materialized_node(_make_semantic_model_node()) is True
+
+
 def test_dbt_semantic_model_subtype() -> None:
     """Test that semantic models get the correct SEMANTIC_MODEL subtype."""
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
@@ -3674,7 +3776,7 @@ def test_dbt_semantic_model_subtype() -> None:
 
     subtype_wu = source._create_subType_wu(
         semantic_model_node,
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.public.order_metrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.my_project.order_metrics,PROD)",
     )
 
     assert subtype_wu is not None
@@ -3707,7 +3809,10 @@ def test_extract_semantic_models_basic():
                 {"name": "revenue", "agg": "sum", "description": "Total revenue"}
             ],
             "tags": ["metrics", "orders"],
-            "meta": {"team": "analytics"},
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@data-team"},
+            },
             "original_file_path": "models/semantic_models/order_metrics.yml",
         }
     }
@@ -3749,6 +3854,61 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # Check meta is read from config.meta
+    assert node.meta == {"team": "analytics", "owner": "@data-team"}
+    assert node.owner == "@data-team"
+
+
+def test_extract_semantic_models_config_meta():
+    """Test that meta is read from config.meta (not top-level) matching real dbt manifests."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.revenue_metrics": {
+            "name": "revenue_metrics",
+            "description": "Revenue metrics",
+            "node_relation": {
+                "database": "analytics",
+                "schema": "public",
+                "alias": "revenue_metrics",
+            },
+            "depends_on": {"nodes": ["model.my_project.fct_revenue"]},
+            "entities": [
+                {"name": "order_id", "type": "primary", "description": "Primary key"}
+            ],
+            "dimensions": [],
+            "measures": [
+                {"name": "total_revenue", "agg": "sum", "description": "Total revenue"}
+            ],
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@alice"},
+            },
+            "original_file_path": "models/semantic_models/revenue_metrics.yml",
+            "package_name": "my_project",
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.fct_revenue": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "fct_revenue",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.meta == {"team": "analytics", "owner": "@alice"}
+    assert node.owner == "@alice"
+    assert node.tags == []
 
 
 def test_extract_semantic_models_fallback_to_depends_on():
@@ -3922,11 +4082,24 @@ def test_dbt_cloud_parse_semantic_model_node():
     assert node.language == "yaml"
     assert len(node.columns) == 3
 
+    # The urn comes from dbt's unique id, so it is well-defined even though the
+    # Discovery API gives us no database or schema to build a warehouse address from.
+    assert node.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
     # Verify columns were converted correctly
     column_names = [c.name for c in node.columns]
     assert "order_id" in column_names
     assert "order_date" in column_names
     assert "total_revenue" in column_names
+
+    # The typed definition is kept alongside the flattened columns, read from
+    # the Discovery API's camelCase keys.
+    assert node.semantic_model_def is not None
+    assert node.semantic_model_def.entities[0].is_key
+    assert node.semantic_model_def.measures[0].create_metric
 
 
 def test_dbt_cloud_semantic_model_column_types():
@@ -4627,3 +4800,16 @@ def test_skip_missing_upstreams_filters_cll():
     assert not any(missing_urn in u for u in cll_upstream_urns), (
         "CLL still references the missing upstream — ghost node would still be created"
     )
+
+
+def test_load_file_as_json_handles_utf8_bom():
+    # A manifest served with a UTF-8 BOM used to parse via requests.json(); the
+    # object-store extraction must keep parsing it rather than choking on the BOM.
+    payload = b"\xef\xbb\xbf" + b'{"nodes": {}}'
+    with mock.patch(
+        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        return_value=payload,
+    ):
+        assert DBTCoreSource.load_file_as_json(
+            "https://example.com/manifest.json", None
+        ) == {"nodes": {}}

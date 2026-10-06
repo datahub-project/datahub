@@ -4,12 +4,15 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -109,6 +112,17 @@ public class AutocompleteRequestHandlerTest {
                     .build())
             .build();
   }
+
+  private static final ElasticSearchConfiguration TEST_V3_QUERY_CONFIG =
+      testQueryConfig.toBuilder()
+          .entityIndex(
+              V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
+                  .v3(
+                      V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
+                          .keywordReadEnabled(true)
+                          .build())
+                  .build())
+          .build();
 
   @BeforeClass
   public void beforeTest() {
@@ -636,6 +650,98 @@ public class AutocompleteRequestHandlerTest {
             .collect(Collectors.toList());
 
     assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
+  }
+
+  /**
+   * V3 autocompletes and highlights with the same query as V2; only the entity type filter values
+   * change. This pins parity with V2, not the V2 subfields the query reads today.
+   */
+  @Test
+  public void testV3AutocompleteUsesV2Query() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive"),
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
+    SearchSourceBuilder v2 = getDatasetAutocompleteSource(testQueryConfig, filter);
+    SearchSourceBuilder v3 = getDatasetAutocompleteSource(TEST_V3_QUERY_CONFIG, filter);
+
+    QueryBuilder v3Autocomplete =
+        extractNestedQuery((BoolQueryBuilder) ((FunctionScoreQueryBuilder) v3.query()).query());
+    assertEquals(
+        v3Autocomplete,
+        extractNestedQuery((BoolQueryBuilder) ((FunctionScoreQueryBuilder) v2.query()).query()));
+    assertEquals(v3.highlighter(), v2.highlighter());
+
+    // Filters read the V2 .keyword subfield; V3 stores the registry entity name in _entityType
+    String v3Query = v3.query().toString();
+    assertTrue(v3Query.contains("platform.keyword"), v3Query);
+    assertTrue(v3Query.contains("\"dataProduct\""), v3Query);
+    assertFalse(v3Query.contains("DATA_PRODUCT"), v3Query);
+  }
+
+  /** A handler built for V2 first must not be reused when V3 keyword read is requested. */
+  @Test
+  public void testGetBuilderKeepsV2AndV3HandlersApart() {
+    AutocompleteRequestHandler v2Handler = getCachedDatasetHandler(testQueryConfig);
+    AutocompleteRequestHandler v3Handler = getCachedDatasetHandler(TEST_V3_QUERY_CONFIG);
+    assertNotSame(v3Handler, v2Handler);
+    assertSame(getCachedDatasetHandler(TEST_V3_QUERY_CONFIG), v3Handler);
+
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
+    String v3Query =
+        v3Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, filter, 10)
+            .source()
+            .query()
+            .toString();
+    String v2Query =
+        v2Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, filter, 10)
+            .source()
+            .query()
+            .toString();
+    // Only the V3 handler maps entity type values to registry names and scopes to its entity
+    assertTrue(v3Query.contains("\"dataProduct\""), v3Query);
+    assertTrue(v3Query.contains("\"dataset\""), v3Query);
+    assertTrue(v2Query.contains("\"DATA_PRODUCT\""), v2Query);
+    assertFalse(v2Query.contains("\"dataset\""), v2Query);
+  }
+
+  private AutocompleteRequestHandler getCachedDatasetHandler(
+      ElasticSearchConfiguration searchConfiguration) {
+    return AutocompleteRequestHandler.getBuilder(
+        nonMockOpContext,
+        nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+        CustomSearchConfiguration.builder().build(),
+        QueryFilterRewriteChain.EMPTY,
+        searchConfiguration,
+        TEST_SEARCH_SERVICE_CONFIG);
+  }
+
+  private SearchSourceBuilder getDatasetAutocompleteSource(
+      ElasticSearchConfiguration searchConfiguration, Filter filter) {
+    return new AutocompleteRequestHandler(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            searchConfiguration,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, filter, 10)
+        .source();
   }
 
   private static QueryBuilder extractNestedQuery(BoolQueryBuilder nested) {

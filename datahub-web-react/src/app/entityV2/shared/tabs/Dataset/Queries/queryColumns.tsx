@@ -1,19 +1,17 @@
-import { Avatar } from '@components';
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Typography, message } from 'antd';
+import { Avatar, Button, toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
 import { ActorWithDisplayNameFragment, useDeleteQueryMutation } from '@graphql/query.generated';
 
@@ -21,48 +19,17 @@ import { ActorWithDisplayNameFragment, useDeleteQueryMutation } from '@graphql/q
  * Description Column
  */
 
-const StyledLink = styled(Typography.Link)`
-    display: block;
-`;
-
-const TruncatedTextWrapper = styled.div`
-    display: inline;
-`;
-
-const MAX_DESCRIPTION_LENGTH = 50;
-
 interface DescriptionProps {
     description?: string;
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
-    const { t: tc } = useTranslation('common.actions');
-    const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
-
     if (!description) return null;
 
-    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
-
-    return (
-        <div>
-            {isTruncated && (
-                <>
-                    <TruncatedTextWrapper>
-                        <MarkdownViewer source={`${truncatedDescription}...`} />
-                    </TruncatedTextWrapper>
-                    <StyledLink onClick={() => setIsTruncated(false)}>{tc('readMore')}</StyledLink>
-                </>
-            )}
-            {!isTruncated && (
-                <>
-                    <MarkdownViewer source={description} ignoreLimit />
-                    {description.length > MAX_DESCRIPTION_LENGTH && (
-                        <StyledLink onClick={() => setIsTruncated(true)}>{tc('readLess')}</StyledLink>
-                    )}
-                </>
-            )}
-        </div>
-    );
+    // CompactMarkdownViewer renders through the sanitizing alchemy Editor (DOMPurify) and
+    // provides its own Show more/Show less truncation, so raw HTML in a query description
+    // cannot execute (guards against stored XSS).
+    return <CompactMarkdownViewer content={description} />;
 };
 
 /*
@@ -83,53 +50,46 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
     const userName = entityRegistry.getDisplayName(createdBy.type, createdBy);
     const photoUrl = createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined;
 
-    return (
-        <div>
-            <Avatar name={userName || ''} imageUrl={photoUrl} type={AvatarType.user} size="lg" />
-        </div>
-    );
+    return <Avatar name={userName || ''} imageUrl={photoUrl} type={AvatarType.user} size="sm" showInPill />;
 };
 
 /*
  * Edit/Delete Column
  */
 
-const ButtonsWrapper = styled.span<{ $isHidden: boolean }>`
+const ButtonsWrapper = styled.span`
     display: flex;
     gap: 8px;
     align-items: center;
     justify-content: center;
-    ${(props) => props.$isHidden && `visibility: hidden;`}
 `;
 
 interface EditDeleteProps {
     query: Query;
-    hoveredQueryUrn: string | null;
     onEdited?: (query) => void;
     onDeleted?: (query) => void;
 }
 
-export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }: EditDeleteProps) => {
+export const EditDeleteColumn = ({ query, onEdited, onDeleted }: EditDeleteProps) => {
     const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     const [editingQuery, setEditingQuery] = useState<Query | null>(null);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [deleteQueryMutation] = useDeleteQueryMutation();
     const urn = query.urn as string;
 
     const deleteQuery = () => {
+        setShowConfirmationModal(false);
         deleteQueryMutation({ variables: { urn } })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('queryCard.deleteSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(t('queryCard.deleteSuccess'), { duration: 3 });
                     onDeleted?.(query);
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({ content: t('queryCard.deleteError') });
+                toast.destroy();
+                toast.error(t('queryCard.deleteError'));
             });
     };
 
@@ -140,13 +100,27 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
 
     return (
         <>
-            <ButtonsWrapper $isHidden={hoveredQueryUrn !== query.urn}>
-                <ActionButton privilege onClick={() => setEditingQuery(query)} data-testid="edit-query">
-                    <EditOutlinedIcon />
-                </ActionButton>
-                <ActionButton privilege onClick={() => setShowConfirmationModal(true)} data-testid="delete-query">
-                    <DeleteOutlinedIcon />
-                </ActionButton>
+            <ButtonsWrapper>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="sm"
+                    isCircle
+                    icon={{ icon: PencilSimple }}
+                    onClick={() => setEditingQuery(query)}
+                    data-testid="edit-query"
+                    aria-label={tc('edit')}
+                />
+                <Button
+                    variant="text"
+                    color="red"
+                    size="sm"
+                    isCircle
+                    icon={{ icon: Trash }}
+                    onClick={() => setShowConfirmationModal(true)}
+                    data-testid="delete-query"
+                    aria-label={tc('delete')}
+                />
             </ButtonsWrapper>
             {editingQuery && (
                 <QueryBuilderModal
@@ -166,6 +140,8 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                 handleConfirm={deleteQuery}
                 modalTitle={t('queryCard.deleteConfirmTitle')}
                 modalText={t('queryCard.deleteConfirmBody')}
+                confirmButtonText={tc('delete')}
+                isDeleteModal
             />
         </>
     );

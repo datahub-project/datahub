@@ -1,31 +1,20 @@
-import { Icon, typography } from '@components';
+import { Button, Menu } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Dropdown } from 'antd';
-import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React from 'react';
 import styled from 'styled-components';
 
-export const MenuItem = styled.div`
-    display: flex;
-    padding: 5px 50px 5px 5px;
-    font-size: 14px;
-    font-weight: 500;
-    color: ${(props) => props.theme.colors.text};
-    font-family: ${typography.fonts.body};
-`;
+import { ItemType } from '@components/components/Menu/types';
 
+// Targets `div` because alchemy Icon renders one; the overflow trigger is a Button and
+// brings its own hover affordance.
 const ActionIcons = styled.div`
     display: flex;
+    align-items: center;
     justify-content: end;
     gap: 12px;
 
     div {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 200px;
-        width: 24px;
-        height: 24px;
-        padding: 4px;
-        color: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.icon};
         :hover {
             cursor: pointer;
         }
@@ -41,9 +30,14 @@ export default function BaseActionsColumn({ dropdownItems, extraActions }: Props
     return (
         <ActionIcons onClick={(e) => e.stopPropagation()}>
             {extraActions}
-            <Dropdown menu={{ items: dropdownItems }} trigger={['click']}>
-                <Icon icon={DotsThreeVertical} data-testid="ingestion-more-options" />
-            </Dropdown>
+            <Menu items={dropdownItems} trigger={['click']}>
+                <Button
+                    variant="text"
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'icon' }}
+                    isCircle
+                    data-testid="ingestion-more-options"
+                />
+            </Menu>
         </ActionIcons>
     );
 }

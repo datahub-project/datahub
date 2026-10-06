@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { IconStyleType } from '@src/app/entityV2/Entity';
 import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -35,6 +36,10 @@ export function SingleEntityIcon({ entity, size }: Props) {
 
     if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
         return <GlossaryEntityIcon entity={entity as GlossaryTerm | GlossaryNode} size={size} />;
+    }
+
+    if (properties?.platform?.properties?.logical) {
+        return <LogicalPlatformDefaultIcon size={size} />;
     }
 
     return (

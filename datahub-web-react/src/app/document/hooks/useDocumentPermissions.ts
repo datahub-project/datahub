@@ -44,13 +44,19 @@ export function useDocumentPermissions(_documentUrn?: string): DocumentPermissio
         const canDelete = canManageEntity || hasManageDocuments;
         const canMove = canManageEntity || hasManageDocuments;
 
+        // Edit rights require entity data to be loaded. Once loaded, either the entity-level
+        // canEditDescription privilege OR the platform-level manageDocuments privilege grants access.
+        const canEditContents = !!entityData && (canEditDescription || hasManageDocuments);
+        const canEditTitle = !!entityData && (canEditDescription || hasManageDocuments);
+        // Ingestion owns state and type for external documents — UI edits would be overwritten.
+        const canEditState = isExternal ? false : !!entityData && (canEditDescription || hasManageDocuments);
+
         return {
             canCreate: hasManageDocuments,
-            canEditContents: canEditDescription,
-            canEditTitle: canEditDescription,
-            // Ingestion owns state and type for external documents — UI edits would be overwritten.
-            canEditState: isExternal ? false : canEditDescription,
-            canEditType: isExternal ? false : canEditDescription,
+            canEditContents,
+            canEditTitle,
+            canEditState,
+            canEditType: isExternal ? false : !!entityData && (canEditDescription || hasManageDocuments),
             canDelete,
             canMove,
         };

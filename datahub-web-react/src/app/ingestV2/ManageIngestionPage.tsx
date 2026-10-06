@@ -1,6 +1,7 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as QueryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -97,6 +98,12 @@ export const ManageIngestionPage = () => {
     const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
+    const { value: sourceTypesParam, setValue: setSourceTypesParam } = useUrlQueryParam('sourceTypes');
+
+    const sourceTypes = useMemo(
+        () => (sourceTypesParam ? sourceTypesParam.split(',').filter(Boolean) : []),
+        [sourceTypesParam],
+    );
 
     // Stable callbacks to prevent infinite re-render loops in child components
     const handleSetSourceFilter = useCallback(
@@ -104,9 +111,31 @@ export const ManageIngestionPage = () => {
         [setSourceFilter],
     );
 
+    const handleSetSourceTypes = useCallback(
+        (values: string[]) => setSourceTypesParam(values.join(',')),
+        [setSourceTypesParam],
+    );
+
     const handleSetHideSystemSources = useCallback(
         (value: boolean) => setHideSystemSources(value.toString()),
         [setHideSystemSources],
+    );
+
+    const handleExecutionSourceClick = useCallback(
+        (record: { urn?: string; name?: string }) => {
+            setSelectedTab(TabType.Sources);
+            history.replace({
+                pathname: tabUrlMap[TabType.Sources],
+                search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
+            });
+        },
+        [history],
+    );
+
+    const getExecutionRunDetailsPath = useCallback(
+        (urn: string) =>
+            showIngestionOnboardingRedesignV1 ? PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn) : undefined,
+        [showIngestionOnboardingRedesignV1],
     );
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
@@ -162,6 +191,8 @@ export const ManageIngestionPage = () => {
                     setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
+                    sourceTypes={sourceTypes}
+                    setSourceTypes={handleSetSourceTypes}
                 />
             ),
             key: TabType.Sources as string,
@@ -173,8 +204,10 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
                     setHideSystemSources={handleSetHideSystemSources}
-                    selectedTab={selectedTab}
-                    setSelectedTab={setSelectedTab}
+                    isActive={selectedTab === TabType.RunHistory}
+                    onSourceClick={handleExecutionSourceClick}
+                    getRunDetailsPath={getExecutionRunDetailsPath}
+                    runDetailsFromUrl={tabUrlMap[TabType.RunHistory]}
                 />
             ),
             key: TabType.RunHistory as string,

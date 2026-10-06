@@ -23,6 +23,7 @@ public class ReindexConfigTest {
   private static final String TEST_INDEX_NAME = "test_index";
   private static final String PROPERTIES_KEY = "properties";
   private static final String TYPE_KEY = "type";
+  private static final String IGNORE_ABOVE_KEY = "ignore_above";
 
   private static SearchClientShim<?> es8SettingsComparisonShim() {
     SearchClientShim<?> shim = mock(SearchClientShim.class);
@@ -49,10 +50,11 @@ public class ReindexConfigTest {
     // Verify constants are properly defined
     Assert.assertNotNull(ReindexConfig.OBJECT_MAPPER);
     Assert.assertEquals(ReindexConfig.SETTINGS_DYNAMIC, Arrays.asList("refresh_interval"));
-    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards"));
-    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 2);
+    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards", "knn"));
+    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 3);
     Assert.assertTrue(ReindexConfig.SETTINGS.contains("refresh_interval"));
     Assert.assertTrue(ReindexConfig.SETTINGS.contains("number_of_shards"));
+    Assert.assertTrue(ReindexConfig.SETTINGS.contains("knn"));
   }
 
   @Test
@@ -256,7 +258,7 @@ public class ReindexConfigTest {
 
   @Test
   void testImplicitObjectTypeNormalizedAcrossSides() {
-    // ES8 echoes "type":"object" back for any field that has "properties"; ES7 / OpenSearch
+    // ES8 echoes "type":"object" back for any field that has "properties"; OpenSearch
     // omit it. Mapping builders that don't emit the explicit type must not cause a perpetual
     // mapping diff (and therefore a perpetual reindex loop) when running against ES8.
     Map<String, Object> currentMappings = new HashMap<>();
@@ -589,29 +591,8 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testEngineRoundTrip_ES7_PreservesImplicitObject() {
-    // ES7 round-trip: stored mapping looks the same as what was sent.
-    // Both sides remain implicit-object form. Comparison must report no diff.
-    ReindexConfig config =
-        ReindexConfig.builder()
-            .name(TEST_INDEX_NAME)
-            .exists(true)
-            .currentMappings(implicitObjectMapping())
-            .targetMappings(implicitObjectMapping())
-            .currentSettings(Settings.EMPTY)
-            .targetSettings(new HashMap<>())
-            .enableIndexMappingsReindex(true)
-            .build();
-
-    Assert.assertFalse(
-        config.requiresApplyMappings(),
-        "ES7 preserves implicit-object form on round-trip — both sides should match");
-    Assert.assertFalse(config.requiresReindex());
-  }
-
-  @Test
   void testEngineRoundTrip_OpenSearch_PreservesImplicitObject() {
-    // OpenSearch behaves like ES7 on object round-trips: implicit form preserved.
+    // OpenSearch preserves implicit-object form on object round-trips.
     // The universal normalization should be a no-op (both sides already match).
     ReindexConfig config =
         ReindexConfig.builder()
@@ -696,10 +677,10 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testEngineRoundTrip_ES7_RealMappingChangeStillDetected() {
+  void testEngineRoundTrip_ImplicitObject_RealMappingChangeStillDetected() {
     // Sanity check that the universal normalization does not inadvertently mask real changes
-    // on ES7/OpenSearch either.
-    Map<String, Object> currentEs7 = implicitObjectMapping();
+    // on OpenSearch either.
+    Map<String, Object> currentOpenSearch = implicitObjectMapping();
 
     Map<String, Object> targetCode = new HashMap<>();
     targetCode.put(
@@ -718,7 +699,7 @@ public class ReindexConfigTest {
         ReindexConfig.builder()
             .name(TEST_INDEX_NAME)
             .exists(true)
-            .currentMappings(currentEs7)
+            .currentMappings(currentOpenSearch)
             .targetMappings(targetCode)
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
@@ -727,7 +708,7 @@ public class ReindexConfigTest {
 
     Assert.assertTrue(
         config.requiresApplyMappings(),
-        "Real schema change must still be detected on ES7/OpenSearch — universal "
+        "Real schema change must still be detected on OpenSearch — universal "
             + "normalization is mathematically incapable of masking a content diff");
   }
 
@@ -821,6 +802,118 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.requiresApplySettings());
     Assert.assertTrue(config.isSettingsReindex());
     Assert.assertTrue(config.requiresReindex()); // Static setting change requires reindex
+  }
+
+  @Test
+  void testKnnMismatchRequiresSettingsReindexWhenEnabled() {
+    Settings currentSettings =
+        Settings.builder().put("index.number_of_shards", "1").put("index.knn", "false").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1", "knn", true));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertTrue(config.requiresReindex());
+    Assert.assertFalse(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testKnnMismatchDoesNotReindexWhenSettingsReindexDisabled() {
+    Settings currentSettings = Settings.builder().put("index.number_of_shards", "1").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1", "knn", true));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(false)
+            .build();
+
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertTrue(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testOmittedTargetKnnDoesNotReindexWhenCurrentKnnFalse() {
+    Settings currentSettings =
+        Settings.builder().put("index.number_of_shards", "1").put("index.knn", "false").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1"));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplySettings());
+    Assert.assertFalse(config.isSettingsReindex());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertFalse(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testMappingsWithoutKnnVectorFieldsDropsVectorLeavesAndKeepsProvenance() {
+    Map<String, Object> original =
+        ImmutableMap.of(
+            PROPERTIES_KEY,
+            ImmutableMap.of(
+                "urn",
+                ImmutableMap.of(TYPE_KEY, "keyword"),
+                "resolvedTextSha256",
+                ImmutableMap.of(TYPE_KEY, "keyword"),
+                "embeddings",
+                ImmutableMap.of(
+                    PROPERTIES_KEY,
+                    ImmutableMap.of(
+                        "model_a",
+                        ImmutableMap.of(
+                            PROPERTIES_KEY,
+                            ImmutableMap.of(
+                                "vector",
+                                ImmutableMap.of(
+                                    TYPE_KEY,
+                                    ReindexConfig.KNN_VECTOR_TYPE,
+                                    "dimension",
+                                    8,
+                                    "method",
+                                    ImmutableMap.of("name", "hnsw")),
+                                "sourceTextSha256",
+                                ImmutableMap.of(TYPE_KEY, "keyword")))))));
+
+    Map<String, Object> stripped = ReindexConfig.mappingsWithoutKnnVectorFields(original);
+
+    Assert.assertTrue(original.toString().contains(ReindexConfig.KNN_VECTOR_TYPE));
+    Assert.assertFalse(stripped.toString().contains(ReindexConfig.KNN_VECTOR_TYPE));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) stripped.get(PROPERTIES_KEY);
+    Assert.assertTrue(properties.containsKey("urn"));
+    Assert.assertTrue(properties.containsKey("resolvedTextSha256"));
+    Assert.assertTrue(properties.containsKey("embeddings"));
+    Assert.assertTrue(ReindexConfig.mappingHasProperties(stripped));
   }
 
   @Test
@@ -979,6 +1072,139 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.hasRemovedStructuredProperty());
     Assert.assertFalse(config.hasNewStructuredProperty());
     Assert.assertTrue(config.requiresReindex()); // Removal requires reindex
+  }
+
+  @Test
+  void testStructuredPropertyNumberTypeMismatchFloatVsDoubleRequiresReindex() {
+    // Dynamic mapping can lock NUMBER fields as float; definition-driven target is double.
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("io_acryl_privacy_replicationSLA", ImmutableMap.of("type", "float")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("io_acryl_privacy_replicationSLA", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.isPureStructuredPropertyAddition());
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyNumberTypeMismatchLongVsDoubleRequiresReindex() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("retentionTime", ImmutableMap.of("type", "long")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("retentionTime", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyTypeMismatchDoesNotReindexWhenTypeMismatchFlagDisabled() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "float")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(false)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyMatchingNumberTypesDoNotRequireReindex() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "double")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
+            .build();
+
+    Assert.assertFalse(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testVersionedStructuredPropertyTypeMismatchRequiresReindex() {
+    Map<String, Object> currentVersioned =
+        ImmutableMap.of(
+            "io_acryl_privacy_replicationSLA",
+            ImmutableMap.of("000", ImmutableMap.of("number", ImmutableMap.of("type", "float"))));
+    Map<String, Object> targetVersioned =
+        ImmutableMap.of(
+            "io_acryl_privacy_replicationSLA",
+            ImmutableMap.of("000", ImmutableMap.of("number", ImmutableMap.of("type", "double"))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(createMappingsWithVersionedStructuredProperties(currentVersioned))
+            .targetMappings(createMappingsWithVersionedStructuredProperties(targetVersioned))
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertTrue(config.requiresReindex());
   }
 
   @Test
@@ -1812,5 +2038,164 @@ public class ReindexConfigTest {
 
     // Assert - Structured properties differences should be ignored (since they're dynamic)
     Assert.assertFalse(config.requiresApplyMappings());
+  }
+
+  /**
+   * TEXT-shaped field mapping: a keyword parent with a `.keyword` sub-field, both carrying the same
+   * {@code ignore_above} guard. {@code ignoreAbove} of null omits the guard entirely.
+   */
+  private static Map<String, Object> textFieldMapping(Integer ignoreAbove) {
+    Map<String, Object> keywordSubField = new HashMap<>();
+    keywordSubField.put(TYPE_KEY, "keyword");
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put(TYPE_KEY, "keyword");
+    mapping.put("normalizer", "keyword_normalizer");
+    if (ignoreAbove != null) {
+      mapping.put(IGNORE_ABOVE_KEY, ignoreAbove);
+      keywordSubField.put(IGNORE_ABOVE_KEY, ignoreAbove);
+    }
+    mapping.put("fields", ImmutableMap.of("keyword", keywordSubField));
+    return mapping;
+  }
+
+  private static Map<String, Object> mappingsWithFields(Map<String, Object> fields) {
+    Map<String, Object> mappings = new HashMap<>();
+    mappings.put(PROPERTIES_KEY, new HashMap<>(fields));
+    return mappings;
+  }
+
+  private static ReindexConfig buildMappingDiffConfig(
+      Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+    return ReindexConfig.builder()
+        .name(TEST_INDEX_NAME)
+        .exists(true)
+        .currentMappings(currentMappings)
+        .targetMappings(targetMappings)
+        .currentSettings(Settings.EMPTY)
+        .targetSettings(new HashMap<>())
+        .enableIndexMappingsReindex(true)
+        .build();
+  }
+
+  @DataProvider(name = "inPlaceIgnoreAboveChanges")
+  public Object[][] inPlaceIgnoreAboveChanges() {
+    return new Object[][] {
+      {"raise", 8191, 32766},
+      {"lower", 32766, 8191},
+      {"add where absent", null, 8191},
+    };
+  }
+
+  @Test(dataProvider = "inPlaceIgnoreAboveChanges")
+  void testIgnoreAboveChangeAppliedInPlace(String label, Integer current, Integer target) {
+    ReindexConfig config =
+        buildMappingDiffConfig(
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(current))),
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(target))));
+
+    Assert.assertTrue(config.requiresApplyMappings(), label);
+    Assert.assertTrue(config.isInPlaceMappingParameterUpdate(), label);
+    Assert.assertTrue(config.requiresMappingReconciliation(), label);
+    Assert.assertFalse(config.requiresReindex(), label);
+    Assert.assertFalse(config.requiresDataBackfill(), label);
+  }
+
+  @Test
+  void testIgnoreAboveRemovalStillRequiresReindex() {
+    // Removing the guard makes writes stricter — oversized values would be rejected outright.
+    ReindexConfig config =
+        buildMappingDiffConfig(
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(8191))),
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(null))));
+
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertFalse(config.isInPlaceMappingParameterUpdate());
+    Assert.assertFalse(config.requiresMappingReconciliation());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testIgnoreAboveChangeOnSubFieldOnlyAppliedInPlace() {
+    Map<String, Object> current = textFieldMapping(8191);
+    Map<String, Object> target = textFieldMapping(8191);
+    target.put("fields", ImmutableMap.of("keyword", ImmutableMap.of(TYPE_KEY, "keyword")));
+
+    // Removal on the sub-field is still a removal.
+    ReindexConfig removal =
+        buildMappingDiffConfig(
+            mappingsWithFields(ImmutableMap.of("description", current)),
+            mappingsWithFields(ImmutableMap.of("description", target)));
+    Assert.assertFalse(removal.isInPlaceMappingParameterUpdate());
+    Assert.assertTrue(removal.requiresReindex());
+
+    // A value change confined to the sub-field is applyable.
+    Map<String, Object> subFieldChanged = textFieldMapping(8191);
+    subFieldChanged.put(
+        "fields",
+        ImmutableMap.of("keyword", ImmutableMap.of(TYPE_KEY, "keyword", IGNORE_ABOVE_KEY, 32766)));
+    ReindexConfig config =
+        buildMappingDiffConfig(
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(8191))),
+            mappingsWithFields(ImmutableMap.of("description", subFieldChanged)));
+    Assert.assertTrue(config.isInPlaceMappingParameterUpdate());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testIgnoreAboveChangeAlongsideNewFieldNeedsBackfillButNoReindex() {
+    ReindexConfig config =
+        buildMappingDiffConfig(
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(8191))),
+            mappingsWithFields(
+                ImmutableMap.of(
+                    "description",
+                    textFieldMapping(32766),
+                    "newField",
+                    ImmutableMap.of(TYPE_KEY, "keyword"))));
+
+    Assert.assertTrue(config.isInPlaceMappingParameterUpdate());
+    Assert.assertFalse(config.requiresReindex());
+    // The added field still needs a backfill — _reindex/put-mapping can't populate it.
+    Assert.assertTrue(config.requiresDataBackfill());
+  }
+
+  @Test
+  void testIgnoreAboveChangeWithOtherModificationRequiresReindex() {
+    ReindexConfig config =
+        buildMappingDiffConfig(
+            mappingsWithFields(
+                ImmutableMap.of(
+                    "description",
+                    textFieldMapping(8191),
+                    "otherField",
+                    ImmutableMap.of(TYPE_KEY, "text"))),
+            mappingsWithFields(
+                ImmutableMap.of(
+                    "description",
+                    textFieldMapping(32766),
+                    "otherField",
+                    ImmutableMap.of(TYPE_KEY, "keyword"))));
+
+    Assert.assertFalse(config.isInPlaceMappingParameterUpdate());
+    Assert.assertTrue(config.requiresReindex());
+    Assert.assertTrue(config.requiresDataBackfill());
+  }
+
+  @Test
+  void testPureAdditionIsNotClassifiedAsInPlaceParameterUpdate() {
+    ReindexConfig config =
+        buildMappingDiffConfig(
+            mappingsWithFields(ImmutableMap.of("description", textFieldMapping(8191))),
+            mappingsWithFields(
+                ImmutableMap.of(
+                    "description",
+                    textFieldMapping(8191),
+                    "newField",
+                    ImmutableMap.of(TYPE_KEY, "keyword"))));
+
+    Assert.assertTrue(config.isPureMappingsAddition());
+    Assert.assertFalse(config.isInPlaceMappingParameterUpdate());
+    Assert.assertFalse(config.requiresMappingReconciliation());
+    Assert.assertFalse(config.requiresReindex());
   }
 }

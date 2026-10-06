@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.data.entity;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -28,20 +29,21 @@ public class OwnerChangeEvent extends ChangeEvent {
       String description,
       Urn ownerUrn,
       OwnershipType ownerType,
-      Urn ownerTypeUrn) {
+      Urn ownerTypeUrn,
+      MetadataAttribution attribution) {
     super(
         entityUrn,
         category,
         operation,
         modifier,
-        buildParameters(ownerUrn, ownerType, ownerTypeUrn),
+        buildParameters(ownerUrn, ownerType, ownerTypeUrn, attribution),
         auditStamp,
         semVerChange,
         description);
   }
 
   private static ImmutableMap<String, Object> buildParameters(
-      Urn ownerUrn, OwnershipType ownerType, Urn ownerTypeUrn) {
+      Urn ownerUrn, OwnershipType ownerType, Urn ownerTypeUrn, MetadataAttribution attribution) {
     ImmutableMap.Builder<String, Object> builder =
         new ImmutableMap.Builder<String, Object>()
             .put("ownerUrn", ownerUrn.toString())
@@ -49,6 +51,7 @@ public class OwnerChangeEvent extends ChangeEvent {
     if (ownerTypeUrn != null) {
       builder.put("ownerTypeUrn", ownerTypeUrn.toString());
     }
+    builder.put("sourceDetails", ChangeEventParameterUtils.serializeSourceDetail(attribution));
 
     return builder.build();
   }

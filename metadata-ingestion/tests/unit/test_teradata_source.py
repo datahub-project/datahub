@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 from pydantic import ValidationError
 from sqlalchemy.exc import (
     DatabaseError,
@@ -19,12 +20,15 @@ from sqlalchemy.exc import (
     TimeoutError as PoolTimeoutError,
 )
 
+from datahub.emitter.mcp_builder import DatabaseKey
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
     MetadataChangeProposalWrapper,
     MetadataWorkUnit,
 )
 from datahub.ingestion.source.sql.teradata import (
+    MAX_QUERY_PARTS,
     LineageQuery,
     LineageQueryLabel,
     TeradataConfig,
@@ -40,11 +44,11 @@ from datahub.ingestion.source.sql.teradata import (
     _jittered_backoff,
     _should_retry,
     _should_retry_connect,
+    _view_definition_key,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
-    optimized_get_view_definition,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -58,6 +62,23 @@ def isolate_teradata_caches(monkeypatch):
     """
     monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
     monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
+
+
+class _RecordingCloseable(Closeable):
+    """A real Closeable whose close() is invoked by ExitStack teardown.
+
+    The source registers its file-backed resources on an ExitStack, which unwinds
+    them via __enter__/__exit__ (not a direct .close() call). A MagicMock's __exit__
+    does not delegate to close(), so we use this to assert the close path runs.
+    """
+
+    def __init__(self) -> None:
+        # aggregator exposes `.report`; harmless for the other resources.
+        self.report = MagicMock()
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
 
 
 def _base_config() -> Dict[str, Any]:
@@ -233,6 +254,85 @@ class TestTeradataConfig:
         config_dict = {**_base_config(), **override}
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
+
+
+def _create_source_with_lowercase(convert_urns_to_lowercase: bool) -> TeradataSource:
+    """Build a TeradataSource with a chosen convert_urns_to_lowercase value."""
+    config = TeradataConfig.model_validate(
+        {**_base_config(), "convert_urns_to_lowercase": convert_urns_to_lowercase}
+    )
+    with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+
+class TestConvertUrnsToLowercaseContainerConsistency:
+    """convert_urns_to_lowercase must keep the container key and the dataset
+    identifier on the same casing, otherwise datasets are emitted under a
+    container URN that does not match their own (lower-cased) name — the
+    duplicate/orphan 'invalid lowercase container' failure mode.
+
+    Casing is normalized only in the URN paths; get_db_name() (reused as a SQL
+    identifier) keeps source case so CASESPECIFIC installations are unaffected.
+    """
+
+    def _db_name_for(self, source: TeradataSource, raw_db: str) -> str:
+        inspector = MagicMock()
+        inspector._datahub_database = raw_db
+        return source.get_db_name(inspector)
+
+    def test_lowercase_enabled_container_matches_dataset_db_segment(self):
+        source = _create_source_with_lowercase(True)
+
+        db_name = self._db_name_for(source, "MyDb")
+        # get_db_name keeps source case (it is reused as a SQL identifier).
+        assert db_name == "MyDb"
+
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+        dataset_db_segment = dataset_identifier.split(".", 1)[0]
+
+        # The database segment of the (lower-cased) dataset name must equal the
+        # database the container key is built from.
+        assert dataset_db_segment == "mydb"
+        assert container_key.database == dataset_db_segment
+
+    def test_lowercase_disabled_preserves_source_case(self):
+        source = _create_source_with_lowercase(False)
+
+        db_name = self._db_name_for(source, "MyDb")
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+
+        assert db_name == "MyDb"
+        assert dataset_identifier.split(".", 1)[0] == "MyDb"
+        assert container_key.database == "MyDb"
+
+    def test_creation_and_parenting_container_urns_agree(self):
+        """The container *entity* (gen_database_containers) and the key used to
+        parent datasets (get_database_container_key) must resolve to the same
+        URN under lower-casing — otherwise the dataset points at a container
+        that was never created."""
+        source = _create_source_with_lowercase(True)
+        db_name = self._db_name_for(source, "MyDb")
+
+        parenting_urn = source.get_database_container_key(db_name, db_name).as_urn()
+
+        created_urns = {
+            wu.get_urn()
+            for wu in source.gen_database_containers(database=db_name)
+            if wu.get_urn().startswith("urn:li:container:")
+        }
+
+        assert parenting_urn in created_urns
 
 
 class TestTeradataSource:
@@ -462,56 +562,181 @@ class TestTeradataSource:
                 mock_engine.dispose.assert_called_once()
 
     def test_close_cleanup(self):
-        """Test that close() properly cleans up resources."""
+        """close() must release every resource registered on the ExitStack and
+        clear the caches. The three file-backed resources are Closeable, so
+        ExitStack tears them down via __exit__ -> close(); the pooled engine and
+        the caches ride the same stack as callbacks.
+        """
         config = TeradataConfig.model_validate(_base_config())
 
         with patch(
-            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
-        ) as mock_aggregator_class:
-            mock_aggregator = MagicMock()
-            mock_aggregator_class.return_value = mock_aggregator
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Mock cache_tables_and_views to prevent database connection during init
-            with patch(
-                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
-            ):
-                source = TeradataSource(config, PipelineContext(run_id="test"))
+        # Spy on each Closeable's close(); ExitStack's __exit__ delegates to it.
+        source.aggregator.close = MagicMock()  # type: ignore[method-assign]
+        source.schema_resolver.close = MagicMock()  # type: ignore[method-assign]
+        source._view_definitions.close = MagicMock()  # type: ignore[method-assign]
 
-            # Replace the aggregator with our mock after creation
-            source.aggregator = mock_aggregator
+        # A pooled engine only exists once queries run; simulate one so we can
+        # assert dispose() runs and the handle is dropped.
+        mock_engine = MagicMock()
+        source._pooled_engine = mock_engine
 
-            # Pre-populate class-level caches to verify they are cleared on close
-            source._tables_cache["db1"] = [
-                TeradataTable(
-                    database="db1",
-                    name="t1",
-                    description=None,
-                    object_type="Table",
-                    create_timestamp=datetime(2024, 1, 1),
-                    last_alter_name=None,
-                    last_alter_timestamp=None,
-                    request_text=None,
-                )
-            ]
-            source._table_creator_cache[("db1", "t1")] = "owner"
+        # Pre-populate the caches so we can prove close() empties them.
+        source._tables_cache["db1"] = [
+            TeradataTable(
+                database="db1",
+                name="t1",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+        ]
+        source._table_creator_cache[("db1", "t1")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "db1")
+        get_schema_pk_constraints(None, mock_conn, "db1")
+        get_schema_foreign_keys(None, mock_conn, "db1")
 
-            with patch(
-                "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
-            ) as mock_super_close:
-                source.close()
+        with patch(
+            "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
+        ) as mock_super_close:
+            source.close()
 
-                mock_aggregator.close.assert_called_once()
-                mock_super_close.assert_called_once()
+        # Every Closeable resource is released so its temp SQLite file is removed.
+        source.aggregator.close.assert_called_once()
+        source.schema_resolver.close.assert_called_once()
+        source._view_definitions.close.assert_called_once()
 
-                # Class-level caches must be emptied so memory is released between
-                # sequential recipe runs in the same process (OOM fix for #7602).
-                assert len(source._tables_cache) == 0
-                assert len(source._table_creator_cache) == 0
+        # The pooled engine is disposed and the handle dropped.
+        mock_engine.dispose.assert_called_once()
+        assert source._pooled_engine is None
 
-                # Module-level LRU caches must also be cleared between recipe runs.
-                assert get_schema_columns.cache_info().currsize == 0
-                assert get_schema_pk_constraints.cache_info().currsize == 0
-                assert get_schema_foreign_keys.cache_info().currsize == 0
+        # Class-level and module-level caches are emptied so memory/schema data is
+        # released between sequential recipe runs in the same process.
+        assert len(source._tables_cache) == 0
+        assert len(source._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
+        assert get_schema_pk_constraints.cache_info().currsize == 0
+        assert get_schema_foreign_keys.cache_info().currsize == 0
+
+        mock_super_close.assert_called_once()
+
+    def test_init_releases_resources_when_discovery_fails(self):
+        """If __init__ fails during table/view discovery, the ExitStack must still
+        release every resource built so far and the original error must propagate.
+
+        __init__ eagerly creates three temp-file-backed resources
+        (_view_definitions, schema_resolver, aggregator) and registers the pooled
+        engine + cache teardown on the ExitStack before discovery runs. The
+        pipeline only registers the source for close() once __init__ returns, so a
+        failure here would otherwise leak their temp files and cached schema data
+        across sequential recipe runs in the same process.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        view_definitions = _RecordingCloseable()
+        schema_resolver = _RecordingCloseable()
+        aggregator = _RecordingCloseable()
+
+        # Pre-populate the class-level and module-level caches so we can assert the
+        # failure path clears them (otherwise stale entries leak across recipe runs
+        # in the same process). isolate_teradata_caches resets the class caches.
+        TeradataSource._tables_cache["stale_db"] = [
+            TeradataTable(
+                database="stale_db",
+                name="stale_table",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+        ]
+        TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "stale_db")
+        get_schema_pk_constraints(None, mock_conn, "stale_db")
+        get_schema_foreign_keys(None, mock_conn, "stale_db")
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.FileBackedDict",
+                return_value=view_definitions,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                return_value=aggregator,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views",
+                side_effect=RuntimeError("connection failed"),
+            ),
+            pytest.raises(RuntimeError, match="connection failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+
+        assert aggregator.close_calls == 1
+        assert schema_resolver.close_calls == 1
+        assert view_definitions.close_calls == 1
+        assert len(TeradataSource._tables_cache) == 0
+        assert len(TeradataSource._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
+        assert get_schema_pk_constraints.cache_info().currsize == 0
+        assert get_schema_foreign_keys.cache_info().currsize == 0
+
+    def test_init_releases_resources_when_construction_fails(self):
+        """If a resource fails to construct in __init__ (before discovery), the
+        ExitStack must still release the resources registered before the failure.
+
+        The aggregator is built last of the three file-backed resources, so a
+        failure there must still close _view_definitions and schema_resolver and
+        clear the caches — those teardowns are registered on the ExitStack first,
+        so they run even though the aggregator never finished constructing.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        view_definitions = _RecordingCloseable()
+        schema_resolver = _RecordingCloseable()
+
+        # Stale cache state from a hypothetical prior run in the same process; the
+        # failure path must clear it so it can't bleed into the next run.
+        TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "stale_db")
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.FileBackedDict",
+                return_value=view_definitions,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                side_effect=RuntimeError("aggregator init failed"),
+            ),
+            pytest.raises(RuntimeError, match="aggregator init failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+
+        assert view_definitions.close_calls == 1
+        assert schema_resolver.close_calls == 1
+        assert len(TeradataSource._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
 
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""
@@ -625,7 +850,7 @@ class TestSchemaFunctionRetry:
         """A single transient failure is retried and the successful result is returned."""
         get_schema_columns.cache_clear()
         mock_conn = self._make_conn(
-            [DatabaseError("transaction aborted", None, None), None]
+            [DatabaseError("transaction aborted", None, Exception("orig")), None]
         )
 
         with patch("time.sleep"):
@@ -637,7 +862,9 @@ class TestSchemaFunctionRetry:
     def test_get_schema_columns_non_retryable_error_propagates(self):
         """A non-retryable error (syntax error) propagates immediately."""
         get_schema_columns.cache_clear()
-        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+        mock_conn = self._make_conn(
+            [DatabaseError("syntax error", None, Exception("orig"))]
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             get_schema_columns(None, mock_conn, "columnsV", "db1")
@@ -648,7 +875,7 @@ class TestSchemaFunctionRetry:
         """A single transient failure is retried and the successful result is returned."""
         get_schema_pk_constraints.cache_clear()
         mock_conn = self._make_conn(
-            [DatabaseError("transaction aborted", None, None), None]
+            [DatabaseError("transaction aborted", None, Exception("orig")), None]
         )
 
         with patch("time.sleep"):
@@ -660,7 +887,9 @@ class TestSchemaFunctionRetry:
     def test_get_schema_pk_constraints_non_retryable_error_propagates(self):
         """A non-retryable error propagates immediately."""
         get_schema_pk_constraints.cache_clear()
-        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+        mock_conn = self._make_conn(
+            [DatabaseError("syntax error", None, Exception("orig"))]
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             get_schema_pk_constraints(None, mock_conn, "db1")
@@ -671,7 +900,7 @@ class TestSchemaFunctionRetry:
         """A single transient failure is retried and the successful result is returned."""
         get_schema_foreign_keys.cache_clear()
         mock_conn = self._make_conn(
-            [DatabaseError("transaction aborted", None, None), None]
+            [DatabaseError("transaction aborted", None, Exception("orig")), None]
         )
 
         with patch("time.sleep"):
@@ -683,7 +912,9 @@ class TestSchemaFunctionRetry:
     def test_get_schema_foreign_keys_non_retryable_error_propagates(self):
         """A non-retryable error propagates immediately."""
         get_schema_foreign_keys.cache_clear()
-        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+        mock_conn = self._make_conn(
+            [DatabaseError("syntax error", None, Exception("orig"))]
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             get_schema_foreign_keys(None, mock_conn, "db1")
@@ -787,7 +1018,6 @@ class TestConcurrencySupport:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
             source._tables_cache["test_schema"] = [test_table]
 
@@ -886,7 +1116,103 @@ class TestErrorHandling:
             ):
                 mock_aggregator.gen_metadata.return_value = []
                 source._populate_aggregator_from_audit_logs()
-                # Method doesn't return a value, just populates the aggregator
+
+            # A 0-row fetch must surface as a report warning (it often signals a
+            # mis-scoped filter, wrong time range, or missing DBC.QryLogV grants),
+            # not silently pass at info level.
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            # No raw rows were fetched, so the message must point at scope/grants,
+            # not at reconstruction.
+            assert "returned 0 rows" in empty_warnings[0].message
+            assert mock_aggregator.add.call_count == 0
+
+    def test_non_empty_lineage_entries_emit_no_empty_warning(self):
+        """A normal fetch that yields entries must NOT emit the empty-result warning."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                mock_entry = MagicMock()
+                mock_entry.query_id = "q1"
+                mock_entry.query_text = "SELECT 1"
+                mock_entry.session_id = "s1"
+                mock_entry.timestamp = "2024-01-01 10:00:00"
+                mock_entry.user = "test_user"
+                mock_entry.default_database = "test_db"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            warning_titles = [w.title for w in source.report.warnings]
+            assert "No lineage entries found" not in warning_titles
+            assert mock_aggregator.add.call_count == 1
+
+    def test_rows_fetched_but_zero_reconstructed_warns_with_row_count(self):
+        """Rows that arrive but reconstruct to 0 queries must NOT blame scope/grants.
+
+        Entries without a usable query_id are counted in
+        num_audit_query_entries_processed but never yielded by reconstruction, so
+        queries_processed stays 0. The warning must reflect "fetched N rows but
+        reconstructed 0" rather than the misleading "returned 0 rows".
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                # query_id=None means reconstruction can never yield this row, but it
+                # is still counted as a fetched audit-log row.
+                mock_entry = MagicMock()
+                mock_entry.query_id = None
+                mock_entry.query_text = "SELECT 1"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            assert "reconstructed 0" in empty_warnings[0].message
+            assert "returned 0 rows" not in empty_warnings[0].message
+            assert source.report.num_audit_query_entries_processed == 1
+            assert mock_aggregator.add.call_count == 0
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
@@ -1604,6 +1930,87 @@ class TestStreamingQueryReconstruction:
             # Verify metadata preservation (should use metadata from first row of each query)
             assert reconstructed_queries[0].timestamp == "2024-01-01 10:00:00"
             assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+
+    def test_reconstruct_queries_streaming_truncates_oversized_query(self):
+        """A single query_id spanning more than MAX_QUERY_PARTS rows is truncated
+        rather than buffered without bound."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # One malformed query_id with more rows than the cap allows.
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            # Only the first MAX_QUERY_PARTS single-char parts are kept.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 1
+
+    def test_reconstruct_queries_streaming_at_limit_not_truncated(self):
+        """A query with exactly MAX_QUERY_PARTS rows is kept whole (no false positive)."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 0
+
+    def test_reconstruct_queries_streaming_truncation_does_not_leak_into_next_query(
+        self,
+    ):
+        """A truncated query must not corrupt the query that follows it: the per-query
+        buffer and the truncated flag are reset on the next query_id, so a normal query
+        after an oversized one reconstructs fully and is not counted as truncated."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+            # A normal multi-row query following the oversized one.
+            entries += [
+                self._create_mock_entry("Q2", "SELECT a ", 1, "2024-01-01 10:01:00"),
+                self._create_mock_entry("Q2", "FROM t", 2, "2024-01-01 10:01:00"),
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 2
+            # Q1 truncated to the cap; Q2 reconstructed whole with its own metadata.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert reconstructed_queries[1].query == "SELECT a FROM t"
+            assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+            # Only Q1 counts as truncated - the flag reset for Q2.
+            assert source.report.num_queries_truncated == 1
 
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""
@@ -2348,7 +2755,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2383,7 +2789,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2417,7 +2822,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2541,7 +2945,6 @@ class TestDbcColumnsForViews:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
     def test_uses_dbc_columns_when_all_types_present(self) -> None:
@@ -2805,8 +3208,14 @@ class TestCacheCaseInsensitivity:
             create_timestamp=datetime(2024, 1, 1),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text="SELECT 1" if object_type == "View" else None,
         )
+
+    def test_view_definition_key_lowercases_view_name(self) -> None:
+        """Guards the documented invariant: both schema AND view name are folded to
+        lower case so writes (keyed from Teradata's stored case) and reads (keyed from
+        config/query case) always match. Varying only the view name here catches a
+        regression that stopped lowercasing it — the other tests keep the name fixed."""
+        assert _view_definition_key("MY_DB", "My_View") == "my_db.my_view"
 
     def test_cache_write_lowercases_database_key(self) -> None:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
@@ -2822,6 +3231,94 @@ class TestCacheCaseInsensitivity:
 
         assert "my_db" in source._tables_cache
         assert "MY_DB" not in source._tables_cache
+
+    def test_view_definition_offloaded_to_file_backed_dict(self) -> None:
+        """View SQL text is spilled to the disk-backed dict (keyed by lowercased
+        schema), not held on the in-memory TeradataTable."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        # The view SQL text lives only in the disk-backed store now, not on the
+        # in-memory TeradataTable.
+        assert (
+            source._view_definitions[_view_definition_key("MY_DB", "MY_VIEW")]
+            == "SELECT * FROM MY_DB.MY_TABLE"
+        )
+
+    def test_table_does_not_populate_view_definitions(self) -> None:
+        """Only views contribute SQL text; tables must not create entries."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE", object_type="Table")]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert _view_definition_key("MY_DB", "MY_TABLE") not in source._view_definitions
+
+    def test_view_definition_write_failure_reports_warning(self) -> None:
+        """A disk-backed store write failure must surface as a report warning and
+        not abort the (single-threaded) caching phase for the remaining objects."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        failing_store = MagicMock()
+        failing_store.__setitem__.side_effect = RuntimeError("disk full")
+        source._view_definitions = failing_store
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to store view definition" in warning_titles
+
+    def test_view_definition_read_failure_reports_warning(self) -> None:
+        """A disk-backed store read failure must surface as a report warning and
+        omit the view definition rather than crash the view-processing thread."""
+        source = _create_source_patched()
+        entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
+        source._tables_cache["my_db"] = [entry]
+
+        failing_store = MagicMock()
+        failing_store.get.side_effect = RuntimeError("sqlite locked")
+        source._view_definitions = failing_store
+
+        _, properties, _ = source.cached_get_table_properties(
+            MagicMock(), "my_db", "MY_TABLE"
+        )
+
+        assert "view_definition" not in properties
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to read view definition" in warning_titles
 
     def test_cached_loop_tables_finds_uppercase_entries_with_lowercase_schema(
         self,
@@ -2867,6 +3364,9 @@ class TestCacheCaseInsensitivity:
         entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
         entry.description = "promo mart"
         source._tables_cache["my_db"] = [entry]
+        # View SQL text now lives in the disk-backed dict, keyed with a lowercased
+        # schema; the lookup must hit it even when the query uses a different case.
+        source._view_definitions[_view_definition_key("MY_DB", "MY_TABLE")] = "SELECT 1"
 
         description, properties, _ = source.cached_get_table_properties(
             MagicMock(), "my_db", "MY_TABLE"
@@ -2894,25 +3394,6 @@ class TestCacheCaseInsensitivity:
 
         # Reaches column extraction only if the cache lookup hits.
         mock_dialect.get_schema_columns.assert_called_once()
-
-    def test_optimized_get_view_definition_lowercases_schema_lookup(self) -> None:
-        mock_dialect = MagicMock()
-        mock_dialect.default_schema_name = "MY_DB"
-        mock_dialect.normalize_name = lambda s: s
-
-        tables_cache: Dict[str, List[TeradataTable]] = {
-            "my_db": [self._make_table("MY_DB", "MY_VIEW", object_type="View")]
-        }
-
-        view_def = optimized_get_view_definition(
-            mock_dialect,
-            MagicMock(),
-            "MY_VIEW",
-            "MY_DB",
-            tables_cache=tables_cache,
-        )
-
-        assert view_def == "SELECT 1"
 
     def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
         """extract_ownership: True + lowercase databases must still find creators."""
@@ -3007,7 +3488,6 @@ class TestConfiguredDatabasesValidation:
                 create_timestamp=datetime(2024, 1, 1),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
         ]
 
@@ -3127,30 +3607,63 @@ class TestShouldRetry:
         assert _should_retry(PoolTimeoutError("pool exhausted")) is True
 
     def test_operational_error_with_retryable_message(self):
-        assert _should_retry(OperationalError("connect timed out", None, None)) is True
+        assert (
+            _should_retry(
+                OperationalError("connect timed out", None, Exception("orig"))
+            )
+            is True
+        )
 
     def test_operational_error_with_retryable_error_code(self):
         # Error codes 2631, 3111, 3120, 3598, 3897, 3603 are explicitly retryable.
-        assert _should_retry(OperationalError("[Error 3598]", None, None)) is True
-        assert _should_retry(OperationalError("[Error 3897]", None, None)) is True
-        assert _should_retry(OperationalError("[Error 3603]", None, None)) is True
-        assert _should_retry(OperationalError("[Error 2631]", None, None)) is True
+        assert (
+            _should_retry(OperationalError("[Error 3598]", None, Exception("orig")))
+            is True
+        )
+        assert (
+            _should_retry(OperationalError("[Error 3897]", None, Exception("orig")))
+            is True
+        )
+        assert (
+            _should_retry(OperationalError("[Error 3603]", None, Exception("orig")))
+            is True
+        )
+        assert (
+            _should_retry(OperationalError("[Error 2631]", None, Exception("orig")))
+            is True
+        )
 
     def test_operational_error_non_retryable_auth_failure(self):
         """Auth failures and config errors embedded in OperationalError must NOT be retried."""
         assert (
-            _should_retry(OperationalError("authentication failed", None, None))
+            _should_retry(
+                OperationalError("authentication failed", None, Exception("orig"))
+            )
             is False
         )
-        assert _should_retry(OperationalError("permission denied", None, None)) is False
+        assert (
+            _should_retry(
+                OperationalError("permission denied", None, Exception("orig"))
+            )
+            is False
+        )
         # Teradata error 3807 = "Object does not exist" — non-transient config error.
-        assert _should_retry(OperationalError("[Error 3807]", None, None)) is False
+        assert (
+            _should_retry(OperationalError("[Error 3807]", None, Exception("orig")))
+            is False
+        )
 
     def test_database_error_with_retryable_message(self):
-        assert _should_retry(DatabaseError("connect timed out", None, None)) is True
+        assert (
+            _should_retry(DatabaseError("connect timed out", None, Exception("orig")))
+            is True
+        )
 
     def test_database_error_non_retryable(self):
-        assert _should_retry(DatabaseError("syntax error", None, None)) is False
+        assert (
+            _should_retry(DatabaseError("syntax error", None, Exception("orig")))
+            is False
+        )
 
     def test_generic_exception_not_retryable(self):
         assert _should_retry(ValueError("something went wrong")) is False
@@ -3164,26 +3677,32 @@ class TestShouldRetry:
             "i/o timeout",
         ]
         for msg in retryable_messages:
-            assert _should_retry(DatabaseError(msg, None, None)) is True, (
+            assert _should_retry(DatabaseError(msg, None, Exception("orig"))) is True, (
                 f"Expected {msg!r} to be retryable"
             )
             # Also retryable when mixed-case (check is lowercased)
-            assert _should_retry(DatabaseError(msg.upper(), None, None)) is True, (
-                f"Expected upper-case {msg!r} to be retryable"
-            )
+            assert (
+                _should_retry(DatabaseError(msg.upper(), None, Exception("orig")))
+                is True
+            ), f"Expected upper-case {msg!r} to be retryable"
 
     def test_all_retryable_error_codes_match(self):
         """Every numeric error code in _RETRYABLE_ERROR_CODE_RE is recognised as retryable."""
         retryable_codes = [2631, 2639, 3111, 3120, 3598, 3897, 3603]
         for code in retryable_codes:
             assert (
-                _should_retry(OperationalError(f"[Error {code}]", None, None)) is True
+                _should_retry(
+                    OperationalError(f"[Error {code}]", None, Exception("orig"))
+                )
+                is True
             ), f"Expected error code {code} to be retryable"
 
     def test_dead_socket_substrings_not_retryable_on_execute(self):
         """Dead-socket errors must not be retried on an existing connection."""
         for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
-            assert _should_retry(OperationalError(msg, None, None)) is False, msg
+            assert (
+                _should_retry(OperationalError(msg, None, Exception("orig"))) is False
+            ), msg
 
 
 class TestShouldRetryConnect:
@@ -3193,34 +3712,50 @@ class TestShouldRetryConnect:
         """Everything retryable at execute time is also retryable at connect time."""
         assert _should_retry_connect(PoolTimeoutError("pool exhausted")) is True
         assert (
-            _should_retry_connect(OperationalError("connect timed out", None, None))
+            _should_retry_connect(
+                OperationalError("connect timed out", None, Exception("orig"))
+            )
             is True
         )
         assert (
-            _should_retry_connect(OperationalError("[Error 3598]", None, None)) is True
+            _should_retry_connect(
+                OperationalError("[Error 3598]", None, Exception("orig"))
+            )
+            is True
         )
         assert (
-            _should_retry_connect(DatabaseError("transaction aborted", None, None))
+            _should_retry_connect(
+                DatabaseError("transaction aborted", None, Exception("orig"))
+            )
             is True
         )
 
     def test_dead_socket_errors_retryable_at_connect_time(self):
         """Dead-socket errors are retryable at connect time since a fresh socket is opened."""
         for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
-            assert _should_retry_connect(OperationalError(msg, None, None)) is True, (
-                f"Expected {msg!r} to be retryable at connect time"
-            )
-            assert _should_retry_connect(DatabaseError(msg, None, None)) is True, (
-                f"Expected DatabaseError({msg!r}) to be retryable at connect time"
-            )
+            assert (
+                _should_retry_connect(OperationalError(msg, None, Exception("orig")))
+                is True
+            ), f"Expected {msg!r} to be retryable at connect time"
+            assert (
+                _should_retry_connect(DatabaseError(msg, None, Exception("orig")))
+                is True
+            ), f"Expected DatabaseError({msg!r}) to be retryable at connect time"
 
     def test_non_retryable_errors_still_rejected(self):
         """Permanent errors (auth failure, syntax error) are not retried even at connect time."""
         assert (
-            _should_retry_connect(OperationalError("authentication failed", None, None))
+            _should_retry_connect(
+                OperationalError("authentication failed", None, Exception("orig"))
+            )
             is False
         )
-        assert _should_retry_connect(DatabaseError("syntax error", None, None)) is False
+        assert (
+            _should_retry_connect(
+                DatabaseError("syntax error", None, Exception("orig"))
+            )
+            is False
+        )
         assert _should_retry_connect(ValueError("something went wrong")) is False
 
     def test_engine_connect_retries_dead_socket(self):
@@ -3228,7 +3763,7 @@ class TestShouldRetryConnect:
         good_conn = MagicMock()
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [
-            OperationalError("connection reset", None, None),
+            OperationalError("connection reset", None, Exception("orig")),
             good_conn,
         ]
         report = TeradataReport()
@@ -3520,7 +4055,7 @@ class TestExecuteWithRetry:
         sentinel = object()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             sentinel,
         ]
         report = TeradataReport()
@@ -3536,7 +4071,7 @@ class TestExecuteWithRetry:
 
     def test_exhausts_all_attempts_and_reraises(self):
         """When every attempt raises a retryable error the last exception propagates."""
-        exc = DatabaseError("transaction aborted", None, None)
+        exc = DatabaseError("transaction aborted", None, Exception("orig"))
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = exc
 
@@ -3548,7 +4083,9 @@ class TestExecuteWithRetry:
     def test_dead_socket_error_not_retried(self):
         """Dead-socket errors (connection reset) propagate immediately without retry."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = OperationalError("connection reset", None, None)
+        mock_conn.execute.side_effect = OperationalError(
+            "connection reset", None, Exception("orig")
+        )
 
         with patch("time.sleep"), pytest.raises(OperationalError):
             _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
@@ -3561,7 +4098,7 @@ class TestExecuteWithRetry:
         sentinel = object()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
-            DatabaseError("[Error 2631] deadlock", None, None),
+            DatabaseError("[Error 2631] deadlock", None, Exception("orig")),
             sentinel,
         ]
         report = TeradataReport()
@@ -3577,7 +4114,9 @@ class TestExecuteWithRetry:
     def test_permanent_error_not_retried(self):
         """A non-retryable error (syntax error) propagates on the first attempt."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = DatabaseError("syntax error", None, None)
+        mock_conn.execute.side_effect = DatabaseError(
+            "syntax error", None, Exception("orig")
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
@@ -3604,7 +4143,7 @@ class TestExecuteWithRetry:
         a breadcrumb in the ingestion report."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = OperationalError(
-            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, Exception("orig")
         )
         report = TeradataReport()
 
@@ -3621,7 +4160,7 @@ class TestExecuteWithRetry:
         themselves (e.g. _check_historical_table_exists) receive no report entry."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = OperationalError(
-            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, Exception("orig")
         )
         report = TeradataReport()
 
@@ -3641,7 +4180,7 @@ class TestExecuteWithRetry:
         warning: if we actually slept and retried, a report entry is always warranted."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "[Error 2631] transaction aborted", None, None
+            "[Error 2631] transaction aborted", None, Exception("orig")
         )
         report = TeradataReport()
 
@@ -3669,7 +4208,7 @@ class TestFetchmanyWithRetry:
         batch = [object(), object()]
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             batch,
         ]
         report = TeradataReport()
@@ -3687,7 +4226,7 @@ class TestFetchmanyWithRetry:
         """When every attempt raises a retryable error the last exception propagates."""
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = DatabaseError(
-            "transaction aborted", None, None
+            "transaction aborted", None, Exception("orig")
         )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
@@ -3698,7 +4237,9 @@ class TestFetchmanyWithRetry:
     def test_non_retryable_error_propagates_immediately(self):
         """A non-retryable error propagates on the first attempt without retry."""
         mock_result = MagicMock()
-        mock_result.fetchmany.side_effect = DatabaseError("syntax error", None, None)
+        mock_result.fetchmany.side_effect = DatabaseError(
+            "syntax error", None, Exception("orig")
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             _fetchmany_with_retry(mock_result, batch_size=100, max_attempts=3)
@@ -3718,8 +4259,8 @@ class TestFetchmanyWithRetry:
         """num_db_retries is incremented exactly once per retry attempt."""
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("transaction aborted", None, None),
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             [],
         ]
         report = TeradataReport()
@@ -3746,7 +4287,7 @@ class TestBackoffTiming:
         """_execute_with_retry passes the value from _jittered_backoff to time.sleep."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             "ok",
         ]
         fixed_backoff = 0.42
@@ -3767,7 +4308,7 @@ class TestBackoffTiming:
         batch: List[Any] = []
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             batch,
         ]
         fixed_backoff = 0.77
@@ -3788,7 +4329,7 @@ class TestBackoffTiming:
         mock_conn = MagicMock()
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [
-            OperationalError("connect timed out", None, None),
+            OperationalError("connect timed out", None, Exception("orig")),
             mock_conn,
         ]
         fixed_backoff = 1.23
@@ -3915,7 +4456,7 @@ class TestGetInspectorsPerDbConnectionFailure:
         source = _create_source_patched({"databases": ["db1", "db2", "db3"]})
 
         ok_conn = MagicMock()
-        auth_error = OperationalError("authentication failed", None, None)
+        auth_error = OperationalError("authentication failed", None, Exception("orig"))
 
         mock_engine = MagicMock()
         # db1 succeeds, db2 fails with a permanent auth error, db3 succeeds.
@@ -3949,7 +4490,7 @@ class TestGetInspectorsPerDbConnectionFailure:
         assert len(source.report.warnings) == 1
         warning = source.report.warnings[0]
         assert warning.title == "Failed to inspect database"
-        assert "db2" in warning.message
+        assert any("db2" in ctx for ctx in (warning.context or []))
 
     def test_consumer_error_propagates_and_is_not_swallowed(self):
         """An exception raised inside the consumer loop is NOT caught by get_inspectors.
@@ -3998,7 +4539,7 @@ class TestSchemaNameRetry:
 
         # First connect raises a transient error; second succeeds.
         mock_engine = self._make_engine(
-            [OperationalError("connect timed out", None, None), good_conn]
+            [OperationalError("connect timed out", None, Exception("orig")), good_conn]
         )
 
         with (
@@ -4037,7 +4578,7 @@ class TestSchemaNameRetry:
         """When every attempt fails transiently the last exception is re-raised."""
         source = _create_source_patched({"retry_max_attempts": 2})
 
-        transient = OperationalError("connect timed out", None, None)
+        transient = OperationalError("connect timed out", None, Exception("orig"))
         mock_engine = self._make_engine([transient, transient])
 
         with (
@@ -4062,7 +4603,9 @@ class TestSchemaNameRetry:
         # "connection reset" is in _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS but NOT in
         # _RETRYABLE_ERROR_SUBSTRINGS, so _should_retry() would return False while
         # _should_retry_connect() returns True.
-        dead_socket = OperationalError("connection reset by peer", None, None)
+        dead_socket = OperationalError(
+            "connection reset by peer", None, Exception("orig")
+        )
         mock_engine = self._make_engine([dead_socket, good_conn])
 
         with (
@@ -4089,7 +4632,7 @@ class TestHistoricalTableCheckLogging:
         source = _create_source_patched()
 
         # Simulate a transient error that survives all retry attempts.
-        transient_exc = OperationalError("connect timed out", None, None)
+        transient_exc = OperationalError("connect timed out", None, Exception("orig"))
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = transient_exc
 
@@ -4160,7 +4703,7 @@ class TestHistoricalTableCheckLogging:
         """A transient connectivity error increments historical_lineage_check_failures."""
         source = _create_source_patched()
 
-        transient_exc = OperationalError("connect timed out", None, None)
+        transient_exc = OperationalError("connect timed out", None, Exception())
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = transient_exc
 
@@ -4260,7 +4803,7 @@ class TestExecuteWithCursorFallback:
         source = self._make_source()
         conn = self._mock_conn()
         fallback_result = MagicMock()
-        exc = OperationalError(msg, None, None)
+        exc = OperationalError(msg, None, Exception("orig"))
 
         with patch.object(
             source,
@@ -4307,7 +4850,7 @@ class TestExecuteWithCursorFallback:
         """
         source = self._make_source()
         conn = self._mock_conn()
-        exc = OperationalError(msg, None, None)
+        exc = OperationalError(msg, None, Exception("orig"))
 
         with (
             patch.object(
@@ -4345,50 +4888,63 @@ class TestCategorizeTeradataError:
             # --- timeout ---
             (PoolTimeoutError("pool exhausted"), "timeout"),
             (TimeoutError("timed out"), "timeout"),
-            (OperationalError("request timed out", None, None), "timeout"),
-            (DatabaseError("i/o timeout during query", None, None), "timeout"),
+            (OperationalError("request timed out", None, Exception()), "timeout"),
+            (DatabaseError("i/o timeout during query", None, Exception()), "timeout"),
             # timeout wins even when permission keywords also appear
             (
                 OperationalError(
-                    "request timed out — permission check failed", None, None
+                    "request timed out — permission check failed", None, Exception()
                 ),
                 "timeout",
             ),
             # --- permission ---
             (
-                OperationalError("permission denied for table foo", None, None),
+                OperationalError("permission denied for table foo", None, Exception()),
                 "permission",
             ),
-            (DatabaseError("access denied to database bar", None, None), "permission"),
-            (DatabaseError("no access to object", None, None), "permission"),
+            (
+                DatabaseError("access denied to database bar", None, Exception()),
+                "permission",
+            ),
+            (DatabaseError("no access to object", None, Exception()), "permission"),
             (
                 DatabaseError(
-                    "[Error 3523] user does not have SELECT access", None, None
+                    "[Error 3523] user does not have SELECT access", None, Exception()
                 ),
                 "permission",
             ),
             (
-                OperationalError("[Error 8017] The UserId is invalid.", None, None),
+                OperationalError(
+                    "[Error 8017] The UserId is invalid.", None, Exception()
+                ),
                 "permission",
             ),
             # --- parse ---
-            (DatabaseError("syntax error in SQL statement", None, None), "parse"),
-            (DatabaseError("parse error near token SELECT", None, None), "parse"),
             (
-                DatabaseError("[Error 3706] Syntax error: expected name.", None, None),
+                DatabaseError("syntax error in SQL statement", None, Exception()),
+                "parse",
+            ),
+            (
+                DatabaseError("parse error near token SELECT", None, Exception()),
+                "parse",
+            ),
+            (
+                DatabaseError(
+                    "[Error 3706] Syntax error: expected name.", None, Exception()
+                ),
                 "parse",
             ),
             (
                 DatabaseError(
                     "[Error 3707] Syntax error, expected something between 'x' and 'y'.",
                     None,
-                    None,
+                    Exception(),
                 ),
                 "parse",
             ),
             (
                 NotSupportedError(
-                    "Feature not supported by this Teradata driver", None, None
+                    "Feature not supported by this Teradata driver", None, Exception()
                 ),
                 "parse",
             ),
@@ -4397,21 +4953,31 @@ class TestCategorizeTeradataError:
             (ValueError("bad value"), "unknown"),
             # Three additional paths exercised by production code:
             # standalone "timeout" keyword (no "timed out" substring)
-            (DatabaseError("query execution timeout", None, None), "timeout"),
+            (DatabaseError("query execution timeout", None, Exception()), "timeout"),
             # error code 3003 (logon failed)
-            (DatabaseError("[Error 3003] Logon failed.", None, None), "permission"),
-            # "authentication failed" keyword
             (
-                OperationalError("authentication failed for user foo", None, None),
+                DatabaseError("[Error 3003] Logon failed.", None, Exception()),
                 "permission",
             ),
-            (DatabaseError("invalid sql: missing FROM clause", None, None), "parse"),
+            # "authentication failed" keyword
+            (
+                OperationalError(
+                    "authentication failed for user foo", None, Exception()
+                ),
+                "permission",
+            ),
+            (
+                DatabaseError("invalid sql: missing FROM clause", None, Exception()),
+                "parse",
+            ),
             # Authoritative code wins over incidental keywords in the detail
             # text: a parse [Error 3706] whose message also contains "timeout"
             # must classify as PARSE, not TIMEOUT.
             (
                 DatabaseError(
-                    "[Error 3706] Syntax error near 'timeout' column.", None, None
+                    "[Error 3706] Syntax error near 'timeout' column.",
+                    None,
+                    Exception(),
                 ),
                 "parse",
             ),
@@ -4421,7 +4987,7 @@ class TestCategorizeTeradataError:
                 DatabaseError(
                     "[Error 3523] user lacks access; cursor timeout in context",
                     None,
-                    None,
+                    Exception(),
                 ),
                 "permission",
             ),
@@ -4585,7 +5151,7 @@ class TestSchemaDiscoveryFailureCounter:
     def test_all_retries_exhausted_increments_counter_once(self):
         """Even when every attempt fails transiently, the counter only goes up by 1."""
         source = _create_source_patched({"retry_max_attempts": 3})
-        transient = OperationalError("connect timed out", None, None)
+        transient = OperationalError("connect timed out", None, Exception())
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [transient, transient, transient]
 
@@ -4621,7 +5187,7 @@ class TestSchemaDiscoveryFailureCounter:
         good_conn = MagicMock()
         good_inspector = MagicMock()
         good_inspector.get_schema_names.return_value = ["db1"]
-        transient = OperationalError("connect timed out", None, None)
+        transient = OperationalError("connect timed out", None, Exception())
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [transient, good_conn]
 
@@ -4681,11 +5247,11 @@ class TestViewProcessingErrorCounters:
         [
             (PoolTimeoutError("pool exhausted"), "view_timeout_errors"),
             (
-                OperationalError("permission denied for table foo", None, None),
+                OperationalError("permission denied for table foo", None, Exception()),
                 "view_permission_errors",
             ),
             (
-                DatabaseError("syntax error in SQL statement", None, None),
+                DatabaseError("syntax error in SQL statement", None, Exception()),
                 "view_parse_errors",
             ),
             (RuntimeError("unexpected crash"), "view_unknown_errors"),
@@ -4714,8 +5280,8 @@ class TestViewProcessingErrorCounters:
         """Two views failing with different errors produce independent sub-counts."""
         source = _create_source_patched({"max_workers": 1})
         errors = [
-            OperationalError("permission denied", None, None),
-            DatabaseError("syntax error near token", None, None),
+            OperationalError("permission denied", None, Exception()),
+            DatabaseError("syntax error near token", None, Exception()),
         ]
         mock_conn = _make_mock_conn()
         mock_inspector = _make_mock_inspector("testdb")
@@ -4811,12 +5377,14 @@ class TestViewProcessingErrorCounters:
         [
             (PoolTimeoutError("pool exhausted"), "view_timeout_errors"),
             (
-                DatabaseError("[Error 3523] user has no SELECT access", None, None),
+                DatabaseError(
+                    "[Error 3523] user has no SELECT access", None, Exception()
+                ),
                 "view_permission_errors",
             ),
             (
                 DatabaseError(
-                    "[Error 3706] Syntax error in view definition", None, None
+                    "[Error 3706] Syntax error in view definition", None, Exception()
                 ),
                 "view_parse_errors",
             ),
@@ -4941,8 +5509,11 @@ class TestViewProcessingErrorCounters:
         "exc, expected_fragment",
         [
             (PoolTimeoutError("pool exhausted"), "timed out"),
-            (OperationalError("permission denied", None, None), "Permission denied"),
-            (DatabaseError("syntax error", None, None), "SQL parse error"),
+            (
+                OperationalError("permission denied", None, Exception()),
+                "Permission denied",
+            ),
+            (DatabaseError("syntax error", None, Exception()), "SQL parse error"),
             (RuntimeError("exploded"), "Unexpected error"),
         ],
         ids=["timeout", "permission", "parse", "unknown"],
@@ -5233,7 +5804,7 @@ class TestLineageQueryTimingReport:
             patch.object(
                 source,
                 "_execute_with_cursor_fallback",
-                side_effect=DatabaseError("simulated DB failure", None, None),
+                side_effect=DatabaseError("simulated DB failure", None, Exception()),
             ),
             patch.object(
                 source,
@@ -5601,7 +6172,6 @@ class TestCharPaddingFixes:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -5915,3 +6485,152 @@ class TestGenerateProfileCandidates:
             "myschema.any_table", "myschema", inspector, None
         )
         assert "myschema" not in source.report.profiling_skipped_size_limit
+
+
+def _real_rows(rows: List[Dict[str, Any]]) -> List[Any]:
+    """Materialise dicts as genuine SQLAlchemy ``Row``s (what the dbc and HELP
+    queries hand back) by round-tripping them through in-memory SQLite."""
+    engine = sa.create_engine("sqlite://")
+    mappings = []
+    with engine.connect() as conn:
+        for row in rows:
+            select_list = ", ".join(f':p{i} AS "{k}"' for i, k in enumerate(row))
+            params = {f"p{i}": v for i, v in enumerate(row.values())}
+            mappings.append(
+                conn.execute(sa.text(f"SELECT {select_list}"), params).fetchone()
+            )
+    return mappings
+
+
+class TestOptimizedGetColumnsRealDialect:
+    """Drive optimized_get_columns through teradatasqlalchemy's real
+    _get_column_info / _update_column_help_info, so a change to those private
+    signatures surfaces as missing columns here instead of in production."""
+
+    @staticmethod
+    def _dbc_row(name: str, column_type: str, **overrides: Any) -> Dict[str, Any]:
+        row: Dict[str, Any] = {
+            "DatabaseName": "mydb",
+            "TableName": "my_table",
+            "ColumnName": name,
+            "ColumnType": column_type,
+            "ColumnLength": 4,
+            "CharType": 0,
+            "DecimalTotalDigits": None,
+            "DecimalFractionalDigits": None,
+            "ColumnFormat": "-(10)9",
+            "Nullable": "Y",
+            "DefaultValue": None,
+            "IdColType": None,
+            "CommentString": None,
+            "ColumnUDTName": None,
+            "ArrayColElementType": None,
+            "ArrayColNumberOfDimensions": None,
+            "ArrayColScope": None,
+        }
+        row.update(overrides)
+        return row
+
+    @staticmethod
+    def _table(object_type: str) -> TeradataTable:
+        return TeradataTable(
+            database="mydb",
+            name="my_table",
+            description=None,
+            object_type=object_type,
+            create_timestamp=datetime.now(),
+            last_alter_name=None,
+            last_alter_timestamp=None,
+        )
+
+    def test_table_columns_resolve_types_from_dbc_columns(self) -> None:
+        dialect = TeradataDialect()
+        report = TeradataReport()
+        rows = _real_rows(
+            [
+                self._dbc_row("id", "I ", Nullable="N", IdColType="GA"),
+                self._dbc_row(
+                    "name",
+                    "CV",
+                    ColumnLength=200,
+                    CharType=2,
+                    ColumnFormat="X(100)",
+                    CommentString="Display name ",
+                ),
+                self._dbc_row(
+                    "amount",
+                    "D ",
+                    ColumnLength=8,
+                    DecimalTotalDigits=18,
+                    DecimalFractionalDigits=2,
+                ),
+            ]
+        )
+
+        with (
+            patch.object(
+                dialect,
+                "get_schema_columns",
+                return_value={"my_table": [r._mapping for r in rows]},
+                create=True,
+            ),
+            patch.object(dialect, "report", report, create=True),
+        ):
+            cols = optimized_get_columns(
+                dialect,
+                MagicMock(),
+                "my_table",
+                "mydb",
+                tables_cache={"mydb": [self._table("Table")]},
+            )
+
+        assert report.num_column_extraction_failures == 0
+        assert [c["name"] for c in cols] == ["id", "name", "amount"]
+        assert type(cols[0]["type"]).__name__ == "INTEGER"
+        assert cols[0]["nullable"] is False
+        assert cols[0]["autoincrement"] is True
+        assert type(cols[1]["type"]).__name__ == "VARCHAR"
+        assert cols[1]["type"].length == 100
+        assert cols[1]["comment"] == "Display name"
+        assert type(cols[2]["type"]).__name__ == "DECIMAL"
+        assert (cols[2]["type"].precision, cols[2]["type"].scale) == (18, 2)
+        assert cols[0]["info"]["is_view"] is False
+
+    def test_view_columns_resolve_types_from_help(self) -> None:
+        dialect = TeradataDialect()
+        report = TeradataReport()
+        help_rows = _real_rows(
+            [
+                {
+                    "Column Dictionary Name": "view_col",
+                    "Type": "CV",
+                    "Max Length": 60,
+                    "Char Type": 1,
+                    "Decimal Total Digits": None,
+                    "Decimal Fractional Digits": None,
+                    "Format": "X(60)",
+                    "Nullable": "Y",
+                    "IdCol Type": None,
+                    "UDT Dictionary Name": None,
+                }
+            ]
+        )
+
+        with (
+            patch.object(dialect, "_get_column_help", return_value=help_rows),
+            patch.object(dialect, "report", report, create=True),
+        ):
+            cols = optimized_get_columns(
+                dialect,
+                MagicMock(),
+                "my_table",
+                "mydb",
+                tables_cache={"mydb": [self._table("View")]},
+            )
+
+        assert report.num_column_extraction_failures == 0
+        assert len(cols) == 1
+        assert cols[0]["name"] == "view_col"
+        assert type(cols[0]["type"]).__name__ == "VARCHAR"
+        assert cols[0]["type"].length == 60
+        assert cols[0]["info"]["is_view"] is True

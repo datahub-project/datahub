@@ -1,60 +1,38 @@
 # metadata-ingestion/examples/library/corpgroup_query_rest_api.py
-import json
-import os
-from urllib.parse import quote
-
-import requests
-
-GMS_SERVER = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-token = os.getenv("DATAHUB_GMS_TOKEN")
-group_name = "data-engineering"
-group_urn = f"urn:li:corpGroup:{group_name}"
-
-headers = {}
-if token:
-    headers["Authorization"] = f"Bearer {token}"
-
-encoded_urn = quote(group_urn, safe="")
-response = requests.get(f"{GMS_SERVER}/entities/{encoded_urn}", headers=headers)
-
-if response.status_code == 200:
-    entity_data = response.json()
-    print("Group Entity:")
-    print(json.dumps(entity_data, indent=2))
-
-    if "aspects" in entity_data:
-        aspects = entity_data["aspects"]
-
-        if "corpGroupInfo" in aspects:
-            group_info = aspects["corpGroupInfo"]["value"]
-            print(f"\nDisplay Name: {group_info.get('displayName')}")
-            print(f"Description: {group_info.get('description')}")
-            print(f"Email: {group_info.get('email')}")
-
-        if "corpGroupEditableInfo" in aspects:
-            editable_info = aspects["corpGroupEditableInfo"]["value"]
-            print(f"\nEditable Description: {editable_info.get('description')}")
-            print(f"Picture Link: {editable_info.get('pictureLink')}")
-else:
-    print(f"Failed to fetch group: {response.status_code}")
-
-encoded_urn = quote(group_urn, safe="")
-response = requests.get(
-    f"{GMS_SERVER}/relationships",
-    params={
-        "direction": "INCOMING",
-        "urn": group_urn,
-        "types": "IsMemberOfGroup",
-    },
-    headers=headers,
+from datahub.ingestion.graph.client import RelationshipDirection, get_default_graph
+from datahub.metadata.schema_classes import (
+    CorpGroupEditableInfoClass,
+    CorpGroupInfoClass,
 )
+from datahub.metadata.urns import CorpGroupUrn
 
-if response.status_code == 200:
-    relationships = response.json()
-    print(f"\nGroup Members ({relationships.get('total', 0)} total):")
+graph = get_default_graph()
 
-    for relationship in relationships.get("relationships", []):
-        member_urn = relationship.get("entity")
-        print(f"  - {member_urn}")
-else:
-    print(f"Failed to fetch group members: {response.status_code}")
+group_urn = CorpGroupUrn("data-engineering")
+
+group_info = graph.get_aspect(entity_urn=str(group_urn), aspect_type=CorpGroupInfoClass)
+if group_info is None:
+    raise SystemExit(f"Group not found: {group_urn}")
+
+print("Group Entity:")
+print(f"Display Name: {group_info.displayName}")
+print(f"Description: {group_info.description}")
+print(f"Email: {group_info.email}")
+
+editable_info = graph.get_aspect(
+    entity_urn=str(group_urn), aspect_type=CorpGroupEditableInfoClass
+)
+if editable_info is not None:
+    print(f"\nEditable Description: {editable_info.description}")
+    print(f"Picture Link: {editable_info.pictureLink}")
+
+members = list(
+    graph.get_related_entities(
+        entity_urn=str(group_urn),
+        relationship_types=["IsMemberOfGroup"],
+        direction=RelationshipDirection.INCOMING,
+    )
+)
+print(f"\nGroup Members ({len(members)} total):")
+for member in members:
+    print(f"  - {member.urn}")

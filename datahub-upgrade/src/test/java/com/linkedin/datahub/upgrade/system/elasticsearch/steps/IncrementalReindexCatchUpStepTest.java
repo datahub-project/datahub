@@ -3,45 +3,62 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.index.query.QueryBuilder;
 import org.testng.annotations.BeforeMethod;
@@ -115,9 +132,15 @@ public class IncrementalReindexCatchUpStepTest {
 
     setupPhase1Result(phase1State);
 
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -125,11 +148,263 @@ public class IncrementalReindexCatchUpStepTest {
     // Should still stream aspects for the T0 gap window
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.urnLike, "urn:li:dataset:%");
     assertEquals(capturedArgs.gePitEpochMs, 1000L);
     assertEquals(capturedArgs.lePitEpochMs, 2000L);
+    assertEquals(capturedArgs.batchSize, 50);
+  }
+
+  @Test
+  public void testCatchUpUsesConfiguredSqlPageSize() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    setupPhase1Result(phase1State);
+
+    BuildIndicesConfiguration config = new BuildIndicesConfiguration();
+    config.setCatchUpSqlPageSize(25);
+    IncrementalReindexCatchUpStep configuredStep =
+        new IncrementalReindexCatchUpStep(
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(indexedService),
+            Set.of(),
+            UPGRADE_VERSION,
+            config);
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
+
+    configuredStep.executable().apply(upgradeContext);
+
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
+    assertEquals(argsCaptor.getValue().batchSize, 25);
+  }
+
+  @Test
+  public void testShouldFlushTriggersOnRowOrByteThreshold() {
+    assertTrue(IncrementalReindexCatchUpStep.shouldFlush(500, 0, 500, 0));
+    assertFalse(IncrementalReindexCatchUpStep.shouldFlush(499, 0, 500, 0));
+    assertTrue(IncrementalReindexCatchUpStep.shouldFlush(1, 1024, 500, 1024));
+    assertFalse(IncrementalReindexCatchUpStep.shouldFlush(1, 1023, 500, 1024));
+    assertFalse(IncrementalReindexCatchUpStep.shouldFlush(499, 999999, 500, 0));
+  }
+
+  @Test
+  public void testMetadataColumnCharLengthUsesRawStringLength() {
+    assertEquals(IncrementalReindexCatchUpStep.metadataColumnCharLength("abc"), 3);
+    assertEquals(IncrementalReindexCatchUpStep.metadataColumnCharLength(""), 0);
+    assertEquals(IncrementalReindexCatchUpStep.metadataColumnCharLength(null), 0);
+  }
+
+  @Test
+  public void testFlushEventProducerOnRowInterval() throws Exception {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    setupPhase1Result(phase1State);
+
+    BuildIndicesConfiguration config = new BuildIndicesConfiguration();
+    config.setCatchUpSqlPageSize(50);
+    config.setCatchUpFlushInterval(500);
+    config.setCatchUpFlushBytesThreshold(0);
+    IncrementalReindexCatchUpStep flushStep =
+        new IncrementalReindexCatchUpStep(
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(indexedService),
+            Set.of(),
+            UPGRADE_VERSION,
+            config);
+
+    SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(streamWithPagedAspects(600, 50)));
+
+    when(entityService.alwaysProduceMCLAsync(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
+
+    try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
+      entityUtilsMock
+          .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
+          .thenAnswer(
+              invocation -> {
+                List<EbeanAspectV2> aspects = invocation.getArgument(2);
+                return aspects.stream().map(a -> mockAspect).toList();
+              });
+
+      flushStep.executable().apply(upgradeContext);
+    }
+
+    verify(entityService, times(2)).flushEventProducer();
+  }
+
+  @Test
+  public void testDefersFutureGetWhileUnderFlushLimit() throws Exception {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    setupPhase1Result(phase1State);
+
+    BuildIndicesConfiguration config = new BuildIndicesConfiguration();
+    config.setCatchUpSqlPageSize(50);
+    config.setCatchUpFlushInterval(500);
+    config.setCatchUpFlushBytesThreshold(0);
+    IncrementalReindexCatchUpStep flushStep =
+        new IncrementalReindexCatchUpStep(
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(indexedService),
+            Set.of(),
+            UPGRADE_VERSION,
+            config);
+
+    SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
+    AtomicInteger pending = new AtomicInteger();
+    AtomicInteger maxPending = new AtomicInteger();
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(streamWithPagedAspects(600, 50)));
+
+    when(entityService.alwaysProduceMCLAsync(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              pending.incrementAndGet();
+              maxPending.updateAndGet(current -> Math.max(current, pending.get()));
+              Future<?> future = mock(Future.class);
+              when(future.get())
+                  .thenAnswer(
+                      i -> {
+                        pending.decrementAndGet();
+                        return null;
+                      });
+              return Pair.of(future, true);
+            });
+
+    try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
+      entityUtilsMock
+          .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
+          .thenAnswer(
+              invocation -> {
+                List<EbeanAspectV2> aspects = invocation.getArgument(2);
+                return aspects.stream().map(a -> mockAspect).toList();
+              });
+
+      flushStep.executable().apply(upgradeContext);
+    }
+
+    assertEquals(maxPending.get(), 500);
+    assertEquals(pending.get(), 0);
+  }
+
+  @Test
+  public void testFlushEventProducerOnByteThresholdBeforeRowInterval() throws Exception {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    setupPhase1Result(phase1State);
+
+    BuildIndicesConfiguration config = new BuildIndicesConfiguration();
+    config.setCatchUpSqlPageSize(2);
+    config.setCatchUpFlushInterval(10_000);
+    config.setCatchUpFlushBytesThreshold(1000L);
+    IncrementalReindexCatchUpStep flushStep =
+        new IncrementalReindexCatchUpStep(
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(indexedService),
+            Set.of(),
+            UPGRADE_VERSION,
+            config);
+
+    SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(streamWithLargePagedAspects(4, 2, 600)));
+
+    when(entityService.alwaysProduceMCLAsync(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
+
+    try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
+      entityUtilsMock
+          .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
+          .thenAnswer(
+              invocation -> {
+                List<EbeanAspectV2> aspects = invocation.getArgument(2);
+                return aspects.stream().map(a -> mockAspect).toList();
+              });
+
+      flushStep.executable().apply(upgradeContext);
+    }
+
+    verify(entityService, times(2)).flushEventProducer();
   }
 
   @Test
@@ -165,7 +440,7 @@ public class IncrementalReindexCatchUpStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any());
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -197,7 +472,7 @@ public class IncrementalReindexCatchUpStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any());
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -219,9 +494,15 @@ public class IncrementalReindexCatchUpStepTest {
     setupPhase1Result(phase1State);
 
     // Mock empty stream so we don't need real aspects
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -229,7 +510,7 @@ public class IncrementalReindexCatchUpStepTest {
     // Verify the stream query was scoped to the dataset entity type
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.urnLike, "urn:li:dataset:%");
     assertEquals(capturedArgs.gePitEpochMs, 1000L);
@@ -269,10 +550,15 @@ public class IncrementalReindexCatchUpStepTest {
     setupPhase1Result(phase1State);
 
     // Return a fresh empty stream for each call (PartitionedStream is closed after use)
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenAnswer(
             invocation ->
-                PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        invocation.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -281,7 +567,7 @@ public class IncrementalReindexCatchUpStepTest {
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
     verify(aspectDao, org.mockito.Mockito.times(2))
-        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
 
     java.util.List<RestoreIndicesArgs> allArgs = argsCaptor.getAllValues();
     java.util.Set<String> urnLikes =
@@ -294,7 +580,9 @@ public class IncrementalReindexCatchUpStepTest {
   public void testGlobalIndexCatchUpUsesUnscopedUrnLike() {
     // Graph index is a "global" index — catch-up should emit MCLs for ALL entities (urnLike = "%")
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(
+            opContext, SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
 
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(
@@ -311,16 +599,22 @@ public class IncrementalReindexCatchUpStepTest {
 
     setupPhase1Result(phase1State);
 
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.urnLike, "%");
   }
@@ -356,9 +650,15 @@ public class IncrementalReindexCatchUpStepTest {
               return Optional.empty();
             });
 
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     // rollbackDualWriteEnabled defaults to false in BuildIndicesConfiguration
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -385,9 +685,15 @@ public class IncrementalReindexCatchUpStepTest {
 
     setupPhase1Result(phase1State);
 
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -455,7 +761,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any());
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -514,6 +820,7 @@ public class IncrementalReindexCatchUpStepTest {
     when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     when(indexBuilder.submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt()))
         .thenThrow(new RuntimeException("index_not_found_exception: no such index"));
 
@@ -541,7 +848,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any());
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -567,6 +874,7 @@ public class IncrementalReindexCatchUpStepTest {
     when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     doReturn("task-1")
         .when(indexBuilder)
         .submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt());
@@ -637,7 +945,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     setupPhase1Result(phase1State);
 
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenThrow(new RuntimeException("stream failed"));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -658,5 +966,44 @@ public class IncrementalReindexCatchUpStepTest {
               }
               return Optional.empty();
             });
+  }
+
+  private SystemAspect createMockSystemAspect(String urnStr) {
+    SystemAspect aspect = mock(SystemAspect.class);
+    when(aspect.getUrn()).thenReturn(UrnUtils.getUrn(urnStr));
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getName()).thenReturn("testAspect");
+    when(aspect.getAspectSpec()).thenReturn(aspectSpec);
+    when(aspect.getRecordTemplate()).thenReturn(null);
+    SystemMetadata systemMetadata = new SystemMetadata();
+    when(aspect.getSystemMetadata()).thenReturn(systemMetadata);
+    return aspect;
+  }
+
+  private PartitionedStream<EbeanAspectV2> streamWithPagedAspects(int totalAspects, int pageSize) {
+    return aspectsStream(totalAspects, "{}");
+  }
+
+  private PartitionedStream<EbeanAspectV2> streamWithLargePagedAspects(
+      int totalAspects, int pageSize, int metadataLength) {
+    return aspectsStream(totalAspects, "x".repeat(metadataLength));
+  }
+
+  private PartitionedStream<EbeanAspectV2> aspectsStream(int totalAspects, String metadata) {
+    List<EbeanAspectV2> aspects = new ArrayList<>();
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    for (int i = 0; i < totalAspects; i++) {
+      aspects.add(
+          new EbeanAspectV2(
+              "urn:li:dataset:ds" + i,
+              "datasetProperties",
+              0L,
+              metadata,
+              now,
+              "tester",
+              null,
+              null));
+    }
+    return PartitionedStream.<EbeanAspectV2>builder().delegateStream(aspects.stream()).build();
   }
 }

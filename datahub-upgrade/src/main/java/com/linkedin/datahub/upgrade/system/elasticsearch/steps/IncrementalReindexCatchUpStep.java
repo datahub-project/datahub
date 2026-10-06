@@ -9,11 +9,11 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -30,6 +30,7 @@ import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +62,6 @@ import org.opensearch.tasks.TaskInfo;
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
   public static final String UPGRADE_ID_PREFIX = IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX;
-  private static final int DEFAULT_BATCH_SIZE = 500;
   public static final String LAST_URN_KEY = "lastUrn";
 
   private static final String TIMESERIES_TIMESTAMP_FIELD = "@timestamp";
@@ -75,30 +75,6 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private final BuildIndicesConfiguration buildIndicesConfig;
   private final Urn upgradeIdUrn;
   private final Urn phase1UpgradeIdUrn;
-  private final int batchSize;
-
-  public IncrementalReindexCatchUpStep(
-      OperationContext opContext,
-      EntityService<?> entityService,
-      AspectDao aspectDao,
-      List<ElasticSearchIndexed> indexedServices,
-      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
-      String upgradeVersion,
-      BuildIndicesConfiguration buildIndicesConfig,
-      int batchSize) {
-    this.opContext = opContext;
-    this.entityService = entityService;
-    this.aspectDao = aspectDao;
-    this.indexedServices = indexedServices;
-    this.structuredProperties = structuredProperties;
-    this.upgradeVersion = upgradeVersion;
-    this.buildIndicesConfig = buildIndicesConfig;
-    this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
-    this.phase1UpgradeIdUrn =
-        BootstrapStep.getUpgradeUrn(
-            IncrementalReindexState.UPGRADE_ID_PREFIX + "_" + upgradeVersion);
-    this.batchSize = batchSize;
-  }
 
   public IncrementalReindexCatchUpStep(
       OperationContext opContext,
@@ -108,15 +84,18 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       String upgradeVersion,
       @Nullable BuildIndicesConfiguration buildIndicesConfig) {
-    this(
-        opContext,
-        entityService,
-        aspectDao,
-        indexedServices,
-        structuredProperties,
-        upgradeVersion,
-        buildIndicesConfig,
-        DEFAULT_BATCH_SIZE);
+    this.opContext = opContext;
+    this.entityService = entityService;
+    this.aspectDao = aspectDao;
+    this.indexedServices = indexedServices;
+    this.structuredProperties = structuredProperties;
+    this.upgradeVersion = upgradeVersion;
+    this.buildIndicesConfig =
+        buildIndicesConfig != null ? buildIndicesConfig : new BuildIndicesConfiguration();
+    this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+    this.phase1UpgradeIdUrn =
+        BootstrapStep.getUpgradeUrn(
+            IncrementalReindexState.UPGRADE_ID_PREFIX + "_" + upgradeVersion);
   }
 
   @Override
@@ -252,7 +231,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     String nextIndexName = indexState.get(IncrementalReindexState.NEXT_INDEX_NAME);
-    Optional<String> entityNameOpt = indexConvention.getEntityName(indexName);
+    Optional<String> entityNameOpt = indexConvention.getEntityName(opContext, indexName);
 
     if (entityNameOpt.isPresent()) {
       String entityName = entityNameOpt.get();
@@ -267,7 +246,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       return CatchUpStatus.COMPLETED;
     }
 
-    if (indexConvention.getEntityAndAspectName(indexName).isPresent() && nextIndexName != null) {
+    if (indexConvention.getEntityAndAspectName(opContext, indexName).isPresent()
+        && nextIndexName != null) {
       String oldBackingIndexName = indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
       if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
         log.warn("Timeseries index {} has no oldBackingIndexName, skipping catch-up", indexName);
@@ -308,6 +288,10 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    * Streams aspects (version 0) modified in the given time range and emits RESTATE MCLs for each.
    * Uses URN-based cursor pagination with per-index checkpointing for resumption.
    *
+   * <p>MCLs are enqueued to Kafka without waiting per row. {@link Future#get()} is deferred until a
+   * flush boundary (row count or byte threshold), then {@link EntityService#flushEventProducer()}
+   * runs before checkpointing so resume state reflects fully sent batches.
+   *
    * @param indexName the ES index name, used as a prefix for per-index resume state
    * @param urnLikePattern the SQL LIKE pattern to scope the DB query (e.g. "urn:li:dataset:%" for
    *     entity-scoped, "%" for global indices like graph/system metadata)
@@ -336,70 +320,133 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       log.info("Resuming catch-up for index {} from URN: {}", indexName, resumeUrn);
     }
 
+    int sqlPageSize = buildIndicesConfig.getCatchUpSqlPageSize();
+    int flushInterval = buildIndicesConfig.getCatchUpFlushInterval();
+    long flushBytesThreshold = buildIndicesConfig.getCatchUpFlushBytesThreshold();
+
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
-            .batchSize(batchSize)
+            .batchSize(sqlPageSize)
             .gePitEpochMs(fromEpochMs)
             .lePitEpochMs(toEpochMs)
             .urnLike(urnLikePattern)
             .lastUrn(resumeUrn)
             .urnBasedPagination(true);
 
-    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(opContext, args)) {
-      stream
-          .partition(batchSize)
-          .forEach(
-              batch -> {
-                List<Pair<Future<?>, SystemAspect>> futures =
-                    EntityUtils.toSystemAspectFromEbeanAspects(
-                            opContext,
-                            opContext.getRetrieverContext(),
-                            batch.collect(Collectors.toList()))
-                        .stream()
-                        .map(
-                            systemAspect -> {
-                              Pair<Future<?>, Boolean> future =
-                                  entityService.alwaysProduceMCLAsync(
-                                      opContext,
-                                      systemAspect.getUrn(),
-                                      systemAspect.getUrn().getEntityType(),
-                                      systemAspect.getAspectSpec().getName(),
-                                      systemAspect.getAspectSpec(),
-                                      null,
-                                      systemAspect.getRecordTemplate(),
-                                      null,
-                                      systemAspect
-                                          .getSystemMetadata()
-                                          .setRunId(id())
-                                          .setLastObserved(System.currentTimeMillis()),
-                                      AuditStampUtils.createDefaultAuditStamp(),
-                                      ChangeType.RESTATE);
-                              return Pair.<Future<?>, SystemAspect>of(
-                                  future.getFirst(), systemAspect);
-                            })
-                        .toList();
+    FlushTracker tracker = new FlushTracker();
 
-                SystemAspect lastAspect =
-                    futures.stream()
-                        .map(
-                            f -> {
-                              try {
-                                f.getFirst().get();
-                                return f.getSecond();
-                              } catch (InterruptedException | ExecutionException e) {
-                                throw new RuntimeException(e);
-                              }
-                            })
-                        .reduce((a, b) -> b)
-                        .orElse(null);
+    aspectDao.streamAspectBatches(
+        opContext,
+        args,
+        stream -> {
+          stream
+              .partition(sqlPageSize)
+              .forEach(
+                  page -> {
+                    List<EbeanAspectV2> pageAspects = page.collect(Collectors.toList());
 
-                if (lastAspect != null) {
-                  Map<String, String> checkpoint = loadCurrentCheckpointState(context);
-                  checkpoint.put(lastUrnKey, lastAspect.getUrn().toString());
-                  persistCatchUpCheckpoint(context, checkpoint, DataHubUpgradeState.IN_PROGRESS);
-                }
-              });
+                    List<SystemAspect> systemAspects =
+                        EntityUtils.toSystemAspectFromEbeanAspects(
+                            opContext, opContext.getRetrieverContext(), pageAspects);
+
+                    for (int i = 0; i < systemAspects.size(); i++) {
+                      SystemAspect systemAspect = systemAspects.get(i);
+                      if (flushBytesThreshold > 0) {
+                        tracker.bytesSinceLastFlush +=
+                            metadataColumnCharLength(pageAspects.get(i).getMetadata());
+                      }
+
+                      Pair<Future<?>, Boolean> future =
+                          entityService.alwaysProduceMCLAsync(
+                              opContext,
+                              systemAspect.getUrn(),
+                              systemAspect.getUrn().getEntityType(),
+                              systemAspect.getAspectSpec().getName(),
+                              systemAspect.getAspectSpec(),
+                              null,
+                              systemAspect.getRecordTemplate(),
+                              null,
+                              systemAspect
+                                  .getSystemMetadata()
+                                  .setRunId(id())
+                                  .setLastObserved(System.currentTimeMillis()),
+                              AuditStampUtils.createDefaultAuditStamp(),
+                              ChangeType.RESTATE);
+                      tracker.pendingFutures.add(future.getFirst());
+                      tracker.lastProcessedAspect = systemAspect;
+                      tracker.rowsSinceLastFlush++;
+
+                      if (shouldFlush(
+                          tracker.rowsSinceLastFlush,
+                          tracker.bytesSinceLastFlush,
+                          flushInterval,
+                          flushBytesThreshold)) {
+                        awaitPendingAndFlush(context, indexName, lastUrnKey, tracker);
+                      }
+                    }
+                  });
+          return null;
+        });
+
+    if (tracker.rowsSinceLastFlush > 0 || !tracker.pendingFutures.isEmpty()) {
+      awaitPendingAndFlush(context, indexName, lastUrnKey, tracker);
     }
+  }
+
+  static boolean shouldFlush(
+      int rowsSinceLastFlush,
+      long bytesSinceLastFlush,
+      int flushInterval,
+      long flushBytesThreshold) {
+    if (rowsSinceLastFlush >= flushInterval) {
+      return true;
+    }
+    return flushBytesThreshold > 0 && bytesSinceLastFlush >= flushBytesThreshold;
+  }
+
+  /**
+   * Raw UTF-16 code-unit count of the SQL {@code metadata} column already loaded on the row. Used
+   * as a cheap proxy for serialized MCL payload size (no parsing or re-serialization).
+   */
+  static int metadataColumnCharLength(@Nullable String metadata) {
+    return metadata == null ? 0 : metadata.length();
+  }
+
+  private void awaitPendingAndFlush(
+      UpgradeContext context, String indexName, String lastUrnKey, FlushTracker tracker) {
+    awaitPendingFutures(tracker.pendingFutures);
+    flushAndCheckpoint(context, indexName, lastUrnKey, tracker);
+  }
+
+  private static void awaitPendingFutures(List<Future<?>> pendingFutures) {
+    for (Future<?> future : pendingFutures) {
+      try {
+        future.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    pendingFutures.clear();
+  }
+
+  private void flushAndCheckpoint(
+      UpgradeContext context, String indexName, String lastUrnKey, FlushTracker tracker) {
+    if (tracker.lastProcessedAspect == null) {
+      return;
+    }
+    entityService.flushEventProducer();
+    Map<String, String> checkpoint = loadCurrentCheckpointState(context);
+    checkpoint.put(lastUrnKey, tracker.lastProcessedAspect.getUrn().toString());
+    persistCatchUpCheckpoint(context, checkpoint, DataHubUpgradeState.IN_PROGRESS);
+    tracker.rowsSinceLastFlush = 0;
+    tracker.bytesSinceLastFlush = 0;
+  }
+
+  private static final class FlushTracker {
+    int rowsSinceLastFlush = 0;
+    long bytesSinceLastFlush = 0;
+    SystemAspect lastProcessedAspect = null;
+    final List<Future<?>> pendingFutures = new ArrayList<>();
   }
 
   private Map<String, String> loadCurrentCheckpointState(UpgradeContext context) {
@@ -493,9 +540,14 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    */
   private boolean isGlobalIndex(String indexName) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(
+            opContext, SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
     String systemMetadataIndexName =
-        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(
+            opContext,
+            SearchComponent.SYSTEM_METADATA,
+            ElasticSearchSystemMetadataService.INDEX_NAME);
     return indexName.equals(graphIndexName) || indexName.equals(systemMetadataIndexName);
   }
 
@@ -505,7 +557,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       try {
         for (ReindexConfig config : service.buildReindexConfigs(opContext, structuredProperties)) {
           if (config.name().equals(indexName)) {
-            return Pair.of(service.getIndexBuilder(), config);
+            return Pair.of(service.getIndexBuilder(indexName), config);
           }
         }
       } catch (Exception e) {

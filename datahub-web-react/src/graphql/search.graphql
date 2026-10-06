@@ -1,7 +1,37 @@
 #import "./incident.graphql"
 #import "./fragments.graphql"
 
-fragment autoCompleteFields on Entity {
+# Deliberately minimal: name, description and platform icon only.
+#
+# getSearchResultsForMultiple is close to graphql-java's complexity ceiling
+# (GRAPHQL_QUERY_COMPLEXITY_LIMIT, default 2000), and complexity counts each fragment
+# definition once rather than per spread site — so every field added here is a field added
+# to the whole query. Revisit once the shared search fragments are slimmed down.
+fragment metricSearchFields on Metric {
+    id
+    info {
+        name
+        description
+    }
+    platform {
+        ...platformFields
+    }
+}
+
+fragment semanticModelSearchFields on SemanticModel {
+    id
+    info {
+        name
+        description
+    }
+    platform {
+        ...platformFields
+    }
+}
+
+# Lean fields for compact home-widget cards. Omits ownership, tags, lineage, health,
+# structured properties, and Dataset stats/access (those stay on autoCompleteFields).
+fragment searchResultCardFields on Entity {
     urn
     type
     ... on Dataset {
@@ -29,32 +59,9 @@ fragment autoCompleteFields on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    parentContainers {
-                        ...parentContainersFields
-                    }
-                    name
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                        lastModified {
-                            time
-                            actor
-                        }
-                    }
-                }
-            }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+        siblingsSearch(input: { query: "*", count: 1, searchFlags: { skipHighlighting: true, skipAggregates: true } })
+            @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -84,9 +91,8 @@ fragment autoCompleteFields on Entity {
                 }
             }
         }
-        ...datasetStatsFields
-        access {
-            ...getAccess
+        deprecation {
+            deprecated
         }
         browsePathV2 {
             ...browsePathV2Fields
@@ -135,6 +141,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -156,6 +165,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -176,6 +188,9 @@ fragment autoCompleteFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on DataJob {
@@ -201,6 +216,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
     }
     ... on GlossaryTerm {
         name
@@ -213,6 +231,9 @@ fragment autoCompleteFields on Entity {
         }
         displayProperties {
             ...displayPropertiesFields
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on GlossaryNode {
@@ -232,6 +253,19 @@ fragment autoCompleteFields on Entity {
         }
         displayProperties {
             ...displayPropertiesFields
+        }
+        # DomainMiniPreview shows asset count — keep only the total used by EntityCount.
+        entities(
+            input: {
+                start: 0
+                count: 0
+                filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+            }
+        ) {
+            total
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on DataProduct {
@@ -256,6 +290,16 @@ fragment autoCompleteFields on Entity {
             name
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+    }
     ... on Container {
         properties {
             name
@@ -272,6 +316,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -282,6 +329,9 @@ fragment autoCompleteFields on Entity {
             name
             colorHex
         }
+        deprecation {
+            deprecated
+        }
     }
     ... on MLFeatureTable {
         name
@@ -290,6 +340,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on MLFeature {
@@ -307,6 +360,9 @@ fragment autoCompleteFields on Entity {
                     }
                 }
             }
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on MLPrimaryKey {
@@ -334,6 +390,9 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        deprecation {
+            deprecated
+        }
     }
     ... on MLModelGroup {
         name
@@ -342,6 +401,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on DataPlatform {
@@ -395,6 +457,22 @@ fragment autoCompleteFields on Entity {
                     title
                 }
             }
+        }
+    }
+    ... on Metric {
+        ...metricSearchFields
+    }
+    ... on SemanticModel {
+        ...semanticModelSearchFields
+    }
+}
+
+fragment autoCompleteFields on Entity {
+    ...searchResultCardFields
+    ... on Dataset {
+        ...datasetStatsFields
+        access {
+            ...getAccess
         }
     }
 }
@@ -524,6 +602,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     deprecation {
         ...deprecationFields
     }
+    privileges {
+        ...entityPrivileges
+    }
     health {
         ...entityHealth
     }
@@ -533,6 +614,87 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     ...datasetStatsFields
 }
 
+fragment siblingSearchDatasetFields on Dataset {
+    exists
+    name
+    origin
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        name
+        description
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        ...entityHealth
+    }
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+    siblings {
+        isPrimary
+    }
+}
+
 fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
@@ -540,18 +702,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
-                    structuredProperties {
-                        properties {
-                            ...structuredPropertiesFields
-                        }
-                    }
-                }
-            }
         }
         siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -561,10 +711,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                     urn
                     type
                     ... on Dataset {
-                        ...nonSiblingsDatasetSearchFields
-                        siblings {
-                            isPrimary
-                        }
+                        ...siblingSearchDatasetFields
                         structuredProperties {
                             properties {
                                 ...structuredPropertiesFields
@@ -649,6 +796,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
         }
         ownership {
             ...ownershipFields
@@ -670,6 +818,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         parentContainers {
             ...parentContainersFields
@@ -722,6 +873,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
             created {
                 time
             }
@@ -746,6 +898,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         parentContainers {
             ...parentContainersFields
@@ -821,6 +976,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
         }
@@ -863,6 +1021,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -919,11 +1080,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentNodes {
             ...parentNodesFields
         }
         domain {
             ...entityDomain
+        }
+        tags {
+            ...globalTagsFields
         }
         structuredProperties {
             properties {
@@ -950,6 +1117,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        tags {
+            ...globalTagsFields
+        }
     }
     ... on Domain {
         properties {
@@ -973,6 +1143,12 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         institutionalMemory {
             ...institutionalMemoryFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
     }
     ... on Container {
@@ -1002,11 +1178,14 @@ fragment searchResultsWithoutSchemaField on Entity {
         subTypes {
             typeNames
         }
-        entities(input: {}) {
+        entities(input: { count: 0 }) {
             total
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         parentContainers {
             ...parentContainersFields
@@ -1041,6 +1220,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
@@ -1063,6 +1245,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        privileges {
+            ...entityPrivileges
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
@@ -1081,6 +1266,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -1109,6 +1297,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -1149,6 +1340,33 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on Application {
         ...applicationSearchFields
+    }
+    ... on Api {
+        properties {
+            name
+            description
+            externalUrl
+        }
+        subTypes {
+            typeNames
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
     }
     ... on ERModelRelationship {
         urn
@@ -1239,6 +1457,12 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
+    }
+    ... on Metric {
+        ...metricSearchFields
+    }
+    ... on SemanticModel {
+        ...semanticModelSearchFields
     }
 }
 
@@ -1381,6 +1605,25 @@ fragment facetFields on FacetMetadata {
                     name
                 }
             }
+            ... on Api {
+                properties {
+                    name
+                }
+            }
+            ... on Document {
+                info {
+                    title
+                }
+                parentDocuments {
+                    documents {
+                        urn
+                        type
+                        info {
+                            title
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1405,6 +1648,10 @@ fragment searchResults on SearchResults {
         insights {
             text
             icon
+        }
+        extraProperties {
+            name
+            value
         }
     }
     facets {
@@ -1485,7 +1732,8 @@ fragment schemaFieldEntitySearchFields on SchemaFieldEntity {
     type
     fieldPath
     parent {
-        ...searchResultsWithoutSchemaField
+        urn
+        type
     }
 }
 
@@ -1570,6 +1818,19 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!, $sk
     }
 }
 
+query getSearchResultsForMultipleCards($input: SearchAcrossEntitiesInput!, $skipSiblingsSearch: Boolean = false) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                ...searchResultCardFields
+            }
+        }
+    }
+}
+
 # Lightweight search query
 query getEntitySearchResultsAutoCompleteFields(
     $input: SearchAcrossEntitiesInput!
@@ -1579,6 +1840,11 @@ query getEntitySearchResultsAutoCompleteFields(
         searchResults {
             entity {
                 ...autoCompleteFields
+                ... on OwnershipTypeEntity {
+                    info {
+                        name
+                    }
+                }
             }
         }
     }

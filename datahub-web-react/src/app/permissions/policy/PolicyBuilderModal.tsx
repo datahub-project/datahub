@@ -1,16 +1,20 @@
-import { Steps } from 'antd';
+import { Button, Modal, Stepper } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import { toast } from '@components/components/Toast/Toast';
+
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
+import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
+import { hasIncompleteStructuredProperties } from '@app/permissions/policy/structuredProperties/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { Button, Modal } from '@src/alchemy-components';
 
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
 
@@ -21,14 +25,15 @@ type Props = {
     focusPolicyUrn: string | undefined;
     onClose: () => void;
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
+    policyPrivileges?: PolicyPrivilegesConfig;
 };
 
 const StepsWrapper = styled.div`
-    padding: 0px 20px;
+    padding: 0px 24px;
 `;
 
 const StepContent = styled.div`
-    padding: 0px 20px;
+    padding: 0px 24px;
     max-height: 75vh;
     overflow-y: auto;
 `;
@@ -61,18 +66,36 @@ const MODAL_BODY_STYLE = {
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
-export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
+export default function PolicyBuilderModal({
+    policy,
+    setPolicy,
+    open,
+    onClose,
+    onSave,
+    focusPolicyUrn,
+    policyPrivileges,
+}: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
-    const [selectedTags, setSelectedTags] = useState<any[]>([]);
     const [isEditState, setEditState] = useState(true);
 
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     // Go to next step
     const next = () => {
+        // If on privilege step with incomplete structured properties, show error and don't proceed
+        if (activeStepIndex === 1) {
+            const structuredProps = policy.resources?.filter?.criteria?.find(
+                (c) => c.field === FIELD_TYPES.STRUCTURED_PROPERTY,
+            )?.structuredPropertyValues;
+
+            if (structuredProps && hasIncompleteStructuredProperties(structuredProps)) {
+                toast.error(t('privilegeForm.incompleteStructuredPropertiesMessage'));
+                return;
+            }
+        }
         setActiveStepIndex(activeStepIndex + 1);
     };
 
@@ -81,18 +104,57 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         setActiveStepIndex(activeStepIndex - 1);
     };
 
+    const filterEmptyStructuredProperties = () => {
+        if (!policy.resources?.filter?.criteria) {
+            return policy;
+        }
+
+        const cleanedCriteria = policy.resources.filter.criteria
+            .map((criterion) => {
+                if (criterion.field !== FIELD_TYPES.STRUCTURED_PROPERTY) {
+                    return criterion;
+                }
+
+                return {
+                    ...criterion,
+                    structuredPropertyValues: criterion.structuredPropertyValues?.filter(
+                        (prop) => prop.propertyUrn?.trim() && Array.isArray(prop.values) && prop.values.length > 0,
+                    ),
+                };
+            })
+            .filter(
+                (criterion) =>
+                    criterion.field !== FIELD_TYPES.STRUCTURED_PROPERTY ||
+                    (criterion.structuredPropertyValues?.length ?? 0) > 0,
+            );
+
+        return {
+            ...policy,
+            resources: {
+                ...policy.resources,
+                filter: {
+                    ...policy.resources.filter,
+                    criteria: cleanedCriteria,
+                },
+            },
+        };
+    };
+
     // Save or create a policy
     const onSavePolicy = () => {
-        onSave(policy);
+        onSave(filterEmptyStructuredProperties());
     };
 
     // Change the type of policy, either Metadata or Platform
     const setPolicyType = (type: PolicyType) => {
         // Important: If the policy type itself is changing, we need to clear policy state.
-        if (type === PolicyType.Platform) {
-            setPolicy({ ...policy, type, resources: EMPTY_POLICY.resources, privileges: [] });
-        }
-        setPolicy({ ...policy, type, privileges: [] });
+        // Platform policies require empty resources, other types preserve theirs.
+        setPolicy({
+            ...policy,
+            type,
+            privileges: [],
+            ...(type === PolicyType.Platform && { resources: EMPTY_POLICY.resources }),
+        });
     };
 
     // Step 1: Choose Policy Type
@@ -125,12 +187,11 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 setResources={(resources: ResourceFilter) => {
                     setPolicy({ ...policy, resources });
                 }}
-                setSelectedTags={setSelectedTags}
-                selectedTags={selectedTags}
                 setEditState={setEditState}
                 isEditState={isEditState}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
+                policyPrivileges={policyPrivileges}
             />
         ),
         complete: policy.privileges && policy.privileges.length > 0, // Whether the "next" button should appear.
@@ -181,16 +242,12 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 open={open}
                 onCancel={onClose}
                 closable
-                width={750}
+                width={1000}
                 buttons={[]}
                 bodyStyle={MODAL_BODY_STYLE}
             >
                 <StepsWrapper>
-                    <Steps current={activeStepIndex}>
-                        {policySteps.map((item) => (
-                            <Steps.Step key={item.title} title={item.title} />
-                        ))}
-                    </Steps>
+                    <Stepper steps={policySteps} currentStepIndex={activeStepIndex} />
                 </StepsWrapper>
                 <StepContent>{activeStep.content}</StepContent>
                 <StepsControls>

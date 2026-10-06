@@ -8,9 +8,11 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.util.Pair;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -62,10 +64,31 @@ public class SearchContext implements ContextInterface {
   }
 
   @Nonnull private final IndexConvention indexConvention;
+
+  /**
+   * Process-wide cluster lookup. Excluded from equals and cache keys: connection identity is not
+   * part of a search result. Null on {@link #EMPTY} and on tests that do not talk to Elasticsearch.
+   */
+  @EqualsAndHashCode.Exclude @Nullable private final SearchClusterAccess searchClusterAccess;
+
   @Nonnull private final SearchFlags searchFlags;
   @Nonnull private final LineageFlags lineageFlags;
   @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
   @Nullable private final Map<PathSpec, String> searchableFieldPaths;
+
+  /**
+   * Resolved once at SearchContext construction from config. Null means callers should treat as
+   * empty / resolve on demand (tests / EMPTY context).
+   */
+  @Nullable private final List<String> defaultSearchEntityNames;
+
+  @Nullable private final List<String> defaultAutocompleteEntityNames;
+
+  @Nullable private final List<String> defaultBrowseEntityNames;
+
+  @Nullable private final List<String> prioritizedSourceEntityTypes;
+
+  @Nullable private final List<String> prioritizedDatahubEntityTypes;
 
   public boolean isRestrictedSearch() {
     return Optional.ofNullable(searchFlags.isIncludeRestricted()).orElse(false);
@@ -86,13 +109,13 @@ public class SearchContext implements ContextInterface {
    */
   @Override
   public Optional<Integer> getCacheKeyComponent() {
+    // The index-name prefix is intentionally NOT part of this key. It is resolved per operation
+    // (see IndexPrefixResolver) and this context carries no OperationFingerprint to resolve it.
+    // Here the prefix is a static deploy-wide constant (contributes nothing distinguishing); a
+    // deployment that scopes the prefix per operation MUST fold that discriminator into the
+    // OperationContext-level cache key via its enrichment, not here.
     return Optional.of(
-        Stream.of(
-                indexConvention.getPrefix().orElse(""),
-                keySearchFlags().toString(),
-                keyLineageFlags())
-            .mapToInt(String::hashCode)
-            .sum());
+        Stream.of(keySearchFlags().toString(), keyLineageFlags()).mapToInt(String::hashCode).sum());
   }
 
   /**
@@ -172,11 +195,31 @@ public class SearchContext implements ContextInterface {
       }
       return new SearchContext(
           this.indexConvention,
+          this.searchClusterAccess,
           this.searchFlags,
           this.lineageFlags,
           this.searchableFieldTypes,
-          this.searchableFieldPaths);
+          this.searchableFieldPaths,
+          this.defaultSearchEntityNames,
+          this.defaultAutocompleteEntityNames,
+          this.defaultBrowseEntityNames,
+          this.prioritizedSourceEntityTypes,
+          this.prioritizedDatahubEntityTypes);
     }
+  }
+
+  /**
+   * Cluster lookup for this operation. Production system context always stamps one; tests that
+   * execute Elasticsearch must use {@link SearchClusterAccess#fixed}.
+   */
+  @Nonnull
+  public SearchClusterAccess requireSearchClusterAccess() {
+    if (searchClusterAccess == null) {
+      throw new IllegalStateException(
+          "SearchClusterAccess is not set on SearchContext; stamp SearchClusterAccess.fixed(client) "
+              + "in tests or the cluster registry in production");
+    }
+    return searchClusterAccess;
   }
 
   private static SearchFlags buildDefaultSearchFlags() {

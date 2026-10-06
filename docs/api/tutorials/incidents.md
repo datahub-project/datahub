@@ -37,6 +37,7 @@ mutation raiseIncident {
       type: OPERATIONAL
       title: "Data is Delayed"
       description: "Data is delayed on May 15, 2024 because of downtime in the Spark Cluster."
+      priority: HIGH
     }
   )
 }
@@ -53,6 +54,46 @@ Where supported Incident Types include
 - `SQL`
 - `DATA_SCHEMA`
 - `CUSTOM`
+
+When using `CUSTOM`, you must also provide `customType`. It is a free-text label naming
+your incident category, and it is required: omitting it (or passing a blank string) fails with
+`Failed to raise incident: customType is required when type is CUSTOM`.
+
+```graphql
+mutation raiseCustomIncident {
+  raiseIncident(
+    input: {
+      resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.prod.purchases,PROD)"
+      type: CUSTOM
+      customType: "ML_LEAKAGE"
+      title: "Feature built from post-decision data"
+      description: "days_since_last_payment reads payment events recorded after loan origination."
+    }
+  )
+}
+```
+
+### Setting a priority
+
+`priority` is optional. Over GraphQL it accepts one of four enum names:
+
+| `priority` | Meaning |
+| ---------- | ------- |
+| `CRITICAL` | P0      |
+| `HIGH`     | P1      |
+| `MEDIUM`   | P2      |
+| `LOW`      | P3      |
+
+Pass the enum name unquoted, as in the example above. Passing an integer fails with an
+error like `Invalid input for enum 'IncidentPriority'. No value found for name '2'`.
+
+:::note Integers vs. enum names
+The stored `incidentInfo` aspect models priority as an **integer**, where a _lower_ number is
+_more_ severe: `CRITICAL = 0`, `HIGH = 1`, `MEDIUM = 2`, `LOW = 3`. Those integers apply only
+when you write the aspect directly through OpenAPI or RestLI. The GraphQL API in this guide
+accepts and returns the enum names above and does the conversion for you — it will not accept
+the integers, and the two are ordered in opposite directions, so don't mix them up.
+:::
 
 If you see the following response, a unique identifier for the new incident will be returned.
 

@@ -1,8 +1,5 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
-import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
-
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -11,9 +8,10 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,11 +33,12 @@ public abstract class AbstractAspectAuthorizationValidator extends AspectPayload
       return exceptions.streamAllExceptions();
     }
 
-    List<? extends BatchItem> itemsRequiringValidation = filterItemsRequiringValidation(mcpItems);
-
-    if (itemsRequiringValidation.isEmpty()) {
+    // Trusted system principals skip aspect auth entirely. Never trust client-writable appSource.
+    if (isTrustedSystemOperation(operationContext, session)) {
       return exceptions.streamAllExceptions();
     }
+
+    List<? extends BatchItem> itemsRequiringValidation = new ArrayList<>(mcpItems);
 
     if (session == null) {
       exceptions.addException(
@@ -54,20 +53,17 @@ public abstract class AbstractAspectAuthorizationValidator extends AspectPayload
     return exceptions.streamAllExceptions();
   }
 
-  protected List<? extends BatchItem> filterItemsRequiringValidation(
-      @Nonnull Collection<? extends BatchItem> mcpItems) {
-    return mcpItems.stream()
-        .filter(AbstractAspectAuthorizationValidator::requiresValidation)
-        .collect(Collectors.toList());
-  }
-
-  /** Skip system upgrade sources; all other sources including UI are validated. */
-  protected static boolean requiresValidation(@Nonnull BatchItem item) {
-    String appSource =
-        item.getSystemMetadata() != null && item.getSystemMetadata().getProperties() != null
-            ? item.getSystemMetadata().getProperties().get(APP_SOURCE)
-            : null;
-    return !SYSTEM_UPDATE_SOURCE.equals(appSource);
+  /**
+   * Trusted when the operation fingerprint or authorization session is the configured system
+   * principal. Client-writable provenance (e.g. {@code appSource}) must never gate this decision. A
+   * null fingerprint (e.g. {@code AspectsBatchImpl.build(null)}) is untrusted.
+   */
+  protected static boolean isTrustedSystemOperation(
+      @Nullable OperationFingerprint operationContext, @Nullable AuthorizationSession session) {
+    if (operationContext != null && operationContext.isSystemAuth()) {
+      return true;
+    }
+    return session instanceof OperationContext && ((OperationContext) session).isSystemAuth();
   }
 
   protected abstract List<AspectValidationException> validateItems(
@@ -95,6 +91,15 @@ public abstract class AbstractAspectAuthorizationValidator extends AspectPayload
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     return Stream.empty();
   }
 }

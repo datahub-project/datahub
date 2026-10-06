@@ -123,7 +123,7 @@ public class AssertionUrnValidationAnnotationTest {
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid entity type");
     assertTrue(
-        exceptions.get(0).getMessage().contains("Invalid entity type"),
+        exceptions.get(0).getMessage().contains("Invalid URN entity type"),
         "Error should indicate invalid entity type");
   }
 
@@ -159,7 +159,7 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid schemaField entity type");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    assertTrue(exceptions.get(0).getMessage().contains("Invalid URN entity type"));
   }
 
   // ==================== CustomAssertionInfo Tests ====================
@@ -193,7 +193,11 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid entity type on entity field");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN entity type"), message);
+    assertTrue(message.contains("expected one of [dataset]"), message);
+    assertTrue(message.contains("got corpuser"), message);
+    assertTrue(message.contains("/customAssertion/entity"), message);
   }
 
   @Test
@@ -210,7 +214,36 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid entity type on field");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN entity type"), message);
+    assertTrue(message.contains("expected one of [schemaField]"), message);
+    assertTrue(message.contains("got dataset"), message);
+    assertTrue(message.contains("/customAssertion/field"), message);
+  }
+
+  @Test
+  public void testCustomAssertionInfo_BareStringField() {
+    AssertionInfo assertionInfo = new AssertionInfo();
+    assertionInfo.setType(AssertionType.CUSTOM);
+    CustomAssertionInfo customAssertion = new CustomAssertionInfo();
+    customAssertion.setType("custom-type");
+    customAssertion.setEntity(TEST_DATASET_URN);
+    // Simulate MCP payload with a bare column name instead of a schemaField URN.
+    // RecordTemplate setters require Urn, so mutate the DataMap after construction.
+    assertionInfo.setCustomAssertion(customAssertion);
+    assertionInfo.data().getDataMap("customAssertion").put("field", "segment_denial_rate");
+
+    setupMockBatchItem(assertionInfo, "assertionInfo");
+
+    List<AspectValidationException> exceptions = runValidation();
+    assertFalse(exceptions.isEmpty(), "Should fail for bare string field");
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /customAssertion/field"), message);
+    assertTrue(
+        message.contains("expected a schemaField URN (urn:li:schemaField:(<dataset>,<column>))"),
+        message);
+    assertTrue(message.contains("segment_denial_rate"), message);
+    assertFalse(message.contains("Failed to retrieve entity"), message);
   }
 
   // ==================== FreshnessAssertionInfo Tests ====================
@@ -264,7 +297,7 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid entity type");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    assertTrue(exceptions.get(0).getMessage().contains("Invalid URN entity type"));
   }
 
   // ==================== AssertionRunEvent Tests (exist=false, entity type validation only)
@@ -298,7 +331,7 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid assertee entity type");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    assertTrue(exceptions.get(0).getMessage().contains("Invalid URN entity type"));
   }
 
   @Test
@@ -314,7 +347,7 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "Should fail for invalid assertion entity type");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    assertTrue(exceptions.get(0).getMessage().contains("Invalid URN entity type"));
   }
 
   @Test
@@ -330,7 +363,7 @@ public class AssertionUrnValidationAnnotationTest {
 
     List<AspectValidationException> exceptions = runValidation();
     assertFalse(exceptions.isEmpty(), "DataJob should not be valid as assertee");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    assertTrue(exceptions.get(0).getMessage().contains("Invalid URN entity type"));
   }
 
   // ==================== Helper Methods ====================

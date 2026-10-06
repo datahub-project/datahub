@@ -44,6 +44,8 @@ class MockGraph:
 class MockSchemaResolver(SchemaResolverInterface):
     """Mock SchemaResolver for testing."""
 
+    platform_instance: Optional[str] = None
+
     def __init__(self, platform: str, mock_urns: Optional[List[str]] = None):
         self._platform = platform
         self._mock_urns = set(mock_urns or [])

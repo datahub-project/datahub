@@ -2,10 +2,13 @@ package com.linkedin.datahub.graphql.exception;
 
 import static org.testng.Assert.*;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -502,5 +505,90 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertTrue(error.getMessage().contains("Field 'email' is required"));
     assertTrue(error.getMessage().contains("Root cause"));
     assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleDatabaseTransactionConflictException()
+      throws ExecutionException, InterruptedException {
+    SQLException sql = new SQLException("Deadlock found when trying to get lock", "40001", 1213);
+    DatabaseTransactionConflictException exception =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001", sql);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
+    assertFalse(error.getMessage().contains("Deadlock"));
+    assertEquals(error.getErrorCode(), 503);
+  }
+
+  @Test
+  public void testHandleNestedDatabaseTransactionConflictException()
+      throws ExecutionException, InterruptedException {
+    SQLException sql = new SQLException("Deadlock found when trying to get lock", "40P01", 1213);
+    DatabaseTransactionConflictException cause =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40P01", sql);
+    RuntimeException wrapper = new RuntimeException("Wrapper", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
+    assertFalse(error.getMessage().contains("Deadlock"));
+    assertEquals(error.getErrorCode(), 503);
+  }
+
+  @Test
+  public void testValidationExceptionTakesPriorityOverDatabaseTransactionConflict()
+      throws ExecutionException, InterruptedException {
+    DatabaseTransactionConflictException conflict =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+    ValidationException validation = new ValidationException("Validation failed", conflict);
+    Mockito.when(mockParameters.getException()).thenReturn(validation);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("Validation failed"));
+    assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleLineageTimeoutException() throws ExecutionException, InterruptedException {
+    LineageTimeoutException exception = new LineageTimeoutException("Lineage operation timed out");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Lineage operation timed out");
+    assertEquals(error.getErrorCode(), 504);
+  }
+
+  @Test
+  public void testHandleNestedLineageTimeoutException()
+      throws ExecutionException, InterruptedException {
+    // A wrapped timeout must still map to DEADLINE_EXCEEDED, not the generic RuntimeException path.
+    LineageTimeoutException cause =
+        new LineageTimeoutException("Slice 0 timed out after 50 seconds");
+    RuntimeException wrapper = new RuntimeException("Wrapper", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("Slice 0 timed out"));
+    assertEquals(error.getErrorCode(), 504);
   }
 }

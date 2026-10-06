@@ -14,6 +14,7 @@ dependencies {
   implementation project (':metadata-service:openapi-servlet:models')
   implementation project(':metadata-service:events-service')
   implementation project(':metadata-service:rate-limit')
+  implementation project(':li-utils')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot

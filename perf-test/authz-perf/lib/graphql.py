@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from lib.graphql_adapt import GraphqlQueryRegistry

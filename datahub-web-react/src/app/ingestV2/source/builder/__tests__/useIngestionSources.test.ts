@@ -84,6 +84,18 @@ describe('useIngestionSources', () => {
         });
     });
 
+    describe('odcs source entry', () => {
+        it('exposes ODCS with a stable name, display name, and starter recipe', () => {
+            const { result } = renderHook(() => useIngestionSources());
+            const odcs = result.current.ingestionSources.find((s) => s.name === 'odcs');
+            expect(odcs).toBeDefined();
+            expect(odcs!.displayName).toBe('Open Data Contract Standard');
+            expect(odcs!.category).toBe('Data Catalog');
+            // The starter recipe must select the odcs source type so the YAML editor is valid out of the box.
+            expect(odcs!.recipe).toContain('type: odcs');
+        });
+    });
+
     describe('language reactivity', () => {
         it('re-computes when i18n language changes', async () => {
             const { result, rerender } = renderHook(() => useIngestionSources());

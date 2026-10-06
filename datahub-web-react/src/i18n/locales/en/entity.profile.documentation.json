@@ -18,7 +18,12 @@
     "newDocument": "New document",
     "noRelatedLinks": "No related links or context yet",
     "platformDocumentationTitle": "{{platform}} Documentation:",
+    "removeDocumentConfirmText": "This document will no longer appear in this entity's Resources. The document itself will not be deleted.",
+    "removeDocumentConfirmTitle": "Remove document from Resources?",
+    "removeDocumentError": "Failed to remove document from Resources",
+    "removeDocumentSuccess": "Document removed from Resources",
     "resources": "Resources",
+    "resourcesUpdated": "Resources updated",
     "sourceDocumentationTitle": "Source Documentation:",
     "untitledDocument": "Untitled Document"
 }

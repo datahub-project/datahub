@@ -11,6 +11,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import graphql.schema.idl.RuntimeWiring;
@@ -33,6 +34,7 @@ public class DocumentResolvers {
   private final com.linkedin.metadata.graph.GraphClient graphClient;
   private final EntityRegistry entityRegistry;
   private final TimelineService timelineService;
+  private final ViewService viewService;
   @Nullable private final DocumentImportService documentImportService;
 
   public DocumentResolvers(
@@ -46,6 +48,7 @@ public class DocumentResolvers {
       @Nonnull com.linkedin.metadata.graph.GraphClient graphClient,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull TimelineService timelineService,
+      @Nonnull ViewService viewService,
       @Nullable DocumentImportService documentImportService) {
     this.documentService = documentService;
     this.entityTypes = entityTypes;
@@ -57,6 +60,7 @@ public class DocumentResolvers {
     this.graphClient = graphClient;
     this.entityRegistry = entityRegistry;
     this.timelineService = timelineService;
+    this.viewService = viewService;
     this.documentImportService = documentImportService;
   }
 
@@ -73,7 +77,7 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
-                        documentService, entityClient)));
+                        documentService, entityClient, viewService)));
 
     // Mutation resolvers
     builder.type(

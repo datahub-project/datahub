@@ -2,9 +2,12 @@ package io.datahubproject.openapi.operations.messaging;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
@@ -13,10 +16,12 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.messaging.ConsumerGroupLagSnapshot;
 import com.linkedin.metadata.messaging.ConsumerLagPort;
 import com.linkedin.metadata.queue.MetadataQueueStore;
@@ -26,6 +31,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -106,6 +112,68 @@ public class MessagingOperationsControllerTest extends AbstractTestNGSpringConte
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.transport").value("kafka"));
+  }
+
+  @Test
+  public void mcpLag_viewSystemStatusAllowsGet() throws Exception {
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIOperationsAuthorized(
+                      any(OperationContext.class), eq(PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)))
+          .thenReturn(true);
+
+      mockMvc
+          .perform(
+              get("/openapi/operations/messaging/mcp/consumer/lag")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isOk());
+    }
+  }
+
+  @Test
+  public void mcpLag_noPrivilegeReturnsForbidden() throws Exception {
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIOperationsAuthorized(
+                      any(OperationContext.class), eq(PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              get("/openapi/operations/messaging/mcp/consumer/lag")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+    }
+  }
+
+  @Test
+  public void registerConsumer_viewSystemStatusAloneIsForbidden() throws Exception {
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIOperationsAuthorized(
+                      any(OperationContext.class), eq(PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)))
+          .thenReturn(true);
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              put("/openapi/operations/messaging/consumers")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"topicName\":\"MetadataChangeProposal_v1\",\"consumerGroup\":\"g\"}"))
+          .andExpect(status().isForbidden());
+    }
   }
 
   @SpringBootConfiguration

@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Veuillez signaler les messages d'erreur de votre navigateur à votre administrateur DataHub",
+    "bulkEditUnauthorized": "La sélection pour la modification groupée incluait des entités que vous n'êtes pas autorisé à mettre à jour. La modification groupée effectuée ne sera pas enregistrée.",
+    "fallback.defaultMessage": "Notre équipe a été informée de cette erreur inattendue et travaille à sa résolution.",
+    "fallback.subtitle": "Quelque chose ne s'est pas passé comme prévu.",
+    "fallback.title": "Oups!",
+    "section.description": "Une erreur inattendue s'est produite. Veuillez réessayer plus tard ou contacter votre administrateur",
+    "section.needSupport": "<bold>Besoin d'aide?</bold> Consultez ces ressources:",
+    "section.title": "Une erreur s'est produite.",
+    "unauthorized": "Non autorisé. Veuillez contacter votre administrateur DataHub."
+}

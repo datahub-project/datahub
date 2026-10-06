@@ -4,7 +4,6 @@ import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClien
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
-import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
 import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
@@ -12,6 +11,7 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
+import co.elastic.clients.elasticsearch._types.SearchType;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch._types.SlicedScroll;
 import co.elastic.clients.elasticsearch._types.Slices;
@@ -86,6 +86,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
@@ -340,6 +341,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
           // Authentication
           configureAuthentication(httpAsyncClientBuilder, config);
+          SearchHttpProxyConfigurator.apply(httpAsyncClientBuilder, config);
 
           return httpAsyncClientBuilder;
         });
@@ -432,12 +434,15 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   private void configureAuthentication(
       HttpAsyncClientBuilder httpAsyncClientBuilder, ShimConfiguration config) {
-    // Basic authentication
-    if (config.getUsername() != null && config.getPassword() != null) {
+    boolean clusterAuth = config.getUsername() != null && config.getPassword() != null;
+    if (clusterAuth || SearchHttpProxyConfigurator.hasProxyCredentials(config)) {
       final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-      credentialsProvider.setCredentials(
-          AuthScope.ANY,
-          new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+      if (clusterAuth) {
+        credentialsProvider.setCredentials(
+            AuthScope.ANY,
+            new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+      }
+      SearchHttpProxyConfigurator.addProxyCredentials(credentialsProvider, config);
       httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
     }
 
@@ -489,6 +494,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .aggregations(aggregationMap)
             .allowPartialSearchResults(searchRequest.allowPartialSearchResults())
             .explain(searchSourceBuilder.explain())
+            // query_then_fetch is the engine default, so only DFS needs sending
+            .searchType(
+                searchRequest.searchType()
+                        == org.opensearch.action.search.SearchType.DFS_QUERY_THEN_FETCH
+                    ? SearchType.DfsQueryThenFetch
+                    : null)
             .from(Math.max(searchSourceBuilder.from(), 0))
             .timeout(
                 searchSourceBuilder.timeout() == null
@@ -502,7 +513,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     : new Time.Builder()
                         .time(searchRequest.scroll().keepAlive().getStringRep())
                         .build())
-            .size(Math.max(0, searchSourceBuilder.size()))
+            // An unset size (-1) means the engine default, as on OpenSearch; sending 0 would
+            // return no hits to callers that never set one.
+            .size(searchSourceBuilder.size() < 0 ? null : searchSourceBuilder.size())
             .highlight(highlight)
             .trackTotalHits(
                 searchSourceBuilder.trackTotalHitsUpTo() == null
@@ -1437,10 +1450,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterHealthResponse clusterHealth(
-      @Nonnull OperationFingerprint opContext,
-      ClusterHealthRequest healthRequest,
-      RequestOptions options)
-      throws IOException {
+      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
     throw new UnsupportedOperationException(
         "Not implemented currently due to no usages for the ES8 shim.");
   }
@@ -1750,10 +1760,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
+    // numRetries / retryInterval: item + whole-request requeue uses BulkItemRequeueSupport
+    // (configured via itemRequeueMaxAttempts, typically aligned with numRetries).
+    final Es8BulkListener[] listenerHolder = new Es8BulkListener[1];
     Supplier<BulkIngester<?>> processorSupplier =
         () -> {
-          BulkListener<Object> esBulkListener = new Es8BulkListener(metricUtils);
-
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
             case NONE:
@@ -1774,13 +1785,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .client(client)
                   .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
                   .maxOperations(bulkRequestsLimit)
-                  .listener(esBulkListener);
+                  .maxConcurrentRequests(1)
+                  .listener(listenerHolder[0]);
 
           builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
           return builder.build();
         };
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                new Es8BulkListener(metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1880,7 +1897,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     .build());
       }
     }
-    processor.add(operation);
+    // Pass DocWriteRequest as context so failed items can be requeued.
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> typedProcessor = (BulkIngester<Object>) processor;
+    typedProcessor.add(operation, writeRequest);
   }
 
   @Override
@@ -1944,7 +1964,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 jacksonJsonpMapper));
   }
 
-  /** Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations) for ES 8.18+. */
+  /**
+   * Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations, kNN bodies) for ES
+   * 8.18+.
+   */
   private String normalizeQueryJson(String jsonString) {
     try {
       return LegacyRangeQueryNormalizer.normalize(jsonString, objectMapper);
@@ -2019,6 +2042,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       throws IOException {
     Map<String, Object> body = Es8KnnQueryBuilder.build(request);
 
+    // withJson(Reader) below parses the kNN body strictly and rejects unknown fields, unlike the
+    // lenient parse on the regular search path. The filter comes from OpenSearch query builders,
+    // which emit legacy fields (e.g. bool.adjust_pure_negative) the typed BoolQuery model lacks,
+    // so normalize them away here. A lenient parse would silently drop filter fields instead.
+    final String bodyJson = normalizeQueryJson(objectMapper.writeValueAsString(body));
+
     // The ES8 typed client treats a comma-joined index string as a single index name and
     // URL-encodes the commas as %2C, breaking multi-entity searches. Split explicitly.
     List<String> indexList = Arrays.asList(request.indexName().split(","));
@@ -2032,7 +2061,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     // Always allow zero-index resolution; semantic search on partial rollouts
                     // may target indices that do not yet exist on every node.
                     .allowNoIndices(true)
-                    .withJson(toJsonReader(body)));
+                    .withJson(new StringReader(bodyJson)));
 
     co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp =
         client.search(searchReq, Map.class);

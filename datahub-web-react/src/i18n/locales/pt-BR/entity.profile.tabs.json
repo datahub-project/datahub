@@ -10,8 +10,8 @@
     "emptyTab.dataProduct.title": "Nenhum data product definido",
     "emptyTab.documentation.description": "Compartilhe seu conhecimento adicionando documentação e links para recursos úteis.",
     "emptyTab.documentation.title": "Nenhuma documentação ainda",
-    "emptyTab.domain.description": "Agrupe entidades relacionadas com base na sua estrutura organizacional adicionando-as a um Domain.",
-    "emptyTab.domain.title": "Nenhum domain definido",
+    "emptyTab.domain.description": "Agrupe entidades relacionadas com base na sua estrutura organizacional adicionando-as a um Domínio.",
+    "emptyTab.domain.title": "Nenhum domínio definido",
     "emptyTab.inheritedBy.description": "Termos podem ser herdados por outros termos para representar um relacionamento do tipo \"É Um\".",
     "emptyTab.inheritedBy.title": "Não é herdado por nenhum termo",
     "emptyTab.inherits.description": "Termos podem herdar de outros termos para representar um relacionamento do tipo \"É Um\".",
@@ -54,6 +54,7 @@
     "properties.save.error": "Não foi possível salvar a propriedade estruturada. Algo deu errado.",
     "properties.search.placeholder": "Pesquisar...",
     "properties.searchInProperties.placeholder": "Pesquisar nas propriedades...",
+    "properties.showCountMoreValues": "mostrar mais {{count}} de {{total, number}} valores",
     "properties.structuredProperty.title": "Propriedade Estruturada",
     "properties.updated.success": "Propriedade estruturada atualizada com sucesso!"
 }

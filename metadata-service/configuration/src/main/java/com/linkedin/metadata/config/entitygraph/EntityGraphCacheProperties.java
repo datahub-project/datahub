@@ -1,6 +1,7 @@
 package com.linkedin.metadata.config.entitygraph;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonMerge;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -43,7 +44,8 @@ public class EntityGraphCacheProperties {
    */
   private String configJson;
 
-  private Map<String, GraphDefinition> graphs;
+  /** Overlay graph keys are merged into this map; existing {@link GraphDefinition}s are patched. */
+  @JsonMerge private Map<String, GraphDefinition> graphs;
 
   @Data
   @Builder
@@ -128,6 +130,11 @@ public class EntityGraphCacheProperties {
     private NearCache partial;
   }
 
+  /**
+   * Per-graph definition. Nested objects are {@code @JsonMerge} so {@code
+   * ENTITY_GRAPH_CACHE_CONFIG_JSON} patches fields (e.g. {@code buildSource}) without replacing the
+   * whole graph.
+   */
   @Data
   @Builder
   @NoArgsConstructor
@@ -148,12 +155,12 @@ public class EntityGraphCacheProperties {
     private List<String> entityTypes;
 
     private String relationshipType;
-    private ScopeConfig scope;
-    private GraphPopulation population;
-    private GraphBounds bounds;
+    @JsonMerge private ScopeConfig scope;
+    @JsonMerge private GraphPopulation population;
+    @JsonMerge private GraphBounds bounds;
     private ScrollConfig scroll;
-    private GraphBindings bindings;
-    private GraphEviction eviction;
+    @JsonMerge private GraphBindings bindings;
+    @JsonMerge private GraphEviction eviction;
   }
 
   @Data
@@ -232,14 +239,14 @@ public class EntityGraphCacheProperties {
   @NoArgsConstructor
   @AllArgsConstructor
   public static class GraphEviction {
-    private LocalEviction local;
+    @JsonMerge private LocalEviction local;
 
     /**
      * Optional per-graph near cache for {@code scope.mode: PARTIAL} (each graph has its own {@code
      * entityGraphSnapshots.<graphId>} map). Ignored for {@code scope.mode: FULL} — use {@link
      * Eviction#getNearCache()}{@code .full} instead.
      */
-    private NearCache nearCache;
+    @JsonMerge private NearCache nearCache;
   }
 
   public enum ScopeMode {

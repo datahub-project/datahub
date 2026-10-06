@@ -225,6 +225,8 @@ export function getGlossaryChildrenScrollInput(
     scrollId: string | null = null,
     count: number = DEFAULT_GLOSSARY_CHILDREN_COUNT,
 ): ScrollAcrossEntitiesQueryVariables {
+    // Keep the historical 3-arg signature for pickers / existing call sites.
+    // Sidebar sort + owner/tag filters go through `getGlossaryScrollInput`.
     return {
         input: {
             scrollId,

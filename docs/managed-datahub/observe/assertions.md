@@ -95,6 +95,10 @@ You can integrate 3rd party tools as follows:
 
 - [DBT Test](/docs/generated/ingestion/sources/dbt.md#integrating-with-dbt-test)
 - [Great Expectations](../../../metadata-ingestion/integration_docs/great-expectations.md)
+- [Snowflake Data Metric Functions](/docs/assertions/snowflake/snowflake_dmfs.md)
+- [SQLMesh](/docs/generated/ingestion/sources/sqlmesh.md#data-quality-assertions)
+- [Monte Carlo](/docs/generated/ingestion/sources/montecarlo.md)
+- [ODCS](/docs/generated/ingestion/sources/odcs.md#quality-rule-mapping)
 - [Custom Assertions](../../api/tutorials/custom-assertions.md)
 
 If you opt for a 3rd party tool, it will be your responsibility to ensure the assertions are run based on the Data Contract spec stored in DataHub. With 3rd party runners, you can get the Assertion Change events by subscribing to our Kafka topic using the [DataHub Actions Framework](/docs/actions/README.md).

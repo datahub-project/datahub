@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Die spezifische Plattforminstanz, in der das Asset gespeichert ist.",
     "prop.softDeleted": "Vorläufig gelöscht",
     "prop.softDeletedDesc": "Ob das Asset vorläufig gelöscht wurde.",
+    "prop.structuredPropertyGroup": "Strukturierte Eigenschaft",
     "prop.subType": "Untertyp",
     "prop.subTypeDesc": "Der Untertyp des Assets (z. B. Tabelle, Ansicht, Thema).",
     "publicTab": "Öffentliche Ansichten",

@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2025 contributors to the OpenLineage project
+/* Copyright 2018-2026 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 
@@ -16,7 +16,7 @@ import io.openlineage.client.OpenLineage.OutputDataset;
 import io.openlineage.client.utils.DatasetIdentifier;
 import io.openlineage.client.utils.jdbc.JdbcDatasetUtils;
 import io.openlineage.spark.agent.util.DatasetFacetsUtils;
-import io.openlineage.spark.agent.util.PathUtils;
+import io.openlineage.spark.agent.util.LogicalRelationFactory;
 import io.openlineage.spark.agent.util.PlanUtils;
 import io.openlineage.spark.agent.util.ScalaConversionUtils;
 import io.openlineage.spark.api.AbstractQueryPlanDatasetBuilder;
@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.scheduler.SparkListenerEvent;
@@ -56,6 +57,12 @@ public class SaveIntoDataSourceCommandVisitor
     extends AbstractQueryPlanDatasetBuilder<
         SparkListenerEvent, SaveIntoDataSourceCommand, OutputDataset>
     implements JobNameSuffixProvider<SaveIntoDataSourceCommand> {
+
+  // Default Spark catalog namespace used when resolving catalog-based (saveAsTable) Delta writes.
+  private static final String SPARK_CATALOG_NAMESPACE = "spark_catalog";
+
+  // Optional qualifier tokens that may sit between "CREATE TABLE" and the real table name.
+  private static final Set<String> CREATE_TABLE_QUALIFIER_TOKENS = Set.of("if", "not", "exists");
 
   public SaveIntoDataSourceCommandVisitor(OpenLineageContext context) {
     super(context, false);
@@ -108,7 +115,11 @@ public class SaveIntoDataSourceCommandVisitor
 
       return datasetIdentifier != null
           ? Collections.singletonList(
-              outputDataset().getDataset(datasetIdentifier, getSchema(command)))
+              outputDataset()
+                  .sparkDatasetBuilder()
+                  .dataset(datasetIdentifier)
+                  .schema(getSchema(command))
+                  .build())
           : Collections.emptyList();
     }
 
@@ -142,33 +153,43 @@ public class SaveIntoDataSourceCommandVisitor
         (SaveMode.Overwrite == command.mode()) ? OVERWRITE : CREATE;
 
     if (command.dataSource().getClass().getName().contains("DeltaDataSource")) {
-      // Handle path-based Delta tables
+      // Path-based Delta tables.
       if (command.options().contains("path")) {
-        URI uri = URI.create(command.options().get("path").get());
         return Collections.singletonList(
-            outputDataset().getDataset(PathUtils.fromURI(uri), schema, lifecycleStateChange));
+            outputDataset()
+                .sparkDatasetBuilder()
+                .dataset(URI.create(command.options().get("path").get()))
+                .schema(schema)
+                .lifecycleStateChange(lifecycleStateChange)
+                .build());
       }
 
-      // Handle catalog-based Delta tables (saveAsTable scenarios)
+      // Catalog-based Delta tables (saveAsTable). OpenLineage's SaveIntoDataSource handling only
+      // covers the path case, so DataHub resolves the catalog table name itself — otherwise a
+      // saveAsTable write emits no OutputDataset from this visitor. See PR #14911 review.
       if (command.options().contains("table")) {
         String tableName = command.options().get("table").get();
-        // For catalog tables, use the default namespace or catalog
-        String namespace = "spark_catalog"; // Default Spark catalog namespace
-        DatasetIdentifier identifier = new DatasetIdentifier(tableName, namespace);
         return Collections.singletonList(
-            outputDataset().getDataset(identifier, schema, lifecycleStateChange));
+            outputDataset()
+                .sparkDatasetBuilder()
+                .dataset(new DatasetIdentifier(tableName, SPARK_CATALOG_NAMESPACE))
+                .schema(schema)
+                .lifecycleStateChange(lifecycleStateChange)
+                .build());
       }
 
-      // Handle saveAsTable without explicit table option - check for table info in query execution
+      // saveAsTable without an explicit "table" option: recover the table name from the query
+      // execution's SQL text as a last resort.
       if (context.getQueryExecution().isPresent()) {
-        QueryExecution qe = context.getQueryExecution().get();
-        // Try to extract table name from query execution context
-        String extractedTableName = extractTableNameFromContext(qe);
+        String extractedTableName = extractTableNameFromContext(context.getQueryExecution().get());
         if (extractedTableName != null) {
-          String namespace = "spark_catalog";
-          DatasetIdentifier identifier = new DatasetIdentifier(extractedTableName, namespace);
           return Collections.singletonList(
-              outputDataset().getDataset(identifier, schema, lifecycleStateChange));
+              outputDataset()
+                  .sparkDatasetBuilder()
+                  .dataset(new DatasetIdentifier(extractedTableName, SPARK_CATALOG_NAMESPACE))
+                  .schema(schema)
+                  .lifecycleStateChange(lifecycleStateChange)
+                  .build());
         }
       }
 
@@ -182,12 +203,20 @@ public class SaveIntoDataSourceCommandVisitor
         .getClass()
         .getCanonicalName()
         .equals(JdbcRelationProvider.class.getCanonicalName())) {
+      if (!command.options().get("dbtable").isDefined()
+          || !command.options().get("url").isDefined()) {
+        log.warn("JDBC SaveIntoDataSource missing 'dbtable' or 'url' option; skipping lineage");
+        return Collections.emptyList();
+      }
       String tableName = command.options().get("dbtable").get();
       String url = command.options().get("url").get();
-      DatasetIdentifier identifier =
-          JdbcDatasetUtils.getDatasetIdentifier(url, tableName, new Properties());
       return Collections.singletonList(
-          outputDataset().getDataset(identifier, schema, lifecycleStateChange));
+          outputDataset()
+              .sparkDatasetBuilder()
+              .dataset(JdbcDatasetUtils.getDatasetIdentifier(url, tableName, new Properties()))
+              .schema(schema)
+              .lifecycleStateChange(lifecycleStateChange)
+              .build());
     }
 
     SQLContext sqlContext = context.getSparkSession().get().sqlContext();
@@ -212,11 +241,12 @@ public class SaveIntoDataSourceCommandVisitor
       throw ex;
     }
     LogicalRelation logicalRelation =
-        new LogicalRelation(
-            relation,
-            ScalaConversionUtils.asScalaSeqEmpty(),
-            Option.empty(),
-            command.isStreaming());
+        LogicalRelationFactory.create(
+                relation,
+                ScalaConversionUtils.asScalaSeqEmpty(),
+                Option.empty(),
+                command.isStreaming())
+            .orElseThrow(() -> new RuntimeException("Failed to create LogicalRelation"));
     return delegate(
             context.getOutputDatasetQueryPlanVisitors(), context.getOutputDatasetBuilders(), event)
         .applyOrElse(
@@ -267,53 +297,55 @@ public class SaveIntoDataSourceCommandVisitor
   }
 
   /**
-   * Attempts to extract table name from QueryExecution context for saveAsTable operations. This
-   * handles cases where the table name isn't explicitly in the command options.
+   * Best-effort recovery of the target table name for a Delta {@code saveAsTable} whose command
+   * options carry neither a "path" nor a "table" entry. Inspects the QueryExecution's SQL text
+   * (when the Spark version exposes {@code sqlText()}) for a {@code CREATE TABLE} target. Returns
+   * {@code null} when nothing usable can be extracted.
    */
   private String extractTableNameFromContext(QueryExecution qe) {
     try {
-      // Try to get table name from SQL text if available
-      // Note: sqlText() is not available in all Spark versions, use reflection
-      try {
-        java.lang.reflect.Method sqlTextMethod = qe.getClass().getMethod("sqlText");
-        Object sqlOption = sqlTextMethod.invoke(qe);
-        if (sqlOption != null && ((Option<?>) sqlOption).isDefined()) {
-          String sql = (String) ((Option<?>) sqlOption).get();
-          log.debug("Attempting to extract table name from SQL: {}", sql);
-
-          // Look for saveAsTable pattern which typically generates CREATE TABLE statements
-          if (sql.toLowerCase().contains("create table")) {
-            // Extract table name using regex pattern matching
-            String[] tokens = sql.split("\\s+");
-            for (int i = 0; i < tokens.length - 1; i++) {
-              if (tokens[i].toLowerCase().equals("table")) {
-                String candidateTableName = tokens[i + 1];
-                // Clean up table name (remove backticks, quotes, database prefix)
-                candidateTableName = candidateTableName.replaceAll("[`'\"]", "");
-                // Handle database.table format by taking just the table name
-                if (candidateTableName.contains(".")) {
-                  String[] parts = candidateTableName.split("\\.");
-                  candidateTableName = parts[parts.length - 1]; // Take the last part (table name)
-                }
-                if (!candidateTableName.isEmpty()
-                    && !candidateTableName.toLowerCase().equals("if")) {
-                  log.debug("Extracted table name from SQL: {}", candidateTableName);
-                  return candidateTableName;
-                }
-              }
-            }
-          }
-        }
-      } catch (Exception reflectionEx) {
-        log.debug(
-            "sqlText() method not available in this Spark version: {}", reflectionEx.getMessage());
+      // sqlText() is not present on every Spark version, so reach it reflectively.
+      java.lang.reflect.Method sqlTextMethod = qe.getClass().getMethod("sqlText");
+      Object sqlOption = sqlTextMethod.invoke(qe);
+      if (sqlOption instanceof Option && ((Option<?>) sqlOption).isDefined()) {
+        return parseCreateTableName((String) ((Option<?>) sqlOption).get());
       }
-
-      log.debug("Could not extract table name from QueryExecution SQL text");
     } catch (Exception e) {
-      log.debug("Error extracting table name from QueryExecution: {}", e.getMessage());
+      log.debug("Could not extract table name from QueryExecution: {}", e.getMessage());
     }
+    return null;
+  }
 
+  /**
+   * Parses the target table name out of a {@code CREATE TABLE} SQL statement (as generated by a
+   * Delta {@code saveAsTable}), stripping quoting and any database qualifier. Returns {@code null}
+   * when the SQL is not a recognizable CREATE TABLE. Package-private for unit testing.
+   */
+  static String parseCreateTableName(String sql) {
+    if (sql == null || !sql.toLowerCase(Locale.ROOT).contains("create table")) {
+      return null;
+    }
+    String[] tokens = sql.split("\\s+");
+    for (int i = 0; i < tokens.length - 1; i++) {
+      if (tokens[i].toLowerCase(Locale.ROOT).equals("table")) {
+        // Skip an optional "IF NOT EXISTS" qualifier so we reach the real table name.
+        int j = i + 1;
+        while (j < tokens.length
+            && CREATE_TABLE_QUALIFIER_TOKENS.contains(tokens[j].toLowerCase(Locale.ROOT))) {
+          j++;
+        }
+        if (j >= tokens.length) {
+          return null;
+        }
+        // Strip quoting and any db-qualifier, keeping just the table name.
+        String candidate = tokens[j].replaceAll("[`'\"]", "");
+        if (candidate.contains(".")) {
+          String[] parts = candidate.split("\\.");
+          candidate = parts[parts.length - 1];
+        }
+        return candidate.isEmpty() ? null : candidate;
+      }
+    }
     return null;
   }
 
@@ -333,7 +365,7 @@ public class SaveIntoDataSourceCommandVisitor
   public Optional<String> jobNameSuffix(SaveIntoDataSourceCommand command) {
     if (command.dataSource().getClass().getName().contains("DeltaDataSource")
         && command.options().contains("path")) {
-      return Optional.of(trimPath(command.options().get("path").get()));
+      return Optional.of(trimPath(context, command.options().get("path").get()));
     } else if (KustoRelationVisitor.isKustoSource(command.dataSource())) {
       return Optional.ofNullable(command.options().get("kustotable"))
           .filter(Option::isDefined)

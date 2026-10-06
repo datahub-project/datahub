@@ -1,9 +1,6 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -20,8 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   /**
-   * Set of entities that we want to consider for defining the top platform sources. This must match
-   * SearchUtils.SEARCHABLE_ENTITY_TYPES
+   * Entity types considered when aggregating top platforms. Intentionally a platform-bearing
+   * subset, not the full search default entity-type list.
    */
   private static final List<String> SEARCHABLE_ENTITY_TYPES =
       ImmutableList.of(
@@ -40,14 +37,12 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
           Constants.NOTEBOOK_ENTITY_NAME);
 
   private static final String PLATFORM = "platform";
-  private final EntityService<?> entityService;
 
   public TopPlatformsSource(
       EntitySearchService entitySearchService,
       EntityService<?> entityService,
       EntityRegistry entityRegistry) {
     super(entityService, entitySearchService, entityRegistry);
-    this.entityService = entityService;
   }
 
   @Override
@@ -91,13 +86,10 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
     return true;
   }
 
-  @Override
-  protected boolean isValidCandidateUrn(@Nonnull OperationContext opContext, Urn urn) {
-    RecordTemplate dataPlatformInfo =
-        entityService.getLatestAspect(opContext, urn, "dataPlatformInfo");
-    if (dataPlatformInfo == null) {
-      return false;
-    }
-    return ((DataPlatformInfo) dataPlatformInfo).hasLogoUrl();
-  }
+  // Note: we intentionally do NOT override getValidCandidateUrns to require a logoUrl. A platform
+  // with ingested assets but no dataPlatformInfo/logoUrl (e.g. a connector whose platform is not
+  // yet in the data-platforms bootstrap seed) must still surface here — the UI renders a default
+  // platform icon when a logo is missing. Filtering on logoUrl silently hid such platforms from
+  // the home page even though they were searchable. The base implementation's existence check is
+  // the only validation we want.
 }

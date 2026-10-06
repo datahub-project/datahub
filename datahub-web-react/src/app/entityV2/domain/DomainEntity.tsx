@@ -36,6 +36,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -194,6 +195,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -213,6 +215,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
@@ -241,6 +244,7 @@ export class DomainEntity implements Entity<Domain> {
         // TODO.. Determine whether SOFT_DELETE should go into here.
         return new Set([
             EntityCapabilityType.OWNERS,
+            EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);

@@ -5,12 +5,15 @@ from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionSourceTypeClass,
+    AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AssertionValueChangeTypeClass,
+    CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
 )
@@ -54,6 +57,51 @@ def test_parse_sql_assertion():
             ),
         ),
     )
+    assert aspect.source is not None
+    assert aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert aspect.source.created is not None
+    assert aspect.source.created.actor == SYSTEM_ACTOR
+
+
+def test_parse_unique_assertion():
+    assertion_urn = "urn:li:assertion:a"
+    entity_urn = "urn:li:dataset:d"
+    field_urn = f"urn:li:schemaField:({entity_urn},user_id)"
+
+    d = {
+        "type": "unique",
+        "column": "user_id",
+        "description": "user_id values must be unique",
+    }
+
+    mcps = DataQualityAssertion.model_validate(d).generate_mcp(
+        assertion_urn, entity_urn
+    )
+    assert len(mcps) == 1
+    mcp = mcps[0]
+    assert mcp.entityUrn == assertion_urn
+
+    aspect = mcp.aspect
+    assert isinstance(aspect, AssertionInfoClass)
+    assert aspect.type == AssertionTypeClass.CUSTOM
+    assert aspect.datasetAssertion is None
+    assert aspect.customAssertion == CustomAssertionInfoClass(
+        type="dataContract",
+        entity=entity_urn,
+        field=field_urn,
+        fields=[field_urn],
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+        operator=AssertionStdOperatorClass.EQUAL_TO,
+        aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
+        parameters=AssertionStdParametersClass(
+            value=AssertionStdParameterClass(
+                value="1",
+                type=AssertionStdParameterTypeClass.NUMBER,
+            )
+        ),
+        nativeType="unique",
+    )
+    assert aspect.description == "user_id values must be unique"
     assert aspect.source is not None
     assert aspect.source.type == AssertionSourceTypeClass.EXTERNAL
     assert aspect.source.created is not None

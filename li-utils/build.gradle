@@ -20,6 +20,8 @@ dependencies {
     implementation externalDependency.guava
 
     implementation externalDependency.slf4jApi
+    implementation platform(externalDependency.jacksonBom)
+    api externalDependency.jacksonDataBind
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

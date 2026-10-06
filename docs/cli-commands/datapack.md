@@ -196,7 +196,7 @@ Each entry in `files` can be a plain string (filename) or an object with `path` 
 
 ### Schema Downshift
 
-When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/registry/models/entity/specifications`) to discover which `(entityType, aspectName)` pairs are supported. MCPs with unsupported aspects are automatically filtered out. This allows a single data pack to work across both DataHub OSS and Acryl Cloud, with Cloud-only aspects gracefully skipped on OSS.
+When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/registry/models/entity/specifications`) to discover which `(entityType, aspectName)` pairs are supported. MCPs with unsupported aspects are automatically filtered out. This allows a single data pack to work across both DataHub Core and DataHub Cloud, with Cloud-only aspects gracefully skipped on Core.
 
 ### Time-Shifting
 

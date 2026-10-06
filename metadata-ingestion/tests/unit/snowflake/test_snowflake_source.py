@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 import datahub.ingestion.source.snowflake.snowflake_utils
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationWarning
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
@@ -22,6 +22,9 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeIdentifierConfig,
     SnowflakeV2Config,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import UpstreamLineageEdge
 from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
@@ -32,6 +35,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     create_deny_regex_sql_filter,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -43,6 +47,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import TableRename, TableSwap
 from datahub.testing.doctest import assert_doctest
 from tests.integration.snowflake.common import inject_rowcount
@@ -376,10 +381,6 @@ def test_private_key_set_but_auth_not_changed():
 def test_snowflake_connection_config_excludes_secrets_from_serialization():
     """Ensure secret fields are excluded from model_dump() to prevent leaking
     credentials in logs, reports, or the system info endpoint."""
-    from datahub.ingestion.source.snowflake.snowflake_connection import (
-        SnowflakeConnectionConfig,
-    )
-
     config = SnowflakeConnectionConfig.model_validate(
         {
             "account_id": "acctname",
@@ -396,6 +397,22 @@ def test_snowflake_connection_config_excludes_secrets_from_serialization():
     assert "private_key" not in dumped
     assert "private_key_password" not in dumped
     assert dumped["username"] == "user"  # non-secret field still present
+
+
+def test_is_using_password_auth_ignores_empty_password():
+    # bool(SecretStr("")) is True (the wrapper is truthy), so the predicate must
+    # read get_secret_value() to avoid flagging an empty password as set.
+    config_dict = default_config_dict.copy()
+    config_dict["password"] = ""
+    config = SnowflakeConnectionConfig.model_validate(config_dict)
+    assert not config.is_using_password_auth()
+
+
+def test_config_validation_emits_configuration_warning_for_password_auth():
+    # warnings.warn is the channel --test-source-connection prints; a regression
+    # that drops it (keeping only add_global_warning) would silence that path.
+    with pytest.warns(ConfigurationWarning, match="DEFAULT_AUTHENTICATOR"):
+        SnowflakeV2Config.model_validate(default_config_dict)
 
 
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
@@ -1235,6 +1252,18 @@ class TestSnowflakeIdentifierQuoting:
     def test_escape_identifier_multiple_quotes(self):
         assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
 
+    def test_get_quoted_identifier_for_table_no_db(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            None, "REPORTING", "MONTHLY_SALES"
+        )
+        assert result == '"REPORTING"."MONTHLY_SALES"'
+
+    def test_get_quoted_identifier_for_table_no_db_with_embedded_quotes(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            None, 'TEST"SCHEMA', 'MY"TABLE'
+        )
+        assert result == '"TEST""SCHEMA"."MY""TABLE"'
+
 
 def _make_pushdown_gen(push_down: bool) -> SnowflakeSchemaGenerator:
     config = SnowflakeV2Config.model_validate(
@@ -1333,3 +1362,49 @@ def test_get_tables_for_schema_pushes_down_when_filter_fits():
 
     _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
     assert kwargs["table_filter"] == fitting
+
+
+def test_get_procedures_for_database_maps_rows_to_base_procedure():
+    """``get_procedures_for_database`` groups SHOW PROCEDURES rows by schema and
+    maps each into a ``BaseProcedure``.
+
+    Snowflake overloads procedures by signature, so an ``argument_signature``
+    must produce a hash-suffixed identifier to keep overloads on distinct
+    DataJob URNs.
+    """
+    created = datetime.datetime(2024, 1, 2, 3, 4, 5)
+    altered = datetime.datetime(2024, 6, 7, 8, 9, 10)
+    connection = MagicMock()
+    connection.query.return_value = [
+        {
+            "PROCEDURE_SCHEMA": "ANALYTICS",
+            "PROCEDURE_NAME": "load_facts",
+            "PROCEDURE_LANGUAGE": "SQL",
+            "ARGUMENT_SIGNATURE": "(START_DATE DATE)",
+            "PROCEDURE_RETURN_TYPE": "VARCHAR",
+            "PROCEDURE_DEFINITION": "BEGIN CALL child(); END",
+            "CREATED": created,
+            "LAST_ALTERED": altered,
+            "COMMENT": "loads the fact tables",
+        }
+    ]
+
+    data_dictionary = SnowflakeDataDictionary(
+        connection=connection, report=SnowflakeV2Report()
+    )
+
+    procedures = data_dictionary.get_procedures_for_database("MYDB")
+
+    assert list(procedures.keys()) == ["ANALYTICS"]
+    (proc,) = procedures["ANALYTICS"]
+    assert isinstance(proc, BaseProcedure)
+    assert proc.name == "load_facts"
+    assert proc.language == "SQL"
+    assert proc.argument_signature == "(START_DATE DATE)"
+    assert proc.return_type == "VARCHAR"
+    assert proc.procedure_definition == "BEGIN CALL child(); END"
+    assert proc.comment == "loads the fact tables"
+    assert proc.created == created
+    assert proc.last_altered == altered
+    assert proc.get_procedure_identifier() != "load_facts"
+    assert proc.get_procedure_identifier().startswith("load_facts_")

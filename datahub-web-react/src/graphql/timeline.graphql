@@ -6,6 +6,7 @@ query getEntityDisplayNames($urns: [String!]!) {
 
 query getTimeline($input: GetTimelineInput!) {
     getTimeline(input: $input) {
+        skippedVersionCount
         changeTransactions {
             timestampMillis
             lastSemanticVersion

@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -47,12 +47,14 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
     const isUpdating = initialState?.urn !== undefined;
 
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [builderState, setBuilderState] = useState<QueryBuilderState>(initialState || DEFAULT_STATE);
     const [createQueryMutation] = useCreateQueryMutation();
     const [updateQueryMutation] = useUpdateQueryMutation();
 
     const createQuery = () => {
         if (datasetUrn) {
+            setIsSaving(true);
             createQueryMutation({
                 variables: {
                     input: {
@@ -73,23 +75,22 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                         analytics.event({
                             type: EventType.CreateQueryEvent,
                         });
-                        message.success({
-                            content: t('queryBuilderModal.createSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('queryBuilderModal.createSuccess'), { duration: 3 });
                         onSubmit?.(data?.createQuery);
                         setBuilderState(DEFAULT_STATE);
                     }
                 })
                 .catch(() => {
-                    message.destroy();
-                    message.error({ content: t('queryBuilderModal.createError') });
-                });
+                    toast.destroy();
+                    toast.error(t('queryBuilderModal.createError'));
+                })
+                .finally(() => setIsSaving(false));
         }
     };
 
     const updateQuery = () => {
         if (initialState) {
+            setIsSaving(true);
             updateQueryMutation({
                 variables: {
                     urn: initialState?.urn as string,
@@ -110,18 +111,16 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                         analytics.event({
                             type: EventType.UpdateQueryEvent,
                         });
-                        message.success({
-                            content: t('queryBuilderModal.editSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('queryBuilderModal.editSuccess'), { duration: 3 });
                         onSubmit?.(data?.updateQuery);
                         setBuilderState(DEFAULT_STATE);
                     }
                 })
                 .catch(() => {
-                    message.destroy();
-                    message.error({ content: t('queryBuilderModal.editError') });
-                });
+                    toast.destroy();
+                    toast.error(t('queryBuilderModal.editError'));
+                })
+                .finally(() => setIsSaving(false));
         }
     };
 
@@ -155,6 +154,11 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                         id: 'createQueryButton',
                         buttonDataTestId: 'query-builder-save-button',
                         onClick: saveQuery,
+                        // The mutation takes long enough to click Save again, which would create
+                        // duplicate queries. isLoading is cosmetic — Button still forwards onClick
+                        // while loading — so the disabled flag is what actually blocks the retry.
+                        isLoading: isSaving,
+                        disabled: isSaving,
                     },
                 ]}
                 data-testid="query-builder-modal"

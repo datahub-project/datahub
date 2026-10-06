@@ -5,11 +5,12 @@ import { useTranslation } from 'react-i18next';
 import {
     getIsRowCountChange,
     getParameterDescription,
+    getParameterInterpolation,
+    getVolumeOperatorKeyPart,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 
 import {
-    AssertionStdOperator,
     AssertionValueChangeType,
     IncrementingSegmentRowCountChange,
     RowCountChange,
@@ -18,37 +19,32 @@ import {
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
-};
-
-// Maps the assertion operator to the operator portion of the description translation key. Returns a
-// literal union (not `string`) so the composed `volumeDescription.*` key stays statically checkable
-// once i18next typed resources are re-enabled.
-const getOperatorKeyPart = (operator: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
-    switch (operator) {
-        case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'AtLeast';
-        case AssertionStdOperator.LessThanOrEqualTo:
-            return 'AtMost';
-        case AssertionStdOperator.Between:
-            return 'Between';
-        default:
-            throw new Error(`Unknown operator ${operator}`);
-    }
+    ellipsis?: boolean;
 };
 
 /**
  * A human-readable description of a Volume Assertion.
  */
-export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
+export const VolumeAssertionDescription = ({ assertionInfo, ellipsis }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const isChange = getIsRowCountChange(volumeType);
-    const parameter = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
-    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : 'AtLeast';
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
+    const operatorKeyPart = volumeTypeInfo ? getVolumeOperatorKeyPart(volumeTypeInfo.operator) : null;
+    const interpolation = getParameterInterpolation(parameterDescription);
 
     let key: string;
-    if (isChange) {
+    if (!operatorKeyPart) {
+        // Missing volume info or an operator outside the supported set — render a generic
+        // description rather than composing a key that has no translation. A present volumeTypeInfo
+        // with an unrecognized operator is genuinely unexpected (e.g. from a direct API write), so
+        // surface it for debugging; a missing volumeTypeInfo is a normal empty state and stays quiet.
+        if (volumeTypeInfo) {
+            console.warn(`Unsupported volume assertion operator: ${volumeTypeInfo.operator}`);
+        }
+        key = 'volumeDescription.unknown';
+    } else if (isChange) {
         const isPercentage =
             (volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type ===
             AssertionValueChangeType.Percentage;
@@ -59,7 +55,9 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
 
     return (
         <div>
-            <Typography.Text>{t(key, { parameter })}</Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
+                {t(key, interpolation)}
+            </Typography.Text>
         </div>
     );
 };

@@ -1,7 +1,7 @@
 apply plugin: "jacoco"
 
 jacoco {
-  toolVersion = "0.8.12"
+  toolVersion = "0.8.14"  // 0.8.14 = first JaCoCo supporting Java 25 bytecode (class major 69)
 }
 
 /*

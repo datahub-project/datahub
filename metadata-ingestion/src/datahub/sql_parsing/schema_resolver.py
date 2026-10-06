@@ -52,6 +52,11 @@ class SchemaResolverInterface(Protocol):
     @property
     def platform(self) -> str: ...
 
+    # Declared as a settable attribute (not a read-only property like `platform`)
+    # because implementers assign it in __init__; a Protocol property would
+    # install a read-only descriptor and break those assignments.
+    platform_instance: Optional[str]
+
     def includes_temp_tables(self) -> bool: ...
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
@@ -98,6 +103,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def get_urns(self) -> Set[str]:
         return {k for k, v in self._schema_cache.items() if v is not None}
+
+    @property
+    def closed(self) -> bool:
+        """Whether the backing cache has been closed.
+
+        A resolver can be shared with objects that did not create it and will
+        not close it, so a borrower cannot infer this from its own state.
+        """
+        return self._schema_cache.closed
 
     def schema_count(self) -> int:
         return int(
@@ -370,6 +384,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
     ):
         self._base_resolver = base_resolver
         self._extra_schemas = extra_schemas
+        self.platform_instance = base_resolver.platform_instance
 
     @property
     def platform(self) -> str:

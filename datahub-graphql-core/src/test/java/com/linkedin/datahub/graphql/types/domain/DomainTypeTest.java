@@ -127,7 +127,6 @@ public class DomainTypeTest {
     assertEquals(domain1.getProperties().getName(), "Test Domain");
     assertEquals(domain1.getInstitutionalMemory().getElements().size(), 1);
 
-    // Assert second element is null.
     assertNull(result.get(1));
   }
 

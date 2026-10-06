@@ -431,8 +431,14 @@ public class DataHubAuthorizer
               sharedEvaluationContext);
       return result.isGranted();
     } catch (RuntimeException e) {
-      log.error("Error evaluating policy {} for request {}", policy.getDisplayName(), request);
-      throw e;
+      // Log the error but don't fail the entire authorization chain.
+      // Continue to evaluate the next policy instead of blocking authorization.
+      log.warn(
+          "Error evaluating policy {} for request {}, skipping this policy and continuing to next",
+          policy.getDisplayName(),
+          request,
+          e);
+      return false;
     }
   }
 

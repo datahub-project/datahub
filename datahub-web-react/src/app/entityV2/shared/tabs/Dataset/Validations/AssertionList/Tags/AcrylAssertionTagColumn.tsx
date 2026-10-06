@@ -87,7 +87,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             {displayTags?.map((tag) => (
                 <Tag
                     tag={tag}
-                    key={tag.urn}
+                    key={tag.tag.urn}
                     options={{
                         shouldNotOpenDrawerOnClick: true,
                         shouldNotAddBottomMargin: true,
@@ -106,7 +106,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                                 ?.slice(1, MAX_TAGS_FOR_HOVER)
                                 .map((tag) => (
                                     <Tag
-                                        key={tag.urn}
+                                        key={tag.tag.urn}
                                         tag={{ tag: tag.tag } as TagAssociation}
                                         options={{ shouldNotOpenDrawerOnClick: true }}
                                         maxWidth={120}

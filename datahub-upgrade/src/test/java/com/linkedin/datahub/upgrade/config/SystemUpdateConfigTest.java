@@ -18,10 +18,9 @@ import org.testng.annotations.Test;
  * Tests that the SystemEntityClient bean is correctly configured as a Java implementation during
  * blocking system updates.
  */
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
-    properties = {"kafka.schemaRegistry.type=INTERNAL"},
     args = {"-u", "SystemUpdateBlocking"})
 public class SystemUpdateConfigTest extends AbstractTestNGSpringContextTests {
 
