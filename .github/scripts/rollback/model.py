@@ -61,7 +61,6 @@ class RollbackFinding:
     subject: Optional[str] = None  # the field, member, type or class changed
     record: Optional[str] = None  # nested record that holds `subject`
     hop: Optional[str] = None  # mutator version hop, e.g. "v1→v2"
-    step_type: Optional[str] = None
 
     @property
     def change(self) -> str:
@@ -69,7 +68,7 @@ class RollbackFinding:
         return self.summary.split(" — ")[0]
 
 
-_INTERNAL_FIELDS = {"subject", "record", "hop", "step_type"}
+_INTERNAL_FIELDS = {"subject", "record", "hop"}
 
 
 def public_dict(f: RollbackFinding) -> dict:

@@ -198,9 +198,7 @@ def _render_step_section(findings: list[model.RollbackFinding]) -> list[str]:
     for f in findings:
         pr = _format_pr(f.pr_number)
         cls = f.subject or "?"
-        step_type = (
-            "Non-blocking" if "NonBlocking" in (f.step_type or "") else "Blocking"
-        )
+        step_type = "Non-blocking" if "NonBlocking" in f.summary else "Blocking"
         lines.append(f"| `{cls}` | {step_type} | {f.risk} | {pr} |")
     lines.append("")
     return lines

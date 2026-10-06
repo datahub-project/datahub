@@ -306,7 +306,6 @@ def classify_upgrade_steps_for_rollback(
                 pr_number=", ".join(s["_prs"]) or None,
                 author=s.get("author"),
                 subject=s["class_name"],
-                step_type=s["step_type"],
             )
         )
     return findings

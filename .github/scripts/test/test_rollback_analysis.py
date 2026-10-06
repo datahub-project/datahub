@@ -755,10 +755,10 @@ class TestRenderJsonReport:
         assert data["summary"]["total"] == 0
 
     def test_internal_fields_stay_out_of_json(self):
-        f = _finding(subject="bar", record="Foo", hop="v1→v2", step_type="x")
+        f = _finding(subject="bar", record="Foo", hop="v1→v2")
         raw = report.render_json_report([f], "v2.0", "v1.0", "abc1234567", "def1234567")
         keys = set(json.loads(raw)["findings"][0])
-        assert not keys & {"subject", "record", "hop", "step_type"}
+        assert not keys & {"subject", "record", "hop"}
         assert {"summary", "read_impact", "affected_aspects"} <= keys
 
 
@@ -823,7 +823,6 @@ class TestRenderStepSection:
                 risk=model.REQUIRES_ATTENTION,
                 summary="New NonBlockingSystemUpgrade: `MyAsyncStep`",
                 subject="MyAsyncStep",
-                step_type="NonBlockingSystemUpgrade",
             ),
         ]
         lines = report._render_step_section(findings)
