@@ -279,6 +279,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                       _featureFlags.isShowManageStructuredProperties())
                   .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
                   .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
+                  .setHideSqlmeshSourceInLineage(_featureFlags.isHideSqlmeshSourceInLineage())
                   .setSchemaFieldLineageIgnoreStatus(
                       _featureFlags.isSchemaFieldLineageIgnoreStatus())
                   .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())

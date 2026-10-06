@@ -91,6 +91,7 @@ export const DEFAULT_APP_CONFIG = {
         schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,
         hideDbtSourceInLineage: false,
+        hideSqlmeshSourceInLineage: false,
         showNavBarRedesign: false,
         showAutoCompleteResults: false,
         entityVersioningEnabled: false,
