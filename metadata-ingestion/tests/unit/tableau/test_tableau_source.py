@@ -2290,7 +2290,8 @@ def test_workbook_project_luid_lookup_failure_is_not_retried() -> None:
 
     source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
     assert source.report.num_get_workbook_query_failures == 1
-    assert _report_titles(source.report.warnings) == ["Unexpected Query Error"]
+    # The skip is reported once by emit_workbooks; the lookup itself only logs.
+    assert _report_titles(source.report.warnings) == []
 
 
 def test_workbook_project_luid_without_luid_skips_lookup() -> None:

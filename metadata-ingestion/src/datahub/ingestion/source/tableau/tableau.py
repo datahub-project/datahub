@@ -2714,13 +2714,13 @@ class TableauSiteSource:
 
         try:
             return self.server.workbooks.get_by_id(wb_luid).project_id
-        except Exception as e:
+        except Exception:
+            # The skip itself is reported by emit_workbooks; only log the cause here
+            # so one failed workbook does not produce two report entries.
             self.report.num_get_workbook_query_failures += 1
-            self.report.warning(
-                title="Unexpected Query Error",
-                message="Failed to get workbook details",
-                exc=e,
-                context=f"workbook_luid={wb_luid}",
+            logger.warning(
+                f"Failed to get workbook details for workbook_luid={wb_luid}",
+                exc_info=True,
             )
             return None
 
