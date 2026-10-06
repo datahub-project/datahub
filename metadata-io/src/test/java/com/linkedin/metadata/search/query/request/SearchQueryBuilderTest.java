@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ConstantScoreQueryBuilder;
@@ -1633,6 +1634,35 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 + "india2009juliet2010kilo2011lima2012mike2013november2014oscar2015");
     assertTrue(run.stream().anyMatch(sqs -> sqs.value().contains("hotel")), run.toString());
     assertTrue(run.stream().noneMatch(sqs -> sqs.value().contains("oscar")), run.toString());
+    // So does one of numerals outside ASCII, or of letters outside the basic plane
+    for (int first : new int[] {0x2460, 0x1D400}) {
+      List<String> parts =
+          IntStream.range(0, 40)
+              .mapToObj(i -> Character.toString(first + i))
+              .collect(Collectors.toList());
+      List<SimpleQueryStringBuilder> cut = v3SimpleQueries(datasetSpec, String.join(".", parts));
+      assertTrue(cut.stream().anyMatch(sqs -> sqs.value().contains(parts.get(0))), parts.get(0));
+      assertTrue(cut.stream().noneMatch(sqs -> sqs.value().contains(parts.get(39))), parts.get(0));
+    }
+  }
+
+  @Test
+  public void testV3PhrasePrefixesExpandToTenTerms() {
+    EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
+    // "stg" also prefix-matches its synonym "staging"
+    for (String query : List.of("orders", "stg")) {
+      List<QueryBuilder> clauses = new ArrayList<>();
+      collectClauses(
+          TEST_V3_BUILDER.buildQuery(operationContext, List.of(datasetSpec), query, true), clauses);
+      List<MatchPhrasePrefixQueryBuilder> prefixes =
+          clauses.stream()
+              .filter(MatchPhrasePrefixQueryBuilder.class::isInstance)
+              .map(MatchPhrasePrefixQueryBuilder.class::cast)
+              .collect(Collectors.toList());
+      assertFalse(prefixes.isEmpty(), query);
+      assertTrue(
+          prefixes.stream().allMatch(prefix -> prefix.maxExpansions() == 10), prefixes.toString());
+    }
   }
 
   private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {

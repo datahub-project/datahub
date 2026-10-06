@@ -180,7 +180,8 @@ public class SearchQueryBuilder {
    * (1024 by default on OpenSearch, which fails the search with too_many_nested_clauses past it).
    * Each term adds a clause per field to the synonym-priority query, the word gram queries and,
    * when fuzzy, the simple query, so a query keeps the words that fit and its fuzzy terms share
-   * what is left. The rest of 1024 covers the exact, prefix and wildcard clauses.
+   * what is left. The rest of 1024 covers the exact, prefix (at most {@link #MAX_PREFIX_EXPANSIONS}
+   * terms per field) and wildcard clauses, and the request's filters.
    */
   private static final int CLAUSE_BUDGET = 850;
 
@@ -188,6 +189,16 @@ public class SearchQueryBuilder {
   private static final int PER_TERM_EXTRA_CLAUSES = 6;
 
   private static final int MAX_FUZZY_EXPANSIONS = 10;
+
+  /**
+   * Stage 1: terms a phrase prefix expands to per field. The whole query is one token on the {@code
+   * .delimited} subfields, so the default of 50 would spend most of what {@link #CLAUSE_BUDGET}
+   * leaves on a query that starts many names.
+   */
+  private static final int MAX_PREFIX_EXPANSIONS = 10;
+
+  /** A character the search analyzers keep in a term. */
+  private static final Pattern TERM_CHAR_PATTERN = Pattern.compile("[\\p{L}\\p{N}]");
 
   private static final QueryStrategy IDENTITY_STRATEGY = new IdentityQueryStrategy();
 
@@ -729,13 +740,15 @@ public class SearchQueryBuilder {
   private static String leadingTermsWithinBudget(
       @Nonnull String word, @Nonnull IndexFieldCounts counts) {
     String kept = null;
-    for (int i = 1; i < word.length(); i++) {
-      char previous = word.charAt(i - 1);
-      char next = word.charAt(i);
+    for (int i = word.offsetByCodePoints(0, 1);
+        i < word.length();
+        i = word.offsetByCodePoints(i, 1)) {
+      String previous = Character.toString(word.codePointBefore(i));
+      String next = Character.toString(word.codePointAt(i));
       boolean termEnds =
-          Character.isLetterOrDigit(previous)
-              && (!Character.isLetterOrDigit(next)
-                  || Character.isDigit(previous) != Character.isDigit(next));
+          TERM_CHAR_PATTERN.matcher(previous).matches()
+              && (!TERM_CHAR_PATTERN.matcher(next).matches()
+                  || splitsLetterDigitRun(previous + next));
       if (termEnds) {
         String prefix = word.substring(0, i);
         if (kept != null
@@ -1585,6 +1598,7 @@ public class SearchQueryBuilder {
                   && !PREFIX_MATCH_EXCLUDED_FIELDS.contains(searchFieldConfig.fieldName())) {
                 disMaxQuery.add(
                     QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
+                        .maxExpansions(MAX_PREFIX_EXPANSIONS)
                         .boost(
                             searchFieldConfig.boost()
                                 * exactMatchConfiguration.getPrefixFactor()
@@ -1605,6 +1619,7 @@ public class SearchQueryBuilder {
                         disMaxQuery.add(
                             QueryBuilders.matchPhrasePrefixQuery(
                                     searchFieldConfig.fieldName(), synonym)
+                                .maxExpansions(MAX_PREFIX_EXPANSIONS)
                                 .boost(
                                     searchFieldConfig.boost()
                                         * exactMatchConfiguration.getPrefixFactor()

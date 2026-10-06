@@ -886,22 +886,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
             mock(TimeseriesAspectService.class),
             null);
-    indexer.processBatch(
-        opContext,
-        Map.of(
-            vocabularyDataset,
-            events(
-                vocabularyDataset,
-                new DatasetProperties().setName(text).setDescription(text).setQualifiedName(text)),
-            vocabularyDashboard,
-            events(
-                vocabularyDashboard,
-                new DashboardInfo()
-                    .setTitle(text)
-                    .setDescription(text)
-                    .setLastModified(new ChangeAuditStamps()))),
-        false);
-    syncAfterWrite(getBulkProcessor());
 
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
     List<String> queries =
@@ -933,6 +917,25 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 .map(word -> word + "2017")
                 .collect(Collectors.joining()));
     try {
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              vocabularyDataset,
+              events(
+                  vocabularyDataset,
+                  new DatasetProperties()
+                      .setName(text)
+                      .setDescription(text)
+                      .setQualifiedName(text)),
+              vocabularyDashboard,
+              events(
+                  vocabularyDashboard,
+                  new DashboardInfo()
+                      .setTitle(text)
+                      .setDescription(text)
+                      .setLastModified(new ChangeAuditStamps()))),
+          false);
+      syncAfterWrite(getBulkProcessor());
       // A failed shard only drops that index's results, so each scope checks its own entity
       for (Map.Entry<List<String>, Urn> scope :
           Map.of(
