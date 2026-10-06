@@ -65,16 +65,10 @@ import org.opensearch.client.RequestOptions;
  * successful action once its batch ends, and nothing depends on how many other batches complete
  * between a failure and its requeue.
  *
- * <p>Memory is bounded. {@code pending} and {@code carried} are {@link OriginTable}s: concurrent
- * maps with strong keys, so recording an origin on the add path takes no table-wide lock and
- * allocates one map node. Strong keys do not extend an action's life on the normal path (the
- * processor holds it until its batch is sent), and every path that drops an action removes its
- * origin: batch start, a rejected add ({@link #onAddFailed}), requeue, give-up ({@link #forget})
- * and {@link #close}. A table that still reaches {@value #MAX_PENDING} origins is leaking; it is
- * cleared and recording resumes, so attribution never stops for good. The open batches are a {@link
- * WeakIdentityTable} (one put per batch, not per action) capped at {@value #MAX_OPEN_BATCHES}; a
- * batch evicted there, collected without completing, or still open at {@link #close} has its span
- * ended with {@code datahub.bulk.abandoned=true}.
+ * <p>Memory is bounded. A table reaching {@value #MAX_PENDING} origins means origins are leaking,
+ * so the table is cleared and recording resumes. More than {@value #MAX_OPEN_BATCHES} open batches,
+ * a batch collected without completing, or a batch still open at {@link #close} ends that batch's
+ * span with {@code datahub.bulk.abandoned=true}.
  *
  * <p>Every loss is reported twice: as meters when a registry is configured (see {@link
  * #METRIC_PREFIX}), and as a WARN log line, the first loss at once and then at most one summary per
