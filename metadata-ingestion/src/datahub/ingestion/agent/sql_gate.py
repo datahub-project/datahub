@@ -14,6 +14,7 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 import sqlglot
 from sqlglot import exp
+from sqlglot.tokens import TokenType
 
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.sql_parsing.sqlglot_utils import get_dialect
@@ -154,6 +155,7 @@ def check_query_scope(
     """
     permitted = scope or _DEFAULT_SCOPE
     dialect = _resolve_dialect(platform)
+    _refuse_comments(sql, dialect)
     statement = _parse_single_statement(sql, dialect, platform)
 
     if isinstance(statement, exp.Command):
@@ -339,6 +341,29 @@ def _resolve_dialect(platform: str) -> sqlglot.Dialect:
             f"cannot resolve a SQL dialect for platform '{platform}', so the "
             f"query cannot be checked"
         ) from exc
+
+
+def _refuse_comments(sql: str, dialect: sqlglot.Dialect) -> None:
+    """Refuse a query holding a comment or an optimizer hint.
+
+    The gate checks the parsed tree, but the provider runs the raw text, and
+    the two disagree inside comments: MySQL executes `/*! ... */` and
+    `/*+ ... */`, and reads `--1` as `- -1` where sqlglot sees a comment. So
+    a `UNION` hidden in one passes the check and then runs. A catalog query
+    never needs a comment, so any is refused. Tokenised, not searched for
+    `/*`, so the same characters inside a string literal stay allowed.
+    """
+    try:
+        tokens = dialect.tokenize(sql)
+    except Exception:
+        # _parse_single_statement refuses what cannot be tokenised, by name.
+        return
+    if any(token.comments or token.token_type == TokenType.HINT for token in tokens):
+        raise SqlScopeError(
+            "the query holds a comment or an optimizer hint; remove it: some "
+            "engines run text inside comments, so a query with one is not "
+            "checked"
+        )
 
 
 def _parse_single_statement(

@@ -847,3 +847,37 @@ def test_an_explicit_join_is_still_allowed():
         platform="snowflake",
         scope=_IDENTITY_SCOPE,
     )
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "/*! UNION SELECT authentication_string FROM mysql.user */",
+        "/*!50000 UNION SELECT authentication_string FROM mysql.user */",
+        "--1 UNION SELECT authentication_string FROM mysql.user",
+        "# trailing note",
+    ],
+    ids=["executable-comment", "versioned-comment", "dash-dash-digit", "hash"],
+)
+def test_rejects_a_comment_the_engine_may_run(tail):
+    # MySQL executes /*! ... */ and reads --1 as - -1, but the gate checks
+    # sqlglot's tree, where each of these is only a comment.
+    with pytest.raises(SqlScopeError):
+        check_query_scope(f"{CATALOG_QUERY} {tail}", platform="mysql")
+
+
+def test_rejects_an_optimizer_hint():
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            "SELECT /*+ MAX_EXECUTION_TIME(1) */ table_name "
+            "FROM information_schema.tables",
+            platform="mysql",
+        )
+
+
+def test_comment_characters_inside_a_string_literal_are_allowed():
+    check_query_scope(
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_name = 'a /* b */ c'",
+        platform="mysql",
+    )
