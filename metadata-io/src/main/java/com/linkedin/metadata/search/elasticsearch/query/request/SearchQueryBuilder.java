@@ -534,8 +534,10 @@ public class SearchQueryBuilder {
             .ifPresent(disMaxQuery::add);
       }
       // Synonym recall: the light multi_match reads the mapping's search analyzers, so add
-      // queries for the synonyms the analyzers would not expand, such as multi-word ones.
-      if (skipExpensiveClauses) {
+      // queries for the synonyms the analyzers would not expand, such as multi-word ones. A
+      // quoted query names a value and does not expand, and only a synonym that is the same name
+      // gets the exact-name terms.
+      if (skipExpensiveClauses && !FULLY_QUOTED_PATTERN.matcher(colonStripped.trim()).matches()) {
         Set<String> synonyms = getSynonymMap().get(colonStripped.toLowerCase());
         if (synonyms != null) {
           for (String synonym : synonyms) {
@@ -545,7 +547,7 @@ public class SearchQueryBuilder {
                       customQueryConfig,
                       entitySpecs,
                       synonym,
-                      synonym,
+                      isSameName(colonStripped, synonym) ? synonym : null,
                       skipExpensiveClauses,
                       intent,
                       0)
@@ -1331,7 +1333,7 @@ public class SearchQueryBuilder {
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery,
-      @Nonnull String typedQuery,
+      @Nullable String typedQuery,
       boolean skipExpensiveClauses,
       @Nonnull QueryIntent intent,
       int maxExpansions) {
@@ -1435,7 +1437,7 @@ public class SearchQueryBuilder {
   private Optional<QueryBuilder> getLightSimpleQuery(
       @Nonnull Set<SearchFieldConfig> configuredFields,
       @Nonnull String sanitizedQuery,
-      @Nonnull String typedQuery,
+      @Nullable String typedQuery,
       @Nonnull QueryIntent intent,
       boolean exactMatch) {
     // Quoted queries are not searching for the quote characters
@@ -1477,7 +1479,8 @@ public class SearchQueryBuilder {
     }
     fieldBoosts.forEach(multiMatch::field);
 
-    if (!useNameFocusedFields || !exactMatch) {
+    // No typed name: a synonym that is a different name gets no exact-name terms
+    if (!useNameFocusedFields || !exactMatch || typedQuery == null) {
       return Optional.of(multiMatch);
     }
     // Exact name hits score above multi_match results. The name is the query as typed: escaping
@@ -1510,6 +1513,8 @@ public class SearchQueryBuilder {
     }
 
     String unquotedQuery = stripSurroundingQuotes(query);
+    // A quoted query names a value, so it does not expand to its synonyms
+    boolean quoted = FULLY_QUOTED_PATTERN.matcher(query.trim()).matches();
     DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
     disMaxQuery.tieBreaker(EXACT_PREFIX_DISMAX_TIE_BREAKER);
 
@@ -1519,12 +1524,13 @@ public class SearchQueryBuilder {
                   QueryBuilders.termQuery(field, unquotedQuery).caseInsensitive(true))
               .boost(EXACT_NAME_CONSTANT_BOOST));
 
-      // Synonym-expanded exact match: e.g., "staging" also matches name="stg"
-      if (synonymMap != null) {
+      // Synonym-expanded exact match for the same name written another way: e.g., "staging" also
+      // matches name="stg", but "glue" does not match name="athena"
+      if (synonymMap != null && !quoted) {
         Set<String> synonyms = synonymMap.get(unquotedQuery.toLowerCase());
         if (synonyms != null) {
           for (String synonym : synonyms) {
-            if (!synonym.equalsIgnoreCase(unquotedQuery)) {
+            if (!synonym.equalsIgnoreCase(unquotedQuery) && isSameName(unquotedQuery, synonym)) {
               disMaxQuery.add(
                   QueryBuilders.constantScoreQuery(
                           QueryBuilders.termQuery(field, synonym).caseInsensitive(true))

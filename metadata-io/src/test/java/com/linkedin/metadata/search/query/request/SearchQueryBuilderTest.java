@@ -1952,6 +1952,35 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testV3LightQueryScoresOnlySameNameSynonymsAsExact() {
+    // "athena" is a synonym of "glue" but a different name: no exact-name score, neither the
+    // constant nor the synonym multi_match's exact-name terms
+    List<QueryBuilder> glue = v3LightDatasetClauses("glue");
+    assertEquals(exactNameConstants(glue), Set.of("glue"));
+    assertTrue(
+        glue.stream()
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .noneMatch(term -> "athena".equals(term.value())),
+        glue.toString());
+    // A quoted query names a value, so it does not expand to its synonyms
+    assertEquals(exactNameConstants(v3LightDatasetClauses("\"staging\"")), Set.of("staging"));
+  }
+
+  private List<QueryBuilder> v3LightDatasetClauses(String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext,
+            List.of(operationContext.getEntityRegistry().getEntitySpec("dataset")),
+            query,
+            true,
+            true),
+        clauses);
+    return clauses;
+  }
+
+  @Test
   public void testV3LightQueryKeepsSplitWordsWhole() {
     // "cargo2017" splits into "cargo 2017": no multi_match takes a name holding only one part,
     // and the whole run is re-queried on the identity fields
