@@ -3,16 +3,27 @@ import builtins
 import io
 import json
 import pathlib
-from typing import Callable, Dict, List, Optional, Set, Type, cast
+from typing import (
+    Annotated,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Type,
+    cast,
+)
 
 import pytest
 from click.testing import CliRunner
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
-from datahub.configuration.common import ConfigModel
-from datahub.ingestion.agent import probe_methods
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent import filter_check, probe_methods
 from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.error_policy import (
     _MAX_CHAIN_LINKS,
@@ -23,6 +34,7 @@ from datahub.ingestion.agent.error_policy import (
     label_foreign_text,
     police_trusted,
 )
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
     ProbeMethodResult,
@@ -37,7 +49,10 @@ from datahub.ingestion.agent.verdicts import (
     ProbeInternalError,
     ProbeReadFailed,
     ProbeSoftError,
+    Verdict,
+    VerdictContext,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from tests.unit.agent import _foreign_errors
 from tests.unit.agent._foreign_errors import SENTINEL
 
@@ -105,6 +120,39 @@ _FOREIGN_CALLS: Dict[str, Callable[[], None]] = {
 }
 
 
+class _RaisesWhenIterated:
+    """A provider value that reads fine and fails only once iterated, the way
+    a lazy listing does: past the attribute read the framework polices."""
+
+    def __init__(self, raiser: Callable[[], object]) -> None:
+        self._raiser = raiser
+
+    def __iter__(self) -> Iterator[str]:
+        self._raiser()
+        return iter(())
+
+
+class _EntryWithUnreadableTitle:
+    """A report entry whose title raises when the read-back renders it."""
+
+    @property
+    def title(self) -> str:
+        _foreign_errors.fetch()
+        return "unreachable"
+
+
+class _ReportWithUnreadableEntry:
+    def __init__(self) -> None:
+        self.warnings = [_EntryWithUnreadableTitle()]
+        self.failures: List[object] = []
+
+
+_ITERATION_FAILURES: Dict[str, Callable[[], object]] = {
+    "foreign": _foreign_errors.fetch,
+    "key": _foreign_errors.lookup,
+}
+
+
 class _Provider:
     def __init__(self, mode: str) -> None:
         self.mode = mode
@@ -153,8 +201,21 @@ class _Provider:
         return "postgres"
 
     @property
-    def warnings(self) -> List[str]:
+    def api_allowlist(self) -> Iterable[str]:
+        # Read and iterated by the path gate, before the call.
+        if self.mode.startswith("allowlist-iter-"):
+            return _RaisesWhenIterated(
+                _ITERATION_FAILURES[self.mode.removeprefix("allowlist-iter-")]
+            )
+        return ("/things",)
+
+    @property
+    def warnings(self) -> Iterable[str]:
         # Read back after the call returns.
+        if self.mode.startswith("warnings-iter-"):
+            return _RaisesWhenIterated(
+                _ITERATION_FAILURES[self.mode.removeprefix("warnings-iter-")]
+            )
         if self.mode == "warnings-foreign":
             _foreign_errors.fetch()
         if self.mode == "warnings-wraps-foreign":
@@ -179,6 +240,8 @@ class _Provider:
     def probe_report(self) -> object:
         if self.mode == "report-foreign":
             _foreign_errors.fetch()
+        if self.mode == "report-entry-foreign":
+            return _ReportWithUnreadableEntry()
         return None
 
     def __enter__(self) -> "_Provider":
@@ -314,6 +377,11 @@ class _Provider:
     @probe_method(name="sql", scoped_sql_param="query")
     def sql(self, query: str) -> List[str]:
         """Run a catalog query."""
+        return []
+
+    @probe_method(name="api", scoped_path_param="path")
+    def api(self, path: str) -> List[str]:
+        """Fetch one listed endpoint."""
         return []
 
 
@@ -1135,5 +1203,135 @@ def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
         recipe, ["probe", "run", "things", "--recipe", str(recipe_file)]
     )
     assert res.exit_code == exit_code, res.output
+    assert SENTINEL not in res.output
+    assert "Traceback" not in res.output
+
+
+# --- an untrusted error from the gate or the read-back ------------------------
+#
+# Both run outside the handlers that police the open, the call and each
+# attribute read: the gate iterates the allowlist it read, and the read-back
+# iterates and renders what the provider handed back. What either raises is
+# classified like a call failure, so its text is withheld and its type alone
+# picks the exit code.
+
+
+@pytest.mark.parametrize(
+    "mode, command, kwargs, expected, exit_code",
+    [
+        ("allowlist-iter-foreign", "api", {"path": "/things"}, ProbeConnectionError, 3),
+        ("allowlist-iter-key", "api", {"path": "/things"}, ProbeInternalError, 1),
+        ("warnings-iter-foreign", "things", {}, ProbeConnectionError, 3),
+        ("warnings-iter-key", "things", {}, ProbeInternalError, 1),
+        ("report-entry-foreign", "things", {}, ProbeConnectionError, 3),
+    ],
+)
+def test_an_untrusted_error_from_the_gate_or_the_read_back_is_withheld(
+    run: RunFn,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    mode: str,
+    command: str,
+    kwargs: Dict[str, str],
+    expected: Type[Exception],
+    exit_code: int,
+) -> None:
+    with pytest.raises(expected) as info:
+        run_probe_method("fake", {"mode": mode}, command, dict(kwargs))
+    assert SENTINEL not in str(info.value)
+    assert f"'{command}'" in str(info.value)
+
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda _r: ("fake", {"mode": mode}, set())
+    )
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    flags = [arg for name, value in kwargs.items() for arg in (f"--{name}", value)]
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", command, "--recipe", str(recipe_file), *flags]
+    )
+    assert res.exit_code == exit_code, res.output
+    assert SENTINEL not in res.output
+    assert "Traceback" not in res.output
+
+
+# --- a config hook's trusted error quoting foreign text ------------------------
+
+
+class _CatalogError(Exception):
+    """Stands in for a reused library's error, quoting what it was given."""
+
+
+def _overriding_config(trusted: Type[Exception], how: str) -> Type[ConfigModel]:
+    class _Overrides(ConfigModel):
+        database_pattern: Annotated[
+            AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+        ] = Field(default=AllowDenyPattern.allow_all())
+
+        def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+            try:
+                raise _CatalogError(f"catalog lookup refused for {SENTINEL}")
+            except _CatalogError as exc:
+                if how == "from":
+                    raise trusted(f"cannot judge {ctx.name}: {exc}") from exc
+                raise trusted(f"cannot judge {ctx.name}: {exc!r}")  # noqa: B904
+
+    return _Overrides
+
+
+_EXIT_CODE_OF: Dict[Type[Exception], int] = {
+    ProbeArgumentError: 2,
+    ProbeSoftError: 2,
+    ProbeReadFailed: 1,
+    ProbeConnectionError: 3,
+    ProbeInternalError: 1,
+}
+
+
+@pytest.mark.parametrize("how", ["from", "implicit"])
+@pytest.mark.parametrize("trusted", TRUSTED_TYPES, ids=lambda t: t.__name__)
+def test_a_config_hooks_trusted_error_keeps_its_type_but_not_the_foreign_text(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    trusted: Type[Exception],
+    how: str,
+) -> None:
+    """call_config_hook re-polices a trusted error: the connector chose its
+    type, so the exit code stands, but the foreign text it quotes is the
+    reused library's and is replaced by that error's label."""
+    config_cls = _overriding_config(trusted, how)
+    monkeypatch.setattr(filter_check, "require_config_class", lambda _st: config_cls)
+    monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
+    kind = str(DatasetContainerSubTypes.DATABASE)
+
+    with pytest.raises(trusted) as info:
+        check_filters(
+            source_type="fake",
+            config_dict={},
+            kind=kind,
+            parent_path=[],
+            names=["sales"],
+        )
+    assert type(info.value) is trusted
+    assert SENTINEL not in str(info.value)
+    assert "_CatalogError" in str(info.value)
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            str(recipe_file),
+            "--kind",
+            kind,
+            "--name",
+            "sales",
+        ],
+    )
+    assert res.exit_code == _EXIT_CODE_OF[trusted], res.output
     assert SENTINEL not in res.output
     assert "Traceback" not in res.output

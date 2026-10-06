@@ -33,7 +33,13 @@ from datahub.ingestion.agent.probe_methods import (
     probe_method,
 )
 from datahub.ingestion.agent.redact import collect_nested_secret_values, redact
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeInternalError,
+    ProbeReadFailed,
+    ProbeSoftError,
+)
 
 # Defined in tests/unit/conftest.py, for any test driving `datahub recipe`.
 pytestmark = pytest.mark.usefixtures("_isolate_secret_registry")
@@ -2463,6 +2469,46 @@ def test_a_crashed_test_connection_is_named_by_label_on_its_own_exit_code(
     )
 
 
+_TRUSTED_EXIT_CODES = [
+    (ProbeArgumentError, 2),
+    (ProbeSoftError, 2),
+    (ProbeReadFailed, 3),
+    (ProbeConnectionError, 3),
+    (ProbeInternalError, 1),
+]
+
+
+@pytest.mark.parametrize("how", ["from", "implicit"])
+@pytest.mark.parametrize(
+    "trusted, exit_code", _TRUSTED_EXIT_CODES, ids=lambda v: getattr(v, "__name__", v)
+)
+def test_a_trusted_test_connection_error_quoting_foreign_text_keeps_its_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    trusted: type,
+    exit_code: int,
+    how: str,
+) -> None:
+    """A source's test_connection may raise a framework type around its
+    driver's error. The type is the source's choice and keeps its exit code;
+    the driver's text it quotes is withheld, named by label."""
+
+    class _Wrapping:
+        @staticmethod
+        def test_connection(config_dict):
+            try:
+                raise _ConnectorError(f"login refused for {_CRASH_SENTINEL}")
+            except _ConnectorError as exc:
+                if how == "from":
+                    raise trusted(f"cannot connect: {exc}") from exc
+                raise trusted(f"cannot connect: {exc!r}")  # noqa: B904
+
+    res = _test_connection_of(monkeypatch, tmp_path, _Wrapping)
+    assert res.exit_code == exit_code, res.output
+    assert _CRASH_SENTINEL not in res.output
+    assert "_ConnectorError" in json.loads(res.stderr)["error"]
+
+
 class _PortConfig(ConfigModel):
     port: int
 
@@ -2937,3 +2983,69 @@ def test_a_renamed_fields_secret_is_registered_before_a_command_prints(
     assert _NESTED_SENTINEL not in SecretMaskingFilter().mask_text(
         f"clone refused key {_NESTED_SENTINEL}"
     )
+
+
+# --- validate's secret collection when the recipe cannot be read fully --------
+
+_INLINE_SECRET = "planted-inline-value"
+_REF_SECRET = "planted-resolved-value"
+
+
+def _validate_quoting(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    config_yaml: str,
+    quoted: Sequence[str],
+) -> Result:
+    """Run `validate` on a recipe of an unregistered source type, with a
+    validator that quotes `quoted` back, as a pydantic error quotes the input
+    it rejected."""
+
+    def _quoting_validator(*_args: object, **_kwargs: object) -> Dict[str, object]:
+        return {
+            "valid": False,
+            "errors": [f"rejected '{value}'" for value in quoted],
+            "warnings": [],
+        }
+
+    monkeypatch.setattr(rc, "validate_recipe", _quoting_validator)
+    path = tmp_path / "r.yml"
+    path.write_text("source:\n  type: no-such-source-type\n  config:\n" + config_yaml)
+    return CliRunner().invoke(recipe, ["validate", str(path)])
+
+
+def test_validate_masks_secrets_of_a_source_type_it_cannot_resolve(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """No config class and no secret fields for an unknown type: the inline
+    secret found by key and the value a ${REF} resolved to are still masked."""
+    monkeypatch.setenv("PROBE_T_HOST_REF", _REF_SECRET)
+    res = _validate_quoting(
+        monkeypatch,
+        tmp_path,
+        f"    password: {_INLINE_SECRET}\n    host_port: ${{PROBE_T_HOST_REF}}\n",
+        [_INLINE_SECRET, _REF_SECRET],
+    )
+    assert res.exit_code == 0, res.output
+    assert _INLINE_SECRET not in res.output
+    assert _REF_SECRET not in res.output
+    errors = json.loads(res.stdout)["errors"]
+    assert len(errors) == 2
+    assert all("***" in error for error in errors)
+
+
+def test_validate_masks_inline_secrets_when_a_reference_cannot_resolve(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """Resolution fails on an unset ${REF}; the inline secret collected before
+    it is still masked."""
+    monkeypatch.delenv("PROBE_T_UNSET_REF", raising=False)
+    res = _validate_quoting(
+        monkeypatch,
+        tmp_path,
+        f"    password: {_INLINE_SECRET}\n    host_port: ${{PROBE_T_UNSET_REF}}\n",
+        [_INLINE_SECRET],
+    )
+    assert res.exit_code == 0, res.output
+    assert _INLINE_SECRET not in res.output
+    assert all("***" in error for error in json.loads(res.stdout)["errors"])
