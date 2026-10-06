@@ -51,6 +51,7 @@ from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 if TYPE_CHECKING:
+    from datahub.ingestion.api.decorators import CapabilitySetting
     from datahub.ingestion.api.workunit_processor import WorkunitProcessor
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
@@ -78,6 +79,8 @@ class SourceCapability(Enum):
     CONTAINERS = "Asset Containers"
     TEST_CONNECTION = "Test Connection"
     GLOSSARY_TERMS = "Glossary Terms"
+    # Derived, never declared: see api.decorators.capability.
+    PROBE = "Probe"
 
 
 class StructuredLogLevel(Enum):
@@ -573,6 +576,16 @@ class Source(Closeable, metaclass=ABCMeta):
         # method in the config_class decorator. That would allow us to make this
         # method abstract.
         raise NotImplementedError('sources must implement "create"')
+
+    @classmethod
+    def get_capabilities(cls) -> "List[CapabilitySetting]":
+        """The source's @capability declarations, plus the derived Probe
+        capability (see api.decorators.capability). A default here, so a source
+        without any @capability still advertises Probe."""
+        # Late import: api.decorators imports this module.
+        from datahub.ingestion.api.decorators import source_capabilities
+
+        return source_capabilities(cls)
 
     def get_excluded_workunit_processors(
         self,
