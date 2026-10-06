@@ -11,7 +11,10 @@ from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import DatasetTermsTransformer
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetTermsTransformer,
+    dedupe_preserving_order,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlossaryTermAssociationClass,
@@ -89,6 +92,10 @@ class AddDatasetTerms(DatasetTermsTransformer):
         terms_to_add = self.config.get_terms_to_add(entity_urn)
         if terms_to_add is not None:
             out_glossary_terms.terms.extend(terms_to_add)
+
+        out_glossary_terms.terms = dedupe_preserving_order(
+            out_glossary_terms.terms, key=lambda term: term.urn
+        )
 
         patch_glossary_terms: Optional[GlossaryTermsClass] = None
         if self.config.semantics == TransformerSemantics.PATCH:

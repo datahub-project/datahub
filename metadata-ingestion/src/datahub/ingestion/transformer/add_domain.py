@@ -21,7 +21,10 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import DatasetDomainTransformer
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetDomainTransformer,
+    dedupe_preserving_order,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DomainsClass,
@@ -209,6 +212,10 @@ class AddDomain(DatasetDomainTransformer):
 
         domain_to_add = self.config.get_domains_to_add(entity_urn)
         domain_aspect.domains.extend(domain_to_add.domains)
+
+        domain_aspect.domains = dedupe_preserving_order(
+            domain_aspect.domains, key=lambda domain: domain
+        )
 
         result: Optional[DomainsClass]
         if self.config.semantics == TransformerSemantics.PATCH:

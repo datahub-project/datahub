@@ -5109,3 +5109,190 @@ def test_multiple_aspect_transformer_passes_through_non_matching_mcpw() -> None:
     )
     assert isinstance(domain_outputs[0].aspect, models.DomainsClass)
     assert domain_outputs[0].aspect.domains == ["urn:li:domain:hello"]
+
+
+def test_simple_dataset_ownership_dedupes_owner_already_in_stream():
+    """The transformer adds an owner the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=group_owner,
+                    type=models.OwnershipTypeClass.CUSTOM,
+                    typeUrn=ownership_type_urn,
+                )
+            ]
+        ),
+        config={
+            "owner_urns": [group_owner],
+            "ownership_type": ownership_type_urn,
+        },
+    )
+
+    assert len(output) == 2
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+    assert ownership_aspect.owners[0].owner == group_owner
+
+
+def test_simple_dataset_ownership_collapses_preexisting_duplicates():
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=group_owner,
+                    type=models.OwnershipTypeClass.CUSTOM,
+                    typeUrn=ownership_type_urn,
+                )
+            ]
+            * 88
+        ),
+        config={
+            "owner_urns": [group_owner],
+            "ownership_type": ownership_type_urn,
+        },
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+
+
+def test_simple_dataset_ownership_keeps_same_user_under_different_types():
+    """Dedup must key on the ownership type as well as the owner urn: the same
+    person can legitimately be both a technical and a business owner."""
+    user = "urn:li:corpuser:jdoe"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=user, type=models.OwnershipTypeClass.BUSINESS_OWNER
+                )
+            ]
+        ),
+        config={
+            "owner_urns": [user],
+            "ownership_type": "TECHNICAL_OWNER",
+        },
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 2
+
+
+def test_simple_dataset_tags_dedupes_tag_already_in_stream():
+    """The transformer adds a tag the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    tag = builder.make_tag_urn("Certified")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTags,
+        aspect=models.GlobalTagsClass(tags=[models.TagAssociationClass(tag=tag)]),
+        config={"tag_urns": [tag]},
+    )
+
+    tags_aspect = output[0].record.aspect
+    assert isinstance(tags_aspect, models.GlobalTagsClass)
+    assert len(tags_aspect.tags) == 1
+    assert tags_aspect.tags[0].tag == tag
+
+
+def test_simple_dataset_terms_dedupes_term_already_in_stream():
+    """The transformer adds a term the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    term = builder.make_term_urn("Pii")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTerms,
+        aspect=models.GlossaryTermsClass(
+            terms=[models.GlossaryTermAssociationClass(urn=term)],
+            auditStamp=models.AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
+        ),
+        config={"term_urns": [term]},
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+    assert terms_aspect.terms[0].urn == term
+
+
+def test_simple_dataset_terms_collapses_preexisting_duplicates():
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    term = builder.make_term_urn("Pii")
+    other_term = builder.make_term_urn("Sensitive")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTerms,
+        aspect=models.GlossaryTermsClass(
+            terms=[models.GlossaryTermAssociationClass(urn=term)] * 88,
+            auditStamp=models.AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
+        ),
+        config={"term_urns": [other_term]},
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 2
+    assert {t.urn for t in terms_aspect.terms} == {term, other_term}
+
+
+def test_simple_dataset_domain_dedupes_domain_already_in_stream(
+    mock_datahub_graph_instance,
+):
+    """The transformer adds a domain the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    domain = builder.make_domain_urn("acryl.io")
+
+    pipeline_context = PipelineContext(run_id="test_domain_dedup")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[domain]),
+        config={"domains": [domain]},
+        pipeline_context=pipeline_context,
+    )
+
+    domains_aspect = output[0].record.aspect
+    assert isinstance(domains_aspect, models.DomainsClass)
+    assert domains_aspect.domains == [domain]
+
+
+def test_simple_dataset_domain_collapses_preexisting_duplicates(
+    mock_datahub_graph_instance,
+):
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    domain = builder.make_domain_urn("acryl.io")
+    other_domain = builder.make_domain_urn("datahubproject.io")
+
+    pipeline_context = PipelineContext(run_id="test_domain_dedup")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[domain] * 88),
+        config={"domains": [other_domain]},
+        pipeline_context=pipeline_context,
+    )
+
+    domains_aspect = output[0].record.aspect
+    assert isinstance(domains_aspect, models.DomainsClass)
+    assert sorted(domains_aspect.domains) == sorted([domain, other_domain])
