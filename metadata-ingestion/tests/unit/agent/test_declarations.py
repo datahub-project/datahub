@@ -22,6 +22,7 @@ from datahub.ingestion.agent.declarations import (
     declared_kind_enablers,
     declared_qualifier,
     declared_rule_filtered_kinds,
+    declared_unfiltered_kinds,
     declares_qualifier,
     filters_field,
     marker_problems,
@@ -216,3 +217,22 @@ def test_probe_filter_refuses_a_switch_it_cannot_read(
             parent_path=[],
             names=["v1"],
         )
+
+
+class _StringUnfiltered(ConfigModel):
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        # A bare str: iterated, it would declare kinds "T", "a", "b", ...
+        return "Table"  # type: ignore[return-value]
+
+
+class _ListUnfiltered(ConfigModel):
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        return ["Table"]  # type: ignore[return-value]
+
+
+def test_unfiltered_kinds_must_be_a_collection_of_names() -> None:
+    assert declared_unfiltered_kinds(_ListUnfiltered) == {"Table"}
+    with pytest.raises(ProbeInternalError):
+        declared_unfiltered_kinds(_StringUnfiltered)

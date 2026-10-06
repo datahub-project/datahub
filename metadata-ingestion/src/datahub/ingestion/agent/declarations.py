@@ -17,7 +17,6 @@ from typing import (
     Callable,
     Dict,
     Generic,
-    Iterable,
     Iterator,
     List,
     Optional,
@@ -27,7 +26,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
 )
 
 from pydantic.fields import FieldInfo
@@ -96,7 +94,19 @@ def declared_unfiltered_kinds(config: object) -> Set[str]:
     """Kinds this source says it deliberately does not filter
     (probe_unfiltered_kinds), read by name on any config."""
     hook = config_hook(config, "probe_unfiltered_kinds")
-    return set() if hook is None else {str(k) for k in cast(Iterable[object], hook())}
+    if hook is None:
+        return set()
+    declared = hook()
+    # A bare str is iterable too, and would read as one kind per character.
+    if not isinstance(declared, (set, frozenset, list, tuple)) or not all(
+        isinstance(kind, str) for kind in declared
+    ):
+        owner = config if isinstance(config, type) else type(config)
+        raise ProbeInternalError(
+            f"the connector is defective: {owner.__name__}.probe_unfiltered_kinds "
+            f"returned {type(declared).__name__}, not a set of kind names"
+        )
+    return {str(kind) for kind in declared}
 
 
 def _is_bool_field(annotation: object) -> bool:
