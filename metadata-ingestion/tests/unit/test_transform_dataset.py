@@ -5109,3 +5109,92 @@ def test_multiple_aspect_transformer_passes_through_non_matching_mcpw() -> None:
     )
     assert isinstance(domain_outputs[0].aspect, models.DomainsClass)
     assert domain_outputs[0].aspect.domains == ["urn:li:domain:hello"]
+
+
+def test_simple_dataset_ownership_dedupes_owner_already_in_stream():
+    """A source that already emits the owner the transformer is configured to add
+    must not produce two identical entries.
+
+    Sources that merge server state back into the stream (dbt's
+    write_semantics=PATCH) feed the transformer's own owner from the previous run
+    back in; without dedup the aspect grows one entry per ingestion run.
+    """
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=group_owner,
+                    type=models.OwnershipTypeClass.CUSTOM,
+                    typeUrn=ownership_type_urn,
+                )
+            ]
+        ),
+        config={
+            "owner_urns": [group_owner],
+            "ownership_type": ownership_type_urn,
+        },
+    )
+
+    assert len(output) == 2
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+    assert ownership_aspect.owners[0].owner == group_owner
+
+
+def test_simple_dataset_ownership_collapses_preexisting_duplicates():
+    """Duplicates already present in the incoming aspect are collapsed, so an
+    affected entity self-heals on the next ingestion run."""
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=group_owner,
+                    type=models.OwnershipTypeClass.CUSTOM,
+                    typeUrn=ownership_type_urn,
+                )
+            ]
+            * 88
+        ),
+        config={
+            "owner_urns": [group_owner],
+            "ownership_type": ownership_type_urn,
+        },
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+
+
+def test_simple_dataset_ownership_keeps_same_user_under_different_types():
+    """Dedup must key on the ownership type as well as the owner urn: the same
+    person can legitimately be both a technical and a business owner."""
+    user = "urn:li:corpuser:jdoe"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=user, type=models.OwnershipTypeClass.BUSINESS_OWNER
+                )
+            ]
+        ),
+        config={
+            "owner_urns": [user],
+            "ownership_type": "TECHNICAL_OWNER",
+        },
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 2
