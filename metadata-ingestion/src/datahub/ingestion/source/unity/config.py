@@ -764,7 +764,7 @@ class UnityCatalogSourceConfig(
             # case-insensitively and the listing reports the stored name.
             pinned = {name.casefold() for name in self.catalogs}
             if ctx.name.casefold() not in pinned:
-                return Verdict(False, "catalogs")
+                return Verdict.exclude("catalogs")
         return sql_structural_verdict(self, ctx)
 
     @classmethod
