@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -27,6 +29,8 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
@@ -37,7 +41,9 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -72,7 +78,9 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -88,6 +96,17 @@ import org.opensearch.search.sort.SortOrder;
 @Accessors(chain = true)
 public class ESSearchDAO {
 
+  /**
+   * Hybrid search reranks the first this many keyword rows, the search cache's default batch, and
+   * keeps every later row in keyword order, so every page is a slice of the same ranking.
+   */
+  private static final int HYBRID_RERANK_WINDOW = 100;
+
+  /** Extra kNN neighbours beyond the rerank window, so more of its rows find a vector score. */
+  private static final int HYBRID_KNN_HEADROOM = 100;
+
+  private static final ObjectMapper KNN_FILTER_MAPPER = new ObjectMapper();
+
   private final boolean pointInTimeCreationEnabled;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
@@ -95,6 +114,7 @@ public class ESSearchDAO {
   private final boolean testLoggingEnabled;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
+  @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -127,6 +147,25 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public ESSearchDAO(
+      boolean pointInTimeCreationEnabled,
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean testLoggingEnabled,
+      @Nonnull SearchServiceConfiguration searchServiceConfig,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher) {
+    this(
+        pointInTimeCreationEnabled,
+        searchConfiguration,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        testLoggingEnabled,
+        searchServiceConfig,
+        entityDocumentIdHasher,
+        null);
   }
 
   @Nonnull
@@ -375,13 +414,25 @@ public class ESSearchDAO {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
 
+    // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page
+    final int hybridFetchSize = hybridFetchSize(opContext, input, sortCriteria, from, size);
+    final int requestFrom = hybridFetchSize > 0 ? 0 : from;
+    final Integer requestSize = hybridFetchSize > 0 ? hybridFetchSize : size;
+
     // Step 1: construct the query
     final Triple<SearchRequest, Filter, List<EntitySpec>> searchRequestComponents =
         opContext.withSpan(
             "searchRequest",
             () ->
                 buildSearchRequest(
-                    opContext, entityNames, input, postFilters, sortCriteria, from, size, facets),
+                    opContext,
+                    entityNames,
+                    input,
+                    postFilters,
+                    sortCriteria,
+                    requestFrom,
+                    requestSize,
+                    facets),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(this.getClass(), "searchRequest"));
 
@@ -390,13 +441,128 @@ public class ESSearchDAO {
     }
 
     // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(
-        opContext,
-        searchRequestComponents.getRight(),
-        searchRequestComponents.getLeft(),
-        searchRequestComponents.getMiddle(),
-        from,
-        size);
+    final SearchResult result =
+        executeAndExtract(
+            opContext,
+            searchRequestComponents.getRight(),
+            searchRequestComponents.getLeft(),
+            searchRequestComponents.getMiddle(),
+            requestFrom,
+            requestSize);
+    return hybridFetchSize > 0
+        ? rerankHybrid(
+            opContext, entityNames, input, searchRequestComponents.getLeft(), result, from, size)
+        : result;
+  }
+
+  /**
+   * The number of keyword rows a hybrid search fetches, or 0 when the search stays keyword-only:
+   * hybrid read is off, the page starts past the rerank window, no rows are requested, results are
+   * not sorted by relevance, or the input is not a full-text query.
+   */
+  private int hybridFetchSize(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    if (hybridSearchResultReranker == null || from >= HYBRID_RERANK_WINDOW) {
+      return 0;
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    final String trimmed = input.trim();
+    if (pageSize == 0
+        || !isRelevanceSort(sortCriteria)
+        || searchFlags == null
+        || !Boolean.TRUE.equals(searchFlags.isFulltext())
+        || trimmed.isEmpty()
+        || "*".equals(trimmed)
+        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
+      return 0;
+    }
+    return Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
+  }
+
+  /**
+   * Reranks the first {@link #HYBRID_RERANK_WINDOW} keyword rows with kNN scores and slices the
+   * requested page. Totals and facets stay those of the keyword query. Any failure serves the
+   * keyword ranking.
+   */
+  @Nonnull
+  private SearchResult rerankHybrid(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nonnull SearchRequest keywordRequest,
+      @Nonnull SearchResult keywordResult,
+      int from,
+      @Nullable Integer size) {
+    final List<SearchEntity> rows = keywordResult.getEntities();
+    final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
+    List<SearchEntity> ranked = rows;
+    try {
+      ranked =
+          new ArrayList<>(
+              hybridSearchResultReranker.rerank(
+                  opContext,
+                  entityNames,
+                  input,
+                  rows.subList(0, windowEnd),
+                  HYBRID_RERANK_WINDOW + HYBRID_KNN_HEADROOM,
+                  List.of(URN_FIELD),
+                  extractRootFilterForKnn(keywordRequest)));
+      ranked.addAll(rows.subList(windowEnd, rows.size()));
+    } catch (Exception e) {
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils -> metricUtils.increment(ESSearchDAO.class, "hybridReadFailed", 1));
+      log.warn("Hybrid read failed; serving the keyword ranking.", e);
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final int pageStart = Math.min(from, ranked.size());
+    final int pageEnd = (int) Math.min((long) from + pageSize, ranked.size());
+    return keywordResult
+        .setEntities(new SearchEntityArray(ranked.subList(pageStart, pageEnd)))
+        .setFrom(from)
+        .setPageSize(pageSize);
+  }
+
+  /** No sort, or only by score, orders by relevance. */
+  private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
+    return sortCriteria == null
+        || sortCriteria.stream().allMatch(criterion -> "_score".equals(criterion.getField()));
+  }
+
+  /**
+   * The keyword query's filters, serialized for the kNN request, so the kNN leg searches the same
+   * entities: facets, Views, soft-delete and entity-type filters.
+   */
+  @VisibleForTesting
+  @Nonnull
+  static Map<String, Object> extractRootFilterForKnn(@Nonnull SearchRequest keywordRequest)
+      throws JsonProcessingException {
+    QueryBuilder query = keywordRequest.source().query();
+    if (query instanceof FunctionScoreQueryBuilder) {
+      query = ((FunctionScoreQueryBuilder) query).query();
+    }
+    // Running the kNN leg without the filters would score entities the user filtered out
+    if (!(query instanceof BoolQueryBuilder)) {
+      throw new IllegalStateException(
+          "Expected a bool query to extract kNN filters from, got "
+              + (query == null ? "none" : query.getClass().getSimpleName()));
+    }
+    final List<Map<String, Object>> filters = new ArrayList<>();
+    for (QueryBuilder filter : ((BoolQueryBuilder) query).filter()) {
+      filters.add(
+          KNN_FILTER_MAPPER.readValue(
+              filter.toString(), new TypeReference<Map<String, Object>>() {}));
+    }
+    if (filters.isEmpty()) {
+      return Map.of();
+    }
+    return filters.size() == 1 ? filters.get(0) : Map.of("bool", Map.of("filter", filters));
   }
 
   @VisibleForTesting

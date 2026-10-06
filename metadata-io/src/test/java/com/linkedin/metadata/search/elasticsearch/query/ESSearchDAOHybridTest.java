@@ -1,0 +1,257 @@
+package com.linkedin.metadata.search.elasticsearch.query;
+
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
+
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.lucene.search.TotalHits;
+import org.mockito.ArgumentCaptor;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+public class ESSearchDAOHybridTest {
+
+  private static final List<String> ENTITY_NAMES = List.of("dataset", "document");
+  private static final long TOTAL_HITS = 250;
+
+  private SearchClientShim<?> client;
+  private HybridSearchResultReranker reranker;
+  private OperationContext opContext;
+  private ESSearchDAO dao;
+
+  @BeforeMethod
+  public void setUp() throws IOException {
+    client = mock(SearchClientShim.class);
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+                TestOperationContexts.systemContextNoValidate(), client)
+            .withSearchFlags(flags -> flags.setFulltext(true));
+    reranker = mock(HybridSearchResultReranker.class);
+    // Reverses the rows it is given, so the test can tell reranked rows from keyword ones
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
+              Collections.reverse(rows);
+              return rows;
+            });
+    dao =
+        new ESSearchDAO(
+            false,
+            TEST_OS_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            reranker);
+  }
+
+  @Test
+  public void testPageInsideTheWindowIsSlicedFromTheRerankedWindow() throws IOException {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+
+    SearchResult result =
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 10, 10, List.of());
+
+    // The window is reversed, so rows 10-19 are the keyword rows 89 down to 80
+    assertEquals(rowIds(result), range(89, 79));
+    assertEquals(result.getFrom().intValue(), 10);
+    assertEquals(result.getPageSize().intValue(), 10);
+    assertEquals(result.getNumEntities().intValue(), TOTAL_HITS);
+    SearchSourceBuilder source = searchedSource();
+    assertEquals(source.from(), 0);
+    assertEquals(source.size(), 100);
+    ArgumentCaptor<List<SearchEntity>> rows = ArgumentCaptor.forClass(List.class);
+    verify(reranker)
+        .rerank(
+            any(OperationContext.class),
+            eq(ENTITY_NAMES),
+            eq("revenue"),
+            rows.capture(),
+            eq(200),
+            eq(List.of("urn")),
+            any());
+    assertEquals(rows.getValue().size(), 100);
+  }
+
+  @Test
+  public void testRowsPastTheWindowKeepTheirKeywordOrder() throws IOException {
+    SearchResponse keywordResponse = response(105);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+
+    SearchResult result =
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 95, 10, List.of());
+
+    // The last five reranked rows, then keyword rows 100-104
+    List<Integer> expected = new ArrayList<>(range(4, -1));
+    expected.addAll(range(100, 105));
+    assertEquals(rowIds(result), expected);
+    assertEquals(searchedSource().size(), 105);
+  }
+
+  @Test
+  public void testPagesPastTheWindowStayKeywordOnly() throws IOException {
+    SearchResponse keywordResponse = response(10);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 100, 10, List.of());
+
+    assertEquals(searchedSource().from(), 100);
+    assertEquals(searchedSource().size(), 10);
+    verifyNoInteractions(reranker);
+  }
+
+  @Test
+  public void testOnlyRelevanceRankedFullTextSearchesRerank() throws IOException {
+    SearchResponse keywordResponse = response(10);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    List<SortCriterion> byName =
+        List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
+
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, byName, 0, 10, List.of());
+    dao.search(opContext, ENTITY_NAMES, "*", null, null, 0, 10, List.of());
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 0, List.of());
+    dao.search(
+        opContext.withSearchFlags(flags -> flags.setFulltext(false)),
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        null,
+        0,
+        10,
+        List.of());
+
+    verifyNoInteractions(reranker);
+  }
+
+  @Test
+  public void testFailedRerankServesTheKeywordRanking() throws IOException {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), anyInt(), any(), any()))
+        .thenThrow(new IOException("kNN unavailable"));
+
+    SearchResult result =
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 10, 10, List.of());
+
+    assertEquals(rowIds(result), range(10, 20));
+    assertEquals(result.getNumEntities().intValue(), TOTAL_HITS);
+  }
+
+  @Test
+  public void testKnnFilterIsTheKeywordQueryFilter() throws Exception {
+    SearchRequest request =
+        new SearchRequest()
+            .source(
+                new SearchSourceBuilder()
+                    .query(
+                        QueryBuilders.functionScoreQuery(
+                            QueryBuilders.boolQuery()
+                                .must(QueryBuilders.matchQuery("name", "revenue"))
+                                .filter(QueryBuilders.termQuery("platform", "notion")))));
+
+    Map<String, Object> filter = ESSearchDAO.extractRootFilterForKnn(request);
+
+    assertEquals(((Map<?, ?>) filter.get("term")).keySet(), java.util.Set.of("platform"));
+    assertEquals(
+        ESSearchDAO.extractRootFilterForKnn(
+            new SearchRequest().source(new SearchSourceBuilder().query(QueryBuilders.boolQuery()))),
+        Map.of());
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            ESSearchDAO.extractRootFilterForKnn(
+                new SearchRequest()
+                    .source(
+                        new SearchSourceBuilder()
+                            .query(QueryBuilders.matchQuery("name", "revenue")))));
+  }
+
+  private SearchSourceBuilder searchedSource() throws IOException {
+    ArgumentCaptor<SearchRequest> request = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client)
+        .search(any(OperationContext.class), request.capture(), eq(RequestOptions.DEFAULT));
+    return request.getValue().source();
+  }
+
+  /** Keyword hits for documents 0 to {@code count - 1}, best first. */
+  private static SearchResponse response(int count) {
+    SearchHit[] hits =
+        IntStream.range(0, count)
+            .mapToObj(
+                i -> {
+                  SearchHit hit = new SearchHit(i, "id" + i, Map.of(), Map.of());
+                  hit.sourceRef(new BytesArray("{\"urn\":\"" + urn(i) + "\"}"));
+                  hit.score(count - i);
+                  return hit;
+                })
+            .toArray(SearchHit[]::new);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(
+            new SearchHits(hits, new TotalHits(TOTAL_HITS, TotalHits.Relation.EQUAL_TO), count));
+    return response;
+  }
+
+  private static Urn urn(int id) {
+    return UrnUtils.getUrn("urn:li:document:" + id);
+  }
+
+  private static List<Integer> rowIds(SearchResult result) {
+    return result.getEntities().stream()
+        .map(entity -> Integer.parseInt(entity.getEntity().getId()))
+        .collect(Collectors.toList());
+  }
+
+  /** Ids from {@code start} towards {@code end}, exclusive, counting down when end < start. */
+  private static List<Integer> range(int start, int end) {
+    return start <= end
+        ? IntStream.range(start, end).boxed().collect(Collectors.toList())
+        : IntStream.iterate(start, i -> i > end, i -> i - 1).boxed().collect(Collectors.toList());
+  }
+}
