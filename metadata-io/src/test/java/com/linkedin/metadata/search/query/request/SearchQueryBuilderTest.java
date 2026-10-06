@@ -646,14 +646,18 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .contains("customFullTextSearchFields"),
         "V2 indices have no structured property full-text field");
 
-    FunctionScoreQueryBuilder v3Query =
-        (FunctionScoreQueryBuilder)
-            new SearchQueryBuilder(testQueryConfig, null, true)
-                .buildQuery(opContext, entitySpecs, "testQuery", true);
-    List<QueryBuilder> shouldQueries = ((BoolQueryBuilder) v3Query.query()).should();
-    // The simple query matches the words of a value, the exact query the whole value
-    assertTrue(shouldQueries.get(0).toString().contains("customFullTextSearchFields.delimited"));
-    assertTrue(shouldQueries.get(1).toString().contains("customFullTextSearchFields.keyword"));
+    // The full and the light query match the words of a value, the light one for a single word
+    // too, which it otherwise matches on name fields only
+    for (String query : List.of("testQuery", "test query")) {
+      for (boolean light : List.of(false, true)) {
+        assertTrue(
+            TEST_V3_BUILDER
+                .buildQuery(opContext, entitySpecs, query, true, light)
+                .toString()
+                .contains("customFullTextSearchFields.delimited"),
+            query + (light ? " (light)" : ""));
+      }
+    }
   }
 
   @Test
@@ -1718,15 +1722,15 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         v3SimpleQueries(
             datasetSpec,
             "orders2017 sales2018 ledger2019 orders2020 sales2021 ledger2022 orders2023 sales2024");
-    assertTrue(runs.stream().anyMatch(sqs -> sqs.value().contains("ledger 2022")));
-    assertTrue(runs.stream().noneMatch(sqs -> sqs.value().contains("2023")));
+    assertTrue(runs.stream().anyMatch(sqs -> sqs.value().contains("sales 2021")));
+    assertTrue(runs.stream().noneMatch(sqs -> sqs.value().contains("2022")));
     // One run among plain words repeats them all in the unsplit copy
     List<SimpleQueryStringBuilder> mixed =
         v3SimpleQueries(
             datasetSpec,
             "alpha2017 bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike");
-    assertTrue(mixed.stream().anyMatch(sqs -> sqs.value().contains("india")));
-    assertTrue(mixed.stream().noneMatch(sqs -> sqs.value().contains("juliet")));
+    assertTrue(mixed.stream().anyMatch(sqs -> sqs.value().contains("hotel")));
+    assertTrue(mixed.stream().noneMatch(sqs -> sqs.value().contains("india")));
     // The analyzers split qualified names at the dots, so each part counts
     List<SimpleQueryStringBuilder> dotted =
         v3SimpleQueries(
@@ -1901,7 +1905,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         clauses);
     assertTrue(clauses.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
     assertTrue(clauses.stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
-    // A single word searches the name-related delimited subfields only, here the urn
+    // A single word searches the name-related delimited subfields only, here the urn, and the
+    // structured property values
     MultiMatchQueryBuilder multiMatch =
         clauses.stream()
             .filter(MultiMatchQueryBuilder.class::isInstance)
@@ -1909,7 +1914,9 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .findFirst()
             .orElseThrow();
     assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
-    assertEquals(multiMatch.fields().keySet(), Set.of("urn.delimited"));
+    assertEquals(
+        multiMatch.fields().keySet(),
+        Set.of("urn.delimited", "customFullTextSearchFields.delimited"));
     // Exact names still score a constant above every partial match
     assertTrue(
         clauses.stream()
