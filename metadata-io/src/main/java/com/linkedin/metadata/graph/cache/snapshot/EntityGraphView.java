@@ -16,6 +16,7 @@ import java.util.Queue;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Value;
 import org.jgrapht.Graph;
 import org.jgrapht.alg.connectivity.ConnectivityInspector;
 import org.jgrapht.graph.AsSubgraph;
@@ -76,6 +77,54 @@ public class EntityGraphView {
     return Optional.of(new EntityGraphView(List.copyOf(mutableCopy.edgeSet())));
   }
 
+  /**
+   * Edges and depth after replacing the closure reachable from {@code seeds} in {@code direction}.
+   */
+  @Value
+  public static class ClosureReplacement {
+    @Nonnull List<DirectedEdge> edges;
+    int exploredDepth;
+    boolean containsAllSeeds;
+
+    /** Canonical lines of {@code walkedEdges}. Full-path reads follow these and not leftovers. */
+    @Nonnull List<String> trustedEdgeLines;
+  }
+
+  /**
+   * Drops edges traversed by an unlimited walk from {@code seeds} in {@code direction}, then adds
+   * {@code walkedEdges}. Edges the walk does not reach stay, including edges that leave the seeds
+   * in the opposite direction.
+   */
+  @Nonnull
+  public ClosureReplacement replacingClosure(
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> seeds,
+      @Nonnull List<DirectedEdge> walkedEdges) {
+    Set<String> drop = traversedEdgeLines(direction, seeds);
+    Map<String, DirectedEdge> kept = new LinkedHashMap<>();
+    for (DirectedEdge edge : edges) {
+      DirectedEdge canonical = canonicalize(edge);
+      if (canonical != null && !drop.contains(canonical.canonicalLine())) {
+        kept.putIfAbsent(canonical.canonicalLine(), canonical);
+      }
+    }
+    Map<String, DirectedEdge> walkedByLine = new LinkedHashMap<>();
+    for (DirectedEdge walked : walkedEdges) {
+      DirectedEdge canonical = canonicalize(walked);
+      if (canonical == null) {
+        continue;
+      }
+      kept.put(canonical.canonicalLine(), canonical);
+      walkedByLine.putIfAbsent(canonical.canonicalLine(), canonical);
+    }
+    List<DirectedEdge> result = List.copyOf(kept.values());
+    EntityGraphView updated = new EntityGraphView(result);
+    int walkedDepth =
+        new EntityGraphView(List.copyOf(walkedByLine.values())).hopDepth(direction, seeds);
+    return new ClosureReplacement(
+        result, walkedDepth, updated.containsAllSeeds(seeds), List.copyOf(walkedByLine.keySet()));
+  }
+
   @Nonnull
   public Set<String> expand(
       @Nonnull TraversalDirection direction, @Nonnull Set<String> seeds, int limit, int maxDepth) {
@@ -85,6 +134,20 @@ public class EntityGraphView {
   @Nonnull
   public ExpandResult expandWithResult(
       @Nonnull TraversalDirection direction, @Nonnull Set<String> seeds, int limit, int maxDepth) {
+    return expandWithResult(direction, seeds, limit, maxDepth, null);
+  }
+
+  /**
+   * @param allowedEdgeLines when non-null, only these canonical lines are traversed. An empty set
+   *     follows no edges. Null follows every edge.
+   */
+  @Nonnull
+  public ExpandResult expandWithResult(
+      @Nonnull TraversalDirection direction,
+      @Nonnull Set<String> seeds,
+      int limit,
+      int maxDepth,
+      @Nullable Set<String> allowedEdgeLines) {
     Graph<String, DirectedEdge> graph =
         direction == TraversalDirection.FORWARD ? forwardGraph() : reverseGraph();
     Set<String> result = new LinkedHashSet<>();
@@ -110,6 +173,9 @@ public class EntityGraphView {
       String current = queue.poll();
       processedAtLevel++;
       for (DirectedEdge edge : graph.outgoingEdgesOf(current)) {
+        if (allowedEdgeLines != null && !allowedEdgeLines.contains(edge.canonicalLine())) {
+          continue;
+        }
         String neighbor = neighborUrn(edge, direction);
         if (visited.add(neighbor)) {
           result.add(neighbor);
@@ -257,6 +323,34 @@ public class EntityGraphView {
     return ancestors;
   }
 
+  /**
+   * True when every {@code roots} vertex lies in the directional closure of {@code trustedSeeds}.
+   * Roots connected only through the opposite direction are excluded.
+   */
+  public boolean coversRoots(
+      @Nonnull TraversalDirection direction,
+      @Nonnull Collection<String> trustedSeeds,
+      @Nonnull Set<String> roots,
+      @Nonnull Collection<String> trustedEdgeLines) {
+    if (trustedSeeds.isEmpty() || roots.isEmpty()) {
+      return false;
+    }
+    Set<String> closure =
+        expandWithResult(
+                direction,
+                new LinkedHashSet<>(trustedSeeds),
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE,
+                new HashSet<>(trustedEdgeLines))
+            .getVertices();
+    return closure.containsAll(roots);
+  }
+
+  /** True when every edge belongs to one weak component. */
+  public boolean isSingleWeakComponent() {
+    return !edges.isEmpty() && connectivityInspector().isConnected();
+  }
+
   public boolean containsAllSeeds(@Nonnull Set<String> seeds) {
     Graph<String, DirectedEdge> graph = forwardGraph();
     for (String seed : seeds) {
@@ -301,6 +395,81 @@ public class EntityGraphView {
 
   public int edgeCount() {
     return edges.size();
+  }
+
+  /**
+   * Farthest hop count from any one seed in {@code direction}. Each seed is measured alone so a
+   * descendant that is also a seed does not shorten the ancestor's walk. Zero when no seed has an
+   * outgoing edge in that direction.
+   */
+  private int hopDepth(@Nonnull TraversalDirection direction, @Nonnull Set<String> seeds) {
+    Graph<String, DirectedEdge> graph =
+        direction == TraversalDirection.FORWARD ? forwardGraph() : reverseGraph();
+    int deepest = 0;
+    for (String seed : seeds) {
+      deepest = Math.max(deepest, hopDepthFrom(graph, direction, seed));
+    }
+    return deepest;
+  }
+
+  private static int hopDepthFrom(
+      @Nonnull Graph<String, DirectedEdge> graph,
+      @Nonnull TraversalDirection direction,
+      @Nonnull String seed) {
+    if (!graph.containsVertex(seed)) {
+      return 0;
+    }
+    Set<String> visited = new HashSet<>();
+    Queue<String> queue = new ArrayDeque<>();
+    visited.add(seed);
+    queue.add(seed);
+    int depth = 0;
+    int levelSize = 1;
+    int processedAtLevel = 0;
+    while (!queue.isEmpty()) {
+      String current = queue.poll();
+      processedAtLevel++;
+      for (DirectedEdge edge : graph.outgoingEdgesOf(current)) {
+        String neighbor = neighborUrn(edge, direction);
+        if (visited.add(neighbor)) {
+          queue.add(neighbor);
+        }
+      }
+      if (processedAtLevel == levelSize) {
+        if (!queue.isEmpty()) {
+          depth++;
+        }
+        levelSize = queue.size();
+        processedAtLevel = 0;
+      }
+    }
+    return depth;
+  }
+
+  @Nonnull
+  private Set<String> traversedEdgeLines(
+      @Nonnull TraversalDirection direction, @Nonnull Set<String> seeds) {
+    Graph<String, DirectedEdge> graph =
+        direction == TraversalDirection.FORWARD ? forwardGraph() : reverseGraph();
+    Set<String> traversed = new HashSet<>();
+    Set<String> visited = new HashSet<>();
+    Queue<String> queue = new ArrayDeque<>();
+    for (String seed : seeds) {
+      if (graph.containsVertex(seed) && visited.add(seed)) {
+        queue.add(seed);
+      }
+    }
+    while (!queue.isEmpty()) {
+      String current = queue.poll();
+      for (DirectedEdge edge : graph.outgoingEdgesOf(current)) {
+        traversed.add(edge.canonicalLine());
+        String neighbor = neighborUrn(edge, direction);
+        if (visited.add(neighbor)) {
+          queue.add(neighbor);
+        }
+      }
+    }
+    return traversed;
   }
 
   @Nonnull

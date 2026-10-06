@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -96,7 +97,7 @@ public class ESIndexBuilderTest {
 
   private ESIndexBuilder indexBuilder;
   private OperationContext opContext;
-  private static final String TEST_INDEX_NAME = "test_index";
+  private static final String TEST_INDEX_NAME = "datasetindex_v2";
   private static final int NUM_SHARDS = 1;
   private static final int NUM_REPLICAS = 1;
   private static final int NUM_RETRIES = 3;
@@ -145,6 +146,7 @@ public class ESIndexBuilderTest {
                 .numReplicas(NUM_REPLICAS)
                 .numRetries(NUM_RETRIES)
                 .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .refreshIntervals(RefreshIntervals.allServices(REFRESH_INTERVAL_SECONDS))
                 .maxReindexHours(0)
                 .build());
 
@@ -565,10 +567,10 @@ public class ESIndexBuilderTest {
   @DataProvider(name = "indexOverrideData")
   public Object[][] provideIndexOverrideData() {
     return new Object[][] {
-      {"test_index", Map.of("refresh_interval", "10s"), "10s"},
-      {"test_index", Map.of(), String.format("%ss", REFRESH_INTERVAL_SECONDS)},
+      {"datasetindex_v2", Map.of("refresh_interval", "10s", "number_of_replicas", "4"), "1s"},
+      {"datasetindex_v2", Map.of(), String.format("%ss", REFRESH_INTERVAL_SECONDS)},
       {
-        "other_index",
+        "chartindex_v2",
         Map.of("refresh_interval", "5s"),
         String.format("%ss", REFRESH_INTERVAL_SECONDS)
       },
@@ -620,6 +622,7 @@ public class ESIndexBuilderTest {
                     .numReplicas(NUM_REPLICAS)
                     .numRetries(NUM_RETRIES)
                     .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                    .refreshIntervals(RefreshIntervals.allServices(REFRESH_INTERVAL_SECONDS))
                     .build())
             .build();
 
@@ -1311,7 +1314,7 @@ public class ESIndexBuilderTest {
       throws IOException {
     // Setup
     Map<String, Map<String, String>> indexOverrides = new HashMap<>();
-    indexOverrides.put("test_index", overrides);
+    indexOverrides.put("datasetindex_v2", overrides);
 
     ESIndexBuilder builderWithOverrides =
         new ESIndexBuilder(
@@ -1333,16 +1336,228 @@ public class ESIndexBuilderTest {
     // Verify
     Map<String, Object> targetSettings = result.targetSettings();
     Map<String, Object> indexSettings = (Map<String, Object>) targetSettings.get("index");
+    // refresh_interval in settingsOverrides is ignored; the service interval wins.
     assertEquals(indexSettings.get("refresh_interval"), expectedRefreshInterval);
+    if (overrides.containsKey("number_of_replicas")) {
+      assertEquals(
+          String.valueOf(indexSettings.get("number_of_replicas")),
+          overrides.get("number_of_replicas"));
+    }
+  }
+
+  @Test
+  public void testExistingIndexRefreshChangeDoesNotRequireReindex() throws Exception {
+    ReindexConfig changed =
+        reindexStateWithCurrentRefresh(Settings.builder().put("index.refresh_interval", "10s"));
+    assertFalse(changed.requiresReindex());
+    assertTrue(changed.requiresApplySettings());
+    Map<String, Object> indexSettings = (Map<String, Object>) changed.targetSettings().get("index");
+    assertEquals(indexSettings.get("refresh_interval"), "1s");
+
+    AcknowledgedResponse acknowledged = mock(AcknowledgedResponse.class);
+    when(acknowledged.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(any(), any(), any())).thenReturn(acknowledged);
+    assertEquals(
+        indexBuilder.buildIndex(opContext, changed),
+        ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+    verify(searchClient).updateIndexSettings(any(), any(), any());
+  }
+
+  @Test
+  public void testRefreshDurationEqualityIsNotASettingsChange() throws Exception {
+    ReindexConfig same =
+        reindexStateWithCurrentRefresh(Settings.builder().put("index.refresh_interval", "1000ms"));
+    assertFalse(same.requiresReindex());
+    assertFalse(same.requiresApplySettings());
+  }
+
+  private ReindexConfig reindexStateWithCurrentRefresh(Settings.Builder current) throws Exception {
+    Map<String, Object> mappings = Map.of();
+    when(searchClient.indexExists(any(), any(), any())).thenReturn(true);
+    Settings currentSettings =
+        current
+            .put("index.number_of_shards", String.valueOf(NUM_SHARDS))
+            .put("index.number_of_replicas", String.valueOf(NUM_REPLICAS))
+            .build();
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(any(), any(), any())).thenReturn(settingsResponse);
+    GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
+    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+    when(mappingMetadata.getSourceAsMap()).thenReturn(mappings);
+    when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
+    when(searchClient.getIndexMapping(any(), any(), any())).thenReturn(mappingsResponse);
+    return indexBuilder.buildReindexState(opContext, TEST_INDEX_NAME, mappings, Map.of());
+  }
+
+  @Test
+  void testIndexSettingOverridesDeepMergeAnalysis() throws IOException {
+    // Generated settings carry a full analysis block
+    Map<String, Object> generated = new HashMap<>(createTestSettings());
+    generated.put(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                        Map.of("tokenizer", "main_tokenizer", "filter", List.of("min_length")),
+                    "keyword", Map.of("tokenizer", "keyword"))));
+
+    // Override names only what changes: a new filter and one analyzer's filter chain
+    Map<String, Map<String, Object>> indexOverrides = new HashMap<>();
+    indexOverrides.put(
+        TEST_INDEX_NAME,
+        Map.of(
+            "number_of_shards",
+            "3",
+            "analysis",
+            Map.of(
+                "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                "analyzer", Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+
+    ESIndexBuilder builderWithOverrides =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            indexOverrides,
+            gitVersion);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    ReindexConfig result =
+        builderWithOverrides.buildReindexState(
+            opContext, TEST_INDEX_NAME, createTestMappings(), generated);
+
+    Map<String, Object> index = (Map<String, Object>) result.targetSettings().get("index");
+    assertEquals(index.get("number_of_shards"), "3");
+    assertEquals(index.get("refresh_interval"), REFRESH_INTERVAL_SECONDS + "s");
+    Map<String, Object> analysis = (Map<String, Object>) index.get("analysis");
+    Map<String, Object> filters = (Map<String, Object>) analysis.get("filter");
+    // generated filter kept, override filter added
+    assertEquals(filters.get("min_length"), Map.of("type", "length", "min", "3"));
+    assertEquals(filters.get("min_length_2"), Map.of("type", "length", "min", "2"));
+    Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
+    // untouched analyzer kept as generated
+    assertEquals(analyzers.get("keyword"), Map.of("tokenizer", "keyword"));
+    // overridden analyzer: list replaced, sibling keys kept
+    Map<String, Object> wordDelimited = (Map<String, Object>) analyzers.get("word_delimited");
+    assertEquals(wordDelimited.get("filter"), List.of("min_length_2"));
+    assertEquals(wordDelimited.get("tokenizer"), "main_tokenizer");
+    // generated maps are immutable Map.of: merging copied them instead of writing into them
+    assertEquals(
+        ((Map<String, Object>) generated.get("analysis")).get("filter"),
+        Map.of("min_length", Map.of("type", "length", "min", "3")));
+  }
+
+  @Test
+  void testIndexSettingOverridesExistingIndexUnchangedAnalysisNoReindex() throws IOException {
+    mockExistingIndex(storedAnalysis("2"));
+
+    ReindexConfig result =
+        builderWithAnalysisOverride()
+            .buildReindexState(
+                opContext, TEST_INDEX_NAME, createTestMappings(), generatedAnalysis());
+
+    assertTrue(result.exists());
+    assertFalse(result.isSettingsReindex());
+    assertFalse(result.requiresReindex());
+  }
+
+  @Test
+  void testIndexSettingOverridesExistingIndexChangedAnalysisReindex() throws IOException {
+    // Stored index still has the old filter value
+    mockExistingIndex(storedAnalysis("3"));
+
+    ReindexConfig result =
+        builderWithAnalysisOverride()
+            .buildReindexState(
+                opContext, TEST_INDEX_NAME, createTestMappings(), generatedAnalysis());
+
+    assertTrue(result.exists());
+    assertTrue(result.isSettingsReindex());
+  }
+
+  private Map<String, Object> generatedAnalysis() {
+    return Map.of(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                    Map.of("tokenizer", "main", "filter", List.of("min_length")))));
+  }
+
+  private ESIndexBuilder builderWithAnalysisOverride() {
+    Map<String, Map<String, Object>> overrides =
+        Map.of(
+            TEST_INDEX_NAME,
+            Map.of(
+                "analysis",
+                Map.of(
+                    "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                    "analyzer",
+                        Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        overrides,
+        gitVersion);
+  }
+
+  /** Stored settings as the engine returns them after the override was applied once. */
+  private Settings storedAnalysis(String minLength2) {
+    return Settings.builder()
+        .put("index.number_of_shards", String.valueOf(NUM_SHARDS))
+        .put("index.number_of_replicas", String.valueOf(NUM_REPLICAS))
+        .put("index.refresh_interval", REFRESH_INTERVAL_SECONDS + "s")
+        .put("index.analysis.filter.min_length.type", "length")
+        .put("index.analysis.filter.min_length.min", "3")
+        .put("index.analysis.filter.min_length_2.type", "length")
+        .put("index.analysis.filter.min_length_2.min", minLength2)
+        .put("index.analysis.analyzer.word_delimited.tokenizer", "main")
+        .putList("index.analysis.analyzer.word_delimited.filter", "min_length_2")
+        .build();
+  }
+
+  private void mockExistingIndex(Settings currentSettings) throws IOException {
+    // searchClient is also the settings comparison; use its default (strict) comparison
+    when(searchClient.indexSettingNamesForComparison(any(), any())).thenCallRealMethod();
+    when(searchClient.indexSettingValuesEqual(any(), any())).thenCallRealMethod();
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+    GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
+    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+    when(mappingMetadata.getSourceAsMap()).thenReturn(createTestMappings());
+    when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
+    when(searchClient.getIndexMapping(
+            any(OperationFingerprint.class),
+            any(GetMappingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mappingsResponse);
   }
 
   @DataProvider(name = "settingsOverrideData")
   public Object[][] provideSettingsOverrideData() {
     return new Object[][] {
-      {"test_index", Map.of("refresh_interval", "10s"), "10s"},
-      {"test_index", Map.of(), String.format("%ss", REFRESH_INTERVAL_SECONDS)},
+      {"datasetindex_v2", Map.of("refresh_interval", "10s", "number_of_replicas", "4"), "1s"},
+      {"datasetindex_v2", Map.of(), String.format("%ss", REFRESH_INTERVAL_SECONDS)},
       {
-        "other_index",
+        "chartindex_v2",
         Map.of("refresh_interval", "5s"),
         String.format("%ss", REFRESH_INTERVAL_SECONDS)
       },
@@ -2148,6 +2363,7 @@ public class ESIndexBuilderTest {
                 .numReplicas(NUM_REPLICAS)
                 .numRetries(numRetries)
                 .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .refreshIntervals(RefreshIntervals.allServices(REFRESH_INTERVAL_SECONDS))
                 .maxReindexHours(1)
                 .build());
     when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);

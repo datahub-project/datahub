@@ -255,6 +255,10 @@ public class ReindexConfig {
     if (currentValue == null) {
       return false;
     }
+    if (ESIndexBuilder.REFRESH_INTERVAL.equals(settingKey)
+        && RefreshIntervalResolver.sameDuration(targetValue.toString(), currentValue)) {
+      return true;
+    }
     return Objects.equals(targetValue.toString(), currentValue);
   }
 
