@@ -1696,11 +1696,6 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testMergeAliasedFacetsBothPresent() {
-    // When both origin and env facets exist, counts should be summed
-    AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(
-            new SearchConfiguration(), ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
-
     AggregationMetadata originFacet = new AggregationMetadata();
     originFacet.setName("origin");
     originFacet.setAggregations(new LongMap(ImmutableMap.of("PROD", 10L, "DEV", 3L)));
@@ -1711,22 +1706,24 @@ public class AggregationQueryBuilderTest {
     envFacet.setAggregations(new LongMap(ImmutableMap.of("PROD", 5L, "STAGING", 2L)));
     envFacet.setFilterValues(new FilterValueArray());
 
-    List<AggregationMetadata> facets = new ArrayList<>(List.of(originFacet, envFacet));
+    AggregationQueryBuilder.mergeAliasedFacets(new ArrayList<>(List.of(originFacet, envFacet)));
 
-    try {
-      java.lang.reflect.Method method =
-          AggregationQueryBuilder.class.getDeclaredMethod("mergeAliasedFacets", List.class);
-      method.setAccessible(true);
-      method.invoke(builder, facets);
+    Assert.assertEquals(originFacet.getAggregations().get("PROD"), Long.valueOf(15L));
+    Assert.assertEquals(originFacet.getAggregations().get("DEV"), Long.valueOf(3L));
+    Assert.assertEquals(originFacet.getAggregations().get("STAGING"), Long.valueOf(2L));
+    Assert.assertEquals(envFacet.getAggregations(), originFacet.getAggregations());
+    Assert.assertEquals(envFacet.getFilterValues(), originFacet.getFilterValues());
+  }
 
-      // Both facets should have identical merged counts
-      Assert.assertEquals(originFacet.getAggregations().get("PROD"), Long.valueOf(15L));
-      Assert.assertEquals(originFacet.getAggregations().get("DEV"), Long.valueOf(3L));
-      Assert.assertEquals(originFacet.getAggregations().get("STAGING"), Long.valueOf(2L));
-      Assert.assertEquals(envFacet.getAggregations(), originFacet.getAggregations());
-      Assert.assertEquals(envFacet.getFilterValues(), originFacet.getFilterValues());
-    } catch (Exception e) {
-      Assert.fail("Failed to invoke mergeAliasedFacets: " + e.getMessage());
-    }
+  @Test
+  public void testMergeAliasedFacetsOnlyEnvPresent() {
+    AggregationMetadata envFacet = new AggregationMetadata();
+    envFacet.setName("env");
+    envFacet.setAggregations(new LongMap(ImmutableMap.of("PROD", 5L)));
+    envFacet.setFilterValues(new FilterValueArray());
+
+    AggregationQueryBuilder.mergeAliasedFacets(new ArrayList<>(List.of(envFacet)));
+
+    Assert.assertEquals(envFacet.getAggregations(), new LongMap(ImmutableMap.of("PROD", 5L)));
   }
 }

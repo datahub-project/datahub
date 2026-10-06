@@ -689,19 +689,21 @@ public class AggregationQueryBuilder {
   }
 
   /**
-   * Merges "env" counts with "origin" counts since both represent the same "Environment" concept
-   * using the same FabricType enum values and return the same set of results. Both facets are kept
-   * in the response with identical merged counts;
+   * Both "env" and "origin" are shown as "Environment" and filters on either are expanded to both
+   * fields (see {@link ESUtils#FIELDS_TO_EXPANDED_FIELDS_LIST}), so both facets get the summed
+   * counts.
    */
-  private void mergeAliasedFacets(@Nonnull List<AggregationMetadata> aggregationMetadataList) {
+  @VisibleForTesting
+  public static void mergeAliasedFacets(
+      @Nonnull List<AggregationMetadata> aggregationMetadataList) {
     AggregationMetadata originFacet =
         aggregationMetadataList.stream()
-            .filter(a -> "origin".equals(a.getName()))
+            .filter(a -> ESUtils.ORIGIN_FIELD.equals(a.getName()))
             .findFirst()
             .orElse(null);
     AggregationMetadata envFacet =
         aggregationMetadataList.stream()
-            .filter(a -> "env".equals(a.getName()))
+            .filter(a -> ESUtils.ENV_FIELD.equals(a.getName()))
             .findFirst()
             .orElse(null);
 
