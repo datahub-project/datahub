@@ -90,7 +90,7 @@ Work with DataHub team to receive deployment templates specific to your environm
 :::
 
 :::caution DataHub Cloud instances on GCP
-If your DataHub Cloud instance is deployed on Google Cloud Platform (GCP), configure the Remote Executor to use the Kafka channel. Without this setting, the executor does not receive work from the Executor Pool.
+If your DataHub Cloud instance is deployed on Google Cloud Platform (GCP), configure a Remote Executor v2.0.0 or later to use the Kafka channel (Helm deployments also require chart version 0.0.43 or later). Without this setting, the executor does not receive work from the Executor Pool.
 
 - **Helm:** set `global.datahub.executor.channel` to `KAFKA` (default: `SQS`):
 
