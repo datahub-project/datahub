@@ -624,8 +624,26 @@ public class CreateTablesStepTest {
     verify(schemaAndTableStmt).execute("CREATE SCHEMA IF NOT EXISTS testdb");
     verify(schemaAndTableStmt).execute("SET search_path TO testdb, public");
     verify(schemaAndTableStmt).execute(contains("CREATE TABLE IF NOT EXISTS"));
+    verify(dropLegacyStmt).execute("SET search_path TO testdb, public");
+    verify(dropLegacyStmt).execute("DROP INDEX CONCURRENTLY IF EXISTS urnindex");
+    verify(dropLegacyStmt).execute("DROP INDEX CONCURRENTLY IF EXISTS aspectindex");
+    verify(dropLegacyStmt).execute("DROP INDEX CONCURRENTLY IF EXISTS versionindex");
     verify(dropLegacyStmt, never()).execute(contains("CREATE TABLE"));
+    verify(ensureIndexesStmt).execute("SET search_path TO testdb, public");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_v0_urn_aspect ON metadata_aspect_v2 (urn, aspect) WHERE version = 0;");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpuser_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpuser:%' AND version = 0;");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpgroup_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpGroup:%' AND version = 0;");
     verify(ensureIndexesStmt, never()).execute(contains("CREATE TABLE"));
+    verify(collationStmt).execute("SET search_path TO testdb, public");
   }
 
   @Test

@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
 
 /** Utility class for parsing JDBC URLs using java.net.URI. */
@@ -17,9 +18,10 @@ public class JdbcUrlParser {
     public final String database;
 
     /**
-     * PostgreSQL JDBC {@code currentSchema} query parameter when present (optional client {@code
-     * search_path}); parsed for diagnostics and tests. Application DDL uses {@code postgres.schema}
-     * / {@code DATAHUB_POSTGRES_SCHEMA} (default {@code public}), not this value.
+     * PostgreSQL JDBC {@code currentSchema} query parameter when present. SqlSetup DDL uses {@code
+     * postgres.schema} / {@code DATAHUB_POSTGRES_SCHEMA}. {@link #applyPostgresMetadataSchema}
+     * copies a non-{@code public} schema into this parameter so the Ebean pool's search path
+     * matches that DDL.
      */
     public final String currentSchema;
 
@@ -67,6 +69,81 @@ public class JdbcUrlParser {
     }
 
     return String.format("jdbc:%s://%s:%d/%s", originalScheme, info.host, info.port, queryParams);
+  }
+
+  /**
+   * Point a PostgreSQL Ebean URL at {@code postgres.schema} by setting JDBC {@code currentSchema}.
+   *
+   * <p>SqlSetup creates unqualified metadata tables in that schema. The pool must use the same
+   * search path or runtime reads {@code public}. {@code public} (the default) leaves the URL
+   * unchanged so existing {@code "$user", public} search paths stay as they are. A URL that already
+   * sets {@code currentSchema} to a different schema fails fast. Non-PostgreSQL URLs are returned
+   * unchanged.
+   */
+  public static String applyPostgresMetadataSchema(String jdbcUrl, String schema) {
+    if (jdbcUrl == null || schema == null) {
+      return jdbcUrl;
+    }
+    String trimmed = schema.trim();
+    if (trimmed.isEmpty() || "public".equalsIgnoreCase(trimmed)) {
+      return jdbcUrl;
+    }
+    if (!trimmed.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+      throw new IllegalStateException(
+          "postgres.schema must be a valid unquoted PostgreSQL identifier "
+              + "(letters, digits, underscore; must not start with a digit).");
+    }
+    String normalized = trimmed.toLowerCase(Locale.ROOT);
+    JdbcInfo info = parseJdbcUrl(jdbcUrl);
+    if (info.databaseType != DatabaseType.POSTGRES) {
+      return jdbcUrl;
+    }
+    if (normalized.equals(info.currentSchema)) {
+      return jdbcUrl;
+    }
+    if (info.currentSchema != null && !normalized.equalsIgnoreCase(info.currentSchema)) {
+      throw new IllegalStateException(
+          "postgres.schema is '"
+              + normalized
+              + "' but JDBC URL currentSchema is '"
+              + info.currentSchema
+              + "'. Use the same schema for SqlSetup and the Ebean pool.");
+    }
+    return upsertQueryParameter(jdbcUrl, "currentSchema", normalized);
+  }
+
+  /** Insert or replace a query parameter, preserving the rest of the URL. */
+  private static String upsertQueryParameter(String jdbcUrl, String paramName, String value) {
+    int queryIndex = jdbcUrl.indexOf('?');
+    if (queryIndex < 0) {
+      return jdbcUrl + "?" + paramName + "=" + value;
+    }
+    String base = jdbcUrl.substring(0, queryIndex);
+    String query = jdbcUrl.substring(queryIndex + 1);
+    StringBuilder rebuilt = new StringBuilder();
+    boolean replaced = false;
+    if (!query.isEmpty()) {
+      for (String pair : query.split("&", -1)) {
+        if (rebuilt.length() > 0) {
+          rebuilt.append('&');
+        }
+        int eq = pair.indexOf('=');
+        String key = eq >= 0 ? pair.substring(0, eq) : pair;
+        if (paramName.equalsIgnoreCase(key)) {
+          rebuilt.append(paramName).append('=').append(value);
+          replaced = true;
+        } else {
+          rebuilt.append(pair);
+        }
+      }
+    }
+    if (!replaced) {
+      if (rebuilt.length() > 0) {
+        rebuilt.append('&');
+      }
+      rebuilt.append(paramName).append('=').append(value);
+    }
+    return base + "?" + rebuilt;
   }
 
   /**
