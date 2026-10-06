@@ -88,6 +88,7 @@ def _pg_with_password(password: str) -> Dict[str, object]:
 def test_a_reference_leading_the_value_is_not_a_plaintext_secret(monkeypatch):
     """Ingestion resolves `$NAME` when it starts the value, so validate must
     not tell the caller to move it into a ${REF}."""
+    _require_connector("postgres")
     monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
     result = validate_recipe(_pg_with_password("$PROBE_T_PG_PW"))
     assert result == {"valid": True, "errors": [], "warnings": []}
@@ -95,6 +96,7 @@ def test_a_reference_leading_the_value_is_not_a_plaintext_secret(monkeypatch):
 
 def test_a_dollar_inside_the_value_is_plaintext(monkeypatch):
     """Ingestion leaves `pre-$NAME` as text, so it is the secret itself."""
+    _require_connector("postgres")
     monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
     result = validate_recipe(_pg_with_password("pre-$PROBE_T_PG_PW"))
     assert result["valid"]
@@ -131,6 +133,7 @@ def test_a_reference_naming_a_dotted_path_is_warned_about_by_path(
 ) -> None:
     """Ingestion reads `${gms.server}` as `${gms}` plus a modifier and
     substitutes an empty string, so the caller is told where, never what."""
+    _require_connector("postgres")
     monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
     result = validate_recipe(_pg_with(extra))
     named = _warnings_naming(result, path)
@@ -146,6 +149,7 @@ def test_no_dotted_path_warning_without_a_dotted_name(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
     """A dot only in a default, or in literal text, reads as written."""
+    _require_connector("postgres")
     monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
     monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
     monkeypatch.delenv("PROBE_T_UNSET", raising=False)
@@ -397,6 +401,7 @@ def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
     plaintext secret, and the only fix available to the author is to stop
     setting a mandatory field.
     """
+    _require_connector("kafka")
     result = validate_recipe(
         _kafka({"sasl.mechanism": "PLAIN", "sasl.password": "${KAFKA_PASSWORD}"})
     )
@@ -405,6 +410,7 @@ def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
 
 def test_a_nested_plaintext_secret_is_still_reported():
     """The converse, so the narrowing cannot become "detect nothing"."""
+    _require_connector("kafka")
     result = validate_recipe(
         _kafka({"sasl.mechanism": "PLAIN", "sasl.password": _PLAINTEXT})
     )
