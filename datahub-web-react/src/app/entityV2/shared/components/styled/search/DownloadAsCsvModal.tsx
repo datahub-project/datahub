@@ -1,7 +1,6 @@
 import { Modal, Text } from '@components';
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import { Input, Spin, notification } from 'antd';
+import { Input, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -17,10 +16,9 @@ import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabC
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
-
-const SpinIcon = styled(CircleNotch).attrs({ size: 24 })``;
 
 const ImpactAnalysisWarning = styled.div`
     gap: 8px;
@@ -102,7 +100,7 @@ export default function DownloadAsCsvModal({
             description,
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<SpinIcon />} />,
+            icon: <StyledSpinner $height={24} />,
         });
     };
 
