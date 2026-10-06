@@ -51,7 +51,7 @@ Before deploying a Remote Executor, ensure you have the following:
    The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
-   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch (not needed when the executor uses the Kafka channel)
    - A Python package index—for production, prefer an **internal mirror** (with egress or firewall rules that enforce your supply-chain policy rather than open access to arbitrary public indexes). Details: [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
@@ -92,17 +92,13 @@ Work with DataHub team to receive deployment templates specific to your environm
 :::caution DataHub Cloud instances on GCP
 If your DataHub Cloud instance is deployed on Google Cloud Platform (GCP), configure a Remote Executor v2.0.0 or later to use the Kafka channel (Helm deployments also require chart version 0.0.43 or later). Without this setting, the executor does not receive work from the Executor Pool.
 
-- **Helm:** set `global.datahub.executor.channel` to `KAFKA` (default: `SQS`):
+- **Helm:** add `--set global.datahub.executor.channel="KAFKA"` (default: `SQS`) to the `helm install` command in [Deploy on Kubernetes](#deploy-on-kubernetes). For an existing deployment, run:
 
   ```bash
-  helm install \
-    --set global.datahub.executor.pool_id="remote" \
+  helm upgrade --reuse-values \
     --set global.datahub.executor.channel="KAFKA" \
-    --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
     acryl-executor-worker acryl/datahub-executor-worker
   ```
-
-  For an existing deployment, run `helm upgrade --reuse-values --set global.datahub.executor.channel="KAFKA" acryl-executor-worker acryl/datahub-executor-worker`.
 
 - **Docker or ECS:** set the environment variable `DATAHUB_EXECUTOR_MODE=kafka-worker` (instead of `worker`).
 
