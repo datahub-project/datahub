@@ -1083,7 +1083,7 @@ export interface HomePageClickEvent extends BaseEvent {
 export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
-    values: string[]; // the values being filtered for
+    filterValues: string[]; // the values being filtered for
 }
 
 export interface NavBarExpandCollapseEvent extends BaseEvent {

@@ -102,7 +102,7 @@ public class SchemaBlameMapper {
                   EntityKeyUtils.convertUrnToEntityKeyInternal(
                       Urn.createFromString(schemaUrn), new SchemaFieldKey().schema());
         } catch (Exception e) {
-          log.debug(String.format("Could not generate schema urn for %s", schemaUrn));
+          log.debug("Could not generate schema urn for {}", schemaUrn);
           continue;
         }
 

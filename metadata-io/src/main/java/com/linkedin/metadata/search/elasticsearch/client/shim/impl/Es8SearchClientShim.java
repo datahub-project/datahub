@@ -11,6 +11,7 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
+import co.elastic.clients.elasticsearch._types.SearchType;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch._types.SlicedScroll;
 import co.elastic.clients.elasticsearch._types.Slices;
@@ -85,6 +86,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
@@ -339,6 +341,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
           // Authentication
           configureAuthentication(httpAsyncClientBuilder, config);
+          SearchHttpProxyConfigurator.apply(httpAsyncClientBuilder, config);
 
           return httpAsyncClientBuilder;
         });
@@ -431,12 +434,15 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   private void configureAuthentication(
       HttpAsyncClientBuilder httpAsyncClientBuilder, ShimConfiguration config) {
-    // Basic authentication
-    if (config.getUsername() != null && config.getPassword() != null) {
+    boolean clusterAuth = config.getUsername() != null && config.getPassword() != null;
+    if (clusterAuth || SearchHttpProxyConfigurator.hasProxyCredentials(config)) {
       final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-      credentialsProvider.setCredentials(
-          AuthScope.ANY,
-          new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+      if (clusterAuth) {
+        credentialsProvider.setCredentials(
+            AuthScope.ANY,
+            new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+      }
+      SearchHttpProxyConfigurator.addProxyCredentials(credentialsProvider, config);
       httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
     }
 
@@ -488,6 +494,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .aggregations(aggregationMap)
             .allowPartialSearchResults(searchRequest.allowPartialSearchResults())
             .explain(searchSourceBuilder.explain())
+            // query_then_fetch is the engine default, so only DFS needs sending
+            .searchType(
+                searchRequest.searchType()
+                        == org.opensearch.action.search.SearchType.DFS_QUERY_THEN_FETCH
+                    ? SearchType.DfsQueryThenFetch
+                    : null)
             .from(Math.max(searchSourceBuilder.from(), 0))
             .timeout(
                 searchSourceBuilder.timeout() == null

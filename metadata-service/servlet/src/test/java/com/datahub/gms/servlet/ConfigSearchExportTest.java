@@ -73,6 +73,9 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
     new ConfigSearchExport().doGet(request, response);
 
     verify(response).setStatus(HttpServletResponse.SC_OK);
-    assertTrue(body.toString().contains("_search.tier_1.full"));
+    // V3 runs the V2 per-field query, so the export lists the V2 subfields and analyzers
+    assertTrue(body.toString().contains(".delimited"), body.toString());
+    assertTrue(body.toString().contains("query_word_delimited"), body.toString());
+    assertTrue(body.toString().contains("phrase_match"), body.toString());
   }
 }

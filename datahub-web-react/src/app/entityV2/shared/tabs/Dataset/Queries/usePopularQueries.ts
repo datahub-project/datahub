@@ -7,6 +7,10 @@ import {
     getQueryEntitiesFilter,
 } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
+import {
+    queriesEntityKey,
+    selectQueriesListData,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/utils/selectQueriesListData';
 import { useQueryParamValue } from '@app/entityV2/shared/useQueryParamValue';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 import useSorting from '@app/sharedV2/sorting/useSorting';
@@ -51,7 +55,12 @@ export const usePopularQueries = ({
 
     const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
     const andFilters = getAndFilters(selectedColumnsFilter, selectedUsersFilter, [entityFilter]);
-    const { data: popularQueriesData, loading } = useListQueriesQuery({
+    const {
+        data: newData,
+        previousData,
+        error,
+        loading,
+    } = useListQueriesQuery({
         variables: {
             input: {
                 start,
@@ -63,6 +72,23 @@ export const usePopularQueries = ({
         },
         skip: !entityUrn || !canViewQueries,
         fetchPolicy: 'cache-first',
+    });
+
+    // `cache-first` clears `data` whenever paging or filtering changes the variables, which would
+    // collapse `total` to 0 and unmount the pagination control mid-interaction. The previous result
+    // fills that gap for the same dataset only. A dataset change or a failed request must not keep
+    // the last payload, or this tab can show queries that belong to another dataset.
+    const entityKey = queriesEntityKey(entityUrn, siblingUrn);
+    const [loadedEntityKey, setLoadedEntityKey] = useState<string | undefined>(undefined);
+    if (newData && loadedEntityKey !== entityKey) {
+        setLoadedEntityKey(entityKey);
+    }
+    const popularQueriesData = selectQueriesListData({
+        data: newData,
+        previousData,
+        error,
+        entityKey,
+        loadedEntityKey,
     });
 
     const popularQueriesList = [...(popularQueriesData?.listQueries?.queries || [])] as QueryEntity[];

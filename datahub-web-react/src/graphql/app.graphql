@@ -24,6 +24,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            appTitle
             showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
@@ -76,6 +77,7 @@ query appConfig {
             platformBrowseV2
             businessAttributeEntityEnabled
             contextDocumentsEnabled
+            documentExplicitSaveEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             themeV2Enabled

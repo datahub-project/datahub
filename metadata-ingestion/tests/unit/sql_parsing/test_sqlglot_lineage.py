@@ -2171,6 +2171,99 @@ FROM db1.events
     )
 
 
+def test_clickhouse_table_function_is_not_a_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT e.id, r.name
+FROM db1.events e
+JOIN mysql('host:3306', 'remote_db', 'remote_table', 'user', 'pass') r ON e.id = r.id
+""",
+        dialect="clickhouse",
+        default_schema="db1",
+        expected_file=RESOURCE_DIR / "test_clickhouse_table_function.json",
+    )
+
+
+def test_postgres_table_function_without_default_schema() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO s.target
+SELECT a.id, g.n FROM s.a CROSS JOIN generate_series(1, 10) AS g(n)
+""",
+        dialect="postgres",
+        expected_file=RESOURCE_DIR / "test_postgres_table_function.json",
+    )
+
+
+def test_postgres_qualified_table_function() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO public.target
+SELECT a.id, f.v FROM public.a a JOIN public.my_fn(1) f ON a.id = f.id
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_postgres_qualified_table_function.json",
+    )
+
+
+def test_postgres_join_through_subquery_with_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id FROM s.a a
+JOIN (SELECT b.id, b.v, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) s2
+  ON a.id = s2.id AND a.n = s2.x
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_join_through_subquery_with_table_function.json",
+    )
+
+
+def test_postgres_cross_join_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT 1
+FROM (SELECT b.id, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) t
+CROSS JOIN s.b
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_cross_join_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_postgres_lateral_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id, l.n FROM s.a a, LATERAL (SELECT n FROM generate_series(1, 3) AS g(n)) l
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_lateral_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_bigquery_table_inside_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT * FROM ML.PREDICT(MODEL `p.d.model`, TABLE `p.d.features`)
+""",
+        dialect="bigquery",
+        default_db="p",
+        default_schema="d",
+        expected_file=RESOURCE_DIR / "test_bigquery_table_inside_table_function.json",
+    )
+
+
 def test_clickhouse_dictget_in_materialized_view() -> None:
     # dictGet table in in_tables, TO table in out_tables (not in_tables).
     # Guards against operator precedence bug where `- modified` doesn't

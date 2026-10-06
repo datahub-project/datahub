@@ -21,6 +21,7 @@ jobs:
       markdown: ${{ steps.filter.outputs.markdown == 'true' || steps.filter.outputs.lint-job == 'true' }}
       github-actions: ${{ steps.filter.outputs.github-actions == 'true' || steps.filter.outputs.lint-job == 'true' }}
       workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      runner-labels: ${{ steps.filter.outputs.runner-labels == 'true' || steps.filter.outputs.lint-job == 'true' }}
       workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
       code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
       pdl: ${{ steps.filter.outputs.pdl == 'true' || steps.filter.outputs.lint-job == 'true' }}
@@ -211,6 +212,23 @@ jobs:
       - uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1
         with:
           reporter: github-pr-review
+
+  # actionlint accepts floating *-latest labels natively, so it can't catch them.
+  # Pinned labels keep runner image upgrades deliberate instead of silent.
+  check-pinned-runners:
+    name: check-pinned-runners
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.runner-labels == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Fail on floating ubuntu runner labels
+        # [l] keeps this line from matching its own pattern.
+        run: |
+          if grep -rnE 'ubuntu-[l]atest' .github/workflows .github/actions; then
+            echo "::error::Use a pinned runner label (e.g. ubuntu-24.04 / depot-ubuntu-24.04) instead of a floating -latest alias."
+            exit 1
+          fi
 
   check-event-types:
     name: check-event-types
@@ -472,6 +490,9 @@ jobs:
         with:
           header: i18n-parity
           delete: true
+      - name: Check i18n locale files use flat keys
+        run: |
+          ./gradlew :datahub-web-react:yarnI18nFlatKeysCheck
 
   playwright-e2e-lint:
     name: playwright-e2e-lint

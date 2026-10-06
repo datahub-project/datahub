@@ -428,6 +428,7 @@ entityService:
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
     applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
+  syncIngestStamping: ${DATAHUB_HONOR_SYNC_INGEST_FLAG:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -697,9 +698,6 @@ postgres:
       aggressiveRetention: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_AGGRESSIVE_RETENTION:false}
     # Per-topic overlays on kafka.topics.* (same logical keys). Prefer inheritKafkaTopics + kafka.topics for names/partitions/retention; use this block for pg-only limits or extra topics.
     topics:
-      datahubUpgradeHistory:
-        # Soft cap on completed upgrade-history rows (not expressible in Kafka topic config).
-        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DATAHUB_UPGRADE_HISTORY_MAX_ROWS_PER_TOPIC:10}
       failedMetadataChangeProposal:
         maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_FAILED_MCP_MAX_ROWS_PER_TOPIC:100}
       metadataChangeProposal:
@@ -821,6 +819,16 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:}
+      # Optional HTTP proxy for this cluster only. An explicit host wins; otherwise JVM
+      # http(s).proxyHost / http.nonProxyHosts are honored when useSystemProxyProperties is true.
+      # Apache HttpAsyncClientBuilder.useSystemProperties() is never called.
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST:${ELASTICSEARCH_PROXY_HOST:}}
+        port: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT:${ELASTICSEARCH_PROXY_PORT:}}
+        scheme: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME:${ELASTICSEARCH_PROXY_SCHEME:http}}
+        username: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME:${ELASTICSEARCH_PROXY_USERNAME:}}
+        password: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD:${ELASTICSEARCH_PROXY_PASSWORD:}}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
     # Optional second cluster. Its engine is resolved independently — an unset shim block
     # auto-detects rather than copying primary's engineType, since primary may be pinned to an
     # older version.
@@ -854,6 +862,13 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD:}
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST:}
+        port: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT:}
+        scheme: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME:http}
+        username: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME:}
+        password: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD:}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
 
   # Which cluster hosts each subsystem; values are cluster names from `clusters` above. Startup
   # fails if a component names a cluster with a blank uri. searchV2 and searchV3 are separately
@@ -1170,14 +1185,16 @@ elasticsearch:
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
     # Default entity types when callers omit types. No code baseline — configure via YAML/env.
     # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    # When editing these lists, also update the mirrored DEFAULT_*_ENTITY_TYPES constants in
+    # EntityTypeListConfig.java (metadata-service/configuration); tests seed SearchContext from them.
     defaultEntityTypes:
-      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel}
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel,api}
       add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
 
     # Default entity types for autocomplete-across-entities when callers omit types.
     autocompleteEntityTypes:
-      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel}
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel,api}
       add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
 
@@ -1253,14 +1270,6 @@ kafka:
       pollEnabled: true
       partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
       replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-
-    datahubUpgradeHistory:
-      name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      displayName: DataHubUpgradeHistory_v1
-      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
-      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-      configProperties:
-        retention.ms: -1
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
@@ -1531,6 +1540,7 @@ systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
+  # Unused: GMS/MAE/MCE no longer wait on DataHubUpgradeHistory_v1. Binding kept so existing Helm values are no-ops.
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
   cdcMode: ${SYSTEM_UPDATE_CDC_MODE:false}
   bootstrap:
@@ -1589,10 +1599,14 @@ systemUpdate:
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
   dataProductAssets:
-    # First-time population of asset-side dataProducts is driven by dataProductProperties
-    # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
-    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
+    # First-time (and repair) population of asset-side dataProducts: scan stored
+    # dataProductProperties and invoke DataProductAssetsSideEffect via RESTATE MCLs
+    # (not a no-op parent upsert). Skips once the versioned upgrade marker SUCCEEDED
+    # unless reprocess.enabled is set.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT:0}
     reprocess:
       enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
   browsePathsV2Iceberg:
@@ -1903,6 +1917,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
@@ -2059,7 +2074,7 @@ graphQL:
     # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
     maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
-    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2010}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
     # Parent chain traversal (glossary, domains, containers, documents)

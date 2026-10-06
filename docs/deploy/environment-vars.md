@@ -538,6 +538,27 @@ The MAE consumer runs in **its own** process and shares the same `ESBulkProcesso
 | `ELASTICSEARCH_SSL_KEYSTORE_PASSWORD`   | `null`  | SSL keystore password            | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_SSL_KEY_PASSWORD`        | `null`  | SSL key password                 | GMS, MAE Consumer, MCE Consumer, System Update |
 
+#### HTTP proxy (per cluster)
+
+Optional HTTP proxy for RestClient connections to a named search cluster. An explicit `proxy.host` always wins. When host is blank and `useSystemProxyProperties` is true (the default), the client reads **only** JVM proxy properties: `http.proxyHost` / `http.proxyPort`, `https.proxyHost` / `https.proxyPort`, and `http.nonProxyHosts`. It does **not** call Apache `HttpAsyncClientBuilder.useSystemProperties()`, so `http.maxConnections`, `http.keepAlive`, and `javax.net.ssl.trustStore*` are ignored.
+
+To send primary through a JVM proxy but keep secondary direct, set `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES=false`.
+
+| Environment Variable                                                             | Default        | Description                                           | Components                                     |
+| -------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| `ELASTICSEARCH_PROXY_HOST` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST`         | `null`         | Explicit HTTP proxy host for the primary cluster      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_PORT` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT`         | scheme default | Explicit proxy port                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_SCHEME` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME`     | `http`         | Proxy URI scheme (`http` or `https`)                  | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_USERNAME` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME` | `null`         | Optional proxy basic-auth user                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_PASSWORD` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD` | `null`         | Optional proxy basic-auth password                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES`               | `true`         | When host is blank, honor JVM proxy system properties | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST`                                    | `null`         | Explicit HTTP proxy host for the secondary cluster    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT`                                    | scheme default | Explicit proxy port                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME`                                  | `http`         | Proxy URI scheme                                      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME`                                | `null`         | Optional proxy basic-auth user                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD`                                | `null`         | Optional proxy basic-auth password                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES`             | `true`         | When host is blank, honor JVM proxy system properties | GMS, MAE Consumer, MCE Consumer, System Update |
+
 #### Bulk Operations Configuration
 
 | Environment Variable                                         | Default   | Description                                                                                                                                                                                  | Components        |
@@ -594,9 +615,29 @@ The MAE consumer runs in **its own** process and shares the same `ESBulkProcesso
 | `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                                           | Enable mappings reindex                                                                                                                                              | System Update      |
 | `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                                           | Enable settings reindex                                                                                                                                              | System Update      |
 | `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                                               | Maximum reindex hours (0 = no timeout)                                                                                                                               | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                                            | Index builder settings overrides                                                                                                                                     | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                                            | Index builder settings overrides, JSON `{"<index>": {"<setting>": <value>}}`. Nested objects (e.g. `analysis`) are deep-merged                                       | System Update      |
 | `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                                               | Minimum search filter length                                                                                                                                         | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                                            | Entity settings overrides                                                                                                                                            | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                                            | Entity settings overrides, JSON `{"<entity>": {"<setting>": <value>}}`, keyed by entity name (e.g. `dataset`). Nested objects are deep-merged                        | System Update      |
+
+For entity indices, use `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES` with
+the entity name (for example, `dataset`), not the physical index name
+(`datasetindex_v2`). The entity index naming convention adds the configured prefix
+and entity index suffix. In contrast, `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`
+uses index names to which the configured prefix is added.
+
+For example, set `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES` to the
+following JSON to retain two-character tokens, such as Korean words:
+
+```json
+{ "dataset": { "analysis": { "filter": { "min_length": { "min": 2 } } } } }
+```
+
+This changes only the existing `min_length` filter's `min` value. Both
+`word_delimited` and `query_word_delimited` already reference this filter, so their
+generated filter chains and the filter's other settings are preserved. Nested
+objects are merged recursively, but lists are replaced in full. Prefer overriding
+the shared filter definition instead of copying an analyzer's filter list, so
+upstream filter-chain changes continue to apply on upgrades.
 
 #### Search Configuration
 
@@ -764,39 +805,52 @@ Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
 
 Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
 
-| Environment Variable                                   | Default                             | YAML path / effect                                                                                                 | Components |
-| ------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------- |
-| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                                   | GMS        |
-| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor)     | GMS        |
-| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)                | GMS        |
-| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                            | GMS        |
-| `RATE_LIMITS_ENABLED`                                  | `true`                              | `rateLimits.enabled` — master kill switch; `false` bypasses every limiter                                          | GMS        |
-| `RATE_LIMITS_TENANT_ID`                                | _(empty)_                           | `rateLimits.tenantId` — namespaces tenant-scoped bucket keys (set to the deployment's `global.id`)                 | GMS        |
-| `RATE_LIMITS_CONFIG_FILE`                              | `rate-limit-config.yaml`            | Policy file that **replaces** bundled classpath YAML; `file:/etc/datahub/rate-limits.yaml` or a bare path          | GMS        |
-| `RATE_LIMITS_CONFIG_JSON`                              | _(unset)_                           | JSON overlay merged after the chosen policy file (lists replace; maps merge)                                       | GMS        |
-| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                             | `rateLimits.scoped.enabled` — enable the per-actor → class → global scoped chain                                   | GMS        |
-| `RATE_LIMITS_SCOPED_REFUND_DISABLED`                   | `false`                             | `rateLimits.scoped.refundDisabled` — when `true`, do not refund upstream buckets on a later-stage deny             | GMS        |
-| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                              | `rateLimits.scoped.actor.capacity` — per-actor bucket size                                                         | GMS        |
-| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                              | `rateLimits.scoped.browser.capacity` — browser-class bucket size                                                   | GMS        |
-| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                               | `rateLimits.scoped.sdk.capacity` — SDK/non-browser-class bucket size                                               | GMS        |
-| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                             | `rateLimits.scoped.global.capacity` — fleet-wide (cross-tenant) ceiling                                            | GMS        |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_               | `rateLimits.scoped.<bucket>.refillTokens` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`; defaults to that bucket's capacity | GMS        |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                                | `rateLimits.scoped.<bucket>.refillPeriodSeconds` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`                              | GMS        |
-| `RATE_LIMITS_CLIENT_CLASS_ENABLED`                     | `false`                             | `rateLimits.clientClassEnabled` — select rules by browser vs non-browser classification                            | GMS        |
-| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                         | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                           | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                         | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                             | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                             | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                           | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                          | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                                | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                         | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                             | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                             | GMS        |
-| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled)             | GMS        |
-| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                             | GMS        |
-| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                     | GMS        |
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                                                                                                                                          | Components |
+| ------------------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                                                                                                                                            | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor)                                                                                                              | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)                                                                                                                         | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                                                                                                                                     | GMS        |
+| `RATE_LIMITS_ENABLED`                                  | `true`                              | `rateLimits.enabled` — master kill switch; `false` bypasses every limiter                                                                                                                                                   | GMS        |
+| `RATE_LIMITS_TENANT_ID`                                | _(empty)_                           | `rateLimits.tenantId` — namespaces tenant-scoped bucket keys (set to the deployment's `global.id`)                                                                                                                          | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | `rate-limit-config.yaml`            | Policy file that **replaces** bundled classpath YAML; `file:/etc/datahub/rate-limits.yaml` or a bare path                                                                                                                   | GMS        |
+| `RATE_LIMITS_CONFIG_JSON`                              | _(unset)_                           | JSON overlay merged after the chosen policy file (lists replace; maps merge)                                                                                                                                                | GMS        |
+| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                             | `rateLimits.scoped.enabled` — enable the per-actor → class → global scoped chain. Only GMS builds the rate-limit engine. MAE, MCE, and upgrade profiles default this off; the env var still overrides                       | GMS        |
+| `RATE_LIMITS_SCOPED_REFUND_DISABLED`                   | `false`                             | `rateLimits.scoped.refundDisabled` — when `true`, do not refund upstream buckets on a later-stage deny                                                                                                                      | GMS        |
+| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                              | `rateLimits.scoped.actor.capacity` — per-actor bucket size                                                                                                                                                                  | GMS        |
+| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                              | `rateLimits.scoped.browser.capacity` — browser-class bucket size                                                                                                                                                            | GMS        |
+| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                               | `rateLimits.scoped.sdk.capacity` — SDK/non-browser-class bucket size                                                                                                                                                        | GMS        |
+| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                             | `rateLimits.scoped.global.capacity` — fleet-wide (cross-tenant) ceiling                                                                                                                                                     | GMS        |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_               | `rateLimits.scoped.<bucket>.refillTokens` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`; defaults to that bucket's capacity                                                                                                          | GMS        |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                                | `rateLimits.scoped.<bucket>.refillPeriodSeconds` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`                                                                                                                                       | GMS        |
+| `RATE_LIMITS_CLIENT_CLASS_ENABLED`                     | `false`                             | `rateLimits.clientClassEnabled` — select rules by browser vs non-browser classification                                                                                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                                                                                                                                  | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                                                                                                                                    | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                                                                                                                                  | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                                                                                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                                                                                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                                                                                                                                    | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                                                                                                                                   | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                                                                                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                                                                                                                                  | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                                                                                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                                                                                                                                      | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled). Only GMS builds the rate-limit engine. MAE, MCE, and upgrade profiles default this off; the env var still overrides | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                                                                                                                                      | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                                                                                                                              | GMS        |
+
+### Process profiles
+
+`SPRING_PROFILES_ACTIVE` selects the standalone process configuration. The MAE, MCE, and datahub-upgrade images set it to `mae`, `mce`, and `upgrade`. GMS leaves it unset and uses shared `application.yaml`. Each profile defaults the entity graph cache off and repeats the shared defaults for the search cache (`caffeine`) and endpoint/scoped rate limits (`false`). Setting `SPRING_PROFILES_ACTIVE` in the environment overrides the image default. Property env vars still override keys inside the profile.
+
+| `SPRING_PROFILES_ACTIVE` | Process         |
+| ------------------------ | --------------- |
+| _(unset)_                | GMS             |
+| `mae`                    | Standalone MCL  |
+| `mce`                    | Standalone MCP  |
+| `upgrade`                | datahub-upgrade |
+
+`USAGE_AGGREGATION_ENABLED` is not pinned by these profiles. It defaults to `false` in shared `application.yaml` and stays overridable on every process. datahub-upgrade does not build the GMS rate-limit engine. Hazelcast still starts when a flag that needs it is on, including the retention buffer and the entity write lock.
 
 ### Entity graph cache
 
@@ -808,12 +862,12 @@ VBAC restricted entities and **search filter rewriters** are **core** features; 
 
 Full operations guide: [GMS Entity Graph Cache](./gms-entity-graph-cache.md). Invalidation design and implementer notes: [Invalidation — For implementers](./gms-entity-graph-cache.md#for-implementers).
 
-| Environment Variable                     | Default                   | YAML path / effect                                                                                                                                                                                                                | Components |
-| ---------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `ENTITY_GRAPH_CACHE_ENABLED`             | `true`                    | `entityGraphCache.enabled` — when `true`, `EntityGraphCacheFactory` loads Hazelcast snapshots and config; when `false`, only `EntityGraphCache.NO_OP` is registered. Non-GMS modules default `false` in `application.properties`. | GMS        |
-| `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED` | `true`                    | `entityGraphCache.configFile.enabled`                                                                                                                                                                                             | GMS        |
-| `ENTITY_GRAPH_CACHE_CONFIG_FILE`         | `entity-graph-cache.yaml` | `entityGraphCache.configFile.path` (classpath, then filesystem)                                                                                                                                                                   | GMS        |
-| `ENTITY_GRAPH_CACHE_CONFIG_JSON`         | —                         | `entityGraphCache.configJson` — JSON overlay merged at startup (also set via env placeholder in `application.yaml`)                                                                                                               | GMS        |
+| Environment Variable                     | Default                   | YAML path / effect                                                                                                                                                                                                                                                | Components |
+| ---------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `ENTITY_GRAPH_CACHE_ENABLED`             | `true`                    | `entityGraphCache.enabled` — when `true`, `EntityGraphCacheFactory` loads Hazelcast snapshots and config; when `false`, only `EntityGraphCache.NO_OP` is registered. MAE, MCE, and upgrade profiles default this to `false`; this env var overrides that default. | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED` | `true`                    | `entityGraphCache.configFile.enabled`                                                                                                                                                                                                                             | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_FILE`         | `entity-graph-cache.yaml` | `entityGraphCache.configFile.path` (classpath, then filesystem)                                                                                                                                                                                                   | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_JSON`         | —                         | `entityGraphCache.configJson` — JSON overlay merged at startup (also set via env placeholder in `application.yaml`)                                                                                                                                               | GMS        |
 
 Per-graph refresh timing (`population.intervalSeconds`) and graph bounds (`bounds.maxVertices`, `bounds.maxEdges`) are configured in `entity-graph-cache.yaml` or via `ENTITY_GRAPH_CACHE_CONFIG_JSON` — not global env vars. Example overlay to raise domain graph limits (membership bounds use the same JSON overlay pattern — see [membership graph](./gms-entity-graph-cache.md#bundled-membership-graph-membershipgraph)):
 
@@ -829,9 +883,9 @@ The same overlay can disable a bundled graph (`{"graphs":{"domain":{"enabled":fa
 
 When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (no automatic rebuild). Recovery: delete domains to reduce vertex count, or raise bounds and manually drop the graph in Hazelcast. See [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes).
 
-`ENTITY_GRAPH_CACHE_ENABLED=true` on **GMS** requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable, or on MAE/MCE/upgrade pods where the graph cache is not loaded (see [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
+`ENTITY_GRAPH_CACHE_ENABLED=true` on GMS requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable. Standalone MCL, MCP, and datahub-upgrade default the cache off via their Spring profiles and still honor this variable (see [Process profiles](#process-profiles) and [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
 
-**Smoke tests:** `pytest tests/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
+**Smoke tests:** `pytest tests/e2e/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
 
 Pod-level eviction (`entityGraphCache.eviction.local`, `memoryPressure`, and `hazelcast` in `application.yaml`) has **no dedicated environment variables** — edit `application.yaml` or mount a customized GMS config. Defaults below match bundled `metadata-service/configuration/src/main/resources/application.yaml`.
 
@@ -938,7 +992,6 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS` | `5000`                | Initial back off for system updates  | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS`           | `50`                  | Maximum back offs for system updates | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR`         | `2`                   | Multiplicative factor for back off   | System Update |
-| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE`  | `true`                | Wait for system update to complete   | System Update |
 | `SYSTEM_UPDATE_BOOTSTRAP_MCP_CONFIG`              | `bootstrap_mcps.yaml` | Bootstrap MCP configuration          | System Update |
 
 ### Data Job Node CLL Configuration
@@ -978,10 +1031,13 @@ Reference Links:
 
 ### Data Product Assets Configuration
 
-| Environment Variable                                     | Default | Description                                                                                                                          | Components    |
-| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| `REPROCESS_DATA_PRODUCT_ASSETS`                          | `false` | Force a re-upsert sweep of all Data Products so `DataProductAssetsSideEffect` re-mirrors membership (missing ADDs and stale REMOVEs) | System Update |
-| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE` | `1000`  | Batch size when scrolling Data Products during the optional reprocess step                                                           | System Update |
+| Environment Variable                                     | Default | Description                                                                                                                                | Components    |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED`    | `true`  | Run the one-time sweep that writes asset-side `dataProducts` from stored `dataProductProperties` (skips once the upgrade marker SUCCEEDED) | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE` | `1000`  | Batch size when scanning Data Products and ingesting side-effect patches                                                                   | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS`   | `1000`  | Delay between scan batches and between patch ingest chunks                                                                                 | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT`      | `0`     | Max Data Products to scan (`0` = no limit)                                                                                                 | System Update |
+| `REPROCESS_DATA_PRODUCT_ASSETS`                          | `false` | Force a re-run of the sweep even if the upgrade marker already SUCCEEDED                                                                   | System Update |
 
 ### Ingestion Indices Configuration
 
@@ -1114,6 +1170,7 @@ The following environment variables are used in the codebase but may not be expl
 | `SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA` | `false` | Skip generating schema fields from schema metadata | System Update |
 | `SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID`                | `false` | Skip migrating schema fields doc IDs               | System Update |
 | `SKIP_CREATE_USAGE_EVENT_INDICES_STEP`             | `false` | Skip creating usage event indices/data streams     | System Update |
+| `SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION`          | `false` | Skip migrating a pre-template usage event index    | System Update |
 | `BACKFILL_BROWSE_PATHS_V2`                         | `false` | Enable backfilling browse paths V2                 | System Update |
 | `READER_POOL_SIZE`                                 | `null`  | Reader pool size for restore operations            | System Update |
 | `WRITER_POOL_SIZE`                                 | `null`  | Writer pool size for restore operations            | System Update |
@@ -1421,6 +1478,7 @@ DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ord
 | -------------------------------------- | ------- | --------------------------------- | ---------- |
 | `DATAHUB_AKKA_MAX_HEADER_COUNT`        | `64`    | Maximum number of headers allowed | Frontend   |
 | `DATAHUB_AKKA_MAX_HEADER_VALUE_LENGTH` | `32k`   | Maximum header value length       | Frontend   |
+| `DATAHUB_FRONTEND_PROXY_MAX_IN_FLIGHT` | `1024`  | Max concurrent upstream waits     | Frontend   |
 
 ### Session Configuration
 

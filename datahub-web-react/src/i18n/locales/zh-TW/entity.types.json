@@ -133,6 +133,7 @@
     "document.linkRelatedTooltip": "連結相關資料資產或內容脈絡文件",
     "document.name": "文件",
     "document.namePlural": "文件",
+    "document.newDocumentPlaceholder": "新文件",
     "document.noChangeHistoryEmpty": "尚無變更歷程！",
     "document.noContentPlaceholder": "沒有內容",
     "document.previousVersionTitle": "先前版本",
