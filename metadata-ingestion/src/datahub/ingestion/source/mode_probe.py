@@ -1,9 +1,9 @@
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import soft_listing
+from datahub.ingestion.agent.provider_helpers import echoed, soft_listing
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
-from datahub.ingestion.agent.verdicts import ProbeSoftError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
     ModeConfig,
@@ -198,10 +198,14 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         )
 
     def _space_token_or_raise(self, space: str) -> str:
+        # A space the caller named that the listing does not hold is their
+        # argument (exit 2); a listing that could not be read stays a
+        # ProbeSoftError from _fetch_spaces, so "could not look" is a warning.
         token = _space_token(self, space)
         if token is None:
-            raise ProbeSoftError(
-                f"no space named '{space}' found among this workspace's spaces"
+            raise ProbeArgumentError(
+                f"no space named {echoed(space)} among this workspace's spaces "
+                f"(as the recipe sees them); run `spaces` for the names"
             )
         return token
 
@@ -219,7 +223,10 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         space_token = self._space_token_or_raise(space)
         report_token = _report_token(self, space_token, report)
         if report_token is None:
-            raise ProbeSoftError(f"no report named '{report}' found in space '{space}'")
+            raise ProbeArgumentError(
+                f"no report named {echoed(report)} in space {echoed(space)}; run "
+                f"`reports --space` for the names"
+            )
         url = f"{self.workspace_uri}/reports/{report_token}/queries"
         return _get_embedded(
             self, url, "queries", context=f"queries listing for report '{report}'"
