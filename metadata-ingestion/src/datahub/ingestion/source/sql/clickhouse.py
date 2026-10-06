@@ -1309,11 +1309,10 @@ ORDER BY event_time ASC
         if self._xml_dictionaries is not None:
             return self._xml_dictionaries
 
-        # DDL dictionaries are already ingested via system.tables. Config-file
-        # dictionaries are not listed there, with or without a <database> tag.
-        # NOT IN rather than LEFT JOIN ... IS NULL: ClickHouse fills unmatched
-        # LEFT JOIN columns with defaults, not NULL, unless join_use_nulls=1.
-        # Arrays go through JSON because the HTTP driver returns them as text.
+        # Config-file dictionaries are absent from system.tables, <database> tag
+        # or not; DDL dictionaries are ingested from there. NOT IN rather than
+        # LEFT JOIN ... IS NULL: unmatched columns are defaults unless
+        # join_use_nulls=1. toJSONString: the HTTP driver returns arrays as text.
         query = textwrap.dedent(
             """\
             SELECT database
@@ -1377,10 +1376,11 @@ ORDER BY event_time ASC
         for dictionary in dictionaries:
             dataset_name = dictionary.dataset_name
             self.report.report_entity_scanned(dataset_name, ent_type="table")
-            # A global dotted name is filtered like db.table too, matching how dictGet names parse.
-            database, dot, _ = dataset_name.partition(".")
+            # database_pattern uses the declared database. A global dictionary has
+            # none, so a dotted name is filtered only by table_pattern.
             if (
-                dot and not self.config.database_pattern.allowed(database)
+                dictionary.database
+                and not self.config.database_pattern.allowed(dictionary.database)
             ) or not self.config.table_pattern.allowed(dataset_name):
                 self.report.report_dropped(dataset_name)
                 continue

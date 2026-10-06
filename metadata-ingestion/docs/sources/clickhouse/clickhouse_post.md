@@ -31,10 +31,11 @@ columns that contribute to the written output — a column read solely in an `IN
 
 Dictionaries defined in server XML config files are not listed in `system.tables`, so they are
 read from `system.dictionaries`. A dictionary that declares `<database>` is ingested as
-`<database>.<name>` under that database's container. Otherwise it belongs to the server and is
-ingested under its full name without a container; a dotted name such as `db.my_dict` is filtered
-like a table, with `database_pattern` applied to `db`. If the dictionary's source is a ClickHouse
-table, that table is added as its upstream.
+`<database>.<name>` under that database's container, and `database_pattern` applies to that
+database. Otherwise it belongs to the server and is ingested under its full name without a
+container. A global name, even a dotted one such as `db.my_dict`, is filtered only by
+`table_pattern`. If the dictionary's source is a ClickHouse table, that table is added as its
+upstream.
 
 ### Limitations
 

@@ -1306,16 +1306,19 @@ def test_fetch_xml_dictionaries_parses_row(monkeypatch):
     assert fetched[0].attribute_types == ["String"]
 
 
-def test_emit_xml_dictionaries_filters_dotted_name_like_db_table(monkeypatch):
+def test_emit_xml_dictionaries_filters_by_declared_database(monkeypatch):
     source = _clickhouse_source(
-        database_pattern={"deny": ["^db$"]}, table_pattern={"deny": ["^Other$"]}
+        database_pattern={"deny": ["^db$"]},
+        table_pattern={"deny": ["^Other$", r"^db\.dropped$"]},
     )
     monkeypatch.setattr(
         source,
         "_fetch_xml_dictionaries",
         lambda: [
             _sample_xml_dictionary("db.My_Dict"),
+            _sample_xml_dictionary("db.dropped"),
             _sample_xml_dictionary("Tag_Dict", database="db"),
+            _sample_xml_dictionary("kept", database="analytics"),
             _sample_xml_dictionary("Other"),
             _sample_xml_dictionary("Bare_Dict"),
         ],
@@ -1326,7 +1329,11 @@ def test_emit_xml_dictionaries_filters_dotted_name_like_db_table(monkeypatch):
         for wu in source._emit_xml_dictionaries()
         if isinstance(wu.metadata, MetadataChangeEventClass)
     }
-    assert emitted == {"urn:li:dataset:(urn:li:dataPlatform:clickhouse,Bare_Dict,PROD)"}
+    assert emitted == {
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.kept,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,Bare_Dict,PROD)",
+    }
 
 
 def test_emit_xml_dictionaries_emits_exact_case_schema(monkeypatch):
