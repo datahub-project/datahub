@@ -122,7 +122,7 @@ def _switch_verdict(config: object, kind: str) -> Optional[Verdict]:
     pattern says."""
     field = declared_kind_enablers(config).get(kind)
     if field is not None and getattr(config, field) is False:
-        return Verdict(False, field)
+        return Verdict.exclude(field)
     return None
 
 
@@ -209,8 +209,8 @@ def _declared_kinds(source_type: str, config: object) -> Set[str]:
 
 def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
     """The connector's own verdict for one name (probe_verdict_override),
-    checked for type and consistency: a returned `False` would read as "no
-    opinion"."""
+    checked for type: a returned `False` would read as "no opinion". Verdict
+    refuses an inconsistent one as it is built."""
     override = config_hook(config, "probe_verdict_override")
     if override is None:
         return None
@@ -219,14 +219,6 @@ def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
         raise ProbeInternalError(
             f"{type(config).__name__}.probe_verdict_override returned "
             f"{type(verdict).__name__}; it must return a Verdict or None"
-        )
-    if verdict is not None and verdict.included == (verdict.excluded_by is not None):
-        # An included name with a reason, or an excluded one without.
-        raise ProbeInternalError(
-            f"{type(config).__name__}.probe_verdict_override returned "
-            f"included={verdict.included} with excluded_by="
-            f"{verdict.excluded_by!r}; an included verdict has no excluded_by "
-            f"and an excluded one must name it"
         )
     return verdict
 
@@ -467,9 +459,10 @@ def _judge_name(
         override
         or structural
         or (
+            # No pattern field means an allow-all pattern, which excludes nothing.
             Verdict.include()
-            if judged.pattern.allowed(target)
-            else Verdict(False, pattern_field)
+            if pattern_field is None or judged.pattern.allowed(target)
+            else Verdict.exclude(pattern_field)
         )
     )
     return FilterVerdict(

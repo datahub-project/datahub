@@ -26,12 +26,15 @@ class Verdict:
     matched_target: Optional[str] = None
 
     def __post_init__(self) -> None:
-        # Checked here, not only in probe_verdict_override's consistency check:
-        # a selection module's verdict reaches ingestion without that check.
+        # Checked here, where every verdict is built, so neither a connector's
+        # probe_verdict_override nor a selection module can return one that
+        # contradicts itself.
         if not self.included and not (
             isinstance(self.excluded_by, str) and self.excluded_by.strip()
         ):
             raise ValueError("an excluded verdict must name what excluded it")
+        if self.included and self.excluded_by is not None:
+            raise ValueError("an included verdict names nothing that excluded it")
 
     @classmethod
     def include(cls) -> "Verdict":
@@ -120,7 +123,7 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
         # An Optional block the recipe leaves out filters nothing.
         return _INCLUDED
     pattern = require_pattern_at(config, pattern_field)
-    return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)
+    return _INCLUDED if pattern.allowed(target) else Verdict.exclude(pattern_field)
 
 
 class ProbeSoftError(ValueError):

@@ -461,3 +461,8 @@ def test_a_verdict_built_directly_refuses_an_exclusion_without_a_reason(
 ) -> None:
     with pytest.raises(ValueError):
         Verdict(False, reason)
+
+
+def test_a_verdict_built_directly_refuses_an_inclusion_with_a_reason() -> None:
+    with pytest.raises(ValueError):
+        Verdict(True, "table_pattern")

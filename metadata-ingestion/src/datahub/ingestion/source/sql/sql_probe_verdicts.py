@@ -117,10 +117,10 @@ def sql_structural_verdict(
         return None
     if ctx.kind == DatasetContainerSubTypes.DATABASE:
         if _in_defaults(config, "default_databases", ctx.name):
-            return Verdict(False, "default_database")
+            return Verdict.exclude("default_database")
         return None
     if ctx.kind != DatasetContainerSubTypes.SCHEMA:
         return None
     if _in_defaults(config, "default_schemas", ctx.name):
-        return Verdict(False, "default_schema")
+        return Verdict.exclude("default_schema")
     return _qualified_schema_verdict(config, ctx)
