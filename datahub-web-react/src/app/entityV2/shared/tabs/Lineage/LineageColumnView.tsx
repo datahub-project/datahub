@@ -50,18 +50,21 @@ const LeftButtonsWrapper = styled.div`
 const RightButtonsWrapper = styled.div`
     align-items: center;
     display: flex;
+    gap: 4px;
 `;
 
-const ManageLineageIcon = styled(Graph)`
-    &&& {
-        margin-right: -2px;
-    }
-`;
+const StyledCaretDown = styled(CaretDown).attrs({ size: 12 })``;
 
-const StyledCaretDown = styled(CaretDown)`
-    &&& {
-        font-size: 10px;
-        margin-left: 4px;
+const ToolbarActionButton = styled(Button)`
+    && {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: auto;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 16px;
     }
 `;
 
@@ -71,9 +74,7 @@ const StyledSelect = styled(Select)`
     }
 `;
 
-const RefreshCacheButton = styled(Button)`
-    margin-left: 8px;
-`;
+const RefreshCacheButton = styled(ToolbarActionButton)``;
 
 interface SchemaFieldEntityData extends GenericEntityProperties {
     fieldPath?: string;
@@ -161,13 +162,13 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     <ManageLineageMenuForImpactAnalysis
                         setVisualizeViewInEditMode={setVisualizeViewInEditMode}
                         menuIcon={
-                            <Button type="text">
-                                <ManageLineageIcon />
+                            <ToolbarActionButton type="text">
+                                <Graph size={16} />
                                 <Typography.Text>
                                     <b>{tcAction('edit')}</b>
                                 </Typography.Text>
                                 <StyledCaretDown />
-                            </Button>
+                            </ToolbarActionButton>
                         }
                         entityType={entityType}
                         canEditLineage={canEditLineage}
@@ -184,7 +185,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     <LineageTabTimeSelector />
                     <Tooltip title={isLoading ? t('refresh.loadingTooltip') : t('refresh.tooltip')} showArrow={false}>
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
-                            {isLoading ? <SpinningCircleNotch /> : <ArrowsClockwise />}
+                            {isLoading ? <SpinningCircleNotch size={16} /> : <ArrowsClockwise size={16} />}
                             <Typography.Text>
                                 <b>{tcAction('refresh')}</b>
                             </Typography.Text>

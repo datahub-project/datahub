@@ -5,7 +5,7 @@ import { Input, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { keyframes, useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -20,15 +20,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
 
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const SpinIcon = styled(CircleNotch)`
-    animation: ${spin} 1s linear infinite;
-    font-size: 24px;
-`;
+const SpinIcon = styled(CircleNotch).attrs({ size: 24 })``;
 
 const ImpactAnalysisWarning = styled.div`
     gap: 8px;
