@@ -818,6 +818,13 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
 MAX_RUN_FILE_BYTES = 50 * 1024 * 1024
 
 
+def _open_without_waiting(path: str, flags: int) -> int:
+    """os.open, non-blocking: opening a named pipe for reading otherwise
+    waits for a writer, before the regular-file check can refuse it. A
+    regular file reads the same either way. No such flag on Windows."""
+    return os.open(path, flags | getattr(os, "O_NONBLOCK", 0))
+
+
 def _read_run_file(path: str) -> object:
     """The parsed JSON of a `probe run --report-to` file.
 
@@ -826,7 +833,7 @@ def _read_run_file(path: str) -> object:
     _write_report treats it, so it exits 2 rather than as an internal error.
     """
     try:
-        with open(path, "rb") as handle:
+        with open(path, "rb", opener=_open_without_waiting) as handle:
             # Judged on the open file's own stat, before reading a byte: a
             # device or pipe (/dev/zero) reports no size and never ends.
             info = os.fstat(handle.fileno())
