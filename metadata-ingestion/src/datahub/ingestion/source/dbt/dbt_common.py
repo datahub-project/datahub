@@ -4781,7 +4781,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     or existing_owner.source.type != source_type_filter
                 ):
                     transformed_owners.append(existing_owner)
-        return sorted(transformed_owners, key=self.owner_sort_key)
+
+        # Unlike the tag and term merges below, this one accumulates into a list,
+        # so duplicates already present on the server would be carried forward
+        # unchanged. Key on the full owner identity, matching OwnershipTemplate.
+        deduped: Dict[Tuple[str, str, str], OwnerClass] = {}
+        for owner in transformed_owners:
+            deduped.setdefault(
+                (owner.owner, str(owner.type), str(owner.typeUrn)), owner
+            )
+        return sorted(deduped.values(), key=self.owner_sort_key)
 
     def owner_sort_key(self, owner_class: OwnerClass) -> str:
         return str(owner_class)
