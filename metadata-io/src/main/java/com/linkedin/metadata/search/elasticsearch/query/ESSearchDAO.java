@@ -536,6 +536,8 @@ public class ESSearchDAO {
                         && vectorEntityNames.contains(row.getEntity().getEntityType()));
     // A window without rows that have vectors makes no embedding or kNN call
     if (windowHasVectorRows) {
+      final long deadlineNanos =
+          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
       try {
         // The worker gets its own copies: a rerank that finishes after the timeout must not change
         // the rows served as the keyword fallback
@@ -543,8 +545,6 @@ public class ESSearchDAO {
         for (SearchEntity row : rows.subList(0, windowEnd)) {
           window.add(row.copy());
         }
-        final long deadlineNanos =
-            System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
         rerank =
             HYBRID_EXECUTOR.submit(
                 Context.current()
@@ -566,9 +566,7 @@ public class ESSearchDAO {
         // The interrupt frees a worker whose provider does not honor the deadline; a queued call
         // does not start
         rerank.cancel(true);
-        countHybrid(opContext, "hybridReadTimeout");
-        log.warn(
-            "Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
+        countHybridTimeout(opContext);
       } catch (InterruptedException e) {
         rerank.cancel(true);
         Thread.currentThread().interrupt();
@@ -576,11 +574,16 @@ public class ESSearchDAO {
       } catch (Exception e) {
         final Throwable cause =
             e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
-        countHybrid(opContext, "hybridReadFailed");
-        // One line per failed search; the stack trace only at debug, so an outage does not flood
-        // logs
-        log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
-        log.debug("Hybrid read failure", cause);
+        if (System.nanoTime() - deadlineNanos >= 0) {
+          // The embedding or kNN call gave up at the deadline, just as the search did
+          countHybridTimeout(opContext);
+        } else {
+          countHybrid(opContext, "hybridReadFailed");
+          // One line per failed search; the stack trace only at debug, so an outage does not
+          // flood logs
+          log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
+          log.debug("Hybrid read failure", cause);
+        }
       }
     }
     final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
@@ -590,6 +593,11 @@ public class ESSearchDAO {
         .setEntities(new SearchEntityArray(ranked.subList(pageStart, pageEnd)))
         .setFrom(from)
         .setPageSize(pageSize);
+  }
+
+  private static void countHybridTimeout(@Nonnull OperationContext opContext) {
+    countHybrid(opContext, "hybridReadTimeout");
+    log.warn("Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
   }
 
   private static void countHybrid(@Nonnull OperationContext opContext, @Nonnull String metric) {

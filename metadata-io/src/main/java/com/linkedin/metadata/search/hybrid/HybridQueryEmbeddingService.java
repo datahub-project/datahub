@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.hybrid;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import java.time.Duration;
@@ -65,7 +66,7 @@ public class HybridQueryEmbeddingService {
   private float[] load(@Nonnull final String query, final long deadlineNanos) {
     final long remainingNanos = deadlineNanos - System.nanoTime();
     if (remainingNanos <= 0) {
-      throw new IllegalStateException("No time left to embed the query");
+      throw new UncheckedTimeoutException("The hybrid deadline passed before the query embedding");
     }
     return checkDimension(
         embeddingProvider.embed(

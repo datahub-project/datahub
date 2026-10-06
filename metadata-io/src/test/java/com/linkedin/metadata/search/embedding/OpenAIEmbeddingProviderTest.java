@@ -354,4 +354,22 @@ public class OpenAIEmbeddingProviderTest {
         .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
     assertEquals(request.getValue().timeout(), Optional.of(Duration.ofMillis(1_500)));
   }
+
+  @Test
+  public void testEmbedWithTimeoutKeepsTheProviderTimeoutAsTheCap() throws Exception {
+    String responseJson =
+        "{\"object\": \"list\", \"data\": [{\"object\": \"embedding\", \"embedding\": [0.1, 0.2], \"index\": 0}]}";
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.body()).thenReturn(responseJson);
+    ArgumentCaptor<HttpRequest> request = ArgumentCaptor.forClass(HttpRequest.class);
+    when(mockHttpClient.send(request.capture(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockResponse);
+
+    float[] embedding =
+        provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofMinutes(5));
+
+    assertEquals(embedding, new float[] {0.1f, 0.2f});
+    // A caller that waits longer does not lengthen the provider's own request timeout
+    assertEquals(request.getValue().timeout(), Optional.of(Duration.ofSeconds(30)));
+  }
 }

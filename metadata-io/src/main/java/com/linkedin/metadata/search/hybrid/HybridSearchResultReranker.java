@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.hybrid;
 
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.SearchEntity;
@@ -74,9 +75,11 @@ public class HybridSearchResultReranker {
   }
 
   /**
-   * Scores the rows that have vectors, highest combined score first. The kNN query scores exactly
+   * Scores the rows that have vectors, highest combined score first. The kNN query scores only
    * these rows. Empty when the query is a wildcard or no row has an entity type with vectors, in
    * which case no embedding or kNN request is made, and when the kNN response may be missing hits.
+   *
+   * @throws UncheckedTimeoutException when the deadline passes before the kNN call
    */
   @Nonnull
   public List<HybridCandidate> candidates(
@@ -102,7 +105,7 @@ public class HybridSearchResultReranker {
         queryEmbeddingService.embed(query, deadlineNanos);
     final long remainingNanos = deadlineNanos - System.nanoTime();
     if (remainingNanos <= 0) {
-      return List.of();
+      throw new UncheckedTimeoutException("The hybrid deadline passed before the kNN call");
     }
     final Optional<KnnSearchRequest> knnRequest =
         knnRequestBuilder.build(

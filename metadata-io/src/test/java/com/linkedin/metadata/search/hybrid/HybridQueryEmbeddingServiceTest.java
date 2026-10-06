@@ -12,6 +12,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import java.time.Duration;
@@ -51,12 +52,13 @@ public class HybridQueryEmbeddingServiceTest {
         .thenReturn(new float[] {0.1f, 0.2f});
 
     new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2)
-        .embed("revenue", inSeconds(2));
+        .embed("revenue", inSeconds(10));
 
     ArgumentCaptor<Duration> timeout = ArgumentCaptor.forClass(Duration.class);
     verify(provider).embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), timeout.capture());
-    assertTrue(timeout.getValue().compareTo(Duration.ZERO) > 0);
-    assertTrue(timeout.getValue().compareTo(Duration.ofSeconds(2)) <= 0);
+    // Close to the whole 10 seconds, and never more
+    assertTrue(timeout.getValue().compareTo(Duration.ofSeconds(5)) > 0);
+    assertTrue(timeout.getValue().compareTo(Duration.ofSeconds(10)) <= 0);
   }
 
   @Test
@@ -65,7 +67,8 @@ public class HybridQueryEmbeddingServiceTest {
     HybridQueryEmbeddingService service =
         new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
 
-    assertThrows(IllegalStateException.class, () -> service.embed("revenue", System.nanoTime()));
+    assertThrows(
+        UncheckedTimeoutException.class, () -> service.embed("revenue", System.nanoTime()));
     verifyNoInteractions(provider);
   }
 

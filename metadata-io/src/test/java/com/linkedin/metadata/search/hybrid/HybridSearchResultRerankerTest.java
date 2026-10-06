@@ -8,8 +8,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.SearchComponent;
@@ -107,10 +109,10 @@ public class HybridSearchResultRerankerTest {
     assertEquals(
         ((Map<?, ?>) ((List<?>) bool.get("filter")).get(1)).get("terms"),
         Map.of("urn", List.of(DOC_A.toString(), DOC_B.toString(), DOC_C.toString())));
-    // The kNN call gets the time left before the deadline
+    // The kNN call gets the time left before the deadline, less than the whole budget
     Duration timeout = request.getValue().timeout().get();
     assertTrue(
-        timeout.compareTo(Duration.ZERO) > 0 && timeout.compareTo(Duration.ofSeconds(60)) <= 0);
+        timeout.compareTo(Duration.ZERO) > 0 && timeout.compareTo(Duration.ofSeconds(60)) < 0);
     verify(primaryClient, never())
         .searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
   }
@@ -166,6 +168,7 @@ public class HybridSearchResultRerankerTest {
 
   @Test
   public void testDeadlinePassedDuringEmbeddingSkipsKnn() throws Exception {
+    // The provider answers only after the time it was given
     when(embeddingProvider.embed(
             eq("revenue"),
             eq("text-embedding-3-small"),
@@ -178,15 +181,17 @@ public class HybridSearchResultRerankerTest {
             });
     List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
 
-    assertEquals(
-        reranker.rerank(
-            opContext,
-            ENTITY_NAMES,
-            "revenue",
-            rows,
-            List.of("urn"),
-            System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(100)),
-        rows);
+    // Reported as a timeout, so the caller counts it as one and serves the keyword ranking
+    assertThrows(
+        UncheckedTimeoutException.class,
+        () ->
+            reranker.rerank(
+                opContext,
+                ENTITY_NAMES,
+                "revenue",
+                rows,
+                List.of("urn"),
+                System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(100)));
     verifyNoInteractions(v3Client);
   }
 

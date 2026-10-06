@@ -6,7 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntit
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -30,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -58,15 +63,19 @@ public class ESSearchDAOHybridTest {
   private SearchClientShim<?> client;
   private HybridSearchResultReranker reranker;
   private OperationContext opContext;
+  private MetricUtils metrics;
   private ESSearchDAO dao;
 
   @BeforeMethod
   public void setUp() throws IOException {
     client = mock(SearchClientShim.class);
     opContext =
-        TestOperationContexts.withFixedSearchClient(
-                TestOperationContexts.systemContextNoValidate(), client)
-            .withSearchFlags(flags -> flags.setFulltext(true));
+        spy(
+            TestOperationContexts.withFixedSearchClient(
+                    TestOperationContexts.systemContextNoValidate(), client)
+                .withSearchFlags(flags -> flags.setFulltext(true)));
+    metrics = mock(MetricUtils.class);
+    doReturn(Optional.of(metrics)).when(opContext).getMetricUtils();
     reranker = mock(HybridSearchResultReranker.class);
     // Reverses the rows it is given, so the test can tell reranked rows from keyword ones
     when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
@@ -276,14 +285,41 @@ public class ESSearchDAOHybridTest {
       searches.shutdownNow();
     }
     hang.set(false);
-    // The calls ended at their deadlines; a moment lets the workers return
-    Thread.sleep(200);
+
+    // The calls ended at their deadlines, so the workers come free right after them; a search is
+    // reranked rather than rejected well before a provider's own 30-second timeout
+    List<Integer> served = List.of();
+    long giveUp = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    while (!served.equals(range(99, 89)) && System.nanoTime() < giveUp) {
+      served = rowIds(dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of()));
+      if (!served.equals(range(99, 89))) {
+        Thread.sleep(50);
+      }
+    }
+    assertEquals(served, range(99, 89));
+  }
+
+  @Test
+  public void testCallCutOffAtTheDeadlineCountsAsTimeout() throws IOException {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // A provider that gives up at the deadline, as the bounded embedding call does
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              long deadlineNanos = invocation.getArgument(5);
+              Uninterruptibles.sleepUninterruptibly(
+                  deadlineNanos - System.nanoTime(), TimeUnit.NANOSECONDS);
+              throw new IOException("embedding call timed out");
+            });
 
     SearchResult result =
         dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
 
-    // Reranked rather than rejected: the workers are free again
-    assertEquals(rowIds(result), range(99, 89));
+    assertEquals(rowIds(result), range(0, 10));
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadFailed", 1);
   }
 
   @Test
@@ -299,6 +335,7 @@ public class ESSearchDAOHybridTest {
 
     assertEquals(rowIds(result), range(10, 20));
     assertEquals(result.getNumEntities().intValue(), TOTAL_HITS);
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadFailed", 1);
   }
 
   private SearchSourceBuilder searchedSource() throws IOException {
