@@ -11,7 +11,9 @@ protocol names only connect arguments its drivers accept, since a driver
 handed one it does not know refuses to connect.
 
 SQL-family knowledge only: no connector module is imported here. Nor is
-sql_config at runtime: it imports this module for ProbeEngineSettings.
+sql_config at runtime: it imports this module for ProbeEngineSettings. Nor is
+the probe framework at module level, since every SQL source imports
+sql_config.
 """
 
 import logging
@@ -21,10 +23,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping, Optional
 from sqlalchemy import event
 from sqlalchemy.engine import Engine, make_url
 
-from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
 from datahub.ingestion.source.sql.sqlalchemy_uri import url_dialect_and_driver
 
 if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 logger = logging.getLogger(__name__)
@@ -100,6 +102,10 @@ def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, 
     the URL's."""
     if kwarg in _recipe_connect_args(config) or kwarg in _probe_url_query(config):
         return {}
+    # lazy: sql_config imports this module, and keeps the probe framework out
+    # of every SQL source's import
+    from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
+
     return {kwarg: PROBE_QUERY_LABEL}
 
 
@@ -116,7 +122,7 @@ def _probe_url_query(config: "SQLCommonConfig") -> Mapping[str, object]:
 
 
 def probe_settings_for_url(
-    config: "SQLCommonConfig", budget: QueryBudget
+    config: "SQLCommonConfig", budget: "QueryBudget"
 ) -> ProbeEngineSettings:
     """The settings of the protocol the config's probe URL names.
 
@@ -133,7 +139,7 @@ def probe_settings_for_url(
 
 
 def _libpq_settings(
-    config: "SQLCommonConfig", budget: QueryBudget
+    config: "SQLCommonConfig", budget: "QueryBudget"
 ) -> ProbeEngineSettings:
     """The session's application_name, and statement_timeout in libpq's
     options string.
@@ -193,7 +199,7 @@ def set_redshift_statement_timeout(dbapi_connection: Any, seconds: int) -> None:
 
 
 def _redshift_settings(
-    config: "SQLCommonConfig", budget: QueryBudget
+    config: "SQLCommonConfig", budget: "QueryBudget"
 ) -> ProbeEngineSettings:
     """application_name, and statement_timeout set on each new connection.
 
@@ -223,7 +229,7 @@ def _redshift_statement_timeout(seconds: int) -> Callable[[Any, Any], None]:
 
 
 def _mysql_protocol_settings(
-    config: "SQLCommonConfig", budget: QueryBudget, *, dialect: str, driver: str
+    config: "SQLCommonConfig", budget: "QueryBudget", *, dialect: str, driver: str
 ) -> ProbeEngineSettings:
     """PyMySQL's program_name, and a best-effort ceiling that is not claimed.
 

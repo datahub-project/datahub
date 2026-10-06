@@ -40,7 +40,6 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
     SQLFilterConfig,
-    qualified_table_target,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -1000,4 +999,9 @@ class SnowflakeV2Config(
         # view_pattern against `database.schema.table`. The database is the
         # caller's --parent: a recipe spans several, so no config field
         # names one.
+        # lazy: keeps the probe framework out of ingestion's import
+        from datahub.ingestion.source.sql.sql_probe_verdicts import (
+            qualified_table_target,
+        )
+
         return qualified_table_target(database, schema, entity, warn)

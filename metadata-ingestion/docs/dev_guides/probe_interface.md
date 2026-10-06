@@ -553,7 +553,8 @@ is `FooSource` in the config's own module when that is a `SQLAlchemySource`, els
 config field that pins the container with `Qualifier()` (a list field qualifies only when it pins
 one value; `Qualifier(authoritative=True)` makes it beat `--parent`), or, where only the caller knows
 the container, return `qualified_table_target(database, schema, entity, warn)` from
-`probe_filter_target`. Override `probe_filter_target` too when your `Source` is not a
+`probe_filter_target`, importing it from `source/sql/sql_probe_verdicts.py` inside the hook: a
+config module imports no probe framework at load, since ingestion would pay for it. Override `probe_filter_target` too when your `Source` is not a
 `SQLAlchemySource` or its `get_identifier` reads state ingestion sets while walking. It is called by
 keyword, `database` included, and `warn` reports a less precise fallback. Which provider a connector
 brings is never read as a declaration.

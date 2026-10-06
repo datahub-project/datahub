@@ -1,8 +1,10 @@
 import logging
 from abc import abstractmethod
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
+    ClassVar,
     Dict,
     FrozenSet,
     Mapping,
@@ -20,24 +22,12 @@ from datahub.configuration.common import (
     Enables,
     Filters,
 )
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.agent.declarations import declared_qualifier
-from datahub.ingestion.agent.pattern_path import pattern_at
-from datahub.ingestion.agent.probe_methods import register_config_hook_family
-from datahub.ingestion.agent.sql_gate import SESSION_TEXT_RELATIONS, CatalogScope
-from datahub.ingestion.agent.sql_passthrough import QueryBudget
-from datahub.ingestion.agent.verdicts import (
-    ClassifyContext,
-    Verdict,
-    VerdictContext,
-    ancestors_in,
-)
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -63,6 +53,19 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_gate import CatalogScope
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+    from datahub.ingestion.agent.verdicts import (
+        ClassifyContext,
+        Verdict,
+        VerdictContext,
+    )
+
+# The probe framework is imported only inside the probe hooks below, never at
+# module level: every SQL ingestion source imports this module, and would pay
+# for the framework (and depend on it importing cleanly) without ever probing.
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -100,129 +103,23 @@ class SQLFilterConfig(ConfigModel):
         return values
 
     # --- Probe hooks: see docs/dev_guides/probe_interface.md ---
-    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+    def probe_verdict_override(self, ctx: "VerdictContext") -> Optional["Verdict"]:
         """See sql_structural_verdict, which an override of this one calls
         for the names its own rules leave alone."""
         return sql_structural_verdict(self, ctx)
 
 
-_NEEDS_PARENT_WARNING = (
-    "this source matches containers on a qualified name and could not tell "
-    "which one you mean, so these were judged on their bare names and will "
-    "mostly read as excluded; pass --parent to get the verdict ingestion "
-    "actually makes"
-)
-
-
-def _in_defaults(config: ConfigModel, hook: str, name: str) -> bool:
-    # Read by name: default_databases is declared only by sources that drop
-    # databases, and callers outside SQLCommonConfig pass their own configs.
-    defaults = getattr(config, hook, None)
-    return callable(defaults) and name.lower() in {d.lower() for d in defaults()}
-
-
-def qualifying_container(
-    config: ConfigModel, parent_path: Sequence[str]
-) -> Optional[str]:
-    """The container a schema name is qualified with, or None.
-
-    A Qualifier(authoritative=True) field wins (the recipe reads that one
-    container whatever --parent says); then the caller's --parent, since a
-    recipe may span several; then a Qualifier field pinning a single one.
-    """
-    declared, authoritative = declared_qualifier(config)
-    if authoritative and declared:
-        return declared
-    if parent_path:
-        return parent_path[-1]
-    return declared
-
-
-_NO_CONTAINER_WARNING = (
-    "no parent container given, so these were judged on "
-    "'schema.entity'; this source matches a fully qualified name, so "
-    "pass the containing database/project to get the verdict "
-    "ingestion actually makes"
-)
-
-
-def qualified_table_target(
-    container: Optional[str], schema: str, entity: str, warn: Callable[[str], None]
-) -> Optional[str]:
-    """`container.schema.entity`: what a source whose tables live under a
-    database or project matches table_pattern and view_pattern against.
-
-    None after warning when the container is unknown, leaving the shim to
-    judge `schema.entity`: an invented container would judge another
-    database's object. The warning names no object, so it shows once.
-    """
-    if container:
-        return f"{container}.{schema}.{entity}"
-    warn(_NO_CONTAINER_WARNING)
-    return None
-
-
-def _qualified_schema_verdict(
-    config: ConfigModel, ctx: VerdictContext
-) -> Optional[Verdict]:
-    """The verdict on `container.schema`, which is what ingestion matches
-    schema_pattern against once match_fully_qualified_names is on."""
-    if not getattr(config, "match_fully_qualified_names", False):
-        return None
-    container = qualifying_container(config, ctx.parent_path)
-    if container is None:
-        # The bare name is judged against a pattern written for qualified
-        # names. Names no object, so it shows once.
-        ctx.warn(_NEEDS_PARENT_WARNING)
-        return None
-    if ctx.pattern_field is None:
-        return None
-    pattern = pattern_at(config, ctx.pattern_field)
-    if pattern is None:
-        return None
-    included = is_schema_allowed(pattern, ctx.name, container, True)
-    return Verdict(
-        included=included,
-        excluded_by=None if included else ctx.pattern_field,
-        matched_target=f"{container}.{ctx.name}",
-    )
-
-
 def sql_structural_verdict(
-    config: ConfigModel, ctx: VerdictContext
-) -> Optional[Verdict]:
-    """The SQL family's verdicts that no single allow/deny pattern states.
+    config: ConfigModel, ctx: "VerdictContext"
+) -> Optional["Verdict"]:
+    """The SQL family's structural verdicts (see
+    sql_probe_verdicts.sql_structural_verdict): SQLFilterConfig's
+    probe_verdict_override, and what a config with verdict rules of its own
+    returns for the names its rules leave alone."""
+    # lazy: keeps the probe framework out of every SQL source's import
+    from datahub.ingestion.source.sql import sql_probe_verdicts
 
-    A database in default_databases() or a schema in default_schemas() is
-    dropped whatever the pattern says: ingestion never lists those system
-    catalogs. A schema on a source with match_fully_qualified_names on is
-    judged as `container.schema`, and the verdict reports that string as its
-    target. None leaves the pattern to decide.
-
-    SQLFilterConfig's probe_verdict_override; a config with rules of its own
-    returns this for the names those rules leave alone. A kind-switch
-    exclusion already in ctx.structural stands, so this returns None for it.
-    """
-    if ctx.structural is not None:
-        return None
-    if ctx.kind == DatasetContainerSubTypes.DATABASE:
-        if _in_defaults(config, "default_databases", ctx.name):
-            return Verdict(False, "default_database")
-        return None
-    if ctx.kind != DatasetContainerSubTypes.SCHEMA:
-        return None
-    if _in_defaults(config, "default_schemas", ctx.name):
-        return Verdict(False, "default_schema")
-    return _qualified_schema_verdict(config, ctx)
-
-
-# On the MySQL protocol, information_schema.processlist and innodb_trx hold
-# other sessions' SQL text. CatalogScope withholds them by default; the SQL
-# family also adds them back to a config's own scope
-# (SqlAlchemyMetadataProbe.for_config), since a config's URL can name a
-# MySQL-protocol server whatever its type and its scope may replace the
-# default exclusions.
-MYSQL_SESSION_TEXT_RELATIONS: FrozenSet[str] = SESSION_TEXT_RELATIONS
+    return sql_probe_verdicts.sql_structural_verdict(config, ctx)
 
 
 # The hooks source/sql/ reads off a SQLCommonConfig, beyond the framework's
@@ -262,6 +159,10 @@ class SQLCommonConfig(
     ClassificationSourceConfigMixin,
     SQLFilterConfig,
 ):
+    # So the framework's unknown-hook check knows a SQL config's own hooks
+    # (probe_methods.CONFIG_HOOK_FAMILY_ATTRIBUTE).
+    __probe_family_hooks__: ClassVar[FrozenSet[str]] = SQL_FAMILY_HOOKS
+
     options: dict = pydantic.Field(
         default_factory=dict,
         description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine) as kwargs.",
@@ -338,7 +239,7 @@ class SQLCommonConfig(
     def default_schemas(cls) -> FrozenSet[str]:
         return frozenset()
 
-    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+    def probe_match_target(self, ctx: "ClassifyContext") -> Optional[str]:
         """The identifier ingestion matches a table or view against, or None
         to judge the bare name: the connector's own get_identifier, through
         sql_probe's shim, which consults probe_filter_target first."""
@@ -401,10 +302,13 @@ class SQLCommonConfig(
             if self.probe_container_kind() == DatasetContainerSubTypes.SCHEMA
             else (DatasetContainerSubTypes.DATABASE,)
         )
+        # lazy: keeps the probe framework out of every SQL source's import
+        from datahub.ingestion.agent.verdicts import ancestors_in
+
         return ancestors_in(chain, kind, (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW))
 
     @classmethod
-    def probe_catalog_scope(cls) -> CatalogScope:
+    def probe_catalog_scope(cls) -> "CatalogScope":
         """What `probe sql` may read on this dialect: information_schema only
         by default. A dialect whose catalog lives elsewhere overrides it,
         naming relations rather than whole schemas (see CatalogScope).
@@ -413,9 +317,15 @@ class SQLCommonConfig(
         `catalog_scope`. A connector with a provider of its own declares
         `catalog_scope` on that class instead.
         """
-        return CatalogScope(excluded_relations=MYSQL_SESSION_TEXT_RELATIONS)
+        # lazy: keeps the probe framework out of every SQL source's import
+        from datahub.ingestion.agent.sql_gate import (
+            SESSION_TEXT_RELATIONS,
+            CatalogScope,
+        )
 
-    def probe_engine_settings(self, budget: QueryBudget) -> ProbeEngineSettings:
+        return CatalogScope(excluded_relations=SESSION_TEXT_RELATIONS)
+
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
         """The statement ceiling, client label and engine setup of the
         probe's engine.
 
@@ -447,10 +357,6 @@ class SQLCommonConfig(
         )
 
         return SqlAlchemyMetadataProbe
-
-
-# So the framework's unknown-hook check knows a SQL config's own hooks.
-register_config_hook_family(SQLCommonConfig, SQL_FAMILY_HOOKS)
 
 
 class SQLAlchemyConnectionConfig(ConfigModel):

@@ -18,8 +18,8 @@ from datahub.ingestion.agent.declarations import declares_qualifier
 from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import (
-    SQLCommonConfig,
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_probe_verdicts import (
     qualified_table_target,
     qualifying_container,
 )

@@ -333,16 +333,11 @@ CLASS_CONFIG_HOOKS: Tuple[str, ...] = (
 )
 
 
-# Hooks a config family's own code reads beyond CONFIG_HOOKS, by the family's
-# base class: the SQL family registers SQL_FAMILY_HOOKS on SQLCommonConfig.
-_CONFIG_HOOK_FAMILIES: Dict[type, FrozenSet[str]] = {}
-
-
-def register_config_hook_family(base: type, names: AbstractSet[str]) -> None:
-    """Make `names` known hooks on `base` and its subclasses, which the
-    family's own code reads (see unknown_config_hooks)."""
-    _CONFIG_HOOK_FAMILIES[base] = frozenset(names)
-    _refuse_unknown_config_hooks.cache_clear()
+# The class attribute naming the hooks a config family's own code reads beyond
+# CONFIG_HOOKS, set on the family's base class: SQLCommonConfig names
+# SQL_FAMILY_HOOKS. Read off the config class rather than registered here, so
+# the family's config module need not import the probe framework.
+CONFIG_HOOK_FAMILY_ATTRIBUTE = "__probe_family_hooks__"
 
 
 def _probe_named(cls: type, exempt: Callable[[str, object], bool]) -> List[str]:
@@ -363,9 +358,7 @@ def unknown_config_hooks(config_cls: type) -> List[str]:
     removed or renamed since the connector was written, or misspelled. Read
     by name, such a hook would silently do nothing."""
     known: Set[str] = set(CONFIG_HOOKS)
-    for base, names in _CONFIG_HOOK_FAMILIES.items():
-        if isinstance(config_cls, type) and issubclass(config_cls, base):
-            known |= names
+    known |= getattr(config_cls, CONFIG_HOOK_FAMILY_ATTRIBUTE, frozenset())
     fields = getattr(config_cls, "model_fields", None) or {}
     return _probe_named(
         config_cls, lambda name, _value: name in known or name in fields

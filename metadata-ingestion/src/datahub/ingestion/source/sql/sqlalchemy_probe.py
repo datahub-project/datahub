@@ -39,6 +39,7 @@ from datahub.ingestion.agent.probe_methods import (
     probe_method,
 )
 from datahub.ingestion.agent.provider_helpers import echoed
+from datahub.ingestion.agent.sql_gate import SESSION_TEXT_RELATIONS
 from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
     QueryBudget,
@@ -54,12 +55,16 @@ from datahub.ingestion.source.sql.protocol_probe_settings import (
     probe_url,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import (
-    MYSQL_SESSION_TEXT_RELATIONS,
-    SQLCommonConfig,
-)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
 from datahub.ingestion.source.sql.sql_probe import config_only_source
+
+# On the MySQL protocol, information_schema.processlist and innodb_trx hold
+# other sessions' SQL text. CatalogScope withholds them by default; the SQL
+# family also adds them back to a config's own scope (for_config), since a
+# config's URL can name a MySQL-protocol server whatever its type and its scope
+# may replace the default exclusions.
+MYSQL_SESSION_TEXT_RELATIONS: FrozenSet[str] = SESSION_TEXT_RELATIONS
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names: the family's
 # default spelling for these, under any config that declares none of its own
