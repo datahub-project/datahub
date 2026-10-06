@@ -99,8 +99,8 @@ import org.testng.annotations.Test;
 
 /**
  * Hybrid search on Search V3, run against each engine's test container. Documents carry vectors on
- * the V3 document index; a dataset matches the same words and has none. The kNN leg runs with the
- * keyword query's own filters, so the engine must accept them inside its kNN query.
+ * the V3 document index; a dataset matches the same words and has none. The kNN query scores only
+ * the documents among the reranked keyword rows.
  */
 public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContextTests {
 

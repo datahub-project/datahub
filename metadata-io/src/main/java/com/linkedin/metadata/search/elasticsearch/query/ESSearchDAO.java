@@ -50,6 +50,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -544,21 +545,25 @@ public class ESSearchDAO {
         }
         rerank =
             HYBRID_EXECUTOR.submit(
-                () ->
-                    hybridSearchResultReranker.rerank(
-                        opContext, entityNames, input, window, List.of(URN_FIELD)));
+                Context.current()
+                    .wrap(
+                        () ->
+                            hybridSearchResultReranker.rerank(
+                                opContext, entityNames, input, window, List.of(URN_FIELD))));
         ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
         ranked.addAll(rows.subList(windowEnd, rows.size()));
         countHybrid(opContext, "hybridReadApplied");
       } catch (RejectedExecutionException e) {
         countHybrid(opContext, "hybridReadRejected");
       } catch (TimeoutException e) {
-        rerank.cancel(true);
+        // A running call keeps its worker until it returns, so the pool caps the calls in flight
+        // and the rest are rejected; a queued call does not start
+        rerank.cancel(false);
         countHybrid(opContext, "hybridReadTimeout");
         log.warn(
             "Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
       } catch (InterruptedException e) {
-        rerank.cancel(true);
+        rerank.cancel(false);
         Thread.currentThread().interrupt();
         countHybrid(opContext, "hybridReadFailed");
       } catch (Exception e) {
