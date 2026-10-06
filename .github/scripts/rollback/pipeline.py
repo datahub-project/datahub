@@ -144,23 +144,39 @@ def run(current: str, target: str) -> tuple[list[model.RollbackFinding], str, st
     """Run all analysis dimensions. Returns (findings, current_sha, target_sha)."""
     current_sha = repo.resolve_sha(current)
     target_sha = repo.resolve_sha(target)
-
-    findings: list[model.RollbackFinding] = []
-
     pdl_paths = rac.changed_pdls(target, current)
+    findings = collect_findings(current, target, pdl_paths)
+    combine_findings(findings, current, target, pdl_paths)
+    return findings, current_sha, target_sha
+
+
+def collect_findings(
+    current: str, target: str, pdl_paths: list[str]
+) -> list[model.RollbackFinding]:
+    """Each dimension's own findings. None of these reads another's output."""
     read = repo.cached_reader()
+    findings: list[model.RollbackFinding] = []
     for path in pdl_paths:
         findings.extend(
             pdl_rules.classify_pdl_for_rollback(path, current, target, read)
         )
     findings.extend(pdl_rules.analyze_nested_changes(current, target, pdl_paths, read))
-    pdl_rules.attribute_embedded_aspect_changes(findings, current, target, pdl_paths)
-
     findings.extend(java_scan.classify_mutators_for_rollback(current, target))
     findings.extend(java_scan.classify_upgrade_steps_for_rollback(current, target))
     findings.extend(pdl_rules.analyze_schema_version_gaps(current, target, pdl_paths))
+    return findings
+
+
+def combine_findings(
+    findings: list[model.RollbackFinding],
+    current: str,
+    target: str,
+    pdl_paths: list[str],
+) -> None:
+    """Stages that update findings from other dimensions' results, in place.
+    Order matters: attribution sets the aspects each schema change reaches,
+    which the mutator, upgrade-step and version-gap stages then read."""
+    pdl_rules.attribute_embedded_aspect_changes(findings, current, target, pdl_paths)
     set_mutator_impact(findings)
     set_upgrade_step_impact(findings, current, target)
     flag_unexplained_version_gaps(findings)
-
-    return findings, current_sha, target_sha
