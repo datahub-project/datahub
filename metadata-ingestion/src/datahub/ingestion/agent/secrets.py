@@ -91,6 +91,9 @@ def default_resolvers() -> List[SecretResolver]:
     return [EnvVarResolver(), DatahubEnvResolver()]
 
 
+_EXPANDVARS_SETTING_PREFIX = "EXPANDVARS_"
+
+
 class _ResolverEnviron(MutableMapping[str, str]):
     """The resolvers, in order, as the environment EnvResolver expands
     against, recording each value one supplies.
@@ -106,6 +109,9 @@ class _ResolverEnviron(MutableMapping[str, str]):
         self._resolvers = resolvers
         self._assigned: Dict[str, str] = {}
         self.supplied: Set[str] = set()
+        # The last recipe name nothing resolved: the one an UnboundVariable is
+        # about, recorded here rather than parsed out of expandvars' message.
+        self.last_missing: Optional[str] = None
 
     def __getitem__(self, name: str) -> str:
         if name in self._assigned:
@@ -117,6 +123,10 @@ class _ResolverEnviron(MutableMapping[str, str]):
                 if value:
                     self.supplied.add(value)
                 return value
+        # expandvars then reads settings of its own (EXPANDVARS_RECOVER_NULL),
+        # which are not the reference that failed.
+        if not name.startswith(_EXPANDVARS_SETTING_PREFIX):
+            self.last_missing = name
         raise KeyError(name)
 
     def __setitem__(self, name: str, value: str) -> None:
@@ -132,7 +142,7 @@ class _ResolverEnviron(MutableMapping[str, str]):
         return len(self._assigned)
 
 
-_UNBOUND_SUFFIX = ": unbound variable"
+_VARIABLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # A reference whose expansion is part of a value rather than all of it:
 # `${#X}` (its length), and `${X:` followed by an offset (`${X:0:8}`,
@@ -189,12 +199,10 @@ def resolve_config_collecting(
     resolver = EnvResolver(environ=environ, register_secrets=False)
     try:
         resolved = resolver.resolve(copy.deepcopy(config_dict))
-    except UnboundVariable as exc:
-        # expandvars words it "<name>: unbound variable", naming only the
-        # reference, never its value.
-        message = str(exc.args[0]) if exc.args else ""
-        if message.endswith(_UNBOUND_SUFFIX):
-            name = message[: -len(_UNBOUND_SUFFIX)]
+    except UnboundVariable:
+        # The name the lookup missed, never a value.
+        name = environ.last_missing
+        if name is not None and _VARIABLE_NAME.fullmatch(name):
             raise ValueError(
                 f"Could not resolve secret reference ${{{name}}}"
             ) from None

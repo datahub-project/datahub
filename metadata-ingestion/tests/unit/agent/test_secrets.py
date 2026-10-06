@@ -131,6 +131,16 @@ def test_an_unset_reference_without_a_default_fails_by_name(
         resolve_config_collecting({"value": "pre-${PROBE_T_UNSET}"}, _resolvers)
 
 
+def test_the_unset_reference_is_named_not_an_earlier_defaulted_one(
+    _resolvers: List[SecretResolver],
+) -> None:
+    # Named from the lookup that missed, not from expandvars' message text.
+    with pytest.raises(ValueError, match=r"\$\{PROBE_T_UNSET\}"):
+        resolve_config_collecting(
+            {"value": "${PROBE_T_DEFAULTED:-x}-${PROBE_T_UNSET}"}, _resolvers
+        )
+
+
 def test_a_reference_expansion_cannot_parse_is_the_callers_input(
     _resolvers: List[SecretResolver],
 ) -> None:
