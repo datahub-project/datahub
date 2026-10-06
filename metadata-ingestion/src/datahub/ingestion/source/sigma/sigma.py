@@ -468,11 +468,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # schemas are recorded; see SigmaDataModel.columns_complete. Kept apart
         # from dm_element_urn_to_cols, whose lowercased keys merge case variants.
         self._dm_element_field_paths: Dict[str, Set[str]] = {}
-        # The last workbook element index and its case-folded form, so an
-        # exact-name miss does not re-walk the whole workbook.
-        self._folded_index_memo: Optional[
-            Tuple[Dict[str, List[Element]], Dict[str, List[Element]]]
-        ] = None
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -3428,16 +3423,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _build_workbook_element_index(
         workbook: Workbook,
     ) -> Dict[str, List[Element]]:
-        """Map element name -> list of elements with that name across all workbook pages.
+        """Map case-folded element name -> elements with that name, across all
+        workbook pages.
 
-        Multiple entries for the same name indicate a name collision; callers must
-        disambiguate via lineage sourceIds.  Verified live: at least one workbook in
-        the test tenant has 3 elements named 'random data model'.
+        Keyed on the folded name because Sigma resolves formula refs
+        case-insensitively; the exact spelling is still each element's name.
+        Several entries are a name collision callers disambiguate via lineage
+        sourceIds. Verified live: one workbook in the test tenant has 3 elements
+        named 'random data model'.
         """
         index: Dict[str, List[Element]] = {}
         for page in workbook.pages:
             for element in page.elements:
-                index.setdefault(element.name, []).append(element)
+                index.setdefault(_fold_name(element.name), []).append(element)
         return index
 
     @staticmethod
@@ -3627,18 +3625,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 result[key] = urns
         return result
 
-    def _folded_element_index(
-        self, wb_element_index: Dict[str, List[Element]]
-    ) -> Dict[str, List[Element]]:
-        memo = self._folded_index_memo
-        if memo is not None and memo[0] is wb_element_index:
-            return memo[1]
-        folded: Dict[str, List[Element]] = {}
-        for name, elements in wb_element_index.items():
-            folded.setdefault(_fold_name(name), []).extend(elements)
-        self._folded_index_memo = (wb_element_index, folded)
-        return folded
-
     def _upstream_field_for_ref(
         self, ref: BracketRef, upstream: Element, schema_required: bool = False
     ) -> Optional[str]:
@@ -3679,13 +3665,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         has been observed.
         """
         known = self._dm_element_field_paths.get(dm_urn)
-        if not known:
+        if known is None:
             return None if schema_required else ref.column
         assert ref.column is not None
         field = _match_name(ref.column, known)
         if field is None and not schema_required:
             self._note_column_not_found(ref)
         return field
+
+    def _note_case_mismatch(
+        self, ref: BracketRef, matches: Collection[str], schema_required: bool
+    ) -> None:
+        # Only several distinct matches are a case mismatch; same-name
+        # duplicates are not. A 3+ segment refusal is counted once, as
+        # multi_segment_refused.
+        if len(matches) > 1 and not schema_required:
+            self.reporter.chart_input_fields_case_mismatch += 1
+            logger.debug("Formula ref %s matches several case variants.", ref.raw)
 
     def _note_column_not_found(self, ref: BracketRef) -> None:
         self.reporter.chart_input_fields_column_not_found += 1
@@ -3786,9 +3782,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # never its own source.
         candidates = [
             elem
-            for elem in self._folded_element_index(wb_element_index).get(
-                _fold_name(ref.source), []
-            )
+            for elem in wb_element_index.get(_fold_name(ref.source), [])
             if elem.elementId != chart_element_id
         ]
 
@@ -3815,6 +3809,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # (e.g. pivot-table or control). Fall through to DM check.
             elif len(sheet_matches) > 1:
                 # Ambiguous name collision not resolved by lineage filter.
+                self._note_case_mismatch(
+                    ref, {elem.name for elem in sheet_matches}, schema_required
+                )
                 return None
 
             # Step 3b: DataModelElementUpstream lineage, by each candidate's
@@ -3833,7 +3830,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return (picked_urn, dm_field) if dm_field is not None else None
             if len(dm_urns) > 1:
-                self.reporter.chart_input_fields_case_mismatch += 1
+                self._note_case_mismatch(ref, dm_urns, schema_required)
                 return None
 
             # If the element IS a registered upstream (sheet_matches==1) but was
@@ -3849,7 +3846,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # named a table.
             names = {elem.name for elem in candidates}
             if len(names) > 1 and ref.source not in names:
-                self.reporter.chart_input_fields_case_mismatch += 1
+                self._note_case_mismatch(ref, names, schema_required)
                 return None
 
             # sheet_matches is empty: the workbook element is not a registered
@@ -3877,7 +3874,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 return (dm_urn, dm_field) if dm_field is not None else None
             # DM upstreams differing only in case: refused, as in step 3b.
             if len(dm_urns) > 1:
-                self.reporter.chart_input_fields_case_mismatch += 1
+                self._note_case_mismatch(ref, dm_urns, schema_required)
                 return None
 
         # Step 4: warehouse-table short-name fallback. A warehouse table's
@@ -4830,7 +4827,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
         self._dm_element_field_paths.clear()
-        self._folded_index_memo = None
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the

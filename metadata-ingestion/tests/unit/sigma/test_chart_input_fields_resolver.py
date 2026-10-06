@@ -92,9 +92,18 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
     source._dm_element_field_paths = {}
-    source._folded_index_memo = None
     source._bridge_unresolved_warned = set()
     return source
+
+
+def _folded(index: Dict[str, List[Element]]) -> Dict[str, List[Element]]:
+    """A hand-built element index in the shape the workbook builds: keyed on
+    the case-folded name, with case variants under one key."""
+    folded: Dict[str, List[Element]] = {}
+    for elements in index.values():
+        for element in elements:
+            folded.setdefault(element.name.lower(), []).append(element)
+    return folded
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +140,7 @@ class TestBuildWorkbookElementIndex:
         e = _make_element("e1", "My Table")
         wb = _make_workbook_with_elements([[e]])
         idx = SigmaSource._build_workbook_element_index(wb)
-        assert idx == {"My Table": [e]}
+        assert idx == {"my table": [e]}
 
     def test_name_collision_three_elements(self) -> None:
         """Live probe found 3 elements named 'random data model' in one workbook."""
@@ -151,8 +160,8 @@ class TestBuildWorkbookElementIndex:
         e2 = _make_element("e2", "Downstream")
         wb = _make_workbook_with_elements([[e1], [e2]])
         idx = SigmaSource._build_workbook_element_index(wb)
-        assert "Source" in idx
-        assert "Downstream" in idx
+        assert "source" in idx
+        assert "downstream" in idx
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +294,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"AAOgK0f3ag"},
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"random data model": [upstream_elem]},
+            wb_element_index=_folded({"random data model": [upstream_elem]}),
             element_warehouse_table_index={},
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
@@ -303,7 +312,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"AAOgK0f3ag"},
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"random data model": [e1, e2, e3]},
+            wb_element_index=_folded({"random data model": [e1, e2, e3]}),
             element_warehouse_table_index={},
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
@@ -320,7 +329,7 @@ class TestResolveChartFormulaUpstream:
             # Neither collision element is in the upstream set.
             chart_upstream_element_ids=set(),
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"random data model": [e1, e2]},
+            wb_element_index=_folded({"random data model": [e1, e2]}),
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
@@ -339,7 +348,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids=upstream_ids or set(),
             dm_upstream_urn_by_element_name=dm_urns or {},
-            wb_element_index=wb_element_index,
+            wb_element_index=_folded(wb_element_index),
             element_warehouse_table_index=warehouse_index or {},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
@@ -375,6 +384,28 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    def test_sheet_upstreams_differing_only_in_case_are_counted(self) -> None:
+        """Lineage names both spellings and the ref matches neither exactly."""
+        index = {
+            "Orders": [_make_element("a", "Orders")],
+            "ORDERS": [_make_element("b", "ORDERS")],
+        }
+        result = self._resolve(
+            _make_ref("orders", "Id"), index, upstream_ids={"a", "b"}
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    def test_a_refused_three_segment_ref_is_not_also_a_case_mismatch(self) -> None:
+        index = {
+            "Orders": [_make_element("a", "Orders")],
+            "ORDERS": [_make_element("b", "ORDERS")],
+        }
+        result = self._resolve(BracketRef.from_body("orders/Rel/Id"), index)
+        assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
 
     @pytest.mark.parametrize("ref_source", ["t source", "T Source"])
     def test_lineage_picks_among_case_variants(self, ref_source: str) -> None:
@@ -425,7 +456,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"sourceElem", "otherElem"},
             dm_upstream_urn_by_element_name={},
-            wb_element_index=index,
+            wb_element_index=_folded(index),
             element_warehouse_table_index={},
             elementId_to_chart_urn={
                 "sourceElem": "urn:source",
@@ -704,13 +735,6 @@ class TestResolveChartFormulaUpstream:
         )
         assert result == (dm_urn, "Id")
 
-    def test_the_folded_index_follows_the_workbook(self) -> None:
-        first = {"Src": [_make_element("sourceElem", "Src")]}
-        second = {"Other": [_make_element("sourceElem", "Other")]}
-        assert self._resolve(_make_ref("src", "A"), first, {"sourceElem"})
-        assert self._resolve(_make_ref("other", "A"), second, {"sourceElem"})
-        assert self._resolve(_make_ref("src", "A"), second, {"sourceElem"}) is None
-
     def test_sibling_with_unknown_columns_passes_ref_through(self) -> None:
         elem = _make_element("sourceElem", "Src")
         result = self._resolve(
@@ -736,6 +760,17 @@ class TestResolveChartFormulaUpstream:
             _make_ref("Orders", "Anything"), {}, dm_urns={"Orders": dm_urn}
         )
         assert result == (dm_urn, "Anything")
+
+    def test_dm_column_is_refused_when_the_schema_is_known_to_be_empty(self) -> None:
+        """Recorded only from a complete /columns, so an empty set is a real
+        element with no columns, not an unknown schema."""
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = set()
+        result = self._resolve(
+            _make_ref("Orders", "Anything"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_column_not_found == 1
 
     def test_three_segment_ref_is_refused(self) -> None:
         # [Element/Relationship/Column] must not become a dangling edge to
@@ -763,7 +798,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids=set(),
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"Orders": [upstream_elem]},
+            wb_element_index=_folded({"Orders": [upstream_elem]}),
             element_warehouse_table_index={"ORDERS": [wh_urn]},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
@@ -780,7 +815,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="chartElem",
             chart_upstream_element_ids={"chartElem"},
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"Orders": [self_elem]},
+            wb_element_index=_folded({"Orders": [self_elem]}),
             element_warehouse_table_index={},
             elementId_to_chart_urn={"chartElem": "urn:self"},
         )
@@ -799,7 +834,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"k7i_W7UYCg", "lBjhSbH_Jp"},
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"random data model": [e1, e2]},
+            wb_element_index=_folded({"random data model": [e1, e2]}),
             element_warehouse_table_index={},
             elementId_to_chart_urn={"k7i_W7UYCg": "urn:a", "lBjhSbH_Jp": "urn:b"},
         )
@@ -818,7 +853,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"filtered-pivot"},
             dm_upstream_urn_by_element_name={},
-            wb_element_index={"Orders": [upstream_elem]},
+            wb_element_index=_folded({"Orders": [upstream_elem]}),
             element_warehouse_table_index={"ORDERS": [wh_urn]},
             elementId_to_chart_urn={},
         )
