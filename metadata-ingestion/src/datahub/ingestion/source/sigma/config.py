@@ -354,6 +354,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Data Model's element, which are not mapped yet.
     data_model_element_fgl_union_unresolved: int = 0
     data_model_element_fgl_union_branch_unmapped: int = 0
+    # Join-key edges read from /spec: the other side of a join predicate an
+    # existing edge reaches.
+    data_model_element_fgl_join_key_resolved: int = 0
+    # Join predicates /spec named whose side could not be matched to an
+    # ingested element and column; and predicates with a side that is a
+    # warehouse table or another Data Model's element, not mapped yet. Counted
+    # once per Data Model.
+    data_model_join_key_partner_unresolved: int = 0
+    data_model_join_key_partner_unmapped: int = 0
     # Data Models whose /spec could not be fetched (see the warning for why),
     # and those whose /spec did not match the shape the parser expects, so
     # their union edges may be incomplete until the connector is updated.
@@ -688,9 +697,12 @@ class SigmaSourceConfig(
         default=True,
         description="Whether to read each Data Model's ``/dataModels/{id}/spec`` "
         "for column lineage a formula cannot express. A union's output column "
-        "names at most one branch in its formula, so without ``/spec`` every "
-        "other branch is invisible; with it, each output column gets an edge "
-        "from every branch in the same Data Model. Costs one API call per Data "
+        "names at most one branch in its formula, so with ``/spec`` each output "
+        "column gets an edge from every branch in the same Data Model (score "
+        "1.0). A join's output column names one side, so with ``/spec`` a column "
+        "reading a join key also gets the other side's key, when the element "
+        "reads through that join (score 0.7, or 0.6 for an outer join, since a "
+        "join states equality rather than a copy). Costs one API call per Data "
         "Model, which needs the same access as reading its elements. A failed "
         "call is counted and reported, with each model's status, and never "
         "fails the run. Requires ``ingest_data_models`` and ``extract_lineage``.",

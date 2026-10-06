@@ -8482,3 +8482,206 @@ def test_sigma_ingest_data_models_union_branches(pytestconfig, tmp_path, request
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_union_branches.json",
     )
+
+
+def _get_mock_join_dm_api() -> Dict[str, Dict]:
+    """A DM whose join element joins two elements on a key. /spec element ids
+    are the REST elementIds, as a read-only probe of a test tenant showed."""
+    dm_id = "aa000000-0000-0000-0000-000000000003"
+    ws_id = "bb000000-0000-0000-0000-000000000003"
+    branch_a, branch_b, union = "joinSideA", "joinSideB", "joinElem01"
+    base = "https://aws-api.sigmacomputing.com/v2"
+
+    def column(element_id: str, column_id: str, formula: Optional[str]) -> dict:
+        return {
+            "columnId": column_id,
+            "elementId": element_id,
+            "name": "Order Id",
+            "label": "Order Id",
+            "formula": formula,
+        }
+
+    def listing(entries: List[dict]) -> Dict[str, Any]:
+        return {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": entries, "total": len(entries), "nextPage": None},
+        }
+
+    return {
+        f"{base}/workspaces?limit=50": listing(
+            [
+                {
+                    "workspaceId": ws_id,
+                    "name": "Test Workspace",
+                    "createdBy": "test-user",
+                    "updatedBy": "test-user",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-01T00:00:00.000Z",
+                }
+            ]
+        ),
+        f"{base}/files?typeFilters=data-model": listing(
+            [
+                {
+                    "id": dm_id,
+                    "urlId": "join-dm-urlid",
+                    "name": "Join DM",
+                    "type": "data-model",
+                    "parentId": ws_id,
+                    "parentUrlId": "test-ws-urlid",
+                    "permission": "edit",
+                    "path": "Test Workspace",
+                    "badge": None,
+                    "createdBy": "test-user",
+                    "updatedBy": "test-user",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "isArchived": False,
+                }
+            ]
+        ),
+        f"{base}/dataModels": listing(
+            [
+                {
+                    "dataModelId": dm_id,
+                    "urlId": "join-dm-urlid",
+                    "name": "Join DM",
+                    "createdBy": "test-user",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "workspaceId": ws_id,
+                    "path": "Test Workspace",
+                }
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/elements": listing(
+            [
+                {
+                    "elementId": branch_a,
+                    "name": "Orders A",
+                    "type": "table",
+                    "columns": [],
+                },
+                {
+                    "elementId": branch_b,
+                    "name": "Orders B",
+                    "type": "table",
+                    "columns": [],
+                },
+                {
+                    "elementId": union,
+                    "name": "Orders Joined",
+                    "type": "table",
+                    "columns": [],
+                },
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/columns": listing(
+            [
+                column(branch_a, "colA", None),
+                column(branch_b, "colB", None),
+                # A join output names the side it reads from.
+                column(union, "colU", "[Orders A/Order Id]"),
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/lineage": listing(
+            [
+                {
+                    "elementId": union,
+                    "type": "element",
+                    "sourceIds": [branch_a, branch_b],
+                },
+            ]
+        ),
+        f"{base}/dataModels/{dm_id}/spec": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "schemaVersion": 1,
+                "dataModelId": dm_id,
+                "pages": [
+                    {
+                        "id": "p1",
+                        "elements": [
+                            {
+                                "id": branch_a,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "warehouse-table",
+                                    "connectionId": "conn-join",
+                                    "path": ["DB", "SCH", "ORDERS_A"],
+                                },
+                            },
+                            {
+                                "id": branch_b,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "warehouse-table",
+                                    "connectionId": "conn-join",
+                                    "path": ["DB", "SCH", "ORDERS_B"],
+                                },
+                            },
+                            {
+                                "id": union,
+                                "kind": "table",
+                                "source": {
+                                    "kind": "join",
+                                    "primarySource": {
+                                        "kind": "table",
+                                        "elementId": branch_a,
+                                    },
+                                    "joins": [
+                                        {
+                                            "joinType": "inner",
+                                            "left": {
+                                                "kind": "table",
+                                                "elementId": branch_a,
+                                            },
+                                            "right": {
+                                                "kind": "table",
+                                                "elementId": branch_b,
+                                            },
+                                            "columns": [
+                                                {
+                                                    "left": "[Order Id]",
+                                                    "right": "[Order Id]",
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                },
+                            },
+                        ],
+                    }
+                ],
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_join_keys(pytestconfig, tmp_path, requests_mock):
+    """A join output column whose formula names side A's key also gets side
+    B's key, from the join's ON clause in /spec."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+    register_mock_api(request_mock=requests_mock, override_data=_get_mock_join_dm_api())
+
+    output_path = f"{tmp_path}/sigma_join_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_spec_fetch_failed == 0
+    assert report.data_model_spec_drift_detected == 0
+    assert report.data_model_element_fgl_join_key_resolved == 1
+    assert report.data_model_join_key_partner_unresolved == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_join_keys.json",
+    )

@@ -26,6 +26,8 @@ def _source() -> SigmaSource:
     )
     source._dm_spec_index_cache = {}
     source._dm_column_lookup_cache = None
+    source._join_partner_cache = None
+    source._dm_ancestors_cache = {}
     return source
 
 
@@ -1458,3 +1460,193 @@ def test_an_absent_output_counts_each_branch_by_kind() -> None:
 
     assert source.reporter.data_model_element_fgl_union_unresolved == 1
     assert source.reporter.data_model_element_fgl_union_branch_unmapped == 1
+
+
+# ---------------------------------------------------------------------------
+# Join keys from /spec
+# ---------------------------------------------------------------------------
+
+_SIDE_A = {"kind": "table", "elementId": "a"}
+_SIDE_B = {"kind": "table", "elementId": "b"}
+
+
+def _join_spec(
+    *, join_type: str = "inner", right: dict = _SIDE_B, right_formula: str = "[Key]"
+) -> dict:
+    return {
+        "schemaVersion": 1,
+        "dataModelId": "dm-1",
+        "pages": [
+            {
+                "id": "p1",
+                "elements": [
+                    {
+                        "id": "j",
+                        "kind": "table",
+                        "source": {
+                            "kind": "join",
+                            "primarySource": _SIDE_A,
+                            "joins": [
+                                {
+                                    "joinType": join_type,
+                                    "left": _SIDE_A,
+                                    "right": right,
+                                    "columns": [
+                                        {"left": "[Key]", "right": right_formula}
+                                    ],
+                                }
+                            ],
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _build_join(
+    source: SigmaSource,
+    *,
+    element_id: str = "j",
+    source_ids: List[str] | None = None,
+    listed: Set[str] | None = None,
+    discovered: Set[str] | None = None,
+) -> list:
+    """Element ``element_id`` reads A's key column; J joins A to B on it."""
+    side_a = _upstream_element("a", "A", ["Key"])
+    side_b = _upstream_element("b", "B", ["Key"])
+    join = _element(
+        "j", "J", [_column("j-key", "Key", "[A/Key]")], source_ids=["a", "b"]
+    )
+    elements = [side_a, side_b, join]
+    if element_id == "j":
+        element = join
+    else:
+        element = _element(
+            element_id,
+            element_id.upper(),
+            [_column(f"{element_id}-key", "Key", "[A/Key]")],
+            source_ids=source_ids or [],
+        )
+        elements.append(element)
+    return _build(
+        source,
+        element,
+        element_name_to_eids={"a": ["a"], "b": ["b"], "j": ["j"]},
+        elementId_to_dataset_urn={e.elementId: _urn(e.elementId) for e in elements},
+        entity_level_upstream_urns=(
+            {_urn("a"), _urn("b")} if listed is None else listed
+        ),
+        upstream_elements=[e for e in elements if e is not element],
+        discovered_upstreams=discovered,
+    )
+
+
+def _key_edges(lineages: list) -> Dict[str, float]:
+    return {lin.upstreams[0]: lin.confidenceScore for lin in lineages}
+
+
+@pytest.mark.parametrize(("join_type", "score"), [("inner", 0.7), ("left-outer", 0.6)])
+def test_a_join_output_column_gets_the_other_key(join_type: str, score: float) -> None:
+    """The formula names A's key; the ON clause says B's key is equal to it."""
+    source = _source()
+    _with_spec(source, _join_spec(join_type=join_type))
+
+    edges = _key_edges(_build_join(source))
+
+    assert edges == {
+        builder.make_schema_field_urn(_urn("a"), "Key"): 1.0,
+        builder.make_schema_field_urn(_urn("b"), "Key"): score,
+    }
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 1
+
+
+def test_an_element_reading_through_the_join_gets_the_other_key() -> None:
+    source = _source()
+    _with_spec(source, _join_spec())
+
+    edges = _key_edges(_build_join(source, element_id="d", source_ids=["j"]))
+
+    assert builder.make_schema_field_urn(_urn("b"), "Key") in edges
+
+
+def test_an_element_not_reading_through_the_join_gets_no_key() -> None:
+    """Reading A's key column alone does not apply J's equality."""
+    source = _source()
+    _with_spec(source, _join_spec())
+
+    edges = _key_edges(_build_join(source, element_id="e", source_ids=["a"]))
+
+    assert list(edges) == [builder.make_schema_field_urn(_urn("a"), "Key")]
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+
+
+@pytest.mark.parametrize(
+    ("right", "right_formula", "unmapped", "unresolved"),
+    [
+        (
+            {"kind": "warehouse-table", "connectionId": "c", "path": ["D", "S", "T"]},
+            "[Key]",
+            1,
+            0,
+        ),
+        (
+            {"kind": "data-model", "elementId": "b", "dataModelId": "dm-2"},
+            "[Key]",
+            1,
+            0,
+        ),
+        (_SIDE_B, "[Missing]", 0, 1),
+    ],
+    ids=["warehouse-table", "another-data-model", "column-absent"],
+)
+def test_a_predicate_that_cannot_be_mapped_is_counted(
+    right: dict, right_formula: str, unmapped: int, unresolved: int
+) -> None:
+    source = _source()
+    _with_spec(source, _join_spec(right=right, right_formula=right_formula))
+
+    edges = _key_edges(_build_join(source))
+
+    assert list(edges) == [builder.make_schema_field_urn(_urn("a"), "Key")]
+    assert source.reporter.data_model_join_key_partner_unmapped == unmapped
+    assert source.reporter.data_model_join_key_partner_unresolved == unresolved
+
+
+def test_partners_are_built_once_per_data_model() -> None:
+    """Counted per model, not once per element that asks."""
+    source = _source()
+    _with_spec(source, _join_spec(right_formula="[Missing]"))
+
+    _build_join(source)
+    _build_join(source, element_id="d", source_ids=["j"])
+
+    assert source.reporter.data_model_join_key_partner_unresolved == 1
+
+
+def test_an_unsupported_schema_adds_no_join_keys() -> None:
+    source = _source()
+    spec = _join_spec()
+    spec["schemaVersion"] = 2
+    _with_spec(source, spec)
+
+    assert len(_build_join(source)) == 1
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+
+
+def test_an_unlisted_key_partner_becomes_an_upstream() -> None:
+    """Sigma lists the join element as D's upstream, not the joined side, so
+    an edge to B's key needs B declared as an upstream too."""
+    source = _source()
+    _with_spec(source, _join_spec())
+    discovered: Set[str] = set()
+
+    _build_join(
+        source,
+        element_id="d",
+        source_ids=["j"],
+        listed={_urn("a")},
+        discovered=discovered,
+    )
+
+    assert _urn("b") in discovered
