@@ -87,7 +87,7 @@ class ProbeEngineSettings:
         return replace(self, prepare=prepare)
 
 
-def recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
+def _recipe_connect_args(config: "SQLCommonConfig") -> Mapping[str, Any]:
     """The connect_args the recipe passes create_engine, as ingestion does."""
     return config.options.get("connect_args") or {}
 
@@ -98,7 +98,7 @@ def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, 
     names its connection through `kwarg`, in connect_args or in the URL's
     query: that name is the recipe's choice, and a connect_arg would replace
     the URL's."""
-    if kwarg in recipe_connect_args(config) or kwarg in probe_url_query(config):
+    if kwarg in _recipe_connect_args(config) or kwarg in _probe_url_query(config):
         return {}
     return {kwarg: PROBE_QUERY_LABEL}
 
@@ -108,7 +108,7 @@ def probe_url(config: "SQLCommonConfig") -> str:
     return str(config.probe_sql_alchemy_url())
 
 
-def probe_url_query(config: "SQLCommonConfig") -> Mapping[str, object]:
+def _probe_url_query(config: "SQLCommonConfig") -> Mapping[str, object]:
     """The probe URL's query arguments, which the dialect hands the driver
     as connect kwargs. create_engine lets connect_args override them, so a
     probe connect_arg with the same name replaces the recipe's value."""
@@ -162,10 +162,10 @@ def _recipe_libpq_options(config: "SQLCommonConfig") -> object:
     """The libpq options ingestion's engine hands the driver: connect_args'
     when the recipe sets them there, else the probe URL's query string's, as
     create_engine lets connect_args override the URL."""
-    own = recipe_connect_args(config)
+    own = _recipe_connect_args(config)
     if _LIBPQ_OPTIONS in own:
         return own[_LIBPQ_OPTIONS]
-    return probe_url_query(config).get(_LIBPQ_OPTIONS)
+    return _probe_url_query(config).get(_LIBPQ_OPTIONS)
 
 
 def set_redshift_statement_timeout(dbapi_connection: Any, seconds: int) -> None:

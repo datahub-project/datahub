@@ -569,9 +569,9 @@ its drivers are known to accept. A ceiling set by a statement in `prepare` may c
 `timeout_applies` only if a refused statement fails the connection (Redshift's does; MySQL's is
 best effort and claims nothing).
 
-`ProbeEngineSettings` (also importable from `source/sql/sql_config.py`), `recipe_connect_args(config)`
-(to extend the recipe's own connect_args) and `probe_label_connect_arg(config, kwarg)` (the client
-label, unless the recipe names its connection itself) are in `source/sql/protocol_probe_settings.py`.
+`ProbeEngineSettings` (also importable from `source/sql/sql_config.py`) and
+`probe_label_connect_arg(config, kwarg)` (the client label, unless the recipe names its connection
+itself) are in `source/sql/protocol_probe_settings.py`.
 `QueryBudget` is in `agent/sql_passthrough.py`: `timeout_seconds` (30 by default) and
 `max_bytes_billed` (none by default), where `None` means no ceiling.
 
