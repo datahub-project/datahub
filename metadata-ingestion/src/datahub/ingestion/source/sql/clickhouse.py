@@ -1362,8 +1362,9 @@ ORDER BY event_time ASC
             dictionaries = self._fetch_xml_dictionaries()
         except Exception as e:
             if "ACCESS_DENIED" in str(e):
-                # Nothing was ingested without access, so there is nothing for
-                # stale entity removal to delete; a warning keeps the run green.
+                # A warning keeps upgrades without the new grant from failing. If
+                # access is revoked after a successful run, the dictionaries are
+                # soft-deleted, as tables are when SHOW TABLES is revoked.
                 self.report.warning(
                     title="Config-file dictionaries not ingested",
                     message="Grant SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.* to ingest config-file dictionaries",
@@ -1500,9 +1501,10 @@ ORDER BY event_time ASC
                         ]
                     )
                 else:
-                    logger.warning(
-                        f"Skipping dictionary source lineage for {dataset_name}: "
-                        f"{source_path} missing table"
+                    self.report.warning(
+                        title="Config-file dictionary source table not visible",
+                        message="Skipped upstream lineage because the source table is not among the tables visible to the DataHub user",
+                        context=f"{dataset_name}: {source_path}",
                     )
 
         if self._save_schema_to_resolver():
