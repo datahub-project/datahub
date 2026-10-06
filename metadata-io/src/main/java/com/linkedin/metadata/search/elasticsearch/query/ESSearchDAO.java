@@ -52,6 +52,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -518,10 +519,7 @@ public class ESSearchDAO {
       countLightFirst(opContext, "light");
       return lightResponse;
     }
-    // An empty result stands only when every shard answered in time
-    if (skipsFullQuery(input)
-        && lightResponse.getFailedShards() == 0
-        && !lightResponse.isTimedOut()) {
+    if (stopsOnEmpty(lightResponse, input)) {
       countLightFirst(opContext, "stopped");
       return lightResponse;
     }
@@ -538,11 +536,17 @@ public class ESSearchDAO {
   @VisibleForTesting
   static boolean skipsFullQuery(@Nonnull String input) {
     String trimmed = input.trim();
-    if (trimmed.contains(" ")) {
+    if (trimmed.chars().anyMatch(Character::isWhitespace)) {
       return false;
     }
     return HASH_ID_QUERY_PATTERN.matcher(trimmed).matches()
-        || DELIMITER_PATTERN.split(trimmed).length >= LONG_EXACT_NAME_TOKEN_THRESHOLD;
+        || Arrays.stream(DELIMITER_PATTERN.split(trimmed)).filter(part -> !part.isEmpty()).count()
+            >= LONG_EXACT_NAME_TOKEN_THRESHOLD;
+  }
+
+  /** Whether an empty light result stands: an ID or long-name input, and every shard in time. */
+  private static boolean stopsOnEmpty(@Nonnull SearchResponse response, @Nonnull String input) {
+    return skipsFullQuery(input) && response.getFailedShards() == 0 && !response.isTimedOut();
   }
 
   /** Total hits decide, not the page's hits: a later page of a light result can be empty. */
@@ -1262,11 +1266,8 @@ public class ESSearchDAO {
     SearchResponse count =
         searchClient(opContext, countRequest)
             .search(opContext, countRequest, RequestOptions.DEFAULT);
-    // The decision searchLightFirst makes: a clean empty result stands for ID and long-name inputs
-    return hasHits(count)
-            || (skipsFullQuery(input) && count.getFailedShards() == 0 && !count.isTimedOut())
-        ? lightSourceQuery
-        : fullQuery;
+    // The decision searchLightFirst makes
+    return hasHits(count) || stopsOnEmpty(count, input) ? lightSourceQuery : fullQuery;
   }
 
   /**

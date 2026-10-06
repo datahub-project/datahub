@@ -199,6 +199,15 @@ public class ESSearchDAOLightFirstTest {
             "orders",
             List.of(new SortCriterion().setField("_score").setOrder(SortOrder.ASCENDING)),
             null));
+    assertNull(
+        v3Dao.lightFirstQuery(
+            fulltext,
+            datasets,
+            "orders",
+            List.of(
+                new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING),
+                new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING)),
+            null));
     // V2 reads keep the V2 query
     assertNull(dao.lightFirstQuery(fulltext, datasets, "orders", null, null));
     // Quoted, structured, browse-all and URN queries run the full query
@@ -218,6 +227,20 @@ public class ESSearchDAOLightFirstTest {
             "orders",
             null,
             null));
+  }
+
+  @Test
+  public void testLightHitsWithoutTotalAreServed() throws Exception {
+    SearchResponse untotalled = mock(SearchResponse.class);
+    when(untotalled.getHits())
+        .thenReturn(new SearchHits(new SearchHit[] {new SearchHit(1)}, null, 0f));
+    when(untotalled.getShardFailures()).thenReturn(new ShardSearchFailure[0]);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(untotalled);
+    assertSame(
+        dao.searchLightFirst(opContext, request(QueryBuilders.boolQuery().must(FULL)), LIGHT, "x"),
+        untotalled);
+    verify(client).search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
   }
 
   private SearchRequest request(QueryBuilder query) {
@@ -266,5 +289,8 @@ public class ESSearchDAOLightFirstTest {
     assertTrue(ESSearchDAO.skipsFullQuery("my_db.sales.orders.daily"));
     assertFalse(ESSearchDAO.skipsFullQuery("sales_orders"));
     assertFalse(ESSearchDAO.skipsFullQuery("orders 20240101"));
+    assertFalse(ESSearchDAO.skipsFullQuery("orders\t20240101"));
+    // A leading delimiter adds no part
+    assertFalse(ESSearchDAO.skipsFullQuery("_airbyte_raw_users"));
   }
 }

@@ -1431,7 +1431,11 @@ public class SearchQueryBuilder {
     boolean isDeepFqn =
         intent == QueryIntent.FQN && matchQuery.chars().filter(c -> c == '.').count() >= 2;
     boolean isLongExactName =
-        intent == QueryIntent.EXACT_NAME && DELIMITER_PATTERN.split(matchQuery).length >= 5;
+        intent == QueryIntent.EXACT_NAME
+            && Arrays.stream(DELIMITER_PATTERN.split(matchQuery))
+                    .filter(part -> !part.isEmpty())
+                    .count()
+                >= 5;
     if (isDeepFqn || isLongExactName) {
       multiMatch.operator(Operator.AND);
     }
