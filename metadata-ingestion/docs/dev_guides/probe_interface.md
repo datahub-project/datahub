@@ -509,7 +509,10 @@ for the names its rules leave alone.
 ### SQL-family hooks
 
 Read only by `source/sql/`, so only a `SQLCommonConfig` subclass declares them;
-`test_probe_contract.py` checks the `probe_*` rows against `SQL_FAMILY_HOOKS`. The two `default_*`
+`test_probe_contract.py` checks the `probe_*` rows against `SQL_FAMILY_HOOKS`. Any other `probe_*`
+attribute on a config, or on a provider beyond its attributes and commands, is refused as the
+connector's defect (exit 1) the first time the probe reads it, so a removed or misspelled hook
+fails loudly instead of doing nothing. The two `default_*`
 classmethods are read by name too, but have a base on `SQLCommonConfig` (or none at all), so a
 misspelling is not caught: test them against ingestion.
 

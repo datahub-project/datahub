@@ -29,6 +29,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.agent.declarations import declared_qualifier
 from datahub.ingestion.agent.pattern_path import pattern_at
+from datahub.ingestion.agent.probe_methods import register_config_hook_family
 from datahub.ingestion.agent.sql_gate import SESSION_TEXT_RELATIONS, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.agent.verdicts import (
@@ -366,6 +367,18 @@ class SQLCommonConfig(
         """
         return None
 
+    def probe_normalize_container(self, name: str) -> str:
+        """A listed container in the spelling ingestion matches on, for a
+        connector whose Inspector spells it differently: callers pass
+        `containers` output back as --parent. The name unchanged by default."""
+        return name
+
+    def probe_sql_alchemy_url(self) -> str:
+        """The URL the probe dials, for a connector whose ingestion dials
+        another than get_sql_alchemy_url() (Doris names its catalog per
+        call). get_sql_alchemy_url() by default."""
+        return str(self.get_sql_alchemy_url())
+
     @classmethod
     def probe_kind_overrides(cls) -> Mapping[str, str]:
         """`containers` lists schemas or databases, by tier: see
@@ -434,6 +447,10 @@ class SQLCommonConfig(
         )
 
         return SqlAlchemyMetadataProbe
+
+
+# So the framework's unknown-hook check knows a SQL config's own hooks.
+register_config_hook_family(SQLCommonConfig, SQL_FAMILY_HOOKS)
 
 
 class SQLAlchemyConnectionConfig(ConfigModel):

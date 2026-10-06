@@ -38,7 +38,7 @@ from datahub.ingestion.agent.config_fields import (
     iter_config_fields,
     unwrap_optional,
 )
-from datahub.ingestion.agent.probe_methods import config_hook
+from datahub.ingestion.agent.probe_methods import config_hook, unknown_config_hooks
 from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 _Marker = TypeVar("_Marker", Filters, Enables, FiltersByRule, Qualifier)
@@ -204,8 +204,15 @@ def marker_problems(config_cls: type) -> List[str]:
     top-level bool; FiltersByRule and Qualifier a top-level field. Each kind
     is marked on one field per marker, and the container on one Qualifier
     field. A FiltersByRule kind is neither Filters-declared nor unfiltered, and
-    a probe_verdict_override judges it."""
+    a probe_verdict_override judges it. Every `probe_` attribute is a hook
+    something reads."""
+    unknown = unknown_config_hooks(config_cls)
     return [
+        *(
+            [f"{config_cls.__name__} defines {', '.join(unknown)}, which the probe never reads"]
+            if unknown
+            else []
+        ),
         *_single_marker_problems(config_cls, Filters),
         *_single_marker_problems(config_cls, Enables),
         *_single_marker_problems(config_cls, FiltersByRule),

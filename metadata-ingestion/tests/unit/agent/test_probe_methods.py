@@ -13,6 +13,7 @@ from datahub.ingestion.agent.probe_methods import (
     run_probe_method,
 )
 from datahub.ingestion.agent.sql_gate import SqlScopeError
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 
 def _spec(fn: Callable) -> ProbeMethodSpec:
@@ -848,3 +849,56 @@ def test_a_getter_refusing_its_input_is_still_bad_input(
             monkeypatch,
             _provider_raising(on_call=ProbeArgumentError("no table named t")),
         )
+
+
+class _StaleHookConfig(_FakeConfig):
+    # A hook the framework once read and no longer does.
+    def probe_schema_verdict_override(self, ctx: object) -> None:
+        return None
+
+
+class _StaleAttributeProvider(_FakeProvider):
+    def probe_prepare_engine(self, engine: object) -> None:
+        return None
+
+
+class _StaleAttributeConfig(_FakeConfig):
+    @classmethod
+    def probe_provider_class(cls):
+        return _StaleAttributeProvider
+
+
+@pytest.mark.parametrize("config_cls", [_StaleHookConfig, _StaleAttributeConfig])
+def test_a_removed_probe_hook_fails_loudly_at_first_read(
+    monkeypatch: pytest.MonkeyPatch, config_cls: type
+) -> None:
+    monkeypatch.setattr(pm, "config_class_for", lambda st: config_cls)
+    with pytest.raises(ProbeInternalError) as info:
+        run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert "probe_" in str(info.value)
+
+
+def test_known_hooks_and_probe_commands_are_not_unknown() -> None:
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    class _SqlConfig(SQLCommonConfig):
+        def get_sql_alchemy_url(self) -> str:
+            return "sqlite://"
+
+        def probe_normalize_container(self, name: str) -> str:
+            return name
+
+    class _CommandProvider(_FakeProvider):
+        @probe_method(name="definitions")
+        def probe_definitions(self) -> List[str]:
+            "Definitions."
+            return []
+
+    assert pm.unknown_config_hooks(_SqlConfig) == []
+    assert pm.unknown_config_hooks(_StaleHookConfig) == [
+        "probe_schema_verdict_override"
+    ]
+    assert pm.unknown_provider_attributes(_CommandProvider) == []
+    assert pm.unknown_provider_attributes(_StaleAttributeProvider) == [
+        "probe_prepare_engine"
+    ]

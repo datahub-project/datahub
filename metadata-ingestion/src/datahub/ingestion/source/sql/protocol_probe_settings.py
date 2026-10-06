@@ -104,10 +104,8 @@ def probe_label_connect_arg(config: "SQLCommonConfig", kwarg: str) -> Dict[str, 
 
 
 def probe_url(config: "SQLCommonConfig") -> str:
-    """The URL the probe dials: probe_sql_alchemy_url where the connector
-    declares one, else get_sql_alchemy_url()."""
-    declared = getattr(config, "probe_sql_alchemy_url", None)
-    return str(declared() if callable(declared) else config.get_sql_alchemy_url())
+    """The URL the probe dials (SQLCommonConfig.probe_sql_alchemy_url)."""
+    return str(config.probe_sql_alchemy_url())
 
 
 def probe_url_query(config: "SQLCommonConfig") -> Mapping[str, object]:

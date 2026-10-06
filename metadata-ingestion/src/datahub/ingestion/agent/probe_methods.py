@@ -334,6 +334,80 @@ CLASS_CONFIG_HOOKS: Tuple[str, ...] = (
 )
 
 
+# Hooks a config family's own code reads beyond CONFIG_HOOKS, by the family's
+# base class: the SQL family registers SQL_FAMILY_HOOKS on SQLCommonConfig.
+_CONFIG_HOOK_FAMILIES: Dict[type, FrozenSet[str]] = {}
+
+
+def register_config_hook_family(base: type, names: AbstractSet[str]) -> None:
+    """Make `names` known hooks on `base` and its subclasses, which the
+    family's own code reads (see unknown_config_hooks)."""
+    _CONFIG_HOOK_FAMILIES[base] = frozenset(names)
+    _refuse_unknown_config_hooks.cache_clear()
+
+
+def _probe_named(cls: type, exempt: Callable[[str, object], bool]) -> List[str]:
+    """`probe_` attributes `cls` or a base defines, minus the exempt ones."""
+    return sorted(
+        {
+            name
+            for klass in cls.__mro__
+            if klass is not object
+            for name, value in vars(klass).items()
+            if name.startswith("probe_") and not exempt(name, value)
+        }
+    )
+
+
+def unknown_config_hooks(config_cls: type) -> List[str]:
+    """`probe_` attributes on a config class that no reader calls: a hook
+    removed or renamed since the connector was written, or misspelled. Read
+    by name, such a hook would silently do nothing."""
+    known: Set[str] = set(CONFIG_HOOKS)
+    for base, names in _CONFIG_HOOK_FAMILIES.items():
+        if isinstance(config_cls, type) and issubclass(config_cls, base):
+            known |= names
+    fields = getattr(config_cls, "model_fields", None) or {}
+    return _probe_named(
+        config_cls, lambda name, _value: name in known or name in fields
+    )
+
+
+def unknown_provider_attributes(provider_cls: type) -> List[str]:
+    """`probe_` attributes on a provider class that are neither a
+    PROVIDER_ATTRIBUTES name nor a probe command."""
+    return _probe_named(
+        provider_cls,
+        lambda name, value: name in PROVIDER_ATTRIBUTES
+        or isinstance(getattr(value, "__probe_command__", None), ProbeMethodSpec),
+    )
+
+
+def _unknown_names_error(owner: type, names: List[str], what: str) -> str:
+    return (
+        f"the connector is defective: {owner.__name__} defines "
+        f"{', '.join(names)}, which the probe never reads; a {what} by that "
+        f"name was removed or is misspelled (see "
+        f"metadata-ingestion/docs/dev_guides/probe_interface.md)"
+    )
+
+
+@functools.lru_cache(maxsize=None)
+def _refuse_unknown_config_hooks(config_cls: type) -> None:
+    unknown = unknown_config_hooks(config_cls)
+    if unknown:
+        raise ProbeInternalError(_unknown_names_error(config_cls, unknown, "hook"))
+
+
+@functools.lru_cache(maxsize=None)
+def _refuse_unknown_provider_attributes(provider_cls: type) -> None:
+    unknown = unknown_provider_attributes(provider_cls)
+    if unknown:
+        raise ProbeInternalError(
+            _unknown_names_error(provider_cls, unknown, "provider attribute")
+        )
+
+
 def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
     """The config's `name` hook, or None where it declares none.
 
@@ -345,6 +419,10 @@ def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
     """
     if name not in CONFIG_HOOKS:
         raise ProbeInternalError(f"'{name}' is not a config hook the framework reads")
+    if config is not None:
+        # At the first hook read, so a stale hook fails loudly rather than
+        # being silently skipped.
+        _refuse_unknown_config_hooks(config if isinstance(config, type) else type(config))
     hook = getattr(config, name, None)
     if not callable(hook):
         return None
@@ -486,7 +564,10 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
 
 def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
     getter = config_hook(config_class_for(source_type), "probe_provider_class")
-    return cast(Optional[Type[ProbeProvider]], getter() if getter else None)
+    provider_cls = getter() if getter else None
+    if isinstance(provider_cls, type):
+        _refuse_unknown_provider_attributes(provider_cls)
+    return cast(Optional[Type[ProbeProvider]], provider_cls)
 
 
 def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:

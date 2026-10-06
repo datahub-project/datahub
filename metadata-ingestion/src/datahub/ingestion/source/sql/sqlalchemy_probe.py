@@ -158,14 +158,11 @@ def _url_refusal(config: SQLCommonConfig, exc: ArgumentError) -> ProbeArgumentEr
     )
 
 
-def _container_normalizer(config: object) -> Callable[[str], str]:
+def _container_normalizer(config: SQLCommonConfig) -> Callable[[str], str]:
     """How this connector spells a listed container for ingestion
     (probe_normalize_container): callers pass `containers` output back as
-    --parent. Identity unless declared."""
-    hook = getattr(config, "probe_normalize_container", None)
-    if callable(hook):
-        return lambda name: str(hook(name))
-    return lambda name: name
+    --parent."""
+    return lambda name: str(config.probe_normalize_container(name))
 
 
 def probe_engine_options(
