@@ -1602,6 +1602,13 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "orders2017 sales2018 ledger2019 orders2020 sales2021 ledger2022 orders2023 sales2024");
     assertTrue(runs.stream().anyMatch(sqs -> sqs.value().contains("ledger 2022")));
     assertTrue(runs.stream().noneMatch(sqs -> sqs.value().contains("2023")));
+    // One run among plain words repeats them all in the unsplit copy
+    List<SimpleQueryStringBuilder> mixed =
+        v3SimpleQueries(
+            datasetSpec,
+            "alpha2017 bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike");
+    assertTrue(mixed.stream().anyMatch(sqs -> sqs.value().contains("india")));
+    assertTrue(mixed.stream().noneMatch(sqs -> sqs.value().contains("juliet")));
   }
 
   private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {

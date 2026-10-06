@@ -919,7 +919,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 .limit(8)
                 .map(word -> word + "-" + word + "-v2")
                 .collect(Collectors.joining(" ")),
-            words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)));
+            words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)),
+            words[0] + "2017 " + String.join(" ", Arrays.copyOfRange(words, 1, 20)));
     for (List<String> entityTypes :
         List.of(List.of(DATASET_ENTITY_NAME), List.of(DASHBOARD_ENTITY_NAME), ENTITY_TYPES)) {
       for (String query : queries) {

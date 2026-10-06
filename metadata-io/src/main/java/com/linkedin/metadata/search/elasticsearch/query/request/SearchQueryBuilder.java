@@ -651,7 +651,7 @@ public class SearchQueryBuilder {
   /**
    * Clauses the per-term queries add for {@code operatorEscaped} without fuzziness: the
    * synonym-priority query, the word gram queries and the bonus clauses per term, plus the unsplit
-   * copy of letter/digit runs.
+   * copy of every word when any word holds a letter/digit run.
    */
   private static int termClauses(@Nonnull String operatorEscaped, int fields, int wordGramFields) {
     int clauses = termCount(operatorEscaped) * (fields + wordGramFields + PER_TERM_EXTRA_CLAUSES);
@@ -671,13 +671,25 @@ public class SearchQueryBuilder {
     boolean quoted = FULLY_QUOTED_PATTERN.matcher(trimmed).matches();
     String[] words =
         WHITESPACE_PATTERN.split(quoted ? trimmed.substring(1, trimmed.length() - 1) : trimmed);
-    int clauses = 0;
+    int terms = 0;
+    int unsplitWords = 0;
+    boolean runs = false;
     int kept = 0;
     for (String word : words) {
-      clauses += termClauses(escapeSimpleQueryStringOperators(word), fields, wordGramFields);
+      String escaped = escapeSimpleQueryStringOperators(word);
+      int wordTerms = termCount(escaped);
+      int wordUnsplit = WHITESPACE_PATTERN.split(escaped.trim()).length;
+      boolean withRuns = runs || splitsLetterDigitRun(escaped);
+      // Once any word holds a letter/digit run, the unsplit copy repeats every word
+      int clauses =
+          (terms + wordTerms) * (fields + wordGramFields + PER_TERM_EXTRA_CLAUSES)
+              + (withRuns ? (unsplitWords + wordUnsplit) * fields : 0);
       if (kept > 0 && clauses > CLAUSE_BUDGET) {
         break;
       }
+      terms += wordTerms;
+      unsplitWords += wordUnsplit;
+      runs = withRuns;
       kept++;
     }
     if (kept == words.length) {
