@@ -315,6 +315,34 @@ describe('getDisplayedNodes', () => {
             expect(displayedNodes.map((n) => n.id)).toEqual(['root']);
         });
 
+        // A source's warehouse table reads into it, but nothing reads the source when models read the
+        // table directly: it would dangle off the table as a leaf, so it is dropped
+        it.each(['dbt', 'sqlmesh'])('drops a %s source left dangling downstream of its table', (platform) => {
+            const dataset = (name: string) => `urn:li:dataset:(urn:li:dataPlatform:${platform},${name},PROD)`;
+            const table = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)';
+            const view = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.order_view,PROD)';
+            const source = dataset('db.orders');
+            const model = dataset('db.order_view');
+            const downstream = LineageDirection.Downstream;
+            const context = buildContext(
+                [
+                    createNode(table),
+                    createNode(source, { direction: downstream, entity: { subtype: 'Source' } }),
+                    createNode(model, { direction: downstream, entity: { subtype: 'Model' } }),
+                    createNode(view, { direction: downstream }),
+                ],
+                [
+                    [table, source],
+                    [table, model],
+                    [model, view],
+                ],
+            );
+
+            const { displayedNodes } = getDisplayedNodes(table, ordered(context, [view]), context);
+
+            expect(displayedNodes.map((n) => n.id)).toEqual([table, model, view]);
+        });
+
         it('records the transformational leaves as parents of the shown children', () => {
             const context = build();
             const { parents } = getDisplayedNodes('root', ordered(context, ['c0', 'c1']), context);

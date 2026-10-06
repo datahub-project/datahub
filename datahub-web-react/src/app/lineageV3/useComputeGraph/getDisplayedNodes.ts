@@ -9,8 +9,8 @@ import {
     createLineageFilterNodeId,
     getEdgeId,
     getParents,
-    isDbt,
     isQuery,
+    isTransformationPlatform,
     isTransformational,
     setDefault,
 } from '@app/lineageV3/common';
@@ -213,7 +213,7 @@ function applyFilters(
 /**
  * Returns the set of children to filter for the given parent node.
  * This is calculated as: all adjacent non-transformational nodes and any transformational leaves.
- * Drops DBT sources that are transformational leaves, because they add no information.
+ * Drops dbt and SQLMesh sources that are transformational leaves, because they add no information.
  * Loop invariant: all nodes in `queue` are transformational.
  * @param parent The parent node, whose children are to be filtered.
  * @param direction Direction of children.
@@ -239,7 +239,11 @@ function getChildrenToFilter(
         if (
             (!children?.size || (node.inCycle && children.has(parent.urn))) &&
             !isQuery(node) &&
-            !(direction === LineageDirection.Downstream && isDbt(node) && node.entity?.subtype === SubType.DbtSource)
+            !(
+                direction === LineageDirection.Downstream &&
+                isTransformationPlatform(node) &&
+                node.entity?.subtype === SubType.DbtSource
+            )
         ) {
             childrenToFilter.add(node.urn);
         }

@@ -7,7 +7,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
-import { DBT_URN } from '@app/ingestV2/source/builder/constants';
+import { DBT_URN, SQLMESH_URN } from '@app/ingestV2/source/builder/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
@@ -178,11 +178,18 @@ export function isGhostEntity(
     );
 }
 
-export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+/**
+ * Platforms whose datasets are transformations that build warehouse tables (dbt and SQLMesh models
+ * and sources). Each is a sibling of its warehouse table, so lineage draws it as a transformation
+ * between tables and lineage search walks through it rather than counting it as a hop.
+ */
+const TRANSFORMATION_PLATFORM_URNS = [DBT_CLOUD_URN, SQLMESH_URN];
+
+export function isTransformationPlatform(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
     return (
         (node.type === EntityType.Dataset || node.type === EntityType.SchemaField) &&
         !!node.urn &&
-        getPlatformUrnFromEntityUrn(node.urn) === DBT_CLOUD_URN
+        TRANSFORMATION_PLATFORM_URNS.includes(getPlatformUrnFromEntityUrn(node.urn) ?? '')
     );
 }
 
@@ -197,11 +204,11 @@ export function generateIgnoreAsHops(homeType: EntityType) {
     const base = [
         {
             entityType: EntityType.Dataset,
-            platforms: [DBT_URN],
+            platforms: [DBT_URN, SQLMESH_URN],
         },
         {
             entityType: EntityType.SchemaField,
-            platforms: [DBT_URN],
+            platforms: [DBT_URN, SQLMESH_URN],
         },
         { entityType: EntityType.DataProcessInstance },
     ];
@@ -216,7 +223,7 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     if (TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES.has(rootType) && node.type === EntityType.DataJob) {
         return false;
     }
-    return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
+    return TRANSFORMATION_TYPES.includes(node.type) || isTransformationPlatform(node);
 }
 
 export function isUrnQuery(urn: string): boolean {
