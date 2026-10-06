@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -38,7 +37,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -64,7 +62,7 @@ public class ESSearchDAOHybridTest {
             .withSearchFlags(flags -> flags.setFulltext(true));
     reranker = mock(HybridSearchResultReranker.class);
     // Reverses the rows it is given, so the test can tell reranked rows from keyword ones
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any()))
         .thenAnswer(
             invocation -> {
               List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
@@ -109,8 +107,7 @@ public class ESSearchDAOHybridTest {
             eq(ENTITY_NAMES),
             eq("revenue"),
             rows.capture(),
-            eq(List.of("urn")),
-            any());
+            eq(List.of("urn")));
     assertEquals(rows.getValue().size(), 100);
   }
 
@@ -194,11 +191,29 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testWindowWithoutVectorRowsSkipsTheRerank() throws IOException {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // Charts would have vectors, but the window holds only documents
+    when(reranker.vectorEntityNames(any(OperationContext.class), any()))
+        .thenReturn(Set.of("chart"));
+
+    SearchResult result =
+        dao.search(
+            opContext, List.of("chart", "document"), "revenue", null, null, 0, 10, List.of());
+
+    assertEquals(rowIds(result), range(0, 10));
+    verify(reranker, org.mockito.Mockito.never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any());
+  }
+
+  @Test
   public void testSlowRerankServesTheKeywordRanking() throws IOException {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any()))
         .thenAnswer(
             invocation -> {
               // Changes made by a rerank that runs past the timeout stay off the served rows
@@ -220,7 +235,7 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any()))
         .thenThrow(new IOException("kNN unavailable"));
 
     SearchResult result =
@@ -228,36 +243,6 @@ public class ESSearchDAOHybridTest {
 
     assertEquals(rowIds(result), range(10, 20));
     assertEquals(result.getNumEntities().intValue(), TOTAL_HITS);
-  }
-
-  @Test
-  public void testKnnFilterIsTheKeywordQueryFilter() throws Exception {
-    SearchRequest request =
-        new SearchRequest()
-            .source(
-                new SearchSourceBuilder()
-                    .query(
-                        QueryBuilders.functionScoreQuery(
-                            QueryBuilders.boolQuery()
-                                .must(QueryBuilders.matchQuery("name", "revenue"))
-                                .filter(QueryBuilders.termQuery("platform", "notion")))));
-
-    Map<String, Object> filter = ESSearchDAO.extractRootFilterForKnn(request);
-
-    Map<?, ?> platform = (Map<?, ?>) ((Map<?, ?>) filter.get("term")).get("platform");
-    assertEquals(platform.get("value"), "notion");
-    assertEquals(
-        ESSearchDAO.extractRootFilterForKnn(
-            new SearchRequest().source(new SearchSourceBuilder().query(QueryBuilders.boolQuery()))),
-        Map.of());
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            ESSearchDAO.extractRootFilterForKnn(
-                new SearchRequest()
-                    .source(
-                        new SearchSourceBuilder()
-                            .query(QueryBuilders.matchQuery("name", "revenue")))));
   }
 
   private SearchSourceBuilder searchedSource() throws IOException {

@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Composes query embeddings, V3 kNN, and lexical-backed hybrid result reordering.
@@ -63,12 +62,10 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
-      @Nonnull final Collection<String> fieldsToFetch,
-      @Nullable final Map<String, Object> rootFilter)
+      @Nonnull final Collection<String> fieldsToFetch)
       throws IOException {
     return reorder(
-        lexicalRows,
-        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, rootFilter));
+        lexicalRows, candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch));
   }
 
   /**
@@ -82,8 +79,7 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
-      @Nonnull final Collection<String> fieldsToFetch,
-      @Nullable final Map<String, Object> rootFilter)
+      @Nonnull final Collection<String> fieldsToFetch)
       throws IOException {
     if (query.isBlank() || "*".equals(query) || lexicalRows.isEmpty()) {
       return List.of();
@@ -105,8 +101,7 @@ public class HybridSearchResultReranker {
             queryEmbedding.modelEmbeddingKey(),
             queryEmbedding.vector(),
             lexicalScores.keySet(),
-            fieldsToFetch,
-            rootFilter);
+            fieldsToFetch);
     if (knnRequest.isEmpty()) {
       return List.of();
     }
@@ -115,6 +110,12 @@ public class HybridSearchResultReranker {
         SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3)
             .searchKnn(opContext, knnRequest.get());
     final Map<Urn, Double> vectorScores = scoreMapBuilder.vectorScores(knnResponse);
+    if (vectorScores.isEmpty()) {
+      // e.g. the V3 document index has no embeddings yet: one embedding call bought nothing
+      opContext
+          .getMetricUtils()
+          .ifPresent(m -> m.increment(HybridSearchResultReranker.class, "hybridReadNoVectors", 1));
+    }
     // A row without vectors, e.g. not embedded yet, has nothing to compare and keeps its position
     lexicalScores.keySet().retainAll(vectorScores.keySet());
     return candidateMerger.merge(lexicalScores, vectorScores);

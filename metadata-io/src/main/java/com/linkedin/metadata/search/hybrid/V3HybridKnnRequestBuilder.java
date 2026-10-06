@@ -10,7 +10,6 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,8 +55,7 @@ public class V3HybridKnnRequestBuilder {
       @Nonnull final String modelEmbeddingKey,
       @Nonnull final float[] queryVector,
       @Nonnull final Collection<Urn> urns,
-      @Nonnull final Collection<String> fieldsToFetch,
-      @Nullable final Map<String, Object> rootFilter) {
+      @Nonnull final Collection<String> fieldsToFetch) {
     final Map<String, String> indices =
         SemanticEntitySearchService.v3SemanticIndices(
             opContext, entityNames, semanticSearchConfiguration);
@@ -78,10 +76,13 @@ public class V3HybridKnnRequestBuilder {
             .k(MAX_K)
             .fieldsToFetch(new ArrayList<>(fieldsToFetch))
             .filter(
-                combineFilters(
-                    rootFilter,
-                    entityTypeFilter(indices.keySet()),
-                    Map.of("terms", Map.of("urn", urnValues))))
+                Map.of(
+                    "bool",
+                    Map.of(
+                        "filter",
+                        List.of(
+                            entityTypeFilter(indices.keySet()),
+                            Map.of("terms", Map.of("urn", urnValues))))))
             .build());
   }
 
@@ -101,21 +102,5 @@ public class V3HybridKnnRequestBuilder {
   private static Map<String, Object> entityTypeFilter(
       @Nonnull final Collection<String> entityNames) {
     return Map.of("terms", Map.of(INDEX_VIRTUAL_FIELD, new ArrayList<>(entityNames)));
-  }
-
-  @Nonnull
-  private static Map<String, Object> combineFilters(
-      @Nullable final Map<String, Object> rootFilter,
-      @Nonnull final Map<String, Object> entityTypeFilter,
-      @Nonnull final Map<String, Object> urnFilter) {
-    final List<Map<String, Object>> filters = new ArrayList<>();
-    if (rootFilter != null && !rootFilter.isEmpty()) {
-      filters.add(rootFilter);
-    }
-    filters.add(entityTypeFilter);
-    filters.add(urnFilter);
-    final Map<String, Object> bool = new LinkedHashMap<>();
-    bool.put("filter", filters);
-    return Map.of("bool", bool);
   }
 }

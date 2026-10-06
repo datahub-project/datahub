@@ -294,8 +294,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   }
 
   @Test
-  public void testKnnLegRunsWithTheKeywordFilters() {
-    // The type facet as the UI sends it, which the kNN request carries inside its filter
+  public void testFilteredSearchIsReranked() {
+    // The type facet as the UI sends it
     Filter documentsOnly = filter("_entityType", "DOCUMENT");
 
     SearchResult hybrid =

@@ -37,7 +37,7 @@ public class V3HybridKnnRequestBuilderTest {
   public void testMixedQuerySearchesOnlyTheDocumentIndex() {
     List<String> entityNames = List.of("dataset", "document", "chart");
 
-    KnnSearchRequest request = build(builder, entityNames, List.of(DOC_A, DOC_B), null);
+    KnnSearchRequest request = build(builder, entityNames, List.of(DOC_A, DOC_B));
 
     assertEquals(
         request.indexName(),
@@ -64,8 +64,7 @@ public class V3HybridKnnRequestBuilderTest {
                 MODEL_KEY,
                 new float[] {0.1f},
                 List.of(DOC_A),
-                List.of("urn"),
-                null)
+                List.of("urn"))
             .isPresent());
     // With semantic search off no V3 index has vectors
     assertFalse(
@@ -76,19 +75,8 @@ public class V3HybridKnnRequestBuilderTest {
                 MODEL_KEY,
                 new float[] {0.1f},
                 List.of(DOC_A),
-                List.of("urn"),
-                null)
+                List.of("urn"))
             .isPresent());
-  }
-
-  @Test
-  public void testRootFilterIsCombinedWithTheEntityTypeScope() {
-    Map<String, Object> rootFilter = Map.of("term", Map.of("platform", "notion"));
-
-    KnnSearchRequest request = build(builder, List.of("document"), List.of(DOC_A), rootFilter);
-
-    assertEquals(
-        request.filter().get(), filters(rootFilter, documentTypeFilter(), urnFilter(DOC_A)));
   }
 
   @Test
@@ -101,8 +89,7 @@ public class V3HybridKnnRequestBuilderTest {
                 MODEL_KEY,
                 new float[] {0.1f},
                 List.of(),
-                List.of("urn"),
-                null)
+                List.of("urn"))
             .isPresent());
   }
 
@@ -112,19 +99,9 @@ public class V3HybridKnnRequestBuilderTest {
   }
 
   private KnnSearchRequest build(
-      V3HybridKnnRequestBuilder builder,
-      List<String> entityNames,
-      List<Urn> urns,
-      Map<String, Object> rootFilter) {
+      V3HybridKnnRequestBuilder builder, List<String> entityNames, List<Urn> urns) {
     return builder
-        .build(
-            opContext,
-            entityNames,
-            MODEL_KEY,
-            new float[] {0.1f, 0.2f},
-            urns,
-            List.of("urn"),
-            rootFilter)
+        .build(opContext, entityNames, MODEL_KEY, new float[] {0.1f, 0.2f}, urns, List.of("urn"))
         .orElseThrow();
   }
 

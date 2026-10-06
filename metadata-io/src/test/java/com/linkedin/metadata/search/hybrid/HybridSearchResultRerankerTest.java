@@ -77,8 +77,7 @@ public class HybridSearchResultRerankerTest {
             "revenue",
             List.of(
                 row(DOC_A, 80), row(DATASET, 70), row(DOC_B, 60), row(CHART, 50), row(DOC_C, 40)),
-            List.of("urn"),
-            null);
+            List.of("urn"));
 
     // The vector scores reorder the documents; the dataset and the chart keep their positions
     assertEquals(urns(reranked), List.of(DOC_B, DATASET, DOC_C, CHART, DOC_A));
@@ -114,8 +113,7 @@ public class HybridSearchResultRerankerTest {
             ENTITY_NAMES,
             "revenue",
             List.of(row(DOC_A, 50), row(DOC_B, 50)),
-            List.of("urn"),
-            null);
+            List.of("urn"));
 
     // DOC_A has no vector, e.g. not embedded yet, so it stays first
     assertEquals(urns(reranked), List.of(DOC_A, DOC_B));
@@ -125,8 +123,7 @@ public class HybridSearchResultRerankerTest {
   public void testRowsWithoutVectorTypesSkipEmbeddingAndKnn() throws Exception {
     List<SearchEntity> rows = List.of(row(DATASET, 70), row(CHART, 50));
 
-    assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), null), rows);
+    assertEquals(reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn")), rows);
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
@@ -134,7 +131,7 @@ public class HybridSearchResultRerankerTest {
   public void testWildcardQuerySkipsEmbeddingAndKnn() throws Exception {
     List<SearchEntity> rows = List.of(row(DOC_A, 1));
 
-    assertEquals(reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn"), null), rows);
+    assertEquals(reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn")), rows);
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 

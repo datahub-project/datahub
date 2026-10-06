@@ -6,7 +6,6 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -61,10 +60,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -85,9 +86,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -113,11 +112,16 @@ public class ESSearchDAO {
   private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
 
   // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout
+  // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
+  // queue is bounded: when every worker is busy, searches get the keyword ranking right away
   private static final ExecutorService HYBRID_EXECUTOR =
-      Executors.newFixedThreadPool(
-          8, new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
-
-  private static final ObjectMapper KNN_FILTER_MAPPER = new ObjectMapper();
+      new ThreadPoolExecutor(
+          8,
+          8,
+          0L,
+          TimeUnit.MILLISECONDS,
+          new ArrayBlockingQueue<>(16),
+          new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
 
   private final boolean pointInTimeCreationEnabled;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
@@ -463,8 +467,7 @@ public class ESSearchDAO {
             requestFrom,
             requestSize);
     return hybridFetchSize > 0
-        ? rerankHybrid(
-            opContext, entityNames, input, searchRequestComponents.getLeft(), result, from, size)
+        ? rerankHybrid(opContext, entityNames, input, result, from, size)
         : result;
   }
 
@@ -515,7 +518,6 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
-      @Nonnull SearchRequest keywordRequest,
       @Nonnull SearchResult keywordResult,
       int from,
       @Nullable Integer size) {
@@ -523,36 +525,51 @@ public class ESSearchDAO {
     final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
     List<SearchEntity> ranked = rows;
     Future<List<SearchEntity>> rerank = null;
-    try {
-      // The worker gets its own copies: a rerank that finishes after the timeout must not change
-      // the rows served as the keyword fallback
-      final List<SearchEntity> window = new ArrayList<>(windowEnd);
-      for (SearchEntity row : rows.subList(0, windowEnd)) {
-        window.add(row.copy());
+    final Set<String> vectorEntityNames =
+        hybridSearchResultReranker.vectorEntityNames(opContext, entityNames);
+    final boolean windowHasVectorRows =
+        rows.subList(0, windowEnd).stream()
+            .anyMatch(
+                row ->
+                    row.getEntity() != null
+                        && vectorEntityNames.contains(row.getEntity().getEntityType()));
+    // A window without rows that have vectors makes no embedding or kNN call
+    if (windowHasVectorRows) {
+      try {
+        // The worker gets its own copies: a rerank that finishes after the timeout must not change
+        // the rows served as the keyword fallback
+        final List<SearchEntity> window = new ArrayList<>(windowEnd);
+        for (SearchEntity row : rows.subList(0, windowEnd)) {
+          window.add(row.copy());
+        }
+        rerank =
+            HYBRID_EXECUTOR.submit(
+                () ->
+                    hybridSearchResultReranker.rerank(
+                        opContext, entityNames, input, window, List.of(URN_FIELD)));
+        ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
+        ranked.addAll(rows.subList(windowEnd, rows.size()));
+        countHybrid(opContext, "hybridReadApplied");
+      } catch (RejectedExecutionException e) {
+        countHybrid(opContext, "hybridReadRejected");
+      } catch (TimeoutException e) {
+        rerank.cancel(true);
+        countHybrid(opContext, "hybridReadTimeout");
+        log.warn(
+            "Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
+      } catch (InterruptedException e) {
+        rerank.cancel(true);
+        Thread.currentThread().interrupt();
+        countHybrid(opContext, "hybridReadFailed");
+      } catch (Exception e) {
+        final Throwable cause =
+            e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
+        countHybrid(opContext, "hybridReadFailed");
+        // One line per failed search; the stack trace only at debug, so an outage does not flood
+        // logs
+        log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
+        log.debug("Hybrid read failure", cause);
       }
-      final Map<String, Object> knnFilter = extractRootFilterForKnn(keywordRequest);
-      rerank =
-          HYBRID_EXECUTOR.submit(
-              () ->
-                  hybridSearchResultReranker.rerank(
-                      opContext, entityNames, input, window, List.of(URN_FIELD), knnFilter));
-      ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
-      ranked.addAll(rows.subList(windowEnd, rows.size()));
-    } catch (TimeoutException e) {
-      rerank.cancel(true);
-      countHybridFailure(opContext, "hybridReadTimeout");
-      log.warn("Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
-    } catch (InterruptedException e) {
-      rerank.cancel(true);
-      Thread.currentThread().interrupt();
-      countHybridFailure(opContext, "hybridReadFailed");
-    } catch (Exception e) {
-      final Throwable cause =
-          e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
-      countHybridFailure(opContext, "hybridReadFailed");
-      // One line per failed search; the stack trace only at debug, so an outage does not flood logs
-      log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
-      log.debug("Hybrid read failure", cause);
     }
     final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
     final int pageStart = Math.min(from, ranked.size());
@@ -563,8 +580,7 @@ public class ESSearchDAO {
         .setPageSize(pageSize);
   }
 
-  private static void countHybridFailure(
-      @Nonnull OperationContext opContext, @Nonnull String metric) {
+  private static void countHybrid(@Nonnull OperationContext opContext, @Nonnull String metric) {
     opContext
         .getMetricUtils()
         .ifPresent(metricUtils -> metricUtils.increment(ESSearchDAO.class, metric, 1));
@@ -579,36 +595,6 @@ public class ESSearchDAO {
                     "_score".equals(criterion.getField())
                         && criterion.getOrder()
                             != com.linkedin.metadata.query.filter.SortOrder.ASCENDING);
-  }
-
-  /**
-   * The keyword query's filters, serialized for the kNN request, so the kNN leg searches the same
-   * entities: facets, Views, soft-delete and entity-type filters.
-   */
-  @VisibleForTesting
-  @Nonnull
-  static Map<String, Object> extractRootFilterForKnn(@Nonnull SearchRequest keywordRequest)
-      throws JsonProcessingException {
-    QueryBuilder query = keywordRequest.source().query();
-    if (query instanceof FunctionScoreQueryBuilder) {
-      query = ((FunctionScoreQueryBuilder) query).query();
-    }
-    // Running the kNN leg without the filters would score entities the user filtered out
-    if (!(query instanceof BoolQueryBuilder)) {
-      throw new IllegalStateException(
-          "Expected a bool query to extract kNN filters from, got "
-              + (query == null ? "none" : query.getClass().getSimpleName()));
-    }
-    final List<Map<String, Object>> filters = new ArrayList<>();
-    for (QueryBuilder filter : ((BoolQueryBuilder) query).filter()) {
-      filters.add(
-          KNN_FILTER_MAPPER.readValue(
-              filter.toString(), new TypeReference<Map<String, Object>>() {}));
-    }
-    if (filters.isEmpty()) {
-      return Map.of();
-    }
-    return filters.size() == 1 ? filters.get(0) : Map.of("bool", Map.of("filter", filters));
   }
 
   @VisibleForTesting
