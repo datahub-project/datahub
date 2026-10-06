@@ -49,6 +49,7 @@ public class FeatureFlags {
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
   private boolean hideDbtSourceInLineage = false;
+  private boolean hideSqlmeshSourceInLineage = false;
   private boolean schemaFieldCLLEnabled = false;
   private boolean schemaFieldLineageIgnoreStatus = false;
   private boolean showNavBarRedesign = false;
