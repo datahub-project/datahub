@@ -2525,3 +2525,76 @@ class TestBaseDepImportability:
             [sys.executable, "-c", code], capture_output=True, text=True
         )
         assert result.returncode == 0, result.stderr
+
+
+def _warehouse_lineage_patches(workunits: list) -> list:
+    return [
+        wu
+        for wu in workunits
+        if wu.is_primary_source is False
+        and WAREHOUSE_PLATFORM in str(getattr(wu.metadata, "entityUrn", ""))
+        and getattr(wu.metadata, "aspectName", None) == "upstreamLineage"
+    ]
+
+
+class TestWarehouseLineageEdges:
+    """Siblings are separate nodes in DataHub's lineage graph, so each SQLMesh
+    entity is also joined to its warehouse table by a lineage edge, as dbt does."""
+
+    def test_managed_model_patches_edge_onto_warehouse_table(self):
+        source = _make_source()
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        patches = _warehouse_lineage_patches(workunits)
+        assert len(patches) == 1
+        warehouse_urn = str(patches[0].metadata.entityUrn)
+        assert "dim_developer" in warehouse_urn
+        ops = _json.loads(patches[0].metadata.aspect.value)
+        upstream_ops = [op for op in ops if op["path"].startswith("/upstreams/")]
+        assert len(upstream_ops) == 1
+        assert SQLMESH_PLATFORM in upstream_ops[0]["value"]["dataset"]
+        assert upstream_ops[0]["value"]["type"] == "COPY"
+        # One column-to-column mapping per model column.
+        column_ops = [
+            op for op in ops if op["path"].startswith("/fineGrainedLineages/")
+        ]
+        assert len(column_ops) == len(model.columns_to_types)
+
+    def test_external_model_takes_warehouse_table_as_upstream(self):
+        source = _make_source()
+        external_model = _make_mock_model("raw.source_table", kind_name="EXTERNAL")
+
+        workunits = _run_project(source, {"raw.source_table": external_model}, {})
+
+        # No edge onto the warehouse table: the external model reads from it.
+        assert _warehouse_lineage_patches(workunits) == []
+        lineage = [
+            (str(wu.metadata.entityUrn), wu.metadata.aspect)
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+        ]
+        assert len(lineage) == 1
+        entity_urn, aspect = lineage[0]
+        assert SQLMESH_PLATFORM in entity_urn
+        assert [u.dataset for u in aspect.upstreams] == [
+            entity_urn.replace(SQLMESH_PLATFORM, WAREHOUSE_PLATFORM)
+        ]
+        assert aspect.upstreams[0].type == "COPY"
+
+    def test_skipped_when_lineage_disabled(self):
+        source = _make_source({"include_lineage": False})
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        assert _warehouse_lineage_patches(workunits) == []
+
+    def test_embedded_model_gets_no_edge(self):
+        source = _make_source()
+        model = _make_mock_model(is_embedded=True)
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        assert _warehouse_lineage_patches(workunits) == []
