@@ -40,10 +40,11 @@ public class PreRenderedQueryBuilderTest {
   }
 
   @Test
-  public void testReportsWrappedQueryNameAndBoost() throws Exception {
-    PreRenderedQueryBuilder wrapped =
-        PreRenderedQueryBuilder.of(QueryBuilders.termQuery("f", "v").boost(2.0f).queryName("n"));
+  public void testKeepsWrappedQueryNameAndBoost() throws Exception {
+    QueryBuilder query = QueryBuilders.termQuery("f", "v").boost(2.0f).queryName("n");
+    PreRenderedQueryBuilder wrapped = PreRenderedQueryBuilder.of(query);
     assertEquals(wrapped.boost(), 2.0f);
     assertEquals(wrapped.queryName(), "n");
+    assertEquals(render(wrapped), render(query));
   }
 }
