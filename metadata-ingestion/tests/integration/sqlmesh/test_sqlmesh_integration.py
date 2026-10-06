@@ -457,15 +457,46 @@ def test_sqlmesh_event_count_and_coverage() -> None:
     )
 
     # ... plus one warehouse-side sibling patch per model, marked non-authoritative.
-    warehouse_sibling_patches = [
+    warehouse_patches = [
         wu
         for wu in workunits
         if wu.is_primary_source is False
         and "snowflake" in str(getattr(wu.metadata, "entityUrn", ""))
     ]
+    warehouse_sibling_patches = [
+        wu
+        for wu in warehouse_patches
+        if getattr(wu.metadata, "aspectName", None) == "siblings"
+    ]
     assert len(warehouse_sibling_patches) == 3, (
         f"Expected 3 warehouse sibling patches, got {len(warehouse_sibling_patches)}"
     )
+
+    # ... and one model -> warehouse table lineage patch per model, so lineage
+    # opened from the warehouse table reaches the SQLMesh side (dbt does the same).
+    warehouse_lineage_patches = [
+        wu
+        for wu in warehouse_patches
+        if getattr(wu.metadata, "aspectName", None) == "upstreamLineage"
+    ]
+    assert len(warehouse_lineage_patches) == 3, (
+        f"Expected 3 warehouse lineage patches, got {len(warehouse_lineage_patches)}"
+    )
+    for wu in warehouse_lineage_patches:
+        warehouse_urn = str(wu.metadata.entityUrn)
+        sqlmesh_urn = warehouse_urn.replace(
+            "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:sqlmesh"
+        )
+        patch_ops = json.loads(wu.metadata.aspect.value)
+        assert {
+            "op": "add",
+            "path": f"/upstreams/{sqlmesh_urn}",
+            "value": {
+                "auditStamp": {"time": 0, "actor": "urn:li:corpuser:unknown"},
+                "dataset": sqlmesh_urn,
+                "type": "COPY",
+            },
+        } in patch_ops, f"{warehouse_urn} should list {sqlmesh_urn} as its upstream"
 
     # Lineage: orders → raw_orders, order_items → orders
     lineage_wus = [

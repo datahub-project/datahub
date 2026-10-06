@@ -772,6 +772,12 @@ type FeatureFlagsConfig {
   hideDbtSourceInLineage: Boolean!
 
   """
+  If turned on, hides SQLMesh sources (external models) from lineage the same way
+  hideDbtSourceInLineage does for dbt sources
+  """
+  hideSqlmeshSourceInLineage: Boolean!
+
+  """
   If turned on, schema field lineage will always fetch ghost entities and present them as real
   """
   schemaFieldLineageIgnoreStatus: Boolean!

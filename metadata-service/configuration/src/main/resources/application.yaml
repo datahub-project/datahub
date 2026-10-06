@@ -1888,6 +1888,7 @@ featureFlags:
   hideLineageInSearchCards: ${HIDE_LINEAGE_IN_SEARCH_CARDS:false} # If turned on, hides lineage information in search result cards
   dataProductLineageEnabled: ${DATA_PRODUCT_LINEAGE_ENABLED:true} # If turned on, enables the Lineage tab on the Data Product entity page
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
+  hideSqlmeshSourceInLineage: ${HIDE_SQLMESH_SOURCE_IN_LINEAGE:false} # If turned on, SQLMesh external models (sources) will not be shown in lineage
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects

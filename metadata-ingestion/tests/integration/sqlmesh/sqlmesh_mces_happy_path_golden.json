@@ -14,7 +14,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000625,
+        "lastObserved": 1719792000179,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -37,7 +37,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000626,
+        "lastObserved": 1719792000181,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -53,7 +53,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000626,
+        "lastObserved": 1719792000182,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -69,7 +69,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000626,
+        "lastObserved": 1719792000182,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -87,7 +87,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000626,
+        "lastObserved": 1719792000182,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -103,7 +103,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000626,
+        "lastObserved": 1719792000182,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -119,7 +119,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000627,
+        "lastObserved": 1719792000182,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -135,7 +135,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000627,
+        "lastObserved": 1719792000183,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -227,7 +227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000627,
+        "lastObserved": 1719792000183,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -251,7 +251,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000627,
+        "lastObserved": 1719792000183,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -269,7 +269,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000628,
+        "lastObserved": 1719792000183,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -285,7 +285,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000628,
+        "lastObserved": 1719792000183,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -304,7 +304,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000628,
+        "lastObserved": 1719792000184,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -325,7 +325,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000628,
+        "lastObserved": 1719792000184,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -345,7 +345,69 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000628,
+        "lastObserved": 1719792000184,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),status)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),status)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD),created_at)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD),created_at)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000184,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -357,7 +419,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1719792000628,
+            "timestampMillis": 1719792000184,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -369,7 +431,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000629,
+        "lastObserved": 1719792000187,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -381,7 +443,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1719792000629,
+            "timestampMillis": 1719792000185,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -390,7 +452,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000630,
+        "lastObserved": 1719792000187,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -406,7 +468,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000631,
+        "lastObserved": 1719792000188,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -422,7 +484,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000631,
+        "lastObserved": 1719792000188,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -514,7 +576,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000631,
+        "lastObserved": 1719792000188,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -541,7 +603,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000632,
+        "lastObserved": 1719792000189,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -566,7 +628,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000632,
+        "lastObserved": 1719792000189,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -584,7 +646,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000632,
+        "lastObserved": 1719792000189,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -600,7 +662,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000632,
+        "lastObserved": 1719792000189,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -619,7 +681,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000632,
+        "lastObserved": 1719792000189,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -640,7 +702,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000632,
+        "lastObserved": 1719792000189,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -660,7 +722,69 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000633,
+        "lastObserved": 1719792000190,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),order_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),status)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),status)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD),order_date)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_date)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000190,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -676,7 +800,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000633,
+        "lastObserved": 1719792000190,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -710,7 +834,7 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1719792000632,
+                    "time": 1719792000190,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -718,7 +842,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000633,
+        "lastObserved": 1719792000190,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -734,7 +858,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000633,
+        "lastObserved": 1719792000191,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -768,7 +892,7 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1719792000633,
+                    "time": 1719792000190,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -776,7 +900,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000633,
+        "lastObserved": 1719792000191,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -792,7 +916,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000634,
+        "lastObserved": 1719792000191,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -823,7 +947,7 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1719792000633,
+                    "time": 1719792000190,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -831,7 +955,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000634,
+        "lastObserved": 1719792000191,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -843,7 +967,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1719792000634,
+            "timestampMillis": 1719792000191,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -855,7 +979,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000635,
+        "lastObserved": 1719792000194,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -867,7 +991,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1719792000634,
+            "timestampMillis": 1719792000192,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -876,7 +1000,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000635,
+        "lastObserved": 1719792000194,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -892,7 +1016,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000636,
+        "lastObserved": 1719792000195,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -908,7 +1032,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000636,
+        "lastObserved": 1719792000195,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1000,7 +1124,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000636,
+        "lastObserved": 1719792000196,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1027,7 +1151,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000196,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1050,7 +1174,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000196,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1068,7 +1192,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000196,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1084,7 +1208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000196,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1103,7 +1227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000197,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1124,7 +1248,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000197,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1144,7 +1268,69 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000637,
+        "lastObserved": 1719792000197,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),order_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),order_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),item_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),item_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),quantity)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),quantity)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),unit_price)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),unit_price)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD),ds)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD),ds)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000197,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1156,7 +1342,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1719792000637,
+            "timestampMillis": 1719792000197,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1168,7 +1354,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000638,
+        "lastObserved": 1719792000198,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1180,7 +1366,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1719792000638,
+            "timestampMillis": 1719792000197,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1189,7 +1375,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000638,
+        "lastObserved": 1719792000198,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1219,7 +1405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000639,
+        "lastObserved": 1719792000199,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1249,7 +1435,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000639,
+        "lastObserved": 1719792000199,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1287,7 +1473,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000639,
+        "lastObserved": 1719792000200,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1317,7 +1503,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719792000639,
+        "lastObserved": 1719792000200,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1339,7 +1525,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000640,
+        "lastObserved": 1719792000200,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1361,7 +1547,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000640,
+        "lastObserved": 1719792000200,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1383,7 +1569,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719792000640,
+        "lastObserved": 1719792000201,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }

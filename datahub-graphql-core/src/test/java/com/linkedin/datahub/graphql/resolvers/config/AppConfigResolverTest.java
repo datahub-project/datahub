@@ -128,6 +128,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isShowManageStructuredProperties()).thenReturn(false);
     when(mockFeatureFlags.isSchemaFieldCLLEnabled()).thenReturn(false);
     when(mockFeatureFlags.isHideDbtSourceInLineage()).thenReturn(false);
+    when(mockFeatureFlags.isHideSqlmeshSourceInLineage()).thenReturn(false);
     when(mockFeatureFlags.isSchemaFieldLineageIgnoreStatus()).thenReturn(false);
     when(mockFeatureFlags.isShowNavBarRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowAutoCompleteResults()).thenReturn(false);

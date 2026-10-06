@@ -956,6 +956,7 @@ Reference Links:
 | `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                                                               | GMS        |
 | `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                                                                        | GMS        |
 | `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                                                                     | GMS        |
+| `HIDE_SQLMESH_SOURCE_IN_LINEAGE`        | `false` | Hide SQLMesh sources in lineage                                                                                 | GMS        |
 | `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                                     | GMS        |
 | `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                                        | GMS        |
 | `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                                   | GMS        |

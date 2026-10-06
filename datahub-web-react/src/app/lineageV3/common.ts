@@ -4,10 +4,8 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { hashString } from '@components/components/Avatar/utils';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
-import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
-import { DBT_URN } from '@app/ingestV2/source/builder/constants';
+import { TRANSFORMATION_PLATFORM_URNS, isTransformationPlatform } from '@app/lineageV3/transformationPlatforms';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
@@ -178,14 +176,6 @@ export function isGhostEntity(
     );
 }
 
-export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
-    return (
-        (node.type === EntityType.Dataset || node.type === EntityType.SchemaField) &&
-        !!node.urn &&
-        getPlatformUrnFromEntityUrn(node.urn) === DBT_CLOUD_URN
-    );
-}
-
 export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
     return node.type === EntityType.Query;
 }
@@ -197,11 +187,11 @@ export function generateIgnoreAsHops(homeType: EntityType) {
     const base = [
         {
             entityType: EntityType.Dataset,
-            platforms: [DBT_URN],
+            platforms: TRANSFORMATION_PLATFORM_URNS,
         },
         {
             entityType: EntityType.SchemaField,
-            platforms: [DBT_URN],
+            platforms: TRANSFORMATION_PLATFORM_URNS,
         },
         { entityType: EntityType.DataProcessInstance },
     ];
@@ -216,7 +206,7 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     if (TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES.has(rootType) && node.type === EntityType.DataJob) {
         return false;
     }
-    return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
+    return TRANSFORMATION_TYPES.includes(node.type) || isTransformationPlatform(node);
 }
 
 export function isUrnQuery(urn: string): boolean {
