@@ -974,7 +974,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             Arrays.stream(words)
                 .limit(8)
                 .map(word -> "prod." + word + "." + word)
-                .collect(Collectors.joining(" ")));
+                .collect(Collectors.joining(" ")),
+            // One word holding every term
+            String.join(".", words),
+            Arrays.stream(words)
+                .limit(15)
+                .map(word -> word + "2017")
+                .collect(Collectors.joining()));
     try {
       // A failed shard only drops that index's results, so each scope checks its own entity
       for (Map.Entry<List<String>, Urn> scope :
