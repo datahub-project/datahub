@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -25,20 +25,28 @@ import javax.annotation.Nullable;
  *       always tracked: a burst of keys that are never removed degrades the oldest ones, it does
  *       not stop tracking.
  *   <li>Values dropped by either path (purged or evicted, not removed) are counted and handed to
- *       the optional {@code onDrop} callback outside the lock.
+ *       the optional {@code onDrop} callback outside the lock, with the {@link Drop} cause.
  * </ul>
  *
  * <p>Thread-safe; every method takes the table's monitor briefly.
  */
 final class WeakIdentityTable<V> {
 
+  /** Why a value left the table without being removed. */
+  enum Drop {
+    /** Pushed out at capacity by a newer key; the key may still be alive. */
+    EVICTED,
+    /** Its key was garbage collected: nothing can ever look it up or remove it again. */
+    COLLECTED
+  }
+
   private final int capacity;
-  @Nullable private final Consumer<? super V> onDrop;
+  @Nullable private final BiConsumer<? super V, Drop> onDrop;
   private final ReferenceQueue<Object> collected = new ReferenceQueue<>();
   private final LinkedHashMap<Key, V> entries = new LinkedHashMap<>();
   private long dropped;
 
-  WeakIdentityTable(int capacity, @Nullable Consumer<? super V> onDrop) {
+  WeakIdentityTable(int capacity, @Nullable BiConsumer<? super V, Drop> onDrop) {
     if (capacity < 1) {
       throw new IllegalArgumentException("capacity must be positive: " + capacity);
     }
@@ -49,6 +57,7 @@ final class WeakIdentityTable<V> {
   /** Maps {@code key} to {@code value} as the newest entry, evicting the oldest at capacity. */
   void put(@Nonnull Object key, @Nonnull V value) {
     List<V> drops;
+    List<V> evicted = null;
     synchronized (this) {
       drops = purge();
       Key k = new Key(key, collected);
@@ -56,17 +65,16 @@ final class WeakIdentityTable<V> {
       entries.put(k, value);
       if (entries.size() > capacity) {
         Iterator<V> oldest = entries.values().iterator();
-        if (drops == null) {
-          drops = new ArrayList<>(1);
-        }
+        evicted = new ArrayList<>(1);
         while (entries.size() > capacity) {
-          drops.add(oldest.next());
+          evicted.add(oldest.next());
           oldest.remove();
           dropped++;
         }
       }
     }
     notifyDropped(drops);
+    notify(evicted, Drop.EVICTED);
   }
 
   /** The value for {@code key}, or null. */
@@ -147,10 +155,15 @@ final class WeakIdentityTable<V> {
     return drops;
   }
 
+  /** Hands values purged because their key was collected to {@code onDrop}. */
   private void notifyDropped(@Nullable List<V> drops) {
-    if (drops != null && onDrop != null) {
-      for (V value : drops) {
-        onDrop.accept(value);
+    notify(drops, Drop.COLLECTED);
+  }
+
+  private void notify(@Nullable List<V> values, @Nonnull Drop cause) {
+    if (values != null && onDrop != null) {
+      for (V value : values) {
+        onDrop.accept(value, cause);
       }
     }
   }

@@ -1025,18 +1025,28 @@ its retries.
 
 **Memory and metrics.** To link a batch back to its requests, each document's originating span is
 remembered from the moment it is added until its batch is sent, and a rejected document's until it
-is retried or given up on. This bookkeeping never keeps a document alive: it is keyed by weak
-references, so a document that is dropped before it is sent (for example when the bulk processor
-shuts down) is forgotten once it is garbage collected. It is also capped at 20,000 documents waiting
-to be sent, 20,000 waiting to be retried and 1,024 batches in flight (about 2 MB for each
-20,000-document cap when full); past a cap the oldest entries are dropped, so the newest documents
-are always linked. A batch that never completes (dropped at the cap, or still in flight at shutdown)
-has its span ended with `datahub.bulk.abandoned=true` and an error status. Each bulk processor
-publishes the gauges `datahub.bulk.telemetry.pending`, `datahub.bulk.telemetry.carried` and
-`datahub.bulk.telemetry.open_batches` and the counters `datahub.bulk.telemetry.origins_dropped` and
-`datahub.bulk.telemetry.batches_abandoned`, tagged with `processor`, the batch id prefix; a steadily
-growing count of dropped origins means documents are being added faster than they are flushed, or
-are being lost before they are sent.
+is retried or given up on. This bookkeeping is held only as long as the bulk processor itself holds
+the document, and every path that drops a document (a rejected add, a retry that cannot be queued,
+shutdown) forgets it. If it still reaches 20,000 documents waiting to be sent, or 20,000 waiting to
+be retried, something is leaking: that table is cleared and recording resumes, so attribution
+never stops for good. At most 1,024 batches are tracked in flight. A batch that never completes
+has its span ended with `datahub.bulk.abandoned=true` and an error status.
+
+Any such loss is logged as a WARN line, the first one at once and then at most one summary a
+minute with the counts since the previous line. Each bulk processor also publishes, tagged with
+`processor` (the batch id prefix):
+
+- gauges `datahub.bulk.telemetry.pending`, `.carried` and `.open_batches`: how full each table is;
+- counter `datahub.bulk.telemetry.links_lost{table=pending|carried, cause=overflow}`: links from
+  batch spans to requests that were lost because a table was cleared;
+- counter `datahub.bulk.telemetry.spans_ended_incomplete{cause=evicted|collected|shutdown}`: batch
+  spans ended without the batch's result, because the in-flight table was full (`evicted`; the
+  batch may still complete), the bulk request was garbage collected without completing
+  (`collected`), or the processor shut down with the batch in flight (`shutdown`).
+
+These count telemetry only; the documents themselves are written (or retried, or reported as
+failed) exactly as without attribution. Any increase other than `shutdown` means documents are
+being lost from tracking before their batch completes and is worth a look.
 
 **Using it.** Filter spans named `index bulk` by duration or by `datahub.bulk.failures` to find the
 slow or failing flushes; group by `datahub.bulk.indices` to see which indices they hit; follow the

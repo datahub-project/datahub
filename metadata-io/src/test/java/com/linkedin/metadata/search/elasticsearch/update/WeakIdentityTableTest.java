@@ -64,7 +64,14 @@ public class WeakIdentityTableTest {
   @Test
   public void evictsTheOldestAtCapacity() {
     List<String> dropped = new ArrayList<>();
-    WeakIdentityTable<String> table = new WeakIdentityTable<>(2, dropped::add);
+    List<WeakIdentityTable.Drop> causes = new ArrayList<>();
+    WeakIdentityTable<String> table =
+        new WeakIdentityTable<>(
+            2,
+            (value, cause) -> {
+              dropped.add(value);
+              causes.add(cause);
+            });
     Object k1 = new Object();
     Object k2 = new Object();
     Object k3 = new Object();
@@ -78,6 +85,7 @@ public class WeakIdentityTableTest {
     assertEquals(table.get(k3), "3");
     table.put(k4, "4");
     assertEquals(dropped, List.of("2", "1b"));
+    assertEquals(causes, List.of(WeakIdentityTable.Drop.EVICTED, WeakIdentityTable.Drop.EVICTED));
     assertEquals(table.size(), 2);
     assertEquals(table.dropped(), 2L);
   }
@@ -85,7 +93,8 @@ public class WeakIdentityTableTest {
   @Test
   public void collectedKeysArePurgedAndReported() throws InterruptedException {
     List<String> dropped = new ArrayList<>();
-    WeakIdentityTable<String> table = new WeakIdentityTable<>(100, dropped::add);
+    WeakIdentityTable<String> table =
+        new WeakIdentityTable<>(100, (value, cause) -> dropped.add(value));
     Object kept = new Object();
     table.put(kept, "kept");
     Object removed = new Object();
@@ -127,7 +136,8 @@ public class WeakIdentityTableTest {
   @Test
   public void clearReturnsValuesWithoutCountingDrops() throws InterruptedException {
     List<String> dropped = new ArrayList<>();
-    WeakIdentityTable<String> table = new WeakIdentityTable<>(100, dropped::add);
+    WeakIdentityTable<String> table =
+        new WeakIdentityTable<>(100, (value, cause) -> dropped.add(value));
     Object a = new Object();
     table.put(a, "a");
     WeakReference<Object> probe = put(table, "b");
