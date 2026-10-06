@@ -1283,6 +1283,19 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getNumEntities()
             .intValue(),
         2);
+    // A filter that leaves the light query nothing falls through to the full query
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                QueryUtils.newFilter("urn", DESCRIPTION_MATCH.toString()),
+                null,
+                0,
+                10)
+            .getEntities(),
+        DESCRIPTION_MATCH);
     // The total decides, so a later page of a light result stays on the light query
     SearchResult secondPage =
         searchService.search(

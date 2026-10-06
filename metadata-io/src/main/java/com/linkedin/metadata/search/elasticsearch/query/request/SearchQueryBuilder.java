@@ -519,6 +519,7 @@ public class SearchQueryBuilder {
                 customQueryConfig,
                 entitySpecs,
                 lightSanitizedQuery,
+                colonStripped,
                 skipExpensiveClauses,
                 intent,
                 fuzzyExpansions(sanitizedQuery, operatorEscaped, fieldCounts))
@@ -535,6 +536,7 @@ public class SearchQueryBuilder {
                       opContext,
                       customQueryConfig,
                       entitySpecs,
+                      synonym,
                       synonym,
                       skipExpensiveClauses,
                       intent,
@@ -1321,6 +1323,7 @@ public class SearchQueryBuilder {
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery,
+      @Nonnull String typedQuery,
       boolean skipExpensiveClauses,
       @Nonnull QueryIntent intent,
       int maxExpansions) {
@@ -1352,6 +1355,7 @@ public class SearchQueryBuilder {
         return getLightSimpleQuery(
             configuredFields,
             sanitizedQuery,
+            typedQuery,
             intent,
             customQueryConfig == null || customQueryConfig.isExactMatchQuery());
       }
@@ -1423,6 +1427,7 @@ public class SearchQueryBuilder {
   private Optional<QueryBuilder> getLightSimpleQuery(
       @Nonnull Set<SearchFieldConfig> configuredFields,
       @Nonnull String sanitizedQuery,
+      @Nonnull String typedQuery,
       @Nonnull QueryIntent intent,
       boolean exactMatch) {
     // Quoted queries are not searching for the quote characters
@@ -1467,8 +1472,9 @@ public class SearchQueryBuilder {
     if (!useNameFocusedFields || !exactMatch) {
       return Optional.of(multiMatch);
     }
-    // Exact name hits score above multi_match results
-    String exactQuery = stripSurroundingQuotes(sanitizedQuery);
+    // Exact name hits score above multi_match results. The name is the query as typed: escaping
+    // and splitting would make "load-job" an exact match for a name "Load Job"
+    String exactQuery = stripSurroundingQuotes(typedQuery);
     DisMaxQueryBuilder nameBoost = QueryBuilders.disMaxQuery().tieBreaker(0.0f);
     nameBoost.add(
         QueryBuilders.termQuery("name.keyword", exactQuery)

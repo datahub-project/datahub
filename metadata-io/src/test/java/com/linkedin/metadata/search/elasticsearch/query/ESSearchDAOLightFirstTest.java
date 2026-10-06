@@ -290,6 +290,7 @@ public class ESSearchDAOLightFirstTest {
     assertFalse(ESSearchDAO.skipsFullQuery("sales_orders"));
     assertFalse(ESSearchDAO.skipsFullQuery("orders 20240101"));
     assertFalse(ESSearchDAO.skipsFullQuery("orders\t20240101"));
+    assertFalse(ESSearchDAO.skipsFullQuery("orders\u00A020240101"));
     // A leading delimiter adds no part
     assertFalse(ESSearchDAO.skipsFullQuery("_airbyte_raw_users"));
   }

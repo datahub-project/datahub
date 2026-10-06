@@ -1924,6 +1924,35 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         fields.toString());
   }
 
+  @Test
+  public void testV3LightQueryForLongExactNameRequiresEveryToken() {
+    // Five parts make a long name, every part required; a leading delimiter adds no part
+    assertTrue(
+        v3LightMultiMatches("aa_bb_cc_dd_ee").stream()
+            .anyMatch(multiMatch -> multiMatch.operator() == Operator.AND));
+    assertTrue(
+        v3LightMultiMatches("_aa_bb_cc_dd").stream()
+            .noneMatch(multiMatch -> multiMatch.operator() == Operator.AND));
+  }
+
+  @Test
+  public void testV3LightExactNameIsTheQueryAsTyped() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "load-job", true, true),
+        clauses);
+    // Not "load job", which would make a name "Load Job" an exact match
+    assertEquals(
+        clauses.stream()
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .filter(term -> term.fieldName().equals("name.keyword"))
+            .map(TermQueryBuilder::value)
+            .collect(Collectors.toSet()),
+        Set.of("load-job"));
+  }
+
   private List<MultiMatchQueryBuilder> v3LightMultiMatches(String query) {
     List<QueryBuilder> clauses = new ArrayList<>();
     collectClauses(

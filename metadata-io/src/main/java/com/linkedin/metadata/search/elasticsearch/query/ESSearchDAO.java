@@ -536,7 +536,7 @@ public class ESSearchDAO {
   @VisibleForTesting
   static boolean skipsFullQuery(@Nonnull String input) {
     String trimmed = input.trim();
-    if (trimmed.chars().anyMatch(Character::isWhitespace)) {
+    if (trimmed.chars().anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
       return false;
     }
     return HASH_ID_QUERY_PATTERN.matcher(trimmed).matches()
