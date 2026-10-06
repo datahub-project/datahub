@@ -88,8 +88,9 @@ const NoDataContainer = styled.div`
     align-items: center;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
@@ -150,7 +151,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
         <QueriesTabContainer>
             {!loading && hasNoQueries && (
                 <NoDataContainer>
-                    <StyledIcon component={NoStatsAvailble} />
+                    <NoStatsIcon />
                     <Section>{t('queriesSidebarTab.noQueriesFound')}</Section>
                 </NoDataContainer>
             )}
