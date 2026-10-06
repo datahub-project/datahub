@@ -553,6 +553,12 @@ class SqlmeshSource(
             if key:
                 self._sqlmesh_urn_by_model_key[key] = sqlmesh_urn
 
+        # EMBEDDED models have no warehouse object to link to.
+        warehouse_urn = (
+            None if is_embedded else self._make_warehouse_urn(fqn, effective)
+        )
+        is_external = kind_name == MODEL_KIND_EXTERNAL
+
         # Combine table- and column-level lineage into a single UpstreamLineage
         # aspect to avoid emitting two competing writes for the same aspect.
         combined_upstreams: Optional[UpstreamLineageClass] = None
@@ -575,6 +581,11 @@ class SqlmeshSource(
                     upstreams=table_lineage.upstreams if table_lineage else [],
                     fineGrainedLineages=fine_grained if fine_grained else None,
                 )
+
+        if warehouse_urn is not None and is_external and self.config.include_lineage:
+            combined_upstreams = self._with_warehouse_upstream(
+                combined_upstreams, sqlmesh_urn, warehouse_urn, model, effective
+            )
 
         # Emit status FIRST so the MAE consumer can always hydrate the entity,
         # even if it processes this MCL before other aspects are committed.
@@ -624,11 +635,10 @@ class SqlmeshSource(
         if schema_key is not None:
             yield from add_dataset_to_container(schema_key, str(dataset.urn))
 
-        # EMBEDDED models have no warehouse object — skip sibling.
-        # All other kinds (including EXTERNAL) have a warehouse view to link to.
-        if not is_embedded:
-            warehouse_urn = self._make_warehouse_urn(fqn, effective)
-            yield from self._emit_siblings(sqlmesh_urn, warehouse_urn)
+        if warehouse_urn is not None:
+            yield from self._emit_warehouse_links(
+                sqlmesh_urn, warehouse_urn, model, effective, is_external
+            )
 
         # Audits are properties of the SQLMesh model definition, not of any
         # particular materialized output. In SQLMesh the "physical counterpart"

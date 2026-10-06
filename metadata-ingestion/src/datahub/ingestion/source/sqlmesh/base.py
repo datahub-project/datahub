@@ -1,6 +1,7 @@
 import logging
 import re
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
@@ -337,6 +338,14 @@ class SqlmeshSourceBase:
             else effective.convert_urns_to_lowercase
         )
         return column.lower() if lowercase else column
+
+    def _warehouse_edge_columns(
+        self, model: "SqlmeshModel", effective: _EffectiveProjectConfig
+    ) -> List[str]:
+        """Column names for the model <-> warehouse table mapping edge, cased like
+        the schema field paths and column lineage."""
+        columns: Dict[str, Any] = getattr(model, "columns_to_types", None) or {}
+        return [self._normalize_column_name(str(c), effective) for c in columns]
 
     def _normalize_name(self, name: str, effective: _EffectiveProjectConfig) -> str:
         parts = []

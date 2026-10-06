@@ -88,6 +88,7 @@ query appConfig {
             showManageStructuredProperties
             schemaFieldCLLEnabled
             hideDbtSourceInLineage
+            hideSqlmeshSourceInLineage
             schemaFieldLineageIgnoreStatus
             showNavBarRedesign
             showAutoCompleteResults
