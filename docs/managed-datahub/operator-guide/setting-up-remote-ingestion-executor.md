@@ -89,6 +89,26 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
 
+:::caution DataHub Cloud instances on GCP
+If your DataHub Cloud instance is deployed on Google Cloud Platform (GCP), configure the Remote Executor to use the Kafka channel. Without this setting, the executor does not receive work from the Executor Pool.
+
+- **Helm:** set `global.datahub.executor.channel` to `KAFKA` (default: `SQS`):
+
+  ```bash
+  helm install \
+    --set global.datahub.executor.pool_id="remote" \
+    --set global.datahub.executor.channel="KAFKA" \
+    --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
+    acryl-executor-worker acryl/datahub-executor-worker
+  ```
+
+  For an existing deployment, run `helm upgrade --reuse-values --set global.datahub.executor.channel="KAFKA" acryl-executor-worker acryl/datahub-executor-worker`.
+
+- **Docker or ECS:** set the environment variable `DATAHUB_EXECUTOR_MODE=kafka-worker` (instead of `worker`).
+
+Contact your DataHub representative if you are unsure where your instance is deployed.
+:::
+
 ### Custom images with additional connectors
 
 Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
@@ -321,6 +341,7 @@ Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
+- `global.datahub.executor.channel`: Set to `KAFKA` if your DataHub Cloud instance is deployed on GCP (see [Deploying Remote Executors in Your Environment](#deploying-remote-executors-in-your-environment))
 
 4. **Configure Secret Mounting (Optional)**
 
