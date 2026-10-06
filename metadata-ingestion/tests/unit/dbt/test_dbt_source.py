@@ -4813,3 +4813,29 @@ def test_load_file_as_json_handles_utf8_bom():
         assert DBTCoreSource.load_file_as_json(
             "https://example.com/manifest.json", None
         ) == {"nodes": {}}
+
+
+def test_dbt_source_patching_dedupes_existing_owners():
+    """The owners merge is list-based, unlike the tag/term merges which go
+    through a set. Duplicates already stored on the server must not be carried
+    forward verbatim."""
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    duplicated_owner = OwnerClass(
+        owner="urn:li:corpGroup:data-engineering",
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+        source=None,
+    )
+    graph.get_ownership.return_value = OwnershipClass(owners=[duplicated_owner] * 88)
+    source.ctx.graph = graph
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 1
+    assert transformed[0].owner == "urn:li:corpGroup:data-engineering"
