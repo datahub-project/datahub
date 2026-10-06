@@ -18,13 +18,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
+import org.opensearch.index.query.MatchPhraseQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -136,8 +136,7 @@ public class ConfigSearchExport extends HttpServlet {
                     sqsb.getClass().getSimpleName(),
                     fieldWeight.getKey(),
                     fieldWeight.getValue().toString(),
-                    // Search V3 sets no analyzer: each field applies its own search analyzer
-                    Objects.toString(sqsb.analyzer(), ""),
+                    sqsb.analyzer(),
                     "true",
                     String.valueOf(sqsb.boost()),
                     sqsb.toString().replaceAll("\n", "")
@@ -175,6 +174,22 @@ public class ConfigSearchExport extends HttpServlet {
                     "true",
                     "",
                     mppqb.toString().replaceAll("\n", "")
+                  };
+                  writer.println(row);
+                } else if (builder instanceof MatchPhraseQueryBuilder) {
+                  // Word gram subfields
+                  MatchPhraseQueryBuilder mpqb = (MatchPhraseQueryBuilder) builder;
+                  String[] row = {
+                    entitySpec.getName(),
+                    "relevancy",
+                    "phrase_match",
+                    mpqb.getClass().getSimpleName(),
+                    mpqb.fieldName(),
+                    String.valueOf(mpqb.boost()),
+                    "",
+                    "true",
+                    "",
+                    mpqb.toString().replaceAll("\n", "")
                   };
                   writer.println(row);
                 } else {
