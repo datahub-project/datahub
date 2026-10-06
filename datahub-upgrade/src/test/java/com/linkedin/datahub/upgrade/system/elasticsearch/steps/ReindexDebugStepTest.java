@@ -64,6 +64,8 @@ public class ReindexDebugStepTest {
 
     // Setup common mocks
     Mockito.when(elasticSearchService.getIndexBuilder()).thenReturn(indexBuilder);
+    Mockito.when(elasticSearchService.getIndexBuilder(Mockito.anyString()))
+        .thenReturn(indexBuilder);
   }
 
   @Test

@@ -4,7 +4,17 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Provides query embeddings for semantic search. Implementations may call an external service. */
-public interface EmbeddingProvider {
+public interface EmbeddingProvider extends AutoCloseable {
+
+  /**
+   * Prepares provider-specific input before hashing, persistence, and embedding. Providers with
+   * input limits should apply deterministic transformations here.
+   */
+  @Nonnull
+  default String prepareInput(
+      @Nonnull String text, @Nullable String model, @Nonnull EmbeddingTaskType taskType) {
+    return text;
+  }
 
   /**
    * Returns an embedding vector for the given text using the specified model. The dimensionality of
@@ -36,4 +46,7 @@ public interface EmbeddingProvider {
       @Nonnull String text, @Nullable String model, @Nonnull EmbeddingTaskType taskType) {
     return embed(text, model);
   }
+
+  @Override
+  default void close() {}
 }

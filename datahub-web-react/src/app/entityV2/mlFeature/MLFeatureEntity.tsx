@@ -270,4 +270,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             EntityCapabilityType.FORMS,
         ]);
     };
+
+    getPlatformProperties = (data: MlFeature) => {
+        return data?.properties?.sources?.[0]?.platform;
+    };
 }

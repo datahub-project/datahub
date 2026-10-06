@@ -13,6 +13,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -58,6 +60,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
+  private final EntityDocumentIdHasher entityDocumentIdHasher;
 
   /**
    * Map of entity name → old backing index physical name. Populated on startup from Phase 1 upgrade
@@ -90,8 +93,31 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nullable DataHubUpgradeResultStore upgradeResultStore,
       @Nullable Urn upgradeIdUrn,
       long pollIntervalSeconds) {
+    this(
+        elasticSearchService,
+        searchDocumentTransformer,
+        oldIndexTargets,
+        dualWriteStartTimeCallback,
+        opContext,
+        upgradeResultStore,
+        upgradeIdUrn,
+        pollIntervalSeconds,
+        new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public UpdateIndicesUpgradeStrategy(
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull Map<String, String> oldIndexTargets,
+      @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
+      @Nullable OperationContext opContext,
+      @Nullable DataHubUpgradeResultStore upgradeResultStore,
+      @Nullable Urn upgradeIdUrn,
+      long pollIntervalSeconds,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
+    this.entityDocumentIdHasher = entityDocumentIdHasher;
     // Keys are normalised because the two sides disagree on case: the map is built from
     // IndexConvention.getEntityName(), which derives names from the lowercased index
     // ("aiagentindex_v2" -> "aiagent"), while lookups use EntitySpec.getName(), which is the
@@ -181,8 +207,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
         return;
       }
 
-      String docId =
-          opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
+      String docId = documentId(opContext, oldIndex, event.getUrn());
       String document = searchDocument.get().toString();
 
       elasticSearchService.upsertDocumentByIndexName(opContext, oldIndex, document, docId);
@@ -220,8 +245,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     }
 
     try {
-      String docId =
-          opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
+      String docId = documentId(opContext, oldIndex, event.getUrn());
       elasticSearchService.deleteDocumentByIndexName(opContext, oldIndex, docId);
 
       log.debug(
@@ -323,6 +347,35 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
     }
     return Optional.empty();
+  }
+
+  /**
+   * V3 backing indexes — including incremental-reindex names from {@code
+   * ESIndexBuilder.getIncrementalNextIndexName} — always use the V3 hasher. V2 keeps URL-encoded
+   * URN ids.
+   *
+   * <p>Matches {@code index_v3} as a version token at the end of the name, or followed by {@code
+   * _<timestamp>} or {@code _<sanitizedVersion>_<timestamp>}. A substring such as {@code index_v3}
+   * in a prefix must not classify a V2 index.
+   */
+  private String documentId(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull Urn urn) {
+    if (isV3BackingIndex(indexName)) {
+      return entityDocumentIdHasher.documentId(opContext, urn);
+    }
+    return opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
+  }
+
+  @VisibleForTesting
+  static boolean isV3BackingIndex(@Nonnull String indexName) {
+    final String token = "index_v3";
+    int tokenStart = indexName.lastIndexOf(token);
+    if (tokenStart <= 0 || indexName.lastIndexOf("index_v2") > tokenStart) {
+      return false;
+    }
+    String after = indexName.substring(tokenStart + token.length());
+    // Alias (`index_v3`), timestamp-only, or incremental next (`index_v3_1_2_3-4_1000`).
+    return after.isEmpty() || after.matches("_\\d+") || after.matches("_.+_\\d+");
   }
 
   private void shutdownPoller() {

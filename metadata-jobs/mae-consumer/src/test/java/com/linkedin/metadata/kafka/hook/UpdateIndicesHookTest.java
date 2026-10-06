@@ -32,7 +32,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.graph.GraphService;
@@ -49,6 +48,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -112,7 +112,6 @@ public class UpdateIndicesHookTest {
   private TimeseriesAspectService mockTimeseriesAspectService;
   private SystemMetadataService mockSystemMetadataService;
   private SearchDocumentTransformer searchDocumentTransformer;
-  private DataHubUpgradeKafkaListener mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider mockConfigurationProvider;
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
@@ -129,8 +128,8 @@ public class UpdateIndicesHookTest {
     mockEntitySearchService = mock(ElasticSearchService.class);
     mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
     mockSystemMetadataService = mock(SystemMetadataService.class);
-    searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
-    mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
+    searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
     // Hook invoke paths call flushAndWaitIfConfigured(); stub a disabled ack path.
@@ -987,8 +986,6 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
-              "MD5",
-              v2Enabled, // v2Enabled parameter
               null);
       strategies.add(v3Strategy);
     }

@@ -1,4 +1,6 @@
-import { CloseCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -30,15 +32,11 @@ export function StructuredReport({ report }: Props) {
     const infos = report.items.filter((item) => item.level === StructuredReportItemLevel.INFO);
     return (
         <Container>
-            {errors.length ? (
-                <StructuredReportItemList items={errors} color={ERROR_COLOR} icon={CloseCircleOutlined} />
-            ) : null}
+            {errors.length ? <StructuredReportItemList items={errors} color={ERROR_COLOR} icon={XCircle} /> : null}
             {warnings.length ? (
-                <StructuredReportItemList items={warnings} color={WARNING_COLOR} icon={ExclamationCircleOutlined} />
+                <StructuredReportItemList items={warnings} color={WARNING_COLOR} icon={WarningCircle} />
             ) : null}
-            {infos.length ? (
-                <StructuredReportItemList items={infos} color={INFO_COLOR} icon={InfoCircleOutlined} />
-            ) : null}
+            {infos.length ? <StructuredReportItemList items={infos} color={INFO_COLOR} icon={Info} /> : null}
         </Container>
     );
 }

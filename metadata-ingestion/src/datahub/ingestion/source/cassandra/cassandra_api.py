@@ -1,3 +1,4 @@
+import base64
 import ssl
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -14,6 +15,33 @@ from cassandra.cluster import (
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
+
+# docker/snippets/openssl4_ssl_compat.py defines PROTOCOL_TLSv1 as 99 so
+# snowflake's vendored urllib3 can import on OpenSSL 4. SSLContext rejects it.
+_OPENSSL4_MISSING_PROTOCOL_SENTINEL = 99
+
+
+def _decode_extensions(
+    mapping: Dict[str, Any], report: SourceReport, context: str
+) -> Dict[str, Any]:
+    # The `extensions` column is map<text, blob>, so the driver returns bytes
+    # values that aren't JSON-serializable when emitted as custom properties.
+    # Decode UTF-8 values directly; base64-encode non-UTF-8 ones so binary
+    # values (e.g. scylla_encryption_options) survive losslessly.
+    decoded: Dict[str, Any] = {}
+    for key, value in mapping.items():
+        if not isinstance(value, bytes):
+            decoded[key] = value
+            continue
+        try:
+            decoded[key] = value.decode("utf-8")
+        except UnicodeDecodeError:
+            decoded[key] = f"base64:{base64.b64encode(value).decode('ascii')}"
+            report.warning(
+                message="Extension value is not valid UTF-8; base64-encoding it",
+                context=f"{context}: {key}",
+            )
+    return decoded
 
 
 @dataclass
@@ -134,13 +162,24 @@ class CassandraAPI:
 
             ssl_context = None
             if self.config.ssl_ca_certs:
-                # Map SSL version string to ssl module constant
+                # OpenSSL 4 drops PROTOCOL_TLSv1*. PROTOCOL_TLS_CLIENT negotiates
+                # the newest version the runtime still supports.
+                fallback = ssl.PROTOCOL_TLS_CLIENT
+
+                def _protocol(name: str) -> int:
+                    protocol = getattr(ssl, name, fallback)
+                    if protocol == _OPENSSL4_MISSING_PROTOCOL_SENTINEL:
+                        return fallback
+                    return protocol
+
                 ssl_version_map = {
                     "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
-                    "TLSv1": ssl.PROTOCOL_TLSv1,
-                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
-                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
-                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                    "TLSv1": _protocol("PROTOCOL_TLSv1"),
+                    "TLSv1_1": _protocol("PROTOCOL_TLSv1_1"),
+                    "TLSv1_2": _protocol("PROTOCOL_TLSv1_2"),
+                    "TLSv1_3": _protocol(
+                        "PROTOCOL_TLSv1_2"
+                    ),  # Python's ssl module uses TLSv1_2 for TLS 1.3
                 }
 
                 ssl_protocol = (
@@ -245,7 +284,11 @@ class CassandraAPI:
                     crc_check_chance=row.crc_check_chance,
                     dclocal_read_repair_chance=row.dclocal_read_repair_chance,
                     default_time_to_live=row.default_time_to_live,
-                    extensions=dict(row.extensions),
+                    extensions=_decode_extensions(
+                        dict(row.extensions),
+                        self.report,
+                        f"{row.keyspace_name}.{row.table_name}",
+                    ),
                     gc_grace_seconds=row.gc_grace_seconds,
                     max_index_interval=row.max_index_interval,
                     memtable_flush_period_in_ms=row.memtable_flush_period_in_ms,
@@ -320,7 +363,11 @@ class CassandraAPI:
                     crc_check_chance=row.crc_check_chance,
                     dclocal_read_repair_chance=row.dclocal_read_repair_chance,
                     default_time_to_live=row.default_time_to_live,
-                    extensions=dict(row.extensions),
+                    extensions=_decode_extensions(
+                        dict(row.extensions),
+                        self.report,
+                        f"{row.keyspace_name}.{row.view_name}",
+                    ),
                     gc_grace_seconds=row.gc_grace_seconds,
                     include_all_columns=row.include_all_columns,
                     max_index_interval=row.max_index_interval,

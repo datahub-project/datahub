@@ -12,7 +12,8 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
-import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -21,7 +22,7 @@ const INCIDENTS_TAB_NAME = INCIDENTS_TAB_ID;
 
 export default function RaiseIncidentMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const refetchForEntity = useRefetch();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -34,13 +35,13 @@ export default function RaiseIncidentMenuAction() {
                 <Warning size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
             {isRaiseIncidentModalVisible && (
-                <AddIncidentModal
-                    urn={urn}
-                    entityType={entityType}
-                    visible={isRaiseIncidentModalVisible}
-                    onClose={() => setIsRaiseIncidentModalVisible(false)}
-                    refetch={
-                        (() => {
+                <IncidentDetailDrawer
+                    entity={{ urn, entityType, platform: entityData?.platform ?? undefined }}
+                    mode={IncidentAction.CREATE}
+                    onCancel={() => setIsRaiseIncidentModalVisible(false)}
+                    onSubmit={() => {
+                        setIsRaiseIncidentModalVisible(false);
+                        setTimeout(() => {
                             refetchForEntity?.();
                             history.push(
                                 `${getEntityPath(
@@ -52,8 +53,8 @@ export default function RaiseIncidentMenuAction() {
                                     INCIDENTS_TAB_NAME,
                                 )}`,
                             );
-                        }) as any
-                    }
+                        }, 3000);
+                    }}
                 />
             )}
         </Tooltip>

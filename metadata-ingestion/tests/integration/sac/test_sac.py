@@ -2,6 +2,7 @@ import json
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List
+from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -11,9 +12,30 @@ from requests_mock import Mocker
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.sac.sac import SACSource, SACSourceConfig
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sac.sac import (
+    ConnectionMappingConfig,
+    SACSource,
+    SACSourceConfig,
+)
 from datahub.ingestion.source.sac.sac_common import ResourceModel
+from datahub.metadata.schema_classes import (
+    DatasetKeyClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
+
+DWC_MODEL_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sac,"
+    "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000,PROD)"
+)
 
 MOCK_TENANT_URL = "http://tenant"
 MOCK_TOKEN_URL = "http://tenant.authentication/oauth/token"
@@ -369,6 +391,262 @@ def test_connection_skips_data_export_service_when_disabled(requests_mock):
     assert report.basic_connectivity.capable
     assert report.capability_report is None
     assert not any("dataexport" in req.url for req in requests_mock.request_history)
+
+
+def _dwc_source(
+    requests_mock: Any,
+    connection_mapping: Dict[str, ConnectionMappingConfig],
+    resolve_datasphere_lineage: bool = True,
+    graph: Any = None,
+) -> SACSource:
+    # SACSource.__init__ eagerly fetches an OAuth token, so the token endpoint is mocked.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        connection_mapping=connection_mapping,
+        resolve_datasphere_lineage=resolve_datasphere_lineage,
+    )
+    return SACSource(config, PipelineContext(run_id="sac-dwc-test", graph=graph))
+
+
+def _dwc_model(name: str) -> ResourceModel:
+    # DWC live models carry an empty externalId; only the name links to the Datasphere object.
+    return ResourceModel(
+        namespace="t.3.C1ekdhlvx11ts0000000000000",
+        model_id="C1ekdhlvx11ts0000000000000",
+        name=name,
+        description=name,
+        system_type="DWC",
+        connection_id="DWCPROD",
+        external_id="",
+        is_import=False,
+    )
+
+
+def test_resolve_datasphere_upstream_builds_urn_from_configured_space(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_honors_platform_instance_and_env(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="bdap_sac",
+                platform_instance="prod_ds",
+                env="DEV",
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Analytics_3658_Results"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,prod_ds.bdap_sac.analytics_3658_results,DEV)"
+    )
+
+
+def test_resolve_datasphere_upstream_preserves_case_when_lowercase_disabled(
+    requests_mock,
+):
+    # Mirrors the airbyte/sigma per-connection convert_urns_to_lowercase override:
+    # when the upstream connector was run without lower-casing, casing is preserved.
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="BDAP_SAC",
+                convert_urns_to_lowercase=False,
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,BDAP_SAC.Fax_Mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_no_space_is_skipped(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(platform_instance="prod_ds")},
+    )
+
+    assert source._resolve_datasphere_upstream(_dwc_model("Fax_Mart")) is None
+    assert source.report.dwc_lineage_skipped_no_space == 1
+
+
+def test_resolve_datasphere_upstream_synthetic_name_is_unresolved(requests_mock):
+    # SAC falls back to `<namespace>:<model_id>` when OData exposes no real technical name;
+    # that value cannot identify the Datasphere object, so no lineage is emitted.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+    synthetic_name = "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000"
+
+    assert source._resolve_datasphere_upstream(_dwc_model(synthetic_name)) is None
+    assert source.report.dwc_lineage_unresolved == 1
+
+
+def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
+    # Drives a DWC model through the full workunit emission (not just the resolver) so the
+    # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert [u.dataset for u in upstream.upstreams] == [expected_upstream]
+
+    # The upstream key is materialized so the Datasphere node exists even if that
+    # connector has not run yet (order-independent lineage).
+    key_workunits = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetKeyClass) is not None
+        and wu.get_urn() == expected_upstream
+    ]
+    assert len(key_workunits) == 1
+
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert source.report.dwc_lineage_resolved == 1
+
+
+def test_get_model_workunits_skips_dwc_lineage_when_disabled(requests_mock):
+    # With the flag off a DWC model must not emit upstream lineage and, crucially, must not
+    # fall through to the generic "Unknown system type" warning (DWC is a known type).
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        resolve_datasphere_lineage=False,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    assert _first_aspect(workunits, UpstreamLineageClass) is None
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert list(source.report.warnings) == []
+
+
+_DATASPHERE_UPSTREAM_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+)
+
+
+def _datasphere_upstream_schema() -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="fax_mart",
+        platform="urn:li:dataPlatform:sap-datasphere",
+        version=0,
+        hash="",
+        platformSchema=SchemalessClass(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="revenue",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="DECIMAL",
+            ),
+            SchemaFieldClass(
+                fieldPath="region",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="NVARCHAR",
+            ),
+        ],
+        primaryKeys=["region"],
+    )
+
+
+def test_dwc_column_lineage_mirrors_upstream_schema_and_emits_fgl(requests_mock):
+    # SAC exposes no columns for a live model, so the schema is resolved from the upstream
+    # Datasphere dataset in the graph, mirrored onto the SAC dataset, and mapped 1:1.
+    graph = MagicMock()
+    graph.get_aspect.return_value = _datasphere_upstream_schema()
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    graph.get_aspect.assert_called_once_with(
+        _DATASPHERE_UPSTREAM_URN, SchemaMetadataClass
+    )
+
+    sac_schema = _first_aspect(workunits, SchemaMetadataClass)
+    assert sac_schema is not None
+    assert [f.fieldPath for f in sac_schema.fields] == ["revenue", "region"]
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream.fineGrainedLineages is not None
+    edges = {
+        (fgl.upstreams[0], fgl.downstreams[0]) for fgl in upstream.fineGrainedLineages
+    }
+    assert edges == {
+        (
+            f"urn:li:schemaField:({_DATASPHERE_UPSTREAM_URN},revenue)",
+            f"urn:li:schemaField:({DWC_MODEL_URN},revenue)",
+        ),
+        (
+            f"urn:li:schemaField:({_DATASPHERE_UPSTREAM_URN},region)",
+            f"urn:li:schemaField:({DWC_MODEL_URN},region)",
+        ),
+    }
+    assert source.report.dwc_column_lineage_resolved == 1
+
+
+def test_dwc_column_lineage_degrades_to_table_level_without_graph(requests_mock):
+    # No graph -> table-level lineage only, no fabricated schema, counted as unresolved.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert upstream.fineGrainedLineages is None
+    assert _first_aspect(workunits, SchemaMetadataClass) is None
+    assert source.report.dwc_column_lineage_unresolved == 1
+
+
+def _first_aspect(workunits: List[Any], aspect_type: Any) -> Any:
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(aspect_type)
+        if aspect is not None:
+            return aspect
+    return None
 
 
 def match_token_url(request, context):

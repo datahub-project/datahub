@@ -73,6 +73,7 @@
     "levelFilter.indirectTooltip": "显示间接相关的数据资产",
     "manageLineage.changeToHome": "设为主节点",
     "manageLineage.dashboardNoDownstream": "仪表板实体没有下游数据血缘",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "将此实体设为主节点后即可编辑下游。",
     "manageLineage.editDownstream": "编辑下游",
     "manageLineage.editUpstream": "编辑上游",

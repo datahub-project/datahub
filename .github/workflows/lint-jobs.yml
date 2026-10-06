@@ -21,6 +21,7 @@ jobs:
       markdown: ${{ steps.filter.outputs.markdown == 'true' || steps.filter.outputs.lint-job == 'true' }}
       github-actions: ${{ steps.filter.outputs.github-actions == 'true' || steps.filter.outputs.lint-job == 'true' }}
       workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      runner-labels: ${{ steps.filter.outputs.runner-labels == 'true' || steps.filter.outputs.lint-job == 'true' }}
       workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
       code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
       pdl: ${{ steps.filter.outputs.pdl == 'true' || steps.filter.outputs.lint-job == 'true' }}
@@ -127,8 +128,10 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-      - name: Check product-update JSONs match the latest release notes
+      - name: Check product-update JSONs match the latest release notes and UI locales
         run: ./gradlew :metadata-service:configuration:productUpdateReleaseSyncCheck
+      - name: Probe product-update CTA URLs
+        run: python3 .github/scripts/check_product_update_cta.py
 
   docs-website-lint:
     name: docs-website-lint
@@ -181,7 +184,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
@@ -210,6 +213,23 @@ jobs:
         with:
           reporter: github-pr-review
 
+  # actionlint accepts floating *-latest labels natively, so it can't catch them.
+  # Pinned labels keep runner image upgrades deliberate instead of silent.
+  check-pinned-runners:
+    name: check-pinned-runners
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.runner-labels == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Fail on floating ubuntu runner labels
+        # [l] keeps this line from matching its own pattern.
+        run: |
+          if grep -rnE 'ubuntu-[l]atest' .github/workflows .github/actions; then
+            echo "::error::Use a pinned runner label (e.g. ubuntu-24.04 / depot-ubuntu-24.04) instead of a floating -latest alias."
+            exit 1
+          fi
+
   check-event-types:
     name: check-event-types
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
@@ -219,7 +239,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: run check
         run: python .github/scripts/check_event_type.py
 
@@ -232,7 +252,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: run check
         run: python .github/scripts/check_policies.py
 
@@ -245,7 +265,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: run check
         run: python .github/scripts/check_gradle_lockfiles.py
 
@@ -345,7 +365,7 @@ jobs:
           # Key must stay byte-identical with the lookup and save keys in
           # ci-cache-warmup.yml warm-python-lint-cache (hashFiles cannot be
           # deduplicated across workflow files).
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './metadata-ingestion/build-constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
           restore-keys: |
             uv-python-lint-
       - name: Configure fast APT mirror
@@ -470,6 +490,9 @@ jobs:
         with:
           header: i18n-parity
           delete: true
+      - name: Check i18n locale files use flat keys
+        run: |
+          ./gradlew :datahub-web-react:yarnI18nFlatKeysCheck
 
   playwright-e2e-lint:
     name: playwright-e2e-lint

@@ -88,6 +88,24 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
         }
 
+        // Only a pill with its own click action is exposed as a focusable button. Pills that are
+        // `clickable` solely so an inner PillIconButton can receive clicks must stay non-focusable,
+        // otherwise they become an extra tab stop that does nothing and wraps the real button.
+        const isPillInteractive = clickable && Boolean(onPillClick);
+
+        const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            // Keydown bubbling from a nested icon button must keep the button's native Enter/Space
+            // activation instead of being re-routed to the pill's onClick.
+            if (!isPillInteractive || event.target !== event.currentTarget) {
+                return;
+            }
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            event.preventDefault();
+            event.currentTarget.click();
+        };
+
         const renderIcon = (
             icon: NonNullable<PillProps['leftIcon']>,
             onClick?: (e: React.MouseEvent<HTMLElement>) => void,
@@ -106,6 +124,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
                         onClick={onClick}
                         aria-label={ariaLabel}
                         data-testid={testId}
+                        style={{ pointerEvents: 'auto' }}
                     >
                         {iconNode}
                     </PillIconButton>
@@ -113,7 +132,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             }
 
             return (
-                <PillIconSlot key={key} $size={size}>
+                <PillIconSlot key={key} $size={size} style={{ pointerEvents: 'auto' }}>
                     {iconNode}
                 </PillIconSlot>
             );
@@ -134,6 +153,9 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
                 id={id}
                 data-testid={dataTestId ?? 'pill-container'}
                 onClick={onPillClick}
+                onKeyDown={handleKeyDown}
+                role={isPillInteractive ? 'button' : undefined}
+                tabIndex={isPillInteractive ? 0 : undefined}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
                 onFocus={onFocus}

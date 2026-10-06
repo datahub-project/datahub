@@ -1,4 +1,4 @@
-import { FolderFilled } from '@ant-design/icons';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
@@ -214,7 +214,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
             null,
         );
 
-        expect(icon).toMatchObject(<FolderFilled style={{ fontSize: undefined }} />);
+        expect(icon).toMatchObject(<Folder size={undefined} weight="fill" />);
         expect(label).toBe('view');
     });
 
@@ -228,7 +228,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
             'TESTING',
         );
 
-        expect(icon).toMatchObject(<FolderFilled style={{ fontSize: 12 }} />);
+        expect(icon).toMatchObject(<Folder size={12} weight="fill" />);
         expect(label).toBe('TESTING');
     });
 });

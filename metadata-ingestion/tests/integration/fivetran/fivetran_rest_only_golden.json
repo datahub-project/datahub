@@ -134,7 +134,7 @@
         "json": {
             "path": [
                 {
-                    "id": "postgres_test",
+                    "id": "urn:li:dataFlow:(fivetran,postgres_test,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,postgres_test,PROD)"
                 }
             ]
@@ -309,7 +309,7 @@
         "json": {
             "path": [
                 {
-                    "id": "postgres_test",
+                    "id": "urn:li:dataFlow:(fivetran,postgres_test,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,postgres_test,PROD)"
                 }
             ]

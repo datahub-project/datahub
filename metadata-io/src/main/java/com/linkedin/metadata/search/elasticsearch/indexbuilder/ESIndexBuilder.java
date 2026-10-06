@@ -9,9 +9,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
@@ -137,7 +139,12 @@ public class ESIndexBuilder {
 
   @Getter @VisibleForTesting private final StructuredPropertiesConfiguration structPropConfig;
 
-  @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
+  /**
+   * Per-index settings overrides. Values are strings for flat settings (e.g. {@code
+   * number_of_shards}) or nested maps for grouped settings such as {@code analysis}; nested maps
+   * are deep-merged into the generated settings, see {@link #mergeSettings}.
+   */
+  @Getter private final Map<String, Map<String, Object>> indexSettingOverrides;
 
   @Getter @VisibleForTesting private final GitVersion gitVersion;
 
@@ -165,13 +172,15 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient,
       ElasticSearchConfiguration elasticSearchConfiguration,
       StructuredPropertiesConfiguration structuredPropertiesConfiguration,
-      Map<String, Map<String, String>> indexSettingOverrides,
+      Map<String, ? extends Map<String, ?>> indexSettingOverrides,
       GitVersion gitVersion) {
     this.searchClient = searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
     this.structPropConfig = structuredPropertiesConfiguration;
-    this.indexSettingOverrides = indexSettingOverrides;
+    Map<String, Map<String, Object>> overrides = new HashMap<>();
+    indexSettingOverrides.forEach((index, value) -> overrides.put(index, new HashMap<>(value)));
+    this.indexSettingOverrides = overrides;
     this.gitVersion = gitVersion;
 
     BuildIndicesConfiguration buildIndices =
@@ -414,7 +423,7 @@ public class ESIndexBuilder {
     if (isOpenSearch29OrHigher(opContext) && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
-    baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    mergeSettings(baseSettings, indexSettingOverrides.getOrDefault(indexName, Map.of()));
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
 
@@ -597,6 +606,7 @@ public class ESIndexBuilder {
 
       // Just update the additional mappings
       applyMappings(opContext, indexState, true);
+      failIfV3IndexServingReadsNeedsRebuild(opContext, indexState);
 
       if (indexState.requiresApplySettings()) {
         UpdateSettingsRequest request = new UpdateSettingsRequest(indexState.name());
@@ -792,9 +802,25 @@ public class ESIndexBuilder {
     if (indexState.isPureMappingsAddition()
         || indexState.isPureStructuredPropertyAddition()
         || indexState.isInPlaceMappingParameterUpdate()) {
+      Map<String, Object> mappingsToPut = indexState.targetMappings();
+      if (indexState.cannotApplyKnnVectorMappingInPlace()) {
+        log.error(
+            "Index: {} - Skipping knn_vector mapping update because index.knn is false and"
+                + " settings reindex is disabled. OpenSearch cannot add knn_vector while"
+                + " index.knn is false (the setting is final on k-NN 2.19+). Set"
+                + " ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true and rerun system-update,"
+                + " or recreate the index (for example documentindex_v3).",
+            indexState.name());
+        mappingsToPut = ReindexConfig.mappingsWithoutKnnVectorFields(mappingsToPut);
+        if (!ReindexConfig.mappingHasProperties(mappingsToPut)) {
+          log.info(
+              "Index: {} - No remaining mappings to apply in place after omitting knn_vector.",
+              indexState.name());
+          return;
+        }
+      }
       log.info("Updating index {} mappings in place.", indexState.name());
-      PutMappingRequest request =
-          new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
+      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappingsToPut);
       searchClient.putIndexMapping(opContext, request, requestOptionsLong);
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
@@ -812,6 +838,17 @@ public class ESIndexBuilder {
           indexState.name(),
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
+      if (v3IndexNeedsRebuild(opContext, indexState)) {
+        // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
+        // engine rejects writes to an alias, so this index stops taking V3 writes. Other unapplied
+        // changes keep only the warning above: Elasticsearch 8 can report spurious mapping drift on
+        // every upgrade, so an error for each of them would also fire on healthy indices.
+        log.error(
+            "Search V3 index {} keeps its previous mapping, so V3 writes to it can be rejected and"
+                + " V3 reads can miss fields. Rebuild it: run system-update with"
+                + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices.",
+            indexState.name());
+      }
       if (!suppressError) {
         log.error(
             "Attempted to apply invalid mappings. Current: {} Target: {}",
@@ -819,6 +856,65 @@ public class ESIndexBuilder {
             indexState.targetMappings());
       }
     }
+  }
+
+  /**
+   * Stops system-update when a Search V3 index that serves reads still declares as aliases root
+   * fields that are real fields now. Its writes are rejected and its reads miss those fields, so
+   * search would quietly return wrong results. While V2 serves reads, the error applyMappings logs
+   * is enough and the upgrade continues.
+   */
+  private void failIfV3IndexServingReadsNeedsRebuild(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
+    if (v3IndexNeedsRebuild(opContext, indexState) && servesV3Reads(config.getEntityIndex())) {
+      throw new IllegalStateException(
+          String.format(
+              "Search V3 index %s serves reads but keeps its previous mapping. Run system-update"
+                  + " with ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices,"
+                  + " or turn V3 keyword and semantic reads off, with V2 on, until it is rebuilt.",
+              indexState.name()));
+    }
+  }
+
+  /**
+   * Whether applyMappings leaves a Search V3 index declaring as aliases root fields that are real
+   * fields now, which only a rebuild fixes.
+   */
+  private static boolean v3IndexNeedsRebuild(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
+    return !indexState.isPureMappingsAddition()
+        && !indexState.isPureStructuredPropertyAddition()
+        && !indexState.isInPlaceMappingParameterUpdate()
+        && opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
+        && replacesRootAlias(indexState);
+  }
+
+  private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
+    return EntitySearchIndexResolver.shouldReadV3(entityIndex)
+        || (entityIndex != null
+            && entityIndex.getV3() != null
+            && entityIndex.getV3().isEnabled()
+            && entityIndex.getV3().isSemanticReadEnabled());
+  }
+
+  /** Whether a root field that the current mapping declares as an alias is a real field now. */
+  private static boolean replacesRootAlias(@Nonnull ReindexConfig indexState) {
+    Object current = indexState.currentMappings().get("properties");
+    Object target = indexState.targetMappings().get("properties");
+    if (!(current instanceof Map<?, ?> currentFields)
+        || !(target instanceof Map<?, ?> targetFields)) {
+      return false;
+    }
+    return currentFields.entrySet().stream()
+        .anyMatch(
+            field ->
+                isAlias(field.getValue())
+                    && targetFields.containsKey(field.getKey())
+                    && !isAlias(targetFields.get(field.getKey())));
+  }
+
+  private static boolean isAlias(@Nullable Object mapping) {
+    return mapping instanceof Map<?, ?> fieldMapping && "alias".equals(fieldMapping.get("type"));
   }
 
   public String reindexInPlaceAsync(
@@ -1144,8 +1240,21 @@ public class ESIndexBuilder {
 
         final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
         final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
-        if (completedButShort || lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
-          if (reindexCount <= indexConfig.getNumRetries()) {
+        final boolean noProgressStall = lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000);
+        if (completedButShort || noProgressStall) {
+          if (isWaitForUnresolvedReindexTaskEnabled() && isUnresolvedReindexTask(taskLookup)) {
+            // Keep the in-flight ES task; stacking another _reindex into the same destination
+            // causes version conflicts and retry-limit timeouts while dest already matches.
+            log.warn(
+                "Skipping reindex retry for {} because ES task [{}] is still {}. "
+                    + "waitForUnresolvedReindexTask is enabled; would otherwise have retried due to"
+                    + " no progress for {} minutes.",
+                sourceIndex,
+                activeTaskId,
+                taskLookup,
+                noProgressRetryMinutes);
+            documentCountsLastUpdated = System.currentTimeMillis();
+          } else if (reindexCount <= indexConfig.getNumRetries()) {
             log.warn(
                 "Re-triggering reindex #{} for {} ({}). Prior task [{}]: {}",
                 reindexCount,
@@ -1223,6 +1332,11 @@ public class ESIndexBuilder {
     return lookup == ReindexTaskLookup.BLANK_TASK_ID
         || lookup == ReindexTaskLookup.COMPLETED
         || lookup == ReindexTaskLookup.NOT_FOUND;
+  }
+
+  /** Task is still in flight, or status could not be read — not safe to stack another _reindex. */
+  static boolean isUnresolvedReindexTask(@Nonnull final ReindexTaskLookup lookup) {
+    return lookup == ReindexTaskLookup.RUNNING || lookup == ReindexTaskLookup.LOOKUP_ERROR;
   }
 
   /**
@@ -1595,6 +1709,10 @@ public class ESIndexBuilder {
     return Objects.requireNonNull(
         config.getBuildIndices().getReindexNoProgressRetryMinutes(),
         "elasticsearch.buildIndices.reindexNoProgressRetryMinutes must be set (e.g. in application.yaml)");
+  }
+
+  private boolean isWaitForUnresolvedReindexTaskEnabled() {
+    return config.getBuildIndices().isWaitForUnresolvedReindexTask();
   }
 
   private int calculateOptimalSlices(int targetShards) {
@@ -2372,7 +2490,8 @@ public class ESIndexBuilder {
     return reindexInfo;
   }
 
-  private Pair<Long, Long> getDocumentCounts(
+  @VisibleForTesting
+  protected Pair<Long, Long> getDocumentCounts(
       @Nonnull OperationContext opContext,
       Callable<Long> expectedCountSupplier,
       String destinationIndex)
@@ -2903,5 +3022,26 @@ public class ESIndexBuilder {
       }
     }
     return orphanedIndices;
+  }
+
+  /**
+   * Merges {@code overrides} into {@code target}. When both sides hold a map for the same key (for
+   * example {@code analysis} or {@code analysis.filter}) the maps are merged recursively, so an
+   * override only needs to name what it changes and keeps every other generated analyzer, filter
+   * and tokenizer. Any other value replaces the generated one.
+   */
+  @SuppressWarnings("unchecked")
+  private static void mergeSettings(Map<String, Object> target, Map<String, ?> overrides) {
+    for (Map.Entry<String, ?> entry : overrides.entrySet()) {
+      Object current = target.get(entry.getKey());
+      Object override = entry.getValue();
+      if (current instanceof Map && override instanceof Map) {
+        Map<String, Object> merged = new HashMap<>((Map<String, Object>) current);
+        mergeSettings(merged, (Map<String, ?>) override);
+        target.put(entry.getKey(), merged);
+      } else {
+        target.put(entry.getKey(), override);
+      }
+    }
   }
 }

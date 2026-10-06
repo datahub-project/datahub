@@ -138,7 +138,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setForms(FormsMapper.map(new Forms(data), entityUrn.toString()));
               } else if (DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(name)) {
                 result.setDataTransformLogic(
-                    DataTransformLogicMapper.map(context, new DataTransformLogic(data)));
+                    DataTransformLogicMapper.map(context, new DataTransformLogic(data), entityUrn));
               }
             });
 

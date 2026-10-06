@@ -324,4 +324,8 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.FORMS,
         ]);
     };
+
+    getPlatformProperties = (data: DataJob) => {
+        return data?.dataFlow?.platform;
+    };
 }

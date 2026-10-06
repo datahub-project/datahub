@@ -44,7 +44,7 @@ const StyledCard = styled.div`
 
 const StyledCardChartSection = styled.div`
     padding: 24px;
-    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
     gap: 24px;

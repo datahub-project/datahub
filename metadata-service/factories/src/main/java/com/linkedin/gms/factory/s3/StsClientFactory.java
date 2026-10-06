@@ -51,9 +51,11 @@ public class StsClientFactory {
     boolean hasObjectStorageRoleArn =
         AwsClientFactory.isObjectStorageRoleArnConfigured(configurationProvider);
 
-    if (!hasAwsEndpoint && !hasAwsRegion && !hasObjectStorageRoleArn) {
+    boolean hasSharedCredentials = defaultAwsCredentialsProvider != null;
+
+    if (!hasAwsEndpoint && !hasAwsRegion && !hasObjectStorageRoleArn && !hasSharedCredentials) {
       log.debug(
-          "Skipping STS client creation (no AWS_ENDPOINT_URL, AWS_REGION, aws.region, or objectStorage.roleArn)");
+          "Skipping STS client creation (no AWS endpoint/region, objectStorage.roleArn, or shared credentials)");
       return null;
     }
 

@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -68,6 +69,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DateTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     NullTypeClass,
     NumberTypeClass,
     SchemaFieldClass,
@@ -87,6 +91,12 @@ logger = logging.getLogger(__name__)
 # SAP Analytics Cloud serializes dates in OData verbose-JSON as "/Date(<ms-since-epoch>[±<offset>])/".
 _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\)/$")
 
+# SAP Datasphere is surfaced to SAC as a live "Data Warehouse Cloud" (DWC) connection.
+# DWC models carry an empty externalId, so their upstream urn is built from the model
+# name plus the per-connection datasphere_space rather than a parsed external id.
+_DWC_SYSTEM_TYPE = "DWC"
+_DATASPHERE_PLATFORM = "sap-datasphere"
+
 
 class ConnectionMappingConfig(EnvConfigMixin):
     platform: Optional[str] = Field(
@@ -101,6 +111,29 @@ class ConnectionMappingConfig(EnvConfigMixin):
     env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that this connection mapping belongs to",
+    )
+
+    datasphere_space: Optional[str] = Field(
+        default=None,
+        description=(
+            "For SAP Datasphere ('DWC') connections only: the Datasphere space id that "
+            "backs this connection (e.g. `bdap_sac`). SAC does not expose the space for "
+            "Datasphere-backed live models, so it must be supplied here to build the "
+            "upstream sap-datasphere dataset urn (`<space>.<model_name>`). Leave unset "
+            "for non-Datasphere connections."
+        ),
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Whether to lower-case identifiers when constructing the upstream dataset "
+            "urn for this connection. Must match the `convert_urns_to_lowercase` setting "
+            "used by the corresponding upstream connector recipe so the urns stitch. "
+            "Currently applied to SAP Datasphere ('DWC') upstreams only; BW/HANA "
+            "upstreams preserve case as before. Defaults to True (matching the SAP "
+            "Datasphere connector default)."
+        ),
     )
 
 
@@ -171,6 +204,33 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
+    resolve_datasphere_lineage: bool = Field(
+        default=True,
+        description=(
+            "For SAC Live Data Models backed by SAP Datasphere (Data Warehouse Cloud / "
+            "'DWC' connections), emit upstream lineage to the backing SAP Datasphere "
+            "dataset. The Datasphere object's technical name is derived from the SAC "
+            "model name; the Datasphere space is not exposed by SAC and must be supplied "
+            "via `connection_mapping.<connection_id>.datasphere_space`. The upstream urn "
+            "is built deterministically (`<space>.<model_name>`) with no DataHub graph "
+            "lookup. Models on connections without a configured `datasphere_space` are "
+            "skipped with a warning."
+        ),
+    )
+
+    resolve_datasphere_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "In addition to table-level DWC lineage, emit column-level lineage to the "
+            "backing SAP Datasphere dataset. SAC does not expose columns for Live Data "
+            "Models, so the field list is resolved from the upstream Datasphere dataset's "
+            "schema in DataHub (requires a `datahub_api`/graph connection) and mirrored "
+            "onto the SAC dataset, since the live model is a passthrough. Falls back to "
+            "table-level lineage when the graph or upstream schema is unavailable. "
+            "No effect unless `resolve_datasphere_lineage` is also enabled."
+        ),
+    )
+
     @field_validator("tenant_url", "token_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
@@ -185,6 +245,13 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     # DES answered 412 (the model is live in the source system, so it rejected us).
     acquired_model_schema_skipped_live_412: int = 0
     acquired_model_schema_failed: int = 0
+    # SAC Live Data Models backed by SAP Datasphere (DWC connections).
+    dwc_models_scanned: int = 0
+    dwc_lineage_resolved: int = 0
+    dwc_lineage_unresolved: int = 0
+    dwc_lineage_skipped_no_space: int = 0
+    dwc_column_lineage_resolved: int = 0
+    dwc_column_lineage_unresolved: int = 0
 
 
 @platform_name("SAP Analytics Cloud", id="sac")
@@ -525,15 +592,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     env=env,
                 )
 
-                if upstream_dataset_urn not in self.ingested_upstream_dataset_keys:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=upstream_dataset_urn,
-                        aspect=dataset_urn_to_key(upstream_dataset_urn),
-                    )
-
-                    yield mcp.as_workunit(is_primary_source=False)
-
-                    self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+                yield from self._emit_upstream_dataset_key(upstream_dataset_urn)
 
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
@@ -554,6 +613,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
                     log=False,
                 )
+        elif model.system_type == _DWC_SYSTEM_TYPE:
+            # DWC is a known type; when resolution is disabled we skip it quietly rather
+            # than falling through to the "Unknown system type" warning below.
+            if self.config.resolve_datasphere_lineage:
+                yield from self._emit_datasphere_lineage(dataset_urn, model)
         elif model.system_type is not None:
             self.report.warning(
                 message="Unknown system type for model",
@@ -570,7 +634,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
-        if model.external_id and model.connection_id and model.system_type:
+        if (
+            model.connection_id
+            and model.system_type
+            and (model.external_id or model.system_type == _DWC_SYSTEM_TYPE)
+        ):
             type_name = DatasetSubTypes.SAC_LIVE_DATA_MODEL
         elif model.is_import:
             type_name = DatasetSubTypes.SAC_IMPORT_DATA_MODEL
@@ -921,6 +989,170 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             return f"{schema}.{namespace}::{view}"
 
         return f"{schema}.{view}"
+
+    def _emit_upstream_dataset_key(
+        self, upstream_dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Emit the upstream key once so the node exists even if that source was never
+        # ingested; deduped across models so a shared upstream yields a single key.
+        if upstream_dataset_urn in self.ingested_upstream_dataset_keys:
+            return
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=upstream_dataset_urn,
+            aspect=dataset_urn_to_key(upstream_dataset_urn),
+        ).as_workunit(is_primary_source=False)
+
+        self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+
+    def _emit_datasphere_lineage(
+        self, dataset_urn: str, model: ResourceModel
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.dwc_models_scanned += 1
+        datasphere_upstream_urn = self._resolve_datasphere_upstream(model)
+        if datasphere_upstream_urn is None:
+            return
+        self.report.dwc_lineage_resolved += 1
+
+        # Materialize the upstream key so the Datasphere node exists even when that
+        # connector hasn't run yet, matching the BW/HANA path and keeping this lineage
+        # order-independent.
+        yield from self._emit_upstream_dataset_key(datasphere_upstream_urn)
+
+        fine_grained, schema_workunit = self._resolve_datasphere_column_lineage(
+            dataset_urn, datasphere_upstream_urn
+        )
+        if schema_workunit is not None:
+            yield schema_workunit
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=datasphere_upstream_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    ),
+                ],
+                fineGrainedLineages=fine_grained or None,
+            ),
+        ).as_workunit()
+
+    def _resolve_datasphere_upstream(self, model: ResourceModel) -> Optional[str]:
+        # SAC exposes the Datasphere object's technical name (the model name) but not its
+        # space, so the space comes from connection_mapping and the urn is built directly.
+        object_name = (model.name or "").strip()
+        # SAC synthesizes `<namespace>:<model_id>` as the name when OData exposes no real
+        # technical name; that value can't identify the Datasphere object, so treat it as
+        # unresolved rather than stitching to a fabricated urn. ponytail: this string compare
+        # is coupled to the fallback built when resource models are fetched — if that format
+        # changes, promote it to an explicit "name missing" flag on ResourceModel.
+        if not object_name or object_name == f"{model.namespace}:{model.model_id}":
+            self.report.dwc_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere model has no name",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because the model has no name to derive the object from."
+                ),
+                context=f"{model.connection_id}: {model.namespace}:{model.model_id}",
+                log=False,
+            )
+            return None
+
+        connection = self.config.connection_mapping.get(model.connection_id or "")
+        if connection is None or not connection.datasphere_space:
+            self.report.dwc_lineage_skipped_no_space += 1
+            self.report.warning(
+                title="SAP Datasphere space not configured",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because no datasphere_space is set for the connection. Add "
+                    "connection_mapping.<connection_id>.datasphere_space (the Datasphere "
+                    "space id), or set resolve_datasphere_lineage=false to silence this."
+                ),
+                context=f"{model.connection_id}: {model.name}",
+                log=False,
+            )
+            return None
+
+        # Match the Datasphere connector's urn casing so the upstream stitches.
+        dataset_name = f"{connection.datasphere_space}.{object_name}"
+        if connection.convert_urns_to_lowercase:
+            dataset_name = dataset_name.lower()
+
+        return make_dataset_urn_with_platform_instance(
+            platform=_DATASPHERE_PLATFORM,
+            name=dataset_name,
+            platform_instance=connection.platform_instance,
+            env=connection.env,
+        )
+
+    def _resolve_datasphere_column_lineage(
+        self, dataset_urn: str, upstream_urn: str
+    ) -> Tuple[List[FineGrainedLineageClass], Optional[MetadataWorkUnit]]:
+        # SAC exposes no columns for Live Data Models, so the field list is taken from
+        # the upstream SAP Datasphere dataset's schema in the DataHub graph. The live
+        # model is a passthrough, so that schema is mirrored onto the SAC dataset and
+        # each field is mapped to itself. Best-effort: an unavailable graph or upstream
+        # schema degrades to table-level lineage only.
+        if not self.config.resolve_datasphere_column_lineage:
+            return [], None
+
+        graph = self.ctx.graph
+        if graph is None:
+            self.report.dwc_column_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere column lineage needs a DataHub graph",
+                message=(
+                    "Column-level lineage for DWC-backed models resolves the upstream "
+                    "schema from DataHub, which requires a datahub_api/graph connection. "
+                    "Emitting table-level lineage only; set "
+                    "resolve_datasphere_column_lineage=false to silence this."
+                ),
+                context=upstream_urn,
+            )
+            return [], None
+
+        upstream_schema = graph.get_aspect(upstream_urn, SchemaMetadataClass)
+        if upstream_schema is None or not upstream_schema.fields:
+            self.report.dwc_column_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere upstream schema not found",
+                message=(
+                    "The upstream SAP Datasphere dataset has no schema in DataHub "
+                    "(ingest SAP Datasphere first). Emitting table-level lineage only."
+                ),
+                context=upstream_urn,
+            )
+            return [], None
+
+        # Mirror the upstream schema onto the SAC dataset so downstream field urns
+        # resolve, and map each field to its identical upstream counterpart.
+        schema_workunit = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=upstream_schema.schemaName,
+                platform=make_data_platform_urn(self.platform),
+                version=0,
+                hash="",
+                platformSchema=SchemalessClass(),
+                fields=upstream_schema.fields,
+                primaryKeys=upstream_schema.primaryKeys,
+            ),
+        ).as_workunit()
+
+        fine_grained = [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[make_schema_field_urn(upstream_urn, field.fieldPath)],
+                downstreams=[make_schema_field_urn(dataset_urn, field.fieldPath)],
+            )
+            for field in upstream_schema.fields
+        ]
+        self.report.dwc_column_lineage_resolved += 1
+        return fine_grained, schema_workunit
 
     def get_schema_field_data_type(
         self, column: ImportDataModelColumn

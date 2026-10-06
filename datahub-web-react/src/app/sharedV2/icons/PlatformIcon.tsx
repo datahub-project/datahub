@@ -93,7 +93,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
 
     return (
         <IconContainer
-            background={background}
+            background={theme.id === 'themeV2Dark' ? theme.colors.bgSurfaceDarker : background}
             size={size}
             styles={styles}
             title={title}

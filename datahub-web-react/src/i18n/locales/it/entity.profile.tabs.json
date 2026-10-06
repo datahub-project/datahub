@@ -54,6 +54,7 @@
     "properties.save.error": "Impossibile salvare la proprietà strutturata. Si è verificato un errore.",
     "properties.search.placeholder": "Cerca...",
     "properties.searchInProperties.placeholder": "Cerca nelle proprietà...",
+    "properties.showCountMoreValues": "mostra altri {{count}} di {{total, number}} valori",
     "properties.structuredProperty.title": "Proprietà strutturata",
     "properties.updated.success": "Proprietà strutturata aggiornata correttamente"
 }

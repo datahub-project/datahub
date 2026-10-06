@@ -3,11 +3,13 @@ package com.linkedin.gms.factory.entity.update.indices;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
+import com.linkedin.gms.factory.search.EntityDocumentIdHasherFactory;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -29,7 +31,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import(ElasticSearchServiceFactory.class)
+@Import({ElasticSearchServiceFactory.class, EntityDocumentIdHasherFactory.class})
 @Slf4j
 public class UpdateIndicesUpgradeStrategyFactory {
 
@@ -52,6 +54,7 @@ public class UpdateIndicesUpgradeStrategyFactory {
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
       @Qualifier("systemOperationContext") OperationContext systemOpContext,
       GitVersion gitVersion,
+      EntityDocumentIdHasher entityDocumentIdHasher,
       @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
 
     final DataHubUpgradeResultStore upgradeResultStore =
@@ -86,7 +89,8 @@ public class UpdateIndicesUpgradeStrategyFactory {
         systemOpContext,
         upgradeResultStore,
         upgradeIdUrn,
-        0);
+        0,
+        entityDocumentIdHasher);
   }
 
   /**

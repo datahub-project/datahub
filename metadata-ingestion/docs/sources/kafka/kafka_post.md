@@ -116,7 +116,7 @@ Requirements and limitations:
   you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
 - The catalog carries **no lineage between topics**. The producer/consumer graph shown in
   Confluent's Stream Lineage UI is not exposed by the API. Connector-to-topic lineage is
-  available through the [`kafka-connect`](/docs/generated/ingestion/sources/kafka-connect)
+  available through the [`kafka-connect`](kafka-connect.md)
   source for environments that use Kafka Connect.
 
 #### Custom Schema Registry

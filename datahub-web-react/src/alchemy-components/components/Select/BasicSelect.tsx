@@ -1,5 +1,5 @@
 import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
@@ -63,6 +63,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    optionDataTestId,
     updateLabel,
     icon,
     renderCustomOptionText,
@@ -235,6 +236,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
+                                        data-testid={optionDataTestId?.(option) ?? `option-${option.value}`}
                                         onClick={() => !isMultiSelect && handleOptionChange(option)}
                                         isSelected={tempValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}

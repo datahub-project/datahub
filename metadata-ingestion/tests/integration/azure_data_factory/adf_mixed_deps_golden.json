@@ -230,7 +230,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.MixedOrchestrationPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)"
                 }
             ]
@@ -355,7 +355,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.MixedOrchestrationPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)"
                 }
             ]
@@ -442,7 +442,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.MixedOrchestrationPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)"
                 }
             ]
@@ -643,7 +643,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.ExtractDataPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)"
                 }
             ]
@@ -824,7 +824,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.LoadDataPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)"
                 }
             ]

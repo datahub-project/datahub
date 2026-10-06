@@ -1,12 +1,9 @@
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
-import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { DocumentModal } from '@app/entityV2/document/DocumentModal';
@@ -14,15 +11,13 @@ import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkMo
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { useLinkListActions } from '@app/entityV2/shared/components/links/useLinkListActions';
 import { AddContextDocumentPopover } from '@app/entityV2/shared/tabs/Documentation/components/AddContextDocumentPopover';
-import { ResourceDocumentPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceDocumentPill';
-import { ResourceLinkPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceLinkPill';
+import RelatedResourcesPreview from '@app/entityV2/shared/tabs/Documentation/components/RelatedResourcesPreview';
 import {
     combineAndSortRelatedItems,
     createRelatedSectionMenuItems,
     hasRelatedContent,
 } from '@app/entityV2/shared/tabs/Documentation/components/relatedSectionUtils';
-import { useRemoveDocumentFromResources } from '@app/entityV2/shared/tabs/Documentation/components/useRemoveDocumentFromResources';
-import { useResourcesCollapseState } from '@app/entityV2/shared/tabs/Documentation/components/useResourcesCollapseState';
+import { useResourcesDocuments } from '@app/entityV2/shared/tabs/Documentation/components/useResourcesDocuments';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
@@ -69,13 +64,6 @@ const EmptyState = styled.div`
     padding: 8px 0;
 `;
 
-const PillsList = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-`;
-
 export const RelatedSection: React.FC = () => {
     const { t } = useTranslation('entity.profile.documentation');
     const { t: ta } = useTranslation('common.actions');
@@ -107,34 +95,21 @@ export const RelatedSection: React.FC = () => {
     const supportsRelatedDocuments = supportedCapabilities.has(EntityCapabilityType.RELATED_DOCUMENTS);
 
     const {
-        documents,
+        visibleDocuments,
         loading: documentsLoading,
         error: documentsError,
-        refetch: refetchRelatedDocuments,
-    } = useRelatedDocuments(urn || '', {
-        count: 100,
-    });
-
-    const {
         documentUrnToRemove,
-        removedUrns: removedDocumentUrns,
         requestRemove: setDocumentUrnToRemove,
         cancelRemove: cancelRemoveDocument,
         confirmRemove: handleConfirmRemoveDocument,
-    } = useRemoveDocumentFromResources({
+        handleDocumentsChanged,
+        handleDocumentCreated,
+        handleDocumentDeleted,
+    } = useResourcesDocuments({
         entityUrn: urn,
-        documents,
-        refetch: refetchRelatedDocuments,
-        successMessage: t('removeDocumentSuccess'),
-        errorMessage: t('removeDocumentError'),
+        removeSuccessMessage: t('removeDocumentSuccess'),
+        removeErrorMessage: t('removeDocumentError'),
     });
-
-    // Filter out docs the user just removed so the pill disappears immediately and
-    // stays gone while the ES-backed query catches up (see the hook for details).
-    const visibleDocuments = useMemo(
-        () => (removedDocumentUrns.size > 0 ? documents.filter((d) => !removedDocumentUrns.has(d.urn)) : documents),
-        [documents, removedDocumentUrns],
-    );
 
     const handleDocumentClick = useCallback((documentUrn: string) => {
         setSelectedDocumentUrn(documentUrn);
@@ -144,13 +119,10 @@ export const RelatedSection: React.FC = () => {
         setIsAddLinkModalVisible(true);
     }, []);
 
-    // Memoize the delete callback to prevent unnecessary re-renders
-    const handleDocumentDeleted = useCallback(() => {
-        // Wait a moment for delete to complete, then refetch related documents
-        setTimeout(() => {
-            refetchRelatedDocuments();
-        }, 2000);
-    }, [refetchRelatedDocuments]);
+    const handleDocumentModalDeleted = useCallback(() => {
+        if (!selectedDocumentUrn) return;
+        handleDocumentDeleted(selectedDocumentUrn);
+    }, [handleDocumentDeleted, selectedDocumentUrn]);
 
     const handleAddContext = useCallback(() => {
         setShowAddContextPopover(true);
@@ -160,12 +132,9 @@ export const RelatedSection: React.FC = () => {
         (documentUrn: string) => {
             setSelectedDocumentUrn(documentUrn);
             setShowAddContextPopover(false);
-            // Refetch related documents to show the newly linked document
-            setTimeout(() => {
-                refetchRelatedDocuments();
-            }, 1000);
+            handleDocumentCreated(documentUrn);
         },
-        [refetchRelatedDocuments],
+        [handleDocumentCreated],
     );
 
     // Create menu items with feature flag and permission checks
@@ -186,23 +155,20 @@ export const RelatedSection: React.FC = () => {
     const hasContent = hasRelatedContent(hasLinks, hasDocuments);
 
     // Docs already in this section render pre-checked in the picker so users can
-    // add/remove by toggling. Using `visibleDocuments` means a doc the user just
-    // removed shows unchecked immediately, without waiting for the ES refetch.
+    // add/remove by toggling. Using `visibleDocuments` includes local add/remove
+    // so the picker matches what the pills show.
     const linkedDocumentUrns = useMemo(
         () => (hasDocuments ? visibleDocuments.map((d) => d.urn) : []),
         [hasDocuments, visibleDocuments],
     );
 
-    // Combine and sort items by time (links by created time, documents by lastModified time)
+    // Keep the preview order consistent with the full Resources modal.
     const sortedItems = useMemo(
         () => combineAndSortRelatedItems(links, hasDocuments ? visibleDocuments : null),
         [links, hasDocuments, visibleDocuments],
     );
 
     const itemCount = sortedItems.length;
-    const { isExpanded, toggle } = useResourcesCollapseState(itemCount);
-    const canToggle = itemCount > 0;
-
     return (
         <>
             <SectionContainer>
@@ -226,11 +192,11 @@ export const RelatedSection: React.FC = () => {
                                 trigger="click"
                                 onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
                                 content={
-                                    urn ? (
+                                    urn && showAddContextPopover && !documentsLoading ? (
                                         <AddContextDocumentPopover
                                             entityUrn={urn}
                                             onDocumentSelected={handleDocumentSelected}
-                                            onDocumentsLinked={refetchRelatedDocuments}
+                                            onDocumentsChanged={handleDocumentsChanged}
                                             onClose={() => setShowAddContextPopover(false)}
                                             linkedDocumentUrns={linkedDocumentUrns}
                                         />
@@ -257,50 +223,18 @@ export const RelatedSection: React.FC = () => {
                                 </Menu>
                             </Popover>
                         )}
-                        {canToggle && (
-                            <Tooltip title={isExpanded ? t('collapseResourcesTooltip') : t('expandResourcesTooltip')}>
-                                <Button
-                                    variant="text"
-                                    color="gray"
-                                    isCircle
-                                    icon={{ icon: isExpanded ? CaretDown : CaretRight }}
-                                    onClick={toggle}
-                                    aria-label={
-                                        isExpanded ? t('collapseResourcesTooltip') : t('expandResourcesTooltip')
-                                    }
-                                    aria-expanded={isExpanded}
-                                    data-testid="toggle-resources-button"
-                                />
-                            </Tooltip>
-                        )}
                     </HeaderRight>
                 </SectionHeader>
 
-                {isExpanded && sortedItems.length > 0 && (
-                    <PillsList data-testid="related-list">
-                        {sortedItems.map((item) => {
-                            if (item.type === 'link') {
-                                return (
-                                    <ResourceLinkPill
-                                        key={`link-${item.data.url}`}
-                                        link={item.data}
-                                        onEdit={onEdit}
-                                        onDelete={handleDeleteLink}
-                                    />
-                                );
-                            }
-                            return (
-                                <ResourceDocumentPill
-                                    key={`document-${item.data.urn}`}
-                                    document={item.data}
-                                    onClick={handleDocumentClick}
-                                    onRemove={setDocumentUrnToRemove}
-                                    canRemove={canRemoveDocuments}
-                                />
-                            );
-                        })}
-                    </PillsList>
-                )}
+                <RelatedResourcesPreview
+                    items={sortedItems}
+                    canRemoveDocuments={canRemoveDocuments}
+                    showMoreLabel={(count) => ta('showCountMoreCapitalized', { count })}
+                    onDocumentClick={handleDocumentClick}
+                    onDocumentRemove={setDocumentUrnToRemove}
+                    onLinkEdit={onEdit}
+                    onLinkDelete={handleDeleteLink}
+                />
 
                 {!hasContent && !documentsLoading && <EmptyState>{t('noRelatedLinks')}</EmptyState>}
             </SectionContainer>
@@ -313,7 +247,7 @@ export const RelatedSection: React.FC = () => {
                 <DocumentModal
                     documentUrn={selectedDocumentUrn}
                     onClose={() => setSelectedDocumentUrn(null)}
-                    onDocumentDeleted={handleDocumentDeleted}
+                    onDocumentDeleted={handleDocumentModalDeleted}
                 />
             )}
             <ConfirmationModal

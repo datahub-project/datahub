@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
@@ -19,6 +20,8 @@ import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.exception.ESQueryException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +35,8 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -49,6 +54,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -67,10 +73,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -146,7 +154,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .bulkDelete(TEST_ES_SEARCH_CONFIG.getBulkDelete())
             .bulkProcessor(TEST_ES_SEARCH_CONFIG.getBulkProcessor())
             .buildIndices(TEST_ES_SEARCH_CONFIG.getBuildIndices())
-            .idHashAlgo(TEST_ES_SEARCH_CONFIG.getIdHashAlgo())
+            // idHashAlgo now travels with entityIndex.v2, preserved above
             .index(TEST_ES_SEARCH_CONFIG.getIndex())
             .scroll(TEST_ES_SEARCH_CONFIG.getScroll())
             .build();
@@ -693,6 +701,176 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     BoolQueryBuilder mustHaveV1 = (BoolQueryBuilder) shouldQuery.filter().get(1);
     assertEquals(((ExistsQueryBuilder) mustHaveV1.must().get(0)).fieldName(), "browsePaths");
+  }
+
+  @Test
+  public void testV3FilterQueryAlwaysScopesRequestedEntityTypes() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+
+    BoolQueryBuilder query =
+        SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            null,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            entityIndex);
+
+    assertTrue(
+        query.filter().stream()
+            .filter(BoolQueryBuilder.class::isInstance)
+            .flatMap(bool -> ((BoolQueryBuilder) bool).should().stream())
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .anyMatch(
+                term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
+  }
+
+  /** V3 root fields keep the V2 .keyword subfield, so filters and value counts use it as on V2. */
+  @Test
+  public void testV3FiltersAndValueCountsUseKeywordSubfields() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+
+    SearchRequestHandler v3Handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            testQueryConfig.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    String valueCounts =
+        v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
+    assertTrue(valueCounts.contains("\"field\":\"platform.keyword\""), valueCounts);
+    String keywordValueCounts =
+        v3Handler
+            .getAggregationRequest(operationContext, "platform.keyword", null, 10)
+            .source()
+            .toString();
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform.keyword\""), keywordValueCounts);
+  }
+
+  /**
+   * V3 root fields keep the V2 .keyword subfield, so filters resolve as on V2; entity type enum
+   * names, as the UI sends them, still match the V3 _entityType field.
+   */
+  @Test
+  public void testV3FilterNormalizesCallerFilters() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+    // V3 stores the registry entity name in _entityType, a keyword field without a subfield
+    assertTrue(v3Filter.contains("\"_entityType\""), v3Filter);
+    assertFalse(v3Filter.contains("_entityType.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("\"dataProduct\""), v3Filter);
+    assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
+    // The caller's filter is left as given
+    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+  }
+
+  /** V3 root fields carry the V2 subfields, so V3 runs the V2 full-text query and highlights. */
+  @Test
+  public void testV3FullTextQueryMatchesV2() {
+    ElasticSearchConfiguration v3Config =
+        testQueryConfig.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .build())
+            .build();
+    OperationContext fulltext = operationContext.withSearchFlags(flags -> flags.setFulltext(true));
+    for (String query :
+        List.of("test query", "\"test query\"", STRUCTURED_QUERY_PREFIX + "name:test")) {
+      SearchSourceBuilder v2 = getDatasetSearchSource(fulltext, testQueryConfig, query);
+      SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, v3Config, query);
+      assertEquals(((BoolQueryBuilder) v3.query()).must(), ((BoolQueryBuilder) v2.query()).must());
+      assertEquals(v3.highlighter(), v2.highlighter(), query);
+    }
+  }
+
+  private SearchSourceBuilder getDatasetSearchSource(
+      OperationContext opContext, ElasticSearchConfiguration config, String query) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(opContext, query, null, null, 0, 10, List.of())
+        .source();
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -1746,6 +1924,88 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         withFlag.getEntities().get(0).getExtraFields().get("parentDomain"),
         "\"urn:li:domain:root\"");
+  }
+
+  @Test
+  public void testSearchTypeFlag() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    // DFS in either case; any other value is QUERY_THEN_FETCH
+    Map<String, SearchType> expected =
+        Map.of(
+            "DFS_QUERY_THEN_FETCH", SearchType.DFS_QUERY_THEN_FETCH,
+            "dfs_query_then_fetch", SearchType.DFS_QUERY_THEN_FETCH,
+            "QUERY_THEN_FETCH", SearchType.QUERY_THEN_FETCH,
+            "QUERY_AND_FETCH", SearchType.QUERY_THEN_FETCH);
+    for (Map.Entry<String, SearchType> entry : expected.entrySet()) {
+      SearchRequest request =
+          handler.getSearchRequest(
+              operationContext.withSearchFlags(
+                  flags -> flags.setFulltext(false).setSearchType(entry.getKey())),
+              "testQuery",
+              null,
+              null,
+              0,
+              10,
+              List.of());
+      assertEquals(request.searchType(), entry.getValue(), entry.getKey());
+    }
+
+    SearchRequest unset =
+        handler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    assertEquals(unset.searchType(), SearchType.QUERY_THEN_FETCH);
+  }
+
+  @Test
+  public void testExtractResultsAddExplanation() throws Exception {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,explained,PROD)");
+    when(hit.getExplanation())
+        .thenReturn(
+            Explanation.match(2.0f, "sum of:", Explanation.match(2.0f, "weight(name:explained)")));
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchEntity searched =
+        handler.extractResult(operationContext, mockResponse, null, 0, 10).getEntities().get(0);
+    JsonNode explain = new ObjectMapper().readTree(searched.getExtraFields().get("_explain"));
+    assertEquals(explain.get("value").floatValue(), 2.0f);
+    assertEquals(explain.get("description").asText(), "sum of:");
+    assertTrue(explain.get("match").asBoolean());
+    assertEquals(
+        explain.get("details").get(0).get("description").asText(), "weight(name:explained)");
+    assertFalse(explain.get("details").get(0).has("details"));
+
+    // Scroll adds its per-hit scrollId next to the explanation
+    SearchEntity scrolled =
+        handler
+            .extractScrollResult(operationContext, mockResponse, null, null, 10, false)
+            .getEntities()
+            .get(0);
+    assertTrue(scrolled.getExtraFields().keySet().containsAll(Set.of("_explain", "scrollId")));
   }
 
   private SearchHit mockHitWithUrn(String urn) {

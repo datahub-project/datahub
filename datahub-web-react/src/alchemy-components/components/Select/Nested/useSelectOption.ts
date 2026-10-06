@@ -127,7 +127,8 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
             removeOptions([option]);
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
             if (!isMultiSelect) {
-                setSelectedOptions([option]);
+                // Single select: use handleOptionChange to ensure closeDropdown is called
+                handleOptionChange(option);
             } else {
                 let optionsToAdd: OptionType[];
                 if (option.isParent && !areParentsSelectable) {

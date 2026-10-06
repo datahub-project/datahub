@@ -1,6 +1,5 @@
 package com.linkedin.metadata.boot.kafka;
 
-import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.DUHE_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCP_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX;
@@ -31,8 +30,6 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
 
   private static final Map<String, AvroSchema> AVRO_SCHEMA_MAP =
       Map.of(
-          DUHE_SCHEMA_REGISTRY_TOPIC_KEY,
-          new AvroSchema(EventUtils.RENAMED_DUHE_AVRO_SCHEMA),
           MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
           new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA),
           MCP_SCHEMA_REGISTRY_TOPIC_KEY,
@@ -41,8 +38,6 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
   // Mapping from schema registry topic keys to schema names
   private static final Map<String, String> SCHEMA_REGISTRY_KEY_TO_SCHEMA_NAME_MAP =
       Map.of(
-          DUHE_SCHEMA_REGISTRY_TOPIC_KEY,
-          EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME,
           MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
           EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME,
           MCP_SCHEMA_REGISTRY_TOPIC_KEY,

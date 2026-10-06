@@ -236,6 +236,10 @@ export class MLModelEntity implements Entity<MlModel> {
         return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: MlModel) => {
+        return data?.properties?.created?.time || data?.properties?.date;
+    };
+
     getGenericEntityProperties = (mlModel: MlModel) => {
         return getDataForEntityType({
             data: mlModel,
@@ -258,5 +262,9 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);
+    };
+
+    getPlatformProperties = (data: MlModel) => {
+        return data?.platform;
     };
 }

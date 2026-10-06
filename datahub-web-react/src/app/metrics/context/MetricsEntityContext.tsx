@@ -3,16 +3,18 @@ import { matchPath, useLocation } from 'react-router-dom';
 
 import { PageRoutes } from '@conf/Global';
 
-import { EntityType } from '@types';
+import { DataPlatform, Domain, EntityType } from '@types';
 
 /** Minimal entity data needed by the sidebar to auto-expand the tree to the active entity. */
 export type MetricsEntityData = {
     urn: string;
     entityType: EntityType;
     /** The semantic model that owns this metric (present when entityType === Metric). */
-    semanticModel?: { urn: string } | null;
+    semanticModel?: { urn: string; name?: string | null } | null;
     /** Ancestor metrics from immediate parent to root, nearest first. */
     parentMetrics?: Array<{ urn: string }> | null;
+    platform?: DataPlatform | null;
+    domain?: Domain | null;
 };
 
 type MetricsEntityContextType = {

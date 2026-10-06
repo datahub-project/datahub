@@ -24,6 +24,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
+import org.opensearch.index.query.MatchPhraseQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -173,6 +174,22 @@ public class ConfigSearchExport extends HttpServlet {
                     "true",
                     "",
                     mppqb.toString().replaceAll("\n", "")
+                  };
+                  writer.println(row);
+                } else if (builder instanceof MatchPhraseQueryBuilder) {
+                  // Word gram subfields
+                  MatchPhraseQueryBuilder mpqb = (MatchPhraseQueryBuilder) builder;
+                  String[] row = {
+                    entitySpec.getName(),
+                    "relevancy",
+                    "phrase_match",
+                    mpqb.getClass().getSimpleName(),
+                    mpqb.fieldName(),
+                    String.valueOf(mpqb.boost()),
+                    "",
+                    "true",
+                    "",
+                    mpqb.toString().replaceAll("\n", "")
                   };
                   writer.println(row);
                 } else {

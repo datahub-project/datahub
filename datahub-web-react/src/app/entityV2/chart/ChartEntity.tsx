@@ -325,7 +325,7 @@ export class ChartEntity implements Entity<Chart> {
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
                     <MatchedFieldList
@@ -365,6 +365,10 @@ export class ChartEntity implements Entity<Chart> {
         return data.properties?.name || data.urn;
     };
 
+    createdTime = (data: Chart) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
+    };
+
     getGenericEntityProperties = (data: Chart) => {
         return getDataForEntityType({
             data,
@@ -399,4 +403,8 @@ export class ChartEntity implements Entity<Chart> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Chart) => {
+        return data?.platform;
+    };
 }

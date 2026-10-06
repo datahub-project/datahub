@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.ConfigEnrichment;
 import com.datahub.context.Enrichment;
 import com.datahub.context.EnrichmentBundle;
 import com.datahub.context.OperationFingerprint;
@@ -723,6 +724,16 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   public <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
     // getEnrichmentBundle() normalizes null → EMPTY, so this is always safe.
     return getEnrichmentBundle().get(type);
+  }
+
+  /** The stamped {@link ConfigEnrichment}'s answer for {@code key}, else {@code defaultValue}. */
+  @Override
+  @Nonnull
+  public <T> T getConfig(@Nonnull final String key, @Nonnull final T defaultValue) {
+    return getEnrichment(ConfigEnrichment.class)
+        .map(enrichment -> enrichment.resolve(this, key, defaultValue))
+        .filter(value -> defaultValue.getClass().isInstance(value))
+        .orElse(defaultValue);
   }
 
   /**

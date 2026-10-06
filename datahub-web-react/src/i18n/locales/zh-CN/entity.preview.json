@@ -31,7 +31,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "所有断言均已通过",
     "health.noActiveIncidents": "没有活跃的事件",
-    "health.testsPassing": "所有测试均已通过",
+    "health.noFailingGovernanceTests": "所有测试均已通过",
     "lineage.downstreamCount_other": "{{count}} 个下游",
     "lineage.upstreamCount_other": "{{count}} 个上游",
     "notesCount_other": "{{count}} 条备注",

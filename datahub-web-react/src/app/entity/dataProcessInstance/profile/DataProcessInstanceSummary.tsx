@@ -1,7 +1,7 @@
 import { Pill } from '@components';
 import { Space, Table, Typography } from 'antd';
 import type { ColumnType } from 'antd/es/table';
-import { capitalize } from 'lodash';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
