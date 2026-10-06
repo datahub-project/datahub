@@ -120,6 +120,8 @@ Requirements:
 
 ### Potential Downtime
 
+- **(GMS / Structured Properties / search indices)** With `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true`, `ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX=true` (the default), and `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true`, system-update `BuildIndices` reindexes entity search indices when an existing structured-property field's `copy_to` targets differ from the definition-driven mapping (for example adding `customFullTextSearchFields`). A put-mapping does not copy values already in the index into the new target, so those values stay out of full-text search until the reindex. All three flags are required. Mappings reindex defaults to off, so turning on system update alone does not start this reindex. **Action:** Expect longer system-update runtime on the first upgrade if any structured-property `copy_to` targets disagree with the index. Set `ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX=false` to skip that reindex and leave other structured-property system-update behavior intact.
+
 ### Deprecations
 
 - **(OpenAPI)** OpenAPI v2 entity and relationship APIs (`/openapi/v2/entity`, `/openapi/v2/relationship`, including generated typed entity endpoints under `/openapi/v2/entity`) are deprecated in favor of `/openapi/v3/entity` and `/openapi/v3/relationship`. They remain available; plan removal in a future release after a deprecation notice period. Timeseries (`/openapi/v2/timeseries`), platform entity ingest (`/openapi/v2/platform/entities/v1`), and timeline (`/openapi/v2/timeline/v1`) under v2 are **not** deprecated by this change.

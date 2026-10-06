@@ -1074,6 +1074,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "structuredProperties.dropOversizedKeywordValuesFromIndex",
           "structuredProperties.keywordMaxLength",
           "structuredProperties.systemUpdateEnabled",
+          "structuredProperties.copyToMismatchReindexEnabled",
           "structuredProperties.typeMismatchReindexEnabled",
           "structuredProperties.writeEnabled",
           "trace.executor.keep-alive-seconds",
