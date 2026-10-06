@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "搜尋檢視...",
     "viewSelect.searchPlaceholderLegacy": "搜尋",
     "viewSelect.selectYourView": "選取你的檢視",
+    "viewSelect.buttonLabel": "檢視",
+    "viewSelect.clearView": "清除檢視",
     "viewType.privateDescription": "<bold>私人</bold> - 僅你可見。",
     "viewType.publicDescription": "<bold>公開</bold> - 所有人皆可見。"
 }
