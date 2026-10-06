@@ -1,5 +1,5 @@
-import { Loader } from '@components';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 

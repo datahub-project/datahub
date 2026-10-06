@@ -1,3 +1,4 @@
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -10,7 +11,6 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/styledComponents';
 
 import { Assertion } from '@types';
-import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 
 const Container = styled.div`
     display: flex;

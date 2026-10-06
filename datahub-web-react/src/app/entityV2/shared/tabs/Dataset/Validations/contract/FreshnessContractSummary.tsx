@@ -1,3 +1,4 @@
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +8,6 @@ import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Val
 import { FreshnessScheduleSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessScheduleSummary';
 
 import { FreshnessContract } from '@types';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 
 const Container = styled.div`
     padding: 28px;
@@ -66,7 +66,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
             <TitleText>{t('contractSection.freshness')}</TitleText>
             <SummaryContainer>
                 <Header>
-                    <Clock style={{ marginRight: 8 }}  />
+                    <Clock style={{ marginRight: 8 }} />
                     {t('freshnessContract.updateFrequency')}
                 </Header>
                 <Body>

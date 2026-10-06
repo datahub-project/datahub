@@ -1,3 +1,4 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -13,7 +14,6 @@ import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/Upd
 import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 
 export enum EntityMenuItems {
     SHARE,

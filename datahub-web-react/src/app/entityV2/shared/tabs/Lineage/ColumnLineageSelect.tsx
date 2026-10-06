@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Button, Select } from 'antd';
 import * as React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -10,7 +11,6 @@ import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils
 import { ImpactAnalysisIcon } from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import updateQueryParams from '@app/shared/updateQueryParams';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 
 const StyledSelect = styled(Select)`
     margin-right: 5px;
@@ -117,7 +117,7 @@ export default function ColumnsLineageSelect({
                     <ImpactAnalysisIcon />
                     <TextWrapper>
                         <Trans i18nKey="lineage:columnLineage.buttonLabel" components={{ b: <b /> }} />
-                        <CaretDown style={{ fontSize: '10px', marginLeft: 4 }}  />
+                        <CaretDown style={{ fontSize: '10px', marginLeft: 4 }} />
                     </TextWrapper>
                 </StyledButton>
             </Tooltip>

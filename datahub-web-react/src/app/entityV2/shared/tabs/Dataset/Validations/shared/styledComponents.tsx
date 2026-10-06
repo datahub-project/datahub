@@ -1,8 +1,8 @@
-import styled from 'styled-components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import styled from 'styled-components';
 
 export const StyledCheckOutlined = styled(Check)`
     color: ${(props) => props.theme.colors.iconSuccess};

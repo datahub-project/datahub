@@ -1,5 +1,6 @@
 import { Modal, Text } from '@components';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Input, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +19,6 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 const spin = keyframes`
     from { transform: rotate(0deg); }
@@ -232,7 +232,7 @@ export default function DownloadAsCsvModal({
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }}  />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
                             {t('download.resultsMayVaryTitle')}

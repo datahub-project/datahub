@@ -1,10 +1,15 @@
 import { Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 import { Button, Select, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import styled, { keyframes, useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -23,11 +28,6 @@ import ManageLineageMenuForImpactAnalysis from '@src/app/entityV2/shared/tabs/Li
 import { Direction } from '@src/app/lineage/types';
 
 import { EntityType, LineageDirection, LineageSearchPath } from '@types';
-import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
-import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
-import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 
 const spin = keyframes`
     from { transform: rotate(0deg); }
@@ -124,7 +124,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
             label: (
                 <Tooltip placement="right" title={t('direction.downstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-downstream">
-                        <ArrowDown style={{ marginRight: 4 }}  />
+                        <ArrowDown style={{ marginRight: 4 }} />
                         <b>{t('direction.downstreams')}</b>
                     </span>
                 </Tooltip>
@@ -135,7 +135,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
             label: (
                 <Tooltip placement="right" title={t('direction.upstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-upstream">
-                        <ArrowUp style={{ marginRight: 4 }}  />
+                        <ArrowUp style={{ marginRight: 4 }} />
                         <b>{t('direction.upstreams')}</b>
                     </span>
                 </Tooltip>
@@ -153,7 +153,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         value={lineageDirection}
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDown style={{ color: theme.colors.text }}  />}
+                        suffixIcon={<CaretDown style={{ color: theme.colors.text }} />}
                         data-testid="lineage-tab-direction-select"
                     />
                 </LeftButtonsWrapper>
@@ -184,7 +184,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     <LineageTabTimeSelector />
                     <Tooltip title={isLoading ? t('refresh.loadingTooltip') : t('refresh.tooltip')} showArrow={false}>
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
-                            {isLoading ? <SpinningCircleNotch /> : <ArrowsClockwise  />}
+                            {isLoading ? <SpinningCircleNotch /> : <ArrowsClockwise />}
                             <Typography.Text>
                                 <b>{tcAction('refresh')}</b>
                             </Typography.Text>

@@ -1,4 +1,8 @@
 import { Popover } from '@components';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { TerminalWindow } from '@phosphor-icons/react/dist/csr/TerminalWindow';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -14,10 +18,6 @@ import {
 import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 
 import { EntityType } from '@types';
-import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
-import { TerminalWindow } from '@phosphor-icons/react/dist/csr/TerminalWindow';
-import { User } from '@phosphor-icons/react/dist/csr/User';
-import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 
 const Wrapper = styled.div`
     display: flex;

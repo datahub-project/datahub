@@ -1,4 +1,6 @@
 import { Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -13,8 +15,6 @@ import { UnionType } from '@app/search/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { LineageDirection, LineageSearchPath } from '@types';
-import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
-import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 
 const Container = styled.div`
     flex: 1;

@@ -1,3 +1,5 @@
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,8 +9,6 @@ import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { ViewType } from '@app/entityV2/shared/tabs/Dataset/Stats/viewType';
-import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 
 const StatsHeaderContainer = styled.div`
     display: flex;
@@ -39,7 +39,7 @@ export default function StatsHeader({ viewType, setViewType, reportedAt, lookbac
     const latestButtonColor = viewType === ViewType.LATEST ? theme.colors.textInformation : theme.colors.textSecondary;
     const latestButton = (
         <Button type="text" onClick={() => setViewType(ViewType.LATEST)}>
-            <ChartLine style={{ color: latestButtonColor }}  />
+            <ChartLine style={{ color: latestButtonColor }} />
             <Typography.Text style={{ color: latestButtonColor }}>{t('statsHeader.latestButton')}</Typography.Text>
         </Button>
     );
@@ -48,7 +48,7 @@ export default function StatsHeader({ viewType, setViewType, reportedAt, lookbac
         viewType === ViewType.HISTORICAL ? theme.colors.textInformation : theme.colors.textSecondary;
     const historicalButton = (
         <Button type="text" onClick={() => setViewType(ViewType.HISTORICAL)}>
-            <Clock style={{ color: historicalButtonColor }}  />
+            <Clock style={{ color: historicalButtonColor }} />
             <Typography.Text style={{ color: historicalButtonColor }}>
                 {t('statsHeader.historicalButton')}
             </Typography.Text>
