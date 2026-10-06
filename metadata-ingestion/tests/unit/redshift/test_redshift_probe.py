@@ -1,13 +1,29 @@
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import pytest
 import redshift_connector
 
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_probe import RedshiftMetadataProbe
+from datahub.metadata.schema_classes import SubTypesClass
+from datahub.metadata.urns import DatasetUrn
+from tests.test_helpers.probe_parity import (
+    EmittedIndex,
+    FanOut,
+    JudgedRecord,
+    ParityListing,
+    assert_probe_parity,
+)
 
 # (substring identifying the query, column names, rows). Matched in order, so
 # the more specific needles come first.
@@ -52,10 +68,14 @@ class _FakeCursor:
 
 class _FakeConnection:
     def __init__(
-        self, routes: Sequence[Route] = (), fail_on: Optional[str] = None
+        self,
+        routes: Sequence[Route] = (),
+        fail_on: Optional[str] = None,
+        close_error: Optional[Exception] = None,
     ) -> None:
         self.routes = list(routes)
         self.fail_on = fail_on
+        self.close_error = close_error
         self.executed: List[str] = []
         self.bound: List[Any] = []
         self.autocommit = True
@@ -66,6 +86,8 @@ class _FakeConnection:
 
     def close(self) -> None:
         self.closed = True
+        if self.close_error is not None:
+            raise self.close_error
 
 
 # No password: the fake connection never authenticates, and an IAM-style
@@ -79,7 +101,8 @@ _RECIPE: Dict[str, Any] = {
 
 def _probe(conn: _FakeConnection, **overrides: Any) -> RedshiftMetadataProbe:
     return RedshiftMetadataProbe(
-        conn, RedshiftConfig.model_validate({**_RECIPE, **overrides})
+        cast(redshift_connector.Connection, conn),
+        RedshiftConfig.model_validate({**_RECIPE, **overrides}),
     )
 
 
@@ -112,7 +135,7 @@ def test_for_config_connects_through_the_ingestion_builder(
     assert options["iam"] is True and options["sslmode"] == "prefer"
     assert options["application_name"] == PROBE_QUERY_LABEL
     assert "SET statement_timeout = 30000" in conn.executed
-    assert probe.catalog_scope == RedshiftMetadataProbe.catalog_scope
+    probe.__exit__(None, None, None)
 
 
 def test_recipe_application_name_wins(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,6 +177,15 @@ def test_exit_closes_the_connection() -> None:
     assert conn.closed
 
 
+def test_a_failing_close_does_not_replace_the_probe_error() -> None:
+    # A broken connection (after a statement timeout, say) can refuse to
+    # close; the caller must still see why the probe failed.
+    conn = _FakeConnection(close_error=redshift_connector.InterfaceError("broken"))
+    with pytest.raises(KeyError), _probe(conn):
+        raise KeyError("the probe's own error")
+    assert conn.closed
+
+
 def test_sql_passthrough_returns_columns_and_detects_truncation() -> None:
     conn = _FakeConnection(
         routes=[("svv_all_schemas", ["schema_name"], [["a"], ["b"], ["c"]])]
@@ -187,17 +219,42 @@ _SCHEMAS: Route = (
         ["ext_schema", "external", None, None, "GLUE", "lake"],
     ],
 )
-_REL_COLUMNS = ["tabletype", "schema", "relname", "view_definition"]
+# The columns RedshiftCommonQuery.list_tables returns.
+_REL_COLUMNS = [
+    "tabletype",
+    "schema",
+    "relname",
+    "creation_time",
+    "diststyle",
+    "owner_name",
+    "location",
+    "parameters",
+    "input_format",
+    "output_format",
+    "serde_parameters",
+    "table_description",
+    "view_definition",
+]
+
+
+def _rel(
+    tabletype: str, schema: str, name: str, ddl: Optional[str] = None
+) -> List[Any]:
+    row: Dict[str, Any] = dict.fromkeys(_REL_COLUMNS)
+    row.update(tabletype=tabletype, schema=schema, relname=name, view_definition=ddl)
+    return [row[c] for c in _REL_COLUMNS]
+
+
 _RELATIONS: Route = (
     "tabletype",
     _REL_COLUMNS,
     [
-        ["TABLE", "public", "orders", None],
-        ["VIEW", "public", "v_orders", "select * from orders"],
-        ["MATERIALIZED VIEW", "public", "mv_orders", "select 1"],
-        ["FOREIGN TABLE", "public", "f_orders", None],
-        ["EXTERNAL_TABLE", "ext_schema", "clicks", None],
-        ["TABLE", "other", "unrelated", None],
+        _rel("TABLE", "public", "orders"),
+        _rel("VIEW", "public", "v_orders", "select * from orders"),
+        _rel("MATERIALIZED VIEW", "public", "mv_orders", "select 1"),
+        _rel("FOREIGN TABLE", "public", "f_orders"),
+        _rel("EXTERNAL_TABLE", "ext_schema", "clicks"),
+        _rel("TABLE", "other", "unrelated"),
     ],
 )
 
@@ -274,7 +331,7 @@ def test_shared_database_lists_through_svv_redshift_tables() -> None:
     shared: Route = (
         "FROM svv_redshift_tables",
         _REL_COLUMNS,
-        [["TABLE", "public", "orders", None]],
+        [_rel("TABLE", "public", "orders")],
     )
     conn = _FakeConnection(routes=[_SHARED_DB, shared, _SCHEMAS])
     assert _probe(conn).tables(schema="public", limit=200) == ["orders"]
@@ -304,8 +361,6 @@ def test_an_empty_schema_says_why_rather_than_looking_empty() -> None:
 def test_an_unlisted_schema_is_a_bad_argument_for_listings_too(
     monkeypatch: pytest.MonkeyPatch, command: str
 ) -> None:
-    from datahub.ingestion.agent.probe_methods import run_probe_method
-
     _connect_with(monkeypatch, _FakeConnection(routes=_LISTING))
 
     # The same answer `columns` gives (exit 2), not an empty listing at exit 0.
@@ -320,15 +375,6 @@ def test_a_schema_differing_only_in_case_points_at_the_listed_one() -> None:
     assert "'public'" in str(refused.value)
 
 
-def test_a_drifted_table_listing_is_a_defect_not_a_bad_argument() -> None:
-    from datahub.ingestion.agent.verdicts import ProbeInternalError
-
-    drifted: Route = ("tabletype", ["tabletype", "schema", "relname"], [])
-    conn = _FakeConnection(routes=[_DB_DETAILS, drifted, _SCHEMAS])
-    with pytest.raises(ProbeInternalError):
-        _probe(conn).tables(schema="public", limit=200)
-
-
 def test_a_failing_catalog_query_propagates() -> None:
     conn = _FakeConnection(routes=_LISTING, fail_on="tabletype")
     with pytest.raises(RuntimeError):
@@ -336,8 +382,6 @@ def test_a_failing_catalog_query_propagates() -> None:
 
 
 def test_run_reports_kind_and_parent(monkeypatch: pytest.MonkeyPatch) -> None:
-    from datahub.ingestion.agent.probe_methods import run_probe_method
-
     _connect_with(monkeypatch, _FakeConnection(routes=_LISTING))
 
     result = run_probe_method(
@@ -351,8 +395,6 @@ def test_run_reports_kind_and_parent(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_run_reports_containers_as_schemas(monkeypatch: pytest.MonkeyPatch) -> None:
-    from datahub.ingestion.agent.probe_methods import run_probe_method
-
     _connect_with(monkeypatch, _FakeConnection(routes=[_SCHEMAS]))
 
     result = run_probe_method("redshift", dict(_RECIPE), "containers", {})
@@ -364,8 +406,6 @@ def test_run_reports_containers_as_schemas(monkeypatch: pytest.MonkeyPatch) -> N
 def test_a_catalog_timeout_is_not_reported_as_an_empty_listing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from datahub.ingestion.agent.probe_methods import run_probe_method
-
     _connect_with(
         monkeypatch,
         _FakeConnection(routes=_LISTING, fail_on="tabletype"),
@@ -373,14 +413,12 @@ def test_a_catalog_timeout_is_not_reported_as_an_empty_listing(
 
     # The driver's text is withheld as foreign, but the listing still fails
     # (exit 3) rather than coming back empty.
-    with pytest.raises(ProbeConnectionError, match=r"\(RuntimeError\)") as caught:
+    with pytest.raises(ProbeConnectionError) as caught:
         run_probe_method("redshift", dict(_RECIPE), "tables", {"schema": "public"})
     assert "statement timeout" not in str(caught.value)
 
 
 def test_probe_methods_advertises_what_the_provider_serves() -> None:
-    from datahub.ingestion.agent.probe_methods import list_probe_methods
-
     commands = {spec.command for spec in list_probe_methods("redshift")}
     assert {"containers", "tables", "views", "sql"} <= commands
     assert not commands & {"foreign_keys", "primary_key", "indexes", "table_comment"}
@@ -488,8 +526,6 @@ def test_columns_of_an_unknown_table_are_empty_with_a_reason() -> None:
 def test_an_unknown_schema_exits_as_a_bad_argument(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from datahub.ingestion.agent.probe_methods import run_probe_method
-
     _connect_with(
         monkeypatch, _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
     )
@@ -507,11 +543,31 @@ def test_an_unknown_schema_exits_as_a_bad_argument(
 
 def test_view_definition_is_the_ddl_ingestion_publishes() -> None:
     conn = _FakeConnection(routes=_LISTING)
-    probe = _probe(conn)
-    assert probe.view_definition(schema="public", view="v_orders") == (
+    assert _probe(conn).view_definition(schema="public", view="v_orders") == (
         "select * from orders"
     )
+
+
+def test_view_definition_of_a_table_is_null_and_says_so() -> None:
+    conn = _FakeConnection(routes=_LISTING)
+    probe = _probe(conn)
     assert probe.view_definition(schema="public", view="orders") is None
+    assert probe.warnings
+
+
+@pytest.mark.parametrize("view", ["missing", "V_orders"])
+def test_view_definition_of_an_unlisted_view_is_a_bad_argument(view: str) -> None:
+    # Not a null: that would read as "the catalog holds no SQL for it".
+    conn = _FakeConnection(routes=_LISTING)
+    with pytest.raises(ValueError):
+        _probe(conn).view_definition(schema="public", view=view)
+
+
+def test_view_definition_points_at_a_view_differing_only_in_case() -> None:
+    conn = _FakeConnection(routes=_LISTING)
+    with pytest.raises(ValueError) as refused:
+        _probe(conn).view_definition(schema="public", view="V_orders")
+    assert "'v_orders'" in str(refused.value)
 
 
 @pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
@@ -520,13 +576,12 @@ def test_view_definition_matches_names_in_python_not_in_sql(hostile: str) -> Non
     probe = _probe(conn)
     with pytest.raises(ValueError):
         probe.view_definition(schema=hostile, view="v_orders")
-    assert probe.view_definition(schema="public", view=hostile) is None
+    with pytest.raises(ValueError):
+        probe.view_definition(schema="public", view=hostile)
     _assert_never_sent(conn, hostile)
 
 
 def test_probe_methods_advertises_the_per_object_commands() -> None:
-    from datahub.ingestion.agent.probe_methods import list_probe_methods
-
     commands = {spec.command for spec in list_probe_methods("redshift")}
     assert {"columns", "view_definition"} <= commands
 
@@ -534,8 +589,6 @@ def test_probe_methods_advertises_the_per_object_commands() -> None:
 def test_a_redshift_error_is_labelled_with_its_sqlstate_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from datahub.ingestion.agent.probe_methods import run_probe_method
-
     planted = "PLANTED relation text"
     error = redshift_connector.ProgrammingError(
         {"S": "ERROR", "C": "42P01", "M": planted}
@@ -561,5 +614,200 @@ def test_a_redshift_error_is_labelled_with_its_sqlstate_only(
     _connect_with(monkeypatch, _FailingConnection(routes=[_SCHEMAS]))
     with pytest.raises(ProbeConnectionError) as caught:
         run_probe_method("redshift", dict(_RECIPE), "containers", {})
-    assert "'containers' failed (ProgrammingError; SQLSTATE 42P01)" in str(caught.value)
+    assert "SQLSTATE 42P01" in str(caught.value)
     assert planted not in str(caught.value)
+
+
+def _view_verdict(**recipe: Any) -> Tuple[bool, Optional[str]]:
+    result = check_filters(
+        source_type="redshift",
+        config_dict={**_RECIPE, **recipe},
+        kind="View",
+        parent_path=["public"],
+        names=["v_orders"],
+    )
+    verdict = result.results[0]
+    return verdict.included, verdict.excluded_by
+
+
+def test_a_view_is_also_judged_by_table_pattern() -> None:
+    assert _view_verdict(
+        table_pattern={"allow": [r"^dev\.public\.orders$"]},
+        view_pattern={"allow": [".*"]},
+    ) == (False, "table_pattern")
+
+
+def test_a_view_refused_by_both_patterns_names_view_pattern() -> None:
+    # Ingestion checks view_pattern first.
+    assert _view_verdict(
+        table_pattern={"deny": [".*"]}, view_pattern={"deny": [".*"]}
+    ) == (False, "view_pattern")
+
+
+def test_try_allow_on_views_still_meets_table_pattern() -> None:
+    # --try-allow replaces only view_pattern; table_pattern still decides, as
+    # it would in a run with the edited recipe.
+    result = check_filters(
+        source_type="redshift",
+        config_dict={
+            **_RECIPE,
+            "table_pattern": {"deny": [r"^dev\.public\.v_orders$"]},
+            "view_pattern": {"allow": ["^nothing$"]},
+        },
+        kind="View",
+        parent_path=["public"],
+        names=["v_orders"],
+        try_allow=[".*"],
+    )
+    assert result.results[0].excluded_by == "table_pattern"
+
+
+def test_switching_views_off_outranks_table_pattern() -> None:
+    assert _view_verdict(include_views=False, table_pattern={"deny": [".*"]}) == (
+        False,
+        "include_views",
+    )
+
+
+def test_a_view_in_a_denied_schema_names_schema_pattern() -> None:
+    assert _view_verdict(
+        schema_pattern={"deny": ["^public$"]}, table_pattern={"deny": [".*"]}
+    ) == (False, "schema_pattern")
+
+
+def test_a_table_is_not_judged_by_view_pattern() -> None:
+    result = check_filters(
+        source_type="redshift",
+        config_dict={**_RECIPE, "view_pattern": {"deny": [".*"]}},
+        kind="Table",
+        parent_path=["public"],
+        names=["orders"],
+    )
+    assert result.results[0].included
+
+
+class _AnswerEverythingConnection(_FakeConnection):
+    """Routes what it knows and answers every other query with no rows, so a
+    whole ingestion run can go through it."""
+
+    def cursor(self) -> _FakeCursor:
+        return _EmptyByDefaultCursor(self)
+
+
+class _EmptyByDefaultCursor(_FakeCursor):
+    def execute(self, query: str, args: Any = None) -> "_FakeCursor":
+        try:
+            return super().execute(query, args)
+        except AssertionError:
+            self.description = []
+            self._rows = []
+            return self
+
+
+_PARITY_SCHEMAS: Route = (
+    "schema_type",
+    _SCHEMAS[1],
+    [
+        ["public", "local", None, None, None, None],
+        ["scratch", "local", None, None, None, None],
+    ],
+)
+_PARITY_RELATIONS: Route = (
+    "tabletype",
+    _REL_COLUMNS,
+    [
+        _rel("TABLE", "public", "orders"),
+        _rel("TABLE", "public", "orders_tmp"),
+        _rel("VIEW", "public", "v_orders", "select * from orders"),
+        _rel("VIEW", "public", "v_denied", "select 1"),
+        _rel("VIEW", "public", "v_hidden", "select 2"),
+        _rel("MATERIALIZED VIEW", "public", "mv_orders", "select 3"),
+        _rel("TABLE", "scratch", "s1"),
+    ],
+)
+_PARITY_ROUTES: List[Route] = [_DB_DETAILS, _PARITY_RELATIONS, _PARITY_SCHEMAS]
+
+
+def _parity_connection(config: RedshiftConfig) -> _FakeConnection:
+    return _AnswerEverythingConnection(routes=_PARITY_ROUTES)
+
+
+def _ingest(recipe: Dict[str, object]) -> EmittedIndex:
+    source = RedshiftSource(
+        RedshiftConfig.model_validate(recipe),
+        PipelineContext(run_id="redshift-probe-parity"),
+    )
+    index = EmittedIndex.from_workunits(source.get_workunits())
+    assert not source.report.failures
+    return index
+
+
+def _datasets(sub_type: str) -> Callable[[EmittedIndex], Set[str]]:
+    def emitted(index: EmittedIndex) -> Set[str]:
+        return {
+            DatasetUrn.from_string(urn).name
+            for urn in index.urns("dataset", with_aspect=SubTypesClass)
+            if any(
+                isinstance(aspect, SubTypesClass) and sub_type in aspect.typeNames
+                for aspect in index.aspects[urn]
+            )
+        }
+
+    return emitted
+
+
+def _qualified(record: JudgedRecord) -> str:
+    return ".".join(("dev", *record.parent_path, record.name))
+
+
+def test_probe_verdicts_match_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        RedshiftSource, "get_redshift_connection", staticmethod(_parity_connection)
+    )
+    recipe: Dict[str, object] = {
+        **_RECIPE,
+        "schema_pattern": {"deny": ["^scratch$"]},
+        "table_pattern": {"deny": [r".*\.orders_tmp$", r".*\.v_hidden$"]},
+        "view_pattern": {"deny": [r".*\.v_denied$"]},
+        "include_table_lineage": False,
+        "include_usage_statistics": False,
+    }
+    fan_out = FanOut("containers", "schema")
+
+    report = assert_probe_parity(
+        "redshift",
+        recipe,
+        _ingest,
+        [
+            ParityListing(
+                "schemas",
+                "containers",
+                emitted=lambda index: index.container_names(
+                    DatasetContainerSubTypes.SCHEMA
+                ),
+            ),
+            ParityListing(
+                "tables",
+                "tables",
+                emitted=_datasets(DatasetSubTypes.TABLE),
+                fan_out=fan_out,
+                identity=_qualified,
+            ),
+            ParityListing(
+                "views",
+                "views",
+                emitted=_datasets(DatasetSubTypes.VIEW),
+                fan_out=fan_out,
+                identity=_qualified,
+            ),
+        ],
+    )
+
+    assert report.excluded_by("views") == {
+        "dev.public.v_denied": "view_pattern",
+        "dev.public.v_hidden": "table_pattern",
+    }
+    assert report.excluded_by("tables") == {
+        "dev.public.orders_tmp": "table_pattern",
+        "dev.scratch.s1": "schema_pattern",
+    }

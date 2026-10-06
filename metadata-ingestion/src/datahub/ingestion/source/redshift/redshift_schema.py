@@ -24,10 +24,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # identified in Redshift query logs (AWS Redshift Ready / GIF-005).
 REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE = "-- partner: DataHub -v {version}\n"
 
-# What get_tables_and_views files under views rather than tables. Shared with
-# the probe so a materialized view is a View in both places.
-REDSHIFT_VIEW_TABLE_TYPES: Tuple[str, ...] = ("MATERIALIZED VIEW", "VIEW")
-
 
 def unescape_stl_query_text(text: str) -> str:
     """Convert Redshift STL literal escape sequences back to real characters.
@@ -277,6 +273,12 @@ def _add_redshift_query_tag(query: str) -> str:
     return tag_comment + query
 
 
+def is_shared_database(db: Optional[RedshiftDatabase]) -> bool:
+    """Whether `db` (get_database_details' answer) is a datashare consumer,
+    whose objects are read from svv_redshift_* rather than pg_class."""
+    return db is not None and db.is_shared_database()
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     def __init__(self, is_serverless):
@@ -407,13 +409,16 @@ class RedshiftDataDictionary:
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
         extract_ownership: bool = False,
+        enrich: bool = True,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
+        """`enrich=False` skips enrich_tables (svv_table_info joined to
+        stl_insert), leaving size, row count and last-altered unset."""
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
         # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
-        enriched_tables = self.enrich_tables(conn)
+        enriched_tables = self.enrich_tables(conn) if enrich else {}
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
@@ -432,7 +437,10 @@ class RedshiftDataDictionary:
             schema = table[field_names.index("schema")]
             table_name = table[field_names.index("relname")]
 
-            if table[field_names.index("tabletype")] not in REDSHIFT_VIEW_TABLE_TYPES:
+            if table[field_names.index("tabletype")] not in [
+                "MATERIALIZED VIEW",
+                "VIEW",
+            ]:
                 if schema not in tables:
                     tables.setdefault(schema, [])
 

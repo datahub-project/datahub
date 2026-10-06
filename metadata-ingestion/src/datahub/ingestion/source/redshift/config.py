@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Annotated, Any, Dict, FrozenSet, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional, Tuple
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -36,6 +36,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.Logger(__name__)
+
+
+# A view must pass view_pattern, then table_pattern (redshift.py
+# cache_tables_and_views, then _process_view).
+VIEW_FILTER_FIELDS: Tuple[str, ...] = ("view_pattern", "table_pattern")
 
 
 def dataset_name(database: str, schema: str, table: str) -> str:
@@ -324,23 +329,17 @@ class RedshiftConfig(
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
 
+    def view_allowed(self, name: str) -> bool:
+        """Whether every pattern in VIEW_FILTER_FIELDS allows view `name`
+        (dataset_name's form)."""
+        return all(getattr(self, field).allowed(name) for field in VIEW_FILTER_FIELDS)
+
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        # Mirrors redshift.py: cache_tables_and_views keeps the views
-        # view_pattern allows, then _process_view drops any that table_pattern
-        # refuses, both matched on dataset_name(database, schema, view). So a
-        # view needs both patterns to allow it. view_pattern is checked first
-        # there, and is left to report itself here; pattern_verdict reads this
-        # config, so --try-allow/--try-deny on views reach the first check and
-        # table_pattern still applies after it, as it would in a run. Every
-        # other name gets the SQL family's rules.
-        if (
-            str(ctx.kind) == str(DatasetSubTypes.VIEW)
-            and ctx.structural is None
-            and pattern_verdict(self, ctx.pattern_field, ctx.target).included
-        ):
-            verdict = pattern_verdict(self, "table_pattern", ctx.target)
-            if not verdict.included:
-                return verdict
+        if ctx.kind == DatasetSubTypes.VIEW and ctx.structural is None:
+            for field in VIEW_FILTER_FIELDS:
+                verdict = pattern_verdict(self, field, ctx.target)
+                if not verdict.included:
+                    return verdict
         return sql_structural_verdict(self, ctx)
 
     @classmethod
