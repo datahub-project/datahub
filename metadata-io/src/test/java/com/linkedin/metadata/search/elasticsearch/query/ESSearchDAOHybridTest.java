@@ -4,6 +4,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFI
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -29,6 +31,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.search.TotalHits;
@@ -62,7 +69,7 @@ public class ESSearchDAOHybridTest {
             .withSearchFlags(flags -> flags.setFulltext(true));
     reranker = mock(HybridSearchResultReranker.class);
     // Reverses the rows it is given, so the test can tell reranked rows from keyword ones
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
         .thenAnswer(
             invocation -> {
               List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
@@ -107,7 +114,8 @@ public class ESSearchDAOHybridTest {
             eq(ENTITY_NAMES),
             eq("revenue"),
             rows.capture(),
-            eq(List.of("urn")));
+            eq(List.of("urn")),
+            anyLong());
     assertEquals(rows.getValue().size(), 100);
   }
 
@@ -205,7 +213,7 @@ public class ESSearchDAOHybridTest {
 
     assertEquals(rowIds(result), range(0, 10));
     verify(reranker, org.mockito.Mockito.never())
-        .rerank(any(OperationContext.class), any(), any(), anyList(), any());
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
 
   @Test
@@ -213,7 +221,7 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
         .thenAnswer(
             invocation -> {
               // Changes made by a rerank that runs past the timeout stay off the served rows
@@ -231,11 +239,59 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testHungProviderFreesItsWorkerAtTheDeadline() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    AtomicBoolean hang = new AtomicBoolean(true);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
+              if (hang.get()) {
+                // A hung provider whose call the deadline ends; it ignores interrupts
+                long deadlineNanos = invocation.getArgument(5);
+                Uninterruptibles.sleepUninterruptibly(
+                    deadlineNanos - System.nanoTime(), TimeUnit.NANOSECONDS);
+                throw new IOException("embedding call timed out");
+              }
+              Collections.reverse(rows);
+              return rows;
+            });
+
+    // Enough searches at once to occupy every worker and fill the queue
+    ExecutorService searches = Executors.newFixedThreadPool(24);
+    try {
+      List<Future<SearchResult>> hung = new ArrayList<>();
+      for (int i = 0; i < 24; i++) {
+        hung.add(
+            searches.submit(
+                () ->
+                    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())));
+      }
+      for (Future<SearchResult> search : hung) {
+        assertEquals(rowIds(search.get()), range(0, 10));
+      }
+    } finally {
+      searches.shutdownNow();
+    }
+    hang.set(false);
+    // The calls ended at their deadlines; a moment lets the workers return
+    Thread.sleep(200);
+
+    SearchResult result =
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+
+    // Reranked rather than rejected: the workers are free again
+    assertEquals(rowIds(result), range(99, 89));
+  }
+
+  @Test
   public void testFailedRerankServesTheKeywordRanking() throws IOException {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any()))
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
         .thenThrow(new IOException("kNN unavailable"));
 
     SearchResult result =

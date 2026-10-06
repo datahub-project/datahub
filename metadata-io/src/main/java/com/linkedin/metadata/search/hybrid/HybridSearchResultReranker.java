@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -55,6 +56,8 @@ public class HybridSearchResultReranker {
   /**
    * Returns {@code lexicalRows} with the rows of entity types that have vectors reordered by
    * combined lexical and vector score, each moved into a position such a row held before.
+   *
+   * @param deadlineNanos {@link System#nanoTime()} by which the embedding and kNN calls end
    */
   @Nonnull
   public List<SearchEntity> rerank(
@@ -62,16 +65,18 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
-      @Nonnull final Collection<String> fieldsToFetch)
+      @Nonnull final Collection<String> fieldsToFetch,
+      final long deadlineNanos)
       throws IOException {
     return reorder(
-        lexicalRows, candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch));
+        lexicalRows,
+        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, deadlineNanos));
   }
 
   /**
    * Scores the rows that have vectors, highest combined score first. The kNN query scores exactly
    * these rows. Empty when the query is a wildcard or no row has an entity type with vectors, in
-   * which case no embedding or kNN request is made.
+   * which case no embedding or kNN request is made, and when the kNN response may be missing hits.
    */
   @Nonnull
   public List<HybridCandidate> candidates(
@@ -79,7 +84,8 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
-      @Nonnull final Collection<String> fieldsToFetch)
+      @Nonnull final Collection<String> fieldsToFetch,
+      final long deadlineNanos)
       throws IOException {
     if (query.isBlank() || "*".equals(query) || lexicalRows.isEmpty()) {
       return List.of();
@@ -93,7 +99,11 @@ public class HybridSearchResultReranker {
     }
 
     final HybridQueryEmbeddingService.QueryEmbedding queryEmbedding =
-        queryEmbeddingService.embed(query);
+        queryEmbeddingService.embed(query, deadlineNanos);
+    final long remainingNanos = deadlineNanos - System.nanoTime();
+    if (remainingNanos <= 0) {
+      return List.of();
+    }
     final Optional<KnnSearchRequest> knnRequest =
         knnRequestBuilder.build(
             opContext,
@@ -101,7 +111,8 @@ public class HybridSearchResultReranker {
             queryEmbedding.modelEmbeddingKey(),
             queryEmbedding.vector(),
             lexicalScores.keySet(),
-            fieldsToFetch);
+            fieldsToFetch,
+            Duration.ofNanos(remainingNanos));
     if (knnRequest.isEmpty()) {
       return List.of();
     }
@@ -109,16 +120,25 @@ public class HybridSearchResultReranker {
     final KnnSearchResponse knnResponse =
         SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3)
             .searchKnn(opContext, knnRequest.get());
+    if (knnResponse.partial()) {
+      // Hits may be missing, and a row without one would be taken for a row without vectors
+      count(opContext, "hybridReadPartial");
+      return List.of();
+    }
     final Map<Urn, Double> vectorScores = scoreMapBuilder.vectorScores(knnResponse);
     if (vectorScores.isEmpty()) {
       // e.g. the V3 document index has no embeddings yet: one embedding call bought nothing
-      opContext
-          .getMetricUtils()
-          .ifPresent(m -> m.increment(HybridSearchResultReranker.class, "hybridReadNoVectors", 1));
+      count(opContext, "hybridReadNoVectors");
     }
     // A row without vectors, e.g. not embedded yet, has nothing to compare and keeps its position
     lexicalScores.keySet().retainAll(vectorScores.keySet());
     return candidateMerger.merge(lexicalScores, vectorScores);
+  }
+
+  private static void count(@Nonnull final OperationContext opContext, @Nonnull String metric) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(m -> m.increment(HybridSearchResultReranker.class, metric, 1));
   }
 
   /**

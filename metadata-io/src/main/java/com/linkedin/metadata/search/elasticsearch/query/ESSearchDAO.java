@@ -113,6 +113,7 @@ public class ESSearchDAO {
   private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
 
   // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
+  // calls end by the same deadline, so a worker is free about when its search falls back. The
   // queue is bounded: when every worker is busy, searches get the keyword ranking right away
   private static final ExecutorService HYBRID_EXECUTOR =
       new ThreadPoolExecutor(
@@ -542,27 +543,34 @@ public class ESSearchDAO {
         for (SearchEntity row : rows.subList(0, windowEnd)) {
           window.add(row.copy());
         }
+        final long deadlineNanos =
+            System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
         rerank =
             HYBRID_EXECUTOR.submit(
                 Context.current()
                     .wrap(
                         () ->
                             hybridSearchResultReranker.rerank(
-                                opContext, entityNames, input, window, List.of(URN_FIELD))));
+                                opContext,
+                                entityNames,
+                                input,
+                                window,
+                                List.of(URN_FIELD),
+                                deadlineNanos)));
         ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
         ranked.addAll(rows.subList(windowEnd, rows.size()));
         countHybrid(opContext, "hybridReadApplied");
       } catch (RejectedExecutionException e) {
         countHybrid(opContext, "hybridReadRejected");
       } catch (TimeoutException e) {
-        // A running call keeps its worker until it returns, so the pool caps the calls in flight
-        // and the rest are rejected; a queued call does not start
-        rerank.cancel(false);
+        // The interrupt frees a worker whose provider does not honor the deadline; a queued call
+        // does not start
+        rerank.cancel(true);
         countHybrid(opContext, "hybridReadTimeout");
         log.warn(
             "Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
       } catch (InterruptedException e) {
-        rerank.cancel(false);
+        rerank.cancel(true);
         Thread.currentThread().interrupt();
         countHybrid(opContext, "hybridReadFailed");
       } catch (Exception e) {

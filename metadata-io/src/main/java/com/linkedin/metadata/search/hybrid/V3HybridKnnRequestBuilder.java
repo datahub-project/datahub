@@ -8,6 +8,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbedding
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -29,8 +30,14 @@ public class V3HybridKnnRequestBuilder {
   private static final String CHUNKS_SUFFIX = ".chunks";
   private static final String VECTOR_SUFFIX = ".vector";
 
-  /** Keeps num_candidates, 10 x k by default, within the engines' limit of 10,000. */
+  /**
+   * Documents to return, more than a rerank window holds. Nested kNN counts documents, not chunks:
+   * each document comes back once, scored by its nearest chunk.
+   */
   static final int MAX_K = 1_000;
+
+  /** Candidates each shard considers, the engines' limit. */
+  static final int MAX_NUM_CANDIDATES = 10_000;
 
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
 
@@ -55,16 +62,17 @@ public class V3HybridKnnRequestBuilder {
       @Nonnull final String modelEmbeddingKey,
       @Nonnull final float[] queryVector,
       @Nonnull final Collection<Urn> urns,
-      @Nonnull final Collection<String> fieldsToFetch) {
+      @Nonnull final Collection<String> fieldsToFetch,
+      @Nonnull final Duration timeout) {
     final Map<String, String> indices =
         SemanticEntitySearchService.v3SemanticIndices(
             opContext, entityNames, semanticSearchConfiguration);
     if (indices.isEmpty() || urns.isEmpty()) {
       return Optional.empty();
     }
-    // Only the given rows are scored, so the search is exact and repeatable. k counts nearest
-    // chunks of the nested vectors, not documents, so it stays at the cap: the filter, not k,
-    // bounds the hits to these rows and every row with a vector gets its score
+    // Only the given rows are scored. k and num_candidates exceed the rows the filter admits, so
+    // every row with a vector for the model comes back, scored by its nearest chunk; on Faiss an
+    // approximate pass that finds fewer than k documents is redone as exact search over the rows
     final List<String> urnValues = urns.stream().map(Urn::toString).collect(Collectors.toList());
 
     return Optional.of(
@@ -73,6 +81,8 @@ public class V3HybridKnnRequestBuilder {
             .vectorField(vectorField(modelEmbeddingKey))
             .queryVector(queryVector)
             .k(MAX_K)
+            .numCandidates(MAX_NUM_CANDIDATES)
+            .timeout(timeout)
             .fieldsToFetch(new ArrayList<>(fieldsToFetch))
             .filter(
                 Map.of(

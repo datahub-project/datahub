@@ -42,15 +42,16 @@ public class HybridQueryEmbeddingService {
     this.expectedDimension = expectedDimension;
   }
 
+  /**
+   * Embeds the query, or reuses a recent embedding of it.
+   *
+   * @param deadlineNanos {@link System#nanoTime()} by which the provider call has to end
+   */
   @Nonnull
-  public QueryEmbedding embed(@Nonnull final String query) {
+  public QueryEmbedding embed(@Nonnull final String query, final long deadlineNanos) {
     final float[] vector;
     try {
-      vector =
-          recentEmbeddings.get(
-              query,
-              () ->
-                  checkDimension(embeddingProvider.embed(query, modelId, EmbeddingTaskType.QUERY)));
+      vector = recentEmbeddings.get(query, () -> load(query, deadlineNanos));
     } catch (ExecutionException | RuntimeException e) {
       final Throwable cause = e.getCause() != null ? e.getCause() : e;
       throw cause instanceof RuntimeException
@@ -58,6 +59,17 @@ public class HybridQueryEmbeddingService {
           : new IllegalStateException("Query embedding failed", cause);
     }
     return new QueryEmbedding(modelEmbeddingKey, vector);
+  }
+
+  @Nonnull
+  private float[] load(@Nonnull final String query, final long deadlineNanos) {
+    final long remainingNanos = deadlineNanos - System.nanoTime();
+    if (remainingNanos <= 0) {
+      throw new IllegalStateException("No time left to embed the query");
+    }
+    return checkDimension(
+        embeddingProvider.embed(
+            query, modelId, EmbeddingTaskType.QUERY, Duration.ofNanos(remainingNanos)));
   }
 
   // Checked while loading, so a wrong-sized vector is not cached and the next search retries

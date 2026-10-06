@@ -1,12 +1,14 @@
 package com.linkedin.metadata.search.hybrid;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,8 +22,10 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
@@ -52,7 +56,11 @@ public class HybridSearchResultRerankerTest {
             TestOperationContexts.systemContextNoValidate(),
             component -> component == SearchComponent.SEARCH_V3 ? v3Client : primaryClient);
     embeddingProvider = mock(EmbeddingProvider.class);
-    when(embeddingProvider.embed("revenue", "text-embedding-3-small", EmbeddingTaskType.QUERY))
+    when(embeddingProvider.embed(
+            eq("revenue"),
+            eq("text-embedding-3-small"),
+            eq(EmbeddingTaskType.QUERY),
+            any(Duration.class)))
         .thenReturn(new float[] {0.1f, 0.2f});
     reranker =
         new HybridSearchResultReranker(
@@ -77,7 +85,8 @@ public class HybridSearchResultRerankerTest {
             "revenue",
             List.of(
                 row(DOC_A, 80), row(DATASET, 70), row(DOC_B, 60), row(CHART, 50), row(DOC_C, 40)),
-            List.of("urn"));
+            List.of("urn"),
+            inSeconds(60));
 
     // The vector scores reorder the documents; the dataset and the chart keep their positions
     assertEquals(urns(reranked), List.of(DOC_B, DATASET, DOC_C, CHART, DOC_A));
@@ -98,6 +107,10 @@ public class HybridSearchResultRerankerTest {
     assertEquals(
         ((Map<?, ?>) ((List<?>) bool.get("filter")).get(1)).get("terms"),
         Map.of("urn", List.of(DOC_A.toString(), DOC_B.toString(), DOC_C.toString())));
+    // The kNN call gets the time left before the deadline
+    Duration timeout = request.getValue().timeout().get();
+    assertTrue(
+        timeout.compareTo(Duration.ZERO) > 0 && timeout.compareTo(Duration.ofSeconds(60)) <= 0);
     verify(primaryClient, never())
         .searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
   }
@@ -113,7 +126,8 @@ public class HybridSearchResultRerankerTest {
             ENTITY_NAMES,
             "revenue",
             List.of(row(DOC_A, 50), row(DOC_B, 50)),
-            List.of("urn"));
+            List.of("urn"),
+            inSeconds(60));
 
     // DOC_A has no vector, e.g. not embedded yet, so it stays first
     assertEquals(urns(reranked), List.of(DOC_A, DOC_B));
@@ -123,7 +137,9 @@ public class HybridSearchResultRerankerTest {
   public void testRowsWithoutVectorTypesSkipEmbeddingAndKnn() throws Exception {
     List<SearchEntity> rows = List.of(row(DATASET, 70), row(CHART, 50));
 
-    assertEquals(reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn")), rows);
+    assertEquals(
+        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        rows);
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
@@ -131,8 +147,47 @@ public class HybridSearchResultRerankerTest {
   public void testWildcardQuerySkipsEmbeddingAndKnn() throws Exception {
     List<SearchEntity> rows = List.of(row(DOC_A, 1));
 
-    assertEquals(reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn")), rows);
+    assertEquals(
+        reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn"), inSeconds(60)), rows);
     verifyNoInteractions(embeddingProvider, v3Client);
+  }
+
+  @Test
+  public void testPartialKnnResponseKeepsTheKeywordRanking() throws Exception {
+    // A timed-out or failed shard may have dropped DOC_A's hit, so nothing is reordered
+    when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(knnHits(Map.of(DOC_B, 0.9d)).hits(), true));
+    List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
+
+    assertEquals(
+        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        rows);
+  }
+
+  @Test
+  public void testDeadlinePassedDuringEmbeddingSkipsKnn() throws Exception {
+    when(embeddingProvider.embed(
+            eq("revenue"),
+            eq("text-embedding-3-small"),
+            eq(EmbeddingTaskType.QUERY),
+            any(Duration.class)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(((Duration) invocation.getArgument(3)).toMillis() + 50);
+              return new float[] {0.1f, 0.2f};
+            });
+    List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
+
+    assertEquals(
+        reranker.rerank(
+            opContext,
+            ENTITY_NAMES,
+            "revenue",
+            rows,
+            List.of("urn"),
+            System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(100)),
+        rows);
+    verifyNoInteractions(v3Client);
   }
 
   @Test
@@ -155,6 +210,10 @@ public class HybridSearchResultRerankerTest {
                     new KnnSearchResponse.Hit(
                         "hashed-id", entry.getValue(), Map.of("urn", entry.getKey().toString())))
             .collect(Collectors.toList()));
+  }
+
+  private static long inSeconds(long seconds) {
+    return System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
   }
 
   private static SearchEntity row(Urn urn, double score) {

@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +20,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class V3HybridKnnRequestBuilderTest {
+
+  private static final Duration TIMEOUT = Duration.ofMillis(1_500);
 
   private static final String MODEL_KEY = "text_embedding_3_small";
   private static final Urn DOC_A = UrnUtils.getUrn("urn:li:document:a");
@@ -46,9 +49,10 @@ public class V3HybridKnnRequestBuilderTest {
             .getIndexConvention()
             .getEntityIndexNameV3(opContext, "document"));
     assertEquals(request.vectorField(), "embeddings.text_embedding_3_small.chunks.vector");
-    // The filter bounds the hits to the given rows; k stays at the cap because it counts chunks
+    // The filter bounds the hits to the given rows; k and num_candidates exceed them
     assertEquals(request.k(), V3HybridKnnRequestBuilder.MAX_K);
     assertEquals(request.numCandidates(), 10_000);
+    assertEquals(request.timeout().get(), TIMEOUT);
     assertEquals(request.fieldsToFetch(), List.of("urn"));
     assertEquals(request.filter().get(), filters(documentTypeFilter(), urnFilter(DOC_A, DOC_B)));
     assertEquals(builder.vectorEntityNames(opContext, entityNames), Set.of("document"));
@@ -64,7 +68,8 @@ public class V3HybridKnnRequestBuilderTest {
                 MODEL_KEY,
                 new float[] {0.1f},
                 List.of(DOC_A),
-                List.of("urn"))
+                List.of("urn"),
+                TIMEOUT)
             .isPresent());
     // With semantic search off no V3 index has vectors
     assertFalse(
@@ -75,7 +80,8 @@ public class V3HybridKnnRequestBuilderTest {
                 MODEL_KEY,
                 new float[] {0.1f},
                 List.of(DOC_A),
-                List.of("urn"))
+                List.of("urn"),
+                TIMEOUT)
             .isPresent());
   }
 
@@ -89,7 +95,8 @@ public class V3HybridKnnRequestBuilderTest {
                 MODEL_KEY,
                 new float[] {0.1f},
                 List.of(),
-                List.of("urn"))
+                List.of("urn"),
+                TIMEOUT)
             .isPresent());
   }
 
@@ -101,7 +108,14 @@ public class V3HybridKnnRequestBuilderTest {
   private KnnSearchRequest build(
       V3HybridKnnRequestBuilder builder, List<String> entityNames, List<Urn> urns) {
     return builder
-        .build(opContext, entityNames, MODEL_KEY, new float[] {0.1f, 0.2f}, urns, List.of("urn"))
+        .build(
+            opContext,
+            entityNames,
+            MODEL_KEY,
+            new float[] {0.1f, 0.2f},
+            urns,
+            List.of("urn"),
+            TIMEOUT)
         .orElseThrow();
   }
 

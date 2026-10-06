@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
@@ -80,8 +81,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,6 +115,14 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
   private static final Urn DATASET =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,revenue,PROD)");
   private static final List<String> ENTITY_TYPES = List.of("dataset", "document");
+  // Over 1,000 chunks match "forecast": eleven documents of 100 chunks each sit nearer the query
+  // than every chunk of the keyword match, and one chunk of the semantic match is nearer still
+  private static final Urn FORECAST_KEYWORD_MATCH =
+      UrnUtils.getUrn("urn:li:document:forecast-keyword");
+  private static final Urn FORECAST_SEMANTIC_MATCH =
+      UrnUtils.getUrn("urn:li:document:forecast-semantic");
+  private static final int CROWD_DOCUMENTS = 11;
+  private static final int CROWD_CHUNKS = 100;
 
   private final List<String> createdIndices = new ArrayList<>();
   private OperationContext opContext;
@@ -203,7 +214,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
         new ESSearchDAO(
             false, config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
     EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
-    when(embeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
+    when(embeddingProvider.embed(
+            anyString(), any(), any(EmbeddingTaskType.class), any(Duration.class)))
         .thenReturn(QUERY_VECTOR);
     hybridSearch =
         new ESSearchDAO(
@@ -239,6 +251,35 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                 getSearchClient(),
                 getBulkProcessor(),
                 SearchWriteAccess.fixed(getBulkProcessor())));
+    Map<Urn, List<MCLItem>> batch = new LinkedHashMap<>();
+    batch.put(
+        FAR_DOCUMENT,
+        document(FAR_DOCUMENT, "Revenue", "Revenue by region", new float[] {0f, 1f, 0f, 0f}));
+    batch.put(
+        NEAR_DOCUMENT,
+        document(
+            NEAR_DOCUMENT,
+            "Quarterly notes",
+            "How we report quarterly revenue",
+            new float[] {1f, 0f, 0f, 0f}));
+    batch.put(DATASET, events(DATASET, new DatasetProperties().setName("revenue")));
+    float[] far = {0f, 0f, 1f, 0f};
+    batch.put(
+        FORECAST_KEYWORD_MATCH,
+        document(FORECAST_KEYWORD_MATCH, "Forecast", "Forecast forecast forecast", far, far, far));
+    batch.put(
+        FORECAST_SEMANTIC_MATCH,
+        document(
+            FORECAST_SEMANTIC_MATCH,
+            "Planning notes",
+            "How we plan the yearly forecast",
+            new float[] {1f, 0f, 0f, 0f}));
+    float[][] crowdChunks = new float[CROWD_CHUNKS][];
+    Arrays.fill(crowdChunks, new float[] {0.8f, 0.6f, 0f, 0f});
+    for (int i = 0; i < CROWD_DOCUMENTS; i++) {
+      Urn crowd = UrnUtils.getUrn("urn:li:document:forecast-crowd-" + i);
+      batch.put(crowd, document(crowd, "Outlook " + i, "Mentions the forecast once", crowdChunks));
+    }
     // With the semantic configuration the writer lifts document vectors to the root embeddings
     new UpdateIndicesV3Strategy(
             entityIndex.getV3(),
@@ -250,21 +291,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             List.of(),
             false,
             semanticSearch)
-        .processBatch(
-            opContext,
-            Map.of(
-                FAR_DOCUMENT,
-                document(
-                    FAR_DOCUMENT, "Revenue", "Revenue by region", new float[] {0f, 1f, 0f, 0f}),
-                NEAR_DOCUMENT,
-                document(
-                    NEAR_DOCUMENT,
-                    "Quarterly notes",
-                    "How we report quarterly revenue",
-                    new float[] {1f, 0f, 0f, 0f}),
-                DATASET,
-                events(DATASET, new DatasetProperties().setName("revenue"))),
-            false);
+        .processBatch(opContext, batch, false);
     syncAfterWrite(getBulkProcessor());
   }
 
@@ -305,19 +332,22 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     assertEquals(urns(hybrid), List.of(NEAR_DOCUMENT, FAR_DOCUMENT));
   }
 
-  private List<MCLItem> document(Urn urn, String title, String text, float[] vector) {
+  private List<MCLItem> document(Urn urn, String title, String text, float[]... chunkVectors) {
     AuditStamp created = new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L);
+    EmbeddingChunkArray chunks = new EmbeddingChunkArray();
+    for (int i = 0; i < chunkVectors.length; i++) {
+      chunks.add(
+          new EmbeddingChunk()
+              .setPosition(i)
+              .setVector(new FloatArray(toList(chunkVectors[i])))
+              .setText(text));
+    }
     EmbeddingModelData embedding =
         new EmbeddingModelData()
             .setModelVersion("test/" + MODEL_KEY)
             .setGeneratedAt(0L)
-            .setTotalChunks(1)
-            .setChunks(
-                new EmbeddingChunkArray(
-                    new EmbeddingChunk()
-                        .setPosition(0)
-                        .setVector(new FloatArray(toList(vector)))
-                        .setText(text)));
+            .setTotalChunks(chunkVectors.length)
+            .setChunks(chunks);
     return events(
         urn,
         new DocumentInfo()
@@ -328,6 +358,23 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             .setLastModified(created),
         new SemanticContent()
             .setEmbeddings(new EmbeddingModelDataMap(Map.of(MODEL_KEY, embedding))));
+  }
+
+  @Test
+  public void testSemanticMatchPassesKeywordMatchAmongManyChunks() {
+    SearchResult keyword =
+        keywordSearch.search(opContext, ENTITY_TYPES, "forecast", null, null, 0, 20, List.of());
+    SearchResult hybrid =
+        hybridSearch.search(opContext, ENTITY_TYPES, "forecast", null, null, 0, 20, List.of());
+
+    // Nested kNN counts documents, not chunks, so the keyword match gets its own vector score
+    // although 1,100 chunks of other documents are nearer the query, and the semantic match passes
+    assertEquals(documents(keyword).get(0), FORECAST_KEYWORD_MATCH);
+    assertEquals(documents(keyword).size(), CROWD_DOCUMENTS + 2);
+    List<Urn> reranked = documents(hybrid);
+    assertTrue(
+        reranked.indexOf(FORECAST_SEMANTIC_MATCH) < reranked.indexOf(FORECAST_KEYWORD_MATCH),
+        reranked.toString());
   }
 
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {
