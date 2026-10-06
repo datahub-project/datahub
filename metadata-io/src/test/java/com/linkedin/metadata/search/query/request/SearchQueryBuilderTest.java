@@ -1666,22 +1666,23 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testV3PhrasePrefixesExpandToTenTerms() {
+  public void testV3PhrasePrefixesExpandLessForSeveralTerms() {
     EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
-    // "stg" also prefix-matches its synonym "staging"
-    for (String query : List.of("orders", "stg")) {
-      List<QueryBuilder> clauses = new ArrayList<>();
-      collectClauses(
-          TEST_V3_BUILDER.buildQuery(operationContext, List.of(datasetSpec), query, true), clauses);
-      List<MatchPhrasePrefixQueryBuilder> prefixes =
-          clauses.stream()
-              .filter(MatchPhrasePrefixQueryBuilder.class::isInstance)
-              .map(MatchPhrasePrefixQueryBuilder.class::cast)
-              .collect(Collectors.toList());
-      assertFalse(prefixes.isEmpty(), query);
-      assertTrue(
-          prefixes.stream().allMatch(prefix -> prefix.maxExpansions() == 10), prefixes.toString());
-    }
+    // A single term keeps the default: for a word too short for fuzziness and the wildcard, the
+    // prefix is its only partial match. "stg" also prefix-matches its synonym "staging"
+    assertEquals(v3PhrasePrefixExpansions(datasetSpec, "stg"), Set.of(50));
+    // Several terms take most of the clause budget
+    assertEquals(v3PhrasePrefixExpansions(datasetSpec, "stg orders"), Set.of(10));
+  }
+
+  private Set<Integer> v3PhrasePrefixExpansions(EntitySpec spec, String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(operationContext, List.of(spec), query, true), clauses);
+    return clauses.stream()
+        .filter(MatchPhrasePrefixQueryBuilder.class::isInstance)
+        .map(prefix -> ((MatchPhrasePrefixQueryBuilder) prefix).maxExpansions())
+        .collect(Collectors.toSet());
   }
 
   private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {
