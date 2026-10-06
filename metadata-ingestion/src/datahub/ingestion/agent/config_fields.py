@@ -104,6 +104,15 @@ def recipe_keys(name: str, info: FieldInfo) -> Set[str]:
     return keys | {name}
 
 
+def _is_free_form_member(member: object) -> bool:
+    cls = typing.get_origin(member) or member
+    return (
+        member is typing.Any
+        or member is object
+        or (isinstance(cls, type) and issubclass(cls, collections.abc.Mapping))
+    )
+
+
 @dataclass(frozen=True)
 class RecipeEntry:
     """How a recipe mapping, read against the annotations that type it, holds
@@ -115,6 +124,16 @@ class RecipeEntry:
     # What types the key's value; empty when nothing does.
     annotations: Tuple[object, ...]
 
+    @property
+    def holds_free_form(self) -> bool:
+        """Whether the key's value is free-form: nothing types it, or a
+        Mapping, Any or object does (a declared Dict[str, Any] field)."""
+        return not self.annotations or any(
+            _is_free_form_member(m)
+            for a in self.annotations
+            for m in unwrap_optional(a)
+        )
+
 
 def recipe_entry(annotations: Tuple[object, ...], key: object) -> RecipeEntry:
     """`key` of a recipe mapping typed by `annotations` (empty: untyped)."""
@@ -123,11 +142,10 @@ def recipe_entry(annotations: Tuple[object, ...], key: object) -> RecipeEntry:
     free_form = False
     for member in (m for a in annotations for m in unwrap_optional(a)):
         cls = typing.get_origin(member) or member
-        if member is typing.Any or member is object:
+        if _is_free_form_member(member):
             free_form = True
-        elif isinstance(cls, type) and issubclass(cls, collections.abc.Mapping):
-            free_form = True
-            values.extend(typing.get_args(member)[-1:])
+            if member is not typing.Any and member is not object:
+                values.extend(typing.get_args(member)[-1:])
         elif cls is member and isinstance(cls, type) and issubclass(cls, BaseModel):
             models.append(cls)
     declared = [

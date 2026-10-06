@@ -10,7 +10,11 @@ from typing import (
     Tuple,
 )
 
-from datahub.ingestion.agent.config_fields import recipe_entry, recipe_items
+from datahub.ingestion.agent.config_fields import (
+    RecipeEntry,
+    recipe_entry,
+    recipe_items,
+)
 
 # Public so a reader of redacted output (filter_input) can recognise it.
 MASK = "***"
@@ -148,6 +152,14 @@ def _typed_as(config_cls: Optional[type]) -> Tuple[object, ...]:
     return () if config_cls is None else (config_cls,)
 
 
+def _inherits(under_sensitive: bool, entry: RecipeEntry) -> bool:
+    """Whether a parent's sensitive verdict carries to this key: one no
+    config block declares, or a declared field whose value is free-form (a
+    Dict[str, Any]), which has no field names of its own to be judged by.
+    Shared by both walks, so the rule lives in one place."""
+    return under_sensitive and (not entry.declared or entry.holds_free_form)
+
+
 def _secret_values(
     obj: object,
     hints: Tuple[str, ...],
@@ -161,7 +173,7 @@ def _secret_values(
             # never appears in a key whose dots normalize_key has rewritten.
             key = normalize_key(k)
             entry = recipe_entry(annotations, k)
-            inherited = under_sensitive and not entry.declared
+            inherited = _inherits(under_sensitive, entry)
             sensitive = inherited or any(normalize_key(h) in key for h in hints)
             if isinstance(v, str):
                 if v and (sensitive or _is_scalar_only_secret_key(k)):
@@ -208,7 +220,7 @@ def _credential_values(
             key = str(k).lower()
             leaf = key.rsplit(".", 1)[-1]
             entry = recipe_entry(annotations, k)
-            inherited = under_sensitive and not entry.declared
+            inherited = _inherits(under_sensitive, entry)
             # The suffix rule applies to the leaf even under a sensitive parent:
             # `credential.private_key_id` is an identifier wherever it sits.
             named = any((h in key) if "." in h else (h in leaf) for h in hints)

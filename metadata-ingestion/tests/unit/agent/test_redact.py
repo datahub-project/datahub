@@ -301,6 +301,7 @@ class _TokenRequest(ConfigModel):
     request_type: str = "get"
     url_complement: str = ""
     client_secret: Optional[str] = None
+    headers: Dict[str, Any] = {}
 
 
 class _TypedConfig(ConfigModel):
@@ -360,6 +361,26 @@ def test_a_free_form_value_under_a_sensitive_key_still_inherits(
 
     assert "PLANTED-sasl-user" in found, found
     assert "PLANTED-token-value" in found, found
+
+
+@_COLLECTORS
+def test_a_declared_free_form_field_in_a_sensitive_block_still_inherits(
+    collect: Callable[..., Set[str]],
+) -> None:
+    """A block's Dict[str, Any] field is declared, but its keys are not: they
+    have no field names to be judged by, so the block's verdict carries in,
+    while the block's plain fields keep their own."""
+    cfg = {
+        "get_token": {
+            "request_type": "post",
+            "headers": {"X-Custom": "PLANTED-header-value"},
+        }
+    }
+
+    found = collect(cfg, SENSITIVE_KEY_HINTS, config_cls=_TypedConfig)
+
+    assert "PLANTED-header-value" in found, found
+    assert "post" not in found, found
 
 
 def test_a_credential_named_api_key_is_collected_as_a_secret():
