@@ -1381,18 +1381,92 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertTrue(urnTermBoosts.contains(600.0f), urnTermBoosts.toString());
     assertTrue(urnTermBoosts.stream().anyMatch(b -> Math.abs(b - 420.0f) < 0.01f));
 
-    // Single word of 5+ characters: a lower-cased contains wildcard at 0.3x the field boost
-    WildcardQueryBuilder wildcard =
+    // The contains-wildcard searches names and titles, not the URN
+    assertTrue(
         clauses.stream()
             .filter(WildcardQueryBuilder.class::isInstance)
             .map(WildcardQueryBuilder.class::cast)
-            .filter(w -> w.fieldName().equals("urn.delimited"))
-            .findFirst()
-            .orElseThrow();
-    assertEquals(wildcard.value(), "*testquery*");
-    assertEquals(wildcard.boost(), 7.0f * 0.3f, 0.001f);
-    // Case-insensitive wildcards fail shards on OpenSearch 3.x
-    assertFalse(wildcard.caseInsensitive());
+            .noneMatch(w -> w.fieldName().equals("urn.delimited")));
+  }
+
+  @Test
+  public void testV3WildcardSearchesNamesAndTitlesOnly() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext,
+            List.of(
+                operationContext.getEntityRegistry().getEntitySpec("dataset"),
+                operationContext.getEntityRegistry().getEntitySpec("dashboard")),
+            "Revenue",
+            true),
+        clauses);
+    List<WildcardQueryBuilder> wildcards =
+        clauses.stream()
+            .filter(WildcardQueryBuilder.class::isInstance)
+            .map(WildcardQueryBuilder.class::cast)
+            .collect(Collectors.toList());
+    assertEquals(
+        wildcards.stream().map(WildcardQueryBuilder::fieldName).collect(Collectors.toSet()),
+        Set.of("name.delimited", "title.delimited"));
+    // A lower-cased pattern: case-insensitive wildcards fail shards on OpenSearch 3.x
+    assertTrue(
+        wildcards.stream().allMatch(w -> "*revenue*".equals(w.value()) && !w.caseInsensitive()),
+        wildcards.toString());
+  }
+
+  @Test
+  public void testIsSameName() {
+    for (String[] same :
+        new String[][] {
+          {"stg", "staging"},
+          {"prod", "production"},
+          {"dev", "development"},
+          {"s3", "s_3"},
+          {"data platform", "dataplatform"}
+        }) {
+      assertTrue(SearchQueryBuilder.isSameName(same[0], same[1]), String.join("/", same));
+    }
+    // Related names, and abbreviations too short to tell
+    for (String[] related :
+        new String[][] {{"glue", "athena"}, {"pg", "processing"}, {"ab", "airbyte"}}) {
+      assertFalse(SearchQueryBuilder.isSameName(related[0], related[1]), String.join("/", related));
+    }
+  }
+
+  @Test
+  public void testV3ExactNameScoreSkipsRelatedNames() {
+    // "athena" is a synonym of "glue" in the default file, but a different name
+    List<QueryBuilder> glue = v3DatasetClauses("glue");
+    assertEquals(exactNameConstants(glue), Set.of("glue"));
+    assertTrue(
+        glue.stream()
+            .filter(MatchPhrasePrefixQueryBuilder.class::isInstance)
+            .map(MatchPhrasePrefixQueryBuilder.class::cast)
+            .noneMatch(prefix -> "athena".equals(prefix.value())));
+    // A quoted query names a value, so it does not expand to its synonyms
+    assertEquals(exactNameConstants(v3DatasetClauses("\"staging\"")), Set.of("staging"));
+  }
+
+  private List<QueryBuilder> v3DatasetClauses(String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext,
+            List.of(operationContext.getEntityRegistry().getEntitySpec("dataset")),
+            query,
+            true),
+        clauses);
+    return clauses;
+  }
+
+  private static Set<Object> exactNameConstants(List<QueryBuilder> clauses) {
+    return clauses.stream()
+        .filter(ConstantScoreQueryBuilder.class::isInstance)
+        .map(cs -> (TermQueryBuilder) ((ConstantScoreQueryBuilder) cs).innerQuery())
+        .filter(term -> term.fieldName().equals("name.keyword"))
+        .map(TermQueryBuilder::value)
+        .collect(Collectors.toSet());
   }
 
   @Test
