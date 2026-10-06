@@ -1,4 +1,3 @@
-import contextlib
 import io
 import logging
 import sys
@@ -588,8 +587,7 @@ def test_run_probe_method_keeps_reused_logs_scrubbed(
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     caplog.set_level(logging.DEBUG)
     before = _logging_state()
-    with quiet_reused_logs(set()):
-        res = pm.run_probe_method("x", {}, "tables", {})
+    res = pm.run_probe_method("x", {}, "tables", {})
     assert res.result == [{"name": "t"}]
     assert "retrying" in caplog.text
     assert "fetch failed" in caplog.text
@@ -648,20 +646,23 @@ def test_run_probe_method_drops_a_providers_silenced_loggers(
     monkeypatch.setattr(pm, "_provider_class", lambda st: _SilencingProvider)
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     caplog.set_level(logging.DEBUG)
-    with quiet_reused_logs(set()):
-        res = pm.run_probe_method("x", {}, "tables", {})
+    res = pm.run_probe_method("x", {}, "tables", {})
     assert res.result == [{"name": "t"}]
     assert SENTINEL not in caplog.text
 
 
-def test_a_library_caller_without_a_guard_keeps_a_silenced_loggers_records(
-    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("guard_logs", [True, False])
+def test_a_library_caller_is_guarded_unless_it_opts_out(
+    guard_logs: bool,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # On by default: a caller that does nothing gets the CLI's protection.
     monkeypatch.setattr(pm, "_provider_class", lambda st: _SilencingProvider)
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     caplog.set_level(logging.DEBUG)
-    pm.run_probe_method("x", {}, "tables", {})
-    assert SENTINEL in caplog.text
+    pm.run_probe_method("x", {}, "tables", {}, guard_logs=guard_logs)
+    assert (SENTINEL in caplog.text) is not guard_logs
 
 
 class _ThreadWatchingProvider(_LeakyProvider):
@@ -704,11 +705,10 @@ def test_a_library_callers_other_threads_keep_their_tracebacks_unless_guarded(
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     _ThreadWatchingProvider.other_thread_records = []
     before = _logging_state()
-    with quiet_reused_logs(set()) if guard_logs else contextlib.nullcontext():
-        res = pm.run_probe_method("x", {}, "tables", {})
+    res = pm.run_probe_method("x", {}, "tables", {}, guard_logs=guard_logs)
     assert res.result == [{"name": "t"}]
     (record,) = _ThreadWatchingProvider.other_thread_records
-    # Unguarded, the embedding process's own records are as it logged them.
+    # Opted out, the embedding process's own records are as it logged them.
     assert (record.exc_info is not None) is not guard_logs
     assert (record.args is not None) is not guard_logs
     _assert_restored(before)

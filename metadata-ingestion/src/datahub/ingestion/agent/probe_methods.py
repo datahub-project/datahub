@@ -46,7 +46,6 @@ from datahub.ingestion.agent.error_policy import (
 )
 from datahub.ingestion.agent.log_guard import (
     FRAMEWORK_LOGGERS,
-    guard_open_in_this_context,
     quiet_reused_logs,
 )
 from datahub.ingestion.agent.models import ProbeRunEnvelope
@@ -1180,15 +1179,18 @@ def run_probe_method(
     config_dict: Dict[str, object],
     command: str,
     kwargs: Dict[str, object],
+    *,
+    guard_logs: bool = True,
 ) -> ProbeMethodResult:
     """Run one probe method against a source.
 
-    The log guard (log_guard.quiet_reused_logs) rewrites every non-framework
-    log record in the process, other threads' included, and drops their
-    tracebacks, so it is opt-in: the provider's own guard, which adds its
-    silenced_loggers, opens only inside a caller's guard. The CLI, a process
-    of its own, opens one around this call; a library caller embedding the
-    probe keeps its logging untouched unless it does the same.
+    The log guard (log_guard.quiet_reused_logs) keeps connector code from
+    logging credentials or source text while the probe runs. It acts on every
+    non-framework record in the process, other threads' included, and drops
+    their tracebacks. It is on by default, so a caller gets the CLI's
+    protection without doing anything. An embedder that masks its own logs
+    and needs its other threads' tracebacks passes guard_logs=False, and then
+    owns keeping connector log lines out of its output.
     """
     # SECURITY: every command that touches the source runs through here, so this
     # is where the whole-probe switch is enforced. It precedes the command lookup
@@ -1206,9 +1208,9 @@ def run_probe_method(
     # Read either way, so a misdeclared one is a defect with or without a guard.
     silenced = _silenced_loggers(call.provider_cls)
     with ExitStack() as stack:
-        if guard_open_in_this_context():
+        if guard_logs:
             # Outermost, so the guard also covers __exit__. No secrets here: the
-            # caller's own guard holds the recipe's, and credential shapes are
+            # CLI's own guard holds the recipe's, and credential shapes are
             # scrubbed regardless.
             stack.enter_context(quiet_reused_logs(set(), silenced=silenced))
         outcome = _open_call_close(call)

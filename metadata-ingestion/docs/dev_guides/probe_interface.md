@@ -191,8 +191,8 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    `log_guard.FRAMEWORK_LOGGERS`), a logger under one, an ancestor of one, or root is refused as the
    provider's defect (exit 1). Every other logger is scrubbed, other `datahub.cli` modules and
    telemetry included. Never call `setLevel` yourself, and never log responses, URLs or exception
-   text. The guard is process-wide, so `run_probe_method` opens it only inside a caller's own
-   `quiet_reused_logs`, as the CLI does; a library caller that opens none keeps its logging as is.
+   text. The guard is process-wide and on by default in `run_probe_method`. An embedder that masks
+   its own logs and needs its other threads' tracebacks passes `guard_logs=False`.
 8. **`DATAHUB_PROBE_VERBOSE_LOGS=1` is for local debugging only.** It turns the log guard off and puts
    each withheld exception's text after its label, scrubbed of credential shapes (the CLI masks the
    recipe's secrets on top), for `probe run` and for a crashed `test-connection` alike:
