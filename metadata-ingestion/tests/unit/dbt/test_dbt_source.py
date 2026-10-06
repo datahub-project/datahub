@@ -4839,3 +4839,52 @@ def test_dbt_source_patching_dedupes_existing_owners():
 
     assert len(transformed) == 1
     assert transformed[0].owner == "urn:li:corpGroup:data-engineering"
+
+
+def test_dbt_patch_loop_with_ownership_transformer_converges():
+    """dbt's write_semantics=PATCH reads server state into the stream and the
+    ownership transformer appends on top. Across repeated runs the stored aspect
+    must converge rather than grow one duplicate per run.
+    """
+    from datahub.ingestion.transformer.add_ownership import SimpleAddOwnership
+
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+    entity_urn = "urn:li:dataset:dummy"
+
+    dbt_owner = OwnerClass(
+        owner="urn:li:corpuser:dbt_defined_owner",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+    server: Dict[str, OwnershipClass] = {}
+    graph.get_ownership.side_effect = lambda entity_urn: server.get(entity_urn)
+    source.ctx.graph = graph
+
+    for _ in range(5):
+        merged = source.get_transformed_owners_by_source_type(
+            [dbt_owner], entity_urn, str(OwnershipSourceTypeClass.SOURCE_CONTROL)
+        )
+        # A fresh transformer per run, as a real pipeline would construct.
+        transformer = SimpleAddOwnership.create(
+            {"owner_urns": [group_owner], "ownership_type": ownership_type_urn},
+            PipelineContext(run_id="test-run-id"),
+        )
+        out = transformer.transform_aspect(
+            entity_urn=entity_urn,
+            aspect_name="ownership",
+            aspect=OwnershipClass(owners=merged),
+        )
+        assert out is not None
+        # The sink UPSERTs the aspect; GMS stores the collection verbatim.
+        server[entity_urn] = OwnershipClass(owners=list(out.owners))
+
+    stored = server[entity_urn].owners
+    assert len(stored) == 2
+    assert {o.owner for o in stored} == {
+        "urn:li:corpuser:dbt_defined_owner",
+        group_owner,
+    }
