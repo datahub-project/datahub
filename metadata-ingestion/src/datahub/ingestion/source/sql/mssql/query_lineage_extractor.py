@@ -350,8 +350,8 @@ class MSSQLLineageExtractor:
             self.report.warning(
                 title="No query log found",
                 message=(
-                    f"query_history_source is {source.value} but no {requirement} "
-                    "was found for this database. Configure one, or set "
+                    f"query_history_source is {source.value} but this database has "
+                    f"no {requirement.removeprefix('a ')}. Configure one, or set "
                     "query_history_path."
                 ),
                 context=self._database_name(),
