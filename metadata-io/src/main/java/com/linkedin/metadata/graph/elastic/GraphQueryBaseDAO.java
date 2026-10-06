@@ -44,6 +44,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,6 +52,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -65,7 +68,6 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
@@ -746,85 +748,59 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     if (urns.isEmpty() || edgeInfo.isEmpty()) {
       return Optional.empty();
     } else {
-      // Create the main bool query
-      BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
       Set<String> entityUrns = urns.stream().map(Urn::toString).collect(Collectors.toSet());
 
-      // Group edge info by relationship type AND direction
-      Map<Pair<String, RelationshipDirection>, List<LineageRegistry.EdgeInfo>> edgeGroups =
-          edgeInfo.stream()
-              .collect(Collectors.groupingBy(edge -> Pair.of(edge.getType(), edge.getDirection())));
-
-      // Special handling for UNDIRECTED - they need to be included in both directions
-      List<LineageRegistry.EdgeInfo> undirectedEdges =
-          edgeInfo.stream()
-              .filter(edge -> edge.getDirection() == RelationshipDirection.UNDIRECTED)
-              .collect(Collectors.toList());
-
-      // Add undirected edges to both INCOMING and OUTGOING groups
-      for (LineageRegistry.EdgeInfo undirectedEdge : undirectedEdges) {
-        // Create virtual INCOMING edge
-        edgeGroups
-            .computeIfAbsent(
-                Pair.of(undirectedEdge.getType(), RelationshipDirection.INCOMING),
-                k -> new ArrayList<>())
-            .add(undirectedEdge);
-
-        // Create virtual OUTGOING edge
-        edgeGroups
-            .computeIfAbsent(
-                Pair.of(undirectedEdge.getType(), RelationshipDirection.OUTGOING),
-                k -> new ArrayList<>())
-            .add(undirectedEdge);
-      }
-
-      // Process each group
-      for (Map.Entry<Pair<String, RelationshipDirection>, List<LineageRegistry.EdgeInfo>> entry :
-          edgeGroups.entrySet()) {
-        String relationshipType = entry.getKey().getLeft();
-        RelationshipDirection direction = entry.getKey().getRight();
-        List<LineageRegistry.EdgeInfo> edges = entry.getValue();
-
-        // Skip the UNDIRECTED in the main loop as we've already processed them
-        if (direction == RelationshipDirection.UNDIRECTED) {
-          continue;
-        }
-
-        // Collect the entity types for this relationship type and direction
-        List<String> entityTypes =
-            edges.stream()
-                .map(LineageRegistry.EdgeInfo::getOpposingEntityType)
-                .collect(Collectors.toList());
-
-        // Build the appropriate query based on direction
-        if (direction == RelationshipDirection.OUTGOING) {
-          BoolQueryBuilder outgoingQuery =
-              QueryBuilders.boolQuery()
-                  .filter(QueryBuilders.termsQuery(GraphQueryConstants.SOURCE_URN, entityUrns))
-                  .filter(
-                      QueryBuilders.termQuery(
-                          GraphQueryConstants.RELATIONSHIP_TYPE, relationshipType));
-
-          // Use termsQuery for multiple types
-          outgoingQuery.filter(
-              QueryBuilders.termsQuery(GraphQueryConstants.DESTINATION_TYPE, entityTypes));
-
-          mainQuery.should(outgoingQuery);
-        } else if (direction == RelationshipDirection.INCOMING) {
-          BoolQueryBuilder incomingQuery =
-              QueryBuilders.boolQuery()
-                  .filter(QueryBuilders.termsQuery(GraphQueryConstants.DESTINATION_URN, entityUrns))
-                  .filter(
-                      QueryBuilders.termQuery(
-                          GraphQueryConstants.RELATIONSHIP_TYPE, relationshipType));
-
-          // Use termsQuery for multiple types
-          incomingQuery.filter(
-              QueryBuilders.termsQuery(GraphQueryConstants.SOURCE_TYPE, entityTypes));
-
-          mainQuery.should(incomingQuery);
+      // Opposing entity types per relationship type, grouped by direction. UNDIRECTED edges are
+      // followed both ways. Sorted maps keep the rendered query stable.
+      Map<RelationshipDirection, Map<String, Set<String>>> typesByDirection =
+          new EnumMap<>(RelationshipDirection.class);
+      for (LineageRegistry.EdgeInfo edge : edgeInfo) {
+        List<RelationshipDirection> directions =
+            edge.getDirection() == RelationshipDirection.UNDIRECTED
+                ? List.of(RelationshipDirection.INCOMING, RelationshipDirection.OUTGOING)
+                : List.of(edge.getDirection());
+        for (RelationshipDirection direction : directions) {
+          typesByDirection
+              .computeIfAbsent(direction, d -> new TreeMap<>())
+              .computeIfAbsent(edge.getType(), t -> new TreeSet<>())
+              .add(edge.getOpposingEntityType());
         }
       }
+
+      // One clause per direction: the URN list appears once per direction instead of once per
+      // relationship type. It is by far the largest part of the request, so repeating it made
+      // every page several times larger to build, send and parse.
+      BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
+      typesByDirection.forEach(
+          (direction, typesByRelationship) -> {
+            final String urnField;
+            final String opposingTypeField;
+            if (direction == RelationshipDirection.OUTGOING) {
+              urnField = GraphQueryConstants.SOURCE_URN;
+              opposingTypeField = GraphQueryConstants.DESTINATION_TYPE;
+            } else if (direction == RelationshipDirection.INCOMING) {
+              urnField = GraphQueryConstants.DESTINATION_URN;
+              opposingTypeField = GraphQueryConstants.SOURCE_TYPE;
+            } else {
+              return;
+            }
+
+            BoolQueryBuilder relationshipQuery = QueryBuilders.boolQuery();
+            typesByRelationship.forEach(
+                (relationshipType, entityTypes) ->
+                    relationshipQuery.should(
+                        QueryBuilders.boolQuery()
+                            .filter(
+                                QueryBuilders.termQuery(
+                                    GraphQueryConstants.RELATIONSHIP_TYPE, relationshipType))
+                            .filter(QueryBuilders.termsQuery(opposingTypeField, entityTypes))));
+            relationshipQuery.minimumShouldMatch(1);
+
+            mainQuery.should(
+                QueryBuilders.boolQuery()
+                    .filter(QueryBuilders.termsQuery(urnField, entityUrns))
+                    .filter(relationshipQuery));
+          });
 
       // Require that at least one of the "should" clauses matches
       mainQuery.minimumShouldMatch(1);

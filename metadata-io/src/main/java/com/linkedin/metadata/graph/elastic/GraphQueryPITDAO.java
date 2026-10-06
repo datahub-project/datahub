@@ -13,12 +13,14 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
+import com.linkedin.metadata.graph.elastic.utils.PreRenderedQueryBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -166,6 +168,14 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                   .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
       final String tempPitId = pitId;
 
+      // Every page of every slice sends the same query, so render it once for the hop.
+      final QueryBuilder pageQuery;
+      try {
+        pageQuery = PreRenderedQueryBuilder.of(query);
+      } catch (IOException e) {
+        throw new ESQueryException("Failed to render lineage query", e);
+      }
+
       // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
       final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
       // Set by any slice that stops on a timeout in partial mode so the hop is marked partial
@@ -180,7 +190,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 () -> {
                   return searchSingleSliceWithPit(
                       opContext,
-                      query,
+                      pageQuery,
                       lineageGraphFilters,
                       visitedEntities,
                       viaEntities,
@@ -379,13 +389,17 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           break; // shared budget exhausted or page timed out; partial results
         }
 
-        // Get search_after for next page
+        // With a PIT and search_after, a page shorter than the page size is the slice's last page.
+        // Asking again would only return an empty page, at the full cost of the query. If shards
+        // failed, keep paging until an empty page so a partial page is not mistaken for the end.
         SearchHit[] hits = response.getHits().getHits();
-        if (hits.length > 0) {
-          searchAfter = hits[hits.length - 1].getSortValues();
-        } else {
+        if (hits.length < pageSize && response.getFailedShards() == 0) {
+          log.debug("Slice {} completed on a short page ({} hits)", sliceId, hits.length);
           break;
         }
+
+        // Get search_after for next page
+        searchAfter = hits[hits.length - 1].getSortValues();
       }
     } catch (LineageTimeoutException e) {
       // Rethrow untouched: processSliceFutures rethrows a bare RuntimeException cause as-is, so the
