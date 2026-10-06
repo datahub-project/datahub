@@ -1355,6 +1355,8 @@ ORDER BY event_time ASC
     def _emit_xml_dictionaries(self) -> Iterable[MetadataWorkUnit]:
         try:
             dictionaries = self._fetch_xml_dictionaries()
+            if self.config.include_table_lineage and self._all_tables_set is None:
+                self._all_tables_set = self._get_all_tables()
         except Exception as e:
             # A failure, not a warning, so stale entity removal does not
             # soft-delete previously ingested dictionaries.
@@ -1370,14 +1372,25 @@ ORDER BY event_time ASC
             # database_pattern uses the declared database. A global dictionary has
             # none, so a dotted name is filtered only by table_pattern.
             if (
-                dictionary.database
-                and not self.config.database_pattern.allowed(dictionary.database)
-            ) or not self.config.table_pattern.allowed(dataset_name):
+                (self.config.database and dictionary.database != self.config.database)
+                or (
+                    dictionary.database
+                    and not self.config.database_pattern.allowed(dictionary.database)
+                )
+                or not self.config.table_pattern.allowed(dataset_name)
+            ):
                 self.report.report_dropped(dataset_name)
                 continue
 
             try:
-                yield from self._emit_xml_dictionary(dictionary)
+                yield from self._emit_xml_dictionary(
+                    dictionary,
+                    all_tables=(
+                        self._all_tables_set
+                        if self.config.include_table_lineage
+                        else None
+                    ),
+                )
             except Exception as e:
                 self.report.warning(
                     "Error processing XML-defined dictionary",
@@ -1386,10 +1399,17 @@ ORDER BY event_time ASC
                 )
 
     def _emit_xml_dictionary(
-        self, dictionary: _XmlDictionary
+        self, dictionary: _XmlDictionary, all_tables: Optional[Set[str]]
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = dictionary.dataset_name
         columns = self._xml_dictionary_columns(dictionary)
+        if not columns:
+            # ClickHouse reports no structure when the dictionary config fails to
+            # load. Emitting an empty schema would overwrite the last good one.
+            self.report.warning(
+                "XML-defined dictionary has no columns; schema not updated",
+                context=dataset_name,
+            )
         schema_fields = [
             SchemaFieldClass(
                 fieldPath=column["name"],
@@ -1402,12 +1422,16 @@ ORDER BY event_time ASC
             )
             for column in columns
         ]
-        schema_metadata = get_schema_metadata(
-            self.report,
-            dataset_name,
-            self.platform,
-            columns,
-            canonical_schema=schema_fields,
+        schema_metadata = (
+            get_schema_metadata(
+                self.report,
+                dataset_name,
+                self.platform,
+                columns,
+                canonical_schema=schema_fields,
+            )
+            if columns
+            else None
         )
 
         custom_properties = {
@@ -1439,12 +1463,10 @@ ORDER BY event_time ASC
         )
         dataset_urn = str(dataset.urn)
 
-        if self.config.include_table_lineage:
+        if all_tables is not None:
             source_path = _dictionary_source_table(dictionary.source)
             if source_path is not None:
-                if self._all_tables_set is None:
-                    self._all_tables_set = self._get_all_tables()
-                if source_path in self._all_tables_set:
+                if source_path in all_tables:
                     dataset.set_upstreams(
                         [
                             UpstreamClass(
@@ -1465,7 +1487,8 @@ ORDER BY event_time ASC
                     )
 
         if self._save_schema_to_resolver():
-            self.aggregator.register_schema(dataset_urn, schema_metadata)
+            if schema_metadata is not None:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
             self.discovered_datasets.add(dataset_name)
 
         yield from dataset.as_workunits()

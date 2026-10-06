@@ -34,8 +34,8 @@ read from `system.dictionaries`. A dictionary that declares `<database>` is inge
 `<database>.<name>` under that database's container, and `database_pattern` applies to that
 database. Otherwise it belongs to the server and is ingested under its full name without a
 container. A global name, even a dotted one such as `db.my_dict`, is filtered only by
-`table_pattern`. If the dictionary's source is a ClickHouse table, that table is added as its
-upstream.
+`table_pattern`. When `database` is set, only dictionaries declared in that database are
+ingested. If the dictionary's source is a ClickHouse table, that table is added as its upstream.
 
 ### Limitations
 
