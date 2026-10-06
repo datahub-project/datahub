@@ -1307,7 +1307,9 @@ ORDER BY event_time ASC
 
     def _fetch_xml_dictionaries(self) -> List[_XmlDictionary]:
         # Config-file dictionaries are absent from system.tables, <database> tag
-        # or not; DDL dictionaries are ingested from there. NOT IN rather than
+        # or not; DDL dictionaries are ingested from there. Matching on the dataset
+        # name also skips a global dictionary named like an existing table (e.g.
+        # "db.t"), which would otherwise share its URN. NOT IN rather than
         # LEFT JOIN ... IS NULL: unmatched columns are defaults unless
         # join_use_nulls=1. toJSONString: the HTTP driver returns arrays as text.
         query = textwrap.dedent(
@@ -1324,7 +1326,8 @@ ORDER BY event_time ASC
                  , toString(status) AS status
                  , type
               FROM system.dictionaries
-             WHERE (database, name) NOT IN (SELECT database, name FROM system.tables)"""
+             WHERE if(database = '', name, concat(database, '.', name))
+                   NOT IN (SELECT concat(database, '.', name) FROM system.tables)"""
         )
 
         url = self.config.get_sql_alchemy_url()
