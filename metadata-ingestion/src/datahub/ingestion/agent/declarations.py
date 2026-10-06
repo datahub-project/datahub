@@ -219,7 +219,9 @@ def marker_problems(config_cls: type) -> List[str]:
     unknown = unknown_config_hooks(config_cls)
     return [
         *(
-            [f"{config_cls.__name__} defines {', '.join(unknown)}, which the probe never reads"]
+            [
+                f"{config_cls.__name__} defines {', '.join(unknown)}, which the probe never reads"
+            ]
             if unknown
             else []
         ),

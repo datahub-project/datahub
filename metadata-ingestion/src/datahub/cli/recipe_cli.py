@@ -647,9 +647,7 @@ def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
     if isinstance(exc, ValidationError):
         # Field paths and messages, never inputs; scrubbed on the way out like
         # every other error line.
-        return ProbeArgumentError(
-            f"{context} failed: {describe_validation_error(exc)}"
-        )
+        return ProbeArgumentError(f"{context} failed: {describe_validation_error(exc)}")
     return classify_foreign(exc, context)
 
 

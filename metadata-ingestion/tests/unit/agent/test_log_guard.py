@@ -714,7 +714,6 @@ def test_a_library_callers_other_threads_keep_their_tracebacks_unless_guarded(
     _assert_restored(before)
 
 
-
 def test_probe_run_keeps_silencing_under_the_clis_own_guard(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,

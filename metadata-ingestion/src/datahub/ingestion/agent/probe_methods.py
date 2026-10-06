@@ -378,8 +378,10 @@ def unknown_provider_attributes(provider_cls: type) -> List[str]:
     PROVIDER_ATTRIBUTES name nor a probe command."""
     return _probe_named(
         provider_cls,
-        lambda name, value: name in PROVIDER_ATTRIBUTES
-        or isinstance(getattr(value, "__probe_command__", None), ProbeMethodSpec),
+        lambda name, value: (
+            name in PROVIDER_ATTRIBUTES
+            or isinstance(getattr(value, "__probe_command__", None), ProbeMethodSpec)
+        ),
     )
 
 
@@ -422,7 +424,9 @@ def config_hook(config: object, name: str) -> Optional[Callable[..., object]]:
     if config is not None:
         # At the first hook read, so a stale hook fails loudly rather than
         # being silently skipped.
-        _refuse_unknown_config_hooks(config if isinstance(config, type) else type(config))
+        _refuse_unknown_config_hooks(
+            config if isinstance(config, type) else type(config)
+        )
     hook = getattr(config, name, None)
     if not callable(hook):
         return None
@@ -811,9 +815,7 @@ def _enforce_gates(
                 f"permitted; this is a defect in the probe provider"
             )
         # A str is iterable too, and would read as one entry per character.
-        if isinstance(allowlist, (str, bytes)) or not isinstance(
-            allowlist, Iterable
-        ):
+        if isinstance(allowlist, (str, bytes)) or not isinstance(allowlist, Iterable):
             raise ProbeInternalError(
                 f"probe method '{spec.command}' takes an API path but its "
                 f"provider's api_allowlist is a {type(allowlist).__name__}, not "

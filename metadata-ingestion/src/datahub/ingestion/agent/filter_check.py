@@ -333,8 +333,7 @@ def _trial_pattern(
                 re.compile(regex)
             except re.error as exc:
                 raise ProbeArgumentError(
-                    f"{flag} {regex!r} is not a valid regular expression "
-                    f"({exc.msg})"
+                    f"{flag} {regex!r} is not a valid regular expression ({exc.msg})"
                 ) from None
     fields = recipe_pattern.model_dump()
     if try_allow:

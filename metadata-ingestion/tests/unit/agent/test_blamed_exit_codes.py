@@ -80,9 +80,7 @@ def test_the_callers_sql_failing_with_another_sqlstate_is_the_sources() -> None:
         run_probe_method("fake", {"mode": "08006"}, "sql", dict(_QUERY))
 
 
-def test_sqlstate_42_from_a_listing_the_connector_wrote_is_still_the_sources() -> (
-    None
-):
+def test_sqlstate_42_from_a_listing_the_connector_wrote_is_still_the_sources() -> None:
     with pytest.raises(ProbeConnectionError):
         run_probe_method("fake", {"mode": "42P01"}, "things", {})
 

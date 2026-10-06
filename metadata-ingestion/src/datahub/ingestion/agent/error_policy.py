@@ -260,7 +260,9 @@ def is_callers_sql_error(
 
 # A Python module name, dotted: what ImportError.name holds when an import
 # fails. Anything else is not shown.
-_MODULE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}(?:\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,7}")
+_MODULE_NAME = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_]{0,63}(?:\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,7}"
+)
 
 
 def missing_module(exc: BaseException) -> Optional[str]:

@@ -170,7 +170,7 @@ def test_a_catalog_scope_that_is_not_a_catalog_scope_is_a_provider_bug():
 @pytest.mark.parametrize(
     "provider", [StringAllowlistProvider(), MistypedBaseUrlProvider()]
 )
-def test_a_mistyped_api_gate_input_is_a_provider_bug(provider: FakeApiProvider):
+def test_a_mistyped_api_gate_input_is_a_provider_bug(provider: FakeApiProvider) -> None:
     with pytest.raises(ProbeInternalError):
         _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
     assert provider.ran == []
