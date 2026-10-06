@@ -137,6 +137,43 @@ public class StructuredPropertiesMapperTest {
   }
 
   @Test
+  public void testUrnWithTrailingWhitespaceProducesNoValueEntity() {
+    String value = "urn:li:domain:marketing ";
+    com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
+        StructuredPropertiesMapper.map(null, propertiesWithValue(value), ENTITY_URN);
+
+    assertEquals(mapped.getProperties().get(0).getValueEntities().size(), 0);
+    assertEquals(
+        ((StringValue) mapped.getProperties().get(0).getValues().get(0)).getStringValue(), value);
+  }
+
+  @Test
+  public void testDeeplyNestedUrnProducesNoValueEntity() {
+    String value = "urn:li:dataPlatform:hive";
+    for (int i = 0; i < 10_000; i++) {
+      value = "urn:li:schemaField:(" + value + ",f)";
+    }
+    com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
+        StructuredPropertiesMapper.map(null, propertiesWithValue(value), ENTITY_URN);
+
+    assertEquals(mapped.getProperties().get(0).getValueEntities().size(), 0);
+    assertEquals(mapped.getProperties().get(0).getValues().size(), 1);
+  }
+
+  // Text after a single part key is indistinguishable from the key, since key components such as
+  // tag or glossary term names may contain spaces. Such a key is a plain string, so it is safe.
+  @Test
+  public void testSinglePartUrnFollowedByTextKeepsTextInKey() {
+    String value = "urn:li:tag:pii and more free text";
+    com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
+        StructuredPropertiesMapper.map(
+            TestUtils.getMockAllowContext(), propertiesWithValue(value), ENTITY_URN);
+
+    assertEquals(mapped.getProperties().get(0).getValueEntities().size(), 1);
+    assertEquals(mapped.getProperties().get(0).getValueEntities().get(0).getUrn(), value);
+  }
+
+  @Test
   public void testNonUrnStringValueProducesNoValueEntity() {
     com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
         StructuredPropertiesMapper.map(null, propertiesWithValue("just some text"), ENTITY_URN);
