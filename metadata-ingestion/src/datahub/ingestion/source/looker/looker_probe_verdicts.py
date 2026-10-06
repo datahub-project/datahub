@@ -244,11 +244,11 @@ def _used_explores_rule(
             return Verdict.include()
         if used != "false":
             ctx.warn(_USED_EXPLORES_UNDETERMINED)
-        return Verdict(False, "emit_used_explores_only")
+        return Verdict.exclude("emit_used_explores_only")
     # list_all_explores yields nothing for a model without explores, so
     # _make_explore_containers never emits its container.
     if ctx.kind == MODEL_KIND and ctx.attributes.get(ATTR_EXPLORE_COUNT) == "0":
-        return Verdict(False, MODEL_HAS_NO_EXPLORES)
+        return Verdict.exclude(MODEL_HAS_NO_EXPLORES)
     return Verdict.include()
 
 
