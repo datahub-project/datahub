@@ -427,8 +427,9 @@ public class ESSearchDAO {
         searchRequestComponents.getMiddle(),
         from,
         size,
-        // A count without hits (size 0, such as the sidebar's aggregations) runs the full query, as
-        // browse does, so the counts shown together agree
+        // A search without hits runs the full query, as in DataHub Cloud. The UI's facet counts
+        // reach
+        // here through the search cache, which fetches hits, so they follow the light query
         size != null && size == 0
             ? null
             : lightFirstQuery(
@@ -504,6 +505,7 @@ public class ESSearchDAO {
       searchRequest.source().query(fullQuery);
     }
     if (lightResponse.getFailedShards() > 0) {
+      countLightFirst(opContext, "shardFailure");
       log.warn(
           "Light query failed on {} of {} shards: {}",
           lightResponse.getFailedShards(),
@@ -605,7 +607,7 @@ public class ESSearchDAO {
 
   /**
    * Counts which query served a light-first search: light, full (fell through), stopped, or direct
-   * (a request shape the light query cannot replace).
+   * (a request shape the light query cannot replace), and light queries with failed shards.
    */
   private static void countLightFirst(@Nonnull OperationContext opContext, @Nonnull String served) {
     opContext

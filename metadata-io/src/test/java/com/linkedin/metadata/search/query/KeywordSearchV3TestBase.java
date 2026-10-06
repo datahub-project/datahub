@@ -1220,7 +1220,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10,
                 List.of())
             .isMatch());
-    // A count without hits runs the full query, as browse does
+    // A search that reaches the DAO without hits runs the full query, as in DataHub Cloud
     assertEquals(
         searchService
             .search(fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 0, 0)
