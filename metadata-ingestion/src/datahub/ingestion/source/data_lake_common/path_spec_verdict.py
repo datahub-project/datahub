@@ -116,10 +116,12 @@ def _first_claim(
     for i, spec in enumerate(path_specs):
         reason = reason_for(spec)
         if reason is None:
-            return Verdict(True, None, matched_target=uri)
+            # include() carries no matched_target; the URI is still the
+            # target the probe reports.
+            return Verdict(included=True, matched_target=uri)
         if reason and claimed is None:
             claimed = f"path_specs[{i}].{reason}"
-    return Verdict(False, claimed or "path_specs", matched_target=uri)
+    return Verdict.exclude(claimed or "path_specs", matched_target=uri)
 
 
 def judge_dataset(
