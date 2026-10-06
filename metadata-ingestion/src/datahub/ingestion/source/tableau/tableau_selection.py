@@ -207,7 +207,7 @@ def probe_site_verdict(
                 "--from-run` to judge it"
             )
         elif state != ACTIVE_SITE_STATE:
-            return Verdict(False, SITE_STATE)
+            return Verdict.exclude(SITE_STATE)
         return by_name
     content_url = ctx.attributes.get("content_url")
     if content_url is None:
@@ -219,4 +219,4 @@ def probe_site_verdict(
         content_url = ctx.name
     if content_url == config.site:
         return Verdict.include()
-    return Verdict(False, INGEST_MULTIPLE_SITES)
+    return Verdict.exclude(INGEST_MULTIPLE_SITES)
