@@ -1,6 +1,12 @@
-import { NodeContext, addToAdjacencyList, cloneAdjacencyList } from '@app/lineageV3/common';
+import {
+    NodeContext,
+    addToAdjacencyList,
+    cloneAdjacencyList,
+    generateIgnoreAsHops,
+    isTransformational,
+} from '@app/lineageV3/common';
 
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 const A = 'urn:li:dataset:A';
 const B = 'urn:li:dataset:B';
@@ -30,5 +36,35 @@ describe('cloneAdjacencyList', () => {
         expect(clone[LineageDirection.Downstream].get(A)).toEqual(new Set([B, C]));
         expect(original[LineageDirection.Downstream].get(A)).toEqual(new Set([B]));
         expect(original[LineageDirection.Upstream].has(C)).toBe(false);
+    });
+});
+
+describe('transformation platforms', () => {
+    const dataset = (platform: string) => `urn:li:dataset:(urn:li:dataPlatform:${platform},db.orders,PROD)`;
+
+    it.each(['dbt', 'sqlmesh'])('draws %s datasets and their columns as transformations', (platform) => {
+        expect(isTransformational({ urn: dataset(platform), type: EntityType.Dataset }, EntityType.Dataset)).toBe(true);
+        expect(
+            isTransformational(
+                { urn: `urn:li:schemaField:(${dataset(platform)},order_id)`, type: EntityType.SchemaField },
+                EntityType.Dataset,
+            ),
+        ).toBe(true);
+    });
+
+    it('draws warehouse datasets as datasets', () => {
+        expect(isTransformational({ urn: dataset('snowflake'), type: EntityType.Dataset }, EntityType.Dataset)).toBe(
+            false,
+        );
+    });
+
+    it('walks lineage search through dbt and SQLMesh datasets and columns', () => {
+        const hops = generateIgnoreAsHops(EntityType.Dataset);
+        [EntityType.Dataset, EntityType.SchemaField].forEach((entityType) => {
+            expect(hops.find((hop) => hop.entityType === entityType)?.platforms).toEqual([
+                'urn:li:dataPlatform:dbt',
+                'urn:li:dataPlatform:sqlmesh',
+            ]);
+        });
     });
 });
