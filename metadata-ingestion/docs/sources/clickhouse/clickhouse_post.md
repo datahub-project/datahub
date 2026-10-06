@@ -36,7 +36,9 @@ declares `<database>` is ingested as `<database>.<name>` under that database's c
 under its full name without a container. A global name, even a dotted one such as `db.my_dict`, is
 filtered only by `table_pattern`. When `database` is set, only dictionaries declared in that
 database are ingested. With `include_table_lineage`, a dictionary whose source is an existing
-ClickHouse table gets that table as its upstream.
+ClickHouse table gets that table as its upstream. ClickHouse reports the source only after the
+dictionary is loaded, and loads dictionaries lazily by default, so a dictionary that has not been
+used since the server started has no upstream.
 
 ### Limitations
 

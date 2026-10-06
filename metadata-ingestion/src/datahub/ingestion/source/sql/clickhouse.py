@@ -1407,8 +1407,8 @@ ORDER BY event_time ASC
         dataset_name = dictionary.dataset_name
         columns = self._xml_dictionary_columns(dictionary)
         if not columns:
-            # ClickHouse reports no structure when the dictionary config fails to
-            # load. Emitting an empty schema would overwrite the last good one.
+            # ClickHouse reports no structure when the dictionary's <structure>
+            # fails to parse. Emitting an empty schema would overwrite the last good one.
             self.report.warning(
                 title="Config-file dictionary has no columns",
                 message="ClickHouse reported no structure for the dictionary, so its schema was not updated",
@@ -1442,8 +1442,10 @@ ORDER BY event_time ASC
             "engine": "Dictionary",
             "origin": dictionary.origin,
             "status": dictionary.status,
-            "type": dictionary.dict_type,
         }
+        # type and source are empty until ClickHouse loads the dictionary.
+        if dictionary.dict_type:
+            custom_properties["type"] = dictionary.dict_type
         if dictionary.source:
             custom_properties["source"] = dictionary.source
 
