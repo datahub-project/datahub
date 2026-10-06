@@ -1,0 +1,74 @@
+name: Rollback Compatibility Analysis
+
+run-name: "Rollback analysis: ${{ inputs.current }} → ${{ inputs.target || 'last release' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      current:
+        description: "Current build (N) — tag, branch, or SHA"
+        required: true
+      target:
+        description: "Target build (N-1) — tag, branch, or SHA. Leave blank to auto-resolve the latest stable release tag (v*-cloud in acryl-fork, v* in OSS)."
+        required: false
+        default: ""
+      json:
+        description: "Also emit JSON report"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      current:
+        type: string
+        required: true
+      target:
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rollback-analysis-${{ inputs.current }}-${{ inputs.target || 'last-release' }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Rollback Analysis
+    runs-on: depot-ubuntu-24.04-small
+    steps:
+      - name: Check out repo with full history and tags
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Generate rollback compatibility report
+        env:
+          INPUT_CURRENT: ${{ inputs.current }}
+          INPUT_TARGET: ${{ inputs.target }}
+          INPUT_JSON: ${{ inputs.json }}
+        run: |
+          TARGET_ARG=()
+          JSON_ARG=()
+          [ -n "$INPUT_TARGET" ] && TARGET_ARG=(--target "$INPUT_TARGET")
+          [ "$INPUT_JSON" = "true" ] && JSON_ARG=(--json)
+          python3 .github/scripts/rollback_analysis.py \
+            --current "$INPUT_CURRENT" \
+            "${TARGET_ARG[@]}" \
+            --output rollback-report.md \
+            "${JSON_ARG[@]}"
+          cat rollback-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          # Fixed name: refs can contain '/', which artifact names don't allow.
+          name: rollback-report
+          path: |
+            rollback-report.md
+            rollback-report.json
+          if-no-files-found: warn
