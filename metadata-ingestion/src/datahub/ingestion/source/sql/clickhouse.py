@@ -1356,23 +1356,30 @@ ORDER BY event_time ASC
     def _emit_xml_dictionaries(self) -> Iterable[MetadataWorkUnit]:
         try:
             dictionaries = self._fetch_xml_dictionaries()
-            if self.config.include_table_lineage and self._all_tables_set is None:
-                self._all_tables_set = self._get_all_tables()
         except Exception as e:
-            # A failure, not a warning, so stale entity removal does not
-            # soft-delete previously ingested dictionaries.
             self.report.failure(
                 title="Config-file dictionary fetch failed",
-                message="Failed to fetch config-file dictionaries or the tables for their lineage",
+                message="Failed to fetch config-file dictionaries",
                 exc=e,
             )
             return
 
+        if self.config.include_table_lineage and self._all_tables_set is None:
+            try:
+                self._all_tables_set = self._get_all_tables()
+            except Exception as e:
+                self.report.warning(
+                    title="Config-file dictionary lineage skipped",
+                    message="Failed to list tables, so dictionaries are emitted without upstream lineage",
+                    exc=e,
+                )
+
         for dictionary in dictionaries:
             dataset_name = dictionary.dataset_name
             self.report.report_entity_scanned(dataset_name, ent_type="table")
-            # database_pattern uses the declared database. A global dictionary has
-            # none, so a dotted name is filtered only by table_pattern.
+            # `database` keeps only dictionaries declared in it, so global ones are
+            # dropped. database_pattern applies to the declared database; a global
+            # dictionary has none, so database_pattern does not filter it.
             if (
                 (self.config.database and dictionary.database != self.config.database)
                 or (
@@ -1385,14 +1392,7 @@ ORDER BY event_time ASC
                 continue
 
             try:
-                yield from self._emit_xml_dictionary(
-                    dictionary,
-                    all_tables=(
-                        self._all_tables_set
-                        if self.config.include_table_lineage
-                        else None
-                    ),
-                )
+                yield from self._emit_xml_dictionary(dictionary)
             except Exception as e:
                 self.report.warning(
                     title="Failed to process config-file dictionary",
@@ -1402,7 +1402,7 @@ ORDER BY event_time ASC
                 )
 
     def _emit_xml_dictionary(
-        self, dictionary: _XmlDictionary, all_tables: Optional[Set[str]]
+        self, dictionary: _XmlDictionary
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = dictionary.dataset_name
         columns = self._xml_dictionary_columns(dictionary)
@@ -1467,10 +1467,10 @@ ORDER BY event_time ASC
         )
         dataset_urn = str(dataset.urn)
 
-        if all_tables is not None:
+        if self.config.include_table_lineage and self._all_tables_set is not None:
             source_path = _dictionary_source_table(dictionary.source)
             if source_path is not None:
-                if source_path in all_tables:
+                if source_path in self._all_tables_set:
                     dataset.set_upstreams(
                         [
                             UpstreamClass(
