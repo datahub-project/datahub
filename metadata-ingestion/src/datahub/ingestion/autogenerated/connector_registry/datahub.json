@@ -549,9 +549,9 @@
         },
         {
           "capability": "PROBE",
-          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "description": "Not supported: a usage-only source. Probe the `clickhouse` source instead",
           "subtype_modifier": null,
-          "supported": true
+          "supported": false
         }
       ],
       "classname": "datahub.ingestion.source.usage.clickhouse_usage.ClickHouseUsageSource",
@@ -4792,9 +4792,9 @@
         },
         {
           "capability": "PROBE",
-          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "description": "Not supported: a usage-only source. Probe the `trino` source instead",
           "subtype_modifier": null,
-          "supported": true
+          "supported": false
         }
       ],
       "classname": "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource",
