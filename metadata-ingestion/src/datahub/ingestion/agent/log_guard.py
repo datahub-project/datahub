@@ -14,6 +14,7 @@ print through whoever's printer is in front, unscrubbed. Capture turned on by
 someone else while a guard is open is turned off with the guard's own.
 """
 
+import contextvars
 import logging
 import threading
 from contextlib import contextmanager
@@ -139,6 +140,17 @@ class _Active:
 
 _ACTIVE = _Active()
 
+# The guards open in the current context (thread or task), which is how
+# run_probe_method knows its caller opted in. Removed by identity rather than
+# reset by token, since guards may close in any order.
+_OPEN_HERE: contextvars.ContextVar[Tuple[_Guard, ...]] = contextvars.ContextVar(
+    "probe_log_guards_open_here", default=()
+)
+
+
+def guard_open_in_this_context() -> bool:
+    return bool(_OPEN_HERE.get())
+
 
 @contextmanager
 def quiet_reused_logs(
@@ -177,8 +189,10 @@ def quiet_reused_logs(
         yield
         return
     guard = _Guard(secret_values, tuple(silenced))
+    _OPEN_HERE.set((*_OPEN_HERE.get(), guard))
     try:
         _ACTIVE.open(guard)
         yield
     finally:
         _ACTIVE.close(guard)
+        _OPEN_HERE.set(tuple(g for g in _OPEN_HERE.get() if g is not guard))

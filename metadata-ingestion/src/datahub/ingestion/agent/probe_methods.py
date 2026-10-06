@@ -42,7 +42,11 @@ from datahub.ingestion.agent.error_policy import (
     police_trusted,
     verbose_detail,
 )
-from datahub.ingestion.agent.log_guard import FRAMEWORK_LOGGERS, quiet_reused_logs
+from datahub.ingestion.agent.log_guard import (
+    FRAMEWORK_LOGGERS,
+    guard_open_in_this_context,
+    quiet_reused_logs,
+)
 from datahub.ingestion.agent.models import ProbeRunEnvelope
 from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
@@ -1065,6 +1069,15 @@ def run_probe_method(
     command: str,
     kwargs: Dict[str, object],
 ) -> ProbeMethodResult:
+    """Run one probe method against a source.
+
+    The log guard (log_guard.quiet_reused_logs) rewrites every non-framework
+    log record in the process, other threads' included, and drops their
+    tracebacks, so it is opt-in: the provider's own guard, which adds its
+    silenced_loggers, opens only inside a caller's guard. The CLI, a process
+    of its own, opens one around this call; a library caller embedding the
+    probe keeps its logging untouched unless it does the same.
+    """
     # SECURITY: every command that touches the source runs through here, so this
     # is where the whole-probe switch is enforced. It precedes the command lookup
     # so the refusal does not depend on naming a real command.
@@ -1078,9 +1091,14 @@ def run_probe_method(
         )
     prepared = _prepare_call(source_type, config_dict, command, kwargs)
     call = prepared.call
-    # Outermost, so the guard also covers __exit__. No secrets here: the CLI's
-    # own guard holds the recipe's, and credential shapes are scrubbed regardless.
-    with quiet_reused_logs(set(), silenced=_silenced_loggers(call.provider_cls)):
+    # Read either way, so a misdeclared one is a defect with or without a guard.
+    silenced = _silenced_loggers(call.provider_cls)
+    with ExitStack() as stack:
+        if guard_open_in_this_context():
+            # Outermost, so the guard also covers __exit__. No secrets here: the
+            # caller's own guard holds the recipe's, and credential shapes are
+            # scrubbed regardless.
+            stack.enter_context(quiet_reused_logs(set(), silenced=silenced))
         outcome = _open_call_close(call)
     capped = _cap_result(
         spec=call.spec,
