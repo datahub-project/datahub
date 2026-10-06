@@ -158,7 +158,7 @@ An attribute that raises when read is reported as the provider's defect (exit 1)
    `ProbeArgumentError` and `ProbeSoftError` (exit 2), `ProbeConnectionError` and `ProbeReadFailed`
    (exit 3), `ProbeInternalError` (exit 1), and the gates' refusals (exit 2). Anything else, your own
    plain `ValueError` included, is reported as a label, its class and at most one short code
-   (`'tables' failed (ProgrammingError; SQLSTATE 42P01)`), on the exit code
+   (`'tables' failed (ProgrammingError; SQLSTATE 42P01)`), on the exit code that
    [Exit codes by phase](#exit-codes-by-phase) gives.
 3. **Never interpolate an exception you did not raise.**
    `ProbeConnectionError(f"login failed: {exc}")` would carry a driver's text out under a trusted
@@ -217,7 +217,11 @@ the class and at most one short code.
 | a failure reading what the source sent: `OSError`, `UnicodeError`, `binascii.Error`, `json.JSONDecodeError`, a pydantic `ValidationError` | 3, as above                                   | 3, as above                                                      | 3, as above                                                 |
 | the rest of the `ValueError` family, and `re.error`                                                                                       | 3, as above                                   | 2, as above                                                      | 3, as above                                                 |
 | `NotImplementedError`                                                                                                                     | 3, as above                                   | 2, `source '<type>' does not support the '<command>' command...` | 2, as during a command                                      |
+| an `ImportError` naming a module (a missing driver)                                                                                       | 1, as above, naming the module                | 3, as above                                                      | 3, as above                                                 |
 | anything else: a driver's, an SDK's or an HTTP error, `SystemExit`                                                                        | 3, as above                                   | 3, as above                                                      | 3, as above                                                 |
+
+A gated `sql` command failing with SQLSTATE class 42 exits 2: the caller wrote that query. A
+SQLAlchemy URL naming no installed dialect, or no URL at all, is refused while opening (exit 2).
 
 Closing reads `closing source '<type>' failed (<label>)`, and only when the command succeeded: a
 command's own failure is never replaced by its close's. A command that returns with failures
