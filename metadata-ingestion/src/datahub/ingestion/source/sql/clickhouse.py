@@ -89,14 +89,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
-    DatasetPropertiesClass,
     DatasetSnapshotClass,
     SchemaFieldClass,
-    StatusClass,
-    SubTypesClass,
     UpstreamClass,
 )
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
+from datahub.sdk.dataset import Dataset
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
@@ -104,6 +102,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.utilities.sentinels import unset
 
 assert clickhouse_driver
 
@@ -1359,9 +1358,7 @@ ORDER BY event_time ASC
                 column["type"] = column["type"]()
         return columns
 
-    def _emit_xml_dictionaries(
-        self,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def _emit_xml_dictionaries(self) -> Iterable[MetadataWorkUnit]:
         try:
             dictionaries = self._fetch_xml_dictionaries()
         except Exception as e:
@@ -1396,15 +1393,8 @@ ORDER BY event_time ASC
 
     def _emit_xml_dictionary(
         self, dictionary: _XmlDictionary
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_name = dictionary.dataset_name
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
         columns = self._xml_dictionary_columns(dictionary)
         schema_fields = [
             SchemaFieldClass(
@@ -1435,46 +1425,38 @@ ORDER BY event_time ASC
         if dictionary.source:
             custom_properties["source"] = dictionary.source
 
-        dataset_snapshot = DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[
-                StatusClass(removed=False),
-                DatasetPropertiesClass(
-                    name=dictionary.name,
-                    description=dictionary.comment or None,
-                    customProperties=custom_properties,
-                ),
-                schema_metadata,
-            ],
+        dataset = Dataset(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=dictionary.name,
+            description=dictionary.comment or None,
+            custom_properties=custom_properties,
+            subtype=DatasetSubTypes.TABLE,
+            schema=schema_metadata,
+            parent_container=(
+                self.get_database_container_key(
+                    dictionary.database, dictionary.database
+                )
+                if dictionary.database
+                else unset
+            ),
         )
+        dataset_urn = str(dataset.urn)
+
+        if self.config.include_table_lineage:
+            lineage_mcp = self.get_lineage_mcp(dataset_urn)
+            if lineage_mcp is not None and isinstance(
+                lineage_mcp.aspect, UpstreamLineage
+            ):
+                dataset.set_upstreams(lineage_mcp.aspect)
 
         if self._save_schema_to_resolver():
             self.aggregator.register_schema(dataset_urn, schema_metadata)
             self.discovered_datasets.add(dataset_name)
 
-        if dictionary.database:
-            yield from self.add_table_to_schema_container(
-                dataset_urn=dataset_urn,
-                db_name=dictionary.database,
-                schema=dictionary.database,
-            )
-
-        yield SqlWorkUnit(
-            id=dataset_name,
-            mce=MetadataChangeEvent(proposedSnapshot=dataset_snapshot),
-        )
-
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-
-        yield MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
-            ),
-        )
+        yield from dataset.as_workunits()
 
     def _populate_xml_dictionary_lineage(
         self, dictionaries: List[_XmlDictionary]

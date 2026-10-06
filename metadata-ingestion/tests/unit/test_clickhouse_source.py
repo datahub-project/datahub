@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +10,7 @@ import datahub.ingestion.source.sql.clickhouse as clickhouse
 import datahub.sql_parsing.sqlglot_lineage as sqlglot_lineage
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import (
     ClickHouseConfig,
     ClickHouseSource,
@@ -20,7 +21,6 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
-    MetadataChangeEventClass,
     NumberTypeClass,
     OperationClass,
     QueryPropertiesClass,
@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 from datahub.metadata.urns import SchemaFieldUrn
 
@@ -1249,9 +1250,30 @@ def test_query_log_query_fetches_selects_only_for_usage():
 
 def _clickhouse_source(**config_kwargs: object) -> ClickHouseSource:
     config = ClickHouseConfig.model_validate(
-        {"host_port": "localhost:8123", **config_kwargs}
+        {"host_port": "localhost:8123", "include_table_lineage": False, **config_kwargs}
     )
     return ClickHouseSource(config, PipelineContext(run_id="test"))
+
+
+_AspectT = TypeVar("_AspectT", bound=_Aspect)
+
+
+def _aspects_of(
+    workunits: List[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> List[_AspectT]:
+    return [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(aspect_type)) is not None
+    ]
+
+
+def _emitted_dataset_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    }
 
 
 def _sample_xml_dictionary(
@@ -1324,11 +1346,7 @@ def test_emit_xml_dictionaries_filters_by_declared_database(monkeypatch):
         ],
     )
 
-    emitted = {
-        wu.metadata.proposedSnapshot.urn
-        for wu in source._emit_xml_dictionaries()
-        if isinstance(wu.metadata, MetadataChangeEventClass)
-    }
+    emitted = _emitted_dataset_urns(list(source._emit_xml_dictionaries()))
     assert emitted == {
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.kept,PROD)",
@@ -1344,23 +1362,10 @@ def test_emit_xml_dictionaries_emits_exact_case_schema(monkeypatch):
 
     workunits = list(source._emit_xml_dictionaries())
 
-    snapshots = [
-        wu.metadata.proposedSnapshot
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeEventClass)
-    ]
-    assert len(snapshots) == 1
-    snapshot = snapshots[0]
-    assert (
-        snapshot.urn
-        == "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.db.My_Dict,PROD)"
-    )
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.db.My_Dict,PROD)"
+    assert _emitted_dataset_urns(workunits) == {dataset_urn}
 
-    properties = next(
-        aspect
-        for aspect in snapshot.aspects
-        if isinstance(aspect, DatasetPropertiesClass)
-    )
+    [properties] = _aspects_of(workunits, DatasetPropertiesClass)
     assert properties.name == "db.My_Dict"
     assert properties.customProperties["engine"] == "Dictionary"
     assert (
@@ -1368,9 +1373,7 @@ def test_emit_xml_dictionaries_emits_exact_case_schema(monkeypatch):
         == "/etc/clickhouse-server/config.d/dicts.xml"
     )
 
-    schema = next(
-        aspect for aspect in snapshot.aspects if isinstance(aspect, SchemaMetadataClass)
-    )
+    [schema] = _aspects_of(workunits, SchemaMetadataClass)
     assert [field.fieldPath for field in schema.fields] == ["id", "v"]
     assert [field.nativeDataType for field in schema.fields] == ["UInt64", "String"]
     assert [type(field.type.type) for field in schema.fields] == [
@@ -1380,20 +1383,10 @@ def test_emit_xml_dictionaries_emits_exact_case_schema(monkeypatch):
     assert schema.fields[0].isPartOfKey
     assert not schema.fields[1].isPartOfKey
 
-    subtypes = [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, SubTypesClass)
-    ]
-    assert subtypes == [SubTypesClass(typeNames=["Table"])]
-    assert not any(
-        isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, ContainerClass)
-        for wu in workunits
-    )
+    assert _aspects_of(workunits, SubTypesClass) == [SubTypesClass(typeNames=["Table"])]
+    assert _aspects_of(workunits, ContainerClass) == []
 
-    assert source.get_schema_resolver().has_urn(snapshot.urn)
+    assert source.get_schema_resolver().has_urn(dataset_urn)
 
 
 def test_emit_xml_dictionary_with_database_tag_joins_database_container(monkeypatch):
@@ -1406,17 +1399,10 @@ def test_emit_xml_dictionary_with_database_tag_joins_database_container(monkeypa
 
     workunits = list(source._emit_xml_dictionaries())
 
-    urns = {
-        wu.metadata.proposedSnapshot.urn
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeEventClass)
+    assert _emitted_dataset_urns(workunits) == {
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.Tag_Dict,PROD)"
     }
-    assert urns == {"urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.Tag_Dict,PROD)"}
-    assert any(
-        isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, ContainerClass)
-        for wu in workunits
-    )
+    assert any(wu.get_aspect_of_type(ContainerClass) for wu in workunits)
 
 
 def test_xml_dictionary_lineage_from_clickhouse_source():
