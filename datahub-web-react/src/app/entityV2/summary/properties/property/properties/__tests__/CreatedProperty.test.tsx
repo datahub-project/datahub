@@ -7,7 +7,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import CreatedProperty from '@app/entityV2/summary/properties/property/properties/CreatedProperty';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
-import { Document, DocumentSourceType, EntityType, SummaryElementType } from '@types';
+import { DocumentSourceType, EntityType, SummaryElementType } from '@types';
 
 vi.mock('@app/entityV2/summary/properties/property/properties/BaseProperty', () => ({
     default: ({ values }: { values: number[] }) => (
@@ -17,22 +17,22 @@ vi.mock('@app/entityV2/summary/properties/property/properties/BaseProperty', () 
 
 const PROP = { type: SummaryElementType.Created, name: 'Created' };
 
-const makeContext = (document: Partial<Document>) => ({
-    urn: 'urn:li:document:test',
-    entityType: EntityType.Document,
-    entityData: document as unknown as GenericEntityProperties,
+const makeContext = (entityData: object, entityType: EntityType) => ({
+    urn: 'urn:li:test',
+    entityType,
+    entityData: entityData as GenericEntityProperties,
     loading: false,
-    baseEntity: document as unknown as GenericEntityProperties,
+    baseEntity: entityData as GenericEntityProperties,
     dataNotCombinedWithSiblings: undefined,
     routeToTab: () => {},
     refetch: async () => ({}),
     lineage: undefined,
 });
 
-const renderProp = (document: Partial<Document>) =>
+const renderProp = (entityData: object, entityType: EntityType = EntityType.Document) =>
     render(
         <CustomThemeProvider>
-            <EntityContext.Provider value={makeContext(document)}>
+            <EntityContext.Provider value={makeContext(entityData, entityType)}>
                 <CreatedProperty property={PROP} position={0} />
             </EntityContext.Provider>
         </CustomThemeProvider>,
@@ -105,6 +105,25 @@ describe('CreatedProperty — external document heuristic', () => {
                 source: { sourceType: DocumentSourceType.External },
             } as any,
         });
+        expect(screen.getByTestId('base-property').textContent).toBe('empty');
+    });
+});
+
+describe('CreatedProperty — entity-specific created field', () => {
+    it.each([
+        [EntityType.Dataset, { properties: { created: 1000 } }],
+        [EntityType.Chart, { properties: { created: { time: 1000 } } }],
+        [EntityType.Dashboard, { properties: { created: { time: 1000 } } }],
+        [EntityType.Container, { properties: { created: { time: 1000 } } }],
+        [EntityType.Metric, { info: { created: { time: 1000 } } }],
+        [EntityType.Domain, { properties: { createdOn: { time: 1000 } } }],
+    ])('shows created date for %s', (entityType, entityData) => {
+        renderProp(entityData, entityType);
+        expect(screen.getByTestId('base-property').textContent).toBe('has-value');
+    });
+
+    it('hides created date for charts with the default zero timestamp', () => {
+        renderProp({ properties: { created: { time: 0 } } }, EntityType.Chart);
         expect(screen.getByTestId('base-property').textContent).toBe('empty');
     });
 });

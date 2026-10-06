@@ -3459,6 +3459,11 @@ type ContainerProperties {
   Fully-qualified name of the Container
   """
   qualifiedName: String
+
+  """
+  When the Container was created in the source platform
+  """
+  created: AuditStamp
 }
 
 """
