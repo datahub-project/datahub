@@ -26,7 +26,7 @@ import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -68,8 +68,7 @@ import {
 } from '@app/entityV2/shared/utils';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetSummaryPage';
-import { DBT_URN } from '@app/ingest/source/builder/constants';
-import { SQLMESH_URN } from '@app/ingestV2/source/builder/constants';
+import { isSourceMergedIntoSibling } from '@app/lineageV3/transformationPlatforms';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -97,18 +96,6 @@ const headerDropdownItems = new Set([
 /**
  * Definition of the DataHub Dataset entity.
  */
-/**
- * Sources (warehouse tables a transformation tool reads but doesn't build) that a feature flag
- * merges into their warehouse sibling in lineage. dbt and SQLMesh both type them 'Source'.
- */
-const MERGED_SOURCES_IN_LINEAGE: {
-    platformUrn: string;
-    flag: 'hideDbtSourceInLineage' | 'hideSqlmeshSourceInLineage';
-}[] = [
-    { platformUrn: DBT_URN, flag: 'hideDbtSourceInLineage' },
-    { platformUrn: SQLMESH_URN, flag: 'hideSqlmeshSourceInLineage' },
-];
-
 export class DatasetEntity implements Entity<Dataset> {
     type: EntityType = EntityType.Dataset;
 
@@ -370,13 +357,7 @@ export class DatasetEntity implements Entity<Dataset> {
     ];
 
     #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {
-        // Lineage query must include platform and typeNames on dataset and its sibling
-        return MERGED_SOURCES_IN_LINEAGE.some(
-            ({ platformUrn, flag }) =>
-                !!flags?.[flag] &&
-                dataset?.platform?.urn === platformUrn &&
-                !!dataset?.subTypes?.typeNames?.includes(SubType.DbtSource),
-        );
+        return isSourceMergedIntoSibling(dataset, flags);
     }
 
     getOverridePropertiesFromEntity = (

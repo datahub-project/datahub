@@ -4,10 +4,8 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { hashString } from '@components/components/Avatar/utils';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
-import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
-import { DBT_URN, SQLMESH_URN } from '@app/ingestV2/source/builder/constants';
+import { TRANSFORMATION_PLATFORM_URNS, isTransformationPlatform } from '@app/lineageV3/transformationPlatforms';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
@@ -178,21 +176,6 @@ export function isGhostEntity(
     );
 }
 
-/**
- * Platforms whose datasets are transformations that build warehouse tables (dbt and SQLMesh models
- * and sources). Each is a sibling of its warehouse table, so lineage draws it as a transformation
- * between tables and lineage search walks through it rather than counting it as a hop.
- */
-const TRANSFORMATION_PLATFORM_URNS = [DBT_CLOUD_URN, SQLMESH_URN];
-
-export function isTransformationPlatform(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
-    return (
-        (node.type === EntityType.Dataset || node.type === EntityType.SchemaField) &&
-        !!node.urn &&
-        TRANSFORMATION_PLATFORM_URNS.includes(getPlatformUrnFromEntityUrn(node.urn) ?? '')
-    );
-}
-
 export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
     return node.type === EntityType.Query;
 }
@@ -204,11 +187,11 @@ export function generateIgnoreAsHops(homeType: EntityType) {
     const base = [
         {
             entityType: EntityType.Dataset,
-            platforms: [DBT_URN, SQLMESH_URN],
+            platforms: TRANSFORMATION_PLATFORM_URNS,
         },
         {
             entityType: EntityType.SchemaField,
-            platforms: [DBT_URN, SQLMESH_URN],
+            platforms: TRANSFORMATION_PLATFORM_URNS,
         },
         { entityType: EntityType.DataProcessInstance },
     ];
