@@ -7,6 +7,7 @@ import sqlglot.errors
 import sqlglot.expressions
 
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_dataplatform_instance_urn,
     make_tag_urn,
     make_ts_millis,
@@ -27,7 +28,10 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeIdentifierBuilder,
 )
-from datahub.ingestion.source.sql.sql_utils import get_domain_wu
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    get_domain_wu,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateType,
     NullType,
@@ -659,6 +663,11 @@ class SnowflakeSemanticModelMapper:
             ),
         ).as_workunit()
 
+        yield from add_table_to_schema_container(
+            dataset_urn=logical_dataset_urn,
+            parent_container_key=self.identifiers.gen_schema_key(db_name, schema_name),
+        )
+
         yield from self._gen_common_entity_aspects(
             entity_urn=logical_dataset_urn,
             browse_path=self._browse_path_entries(db_name, schema_name)
@@ -1111,12 +1120,16 @@ class SnowflakeSemanticModelMapper:
                     ),
                 )
             )
-        entries.append(
-            BrowsePathEntryClass(id=self.identifiers.snowflake_identifier(db_name))
+        # Id-only db/schema entries render as separate browse folders, and an
+        # explicit browsePathsV2 wins over the path derived from container.
+        db_urn = make_container_urn(
+            guid=self.identifiers.gen_database_key(db_name).guid()
         )
-        entries.append(
-            BrowsePathEntryClass(id=self.identifiers.snowflake_identifier(schema_name))
+        entries.append(BrowsePathEntryClass(id=db_urn, urn=db_urn))
+        schema_urn = make_container_urn(
+            guid=self.identifiers.gen_schema_key(db_name, schema_name).guid()
         )
+        entries.append(BrowsePathEntryClass(id=schema_urn, urn=schema_urn))
         return entries
 
     def _gen_view_tags(

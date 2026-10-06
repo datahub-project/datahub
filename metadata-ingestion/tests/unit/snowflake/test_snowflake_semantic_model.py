@@ -1,7 +1,11 @@
 import datetime
-from typing import Dict, List, Optional, Type, TypeVar
+from typing import Dict, List, Optional, Tuple, Type, TypeVar
+from unittest import mock
 
-from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mce_builder import (
+    make_dataplatform_instance_urn,
+    make_schema_field_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -21,8 +25,14 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     snowflake_identity_key,
 )
+from datahub.ingestion.workunit_processors.auto_browse_path_v2 import (
+    AutoBrowsePathV2Processor,
+)
 from datahub.metadata.schema_classes import (
     AiContextClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     DatasetPropertiesClass,
     DimensionClass,
     ERModelRelationshipCardinalityClass,
@@ -187,6 +197,81 @@ def _schema_fields_by_path(
     return {f.fieldPath: f for f in schemas[0].fields}
 
 
+def _legacy_db_schema_container_urns(
+    mapper: SnowflakeSemanticModelMapper,
+) -> Tuple[str, str]:
+    db_urn = mapper.identifiers.gen_database_key(_DB).as_urn()
+    schema_urn = mapper.identifiers.gen_schema_key(_DB, _SCHEMA).as_urn()
+    return db_urn, schema_urn
+
+
+def _browse_path_v2(
+    workunits: List[MetadataWorkUnit], entity_urn: str
+) -> List[BrowsePathEntryClass]:
+    paths = _aspects_for(workunits, entity_urn, BrowsePathsV2Class)
+    assert len(paths) == 1
+    return paths[0].path
+
+
+def _assert_db_schema_browse_entries(
+    path: List[BrowsePathEntryClass],
+    db_urn: str,
+    schema_urn: str,
+    *,
+    start: int = 0,
+) -> None:
+    assert path[start].id == db_urn and path[start].urn == db_urn
+    assert path[start + 1].id == schema_urn and path[start + 1].urn == schema_urn
+
+
+def _minimal_semantic_view_for_browse_paths() -> SnowflakeSemanticView:
+    return _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.order_total)",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+
+
+def _make_auto_browse_path_processor(
+    platform_instance: Optional[str] = None,
+) -> AutoBrowsePathV2Processor:
+    flags = mock.MagicMock()
+    flags.generate_browse_path_v2 = True
+    flags.generate_browse_path_v2_dry_run = False
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.flags = flags
+    config = SnowflakeV2Config.model_validate(
+        {
+            "account_id": "test_account",
+            "username": "test_user",
+            "password": "test_password",
+            "platform_instance": platform_instance,
+        }
+    )
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    ctx.source_platform = "snowflake"
+    ctx.infer_platform.return_value = "snowflake"
+    ctx.source_config = config
+    return AutoBrowsePathV2Processor.create(ctx)
+
+
 def test_urn_builders_default_lowercase():
     mapper = _make_mapper()
     model_urn = mapper.identifiers.gen_semantic_model_urn(
@@ -246,6 +331,126 @@ def test_logical_dataset_urn_shape_with_platform_instance_and_no_lowercase():
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
         f"my_instance.{_DB}.{_SCHEMA}.Sales_Analytics.ORDERS,PROD)"
     )
+
+
+def test_semantic_model_dataset_attached_to_schema_container_with_urn_browse_paths():
+    mapper = _make_mapper()
+    semantic_view = _minimal_semantic_view_for_browse_paths()
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    db_urn, schema_urn = _legacy_db_schema_container_urns(mapper)
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    containers = _aspects_for(workunits, orders_urn, ContainerClass)
+    assert len(containers) == 1
+    assert containers[0].container == schema_urn
+
+    _assert_db_schema_browse_entries(
+        _browse_path_v2(workunits, model_urn), db_urn, schema_urn
+    )
+    _assert_db_schema_browse_entries(
+        _browse_path_v2(workunits, orders_urn), db_urn, schema_urn
+    )
+    _assert_db_schema_browse_entries(
+        _browse_path_v2(workunits, metric_urn), db_urn, schema_urn
+    )
+
+    orders_path = _browse_path_v2(workunits, orders_urn)
+    assert orders_path[2].urn == model_urn
+    assert orders_path[3].urn == orders_urn
+
+    metric_path = _browse_path_v2(workunits, metric_urn)
+    assert metric_path[2].urn == model_urn
+
+
+def test_semantic_model_browse_container_urns_follow_snowflake_identifier_without_lowercase():
+    mapper_lower = _make_mapper(convert_urns_to_lowercase=True)
+    mapper_upper = _make_mapper(convert_urns_to_lowercase=False)
+    lower_db_urn, lower_schema_urn = _legacy_db_schema_container_urns(mapper_lower)
+    upper_db_urn, upper_schema_urn = _legacy_db_schema_container_urns(mapper_upper)
+    assert lower_db_urn != upper_db_urn
+    assert lower_schema_urn != upper_schema_urn
+
+    semantic_view = _minimal_semantic_view_for_browse_paths()
+    workunits = list(
+        mapper_upper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    model_urn = mapper_upper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    _assert_db_schema_browse_entries(
+        _browse_path_v2(workunits, model_urn), upper_db_urn, upper_schema_urn
+    )
+
+
+def test_semantic_model_browse_paths_keep_platform_instance_first():
+    mapper = _make_mapper(platform_instance="my_instance")
+    semantic_view = _minimal_semantic_view_for_browse_paths()
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    db_urn, schema_urn = _legacy_db_schema_container_urns(mapper)
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    instance_urn = make_dataplatform_instance_urn("snowflake", "my_instance")
+    model_path = _browse_path_v2(workunits, model_urn)
+    assert model_path[0].id == "my_instance" and model_path[0].urn == instance_urn
+    _assert_db_schema_browse_entries(model_path, db_urn, schema_urn, start=1)
+
+
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
+def test_auto_browse_path_v2_preserves_semantic_model_dataset_explicit_path(
+    telemetry_ping_mock,
+):
+    mapper = _make_mapper()
+    semantic_view = _minimal_semantic_view_for_browse_paths()
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    explicit_path = _browse_path_v2(workunits, orders_urn)
+
+    processed = list(_make_auto_browse_path_processor().process(workunits))
+    emitted_paths: list[BrowsePathsV2Class] = []
+    for wu in processed:
+        if wu.get_urn() != orders_urn:
+            continue
+        browse_paths = wu.get_aspect_of_type(BrowsePathsV2Class)
+        if browse_paths is not None:
+            emitted_paths.append(browse_paths)
+    assert len(emitted_paths) == 1
+    assert emitted_paths[0].path == explicit_path
+    assert not telemetry_ping_mock.call_count
 
 
 def test_semantic_model_info_datasets_and_field_grouping():
