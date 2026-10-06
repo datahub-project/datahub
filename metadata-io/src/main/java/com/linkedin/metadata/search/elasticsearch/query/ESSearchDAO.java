@@ -112,7 +112,6 @@ public class ESSearchDAO {
   /** Time the embedding and kNN calls get before the keyword ranking is served instead. */
   private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
 
-  // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout
   // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
   // queue is bounded: when every worker is busy, searches get the keyword ranking right away
   private static final ExecutorService HYBRID_EXECUTOR =

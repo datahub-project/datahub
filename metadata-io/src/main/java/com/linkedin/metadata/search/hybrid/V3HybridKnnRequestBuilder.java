@@ -63,8 +63,7 @@ public class V3HybridKnnRequestBuilder {
       return Optional.empty();
     }
     // Only the given rows are scored, so the search is exact and repeatable. k counts nearest
-    // chunks
-    // of the nested vectors rather than documents, so it stays at the cap: the filter, not k,
+    // chunks of the nested vectors, not documents, so it stays at the cap: the filter, not k,
     // bounds the hits to these rows and every row with a vector gets its score
     final List<String> urnValues = urns.stream().map(Urn::toString).collect(Collectors.toList());
 
