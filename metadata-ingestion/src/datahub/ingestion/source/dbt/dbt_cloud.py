@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from json import JSONDecodeError
 from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
@@ -318,6 +318,8 @@ _DBT_FIELDS_BY_TYPE = {
     fail
     warn
     skip
+    executeStartedAt
+    runGeneratedAt
     rawSql
     rawCode
     compiledSql
@@ -852,9 +854,24 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_result = None
         if not node["skip"]:
+            # Mirrors dbt Core (execute.started_at, falling back to generated_at). The
+            # timestamp is part of the assertion run event's id, so wall-clock time
+            # would create a duplicate run on every re-ingestion of the same job run.
+            execution_timestamp = node.get("executeStartedAt") or node.get(
+                "runGeneratedAt"
+            )
+            if execution_timestamp:
+                execution_time = parse_dbt_timestamp(execution_timestamp)
+            else:
+                self.report.warning(
+                    title="Missing test execution time",
+                    message="dbt Cloud returned no executeStartedAt or runGeneratedAt for a test; using the current time, so re-ingesting this run may create duplicate assertion results.",
+                    context=node["uniqueId"],
+                )
+                execution_time = datetime.now(timezone.utc)
             test_result = DBTTestResult(
                 invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                execution_time=execution_time,
                 status=node["status"],
                 native_results={
                     key: str(node[key])
