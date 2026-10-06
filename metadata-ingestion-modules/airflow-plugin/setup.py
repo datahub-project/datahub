@@ -71,13 +71,13 @@ dev_requirements = {
     *mypy_stubs,
     "coverage>=5.1",
     "mypy==1.17.1",
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "tenacity",
     "build",
     "twine",

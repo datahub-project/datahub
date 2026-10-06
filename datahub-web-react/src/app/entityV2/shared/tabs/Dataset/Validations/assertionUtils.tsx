@@ -10,6 +10,7 @@ import {
     AssertionResultType,
     AssertionStdParameter,
     AssertionStdParameterType,
+    StringMapEntry,
 } from '@types';
 
 import AssertionErrorIcon from '@images/assertion_error_dot.svg?react';
@@ -31,6 +32,12 @@ export const sortAssertions = (a, b) => {
     }
     return b?.runEvents?.runEvents[0]?.timestampMillis - a?.runEvents?.runEvents[0]?.timestampMillis;
 };
+
+const NATIVE_RESULTS_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
+export function sortNativeResults(entries: StringMapEntry[]): StringMapEntry[] {
+    return [...entries].sort((a, b) => NATIVE_RESULTS_COLLATOR.compare(a.key, b.key));
+}
 
 /**
  * Returns the display color associated with an AssertionResultType

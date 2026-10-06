@@ -1,12 +1,18 @@
 version: "3.8"
 services:
-  localstack:
-    image: localstack/localstack:3.0
-    # Explicit container_name so wait_for_port can `docker exec` it by name.
-    container_name: localstack
+  floci-kinesis:
+    image: floci/floci:1.5.33
+    # Unique host port (container listens on 4566) to avoid colliding with the
+    # other Floci-backed suites when integration batches run in parallel.
     ports:
-      - "4566:4566"
+      - "14572:4566"
     environment:
-      SERVICES: kinesis,firehose,s3,iam,sts
       DEFAULT_REGION: us-east-1
-      DEBUG: "0"
+    # Built-in healthcheck (/_floci/health); `up --wait` in the fixture blocks
+    # until healthy, so no test-layer readiness polling is needed.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4566/_floci/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s

@@ -219,19 +219,19 @@ class TestSnowplowBDPClientEnrichments:
 
     @patch.object(SnowplowBDPClient, "_request")
     def test_get_enrichments_success(self, mock_request, bdp_client):
-        """Test successful enrichments retrieval."""
+        """Test successful enrichments retrieval from the pipelines/v1 endpoint."""
         mock_response = [
             {
-                "id": "enrichment-1",
-                "filename": "ip_lookup.json",
+                "name": "ip-lookup",
                 "enabled": True,
-                "lastUpdate": "2024-01-01T00:00:00Z",
+                "schemaKey": "iglu:com.snowplowanalytics.snowplow/ip_lookups/jsonschema/2-0-0",
+                "userData": {"geo": {"database": "GeoLite2-City.mmdb"}},
             },
             {
-                "id": "enrichment-2",
-                "filename": "ua_parser.json",
+                "name": "ua-parser",
                 "enabled": True,
-                "lastUpdate": "2024-01-01T00:00:00Z",
+                "schemaKey": "iglu:com.snowplowanalytics.snowplow/ua_parser_config/jsonschema/1-0-0",
+                "userData": {},
             },
         ]
         mock_request.return_value = mock_response
@@ -239,11 +239,11 @@ class TestSnowplowBDPClientEnrichments:
         result = bdp_client.get_enrichments("pipeline-123")
 
         assert len(result) == 2
-        assert result[0].id == "enrichment-1"
-        assert result[0].filename == "ip_lookup.json"
+        assert result[0].id == "ip-lookup"
+        assert result[0].filename == "ip-lookup"
         assert result[0].enabled is True
-        assert result[1].id == "enrichment-2"
-        assert result[1].filename == "ua_parser.json"
+        assert result[1].id == "ua-parser"
+        assert result[1].filename == "ua-parser"
 
     @patch.object(SnowplowBDPClient, "_request")
     def test_get_enrichments_handles_404(self, mock_request, bdp_client):
@@ -269,13 +269,13 @@ class TestSnowplowBDPClientEnrichments:
         """Test graceful handling when enrichment parsing fails."""
         mock_response = [
             {
-                "id": "enrichment-1",
-                "filename": "valid.json",
+                "name": "valid",
                 "enabled": True,
-                "lastUpdate": "2024-01-01T00:00:00Z",
+                "schemaKey": "iglu:com.snowplowanalytics.snowplow/anon_ip/jsonschema/1-0-0",
+                "userData": {},
             },
             {
-                # Missing required fields - will fail parsing
+                # Missing required 'name' field - will fail parsing
                 "invalid": "data",
             },
         ]
@@ -285,7 +285,7 @@ class TestSnowplowBDPClientEnrichments:
 
         # Per-item parsing: valid items are kept, invalid ones are skipped
         assert len(result) == 1
-        assert result[0].id == "enrichment-1"
+        assert result[0].id == "valid"
 
 
 class TestSnowplowBDPClientDestinations:

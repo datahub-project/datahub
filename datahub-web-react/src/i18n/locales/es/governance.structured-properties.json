@@ -1,6 +1,6 @@
 {
     "addOnly": "(Solo añadir)",
-    "addOnlyTooltip": "Una vez creada una propiedad, no se pueden eliminar los tipos de entidad",
+    "addOnlyTooltip": "Una vez creada una propiedad, no se pueden quitar los tipos de entidad",
     "advancedOptions.qualifiedName": "Nombre cualificado",
     "advancedOptions.qualifiedNameDisabledTooltip": "Una vez creada una propiedad, no se puede cambiar el nombre cualificado",
     "advancedOptions.qualifiedNameError": "El nombre cualificado no puede contener espacios",
@@ -11,6 +11,10 @@
     "allowedEntityTypes.anyTooltip": "Se aceptará cualquier tipo de entidad como valor",
     "allowedEntityTypes.title": "Tipos de entidad permitidos",
     "allowedEntityTypes.tooltip": "Elija los tipos de entidades que se permiten como valores para esta propiedad",
+    "allowedPlatforms.anyPlaceholder": "Todas las plataformas",
+    "allowedPlatforms.anyTooltip": "Esta propiedad estará disponible en activos de cualquier plataforma de datos",
+    "allowedPlatforms.title": "Plataformas permitidas",
+    "allowedPlatforms.tooltip": "Opcionalmente, restrinja esta propiedad a activos de plataformas de datos específicas (p. ej., Glue, Redshift). Si se deja vacío, la propiedad se aplica a todas las plataformas.",
     "allowedValues.addTooltip": "Añadir un nuevo valor a la lista de valores permitidos",
     "allowedValues.anyValueAllowed": "Se permitirá cualquier valor de tipo <type>{{valueType}}</type>",
     "allowedValues.descriptionPlaceholder": "Proporcione una descripción",

@@ -15,6 +15,7 @@
     "documentation.viewMore": "Ver Mais",
     "documentation.writePlaceholder": "Escreva uma descrição para este {{entityName}}",
     "links.addTooltip": "Adicionar link relacionado ou contexto",
+    "links.added": "Adicionado <time>{{relativeTime}}</time>",
     "links.addedBy": "Adicionado <time>{{relativeTime}}</time> por",
     "links.deleteConfirmText": "Tem certeza que deseja excluir este link?",
     "links.deleteConfirmTitle": "Confirmar Exclusão",
@@ -22,6 +23,10 @@
     "links.editedBy": "Editado <time>{{relativeTime}}</time> por",
     "links.empty": "Nenhum link relacionado ou contexto ainda",
     "links.recently": "recentemente",
+    "links.removeDocumentConfirmText": "Este documento não aparecerá mais nos recursos desta entidade. O documento em si não será excluído.",
+    "links.removeDocumentConfirmTitle": "Remover documento dos recursos?",
+    "links.removeDocumentError": "Falha ao remover o documento dos recursos",
+    "links.removeDocumentSuccess": "Documento removido dos recursos",
     "links.resourcesTitle": "Recursos",
     "links.untitledDocument": "Documento sem título",
     "menu.properties": "Propriedades",
@@ -29,5 +34,6 @@
     "properties.glossaryTerms": "Termos do Glossário",
     "properties.lastModified": "Última Modificação",
     "properties.lastSynced": "Última Sincronização",
+    "properties.semanticModel": "Modelo Semântico",
     "properties.terms": "Termos"
 }

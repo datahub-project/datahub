@@ -1,0 +1,15 @@
+{
+    "graph.empty": "Для этого ассета пока не собрана статистика.",
+    "graph.rowCount_one": "{{formattedCount}} строка",
+    "graph.rowCount_few": "{{formattedCount}} строки",
+    "graph.rowCount_many": "{{formattedCount}} строк",
+    "graph.rowCount_other": "{{formattedCount}} строк",
+    "graph.statName": "количество строк",
+    "graph.title": "Количество строк",
+    "percentile.high": "Высокий",
+    "percentile.low": "Низкий",
+    "percentile.med": "Средний",
+    "upstream.directUpstreams": "Прямые источники",
+    "upstream.indirectUpstreams": "Косвенные источники",
+    "upstream.unhealthy": "Некоторые источники в нездоровом состоянии"
+}

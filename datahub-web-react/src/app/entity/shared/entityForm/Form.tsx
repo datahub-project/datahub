@@ -11,13 +11,19 @@ import { PromptSubTitle } from '@app/entity/shared/entityForm/prompts/Structured
 import VerificationPrompt from '@app/entity/shared/entityForm/prompts/VerificationPrompt';
 import SchemaFieldPrompts from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
 import useShouldShowVerificationPrompt from '@app/entity/shared/entityForm/useShouldShowVerificationPrompt';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { DeferredRenderComponent } from '@app/shared/DeferredRenderComponent';
 import Loading from '@app/shared/Loading';
 import useHasComponentRendered from '@app/shared/useHasComponentRendered';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { FormPrompt } from '@types';
+
+const PaddinglessEditor = styled(Editor)`
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
+`;
 
 const TabWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
@@ -49,18 +55,18 @@ interface Props {
 function Form({ formUrn }: Props) {
     const { t } = useTranslation('entity.form');
     const entityRegistry = useEntityRegistry();
-    const { entityType, entityData } = useEntityData();
+    const { entityType, entityData, loading } = useEntityData();
     const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
     const shouldShowVerificationPrompt = useShouldShowVerificationPrompt(formUrn);
     const { hasRendered } = useHasComponentRendered();
-
-    if (!hasRendered) return <Loading />;
 
     const formAssociation = getFormAssociation(formUrn, entityData);
     const title = formAssociation?.form?.info?.name;
     const associatedUrn = formAssociation?.associatedUrn;
     const description = formAssociation?.form?.info?.description;
     const owners = formAssociation?.form?.ownership?.owners;
+
+    if (!hasRendered || !entityData) return <Loading />;
 
     return (
         <TabWrapper>
@@ -79,7 +85,7 @@ function Form({ formUrn }: Props) {
                 )}
                 {description ? (
                     <SubTitle>
-                        <Editor content={description} readOnly editorStyle="padding: 0;" />
+                        <PaddinglessEditor content={description} readOnly />
                     </SubTitle>
                 ) : (
                     <SubTitle>
@@ -87,6 +93,7 @@ function Form({ formUrn }: Props) {
                     </SubTitle>
                 )}
             </HeaderWrapper>
+            {loading && !entityPrompts?.length && <Loading />}
             {entityPrompts?.map((prompt, index) => (
                 <Prompt
                     key={`${prompt.id}-${entityData?.urn}`}

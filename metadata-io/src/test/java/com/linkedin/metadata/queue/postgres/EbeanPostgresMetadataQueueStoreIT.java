@@ -36,10 +36,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -186,6 +188,10 @@ public class EbeanPostgresMetadataQueueStoreIT {
               + " last_heartbeat_at timestamptz not null default now(),"
               + " unique (consumer_group, topic_id)"
               + ")");
+      st.execute(
+          "CREATE OR REPLACE FUNCTION "
+              + q.qualifiedApplyRetention()
+              + "() RETURNS void LANGUAGE plpgsql AS $$ BEGIN END; $$");
     }
   }
 
@@ -430,6 +436,9 @@ public class EbeanPostgresMetadataQueueStoreIT {
           "CREATE OR REPLACE FUNCTION "
               + names.qualifiedApplyRetention()
               + "() RETURNS void LANGUAGE plpgsql AS $$ BEGIN END; $$");
+      if (!c.getAutoCommit()) {
+        c.commit();
+      }
     }
     store.applyRetention();
   }
@@ -479,25 +488,48 @@ public class EbeanPostgresMetadataQueueStoreIT {
   @Test
   public void ensureContentTypeRegistered_uniqueViolationStillResolves() throws Exception {
     String mime = "application/concurrent-" + UUID.randomUUID();
+    String topicA = "topic_a_" + UUID.randomUUID();
+    String topicB = "topic_b_" + UUID.randomUUID();
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch start = new CountDownLatch(1);
+    AtomicReference<Throwable> firstError = new AtomicReference<>();
+    AtomicReference<Throwable> secondError = new AtomicReference<>();
     ExecutorService pool = Executors.newFixedThreadPool(2);
     try {
       Future<?> first =
           pool.submit(
-              () ->
-                  store.ensureTopic(
-                      "topic_a_" + UUID.randomUUID(),
-                      new QueueTopicDefaults(4, 0, 0L, 0L, false, mime)));
+              () -> {
+                ready.countDown();
+                try {
+                  Assert.assertTrue(start.await(30, TimeUnit.SECONDS));
+                  store.ensureTopic(topicA, new QueueTopicDefaults(4, 0, 0L, 0L, false, mime));
+                } catch (Throwable t) {
+                  firstError.set(t);
+                }
+              });
       Future<?> second =
           pool.submit(
-              () ->
-                  store.ensureTopic(
-                      "topic_b_" + UUID.randomUUID(),
-                      new QueueTopicDefaults(4, 0, 0L, 0L, false, mime)));
+              () -> {
+                ready.countDown();
+                try {
+                  Assert.assertTrue(start.await(30, TimeUnit.SECONDS));
+                  store.ensureTopic(topicB, new QueueTopicDefaults(4, 0, 0L, 0L, false, mime));
+                } catch (Throwable t) {
+                  secondError.set(t);
+                }
+              });
+      Assert.assertTrue(ready.await(30, TimeUnit.SECONDS));
+      start.countDown();
       first.get(60, TimeUnit.SECONDS);
       second.get(60, TimeUnit.SECONDS);
+      Assert.assertNull(firstError.get(), "first ensureTopic failed: " + firstError.get());
+      Assert.assertNull(secondError.get(), "second ensureTopic failed: " + secondError.get());
       Assert.assertEquals(countContentTypeRowsForMime(mime), 1);
+      Assert.assertEquals(topicDefaultContentTypeMime(topicA), mime);
+      Assert.assertEquals(topicDefaultContentTypeMime(topicB), mime);
     } finally {
-      pool.shutdownNow();
+      pool.shutdown();
+      Assert.assertTrue(pool.awaitTermination(30, TimeUnit.SECONDS));
     }
   }
 
@@ -1058,8 +1090,8 @@ public class EbeanPostgresMetadataQueueStoreIT {
     String topic = "topic_" + UUID.randomUUID();
     store.ensureTopic(topic, defaults);
     QueueTopicMetadata meta = store.fetchTopic(topic).orElseThrow();
-    store.enqueue(
-        topic, "urn:li:test:skew", defaults, 0, new byte[] {1}, Optional.empty(), List.of());
+    String routingKey = routingKeyForPartition(meta.partitionCount(), 0);
+    store.enqueue(topic, routingKey, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
 
     var maxSeqs = store.partitionMaxEnqueueSeqs(meta.id(), meta.partitionCount());
     Assert.assertEquals(maxSeqs.get(0).longValue(), 1L);
@@ -1078,8 +1110,8 @@ public class EbeanPostgresMetadataQueueStoreIT {
     String topic = "topic_" + UUID.randomUUID();
     store.ensureTopic(topic, defaults);
     QueueTopicMetadata meta = store.fetchTopic(topic).orElseThrow();
-    store.enqueue(
-        topic, "urn:li:test:reset", defaults, 0, new byte[] {1}, Optional.empty(), List.of());
+    String routingKey = routingKeyForPartition(meta.partitionCount(), 0);
+    store.enqueue(topic, routingKey, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
 
     setCommittedOffset("cg-reset", meta.id(), 0, 50L);
     setCommittedOffset("cg-other", meta.id(), 0, 0L);
@@ -1161,8 +1193,10 @@ public class EbeanPostgresMetadataQueueStoreIT {
     QueueTopicMetadata metaA = store.fetchTopic(topicA).orElseThrow();
     QueueTopicMetadata metaB = store.fetchTopic(topicB).orElseThrow();
 
-    store.enqueue(
-        topicB, "urn:li:test:b", defaults, 0, new byte[] {2}, Optional.empty(), List.of());
+    String keyB = routingKeyForPartition(metaB.partitionCount(), 0);
+    store.enqueue(topicB, keyB, defaults, 0, new byte[] {2}, Optional.empty(), List.of());
+    String keyA = routingKeyForPartition(metaA.partitionCount(), 0);
+    store.enqueue(topicA, keyA, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
     setCommittedOffset("cg-topics", metaA.id(), 0, 50L);
 
     Assert.assertEquals(
@@ -1181,7 +1215,8 @@ public class EbeanPostgresMetadataQueueStoreIT {
     String topic = "topic_" + UUID.randomUUID();
     store.ensureTopic(topic, defaults);
     QueueTopicMetadata meta = store.fetchTopic(topic).orElseThrow();
-    store.enqueue(topic, "urn:li:test:g", defaults, 0, new byte[] {1}, Optional.empty(), List.of());
+    String routingKey = routingKeyForPartition(meta.partitionCount(), 0);
+    store.enqueue(topic, routingKey, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
 
     setCommittedOffset("group-one", meta.id(), 0, 20L);
     Assert.assertEquals(store.getCommittedOffset("group-two", meta.id(), 0), 0L);
@@ -1328,6 +1363,23 @@ public class EbeanPostgresMetadataQueueStoreIT {
     }
   }
 
+  private String topicDefaultContentTypeMime(String topicName) throws Exception {
+    try (Connection c = database.dataSource().getConnection();
+        PreparedStatement ps =
+            c.prepareStatement(
+                "SELECT ct.mime FROM "
+                    + names.qualifiedTopic()
+                    + " t JOIN "
+                    + names.qualifiedContentType()
+                    + " ct ON ct.id = t.default_content_type_id WHERE t.topic_name = ?")) {
+      ps.setString(1, topicName);
+      try (ResultSet rs = ps.executeQuery()) {
+        Assert.assertTrue(rs.next(), "topic missing: " + topicName);
+        return rs.getString(1);
+      }
+    }
+  }
+
   private void setCommittedOffset(String group, long topicId, int partitionId, long offset)
       throws Exception {
     try (Connection c = database.dataSource().getConnection()) {
@@ -1344,6 +1396,9 @@ public class EbeanPostgresMetadataQueueStoreIT {
         ps.setInt(3, partitionId);
         ps.setLong(4, offset);
         ps.executeUpdate();
+      }
+      if (!c.getAutoCommit()) {
+        c.commit();
       }
     }
   }
@@ -1365,6 +1420,9 @@ public class EbeanPostgresMetadataQueueStoreIT {
         ps.setLong(3, topicId);
         ps.setInt(4, partitionId);
         ps.executeUpdate();
+      }
+      if (!c.getAutoCommit()) {
+        c.commit();
       }
     }
   }

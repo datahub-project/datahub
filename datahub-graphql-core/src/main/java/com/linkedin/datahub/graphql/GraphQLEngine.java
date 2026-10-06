@@ -6,11 +6,14 @@ import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler
 import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
 import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
+import com.linkedin.metadata.config.graphql.GraphQLDocumentCacheConfiguration;
+import com.linkedin.metadata.system_telemetry.GraphQLOtelResolverInstrumentation;
 import com.linkedin.metadata.system_telemetry.GraphQLTimingInstrumentation;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.VisibleForTesting;
 import graphql.analysis.MaxQueryComplexityInstrumentation;
 import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.execution.instrumentation.ChainedInstrumentation;
@@ -18,12 +21,14 @@ import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.tracing.TracingInstrumentation;
 import graphql.execution.values.InputInterceptor;
 import graphql.execution.values.legacycoercing.LegacyCoercingInputInterceptor;
+import graphql.language.Document;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry;
 import java.util.ArrayList;
@@ -36,6 +41,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.dataloader.DataLoader;
 
 /**
@@ -48,12 +54,14 @@ import org.dataloader.DataLoader;
  * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set
  * of variables.
  */
+@Slf4j
 public class GraphQLEngine {
 
   private final GraphQL _graphQL;
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
+  private final GraphqlDocumentCache documentCache;
 
   private GraphQLEngine(
       @Nonnull final List<String> schemas,
@@ -90,10 +98,11 @@ public class GraphQLEngine {
         new MaxQueryComplexityInstrumentation(
             graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
 
-    if (metricUtils != null && graphQLConfiguration.getMetrics().isEnabled()) {
+    MeterRegistry meterRegistry = metricUtils != null ? metricUtils.getRegistry() : null;
+    if (meterRegistry != null && graphQLConfiguration.getMetrics().isEnabled()) {
       instrumentations.add(
           new GraphQLTimingInstrumentation(
-              metricUtils.getRegistry(),
+              meterRegistry,
               graphQLConfiguration.getMetrics(),
               graphQLConfiguration.getShapeLogging()));
     }
@@ -107,14 +116,61 @@ public class GraphQLEngine {
       instrumentations.add(
           GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
       instrumentations.add(OtelContextCaptureInstrumentation.INSTANCE);
-    }
 
+      // Custom, filtered resolver-level spans. Registered after GraphQLTelemetry so the operation
+      // span is already current; only selected fields get a span (no span explosion).
+      if (graphQLConfiguration.getOtel().getResolverSpans() != null
+          && graphQLConfiguration.getOtel().getResolverSpans().isEnabled()) {
+        instrumentations.add(
+            new GraphQLOtelResolverInstrumentation(
+                graphQLConfiguration.getOtel().getResolverSpans(), GlobalOpenTelemetry.get()));
+      }
+    } else if (graphQLConfiguration.getOtel() != null
+        && graphQLConfiguration.getOtel().getResolverSpans() != null
+        && graphQLConfiguration.getOtel().getResolverSpans().isEnabled()) {
+      // Misconfiguration: resolver spans require the GraphQL OTel instrumentation to be on.
+      log.warn(
+          "graphQL.otel.resolverSpans.enabled=true but graphQL.otel.enableOtelGraphqlTraces=false; "
+              + "resolver spans will NOT be emitted. Set ENABLE_OTEL_GRAPHQL_TRACES=true to enable.");
+    }
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
+    this.documentCache = buildDocumentCache(graphQLConfiguration, meterRegistry);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)
             .defaultDataFetcherExceptionHandler(new DataHubDataFetcherExceptionHandler())
             .instrumentation(chainedInstrumentation)
+            .preparsedDocumentProvider(new GraphqlPreparsedDocumentProvider(documentCache))
             .build();
+  }
+
+  /** Builds the parsed/validated-document cache per {@link GraphQLConfiguration#documentCache}. */
+  private static GraphqlDocumentCache buildDocumentCache(
+      @Nonnull GraphQLConfiguration graphQLConfiguration, @Nullable MeterRegistry meterRegistry) {
+    GraphQLDocumentCacheConfiguration config = graphQLConfiguration.getDocumentCache();
+    long maximumWeightBytes =
+        config != null && config.getMaximumWeightBytes() > 0
+            ? config.getMaximumWeightBytes()
+            : GraphqlDocumentCache.DEFAULT_MAXIMUM_WEIGHT_BYTES;
+    GraphqlDocumentCache cache = new GraphqlDocumentCache(maximumWeightBytes);
+    cache.setEnabled(config == null || config.isEnabled());
+    if (cache.isEnabled()
+        && meterRegistry != null
+        && graphQLConfiguration.getMetrics().isEnabled()) {
+      cache.registerMetrics(meterRegistry);
+    }
+    return cache;
+  }
+
+  /** Provides a read-only view into the parsed/validated-document cache */
+  @Nullable
+  public Document getCachedDocument(@Nonnull String query) {
+    return documentCache.getCachedDocument(query);
+  }
+
+  @Nonnull
+  @VisibleForTesting
+  GraphqlDocumentCache getDocumentCache() {
+    return documentCache;
   }
 
   public ExecutionResult execute(

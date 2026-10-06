@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME;
 
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
@@ -8,10 +9,9 @@ import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.DataPlatformInstanceUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.key.DataJobKey;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
@@ -21,7 +21,6 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -49,7 +48,6 @@ public class BrowsePathV2Utils {
       @Nonnull Urn urn,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Character dataPlatformDelimiter,
-      @Nonnull EntityService<?> entityService,
       boolean useContainerPaths) {
 
     BrowsePathsV2 result = new BrowsePathsV2();
@@ -62,7 +60,7 @@ public class BrowsePathV2Utils {
                 EntityKeyUtils.convertUrnToEntityKey(
                     urn, getKeyAspectSpec(urn.getEntityType(), entityRegistry));
         BrowsePathEntryArray datasetContainerPathEntries =
-            useContainerPaths ? getContainerPathEntries(opContext, urn, entityService) : null;
+            useContainerPaths ? getContainerPathEntries(opContext, urn) : null;
         if (useContainerPaths && datasetContainerPathEntries.size() > 0) {
           browsePathEntries.addAll(datasetContainerPathEntries);
         } else {
@@ -70,19 +68,19 @@ public class BrowsePathV2Utils {
               getDefaultDatasetPathEntries(dsKey.getName(), dataPlatformDelimiter);
           if (defaultDatasetPathEntries.size() > 0) {
             tryResolvePlatformInstanceEntry(
-                opContext, defaultDatasetPathEntries, dsKey.getPlatform(), entityService);
+                opContext, defaultDatasetPathEntries, dsKey.getPlatform());
             browsePathEntries.addAll(defaultDatasetPathEntries);
           } else {
             browsePathEntries.add(createBrowsePathEntry(DEFAULT_FOLDER_NAME, null));
           }
         }
         break;
-        // Some sources produce charts and dashboards with containers. If we have containers, use
-        // them, otherwise use default folder
+      // Some sources produce charts and dashboards with containers. If we have containers, use
+      // them, otherwise use default folder
       case Constants.CHART_ENTITY_NAME:
       case Constants.DASHBOARD_ENTITY_NAME:
         BrowsePathEntryArray containerPathEntries =
-            useContainerPaths ? getContainerPathEntries(opContext, urn, entityService) : null;
+            useContainerPaths ? getContainerPathEntries(opContext, urn) : null;
         if (useContainerPaths && containerPathEntries.size() > 0) {
           browsePathEntries.addAll(containerPathEntries);
         } else {
@@ -133,8 +131,7 @@ public class BrowsePathV2Utils {
   private static void tryResolvePlatformInstanceEntry(
       @Nonnull OperationContext opContext,
       @Nonnull BrowsePathEntryArray entries,
-      @Nonnull Urn platformUrn,
-      @Nonnull EntityService<?> entityService) {
+      @Nonnull Urn platformUrn) {
     if (entries.isEmpty()) {
       return;
     }
@@ -142,7 +139,10 @@ public class BrowsePathV2Utils {
       String firstSegment = entries.get(0).getId();
       DataPlatformInstanceUrn platformInstanceUrn =
           new DataPlatformInstanceUrn(DataPlatformUrn.createFromUrn(platformUrn), firstSegment);
-      if (entityService.exists(opContext, platformInstanceUrn, true)) {
+      if (cachingAspectRetriever(opContext)
+              .getLatestAspectObject(
+                  opContext, platformInstanceUrn, DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME)
+          != null) {
         entries.set(0, createBrowsePathEntry(platformInstanceUrn.toString(), platformInstanceUrn));
       }
     } catch (Exception e) {
@@ -155,26 +155,19 @@ public class BrowsePathV2Utils {
   }
 
   private static void aggregateParentContainers(
-      @Nonnull OperationContext opContext,
-      List<Urn> containerUrns,
-      Urn entityUrn,
-      EntityService entityService) {
+      @Nonnull OperationContext opContext, List<Urn> containerUrns, Urn entityUrn) {
     try {
-      EntityResponse entityResponse =
-          entityService.getEntityV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(CONTAINER_ASPECT_NAME));
+      Aspect containerAspect =
+          cachingAspectRetriever(opContext)
+              .getLatestAspectObject(opContext, entityUrn, CONTAINER_ASPECT_NAME);
 
-      if (entityResponse != null
-          && entityResponse.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
-        DataMap dataMap = entityResponse.getAspects().get(CONTAINER_ASPECT_NAME).getValue().data();
-        com.linkedin.container.Container container = new com.linkedin.container.Container(dataMap);
+      if (containerAspect != null) {
+        com.linkedin.container.Container container =
+            new com.linkedin.container.Container(containerAspect.data());
         Urn containerUrn = container.getContainer();
         // add to beginning of the array, we want the highest level container first
         containerUrns.add(0, containerUrn);
-        aggregateParentContainers(opContext, containerUrns, containerUrn, entityService);
+        aggregateParentContainers(opContext, containerUrns, containerUrn);
       }
     } catch (Exception e) {
       log.error(
@@ -190,17 +183,21 @@ public class BrowsePathV2Utils {
    * call aggregateParentContainers to get the full container path to be included in this path.
    */
   private static BrowsePathEntryArray getContainerPathEntries(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn entityUrn,
-      @Nonnull final EntityService entityService) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     BrowsePathEntryArray browsePathEntries = new BrowsePathEntryArray();
     final List<Urn> containerUrns = new ArrayList<>();
-    aggregateParentContainers(opContext, containerUrns, entityUrn, entityService);
+    aggregateParentContainers(opContext, containerUrns, entityUrn);
     containerUrns.forEach(
         urn -> {
           browsePathEntries.add(createBrowsePathEntry(urn.toString(), urn));
         });
     return browsePathEntries;
+  }
+
+  @Nonnull
+  private static CachingAspectRetriever cachingAspectRetriever(
+      @Nonnull OperationContext opContext) {
+    return opContext.getRetrieverContext().getCachingAspectRetriever();
   }
 
   /**

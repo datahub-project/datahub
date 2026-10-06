@@ -52,6 +52,10 @@ export enum OperatorId {
      * Specific case for Schema Fields - Schema Fields have a description
      */
     SCHEMA_FIELDS_HAVE_DESCRIPTIONS = 'schema_fields_have_descriptions',
+    /**
+     * A hierarchical URN equals the selected value or any nested child
+     */
+    WITHIN = 'within',
 }
 
 /**
@@ -179,6 +183,15 @@ const OPERATORS: Operator[] = [
             return i18next.t('shared.query-builder:operators.haveDescriptionsDesc');
         },
         operandCount: 1,
+    },
+    {
+        id: OperatorId.WITHIN,
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.within');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.withinDesc');
+        },
     },
 ];
 

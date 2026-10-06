@@ -32,6 +32,7 @@ const PageTitle = styled(Typography.Title)`
 `;
 
 const Content = styled.div`
+    flex: 1;
     display: flex;
     flex-direction: column;
     overflow: auto;

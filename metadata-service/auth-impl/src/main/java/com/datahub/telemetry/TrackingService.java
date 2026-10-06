@@ -297,7 +297,7 @@ public class TrackingService {
 
         // Add the event type to the properties
         properties.put(EVENT_TYPE_FIELD, eventName);
-        log.debug("Added standard properties: {}", properties.toString());
+        log.debug("Added standard properties: {}", properties);
 
         // Add all fields from the event data to the properties
         Iterator<Map.Entry<String, JsonNode>> fields = eventData.fields();
@@ -380,7 +380,8 @@ public class TrackingService {
         }
 
         String eventJson = _objectWriter.writeValueAsString(kafkaEventData);
-        usageEventPublisher.publish(topicsConfiguration.getDataHubUsage(), actorId, eventJson);
+        usageEventPublisher.publish(
+            opContext, topicsConfiguration.getDataHubUsage(), actorId, eventJson);
         numDestinationsSent += 1;
       } catch (Exception e) {
         log.error("Failed to send event to Kafka: {} - Error: {}", eventName, e.getMessage(), e);

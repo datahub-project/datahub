@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RateLimitFilter extends OncePerRequestFilter {
 
   private final RateLimitEngine engine;
+
+  /**
+   * Supplies the current request's rate-limit actor URN (null for the exempt system principal or an
+   * unauthenticated request), so the scoped per-actor bucket applies to REST. Injected rather than
+   * read here so this module stays free of an auth dependency; the factory wires it from
+   * AuthenticationContext, which the auth filter (ordered before this one) has already populated.
+   */
+  private final Supplier<String> restActorUrnSupplier;
 
   @Override
   protected void doFilterInternal(
@@ -38,7 +47,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
       return;
     }
 
-    RateLimitDecision decision = engine.evaluateAndAcquireRest(request.getRequestURI(), method);
+    // Classify from the frontend-stamped header (advisory; trusted on the frontend-proxied hop, and
+    // only applied when clientClassEnabled=true). Absent → NON_BROWSER.
+    ClientClass clientClass =
+        ClientClassifier.fromRequestSource(
+            request.getHeader(ClientClassifier.REQUEST_SOURCE_HEADER));
+    RateLimitDecision decision =
+        engine.evaluateAndAcquireRest(
+            request.getRequestURI(), method, clientClass, restActorUrnSupplier.get());
     if (!decision.isAllowed()) {
       engine.writeDeniedResponse(response, decision);
       return;

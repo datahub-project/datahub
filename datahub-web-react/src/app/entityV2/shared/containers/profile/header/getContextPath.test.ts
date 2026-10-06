@@ -2,7 +2,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { dataPlatform } from '@src/Mocks';
 
-import { DataProduct, EntityType } from '@types';
+import { EntityType, ParentApplicationsResult } from '@types';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [
@@ -39,15 +39,40 @@ const PARENT_NODES: GenericEntityProperties['parentNodes'] = {
     count: 2,
 };
 
+const PARENT_APPLICATIONS: ParentApplicationsResult = {
+    applications: [
+        {
+            urn: 'urn:li:application:1',
+            type: EntityType.Application,
+            properties: { name: 'Parent App 1' },
+        },
+        {
+            urn: 'urn:li:application:2',
+            type: EntityType.Application,
+            properties: { name: 'Parent App 2' },
+        },
+    ],
+    count: 2,
+};
+
 const PARENT: GenericEntityProperties = {
     urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,name,PROD)',
     type: EntityType.Dataset,
     platform: dataPlatform,
 };
 
-const dataProduct: DataProduct = {
+const immediateParent = {
+    urn: 'urn:li:dataProduct:parent',
+    type: EntityType.DataProduct,
+    properties: { name: 'Parent DP' },
+};
+
+const dataProduct = {
     urn: 'urn:li:dataProduct:test',
     type: EntityType.DataProduct,
+    properties: {
+        parentDataProduct: immediateParent,
+    },
     domain: {
         associatedUrn: '',
         domain: {
@@ -57,6 +82,7 @@ const dataProduct: DataProduct = {
             parentDomains: PARENT_DOMAINS,
         },
     },
+    parentDataProducts: [],
 };
 
 describe('getContextPath', () => {
@@ -120,8 +146,77 @@ describe('getContextPath', () => {
 
         const contextPath = getParentEntities(entityData, EntityType.DataProduct);
         expect(contextPath).toEqual([
+            immediateParent,
             dataProduct.domain?.domain,
             ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
+        ]);
+    });
+
+    it('returns domain chain only for data products without parent data products', () => {
+        const entityData = {
+            ...dataProduct,
+            properties: {},
+            parentDataProducts: [],
+        };
+
+        const contextPath = getParentEntities(entityData, EntityType.DataProduct);
+        expect(contextPath).toEqual([
+            dataProduct.domain?.domain,
+            ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
+        ]);
+    });
+
+    it('returns parent applications for applications, not the domain', () => {
+        const entityData = {
+            parentApplications: PARENT_APPLICATIONS,
+            domain: {
+                associatedUrn: '',
+                domain: { urn: 'urn:li:domain:1', id: '1', type: EntityType.Domain },
+            },
+        };
+
+        const contextPath = getParentEntities(entityData, EntityType.Application);
+        expect(contextPath).toEqual(PARENT_APPLICATIONS.applications);
+    });
+
+    it('returns empty array for an application with no parent application', () => {
+        const entityData = {
+            parentApplications: { applications: [], count: 0 },
+            domain: {
+                associatedUrn: '',
+                domain: { urn: 'urn:li:domain:1', id: '1', type: EntityType.Domain },
+            },
+        };
+
+        const contextPath = getParentEntities(entityData, EntityType.Application);
+        expect(contextPath).toEqual([]);
+    });
+
+    it('walks nested parent chain for generic entities', () => {
+        const root = {
+            urn: 'urn:li:semanticModel:root',
+            type: EntityType.SemanticModel,
+            name: 'Root Model',
+        };
+        const mid = {
+            urn: 'urn:li:metric:mid',
+            type: EntityType.Metric,
+            name: 'mid',
+            parent: root,
+        };
+        const entityData = {
+            parent: {
+                urn: 'urn:li:metric:direct',
+                type: EntityType.Metric,
+                name: 'direct',
+                parent: mid,
+            },
+        };
+
+        expect(getParentEntities(entityData)).toEqual([
+            expect.objectContaining({ urn: 'urn:li:metric:direct' }),
+            expect.objectContaining({ urn: 'urn:li:metric:mid' }),
+            expect.objectContaining({ urn: 'urn:li:semanticModel:root' }),
         ]);
     });
 });

@@ -47,7 +47,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.config import RedshiftConfig, dataset_name
 from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
 from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
@@ -124,7 +124,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -153,11 +153,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
-)
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -366,38 +361,41 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.schema_pattern is not None
             and self.config.schema_pattern != AllowDenyPattern.allow_all()
         ):
-            self.report.report_warning(
+            self.report.warning(
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
                 context="Config option deprecation warning",
                 title="Config option deprecation warning",
+                log=False,
             )
 
         if (
             self.config.include_column_usage_stats
             and not self.config.include_usage_statistics
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Config option has no effect",
                 message="`include_column_usage_stats` is enabled but "
                 "`include_usage_statistics` is disabled, so no usage statistics "
                 "(column-level or otherwise) will be produced. Enable "
                 "`include_usage_statistics` to get column-level usage.",
                 context="include_column_usage_stats",
+                log=False,
             )
 
         if (
             self.config.include_query_usage_statistics
             and not self.config.include_usage_statistics
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Config option has no effect",
                 message="`include_query_usage_statistics` is enabled but "
                 "`include_usage_statistics` is disabled, so no query usage "
                 "statistics will be produced. Enable `include_usage_statistics` "
                 "to get per-query popularity stats.",
                 context="include_query_usage_statistics",
+                log=False,
             )
 
         if (
@@ -405,13 +403,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.include_query_usage_statistics
             and not self.config.lineage_generate_queries
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Config option has no effect",
                 message="`include_query_usage_statistics` is enabled but "
                 "`lineage_generate_queries` is disabled, so no Query entities are "
                 "emitted for the query usage statistics to attach to. Enable "
                 "`lineage_generate_queries` to get per-query popularity stats.",
                 context="include_query_usage_statistics",
+                log=False,
             )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -682,7 +681,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: RedshiftTable,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        datahub_dataset_name = f"{database}.{table.schema}.{table.name}"
+        # str() preserves the prior f-string's behavior verbatim if schema is
+        # ever unset (renders the literal "None"), while satisfying
+        # dataset_name's str parameter -- table.schema is Optional[str] here
+        # only for dataclass-default reasons; every real table has one.
+        datahub_dataset_name = dataset_name(database, str(table.schema), table.name)
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
@@ -697,7 +700,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _process_view(
         self, table: RedshiftView, database: str, schema: RedshiftSchema
     ) -> Iterable[MetadataWorkUnit]:
-        datahub_dataset_name = f"{database}.{schema.name}.{table.name}"
+        datahub_dataset_name = dataset_name(database, schema.name, table.name)
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
@@ -966,7 +969,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.db_tables[database][schema] = []
             for table in tables[schema]:
                 if self.config.table_pattern.allowed(
-                    f"{database}.{schema}.{table.name}"
+                    dataset_name(database, schema, table.name)
                 ):
                     self.db_tables[database][schema].append(table)
                     self.report.table_cached[f"{database}.{schema}"] = (
@@ -994,7 +997,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             self.db_views[database][schema] = []
             for view in views[schema]:
-                if self.config.view_pattern.allowed(f"{database}.{schema}.{view.name}"):
+                if self.config.view_pattern.allowed(
+                    dataset_name(database, schema, view.name)
+                ):
                     self.db_views[database][schema].append(view)
                     self.report.view_cached[f"{database}.{schema}"] = (
                         self.report.view_cached.get(f"{database}.{schema}", 0) + 1
@@ -1112,9 +1117,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "lineage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="lineage-extraction",
+                log=False,
             )
             return False
 
@@ -1141,31 +1147,31 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         except redshift_connector.Error as e:
             error_message = str(e).lower()
             if "password authentication failed" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Invalid credentials",
                     message="Failed to connect to Redshift. Please verify your username, password, and database.",
                     exc=e,
                 )
             elif "timeout" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to connect",
                     message="Failed to connect to Redshift. Please verify your host name and port number.",
                     exc=e,
                 )
             elif "communication error" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to connect",
                     message="Failed to connect to Redshift. Please verify that the host name is valid and reachable.",
                     exc=e,
                 )
             elif "database" in error_message and "does not exist" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Database does not exist",
                     message="Failed to connect to Redshift. Please verify that the provided database exists and the provided user has access to it.",
                     exc=e,
                 )
             else:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to connect",
                     message="Failed to connect to Redshift. Please verify your connection details.",
                     exc=e,

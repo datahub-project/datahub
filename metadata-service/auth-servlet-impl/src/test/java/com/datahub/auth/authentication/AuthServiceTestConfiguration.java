@@ -7,10 +7,12 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -84,6 +86,12 @@ public class AuthServiceTestConfiguration {
 
   @Bean
   @Primary
+  public AuthorizerChain authorizerChain() {
+    return Mockito.mock(AuthorizerChain.class);
+  }
+
+  @Bean
+  @Primary
   public SpanContext mockSpanContext() {
     return Mockito.mock(SpanContext.class);
   }
@@ -94,10 +102,17 @@ public class AuthServiceTestConfiguration {
     return OpenTelemetry.noop().getTracer("auth-servlet-impl-test");
   }
 
+  @Bean
+  @Primary
+  public MetricUtils metricUtils() {
+    return Mockito.mock(MetricUtils.class);
+  }
+
   @Bean(name = "systemOperationContext")
-  public OperationContext systemOperationContext(ObjectMapper objectMapper, Tracer noopTestTracer) {
+  public OperationContext systemOperationContext(
+      ObjectMapper objectMapper, Tracer noopTestTracer, MetricUtils metricUtils) {
     SystemTelemetryContext mockSystemTelemetryContext =
-        SystemTelemetryContext.builder().tracer(noopTestTracer).build();
+        SystemTelemetryContext.builder().tracer(noopTestTracer).metricUtils(metricUtils).build();
     return TestOperationContexts.systemContextTraceNoSearchAuthorization(
         () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
         () -> mockSystemTelemetryContext);

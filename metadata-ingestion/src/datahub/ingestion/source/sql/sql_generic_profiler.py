@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 from sqlalchemy import create_engine, inspect
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -19,10 +18,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.profiling.common import (
-    ProfilerRequest,
-    create_datahub_ge_profiler,
-)
+from datahub.ingestion.source.profiling.common import ProfilerRequest
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -63,7 +59,7 @@ class GenericProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
+        # We don't run column profiling queries if table profiling is enabled or if the row count is 0.
         profile_requests: List[ProfilerRequest] = []
         for request in requests:
             if not request.profile_table_level_only or request.table.rows_count == 0:
@@ -97,26 +93,27 @@ class GenericProfiler:
         if not profile_requests:
             return
 
-        # Otherwise, if column level profiling is enabled, use  GE profiler.
-        ge_profiler = self.get_profiler_instance(db_name)
+        # Otherwise, if column level profiling is enabled, use the column profiler.
+        profiler = self.get_profiler_instance(db_name)
 
-        for ge_profiler_request, profile in ge_profiler.generate_profiles(
+        for profiler_request, profile in profiler.generate_profiles(
             profile_requests, max_workers, platform, profiler_args
         ):
             if profile is None:
                 continue
 
             # Runtime validation instead of cast
-            assert isinstance(ge_profiler_request, TableProfilerRequest), (
-                f"Expected TableProfilerRequest, got {type(ge_profiler_request)}"
+            assert isinstance(profiler_request, TableProfilerRequest), (
+                f"Expected TableProfilerRequest, got {type(profiler_request)}"
             )
-            request = ge_profiler_request
+            request = profiler_request
             profile.sizeInBytes = request.table.size_in_bytes
 
-            # If table is partitioned we profile only one partition (if nothing set then the last one)
-            # but for table level we can use the rows_count from the table metadata
-            # This way even though column statistics only reflects one partition data but the rows count
-            # shows the proper count.
+            # A non-FULL_TABLE spec means only part of the dataset was scanned --
+            # one partition, or a sample. rowCount is the dataset's total, so it
+            # comes from source metadata, not from the subset. None when metadata
+            # has no count: the field is optional so "unknown" can be stated.
+            # Deliberate since #8902; see docs/dev_guides/sql_profiles.md.
             if (
                 profile.partitionSpec
                 and profile.partitionSpec.type != PartitionType.FULL_TABLE
@@ -214,7 +211,7 @@ class GenericProfiler:
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+    ) -> "SQLAlchemyProfiler":
         from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
@@ -228,28 +225,16 @@ class GenericProfiler:
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     def is_dataset_eligible_for_profiling(
         self,
@@ -330,5 +315,5 @@ class GenericProfiler:
         return True
 
     def get_profile_args(self) -> Dict:
-        """Passed down to GE profiler"""
+        """Passed down to the profiler."""
         return {}

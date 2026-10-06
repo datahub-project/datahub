@@ -58,6 +58,13 @@ def list_urns_with_path(
 
         field_schema: Field = schema.fields_dict[key]
         is_urn = field_schema.get_prop("Urn") is not None
+        # Some fields hold URNs but lost the ``Urn`` prop during PDL → Avro
+        # codegen (e.g. ``chartInfo.inputs`` is ``array[union[DatasetUrn]]`` —
+        # the union wrapper strips the ``Urn`` annotation from the generated
+        # schema). The ``@Relationship`` annotation *does* survive codegen,
+        # so we use it as a secondary signal: if a field has a Relationship
+        # prop, its string values that look like URNs are treated as URNs.
+        has_relationship = field_schema.get_prop("Relationship") is not None
 
         if isinstance(value, DictWrapper):
             urns.extend(_add_prefix_to_paths([key], list_urns_with_path(value)))
@@ -67,9 +74,15 @@ def list_urns_with_path(
                     urns.extend(
                         _add_prefix_to_paths([key, i], list_urns_with_path(item))
                     )
-                elif is_urn:
+                elif is_urn or (
+                    has_relationship
+                    and isinstance(item, str)
+                    and item.startswith("urn:li:")
+                ):
                     urns.append((item, [key, i]))
-        elif is_urn:
+        elif is_urn or (
+            has_relationship and isinstance(value, str) and value.startswith("urn:li:")
+        ):
             urns.append((value, [key]))
 
     return urns

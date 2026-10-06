@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Loader, borders, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
 import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
@@ -15,14 +14,14 @@ import { DragIcon } from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
-const ModuleHeader = styled.div`
+export const ModuleHeader = styled.div`
     position: relative;
     display: flex;
     flex-direction: column;
     gap: 2px;
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.sm} ${spacing.lg} ${spacing.sm} ${spacing.md};
-    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
+    border-bottom: ${borders['1px']} transparent;
     user-select: none;
 
     /* Optimize for smooth dragging */
@@ -52,7 +51,6 @@ const DragHandle = styled.div<{ $isDragging?: boolean; $isDisabled?: boolean }>`
 const Content = styled.div<{ $hasViewAll: boolean }>`
     margin: 0 0 8px 8px;
     overflow-y: auto;
-    padding-right: 5px;
     scrollbar-gutter: stable;
     height: ${({ $hasViewAll }) => ($hasViewAll ? '234px' : '246px')};
 `;
@@ -133,7 +131,7 @@ function LargeModule({
             <Content $hasViewAll={hasViewAll} data-testid="module-content">
                 {loading ? (
                     <LoaderContainer>
-                        <Loader />
+                        <Loader alignItems="center" />
                     </LoaderContainer>
                 ) : (
                     children

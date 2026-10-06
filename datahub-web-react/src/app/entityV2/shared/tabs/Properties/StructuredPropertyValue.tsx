@@ -13,7 +13,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
-import { Entity, EntityType, MetadataAttribution } from '@src/types.generated';
+import ActorPill from '@src/app/sharedV2/owners/ActorPill';
+import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
 
 import ExternalLink from '@images/link-out.svg?react';
 
@@ -24,6 +25,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
     color: ${(props) => props.theme.colors.textSecondary};
     display: block;
     width: 100%;
+
     .remirror-editor.ProseMirror {
         font-size: ${(props) => props.size}px;
     }
@@ -141,7 +143,13 @@ export default function StructuredPropertyValue({
 
     let valueEntityRender = <></>;
     if (value.entity) {
-        if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
+        const entityToRender = hydratedEntityMap?.[value.entity.urn] || value.entity;
+        const isUserOrGroup =
+            entityToRender.type === EntityType.CorpUser || entityToRender.type === EntityType.CorpGroup;
+
+        if (isUserOrGroup) {
+            valueEntityRender = <ActorPill actor={entityToRender as OwnerType} />;
+        } else if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
             valueEntityRender = (
                 <CompactEntityNameComponent entity={hydratedEntityMap[value.entity.urn]} showFullTooltip />
             );
@@ -162,8 +170,15 @@ export default function StructuredPropertyValue({
         }
     }
 
+    const tooltipContent = (
+        <div>
+            <span>{value.value?.toString()}</span>
+            <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+        </div>
+    );
+
     return (
-        <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
+        <Tooltip placement="topLeft" title={!value.entity && !!attribution && tooltipContent}>
             <ValueText size={size} data-testid={dataTestId}>
                 {value.entity ? (
                     valueEntityRender
@@ -177,15 +192,14 @@ export default function StructuredPropertyValue({
                                         lineLimit={isFieldColumn ? 1 : undefined}
                                         hideShowMore={isFieldColumn}
                                         scrollableY={!isFieldColumn}
+                                        hideTooltip={!!attribution}
                                     />
                                 </ViewerContainer>
                             </Container>
                         ) : (
                             <>
                                 {truncateText ? (
-                                    <Typography.Text
-                                        ellipsis={{ tooltip: attribution ? { placement: 'bottom' } : true }}
-                                    >
+                                    <Typography.Text ellipsis={{ tooltip: attribution ? false : { showArrow: false } }}>
                                         {value.value?.toString() || <div style={{ minHeight: 22 }} />}
                                     </Typography.Text>
                                 ) : (

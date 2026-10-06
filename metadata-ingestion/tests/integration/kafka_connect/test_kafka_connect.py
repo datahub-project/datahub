@@ -724,7 +724,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "method": "GET",
             "status_code": 200,
             "json": {
-                "version": "7.4.0-ccs",
+                "version": "7.9.10-ccs",
                 "commit": "30969fa33c185e880b9e02044761dfaac013151d",
                 "kafka_cluster_id": "MDgRZlZhSZ-4fXhwRR79bw",
             },

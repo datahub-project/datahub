@@ -715,9 +715,13 @@ def test_airflow_plugin(
     max_attempts = 3 if test_case.success else 1
     airflow_instance: Optional[AirflowInstance] = None
     for attempt in range(1, max_attempts + 1):
+        # Fresh home (and thus fresh metadata DB) per attempt. Reusing the DB would
+        # make the trigger below fail with DagRunAlreadyExists on retry, since the
+        # run_id is fixed ("manual_run_test" is baked into the golden's URNs).
+        attempt_home = tmp_path / f"attempt_{attempt}"
         try:
             with _run_airflow(
-                tmp_path,
+                attempt_home,
                 dags_folder=DAGS_FOLDER,
                 multiple_connections=test_case.multiple_connections,
                 platform_instance=test_case.platform_instance,
@@ -743,10 +747,23 @@ def test_airflow_plugin(
                     dag_id,
                 ]
 
-                subprocess.check_call(
+                # Capture output so a trigger failure is diagnosable rather than an
+                # opaque "returned non-zero exit status 1", and retriable below.
+                trigger_result = subprocess.run(
                     trigger_cmd,
                     env=airflow_instance.env_vars,
+                    capture_output=True,
+                    text=True,
                 )
+                if trigger_result.returncode != 0:
+                    print(f"[trigger stdout]\n{trigger_result.stdout}")
+                    print(f"[trigger stderr]\n{trigger_result.stderr}")
+                    raise subprocess.CalledProcessError(
+                        trigger_result.returncode,
+                        trigger_cmd,
+                        output=trigger_result.stdout,
+                        stderr=trigger_result.stderr,
+                    )
 
                 print("Waiting for DAG to finish...")
                 _wait_for_dag_finish(
@@ -761,7 +778,7 @@ def test_airflow_plugin(
                 except Exception as e:
                     print(f"Failed to dump DAG logs: {e}")
             break
-        except (ValueError, NotReadyError) as e:
+        except (ValueError, NotReadyError, subprocess.CalledProcessError) as e:
             if attempt >= max_attempts:
                 raise
             print(

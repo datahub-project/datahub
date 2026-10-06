@@ -7,6 +7,8 @@ import static org.testng.Assert.*;
 import java.nio.charset.StandardCharsets;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
@@ -214,19 +216,33 @@ public class AwsBedrockEmbeddingProviderTest {
 
   @Test
   public void testConstructorWithRegion() {
-    // Test that constructor with region string doesn't throw
-    AwsBedrockEmbeddingProvider providerWithRegion = new AwsBedrockEmbeddingProvider("us-west-2");
+    AwsBedrockEmbeddingProvider providerWithRegion =
+        new AwsBedrockEmbeddingProvider(
+            "us-west-2",
+            "cohere.embed-english-v3",
+            2048,
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
     assertNotNull(providerWithRegion);
     providerWithRegion.close();
   }
 
   @Test
   public void testConstructorWithAllParameters() {
-    // Test constructor with all parameters
     AwsBedrockEmbeddingProvider providerWithParams =
-        new AwsBedrockEmbeddingProvider("us-east-1", "cohere.embed-multilingual-v3", 1024);
+        new AwsBedrockEmbeddingProvider(
+            "us-east-1",
+            "cohere.embed-multilingual-v3",
+            1024,
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
     assertNotNull(providerWithParams);
     providerWithParams.close();
+  }
+
+  @Test
+  public void testConstructorRejectsNullCredentialsProvider() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new AwsBedrockEmbeddingProvider("us-west-2", "cohere.embed-english-v3", 2048, null));
   }
 
   @Test

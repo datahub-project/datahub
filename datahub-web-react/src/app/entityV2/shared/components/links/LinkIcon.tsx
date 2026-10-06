@@ -36,13 +36,13 @@ export function LinkIcon({ url, className, usePrimaryColor = true, style }: Prop
             return <FileIcon extension={extension} />;
         }
 
-        return (
-            <Icon
-                icon={LinkSimple}
-                color={usePrimaryColor ? 'primary' : 'gray'}
-                colorLevel={usePrimaryColor ? undefined : 600}
-                size="lg"
-            />
+        // When `usePrimaryColor` is false we deliberately omit `color` so the Icon
+        // inherits from its parent — e.g. a Pill sets its own text color and the
+        // link glyph tracks it automatically without per-callsite overrides.
+        return usePrimaryColor ? (
+            <Icon icon={LinkSimple} color="primary" size="lg" />
+        ) : (
+            <Icon icon={LinkSimple} size="lg" />
         );
     }, [isDocumentationFileUploadV1Enabled, url, usePrimaryColor]);
 

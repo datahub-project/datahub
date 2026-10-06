@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,6 +71,31 @@ public interface AspectsBatch {
       Map<String, Map<String, SystemAspect>> latestAspects,
       Map<String, Map<String, Long>> nextVersions,
       BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert);
+
+  /**
+   * Provenance-capturing variant. When {@code provenanceSink} is non-null, in-transaction side
+   * effects are run per input item so each derived MCP can be attributed to the input that produced
+   * it: {@code provenanceSink.accept(parentItem, derivedItem)} is called for every derived MCP.
+   * Used by branch-scoped retry to know which base URN owns a derived conflict. A null sink is
+   * byte-identical to {@link #toUpsertBatchItems(OperationFingerprint, Map, Map, BiFunction)}.
+   *
+   * <p>This default cannot capture provenance, so it REJECTS a non-null sink (fail-fast) rather
+   * than silently returning an incomplete conflict map to branch-scoped retry. Implementations that
+   * support provenance (e.g. {@code AspectsBatchImpl}) must override this.
+   */
+  default Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
+      @Nonnull OperationFingerprint operationContext,
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions,
+      BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert,
+      @Nullable BiConsumer<ChangeMCP, ChangeMCP> provenanceSink) {
+    if (provenanceSink != null) {
+      throw new UnsupportedOperationException(
+          "This AspectsBatch implementation does not capture provenance for branch-scoped retry; "
+              + "override toUpsertBatchItems(..., provenanceSink) to support it.");
+    }
+    return toUpsertBatchItems(operationContext, latestAspects, nextVersions, databaseUpsert);
+  }
 
   /**
    * Apply read mutations to batch
@@ -156,13 +182,28 @@ public interface AspectsBatch {
 
   default ValidationExceptionCollection validatePreCommit(
       @Nonnull OperationFingerprint operationContext, Collection<ChangeMCP> changeMCPs) {
-    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext());
+    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext(), null);
+  }
+
+  default ValidationExceptionCollection validatePreCommit(
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPs,
+      @Nullable AuthorizationSession session) {
+    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext(), session);
   }
 
   static ValidationExceptionCollection validatePreCommit(
       @Nonnull OperationFingerprint operationContext,
       Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
+    return validatePreCommit(operationContext, changeMCPs, retrieverContext, null);
+  }
+
+  static ValidationExceptionCollection validatePreCommit(
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     retrieverContext
         .getAspectRetriever()
@@ -171,7 +212,8 @@ public interface AspectsBatch {
         .stream()
         .flatMap(
             validator ->
-                validator.validatePreCommit(operationContext, changeMCPs, retrieverContext))
+                validator.validatePreCommit(
+                    operationContext, changeMCPs, retrieverContext, session))
         .forEach(exceptions::addException);
     return exceptions;
   }

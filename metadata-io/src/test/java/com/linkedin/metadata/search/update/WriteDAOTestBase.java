@@ -8,12 +8,12 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
-import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -22,7 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
+import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.TaskId;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +52,8 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
         getOperationContext()
             .getSearchContext()
             .getIndexConvention()
-            .getIndexName(ElasticSearchGraphService.INDEX_NAME);
+            .getIndexName(
+                getOperationContext(), SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
 
     // Create fewer edges for async test
     int totalEdges = 8;
@@ -68,7 +71,9 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
 
     // Submit async delete
     CompletableFuture<String> taskFuture =
-        getEsWriteDAO().deleteByQueryAsync(getOperationContext(), indexName, query, null);
+        getEsWriteDAO()
+            .deleteByQueryAsync(
+                getOperationContext(), SearchComponent.GRAPH, indexName, query, null);
     String taskSubmission = taskFuture.get(30, TimeUnit.SECONDS);
 
     assertNotNull(taskSubmission);
@@ -77,13 +82,15 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
     String[] taskParts = taskSubmission.split(":");
     TaskId taskId = new TaskId(taskParts[0], Long.parseLong(taskParts[1]));
 
-    // Monitor the task
-    ESWriteDAO.DeleteByQueryResult monitorResult =
-        getEsWriteDAO()
-            .monitorDeleteByQueryTask(
-                getOperationContext(), taskId, Duration.ofMinutes(1), indexName, query);
-
-    assertTrue(monitorResult.isSuccess(), "Async task should complete successfully");
+    GetTaskRequest getTaskRequest = new GetTaskRequest(taskId.getNodeId(), taskId.getId());
+    getTaskRequest.setWaitForCompletion(true);
+    getTaskRequest.setTimeout(TimeValue.timeValueMinutes(1));
+    assertTrue(
+        getSearchClient()
+            .getTask(getTaskRequest, RequestOptions.DEFAULT)
+            .map(response -> response.isCompleted())
+            .orElse(false),
+        "Async task should complete successfully");
 
     // Wait and verify deletion
     Thread.sleep(2000);

@@ -22,9 +22,8 @@ const ContentCard = styled.div`
     height: 100%;
     width: 100%;
     background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 12px;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     box-shadow: ${(props) => props.theme.colors.shadowSm};
-    margin: 4px;
 `;
 
 /**

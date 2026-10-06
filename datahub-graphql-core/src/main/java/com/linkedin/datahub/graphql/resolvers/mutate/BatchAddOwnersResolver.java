@@ -17,6 +17,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -61,20 +62,23 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
   }
 
   private void validateOwners(@Nonnull OperationContext opContext, List<OwnerInput> owners) {
-    for (OwnerInput ownerInput : owners) {
-      OwnerUtils.validateOwner(opContext, ownerInput, _entityService);
-    }
+    OwnerUtils.validateOwners(opContext, owners, _entityService);
   }
 
   private void validateInputResources(
       @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
+    final Set<Urn> existingResourceUrns =
+        LabelUtils.existingResourceUrns(opContext, resources, _entityService);
     for (ResourceRefInput resource : resources) {
-      validateInputResource(opContext, resource, context);
+      validateInputResource(opContext, resource, context, existingResourceUrns);
     }
   }
 
   private void validateInputResource(
-      @Nonnull OperationContext opContext, ResourceRefInput resource, QueryContext context) {
+      @Nonnull OperationContext opContext,
+      ResourceRefInput resource,
+      QueryContext context,
+      Set<Urn> existingResourceUrns) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
 
     if (resource.getSubResource() != null) {
@@ -86,6 +90,7 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
         context, resourceUrn, _entityClient, _entityService);
     LabelUtils.validateResource(
         opContext,
+        existingResourceUrns,
         resourceUrn,
         resource.getSubResource(),
         resource.getSubResourceType(),

@@ -47,6 +47,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     // Filter to show all policies
     await page.getByTestId('policy-filter').click();
     await page.getByTestId('option-ALL').click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(500);
 
     // Deactivate any existing "All Users" policies that might conflict
@@ -69,6 +70,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid available
     await page.locator('.rc-virtual-list').getByText('Manage Metadata Ingestion').click({ force: true });
     await page.getByTestId('privileges').blur();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(1000);
     // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id; no data-testid on this button
     await page.locator('#nextButton').click();
@@ -143,6 +145,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     await page.locator('[id="home-page-ingestion"]').scrollIntoViewIfNeeded();
     // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id on home page nav item; no data-testid available
     await page.locator('[id="home-page-ingestion"]').click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(1000);
     // eslint-disable-next-line playwright/no-raw-locators -- clicking body to dismiss popovers; no semantic Playwright equivalent
     await page.locator('body').click();

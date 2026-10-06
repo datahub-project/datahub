@@ -1,4 +1,5 @@
-const fs = require('fs');
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable import/newline-after-import */
 const path = require('path');
 
 // --------------------------------------------------------------------------
@@ -8,6 +9,7 @@ const path = require('path');
 // whole codebase (all src/**, except COLOR_RULE_EXCLUDED_FILES) so color flows
 // through theme.colors.* tokens that repaint for theming / dark mode.
 // --------------------------------------------------------------------------
+
 const rulesDirPlugin = require('eslint-plugin-rulesdir');
 rulesDirPlugin.RULES_DIR = path.join(__dirname, 'eslint-rules');
 
@@ -22,18 +24,29 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: ['**/alchemy-components/theme/foundations/colors'],
-                    message:
-                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
-                },
-                {
-                    group: ['@components', '@components/*'],
+                    group: [
+                        '**/alchemy-components/**',
+                        '@src/alchemy-components',
+                        '@src/alchemy-components/**',
+                        '@components',
+                        '@components/**',
+                    ],
                     importNames: ['colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
             ],
             paths: [
+                {
+                    name: '@src/alchemy-components/theme/foundations/colors',
+                    message:
+                        'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    name: '@components/theme/foundations/colors',
+                    message:
+                        'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
                 {
                     name: '@app/entity/shared/constants',
                     importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS'],
@@ -50,17 +63,35 @@ const COLOR_ENFORCEMENT_RULES = {
         },
     ],
     'rulesdir/no-hardcoded-colors': 'error',
+    'rulesdir/no-background-token-in-border': 'error',
 };
 
 // --------------------------------------------------------------------------
 // i18n string enforcement
 //
-// Only runs on files listed in translated-files.txt. Add a file path to that
-// list once its translations are wired up to opt it into the rule.
+// Global — everything under src/**, except I18N_RULE_EXCLUDED_FILES — so new
+// files/directories are covered automatically and can't silently ship
+// hardcoded English. Add a path here only for legacy areas still being
+// migrated; once a legacy area is migrated, remove its entry instead of
+// adding new ones.
 // --------------------------------------------------------------------------
-const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
-const translatedFilesContent = fs.existsSync(translatedFilesPath) ? fs.readFileSync(translatedFilesPath, 'utf8') : '';
-const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
+const I18N_RULE_EXCLUDED_FILES = [
+    // Legacy v1 ingestion UI, superseded by ingestV2/. Migration deferred because
+    // live and dead code interleave (no clean glob) — same rationale as this
+    // directory's exclusion from COLOR_RULE_EXCLUDED_FILES below.
+    'src/app/ingest/**',
+    // Generated GraphQL types/mocks — not authored, not user-facing UI copy.
+    'src/graphql/**',
+    'src/graphql-mock/**',
+    // Mock fixtures, tests, and Storybook demos — never production UI.
+    '**/__tests__/**',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/*.stories.tsx',
+    // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+    // glob can lock the rest of alchemy-components under enforcement without failing on it.
+    '**/alchemy-components/components/Editor/**',
+];
 
 const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'to',
@@ -147,6 +178,11 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*Style$',
 ];
 
+// Permanent exemptions: tests/stories, generated GraphQL, and alchemy wrappers
+// that still wrap antd. Existing app files that already imported antd on the
+// PR base are grandfathered by the rule's git baseline.
+const ANTD_IMPORT_RULE_EXCLUDED_FILES = ['**/*.{test,stories}.*', 'src/graphql/**', 'src/alchemy-components/**'];
+
 // Files that legitimately need raw color values, or where migration is deferred.
 const COLOR_RULE_EXCLUDED_FILES = [
     'src/conf/theme/colorThemes/**',
@@ -155,6 +191,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/alchemy-components/theme/**',
     // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
     // Migration is deferred here because live and dead code interleave (no clean glob).
+    // NOTE: app/entity is mostly dead v1 pages, but its `shared/**` layer is still imported and
+    // rendered by V2, so do not assume app/entity is fully dead.
     'src/app/entity/**',
     'src/app/search/**',
     'src/app/lineage/**',
@@ -167,7 +205,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     '**/*.test.tsx',
     '**/__tests__/**',
     '**/*.stories.tsx',
-    // Deferred to a design-led pass: chart series palette.
+    // Deferred to a design-led pass (un-exclude when migrated):
+    //  - dataviz: chart series palette → charts* tokens needs design sign-off.
     'src/app/dataviz/**',
 ];
 
@@ -228,20 +267,21 @@ module.exports = {
             {
                 paths: [
                     {
-                        name: '@phosphor-icons/react',
-                        message:
-                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
-                        allowTypeImports: true,
-                    },
-                    {
                         name: '@monaco-editor/react',
                         importNames: ['loader'],
                         message:
                             "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
                     },
+                    {
+                        name: 'lodash',
+                        message:
+                            "Import lodash functions individually for tree-shaking: import x from 'lodash/x' instead of import { x } from 'lodash'. Type-only imports from 'lodash' are allowed.",
+                        allowTypeImports: true,
+                    },
                 ],
             },
         ],
+        'rulesdir/no-phosphor-generic-imports': 'error',
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -318,57 +358,51 @@ module.exports = {
             excludedFiles: COLOR_RULE_EXCLUDED_FILES,
             rules: COLOR_ENFORCEMENT_RULES,
         },
-        // i18n enforcement — only on files listed in translated-files.txt
-        ...(translatedFiles.size > 0
-            ? [
-                  {
-                      files: [...translatedFiles],
-                      excludedFiles: [
-                          '**/__tests__/**',
-                          '**/*.test.ts',
-                          '**/*.test.tsx',
-                          // Storybook demo files render only in Storybook, never in the production app — their
-                          // demo strings must not be enforced as translatable.
-                          '**/*.stories.tsx',
-                          // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
-                          // glob can lock the rest of alchemy-components under enforcement without failing on it.
-                          '**/alchemy-components/components/Editor/**',
-                      ],
-                      rules: {
-                          'i18next/no-literal-string': [
-                              'error',
-                              {
-                                  mode: 'jsx-only',
-                                  'jsx-attributes': {
-                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
-                                  },
-                                  'object-properties': {
-                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
-                                  },
-                                  words: {
-                                      exclude: [
-                                          '^_blank$',
-                                          '^noopener noreferrer$',
-                                          '^\\*+$',
-                                          '^-$',
-                                          '^—$',
-                                          '^[A-Z0-9_]+$',
-                                          '^:\\s*$',
-                                          '^[()]+$',
-                                          '^\\.+$',
-                                          // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
-                                          '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
-                                          // Bare slash or pipe separators between values (e.g. "{index} / {total}", "{a} | {b}")
-                                          '^\\s*/\\s*$',
-                                          '^\\s*\\|\\s*$',
-                                      ],
-                                  },
-                              },
-                          ],
-                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
-                      },
-                  },
-              ]
-            : []),
+        // antd → alchemy. New files and first-time antd imports error.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: ANTD_IMPORT_RULE_EXCLUDED_FILES,
+            rules: {
+                'rulesdir/no-antd-imports': 'error',
+            },
+        },
+        // i18n enforcement — global; everything except I18N_RULE_EXCLUDED_FILES.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: I18N_RULE_EXCLUDED_FILES,
+            rules: {
+                'i18next/no-literal-string': [
+                    'error',
+                    {
+                        mode: 'jsx-only',
+                        'jsx-attributes': {
+                            exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                        },
+                        'object-properties': {
+                            exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                        },
+                        words: {
+                            exclude: [
+                                '^_blank$',
+                                '^noopener noreferrer$',
+                                '^\\*+$',
+                                '^-$',
+                                '^—$',
+                                '^[A-Z0-9_]+$',
+                                '^:\\s*$',
+                                '^[()]+$',
+                                '^\\.+$',
+                                // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
+                                '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
+                                // Bare slash or pipe separators between values (e.g. "{index} / {total}", "{a} | {b}")
+                                '^\\s*/\\s*$',
+                                '^\\s*\\|\\s*$',
+                            ],
+                        },
+                    },
+                ],
+                'rulesdir/no-manual-pluralize-in-i18n': 'error',
+            },
+        },
     ],
 };

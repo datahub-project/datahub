@@ -1,8 +1,10 @@
 import logging
+import time
 from datetime import datetime
 from typing import Any, Dict, Optional
 
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
@@ -12,7 +14,12 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
-from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DatahubIngestionCheckpointClass,
+    StatusClass,
+    SystemMetadataClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -115,11 +122,28 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 job_name,
             )
 
-            # We don't want the state payloads to show up in search. As such, we emit the
-            # dataJob aspects as soft-deleted. This doesn't affect the ability to query
-            # them using the timeseries API.
-            self.graph.soft_delete_entity(
-                urn=datajob_urn,
+            # We soft-delete checkpoint dataJobs so they don't appear in search,
+            # while still allowing timeseries checkpoint queries.
+            # We include lifecycleLastUpdated with a fresh timestamp so the server
+            # sees a content change on every run and refreshes createdOn. Without
+            # this, repeated identical `removed=True` writes are detected as no-ops,
+            # createdOn never refreshes, and GC's soft_deleted_entity_cleanup
+            # eventually hard-deletes the entity (destroying checkpoint data).
+            now_millis = int(time.time() * 1000)
+            self.graph.emit_mcp(
+                MetadataChangeProposalWrapper(
+                    entityUrn=datajob_urn,
+                    aspect=StatusClass(
+                        removed=True,
+                        lifecycleLastUpdated=AuditStampClass(
+                            time=now_millis,
+                            actor=SYSTEM_ACTOR,
+                        ),
+                    ),
+                    systemMetadata=SystemMetadataClass(
+                        lastObserved=now_millis,
+                    ),
+                )
             )
             self.graph.emit_mcp(
                 MetadataChangeProposalWrapper(

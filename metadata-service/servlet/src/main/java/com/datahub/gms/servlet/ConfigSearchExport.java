@@ -1,10 +1,8 @@
 package com.datahub.gms.servlet;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_ANALYZER;
 
 import com.datahub.gms.util.CSVWriter;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -12,6 +10,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +24,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
+import org.opensearch.index.query.MatchPhraseQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -74,15 +74,21 @@ public class ConfigSearchExport extends HttpServlet {
     };
     writer.println(header);
 
-    SEARCHABLE_ENTITY_TYPES.stream()
+    List<String> searchableEntityNames =
+        Optional.ofNullable(systemOpContext.getSearchContext().getDefaultSearchEntityNames())
+            .orElseGet(
+                () ->
+                    EntityTypeUtils.resolve(
+                        searchConfiguration.getSearch().getDefaultEntityTypes(), entityRegistry));
+
+    searchableEntityNames.stream()
         .map(
-            entityType -> {
+            entityName -> {
               try {
-                EntitySpec entitySpec =
-                    entityRegistry.getEntitySpec(EntityTypeMapper.getName(entityType));
+                EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
                 return Optional.of(entitySpec);
               } catch (IllegalArgumentException e) {
-                log.warn("Failed to resolve entity `{}`", entityType.name());
+                log.warn("Failed to resolve entity `{}`", entityName);
                 return Optional.<EntitySpec>empty();
               }
             })
@@ -99,13 +105,12 @@ public class ConfigSearchExport extends HttpServlet {
                           queryFilterRewriteChain,
                           searchServiceConfiguration)
                       .getSearchRequest(
-                          getOperationContext(ctx)
-                              .withSearchFlags(
-                                  flags ->
-                                      flags
-                                          .setFulltext(true)
-                                          .setSkipHighlighting(true)
-                                          .setSkipAggregates(true)),
+                          systemOpContext.withSearchFlags(
+                              flags ->
+                                  flags
+                                      .setFulltext(true)
+                                      .setSkipHighlighting(true)
+                                      .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
@@ -169,6 +174,22 @@ public class ConfigSearchExport extends HttpServlet {
                     "true",
                     "",
                     mppqb.toString().replaceAll("\n", "")
+                  };
+                  writer.println(row);
+                } else if (builder instanceof MatchPhraseQueryBuilder) {
+                  // Word gram subfields
+                  MatchPhraseQueryBuilder mpqb = (MatchPhraseQueryBuilder) builder;
+                  String[] row = {
+                    entitySpec.getName(),
+                    "relevancy",
+                    "phrase_match",
+                    mpqb.getClass().getSimpleName(),
+                    mpqb.fieldName(),
+                    String.valueOf(mpqb.boost()),
+                    "",
+                    "true",
+                    "",
+                    mpqb.toString().replaceAll("\n", "")
                   };
                   writer.println(row);
                 } else {

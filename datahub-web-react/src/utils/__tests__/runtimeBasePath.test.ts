@@ -100,6 +100,19 @@ describe('runtimeBasePath', () => {
 
             expect(result).toBe('');
         });
+
+        it('should ignore an unsubstituted "@basePath" placeholder and fall through to root', () => {
+            // Static hosts (e.g. Cloudflare Pages previews) don't substitute the server's
+            // `<base href="@basePath" />` placeholder; trusting it would break every relative URL.
+            process.env.NODE_ENV = 'production';
+            const mockBaseElement = { getAttribute: mockGetAttribute };
+            mockQuerySelector.mockReturnValue(mockBaseElement);
+            mockGetAttribute.mockReturnValue('@basePath');
+
+            const result = getBasePath();
+
+            expect(result).toBe('');
+        });
     });
 
     describe('getRuntimeBasePath', () => {

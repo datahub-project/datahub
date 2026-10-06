@@ -101,7 +101,7 @@ public class ResolverUtilsTest {
     appConfig
         .getMetadataChangeProposal()
         .getSideEffects()
-        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+        .setSchemaField(new MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig());
     appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(true);
 
     Filter finalFilter = buildFilterWithUrns(appConfig, urns, filter);

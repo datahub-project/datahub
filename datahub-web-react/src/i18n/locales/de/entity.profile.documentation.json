@@ -18,7 +18,12 @@
     "newDocument": "Neues Dokument",
     "noRelatedLinks": "Noch keine verwandten Links oder Kontext",
     "platformDocumentationTitle": "{{platform}} Dokumentation:",
+    "removeDocumentConfirmText": "Dieses Dokument erscheint nicht mehr in den Ressourcen dieser Entität. Das Dokument selbst wird nicht gelöscht.",
+    "removeDocumentConfirmTitle": "Dokument aus Ressourcen entfernen?",
+    "removeDocumentError": "Dokument konnte nicht aus den Ressourcen entfernt werden",
+    "removeDocumentSuccess": "Dokument aus Ressourcen entfernt",
     "resources": "Ressourcen",
+    "resourcesUpdated": "Ressourcen aktualisiert",
     "sourceDocumentationTitle": "Quelldokumentation:",
     "untitledDocument": "Unbenanntes Dokument"
 }

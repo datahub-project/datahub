@@ -58,8 +58,24 @@ def _is_it_a_version(version: str) -> bool:
     return re.match(r"^v?\d+\.\d+(\.\d+)?$", version) is not None
 
 
+def _is_four_part_version(version: str) -> bool:
+    return re.match(r"^v?\d+\.\d+\.\d+\.\d+$", version) is not None
+
+
+def _is_release_like_version(version: str) -> bool:
+    return _is_it_a_version(version) or _is_four_part_version(version)
+
+
+def _three_part_prefix(version: str) -> Optional[str]:
+    """Shorter release label for a four-part hotfix tag (v1.5.0.6 → v1.5.0)."""
+    match = re.match(r"^(v?)(\d+\.\d+\.\d+)\.\d+$", version)
+    if not match:
+        return None
+    return f"{match.group(1)}{match.group(2)}"
+
+
 def _is_passthrough_version(version: str) -> bool:
-    return _is_it_a_version(version) or version.startswith("sha-")
+    return _is_release_like_version(version) or version.startswith("sha-")
 
 
 def _is_magic_alias(version: str) -> bool:
@@ -83,7 +99,7 @@ def _apply_head_tag_rewrite(result: QuickstartExecutionPlan) -> QuickstartExecut
 def _apply_compose_ref_rewrite(
     result: QuickstartExecutionPlan,
 ) -> QuickstartExecutionPlan:
-    if _is_it_a_version(result.composefile_git_ref):
+    if _is_release_like_version(result.composefile_git_ref):
         if parse("v1.2.0") > parse(result.composefile_git_ref):
             return result.model_copy(
                 update={
@@ -134,6 +150,27 @@ class QuickstartVersionMappingConfig(BaseModel):
 
     def _get_default_plan(self) -> QuickstartExecutionPlan:
         return self.quickstart_version_map.get("default", _master_quickstart_plan())
+
+    def _unmapped_version_plan(
+        self, requested_version: str, default_mysql_tag: str
+    ) -> QuickstartExecutionPlan:
+        """Passthrough images as requested; compose/mysql use the shorter release."""
+        composefile_git_ref = requested_version
+        mysql_tag = default_mysql_tag
+        short = _three_part_prefix(requested_version)
+        if short:
+            mapped = self.quickstart_version_map.get(short)
+            if mapped is not None:
+                composefile_git_ref = mapped.composefile_git_ref
+                if mapped.mysql_tag:
+                    mysql_tag = mapped.mysql_tag
+            else:
+                composefile_git_ref = short
+        return QuickstartExecutionPlan(
+            composefile_git_ref=composefile_git_ref,
+            docker_tag=requested_version,
+            mysql_tag=str(mysql_tag),
+        )
 
     def _resolve_magic_alias_plan(self, alias: str) -> QuickstartExecutionPlan:
         for key in (alias, "quickstart", "head"):
@@ -272,11 +309,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         if in_map:
             result = self.quickstart_version_map[requested_version]
         else:
-            result = QuickstartExecutionPlan(
-                composefile_git_ref=requested_version,
-                docker_tag=requested_version,
-                mysql_tag=str(mysql_tag),
-            )
+            result = self._unmapped_version_plan(requested_version, mysql_tag)
 
         confirmation = self._needs_confirmation(requested_version, result, in_map)
         if confirmation:
@@ -312,7 +345,7 @@ def save_quickstart_config(
 
 
 def is_minimum_supported_version(version: str) -> bool:
-    if not _is_it_a_version(version):
+    if not _is_release_like_version(version):
         return True
 
     requested_version = packaging.version.parse(version)

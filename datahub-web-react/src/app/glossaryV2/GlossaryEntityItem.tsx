@@ -64,7 +64,7 @@ function countTermsAndNodes(initialNode?: RootGlossaryNodeWithFourLayersFragment
 function GlossaryEntityItem(props: Props) {
     const { name, description, urn, type, displayProperties, node } = props;
     const entityRegistry = useEntityRegistry();
-    const entityData = useEntityData();
+    const { entityData } = useEntityData();
 
     const { termCount, nodeCount } = countTermsAndNodes(node as RootGlossaryNodeWithFourLayersFragment);
     const maxDepth = countMaxDepth(node as RootGlossaryNodeWithFourLayersFragment);
@@ -90,6 +90,7 @@ function GlossaryEntityItem(props: Props) {
                     type={type}
                     urn={urn}
                     entityData={entityData}
+                    displayProperties={displayProperties}
                     termCount={termCount}
                     nodeCount={nodeCount}
                 />

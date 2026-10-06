@@ -221,7 +221,7 @@ export default function TagTermGroup({
                     const onClose = () => {
                         onOpenModal?.();
                         setShowAddModal(false);
-                        refetch?.();
+                        setTimeout(() => refetch?.(), 2000);
                     };
                     const resources = [
                         {

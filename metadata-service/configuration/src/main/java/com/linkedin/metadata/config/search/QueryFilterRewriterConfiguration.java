@@ -9,6 +9,7 @@ public class QueryFilterRewriterConfiguration {
 
   private ExpansionRewriterConfiguration containerExpansion;
   private ExpansionRewriterConfiguration domainExpansion;
+  private ExpansionRewriterConfiguration documentExpansion;
 
   @NoArgsConstructor
   @AllArgsConstructor

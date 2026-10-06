@@ -1,29 +1,49 @@
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
 import sqlalchemy.dialects.postgresql as custom_types
 
-# GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
-# activate it, we must import it so that it can hook into SQLAlchemy. While
-# we don't use the Geometry type that we import, we do care about the side
-# effects of the import. For more details, see here:
+# GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. Importing it
+# hooks PostGIS reflection into SQLAlchemy, and the imported types are also
+# registered in the DataHub type mapping below. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
-from geoalchemy2 import Geometry  # noqa: F401
+from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects.postgresql import ranges
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.types import UserDefinedType
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
-from datahub.configuration.common import AllowDenyPattern
+from typing_extensions import Annotated
+
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.ingestion.agent.sql_gate import (
+    INFORMATION_SCHEMA,
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -35,18 +55,22 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import (
-    AwsConnectionConfig,
     RDSIAMTokenManager,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.postgres.lineage import PostgresLineageExtractor
+from datahub.ingestion.source.sql.postgres.query import (
+    POSTGRES_SYSTEM_DATABASES,
+    PostgresQuery,
+)
+from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
-from datahub.ingestion.source.sql.stored_procedures.base import (
+from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -54,6 +78,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
     MapTypeClass,
+    StringTypeClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.perf_timer import PerfTimer
@@ -65,6 +90,134 @@ register_custom_type(custom_types.ARRAY, ArrayTypeClass)
 register_custom_type(custom_types.JSON, BytesTypeClass)
 register_custom_type(custom_types.JSONB, BytesTypeClass)
 register_custom_type(custom_types.HSTORE, MapTypeClass)
+
+
+class _PostgresCustomType(UserDefinedType):
+    """Placeholder for postgres types that SQLAlchemy does not ship.
+
+    Registering these in ``ischema_names`` keeps their columns from reflecting
+    as ``NullType``, which would both classify them as DataHub NullType and
+    replace their native type name with the literal string "null".
+
+    ``UserDefinedType`` with ``get_col_spec`` is used instead of the existing
+    ``make_sqlalchemy_type`` helper because that helper sets
+    ``impl = LargeBinary``, which would compile these types to a misleading
+    ``BYTEA`` native type name; this route preserves the real type name,
+    including its modifier (e.g. ``VECTOR(4)``).
+    """
+
+    # No default on purpose: a subclass that forgets to set it fails loudly at
+    # first compile instead of silently emitting an empty nativeDataType.
+    type_name: ClassVar[str]
+
+    def __init__(self, dimensions: Optional[int] = None) -> None:
+        # Reflection passes the type modifier through as a single int
+        # (e.g. vector(4) -> dimensions=4). A named parameter — rather than
+        # *args — is required for SQLAlchemy's statement-cache key to include
+        # the modifier (VECTOR(4) vs VECTOR(1536) must not share a key), and
+        # it also survives adapt()/constructor_copy().
+        self.dimensions = dimensions
+
+    def get_col_spec(self, **kw: Any) -> str:
+        if self.dimensions is not None:
+            return f"{self.type_name}({self.dimensions})"
+        return self.type_name
+
+
+def _make_postgres_type(name: str) -> Type[_PostgresCustomType]:
+    assert name, "postgres placeholder types need a non-empty type name"
+    # cache_ok must be in each subclass's own __dict__ — SQLAlchemy does not
+    # consult the MRO for it, and without it every statement touching one of
+    # these columns is uncacheable and emits an SAWarning.
+    postgres_type: Type[_PostgresCustomType] = type(
+        name, (_PostgresCustomType,), {"type_name": name, "cache_ok": True}
+    )
+    return postgres_type
+
+
+# pgvector (https://github.com/pgvector/pgvector)
+VECTOR = _make_postgres_type("VECTOR")
+HALFVEC = _make_postgres_type("HALFVEC")
+SPARSEVEC = _make_postgres_type("SPARSEVEC")
+# Built-in geometric types (https://www.postgresql.org/docs/current/datatype-geometric.html)
+POINT = _make_postgres_type("POINT")
+LINE = _make_postgres_type("LINE")
+LSEG = _make_postgres_type("LSEG")
+BOX = _make_postgres_type("BOX")
+PATH = _make_postgres_type("PATH")
+POLYGON = _make_postgres_type("POLYGON")
+CIRCLE = _make_postgres_type("CIRCLE")
+XML = _make_postgres_type("XML")
+LTREE = _make_postgres_type("LTREE")
+
+# PostGIS types are reflected via the geoalchemy2 import above; map them so
+# their columns stop falling back to NullType. BytesTypeClass (not
+# RecordTypeClass, which signals a struct with nested sub-fields) follows the
+# Teradata/Snowflake precedent for opaque geospatial scalars — PostGIS values
+# really are WKB on the wire.
+register_custom_type(Geometry, BytesTypeClass)
+register_custom_type(Geography, BytesTypeClass)
+register_custom_type(Raster, BytesTypeClass)
+
+for _vector_type in (VECTOR, HALFVEC, SPARSEVEC):
+    register_custom_type(_vector_type, ArrayTypeClass)
+for _geometric_type in (POINT, LINE, LSEG, BOX, PATH, POLYGON, CIRCLE):
+    register_custom_type(_geometric_type, BytesTypeClass)
+for _string_like_type in (XML, LTREE):
+    register_custom_type(_string_like_type, StringTypeClass)
+
+register_custom_type(custom_types.CIDR, StringTypeClass)
+for _range_type in (
+    custom_types.INT4RANGE,
+    custom_types.INT8RANGE,
+    custom_types.NUMRANGE,
+    custom_types.DATERANGE,
+    custom_types.TSRANGE,
+    custom_types.TSTZRANGE,
+):
+    register_custom_type(_range_type, StringTypeClass)
+# SQLAlchemy's native INT4MULTIRANGE ... TSTZMULTIRANGE all derive from
+# AbstractMultiRange, and get_column_type matches with isinstance, so the base
+# class covers every multirange column. (CITEXT needs no entry: the native type
+# subclasses TEXT and is already mapped through types.String.)
+register_custom_type(ranges.AbstractMultiRange, StringTypeClass)
+
+# If the pgvector SQLAlchemy integration is installed, importing it registers
+# a full-featured `vector` type in ischema_names (it parses dimensions
+# properly). Prefer it over the placeholder — the setdefault below yields to
+# it — and map it to the same DataHub type.
+try:
+    from pgvector.sqlalchemy import Vector as _PgVectorType
+
+    register_custom_type(_PgVectorType, ArrayTypeClass)
+except ImportError:
+    pass
+
+# ischema_names is process-global state shared by every PGDialect subclass in
+# the process (CockroachDB, TimescaleDB, ... inherit these entries; Redshift
+# does not go through this source). setdefault instead of update so a real
+# type implementation registered by another library (e.g. pgvector above) is
+# never clobbered by a placeholder.
+#
+# Reflection precedence caveat: PGDialect._get_column_info consults
+# ischema_names *before* user-defined domains, so a domain named exactly like
+# one of these entries (e.g. "xml", "box") now resolves to the placeholder and
+# skips the domain branch — including its nullability and default handling.
+for _type_name, _placeholder_type in {
+    "vector": VECTOR,
+    "halfvec": HALFVEC,
+    "sparsevec": SPARSEVEC,
+    "point": POINT,
+    "line": LINE,
+    "lseg": LSEG,
+    "box": BOX,
+    "path": PATH,
+    "polygon": POLYGON,
+    "circle": CIRCLE,
+    "xml": XML,
+    "ltree": LTREE,
+}.items():
+    custom_types.base.ischema_names.setdefault(_type_name, _placeholder_type)
 
 
 VIEW_LINEAGE_QUERY = """
@@ -121,11 +274,11 @@ class PostgresAuthMode(StrEnum):
     AWS_IAM = "AWS_IAM"
 
 
-class BasePostgresConfig(BasicSQLAlchemyConfig):
+class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
     scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
-    schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern(deny=["information_schema"])
-    )
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(default=AllowDenyPattern(deny=["information_schema"]))
 
     # Authentication configuration
     auth_mode: PostgresAuthMode = Field(
@@ -134,17 +287,105 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
         "Options are 'PASSWORD' (default) for standard username/password authentication, "
         "or 'AWS_IAM' for AWS RDS IAM authentication.",
     )
-    aws_config: AwsConnectionConfig = Field(
-        default_factory=AwsConnectionConfig,
-        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
-        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
-        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
-        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
-    )
+
+    def rds_iam_enabled(self) -> bool:
+        return self.auth_mode == PostgresAuthMode.AWS_IAM
+
+    def rds_iam_default_port(self) -> int:
+        return 5432
+
+    def apply_rds_iam_ssl(self, cparams: Dict[str, Any]) -> None:
+        # IAM tokens are bearer credentials, so TLS is required rather than
+        # preferred. An explicitly stronger mode is left alone.
+        if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
+            cparams["sslmode"] = "require"
+
+    def rds_iam_tls_is_verified(self, cparams: Dict[str, Any]) -> bool:
+        # libpq: `require` encrypts and checks nothing about who answered.
+        # Only verify-ca and verify-full authenticate the server.
+        return cparams.get("sslmode") in ("verify-ca", "verify-full")
+
+    def rds_iam_tls_hint(self) -> str:
+        return (
+            "set options.connect_args.sslmode to verify-full and "
+            "options.connect_args.sslrootcert to the RDS CA bundle path "
+            "(https://truststore.pki.rds.amazonaws.com/)"
+        )
+
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # Without this, an AWS_IAM recipe cannot be probed at all: the password
+        # is a token injected per connection, so a bare create_engine() has no
+        # credential to connect with.
+        self.install_rds_iam_auth(engine)
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # pg_catalog is named relation by relation, NOT allowed at schema level.
+        # It was a schema-level allow with three exclusions, and the comment
+        # beside it conceded the risk in as many words -- "the exclusions have to
+        # be complete, and nothing tells you when they are not". They were not,
+        # and the gap was worse than query text:
+        #
+        #   pg_stats, pg_statistic  -- most_common_vals and histogram_bounds are
+        #     literal sampled values out of user columns. Not a WHERE-clause
+        #     literal inside a query string: the row values themselves.
+        #   pg_largeobject, pg_largeobject_metadata -- raw bytes of user large
+        #     objects.
+        #   pg_shadow, pg_authid -- role password hashes.
+        #
+        # The list below is derived from postgres/query.py and source.py (what
+        # ingestion reads) plus the structural counterparts an agent reaches for,
+        # the same way the Redshift and MSSQL declarations are built.
+        # Inherited by CockroachDB and TimescaleDB.
+        #
+        # Deliberately absent, and why:
+        #   pg_stat_statements, pg_stat_activity, pg_prepared_statements --
+        #     statement text.
+        #   the pg_stats/pg_largeobject/pg_shadow families above.
+        #   pg_user, pg_roles, pg_authid, pg_auth_members, pg_user_mapping --
+        #     user identity rather than schema shape. This matches Redshift,
+        #     which withholds pg_user/svv_user_info, and Snowflake, which
+        #     withholds account_usage.users.
+        return CatalogScope(
+            schemas=frozenset({INFORMATION_SCHEMA}),
+            relations=frozenset(
+                {
+                    # Core catalog: names, columns, types, defaults, comments.
+                    "pg_catalog.pg_class",
+                    "pg_catalog.pg_namespace",
+                    "pg_catalog.pg_database",
+                    "pg_catalog.pg_attribute",
+                    "pg_catalog.pg_attrdef",
+                    "pg_catalog.pg_type",
+                    "pg_catalog.pg_description",
+                    "pg_catalog.pg_index",
+                    "pg_catalog.pg_constraint",
+                    "pg_catalog.pg_inherits",
+                    "pg_catalog.pg_sequence",
+                    "pg_catalog.pg_enum",
+                    # Read by ingestion for lineage and stored procedures.
+                    "pg_catalog.pg_depend",
+                    "pg_catalog.pg_rewrite",
+                    "pg_catalog.pg_proc",
+                    "pg_catalog.pg_language",
+                    "pg_catalog.pg_extension",
+                    # The friendly views over the above. Their *_def columns are
+                    # object DDL, which is schema and which ingestion publishes
+                    # as dataset properties -- consistent with permitting
+                    # Snowflake's ACCOUNT_USAGE.VIEWS.
+                    "pg_catalog.pg_tables",
+                    "pg_catalog.pg_views",
+                    "pg_catalog.pg_matviews",
+                    "pg_catalog.pg_indexes",
+                }
+            ),
+        )
 
 
 class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for databases to filter in ingestion. "
@@ -278,10 +519,30 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
             )
         return self
 
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
+    def list_databases(self, conn: Connection) -> List[str]:
+        # Raw database listing shared with get_inspectors() below -- no
+        # database_pattern applied here; callers (get_inspectors() and the
+        # Database-level agent probe below) apply that themselves, so the two
+        # paths query the exact same rows instead of each re-deriving the
+        # listing SQL.
+        return PostgresQuery.list_databases(conn)
+
+    @classmethod
+    def default_databases(cls) -> FrozenSet[str]:
+        # Databases this source drops regardless of database_pattern -- Postgres
+        # template databases and AWS RDS's internal admin database. Same shape
+        # as SQLCommonConfig.default_schemas() one level down: lets the
+        # Database-level probe below report one of these as
+        # excluded_by: "default_database" instead of it silently never
+        # appearing. Reuses PostgresQuery's own exclusion list so the probe
+        # and the query it mirrors cannot drift apart.
+        return frozenset(POSTGRES_SYSTEM_DATABASES)
+
 
 @platform_name("Postgres")
 @config_class(PostgresConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -300,27 +561,13 @@ class PostgresSource(SQLAlchemySource):
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
         super().__init__(config, ctx, self.get_platform())
 
-        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
-        if config.auth_mode == PostgresAuthMode.AWS_IAM:
-            hostname, port = parse_host_port(config.host_port, default_port=5432)
-            if port is None:
-                raise ValueError(
-                    "Port must be specified for RDS IAM authentication. "
-                    "Please provide host_port in the format 'hostname:port' (e.g., 'mydb.rds.amazonaws.com:5432')."
-                )
-
-            if not config.username:
-                raise ValueError(
-                    "username is required for RDS IAM authentication. "
-                    "Please add 'username: <your_db_username>' to your configuration."
-                )
-
-            self._rds_iam_token_manager = RDSIAMTokenManager(
-                endpoint=hostname,
-                username=config.username,
-                port=port,
-                aws_config=config.aws_config,
-            )
+        # Built by the config, not here, so `datahub recipe probe` gets the same
+        # token manager off the same object -- see RDSIAMConnectionMixin. Called
+        # eagerly so a recipe that asks for IAM without a port or username still
+        # fails at construction, as it did when this block lived here.
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = (
+            config.rds_iam_token_manager()
+        )
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
@@ -332,7 +579,7 @@ class PostgresSource(SQLAlchemySource):
                     "Please provide a graph connection in your pipeline configuration or disable usage statistics."
                 )
                 logger.error(error_message)
-                self.report.report_failure(
+                self.report.failure(
                     message=error_message,
                     context="usage_statistics_graph_validation_failed",
                 )
@@ -362,7 +609,7 @@ class PostgresSource(SQLAlchemySource):
                     f"or missing dependencies. Please check your configuration and try again."
                 )
                 logger.error(error_message)
-                self.report.report_failure(
+                self.report.failure(
                     message=error_message,
                     context="sql_aggregator_init_failed",
                 )
@@ -376,28 +623,33 @@ class PostgresSource(SQLAlchemySource):
         config = PostgresConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def _setup_rds_iam_event_listener(
-        self, engine: "Engine", database_name: Optional[str] = None
-    ) -> None:
-        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
-        if not (
-            self.config.auth_mode == PostgresAuthMode.AWS_IAM
-            and self._rds_iam_token_manager
-        ):
-            return
+    def _setup_rds_iam_event_listener(self, engine: "Engine") -> None:
+        """Inject RDS IAM tokens on this engine's connections.
 
-        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            if not self._rds_iam_token_manager:
-                raise RuntimeError(
-                    "RDS IAM Token Manager is not initialized. "
-                    "This is an internal error. Please check your auth_mode configuration and ensure "
-                    "it is set to 'AWS_IAM' if you intend to use RDS IAM authentication."
-                )
-            cparams["password"] = self._rds_iam_token_manager.get_token()
-            if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
-                cparams["sslmode"] = "require"
+        One line, because the implementation is on the config: the probe builds
+        its own engines and can only reach setup that lives there.
 
-        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+        It used to take a `database_name` the body never read, passed by the
+        per-database call site. A parameter that does nothing reads as a
+        per-database token and there is no such thing -- the token is scoped
+        to host, port and user, so every engine against the same instance
+        wants the same setup. Dropped rather than documented, since the
+        comment explaining it was the only thing keeping it true.
+        """
+        self.config.install_rds_iam_auth(engine)
+
+    def _get_engine_options(self) -> Dict[str, Any]:
+        # SQLAlchemy 2.0 autobegins a transaction on first use and has no
+        # 1.4-style autorollback, so on Postgres a single failed statement
+        # aborts the transaction and every later query on that connection
+        # fails with InFailedSqlTransaction until a rollback. Driver-level
+        # autocommit makes each read self-contained and avoids holding
+        # "idle in transaction" sessions for a whole run. Every connection
+        # this source opens (reflection, profiling via inspector.bind, sample
+        # data, lineage) comes from these engines. Nothing here relies on
+        # server-side cursors or on temp objects outliving a statement. A
+        # user-provided isolation_level in `options` wins.
+        return {"isolation_level": "AUTOCOMMIT", **self.config.options}
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
@@ -407,7 +659,7 @@ class PostgresSource(SQLAlchemySource):
 
         logger.debug(f"sql_alchemy_url={url}")
 
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(url, **self._get_engine_options())
         self._setup_rds_iam_event_listener(engine)
 
         with engine.connect() as conn:
@@ -415,25 +667,38 @@ class PostgresSource(SQLAlchemySource):
                 inspector = inspect(conn)
                 yield inspector
             else:
-                # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
-                # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
-                # exclude rdsadmin - AWS RDS administrative database
-                databases = conn.execute(
-                    "SELECT datname from pg_database where datname not in ('template0', 'template1', 'rdsadmin')"
-                )
-                for db in databases:
-                    if not self.config.database_pattern.allowed(db["datname"]):
+                databases = self.config.list_databases(conn)
+                for db_name in databases:
+                    if not self.config.database_pattern.allowed(db_name):
                         continue
 
-                    url = self.config.get_sql_alchemy_url(database=db["datname"])
-                    db_engine = create_engine(url, **self.config.options)
-                    self._setup_rds_iam_event_listener(
-                        db_engine, database_name=db["datname"]
-                    )
+                    url = self.config.get_sql_alchemy_url(database=db_name)
+                    db_engine = create_engine(url, **self._get_engine_options())
+                    self._setup_rds_iam_event_listener(db_engine)
 
                     with db_engine.connect() as conn:
                         inspector = inspect(conn)
                         yield inspector
+
+    def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
+        view_names = super()._get_view_names(inspector, schema)
+        # SQLAlchemy 1.4's PG get_view_names() also returned materialized
+        # views; 2.0 lists them only via get_materialized_view_names().
+        # Ingest them as views, as before.
+        try:
+            materialized_view_names = inspector.get_materialized_view_names(schema)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list materialized views",
+                message="Materialized views in this schema will not be ingested.",
+                context=schema,
+                exc=e,
+            )
+            return view_names
+        known = set(view_names)
+        return view_names + [
+            name for name in materialized_view_names if name not in known
+        ]
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
@@ -451,11 +716,13 @@ class PostgresSource(SQLAlchemySource):
     ) -> Dict[Tuple[str, str], List[str]]:
         data: List[ViewLineageEntry] = []
         with inspector.engine.connect() as conn:
-            results = conn.execute(VIEW_LINEAGE_QUERY)
+            results = conn.execute(text(VIEW_LINEAGE_QUERY))
             if results.returns_rows is False:
                 return {}
 
-            for row in results:
+            # .mappings() yields dict-like rows; SA 2.0 plain Row is not a Mapping,
+            # so model_validate() needs the mapping view.
+            for row in results.mappings():
                 data.append(ViewLineageEntry.model_validate(row))
 
         lineage_elements: Dict[Tuple[str, str], List[str]] = defaultdict(list)
@@ -539,12 +806,13 @@ class PostgresSource(SQLAlchemySource):
                     "SQL aggregator not initialized, skipping query-based lineage extraction. "
                     "Check initialization errors above."
                 )
-                self.report.report_warning(
+                self.report.warning(
                     message=(
                         "Query-based lineage was enabled but SQL aggregator failed to initialize. "
                         "No query-based lineage will be extracted. Check earlier error messages."
                     ),
                     context="query_lineage_skipped",
+                    log=False,
                 )
                 return
 
@@ -565,14 +833,15 @@ class PostgresSource(SQLAlchemySource):
                         "Continuing with other lineage sources.",
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
-                            f"Query lineage extraction failed: {e}. "
+                            "Query lineage extraction failed. "
                             "Check that pg_stat_statements extension is properly configured and accessible. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/postgres"
                         ),
                         context="query_lineage_extraction_failed",
+                        exc=e,
                     )
 
         with PerfTimer() as timer:
@@ -588,13 +857,14 @@ class PostgresSource(SQLAlchemySource):
                         "Failed to generate metadata from SQL aggregator: %s",
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
-                            f"Lineage metadata generation failed: {e}. "
+                            "Lineage metadata generation failed. "
                             "This may indicate issues with the DataHub graph connection or schema resolution. "
                             "Check your graph configuration and ensure all required schemas are accessible."
                         ),
                         context="lineage_metadata_generation_failed",
+                        exc=e,
                     )
 
         logger.info(
@@ -615,7 +885,9 @@ class PostgresSource(SQLAlchemySource):
         try:
             with inspector.engine.connect() as conn:
                 for row in conn.execute(
-                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    text(
+                        """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    )
                 ):
                     self.profile_metadata_info.dataset_name_to_storage_bytes[
                         self.get_identifier(
@@ -640,7 +912,8 @@ class PostgresSource(SQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                """
+                text(
+                    """
                     SELECT
                         p.proname AS name,
                         l.lanname AS language,
@@ -655,9 +928,10 @@ class PostgresSource(SQLAlchemySource):
                         pg_language l ON l.oid = p.prolang
                     WHERE
                         p.prokind = 'p'
-                        AND n.nspname = %s;
-                """,
-                (schema,),
+                        AND n.nspname = :schema;
+                    """
+                ),
+                {"schema": schema},
             )
 
             procedure_rows = list(procedures)

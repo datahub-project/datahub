@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ML_FEATURE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -33,6 +35,23 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          ML_FEATURE_KEY_ASPECT_NAME,
+          ML_FEATURE_PROPERTIES_ASPECT_NAME,
+          ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          GLOSSARY_TERMS_ASPECT_NAME,
+          DOMAINS_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
   private final EntityClient _entityClient;
@@ -63,12 +82,15 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, ML_FEATURE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> mlFeatureMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               ML_FEATURE_ENTITY_NAME,
               new HashSet<>(mlFeatureUrns),
-              null);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults =
           mlFeatureUrns.stream()

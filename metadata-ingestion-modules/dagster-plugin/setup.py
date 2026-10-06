@@ -54,7 +54,7 @@ base_dev_requirements = {
     "dagster-snowflake >= 0.11.0",
     "dagster-snowflake-pandas >= 0.11.0",
     "coverage>=5.1",
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
@@ -63,8 +63,8 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",

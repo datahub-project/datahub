@@ -23,12 +23,28 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from typing import Dict, List, Optional, Tuple
+from unittest.mock import MagicMock, patch
 
+import pytest
+from pydantic import ValidationError
+
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryFilterConfig,
+    BigQueryIdentifierConfig,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
 )
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+    BigQueryJob,
+    BigQueryJobLabel,
+    BigQueryQueriesExtractor,
+    BigQueryQueriesExtractorConfig,
     _all_scanned_regions_empty,
     _build_enriched_query_log_query,
     _build_user_filter,
@@ -37,6 +53,8 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     _normalize_location_to_region_qualifier,
     _resolve_region_qualifiers,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.utilities.file_backed_collections import FileBackedList
 
 
 class TestBuildUserFilter:
@@ -455,6 +473,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with pushdown patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = ["bot_%"]
         config.pushdown_allow_usernames = ["analyst_%@example.com"]
         config.window = MagicMock()
@@ -513,6 +532,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with NO pushdown patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = []
         config.pushdown_allow_usernames = []
 
@@ -555,6 +575,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with ONLY deny patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = ["bot_%", "service_%"]
         config.pushdown_allow_usernames = []
 
@@ -592,6 +613,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with ONLY allow patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = []
         config.pushdown_allow_usernames = ["analyst_%@company.com"]
 
@@ -1239,3 +1261,173 @@ class TestBigQueryConfigValidator:
         assert (
             BigQueryQueriesExtractorConfig().region_qualifiers_auto_discovery is False
         )
+
+
+class TestQueriesExtractorUsageConfigWiring:
+    """Tests for usage.format_sql_queries / include_top_n_queries / queries_character_limit
+    being forwarded from BigQueryQueriesExtractorConfig into the SqlParsingAggregator."""
+
+    def _build_extractor(self, config):
+        filters = BigQueryFilter(BigQueryFilterConfig(), MagicMock())
+        identifiers = BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), MagicMock())
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=config,
+            structured_report=MagicMock(),
+            filters=filters,
+            identifiers=identifiers,
+        )
+
+    def test_top_n_queries_too_big_for_character_limit_rejected_at_parse_time(self):
+        # The standalone bigquery-queries source uses BigQueryQueriesExtractorConfig
+        # directly (not via BigQueryUsageConfig, which already validates this combo),
+        # so this class needs its own copy of the check - otherwise an inconsistent
+        # combo only blows up later inside BaseUsageConfig(...) mid-ingestion.
+        with pytest.raises(ValidationError) as excinfo:
+            BigQueryQueriesExtractorConfig(top_n_queries=2, queries_character_limit=20)
+        assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_format_sql_queries_forwarded_to_aggregator(self, value):
+        # format_sql_queries is dual-target: it drives both the aggregator's own
+        # format_queries kwarg and usage_config.format_sql_queries.
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(
+                BigQueryQueriesExtractorConfig(format_sql_queries=value)
+            )
+            _, kwargs = mock_aggregator_cls.call_args
+            assert kwargs["format_queries"] is value
+            assert kwargs["usage_config"].format_sql_queries is value
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [("include_top_n_queries", False), ("queries_character_limit", 1000)],
+    )
+    def test_usage_config_field_forwarded_to_aggregator(self, field, value):
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(BigQueryQueriesExtractorConfig(**{field: value}))
+            _, kwargs = mock_aggregator_cls.call_args
+            assert getattr(kwargs["usage_config"], field) == value
+
+
+class TestJobLabelsAsQueryProperties:
+    def _build_extractor(self, enabled: bool) -> BigQueryQueriesExtractor:
+        extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+        extractor.config = BigQueryQueriesExtractorConfig(
+            capture_job_labels_as_query_properties=enabled
+        )
+        extractor.identifiers = BigQueryIdentifierBuilder(
+            BigQueryIdentifierConfig(), MagicMock()
+        )
+        return extractor
+
+    def _row(self, labels: List[BigQueryJobLabel]) -> BigQueryJob:
+        return BigQueryJob(
+            job_id="job_1",
+            project_id="my-project",
+            creation_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            user_email="user@example.com",
+            query="insert into `my_dataset`.`b` select * from `my_dataset`.`a`",
+            session_id=None,
+            query_hash=None,
+            statement_type="INSERT",
+            destination_table=None,
+            referenced_tables=[],
+            labels=labels,
+        )
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_labels_column_selected_only_when_enabled(self, enabled: bool) -> None:
+        query = _build_enriched_query_log_query(
+            project_id="test-project",
+            region="region-us",
+            start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            include_labels=enabled,
+        )
+        assert bool(re.search(r"referenced_tables,\s+labels\s+FROM", query)) is enabled
+
+    def test_disabled_by_default(self) -> None:
+        assert (
+            BigQueryQueriesExtractorConfig().capture_job_labels_as_query_properties
+            is False
+        )
+
+    def test_labels_become_custom_properties(self) -> None:
+        row = self._row(
+            [
+                {"key": "airflow-dag", "value": "my_dag"},
+                {"key": "airflow-task", "value": "my_task"},
+            ]
+        )
+        entry = self._build_extractor(enabled=True)._parse_audit_log_row(row)
+        assert entry.custom_properties == {
+            "airflow-dag": "my_dag",
+            "airflow-task": "my_task",
+        }
+
+    def test_no_labels_gives_none(self) -> None:
+        entry = self._build_extractor(enabled=True)._parse_audit_log_row(self._row([]))
+        assert entry.custom_properties is None
+
+    def test_labels_ignored_when_disabled(self) -> None:
+        row = self._row([{"key": "airflow-dag", "value": "my_dag"}])
+        entry = self._build_extractor(enabled=False)._parse_audit_log_row(row)
+        assert entry.custom_properties is None
+
+    @pytest.mark.parametrize(
+        "observations,expected_labels,expected_ts",
+        [
+            pytest.param(
+                [(1, {"airflow-task": "task_1"}), (2, {"airflow-task": "task_2"})],
+                {"airflow-task": "task_2"},
+                2,
+                id="newer_labels_replace",
+            ),
+            pytest.param(
+                [(1, {"airflow-task": "task_1"}), (2, None)],
+                None,
+                2,
+                id="newer_unlabeled_clears",
+            ),
+            # Projects and regions are fetched one after another, so an older job can
+            # be read after a newer one.
+            pytest.param(
+                [(2, {"airflow-task": "task_2"}), (1, {"airflow-task": "task_1"})],
+                {"airflow-task": "task_2"},
+                2,
+                id="older_job_read_later_ignored",
+            ),
+        ],
+    )
+    def test_deduplicate_keeps_newest_labels_in_bucket(
+        self,
+        observations: List[Tuple[int, Optional[Dict[str, str]]]],
+        expected_labels: Optional[Dict[str, str]],
+        expected_ts: int,
+    ) -> None:
+        extractor = self._build_extractor(enabled=True)
+        queries: FileBackedList[ObservedQuery] = FileBackedList()
+        for hour, labels in observations:
+            queries.append(
+                ObservedQuery(
+                    query="select * from `my_dataset`.`a`",
+                    timestamp=datetime(2024, 1, 1, hour, tzinfo=timezone.utc),
+                    custom_properties=labels,
+                    extra_info={"job_id": f"job_{hour}"},
+                )
+            )
+
+        deduped = extractor.deduplicate_queries(queries)
+
+        [buckets] = deduped.values()
+        [query] = buckets.values()
+        assert query.usage_multiplier == len(observations)
+        assert query.custom_properties == expected_labels
+        assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)
+        assert query.extra_info == {"job_id": f"job_{expected_ts}"}

@@ -22,15 +22,18 @@ _self_pin = (
     else ""
 )
 
-base_requirements = {
+# Everything except great-expectations, which is pinned differently per
+# environment below. Each requirement set must end up with exactly one
+# great-expectations entry: two in the same set resolve unpredictably and make
+# .github/scripts/dep-analyzer.py report a different bound run to run.
+common_requirements = {
     # Actual dependencies.
-    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-    "sqlalchemy>=1.4.39, <2",
-    # GE added handling for higher version of jinja2 in version 0.15.12
-    # https://github.com/great-expectations/great_expectations/pull/5382
-    # GX v0.17.15 is the earliest version that supports Pydantic v2.
-    # See https://github.com/great-expectations/great_expectations/pull/8604
-    "great-expectations>=0.17.15, <1.0.0",
+    # The plugin only touches version-stable APIs (make_url, Engine/Connection
+    # isinstance checks, engine.url), so both 1.4 and 2.0 work. The 1.4 floor keeps
+    # GX 0.x dialect extras that still pin sqlalchemy<2 installable; the <2.1 cap
+    # matches acryl-datahub, since 2.1 is untested (e.g. its default postgresql://
+    # driver is psycopg 3, not psycopg2).
+    "sqlalchemy>=1.4.39, <2.1",
     "pydantic>=2.1.0",
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
@@ -39,9 +42,21 @@ base_requirements = {
     f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
+base_requirements = {
+    *common_requirements,
+    # GE added handling for higher version of jinja2 in version 0.15.12
+    # https://github.com/great-expectations/great_expectations/pull/5382
+    # GX v0.17.15 is the earliest version that supports Pydantic v2.
+    # See https://github.com/great-expectations/great_expectations/pull/8604
+    # GX Core 1.x is supported via datahub_gx_plugin.action_v1 (additive).
+    # Keep using datahub_gx_plugin.action for GX 0.17/0.18.
+    "great-expectations>=0.17.15",
+}
+
 mypy_stubs = {
     "types-dataclasses",
-    "sqlalchemy-stubs",
+    # No sqlalchemy-stubs: they describe the 1.3 API and shadow SQLAlchemy 2.0's
+    # inline (PEP 561) types.
     "types-setuptools",
     "types-six",
     "types-python-dateutil",
@@ -57,18 +72,16 @@ mypy_stubs = {
     "types-pytz",
 }
 
-base_dev_requirements = {
-    *base_requirements,
-    *mypy_stubs,
+dev_tool_requirements = {
     "coverage>=5.1",
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -77,8 +90,28 @@ base_dev_requirements = {
     "packaging",
 }
 
+base_dev_requirements = {
+    *common_requirements,
+    *mypy_stubs,
+    *dev_tool_requirements,
+    # Keep the 0.x action/test suite on GX <1 in local/CI installs.
+    # Package install_requires still allows GX 1.x for action_v1 users.
+    "great-expectations>=0.17.15, <1.0.0",
+}
+
 dev_requirements = {
     *base_dev_requirements,
+}
+
+# GX Core 1.x test environment for action_v1. Installed into a separate venv
+# because the 0.x pin above and GX 1.x cannot coexist in one resolution.
+gx1_dev_requirements = {
+    *common_requirements,
+    *mypy_stubs,
+    *dev_tool_requirements,
+    "great-expectations>=1.0.0, <2.0.0",
+    # tests/conftest.py imports datahub.testing.docker_utils unconditionally.
+    "pytest-docker>=1.1.0",
 }
 
 integration_test_requirements = {
@@ -90,6 +123,8 @@ integration_test_requirements = {
 }
 
 entry_points = {
+    # GX 0.x discovery. For GX Core 1.x, instantiate
+    # datahub_gx_plugin.action_v1.DataHubValidationAction in Python (Fluent API).
     "gx.plugins": "acryl-datahub-gx-plugin = datahub_gx_plugin.action:DataHubValidationAction"
 }
 
@@ -136,6 +171,7 @@ setuptools.setup(
     extras_require={
         "ignore": [],  # This is a dummy extra to allow for trailing commas in the list.
         "dev": list(dev_requirements),
+        "dev-gx1": list(gx1_dev_requirements),
         "integration-tests": list(integration_test_requirements),
     },
 )

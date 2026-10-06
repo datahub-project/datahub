@@ -1,4 +1,4 @@
-import { Dropdown } from 'antd';
+import { Dropdown } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -64,7 +64,7 @@ export default function OperatorSelector({ predicate, onChangeOperator }: Props)
 
     return (
         <Dropdown trigger={['click']} menu={{ items }}>
-            <SelectedOperatorText>{selectedOperatorText}</SelectedOperatorText>
+            <SelectedOperatorText data-testid="active-filter-operator">{selectedOperatorText}</SelectedOperatorText>
         </Dropdown>
     );
 }

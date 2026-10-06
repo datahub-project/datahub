@@ -23,6 +23,7 @@ def _build_details(
     jobs: list[dict[str, Any]],
     repo: str,
     conclusion_override: str | None,
+    attempt: int,
 ) -> dict[str, Any]:
     started = parse_dt(run_data.get("run_started_at"))
     completed = parse_dt(run_data.get("updated_at"))
@@ -49,6 +50,7 @@ def _build_details(
         "duration_seconds": duration_seconds(started, completed),
         "failed_jobs": failed_jobs,
         "display_title": display_title,
+        "run_attempt": attempt,
     }
 
 
@@ -63,7 +65,7 @@ def main() -> int:
     gh = GitHubAPIClient(token)
     run_data = gh.get_run_attempt(args.repo, args.run_id, args.attempt)
     jobs = gh.get_run_attempt_jobs(args.repo, args.run_id, args.attempt)
-    details = _build_details(run_data, jobs, args.repo, args.conclusion)
+    details = _build_details(run_data, jobs, args.repo, args.conclusion, args.attempt)
 
     Path(args.output).write_text(json.dumps(details, indent=2))
     print(f"Workflow details written to {args.output}")

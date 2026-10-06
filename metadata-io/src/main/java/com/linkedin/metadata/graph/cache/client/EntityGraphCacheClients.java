@@ -5,12 +5,14 @@ import com.linkedin.metadata.graph.cache.EntityGraphBinding;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.GraphReadResult;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
 import com.linkedin.metadata.graph.cache.ReadMode;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 /** Call-site helpers for {@link EntityGraphCache} including skip-cache read behavior. */
@@ -90,5 +92,19 @@ public final class EntityGraphCacheClients {
   private static boolean shouldSkipCache(@Nonnull OperationContext opContext) {
     return opContext.getSearchContext().getSearchFlags().isSkipCache() != null
         && opContext.getSearchContext().getSearchFlags().isSkipCache();
+  }
+
+  /**
+   * True when {@code binding} is a custom graph id, or an enabled known graph. False when a known
+   * graph is disabled or omitted — call sites should skip expand.
+   */
+  public static boolean isBoundKnownGraph(
+      @Nonnull EntityGraphCache cache, @Nonnull EntityGraphBinding binding) {
+    KnownEntityGraph known = KnownEntityGraph.fromConfigKey(binding.getGraphId());
+    if (known == null) {
+      return true;
+    }
+    Optional<EntityGraphBinding> bound = cache.bindingForKnownGraph(known);
+    return bound != null && bound.isPresent();
   }
 }

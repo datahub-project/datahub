@@ -16,14 +16,17 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authorization.SessionActorIdentity;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -47,8 +50,13 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -125,6 +133,26 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testUnauthorizedDocumentDoesNotLoadRelationships()
+      throws ExecutionException, InterruptedException {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:restricted");
+    Document source = new Document();
+    source.setUrn(documentUrn.toString());
+    when(mockEnv.getSource()).thenReturn(source);
+    QueryContext context = mockEnv.getContext();
+
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.canView(context.getOperationContext(), documentUrn))
+          .thenReturn(false);
+
+      assertTrue(resolver.get(mockEnv).get().getRelationships().isEmpty());
+      Mockito.verifyNoInteractions(_graphClient);
+    }
+  }
+
+  @Test
   public void testIncludeSoftDeleted() throws ExecutionException, InterruptedException {
     EntityRelationshipsResult expected = new EntityRelationshipsResult();
     expected.setRelationships(
@@ -144,6 +172,140 @@ public class EntityRelationshipsResultResolverTest {
     expected.setCount(1);
     expected.setTotal(1);
     assertEquals(resolver.get(mockEnv).get().toString(), expected.toString());
+  }
+
+  @Test
+  public void testFilterByRelatedEntityTypesExcludesNonMatching()
+      throws ExecutionException, InterruptedException {
+    // The graph returns corpuser relationships; restricting to dataHubPolicy should drop them all.
+    // This mirrors the role "policies" query, where IsAssociatedWithRole edges from non-policy
+    // sources (e.g. global settings) must be excluded.
+    input.setRelatedEntityTypes(List.of("dataHubPolicy"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertTrue(result.getRelationships().isEmpty());
+    assertEquals(result.getCount().intValue(), 0);
+    assertEquals(result.getTotal().intValue(), 0);
+  }
+
+  @Test
+  public void testFilterByRelatedEntityTypesKeepsMatching()
+      throws ExecutionException, InterruptedException {
+    input.setRelatedEntityTypes(List.of("corpuser"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 2);
+  }
+
+  // Callers pass entity types in the GraphQL enum form ("CORPUSER"/"DATASET"); the URN entity type
+  // is lowercase ("corpuser"/"dataset"). The filter must match case-insensitively rather than drop
+  // every edge and return an empty, correct-looking result.
+  @Test
+  public void testFilterByRelatedEntityTypesIsCaseInsensitive()
+      throws ExecutionException, InterruptedException {
+    input.setRelatedEntityTypes(List.of("CORPUSER"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 2);
+  }
+
+  /**
+   * Reproduces the Settings → Roles page crash. A role's {@code policies} are its incoming {@code
+   * IsAssociatedWithRole} edges, but that relationship name is shared: it is emitted toward a role
+   * by both policy actor filters ({@code DataHubPolicyInfo.actors}) and the global-settings
+   * maintenance-window audience ({@code GlobalSettingsInfo.maintenanceWindow.audience}), since both
+   * embed {@code DataHubActorFilter.roles}. So when an admin scopes a maintenance window to the
+   * Admin role, that role's edge set legitimately contains a {@code globalSettings} source mixed in
+   * with real {@code dataHubPolicy} sources. {@code UrnToEntityMapper} has no case for {@code
+   * globalSettings}, so under the {@code ... on DataHubPolicy} fragment it resolves to a null
+   * entity, and the frontend crashed dereferencing {@code .urn}. The {@code relatedEntityTypes:
+   * ["dataHubPolicy"]} filter must drop the {@code globalSettings} edge server-side while keeping
+   * the real policy.
+   */
+  @Test
+  public void testRolePoliciesExcludeMaintenanceWindowGlobalSettingsEdge()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    final Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Admin");
+    final Urn policyUrn = Urn.createFromString("urn:li:dataHubPolicy:test-policy");
+    final Urn globalSettingsUrn = Urn.createFromString("urn:li:globalSettings:0");
+
+    CorpGroup source = new CorpGroup();
+    source.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(source);
+
+    EntityRelationships roleEdges =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    new EntityRelationship().setEntity(policyUrn).setType("IsAssociatedWithRole"),
+                    new EntityRelationship()
+                        .setEntity(globalSettingsUrn)
+                        .setType("IsAssociatedWithRole")));
+    when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
+        .thenReturn(roleEdges);
+
+    RelationshipsInput rolePoliciesInput = new RelationshipsInput();
+    rolePoliciesInput.setStart(0);
+    rolePoliciesInput.setCount(50);
+    rolePoliciesInput.setDirection(RelationshipDirection.INCOMING);
+    rolePoliciesInput.setTypes(List.of("IsAssociatedWithRole"));
+    rolePoliciesInput.setRelatedEntityTypes(List.of("dataHubPolicy"));
+    when(mockEnv.getArgument(eq("input"))).thenReturn(rolePoliciesInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), policyUrn.toString());
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getTotal().intValue(), 1);
+  }
+
+  /**
+   * Without the {@code relatedEntityTypes} filter, the {@code globalSettings} maintenance-window
+   * edge survives into the result and resolves to a null entity (no {@code globalSettings} case in
+   * {@code UrnToEntityMapper}) — the exact precondition that crashed the Roles page. This guards
+   * against the filter being removed and the crash regressing.
+   */
+  @Test
+  public void testRolePoliciesWithoutFilterLeaksNullGlobalSettingsEntity()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    final Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Admin");
+    final Urn policyUrn = Urn.createFromString("urn:li:dataHubPolicy:test-policy");
+    final Urn globalSettingsUrn = Urn.createFromString("urn:li:globalSettings:0");
+
+    CorpGroup source = new CorpGroup();
+    source.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(source);
+
+    EntityRelationships roleEdges =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    new EntityRelationship().setEntity(policyUrn).setType("IsAssociatedWithRole"),
+                    new EntityRelationship()
+                        .setEntity(globalSettingsUrn)
+                        .setType("IsAssociatedWithRole")));
+    when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
+        .thenReturn(roleEdges);
+
+    RelationshipsInput unfilteredInput = new RelationshipsInput();
+    unfilteredInput.setStart(0);
+    unfilteredInput.setCount(50);
+    unfilteredInput.setDirection(RelationshipDirection.INCOMING);
+    unfilteredInput.setTypes(List.of("IsAssociatedWithRole"));
+    when(mockEnv.getArgument(eq("input"))).thenReturn(unfilteredInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getRelationships().size(), 2);
+    assertTrue(
+        result.getRelationships().stream().anyMatch(rel -> rel.getEntity() == null),
+        "globalSettings edge should resolve to a null entity without the filter");
   }
 
   @Test
@@ -537,52 +699,16 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
-  public void testContainerChildRelationshipsExcludeSoftDeleted()
+  public void testContainerIsPartOfIncomingUsesGraphClientIncludingAssets()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn parentContainer = Urn.createFromString("urn:li:container:parent");
-    Urn activeChild = Urn.createFromString("urn:li:container:activeChild");
-    Urn softDeletedChild = Urn.createFromString("urn:li:container:softDeletedChild");
+    Urn childContainer = Urn.createFromString("urn:li:container:child");
+    Urn childDataset =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
 
     Container containerSource = new Container();
     containerSource.setUrn(parentContainer.toString());
     when(mockEnv.getSource()).thenReturn(containerSource);
-
-    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
-    EntityGraphBinding binding =
-        EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
-    when(entityGraphCache.bindingForPolicyField("CONTAINER")).thenReturn(Optional.of(binding));
-    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
-        .thenReturn(Optional.of(binding));
-    when(entityGraphCache.expand(
-            eq("container"),
-            eq(GraphSnapshotSource.GRAPH),
-            eq(TraversalDirection.REVERSE),
-            eq(Set.of(parentContainer.toString())),
-            anyInt(),
-            eq(1),
-            eq(ReadMode.CACHED)))
-        .thenReturn(
-            GraphReadResult.fromVertices(
-                Set.of(
-                    parentContainer.toString(),
-                    activeChild.toString(),
-                    softDeletedChild.toString())));
-
-    QueryContext queryContext = getMockAllowContext();
-    OperationContext baseContext = queryContext.getOperationContext();
-    OperationContext opContext =
-        baseContext.toBuilder()
-            .retrieverContext(
-                RetrieverContext.builder()
-                    .entityGraphCache(entityGraphCache)
-                    .graphRetriever(GraphRetriever.EMPTY)
-                    .searchRetriever(SearchRetriever.EMPTY)
-                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                    .aspectRetriever(mock(AspectRetriever.class))
-                    .build())
-            .build(baseContext.getSessionAuthentication(), false);
-    when(queryContext.getOperationContext()).thenReturn(opContext);
-    when(mockEnv.getContext()).thenReturn(queryContext);
 
     RelationshipsInput containerInput = new RelationshipsInput();
     containerInput.setTypes(List.of("IsPartOf"));
@@ -592,48 +718,43 @@ public class EntityRelationshipsResultResolverTest {
     containerInput.setCount(10);
     when(mockEnv.getArgument(eq("input"))).thenReturn(containerInput);
 
-    when(_entityService.exists(any(), eq(Set.of(activeChild, softDeletedChild)), eq(false)))
-        .thenReturn(Set.of(activeChild));
-
-    EntityRelationshipsResult result = resolver.get(mockEnv).get();
-
-    assertEquals(result.getCount(), 1);
-    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), activeChild.toString());
-    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void testContainerChildRelationshipsFallsBackToGraphClientWhenNotDirectChildrenQuery()
-      throws ExecutionException, InterruptedException {
-    Container containerSource = new Container();
-    containerSource.setUrn("urn:li:container:parent");
-    when(mockEnv.getSource()).thenReturn(containerSource);
-
-    RelationshipsInput nonContainerChildrenInput = new RelationshipsInput();
-    nonContainerChildrenInput.setTypes(List.of("SomeType"));
-    nonContainerChildrenInput.setDirection(RelationshipDirection.INCOMING);
-    nonContainerChildrenInput.setStart(0);
-    nonContainerChildrenInput.setCount(10);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(nonContainerChildrenInput);
-
     when(_graphClient.getRelatedEntities(
-            eq("urn:li:container:parent"),
-            eq(new HashSet<>(nonContainerChildrenInput.getTypes())),
+            eq(parentContainer.toString()),
+            eq(new HashSet<>(containerInput.getTypes())),
             same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
-            eq(nonContainerChildrenInput.getStart()),
-            eq(nonContainerChildrenInput.getCount()),
+            eq(containerInput.getStart()),
+            eq(containerInput.getCount()),
             any()))
         .thenReturn(
             new EntityRelationships()
                 .setStart(0)
-                .setCount(0)
-                .setTotal(0)
-                .setRelationships(new EntityRelationshipArray()));
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        List.of(
+                            new EntityRelationship().setEntity(childContainer).setType("IsPartOf"),
+                            new EntityRelationship()
+                                .setEntity(childDataset)
+                                .setType("IsPartOf")))));
+
+    // Soft-deleted dataset is present in the graph response but filtered via exists().
+    when(_entityService.exists(any(), eq(Set.of(childContainer, childDataset)), eq(false)))
+        .thenReturn(Set.of(childContainer));
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
-    assertNotNull(result);
-    verify(_graphClient).getRelatedEntities(any(), any(), any(), any(), any(), any());
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), childContainer.toString());
+    verify(_graphClient)
+        .getRelatedEntities(
+            eq(parentContainer.toString()),
+            eq(new HashSet<>(containerInput.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(containerInput.getStart()),
+            eq(containerInput.getCount()),
+            any());
   }
 
   @Test
@@ -709,6 +830,46 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testSessionUserOutgoingMembershipHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn actorUrn = Urn.createFromString("urn:li:corpuser:test");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:session-group");
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+
+    CorpUser userSource = new CorpUser();
+    userSource.setUrn(actorUrn.toString());
+    when(mockEnv.getSource()).thenReturn(userSource);
+
+    SessionActorIdentity sessionIdentity =
+        new SessionActorIdentity(actorUrn, List.of(groupUrn), Set.of(roleUrn));
+    QueryContext queryContext =
+        withSessionActorIdentity(getMockAllowContext(actorUrn.toString()), sessionIdentity);
+    when(queryContext
+            .getOperationContext()
+            .getAuthorizationContext()
+            .resolveSessionActorRoles(any(), any()))
+        .thenReturn(Set.of(roleUrn));
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membershipInput = new RelationshipsInput();
+    membershipInput.setTypes(List.of("IsMemberOfGroup", "IsMemberOfRole"));
+    membershipInput.setDirection(RelationshipDirection.OUTGOING);
+    membershipInput.setRelatedEntityTypes(List.of("dataHubRole"));
+    membershipInput.setStart(0);
+    // count=1 forces filter-before-paginate: page-then-filter would keep only the group and drop
+    // the role.
+    membershipInput.setCount(1);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membershipInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), roleUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
   public void testCorpGroupIncomingMembersUsesMembershipCache()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
@@ -774,6 +935,266 @@ public class EntityRelationshipsResultResolverTest {
     assertEquals(result.getCount(), 1);
     assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
     verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * A member of a group via BOTH ingested ({@code IsMemberOfGroup}) and native ({@code
+   * IsMemberOfNativeGroup}) membership yields two membership edges to the same corpuser. The
+   * members list must collapse them to a single unique member (issue #14471), preferring the native
+   * (GUI-managed) edge. The total stays the raw edge count: per-page dedup keeps the read cheap
+   * (fetch only the requested page) rather than pre-scanning the whole membership set to correct
+   * the rare dual-membership count.
+   */
+  @Test
+  public void testCorpGroupIncomingMembersDeduplicatesAcrossMembershipEdgeTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    Urn memberUrn = Urn.createFromString("urn:li:corpuser:member");
+
+    CorpGroup groupSource = new CorpGroup();
+    groupSource.setUrn(groupUrn.toString());
+    when(mockEnv.getSource()).thenReturn(groupSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    // Same neighbor URN returned once per requested edge type; count reflects edges, not members.
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup", "IsMemberOfNativeGroup")),
+            eq(1),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(memberUrn.toString(), "IsMemberOfGroup"),
+                    new MembershipNeighborResult.Neighbor(
+                        memberUrn.toString(), "IsMemberOfNativeGroup")),
+                2));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfGroup", "IsMemberOfNativeGroup"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), eq(Set.of(memberUrn)), eq(false)))
+        .thenReturn(Set.of(memberUrn));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    // Raw edge total (2) is preserved; the returned list is deduped to the single unique member.
+    assertEquals(result.getTotal().intValue(), 2);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
+    assertEquals(result.getRelationships().get(0).getType(), "IsMemberOfNativeGroup");
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+
+    // Per-page dedup must not pre-scan the membership set: the resolver fetches only the requested
+    // page size (10), never the bounds.maxEdges cap.
+    verify(entityGraphCache)
+        .listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup", "IsMemberOfNativeGroup")),
+            eq(1),
+            eq(0),
+            eq(10),
+            any(ReadMode.class));
+  }
+
+  /**
+   * A role's members ({@code IsMemberOfRole} INCOMING) can be both users and groups. The membership
+   * graph stores both edge types; reverse listing must be served from the membership path and
+   * surface group grants alongside users (not drop groups or bypass to the live graph).
+   */
+  @Test
+  public void testDataHubRoleIncomingMembersHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"), null, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersRelatedEntityTypesUsesMaxEdgesFetchCap()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    int fetchCap = 2;
+    EntityGraphCache entityGraphCache =
+        setupDataHubRoleIncomingMembersMembershipCache(
+            userUrn, groupUrn, List.of("corpuser"), fetchCap, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(entityGraphCache)
+        .listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq("urn:li:dataHubRole:Editor"),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            eq(fetchCap),
+            any(ReadMode.class));
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersRelatedEntityTypesFailsClosedWhenFetchTruncated()
+      throws URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    // Cap fetches 2 neighbors but backend reports total 5 → refuse truncated filter+page.
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"), 2, 5);
+
+    ExecutionException thrown =
+        expectThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
+    assertTrue(thrown.getCause() instanceof IllegalStateException);
+    assertTrue(thrown.getCause().getMessage().contains("fetch cap"));
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersIncludeGroupsViaMembershipCache()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, null, null, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    Set<String> members = new HashSet<>();
+    for (var rel : result.getRelationships()) {
+      members.add(rel.getEntity().getUrn());
+    }
+    assertTrue(
+        members.contains(groupUrn.toString()),
+        "role member listing must include group grants, not only users");
+    assertTrue(members.contains(userUrn.toString()));
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * @param relatedTypeFilterFetchCap when non-null (and relatedEntityTypes set), stubs {@code
+   *     maxEdgesForGraph} and expects {@code listRelated} count to match the cap
+   * @param reportedTotal total reported by the membership hit (may exceed fetched neighbors to
+   *     simulate truncation)
+   */
+  @Nonnull
+  private EntityGraphCache setupDataHubRoleIncomingMembersMembershipCache(
+      @Nonnull Urn userUrn,
+      @Nonnull Urn groupUrn,
+      @Nullable List<String> relatedEntityTypes,
+      @Nullable Integer relatedTypeFilterFetchCap,
+      int reportedTotal)
+      throws URISyntaxException {
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+
+    CorpGroup roleSource = new CorpGroup();
+    roleSource.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(roleSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    if (relatedTypeFilterFetchCap != null) {
+      when(entityGraphCache.maxEdgesForGraph("membership"))
+          .thenReturn(OptionalInt.of(relatedTypeFilterFetchCap));
+    }
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(roleUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            relatedTypeFilterFetchCap != null && relatedEntityTypes != null
+                ? eq(relatedTypeFilterFetchCap)
+                : anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfRole"),
+                    new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfRole")),
+                reportedTotal));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfRole"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    if (relatedEntityTypes != null) {
+      membersInput.setRelatedEntityTypes(relatedEntityTypes);
+    }
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(50);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+    return entityGraphCache;
   }
 
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(

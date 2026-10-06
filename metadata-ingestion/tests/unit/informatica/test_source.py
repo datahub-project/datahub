@@ -1124,6 +1124,8 @@ class TestFilteringAndErrorHandling:
         # 5 mapping ids + batch_size=2 → 3 export submissions with the
         # expected slices [ids[0:2], ids[2:4], ids[4:5]]. Ensures the
         # batching math doesn't drop or duplicate a mapping at the edge.
+        # Batches submit concurrently via a ThreadPoolExecutor, so compare
+        # order-independently — the contract is the set of slices, not order.
         source = _make_source(export_batch_size=2)
         source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
         source._connections_by_fed_id["fed"] = IdmcConnection(
@@ -1149,7 +1151,7 @@ class TestFilteringAndErrorHandling:
         ):
             list(source._extract_lineage())
 
-        assert submitted_batches == [
+        assert sorted(submitted_batches) == [
             ["guid-0", "guid-1"],
             ["guid-2", "guid-3"],
             ["guid-4"],
@@ -1519,8 +1521,10 @@ class TestSourceLifecycle:
         assert len(source.report.warnings) == 1
         w = source.report.warnings[0]
         assert w.title == "Taskflow step DAG missing for some Taskflows"
-        assert "Asset - export" in "".join(w.message or [])
-        assert "1/3" in "".join(w.message or [])
+        assert "Asset - export" in w.message
+        context_str = " ".join(w.context or [])
+        assert "taskflows_with_steps=1" in context_str
+        assert "taskflows_scanned=3" in context_str
 
     def test_summarize_taskflow_steps_silent_on_full_coverage(self):
         source = _make_source()

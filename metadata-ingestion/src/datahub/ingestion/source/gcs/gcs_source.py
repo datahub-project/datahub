@@ -8,6 +8,7 @@ from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -36,6 +37,7 @@ from datahub.ingestion.source.data_lake_common.object_store import (
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -82,7 +84,18 @@ def _register_gcs_oauth_before_send(
             request.headers["x-goog-project-id"] = project_id
 
     for op in _GCS_OAUTH_S3_OPERATIONS:
-        client.meta.events.register(f"before-send.s3.{op}", inject_bearer)
+        # unique_id makes re-registration a no-op: get_s3_client() memoizes the
+        # client, so repeated calls would otherwise stack duplicate handlers.
+        # botocore's HierarchicalEmitter keeps the FIRST handler registered under a
+        # given unique_id and skips later duplicate registrations, so this closure's
+        # captured credentials are frozen at first registration. That is fine here:
+        # _gcs_oauth_credentials is set once before the first get_s3_client() call
+        # and refreshed in place on the same Credentials object. Reassigning
+        # _gcs_oauth_credentials after the client is cached would silently keep using
+        # the stale creds; register once at client-creation time if that ever changes.
+        client.meta.events.register(
+            f"before-send.s3.{op}", inject_bearer, unique_id=f"datahub-gcs-oauth-{op}"
+        )
 
 
 class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
@@ -148,12 +161,21 @@ class GCSSourceConfig(
 
     max_rows: int = Field(
         default=100,
-        description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
+        ge=1,
+        description="Maximum number of rows to use when inferring schemas for TSV and CSV files. Also caps JSON and JSONL schema inference: at most this many records of a top-level array are read, and arrays inside a single JSON object are truncated to this many elements, so fields that only appear later are not reported.",
     )
 
     number_of_files_to_sample: int = Field(
         default=100,
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
+    )
+
+    profile_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for tables to profile ",
+    )
+    profiling: DataLakeProfilerConfig = Field(
+        default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -217,7 +239,7 @@ class GCSSourceReport(DataLakeSourceReport):
 
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -227,7 +249,7 @@ class GCSSourceReport(DataLakeSourceReport):
     ],
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -296,6 +318,8 @@ class GCSSource(StatefulIngestionSourceBase):
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
+            profile_patterns=self.config.profile_patterns,
+            profiling=self.config.profiling,
         )
 
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
@@ -353,6 +377,7 @@ class GCSSource(StatefulIngestionSourceBase):
                     include_hidden_folders=path_spec.include_hidden_folders,
                     tables_filter_pattern=path_spec.tables_filter_pattern,
                     traversal_method=path_spec.traversal_method,
+                    emit_folders_only=path_spec.emit_folders_only,
                 )
             )
 

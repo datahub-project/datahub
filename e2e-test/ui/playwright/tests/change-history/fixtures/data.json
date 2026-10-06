@@ -1,0 +1,252 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "Text-to-SQL",
+        "description": "Core skill for converting free-text questions into SQL queries. Patch release with improved handling of ambiguous column names.",
+        "customProperties": {
+          "version": "2.1.0",
+          "subtype": "Skill"
+        },
+        "created": {
+          "time": 1738281600000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1738281600000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": ["Skill"]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+      "json": {
+        "versionSet": "urn:li:versionSet:(6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d,dataset)",
+        "version": {
+          "versionTag": "2.1.0",
+          "metadataAttribution": {
+            "time": 1738281600000,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        },
+        "sortId": "2.1.0",
+        "comment": "Patch: ambiguous column resolution + clearer error messages",
+        "metadataCreatedTimestamp": {
+          "time": 1738281600000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "sourceCreatedTimestamp": {
+          "time": 1738281600000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-0-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "Text-to-SQL",
+        "description": "Upgraded backend with multi-turn clarification support. Breaking change: output schema changed.",
+        "customProperties": {
+          "version": "2.0.0",
+          "subtype": "Skill"
+        },
+        "created": {
+          "time": 1735603200000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1735603200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-0-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": ["Skill"]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-0-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+      "json": {
+        "versionSet": "urn:li:versionSet:(6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d,dataset)",
+        "version": {
+          "versionTag": "2.0.0",
+          "metadataAttribution": {
+            "time": 1735603200000,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        },
+        "sortId": "2.0.0",
+        "comment": "Upgraded backend + multi-turn clarification support",
+        "metadataCreatedTimestamp": {
+          "time": 1735603200000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "sourceCreatedTimestamp": {
+          "time": 1735603200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": [
+          { "tag": "urn:li:tag:Stable" },
+          { "tag": "urn:li:tag:NLP" }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:datahub",
+            "type": "TECHNICAL_OWNER",
+            "typeUrn": "urn:li:ownershipType:__system__technical_owner"
+          }
+        ],
+        "lastModified": {
+          "time": 1738281600000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+      "json": {
+        "terms": [
+          {
+            "urn": "urn:li:glossaryTerm:TextToSQL",
+            "context": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)"
+          }
+        ],
+        "auditStamp": {
+          "time": 1738281600000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": ["urn:li:domain:AI"]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "text-to-sql-skill-2-1-0",
+        "platform": "urn:li:dataPlatform:agents",
+        "version": 0,
+        "created": { "time": 1738281600000, "actor": "urn:li:corpuser:datahub" },
+        "lastModified": { "time": 1738281600000, "actor": "urn:li:corpuser:datahub" },
+        "hash": "",
+        "platformSchema": { "com.linkedin.schema.OtherSchema": { "rawSchema": "" } },
+        "fields": [
+          {
+            "fieldPath": "question",
+            "nullable": false,
+            "description": "The natural-language question to convert to SQL.",
+            "type": { "type": { "com.linkedin.schema.StringType": {} } },
+            "nativeDataType": "string",
+            "recursive": false
+          },
+          {
+            "fieldPath": "dataset_urn",
+            "nullable": true,
+            "description": "DataHub URN for schema auto-discovery.",
+            "type": { "type": { "com.linkedin.schema.StringType": {} } },
+            "nativeDataType": "string",
+            "recursive": false
+          },
+          {
+            "fieldPath": "allow_clarification",
+            "nullable": false,
+            "description": "Enable multi-turn clarification.",
+            "type": { "type": { "com.linkedin.schema.BooleanType": {} } },
+            "nativeDataType": "boolean",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "versionSet",
+    "entityUrn": "urn:li:versionSet:(6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d,dataset)",
+    "changeType": "UPSERT",
+    "aspectName": "versionSetProperties",
+    "aspect": {
+      "json": {
+        "latest": "urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-1-0,PROD)",
+        "versioningScheme": "LEXICOGRAPHIC_STRING",
+        "customProperties": {
+          "subtype": "Skill"
+        }
+      }
+    }
+  }
+]

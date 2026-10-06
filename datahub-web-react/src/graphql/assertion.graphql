@@ -1,8 +1,10 @@
-#import "./assertion_monitor_shared.graphql"
-
 fragment assertionInfo on AssertionInfo {
     type
     description
+    customProperties {
+        key
+        value
+    }
     lastUpdated {
         time
         actor
@@ -168,6 +170,32 @@ fragment assertionInfo on AssertionInfo {
             urn
             path
         }
+        fields {
+            urn
+            path
+        }
+        scope
+        aggregation
+        operator
+        parameters {
+            value {
+                value
+                type
+            }
+            minValue {
+                value
+                type
+            }
+            maxValue {
+                value
+                type
+            }
+        }
+        nativeType
+        nativeParameters {
+            key
+            value
+        }
         logic
     }
     source {
@@ -212,6 +240,16 @@ fragment assertionDetails on Assertion {
     tags {
         ...globalTagsFields
     }
+    ownership {
+        ...ownershipFields
+    }
+    dataset {
+        urn
+        privileges {
+            canEditAssertionOwners
+            canEditAssertions
+        }
+    }
 }
 
 fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
@@ -250,33 +288,6 @@ fragment assertionDetailsWithRunEvents on Assertion {
         runEvents {
             ...assertionRunEventDetails
         }
-    }
-}
-
-fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
-    field {
-        path
-        type
-        nativeType
-    }
-    transformer {
-        type
-        nativeType
-    }
-}
-
-fragment assertionStdParametersDetails on AssertionStdParameters {
-    value {
-        value
-        type
-    }
-    minValue {
-        value
-        type
-    }
-    maxValue {
-        value
-        type
     }
 }
 
@@ -307,6 +318,10 @@ fragment assertionRunEventDetails on AssertionRunEvent {
     assertionUrn
     status
     runId
+    partitionSpec {
+        type
+        partition
+    }
     runtimeContext {
         key
         value
@@ -335,21 +350,72 @@ mutation deleteAssertion($urn: String!) {
     deleteAssertion(urn: $urn)
 }
 
-fragment assertionDetailsWithRunEvents on Assertion {
+query getAssertionWithRunEvents($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetailsWithRunEvents
+    }
+}
+
+fragment assertionDetailsForSearch on Assertion {
     ...assertionDetails
-    runEvents(status: COMPLETE, limit: 1) {
+    runEvents(status: COMPLETE, limit: $runEventsLimit) {
         total
         failed
         succeeded
+        errored
         runEvents {
             ...assertionRunEventDetails
         }
     }
 }
 
-query getAssertionWithRunEvents($assertionUrn: String!) {
-    assertion(urn: $assertionUrn) {
-        urn
-        ...assertionDetailsWithRunEvents
+fragment assertionSearchResultFields on Entity {
+    ... on Assertion {
+        ...assertionDetailsForSearch
+    }
+}
+
+query searchAssertions($input: SearchAcrossEntitiesInput!, $runEventsLimit: Int = 1) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                ...assertionSearchResultFields
+            }
+        }
+        facets {
+            field
+            displayName
+            aggregations {
+                value
+                count
+                entity {
+                    urn
+                    type
+                    ... on Tag {
+                        name
+                        properties {
+                            name
+                        }
+                    }
+                    ... on CorpUser {
+                        username
+                        properties {
+                            displayName
+                            fullName
+                        }
+                    }
+                    ... on CorpGroup {
+                        name
+                        info {
+                            displayName
+                        }
+                    }
+                }
+            }
+        }
     }
 }

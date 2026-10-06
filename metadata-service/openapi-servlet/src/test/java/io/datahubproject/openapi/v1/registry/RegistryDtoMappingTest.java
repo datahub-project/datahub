@@ -53,15 +53,25 @@ public class RegistryDtoMappingTest {
     assertEquals(dto.getName(), "dataset");
     assertEquals(dto.getKeyAspect(), "datasetKey");
     assertEquals(dto.getSearchGroup(), "primary");
+    assertEquals(dto.isViewUnrestricted(), false);
   }
 
   @Test
-  public void testEntityAnnotationDtoMapsDefaultSearchGroup() {
+  public void testEntityAnnotationDtoMapsUnsetSearchGroup() {
     EntityAnnotation annotation = new EntityAnnotation("chart", "chartKey");
 
     EntityAnnotationDto dto = EntityAnnotationDto.fromEntityAnnotation(annotation);
 
-    assertEquals(dto.getSearchGroup(), "default");
+    assertEquals(dto.getSearchGroup(), null);
+  }
+
+  @Test
+  public void testEntityAnnotationDtoMapsViewUnrestricted() {
+    EntityAnnotation annotation = new EntityAnnotation("corpuser", "corpUserKey", "primary", true);
+
+    EntityAnnotationDto dto = EntityAnnotationDto.fromEntityAnnotation(annotation);
+
+    assertEquals(dto.isViewUnrestricted(), true);
   }
 
   @Test
@@ -78,13 +88,13 @@ public class RegistryDtoMappingTest {
   }
 
   @Test
-  public void testEntitySpecDtoFromRealRegistryIncludesSearchGroup() {
+  public void testEntitySpecDtoFromRealRegistryHasUnsetSearchGroup() {
     EntitySpec dataset = TestOperationContexts.defaultEntityRegistry().getEntitySpec("dataset");
     assertNotNull(dataset);
 
     EntitySpecDto dto = EntitySpecDto.fromEntitySpec(dataset);
 
     assertNotNull(dto.getEntityAnnotation());
-    assertEquals(dto.getEntityAnnotation().getSearchGroup(), "primary");
+    assertEquals(dto.getEntityAnnotation().getSearchGroup(), null);
   }
 }

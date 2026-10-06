@@ -16,11 +16,6 @@ export function buildConfluenceDocumentsIngestionState() {
       enabled: true
     stateful_ingestion:
       enabled: true
-
-sink:
-  type: datahub-rest
-  config:
-    server: "\${DATAHUB_GMS_URL}"
 `;
 
     return buildIngestionSourceState({

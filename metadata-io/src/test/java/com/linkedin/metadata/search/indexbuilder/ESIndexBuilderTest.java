@@ -14,17 +14,22 @@ import static org.testng.Assert.fail;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.ByteArrayInputStream;
@@ -37,6 +42,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
 import org.mockito.ArgumentCaptor;
@@ -165,6 +172,31 @@ public class ESIndexBuilderTest {
     assertEquals(indexBuilder.getConfig().getIndex().getNumRetries(), NUM_RETRIES);
     assertEquals(
         indexBuilder.getConfig().getIndex().getRefreshIntervalSeconds(), REFRESH_INTERVAL_SECONDS);
+  }
+
+  @Test
+  void testShouldPreserveStructuredPropertyMappings() {
+    // Explicit copy request always preserves (the definition-driven mapping-update path).
+    Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(true));
+    // With the structured-property system-update machinery disabled (the default), the current
+    // index's SP mappings must be carried into the reindex target: the container is mapped
+    // dynamic:false, so a target without them would leave every pre-existing SP value unindexed.
+    Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(false));
+
+    ESIndexBuilder systemUpdateEnabledBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(true)
+                .build(),
+            Map.of(),
+            gitVersion);
+    // When the system-update machinery owns the SP mapping diff (including removals), current
+    // mappings must not be merged into the target.
+    Assert.assertFalse(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(false));
+    Assert.assertTrue(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(true));
   }
 
   @Test
@@ -357,6 +389,98 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class));
+  }
+
+  /** A V3 index whose root alias is now a field cannot take V3 writes until it is rebuilt. */
+  @Test
+  void testApplyMappings_ReportsV3IndexThatNeedsRebuild() throws IOException {
+    Map<String, Object> rootAlias =
+        Map.of("type", "alias", "path", "_aspects.datasetProperties.name");
+    assertEquals(rebuildErrors("datasetindex_v3", rootAlias, Map.of("type", "keyword")), 1);
+    // Other changes put-mapping cannot apply only warn, as for every index
+    assertEquals(
+        rebuildErrors("datasetindex_v3", Map.of("type", "keyword"), Map.of("type", "text")), 0);
+    assertEquals(rebuildErrors("datasetindex_v2", rootAlias, Map.of("type", "keyword")), 0);
+  }
+
+  /** system-update stops on such an index only while V3 serves reads. */
+  @Test
+  void testBuildIndex_FailsWhenV3IndexThatNeedsRebuildServesReads() throws IOException {
+    Map<String, Object> rootAlias =
+        Map.of("type", "alias", "path", "_aspects.datasetProperties.name");
+    EntityIndexVersionConfiguration on =
+        EntityIndexVersionConfiguration.builder().enabled(true).build();
+    EntityIndexVersionConfiguration off =
+        EntityIndexVersionConfiguration.builder().enabled(false).build();
+
+    when(elasticSearchConfiguration.getEntityIndex())
+        .thenReturn(EntityIndexConfiguration.builder().v2(on).v3(on).build());
+    assertEquals(
+        indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v3", rootAlias)),
+        ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+
+    for (EntityIndexConfiguration v3Reads :
+        List.of(
+            EntityIndexConfiguration.builder()
+                .v2(on)
+                .v3(on.toBuilder().keywordReadEnabled(true).build())
+                .build(),
+            EntityIndexConfiguration.builder()
+                .v2(on)
+                .v3(on.toBuilder().semanticReadEnabled(true).build())
+                .build(),
+            EntityIndexConfiguration.builder().v2(off).v3(on).build())) {
+      when(elasticSearchConfiguration.getEntityIndex()).thenReturn(v3Reads);
+      assertThrows(
+          IllegalStateException.class,
+          () -> indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v3", rootAlias)));
+      // Other unapplied changes, and V2 indices, keep only the warning
+      assertEquals(
+          indexBuilder.buildIndex(
+              opContext, staleIndexState("datasetindex_v3", Map.of("type", "text"))),
+          ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+      assertEquals(
+          indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v2", rootAlias)),
+          ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+    }
+  }
+
+  private static ReindexConfig staleIndexState(String index, Object currentName) {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(index);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(
+            Map.<String, Object>of("properties", Map.of("name", Map.of("type", "keyword"))));
+    return indexState;
+  }
+
+  private long rebuildErrors(String index, Object currentName, Object targetName)
+      throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(index);
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", targetName)));
+    ch.qos.logback.classic.Logger builderLogger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ESIndexBuilder.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    logAppender.start();
+    builderLogger.addAppender(logAppender);
+    try {
+      indexBuilder.applyMappings(opContext, indexState, true);
+    } finally {
+      builderLogger.detachAppender(logAppender);
+    }
+    return logAppender.list.stream()
+        .filter(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+        .filter(event -> event.getFormattedMessage().contains(index))
+        .count();
   }
 
   @Test
@@ -716,7 +840,6 @@ public class ESIndexBuilderTest {
 
   @Test
   void testCleanIndex_DeletesOrphanedIndices() throws Exception {
-    // Setup
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.indexPattern()).thenReturn("test_index*");
     when(indexState.indexCleanPattern()).thenReturn("test_index_*");
@@ -758,8 +881,125 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testCleanIndex_SkipsExcludedOrphanedIndices() throws Exception {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.indexPattern()).thenReturn("test_index*");
+    when(indexState.indexCleanPattern()).thenReturn("test_index_*");
+
+    GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
+    String excludedOrphan = "test_index_excluded";
+    String deletableOrphan = "test_index_deletable";
+    when(getIndexResponse.getIndices()).thenReturn(new String[] {excludedOrphan, deletableOrphan});
+    when(getIndexResponse.getSetting(excludedOrphan, "index.creation_date"))
+        .thenReturn(String.valueOf(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000));
+    when(getIndexResponse.getSetting(deletableOrphan, "index.creation_date"))
+        .thenReturn(String.valueOf(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000));
+    when(getIndexResponse.getAliases())
+        .thenReturn(Map.of(excludedOrphan, List.of(), deletableOrphan, List.of()));
+
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(getIndexResponse);
+
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
+    when(deleteResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(deleteResponse);
+
+    ESIndexBuilder.cleanOrphanedIndices(
+        searchClient, opContext, elasticSearchConfiguration, indexState, Set.of(excludedOrphan));
+
+    ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(searchClient)
+        .deleteIndex(
+            any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
+    assertEquals(deleteCaptor.getAllValues().size(), 1);
+    assertEquals(deleteCaptor.getValue().indices()[0], deletableOrphan);
+  }
+
+  @Test
+  void testCleanIndex_DoesNotDeleteSemanticSiblingIndex() throws Exception {
+    // The base entity config's clean pattern (e.g. datasetindex_v2_*) also matches the live
+    // semantic index (datasetindex_v2_semantic). The bare semantic index is alias-less and old, so
+    // it otherwise satisfies the orphan condition, but it must NOT be deleted as an orphan of the
+    // base entity config. Its own backing indices (datasetindex_v2_semantic_<ts>) are NOT semantic
+    // per isSemanticEntityIndex (they end in a timestamp), so a stale, alias-less one must still be
+    // deleted - the guard protects only the bare name, not the semantic index's backing churn.
+    // Names are derived from the context's IndexConvention so the semantic suffix (and any
+    // configured prefix) match what isSemanticEntityIndex expects.
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    String baseName = indexConvention.getEntityIndexName(opContext, "dataset");
+    String semanticSibling = indexConvention.getEntityIndexNameSemantic(opContext, "dataset");
+    String baseBackingOrphan = baseName + "_1700000000000";
+    String semanticBackingOrphan = semanticSibling + "_1700000000000";
+
+    ReindexConfig baseConfig = mock(ReindexConfig.class);
+    when(baseConfig.name()).thenReturn(baseName);
+    when(baseConfig.indexPattern()).thenReturn(baseName + "*");
+    when(baseConfig.indexCleanPattern()).thenReturn(baseName + "_*");
+
+    long tenDaysAgo = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000;
+
+    GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
+    when(getIndexResponse.getIndices())
+        .thenReturn(new String[] {baseBackingOrphan, semanticSibling, semanticBackingOrphan});
+    when(getIndexResponse.getSetting(anyString(), eq("index.creation_date")))
+        .thenReturn(String.valueOf(tenDaysAgo));
+    // All alias-less: the two backing indices are genuine orphans; the bare semantic index is live
+    // but addressed by physical name (no alias).
+    when(getIndexResponse.getAliases())
+        .thenReturn(
+            Map.of(
+                baseBackingOrphan,
+                List.of(),
+                semanticSibling,
+                List.of(),
+                semanticBackingOrphan,
+                List.of()));
+
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(getIndexResponse);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
+    when(deleteResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(deleteResponse);
+
+    ESIndexBuilder.cleanOrphanedIndices(
+        searchClient, opContext, elasticSearchConfiguration, baseConfig, Set.of());
+
+    ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(searchClient, times(2))
+        .deleteIndex(
+            any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
+    Set<String> deleted = new HashSet<>();
+    for (DeleteIndexRequest request : deleteCaptor.getAllValues()) {
+      deleted.add(request.indices()[0]);
+    }
+    assertTrue(deleted.contains(baseBackingOrphan), "Base backing orphan should be deleted");
+    assertTrue(
+        deleted.contains(semanticBackingOrphan), "Stale semantic backing orphan should be deleted");
+    assertFalse(deleted.contains(semanticSibling), "Live bare semantic index must not be deleted");
+  }
+
+  @Test
   void testApplyMappings_WithStructuredProperties() throws IOException {
-    // Setup
     Map<String, Object> currentMappings = createTestMappings();
     Map<String, Object> targetMappings =
         createTestMappingsWithStructuredProperties(Collections.emptyMap());
@@ -783,6 +1023,114 @@ public class ESIndexBuilderTest {
     indexBuilder.applyMappings(opContext, indexState, false);
 
     // Verify
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testApplyMappings_StripsKnnVectorWhenIndexKnnCannotBeEnabled() throws IOException {
+    Map<String, Object> targetMappings = new HashMap<>();
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", ImmutableMap.of("type", "text"));
+    properties.put("resolvedTextSha256", ImmutableMap.of("type", "keyword"));
+    properties.put(
+        "embeddings",
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                "model_a",
+                ImmutableMap.of(
+                    "properties",
+                    ImmutableMap.of(
+                        "vector",
+                        ImmutableMap.of(
+                            "type",
+                            ReindexConfig.KNN_VECTOR_TYPE,
+                            "dimension",
+                            8,
+                            "method",
+                            ImmutableMap.of("name", "hnsw")))))));
+    targetMappings.put("properties", properties);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(true);
+    when(indexState.cannotApplyKnnVectorMappingInPlace()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(putMappingResponse);
+
+    indexBuilder.applyMappings(opContext, indexState, true);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    String source = captor.getValue().source().utf8ToString();
+    assertFalse(source.contains(ReindexConfig.KNN_VECTOR_TYPE));
+    assertTrue(source.contains("field1"));
+    assertTrue(source.contains("resolvedTextSha256"));
+    assertTrue(
+        targetMappings.toString().contains(ReindexConfig.KNN_VECTOR_TYPE),
+        "targetMappings must still include knn_vector for createIndex/reindex");
+  }
+
+  @Test
+  void testBuildIndex_KnnMismatchWithSettingsReindexEnabledDoesNotPutMapping() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    assertTrue(indexState.requiresReindex());
+
+    try {
+      indexBuilder.buildIndex(opContext, indexState);
+    } catch (RuntimeException ignored) {
+      // reindex() needs more cluster mocks; we only care that put-mapping is not used
+    }
+
+    verify(searchClient, never())
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testApplyMappings_WithInPlaceMappingParameterUpdate() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(false);
+    when(indexState.isPureStructuredPropertyAddition()).thenReturn(false);
+    when(indexState.isInPlaceMappingParameterUpdate()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(putMappingResponse);
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
     verify(searchClient)
         .putIndexMapping(
             any(OperationFingerprint.class),
@@ -986,6 +1334,165 @@ public class ESIndexBuilderTest {
     Map<String, Object> targetSettings = result.targetSettings();
     Map<String, Object> indexSettings = (Map<String, Object>) targetSettings.get("index");
     assertEquals(indexSettings.get("refresh_interval"), expectedRefreshInterval);
+  }
+
+  @Test
+  void testIndexSettingOverridesDeepMergeAnalysis() throws IOException {
+    // Generated settings carry a full analysis block
+    Map<String, Object> generated = new HashMap<>(createTestSettings());
+    generated.put(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                        Map.of("tokenizer", "main_tokenizer", "filter", List.of("min_length")),
+                    "keyword", Map.of("tokenizer", "keyword"))));
+
+    // Override names only what changes: a new filter and one analyzer's filter chain
+    Map<String, Map<String, Object>> indexOverrides = new HashMap<>();
+    indexOverrides.put(
+        "test_index",
+        Map.of(
+            "number_of_shards",
+            "3",
+            "analysis",
+            Map.of(
+                "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                "analyzer", Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+
+    ESIndexBuilder builderWithOverrides =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            indexOverrides,
+            gitVersion);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    ReindexConfig result =
+        builderWithOverrides.buildReindexState(
+            opContext, "test_index", createTestMappings(), generated);
+
+    Map<String, Object> index = (Map<String, Object>) result.targetSettings().get("index");
+    assertEquals(index.get("number_of_shards"), "3");
+    Map<String, Object> analysis = (Map<String, Object>) index.get("analysis");
+    Map<String, Object> filters = (Map<String, Object>) analysis.get("filter");
+    // generated filter kept, override filter added
+    assertEquals(filters.get("min_length"), Map.of("type", "length", "min", "3"));
+    assertEquals(filters.get("min_length_2"), Map.of("type", "length", "min", "2"));
+    Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
+    // untouched analyzer kept as generated
+    assertEquals(analyzers.get("keyword"), Map.of("tokenizer", "keyword"));
+    // overridden analyzer: list replaced, sibling keys kept
+    Map<String, Object> wordDelimited = (Map<String, Object>) analyzers.get("word_delimited");
+    assertEquals(wordDelimited.get("filter"), List.of("min_length_2"));
+    assertEquals(wordDelimited.get("tokenizer"), "main_tokenizer");
+    // generated maps are immutable Map.of: merging copied them instead of writing into them
+    assertEquals(
+        ((Map<String, Object>) generated.get("analysis")).get("filter"),
+        Map.of("min_length", Map.of("type", "length", "min", "3")));
+  }
+
+  @Test
+  void testIndexSettingOverridesExistingIndexUnchangedAnalysisNoReindex() throws IOException {
+    mockExistingIndex(storedAnalysis("2"));
+
+    ReindexConfig result =
+        builderWithAnalysisOverride()
+            .buildReindexState(
+                opContext, TEST_INDEX_NAME, createTestMappings(), generatedAnalysis());
+
+    assertTrue(result.exists());
+    assertFalse(result.isSettingsReindex());
+    assertFalse(result.requiresReindex());
+  }
+
+  @Test
+  void testIndexSettingOverridesExistingIndexChangedAnalysisReindex() throws IOException {
+    // Stored index still has the old filter value
+    mockExistingIndex(storedAnalysis("3"));
+
+    ReindexConfig result =
+        builderWithAnalysisOverride()
+            .buildReindexState(
+                opContext, TEST_INDEX_NAME, createTestMappings(), generatedAnalysis());
+
+    assertTrue(result.exists());
+    assertTrue(result.isSettingsReindex());
+  }
+
+  private Map<String, Object> generatedAnalysis() {
+    return Map.of(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                    Map.of("tokenizer", "main", "filter", List.of("min_length")))));
+  }
+
+  private ESIndexBuilder builderWithAnalysisOverride() {
+    Map<String, Map<String, Object>> overrides =
+        Map.of(
+            TEST_INDEX_NAME,
+            Map.of(
+                "analysis",
+                Map.of(
+                    "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                    "analyzer",
+                        Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        overrides,
+        gitVersion);
+  }
+
+  /** Stored settings as the engine returns them after the override was applied once. */
+  private Settings storedAnalysis(String minLength2) {
+    return Settings.builder()
+        .put("index.number_of_shards", String.valueOf(NUM_SHARDS))
+        .put("index.number_of_replicas", String.valueOf(NUM_REPLICAS))
+        .put("index.refresh_interval", REFRESH_INTERVAL_SECONDS + "s")
+        .put("index.analysis.filter.min_length.type", "length")
+        .put("index.analysis.filter.min_length.min", "3")
+        .put("index.analysis.filter.min_length_2.type", "length")
+        .put("index.analysis.filter.min_length_2.min", minLength2)
+        .put("index.analysis.analyzer.word_delimited.tokenizer", "main")
+        .putList("index.analysis.analyzer.word_delimited.filter", "min_length_2")
+        .build();
+  }
+
+  private void mockExistingIndex(Settings currentSettings) throws IOException {
+    // searchClient is also the settings comparison; use its default (strict) comparison
+    when(searchClient.indexSettingNamesForComparison(any(), any())).thenCallRealMethod();
+    when(searchClient.indexSettingValuesEqual(any(), any())).thenCallRealMethod();
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+    GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
+    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+    when(mappingMetadata.getSourceAsMap()).thenReturn(createTestMappings());
+    when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
+    when(searchClient.getIndexMapping(
+            any(OperationFingerprint.class),
+            any(GetMappingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mappingsResponse);
   }
 
   @DataProvider(name = "settingsOverrideData")
@@ -1581,10 +2088,7 @@ public class ESIndexBuilderTest {
     when(healthResponse.getIndices()).thenReturn(healthMap);
 
     AtomicInteger count = new AtomicInteger();
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             inv -> {
               // Throw IOException on second call (index health check), not first (data node count)
@@ -1597,10 +2101,7 @@ public class ESIndexBuilderTest {
     indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     verify(searchClient, atLeast(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1619,10 +2120,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should NOT throw - YELLOW with all primaries active is acceptable
@@ -1631,10 +2129,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private Map<String, Object> createTestTargetSettings() {
@@ -1657,10 +2152,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should not throw
@@ -1668,10 +2160,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called exactly once
     verify(searchClient, times(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1685,10 +2174,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(3);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw IOException
@@ -1708,10 +2194,7 @@ public class ESIndexBuilderTest {
     // Verify clusterHealth was called at least once (retry logic may try multiple times)
     // But the first response already indicates RED, so we expect few retries
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1726,10 +2209,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(2);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw RuntimeException
@@ -1749,10 +2229,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private ClusterHealthResponse createMockClusterHealthResponse(
@@ -1816,6 +2293,213 @@ public class ESIndexBuilderTest {
 
   // --- Incremental reindex tests ---
 
+  /** Shared poll-completion fixture: fixed dest count for both indices. */
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount) throws IOException {
+    return setupPollReindexBuilder(destDocCount, 0);
+  }
+
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount, int numRetries)
+      throws IOException {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(numRetries)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
+
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(destDocCount);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void stubReindexTaskCompleted(boolean completed) throws IOException {
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenReturn(completed);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(task));
+  }
+
+  /**
+   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
+   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
+   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
+      throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(900L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(), "A completed-but-short reindex must be reported as not completed");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * Mid-copy false positive: dest has already reached the expected count but the ES task is still
+   * running. Poll must not complete — otherwise the launch-time swap gate would accept a partial
+   * copy.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskRunning_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts while the reindex task is still running must not complete");
+  }
+
+  /**
+   * Stall detection would otherwise resubmit while the ES task is still running. With
+   * waitForUnresolvedReindexTask enabled, skip that retry (retry budget is still available).
+   */
+  @Test
+  void testPollReindexCompletion_unresolvedTask_skipsRetryWhenFeatureEnabled() throws Throwable {
+    ESIndexBuilder builder = spy(setupPollReindexBuilder(1000L, NUM_RETRIES));
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    doReturn(System.currentTimeMillis() + 200L).when(builder).computeTimeoutAt();
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(result.completed());
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * ZDU catch-up: dest is still short after the ES task COMPLETED, retry budget remains, and
+   * waitForUnresolvedReindexTask is on. COMPLETED is not unresolved, so poll must still resubmit
+   * {@code _reindex} rather than skipping.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_retriesWhenFeatureEnabled() throws Throwable {
+    setupPollReindexBuilder(900L, NUM_RETRIES);
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    stubReindexTaskCompleted(true);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, 900L);
+          }
+
+          @Override
+          public long computeTimeoutAt() {
+            return System.currentTimeMillis() + 2_000L;
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(),
+        "Completed-but-short must not be treated as success even after a catch-up resubmit");
+    verify(searchClient, atLeastOnce())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /** Counts match and the ES task reports completed — poll succeeds. */
+  @Test
+  void testPollReindexCompletion_countsMatchAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Matching counts with a completed task must complete");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+  }
+
+  /**
+   * Destination overshoot after the ES task finishes (writes between launch-time snapshot and
+   * scroll open) must complete — otherwise busy-index ZDU Phase 1 times out forever.
+   */
+  @Test
+  void testPollReindexCompletion_destOvershootAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1005L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Completed task with dest > expected must complete");
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1005L));
+  }
+
+  /**
+   * Transient getTask failures must not complete on matching counts alone — that reopens the
+   * mid-copy false-complete hole.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskLookupError_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("connection reset"));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts during a transient task-status lookup failure must not complete");
+  }
+
   @Test
   void testExtractTargetShards() {
     ReindexConfig config = mock(ReindexConfig.class);
@@ -1837,6 +2521,30 @@ public class ESIndexBuilderTest {
     ReindexConfig config = mock(ReindexConfig.class);
     when(config.targetSettings()).thenReturn(ImmutableMap.of("index", ImmutableMap.of()));
     ESIndexBuilder.extractTargetShards(config);
+  }
+
+  @Test(dataProvider = "estimateMinutesRemainingData")
+  void testEstimateMinutesRemaining(
+      long docsIndexedSinceStart,
+      long elapsedMillisSinceStart,
+      long remainingDocs,
+      long expectedMinutes) {
+    assertEquals(
+        ESIndexBuilder.estimateMinutesRemaining(
+            docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs),
+        expectedMinutes);
+  }
+
+  @DataProvider(name = "estimateMinutesRemainingData")
+  public Object[][] provideEstimateMinutesRemainingData() {
+    return new Object[][] {
+      // docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs, expectedMinutes
+      {1000L, 60_000L, 9000L, 9L}, // steady cumulative rate
+      {100L, 0L, 500L, 0L}, // zero elapsed time guards divide-by-zero
+      {0L, 30_000L, 1000L, 0L}, // no progress yet
+      {1000L, 60_000L, 0L, 0L}, // already complete
+      {10_000L, 60_000L, 100L, 0L}, // sub-minute ETA truncates to 0
+    };
   }
 
   @Test

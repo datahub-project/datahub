@@ -25,6 +25,9 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetApplicationQuery } from '@graphql/application.generated';
 import { Application, EntityType, SearchResult } from '@types';
@@ -80,32 +83,7 @@ export class ApplicationEntity implements Entity<Application> {
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_APPLICATION])}
             headerDropdownItems={headerDropdownItems}
             isNameEditable
-            tabs={[
-                {
-                    id: EntityProfileTab.SUMMARY_TAB,
-                    name: i18next.t('entity.types:tab.summary'),
-                    component: ApplicationSummaryTab,
-                    icon: ReadOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:tab.documentation'),
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:tab.assets'),
-                    getCount: (entityData, _, loading) => {
-                        return !loading ? entityData?.children?.total : undefined;
-                    },
-                    component: ApplicationEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:tab.properties'),
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -153,6 +131,41 @@ export class ApplicationEntity implements Entity<Application> {
         },
     ];
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                id: EntityProfileTab.SUMMARY_TAB,
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : ApplicationSummaryTab,
+                icon: ReadOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:tab.assets'),
+                getCount: (entityData, _, loading) => {
+                    return !loading ? entityData?.children?.total : undefined;
+                },
+                component: ApplicationEntitiesTab,
+                icon: AppstoreOutlined,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
+
     renderPreview = (previewType: PreviewType, data: Application, actions) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
@@ -165,6 +178,7 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
+                parentApplications={data.parentApplications?.applications}
                 entityCount={(data as ApplicationWithChildren)?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
@@ -187,6 +201,7 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
+                parentApplications={data.parentApplications?.applications}
                 entityCount={(data as ApplicationWithChildren)?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
@@ -205,15 +220,10 @@ export class ApplicationEntity implements Entity<Application> {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
         const entityCount = (data as ApplicationWithChildren)?.children?.total || undefined;
-        const parentDomains = {
-            domains: (data?.domain && [data?.domain?.domain]) || [],
-            count: (data?.domain && 1) || 0,
-        };
         return {
             name,
             externalUrl,
             entityCount,
-            parentDomains,
         };
     };
 

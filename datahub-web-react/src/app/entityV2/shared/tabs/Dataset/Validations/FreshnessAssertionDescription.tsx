@@ -1,5 +1,4 @@
 import { Typography } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,7 +8,6 @@ import { CronSchedule, FreshnessAssertionInfo, FreshnessAssertionScheduleType, F
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
-    monitorSchedule?: Maybe<CronSchedule>;
 };
 
 const getCronAsLabel = (cronSchedule: CronSchedule) => {
@@ -27,11 +25,10 @@ const getCronAsLabel = (cronSchedule: CronSchedule) => {
  * translators control the word order of the whole sentence. Dynamic, non-translatable values (interval
  * size, time unit, library-generated cron labels) are interpolated as opaque slots.
  */
-export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }: Props) => {
+export const FreshnessAssertionDescription = ({ assertionInfo }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const scheduleType = assertionInfo.schedule?.type;
     const prefix = assertionInfo.type === FreshnessAssertionType.DatasetChange ? 'datasetChange' : 'dataTask';
-    const cronLabel = monitorSchedule ? getCronAsLabel(monitorSchedule) : '';
 
     let scheduleText: string;
     switch (scheduleType) {
@@ -40,14 +37,10 @@ export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }
             if (!fixedInterval) {
                 scheduleText = t(`freshnessDescription.${prefix}.noInterval`);
             } else {
-                const values = {
+                scheduleText = t(`freshnessDescription.${prefix}.fixedInterval`, {
                     multiple: fixedInterval.multiple,
                     unit: `${fixedInterval.unit.toLocaleLowerCase()}s`,
-                    schedule: cronLabel,
-                };
-                scheduleText = monitorSchedule
-                    ? t(`freshnessDescription.${prefix}.fixedIntervalWithCron`, values)
-                    : t(`freshnessDescription.${prefix}.fixedInterval`, values);
+                });
             }
             break;
         }
@@ -57,9 +50,7 @@ export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }
             });
             break;
         case FreshnessAssertionScheduleType.SinceTheLastCheck:
-            scheduleText = monitorSchedule
-                ? t(`freshnessDescription.${prefix}.sinceLastCheckWithCron`, { schedule: cronLabel })
-                : t(`freshnessDescription.${prefix}.sinceLastCheck`);
+            scheduleText = t(`freshnessDescription.${prefix}.sinceLastCheck`);
             break;
         default:
             scheduleText = t(`freshnessDescription.${prefix}.unknown`);

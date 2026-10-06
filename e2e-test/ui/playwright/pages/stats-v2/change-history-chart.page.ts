@@ -129,6 +129,7 @@ export class ChangeHistoryChart extends BasePage {
   async closeDayDrawer(timeout: number = TIMEOUTS.SHORT): Promise<void> {
     this.logger?.step('closeDayDrawer');
     await this.closeDrawerButton.click({ timeout });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
@@ -151,6 +152,7 @@ export class ChangeHistoryChart extends BasePage {
     const dayCell = this.getDayCell(dateString);
     await dayCell.scrollIntoViewIfNeeded();
     await dayCell.hover({ timeout });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
@@ -159,6 +161,7 @@ export class ChangeHistoryChart extends BasePage {
    */
   async toggleOperationType(opType: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
     await this.getOperationTypeOption(opType).click({ timeout });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 

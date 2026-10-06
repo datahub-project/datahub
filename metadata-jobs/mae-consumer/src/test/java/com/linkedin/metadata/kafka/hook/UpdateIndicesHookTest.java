@@ -32,7 +32,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.graph.GraphService;
@@ -46,7 +45,10 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -110,7 +112,6 @@ public class UpdateIndicesHookTest {
   private TimeseriesAspectService mockTimeseriesAspectService;
   private SystemMetadataService mockSystemMetadataService;
   private SearchDocumentTransformer searchDocumentTransformer;
-  private DataHubUpgradeKafkaListener mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider mockConfigurationProvider;
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
@@ -127,9 +128,16 @@ public class UpdateIndicesHookTest {
     mockEntitySearchService = mock(ElasticSearchService.class);
     mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
     mockSystemMetadataService = mock(SystemMetadataService.class);
-    searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
-    mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
+    searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
+
+    // Hook invoke paths call flushAndWaitIfConfigured(); stub a disabled ack path.
+    ESWriteDAO mockWriteDAO = mock(ESWriteDAO.class);
+    ESBulkProcessor mockBulkProcessor = mock(ESBulkProcessor.class);
+    when(mockEntitySearchService.getEsWriteDAO()).thenReturn(mockWriteDAO);
+    when(mockWriteDAO.getBulkProcessor()).thenReturn(mockBulkProcessor);
+    when(mockBulkProcessor.isAckAfterTransfer()).thenReturn(false);
 
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
@@ -698,6 +706,52 @@ public class UpdateIndicesHookTest {
   }
 
   @Test
+  public void testFineGrainedLineageNotAllowed_When_downstream_is_non_dataset_entity()
+      throws Exception {
+    // Regression test: FineGrainedLineage downstreams aren't always Dataset-backed schemaFields
+    // (e.g. SemanticModel columns via upstreamLineage). Checking the platform exclusion list must
+    // not try to cast the parent's key to DatasetKey when the parent is some other entity type.
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+
+    Urn semanticModelUrn =
+        UrnUtils.getUrn(
+            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,b2b_sales,b2b_sales_bookings)");
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn downstreamUrn =
+        UrnUtils.getUrn(String.format("urn:li:schemaField:(%s,bookings)", semanticModelUrn));
+
+    MetadataChangeLog event =
+        createUpstreamLineageMCLForEntity(
+            SEMANTIC_MODEL_ENTITY_NAME,
+            semanticModelUrn,
+            List.of(upstreamUrn),
+            downstreamUrn,
+            TEST_DATASET_URN);
+
+    // Must not throw (e.g. ClassCastException: SemanticModelKey -> DatasetKey).
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            semanticModelUrn,
+            null);
+    // Not excluded: the downstream's parent is a SemanticModel, not the excluded "hdfs" platform.
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
+  }
+
+  @Test
   public void testFineGrainedLineageNotAllowed_When_multiple_upstreams() throws Exception {
     updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
     updateIndicesService
@@ -932,8 +986,6 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
-              "MD5",
-              v2Enabled, // v2Enabled parameter
               null);
       strategies.add(v3Strategy);
     }
@@ -1067,6 +1119,50 @@ public class UpdateIndicesHookTest {
     event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
     event.setEntityUrn(Urn.createFromString(downstreamDataset));
     event.setEntityType(DATASET_ENTITY_NAME);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    return event;
+  }
+
+  /**
+   * Like {@link #createUpstreamLineageMCL}, but for entities other than dataset (e.g.
+   * semanticModel) whose fine-grained lineage downstreams are schemaFields parented by that entity
+   * rather than by a dataset.
+   */
+  private MetadataChangeLog createUpstreamLineageMCLForEntity(
+      String entityType,
+      Urn entityUrn,
+      List<Urn> upstreamSchemaFieldUrns,
+      Urn downstreamSchemaFieldUrn,
+      String upstreamDataset)
+      throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
+    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    UrnArray upstreamUrns = new UrnArray();
+    upstreamUrns.addAll(upstreamSchemaFieldUrns);
+    fineGrainedLineage.setUpstreams(upstreamUrns);
+    UrnArray downstreamUrns = new UrnArray();
+    downstreamUrns.add(downstreamSchemaFieldUrn);
+    fineGrainedLineage.setDownstreams(downstreamUrns);
+    fineGrainedLineages.add(fineGrainedLineage);
+    upstreamLineage.setFineGrainedLineages(fineGrainedLineages);
+
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    final Upstream upstream = new Upstream();
+    upstream.setType(DatasetLineageType.TRANSFORMED);
+    upstream.setDataset(DatasetUrn.createFromString(upstreamDataset));
+    upstreamArray.add(upstream);
+    upstreamLineage.setUpstreams(upstreamArray);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(entityUrn);
+    event.setEntityType(entityType);
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
     return event;
   }

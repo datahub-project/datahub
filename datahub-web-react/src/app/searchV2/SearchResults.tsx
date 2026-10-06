@@ -1,4 +1,4 @@
-import { Pagination } from 'antd';
+import { Pagination } from '@components';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -9,6 +9,7 @@ import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
+import { SearchEntityWithLineage, getSearchResultLineage } from '@app/searchV2/SearchResults.utils';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
 import BrowseSidebar from '@app/searchV2/sidebar';
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
@@ -185,6 +186,10 @@ export const SearchResults = ({
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+    const highlightedSearchEntity =
+        highlightedIndex !== null && combinedSiblingSearchResults?.length > highlightedIndex
+            ? (combinedSiblingSearchResults[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
+            : undefined;
 
     const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
     const resultsRef = React.useCallback((node: HTMLDivElement) => {
@@ -287,11 +292,11 @@ export const SearchResults = ({
                                             {totalResults > 0 && (
                                                 <PaginationControlContainer id="search-pagination">
                                                     <Pagination
-                                                        current={page}
-                                                        pageSize={numResultsPerPage}
+                                                        currentPage={page}
+                                                        itemsPerPage={numResultsPerPage}
                                                         total={totalResults}
                                                         showLessItems
-                                                        onChange={handlePageChange}
+                                                        onPageChange={handlePageChange}
                                                         showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                                                         pageSizeOptions={['10', '20', '30']}
                                                     />
@@ -302,16 +307,14 @@ export const SearchResults = ({
                                             height={resultsHeight}
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
-                                                highlightedIndex !== null &&
-                                                combinedSiblingSearchResults?.length > highlightedIndex
+                                                highlightedSearchEntity
                                                     ? {
-                                                          urn: combinedSiblingSearchResults[highlightedIndex]?.entity
-                                                              .urn,
-                                                          type: combinedSiblingSearchResults[highlightedIndex]?.entity
-                                                              .type,
+                                                          urn: highlightedSearchEntity.urn,
+                                                          type: highlightedSearchEntity.type,
                                                       }
                                                     : null
                                             }
+                                            searchResultLineage={getSearchResultLineage(highlightedSearchEntity)}
                                         />
                                     </SearchResultsContainer>
                                 </SearchResultsScrollContainer>

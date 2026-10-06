@@ -1,8 +1,17 @@
 import logging
 import re
 from copy import deepcopy
-from datetime import timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime, timedelta, timezone
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from pydantic import (
     Field,
@@ -13,22 +22,41 @@ from pydantic import (
     model_validator,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    BucketDuration,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.verdicts import ancestors_in
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -39,10 +67,43 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.getLogger(__name__)
 
+# Shared with BigQueryQueriesExtractorConfig so the two generated docs stay in sync.
+CAPTURE_JOB_LABELS_DESCRIPTION = "If enabled, capture BigQuery job labels (for example the `airflow-dag` and `airflow-task` labels set by Airflow's `BigQueryInsertJobOperator`) as custom properties on Query entities. When the same query runs with different labels, the most recently observed labels are kept."
+
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
 DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
+
+# Fields inherited from BaseTimeWindowConfig/BaseUsageConfig that are duplicated
+# on the nested `usage` config but only ever read from the top level of
+# BigQueryV2Config. See forward_deprecated_usage_fields below.
+_DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
+    "start_time",
+    "end_time",
+    "bucket_duration",
+    "max_query_duration",
+)
+
+# Emitted both at config-validation time and into the ingestion report, so it lives here
+# rather than being duplicated at the two call sites.
+EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE: str = (
+    "`extract_column_lineage` is only supported with the legacy extraction path "
+    "(`use_queries_v2: False`) and is ignored under queries-v2, where column-level "
+    "lineage comes from the SQL parsing aggregator instead. There is no queries-v2 "
+    "equivalent: aggregator-derived column-level lineage cannot be disabled "
+    "independently of `include_table_lineage`. Column-level lineage for "
+    "BigQuery-to-GCS external tables is separate, and is controlled by "
+    "`include_column_lineage_with_gcs`."
+)
+
+# Emitted both at config-validation time and into the ingestion report, so it lives here
+# rather than being duplicated at the two call sites.
+LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE = (
+    "`include_linked_dataset_lineage` is set but `include_table_lineage` is False; "
+    "the linked-dataset COPY lineage (the feature's main output) will not be emitted. "
+    "Subtype and source properties are still emitted when `include_schema_metadata` is enabled."
+)
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -51,6 +112,48 @@ DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+class BigQueryProfilingConfig(ProfilingConfig):
+    fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when partition discovery fails. Keys are column "
+        "names, values are the fallback values to use (string, int, or float). For non-date columns, the "
+        "values are used directly. Example: {'batch': 'default', 'region': 'us-east-1'}",
+    )
+
+    partition_fetch_timeout: PositiveInt = Field(
+        default=30,
+        description="Timeout in seconds for each partition value fetch query. On timeout the "
+        "table is treated as having no discoverable partition, so it is either skipped or "
+        "(for require_partition_filter=false tables) profiled without a partition filter.",
+    )
+
+    partition_fetch_max_bytes_billed: Optional[PositiveInt] = Field(
+        default=None,
+        description="Optional ceiling (in bytes) on the data scanned by each partition-value "
+        "fetch query. These probes group by a partition column across the table, so on a very "
+        "large table they can scan a lot of data. Set this to fail such a probe fast instead "
+        "of billing for a full-column scan; on failure the table is treated as having no "
+        "discoverable partition. Left unset (no cap) by default because a low ceiling would "
+        "spuriously fail discovery on legitimately large tables; `partition_fetch_timeout` "
+        "already bounds runaway probes by time.",
+    )
+
+    @field_validator("fallback_partition_values", mode="before")
+    @classmethod
+    def reject_bool_fallback_values(cls, v: object) -> object:
+        # Must run in mode="before": a YAML `true`/`false` is otherwise coerced to 1/0 by
+        # the Union[str, int, float] field before an after-validator sees it (bool is an
+        # int subclass), so the wrong partition could be selected silently. Inspect the
+        # raw mapping here and reject bools; leave other shapes for normal validation.
+        if isinstance(v, dict):
+            for col, val in v.items():
+                if isinstance(val, bool):
+                    raise ValueError(
+                        f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
+                    )
+        return v
 
 
 class BigQueryBaseConfig(ConfigModel):
@@ -106,18 +209,51 @@ class BigQueryUsageConfig(BaseUsageConfig):
         "query_log_delay", month="April", year=2023
     )
 
+    # start_time/end_time/bucket_duration are inherited from BaseTimeWindowConfig but
+    # redeclared here (rather than editing the shared base class, which other connectors
+    # also use) solely to surface the BigQuery-specific deprecation in generated docs.
+    # Descriptions are composed from the base class's text plus a deprecation suffix,
+    # rather than duplicated verbatim, so they can't silently drift out of sync.
+    # See forward_deprecated_usage_fields on BigQueryV2Config for the runtime behavior.
+    start_time: datetime = Field(
+        default=None,  # type: ignore
+        description=f"{BaseTimeWindowConfig.model_fields['start_time'].description or ''} "
+        "**Deprecated**: set the top-level `start_time` instead - it governs lineage, "
+        "usage, and operations together.",
+    )
+    end_time: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc),
+        description=f"{BaseTimeWindowConfig.model_fields['end_time'].description or ''} "
+        "**Deprecated**: set the top-level `end_time` instead - it governs lineage, "
+        "usage, and operations together.",
+    )
+    bucket_duration: BucketDuration = Field(
+        default=BucketDuration.DAY,
+        description=f"{BaseTimeWindowConfig.model_fields['bucket_duration'].description or ''} "
+        "**Deprecated**: set the top-level `bucket_duration` instead - it governs "
+        "lineage, usage, and operations together.",
+    )
+
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens "
         "within our time range but the query completion event is delayed and happens after the configured"
-        " end time.",
+        " end time. **Deprecated**: set the top-level `max_query_duration` instead. Note it only takes "
+        "effect with the legacy extraction path (`use_queries_v2: False`).",
     )
 
     apply_view_usage_to_tables: bool = Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies "
         "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
-        "only.",
+        "only. Only applied with the legacy extraction path (`use_queries_v2: False`); ignored under "
+        "queries-v2.",
+    )
+
+    include_read_operational_stats: bool = Field(
+        default=False,
+        description="Whether to report read operational stats. Experimental. Only applied with the "
+        "legacy extraction path (`use_queries_v2: False`); ignored under queries-v2.",
     )
 
 
@@ -155,7 +291,7 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
 
 
 class BigQueryFilterConfig(SQLFilterConfig):
-    project_ids: List[str] = Field(
+    project_ids: Annotated[List[str], Qualifier()] = Field(
         default_factory=list,
         description=(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
@@ -173,12 +309,23 @@ class BigQueryFilterConfig(SQLFilterConfig):
         ),
     )
 
-    project_id_pattern: AllowDenyPattern = Field(
+    project_id_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
     )
 
-    dataset_pattern: AllowDenyPattern = Field(
+    # Annotated so the probe resolves Schema to *this* field. Without the hint it
+    # falls back to the `<kind>_pattern` name convention, which finds the
+    # schema_pattern alias below -- and that alias is allow-all unless the recipe
+    # sets it, so `probe filter --kind Schema` reported every dataset included
+    # while ingestion filtered on dataset_pattern and excluded most of them. A
+    # verdict that says "this will be ingested" about something that will not is
+    # the failure the command exists to prevent.
+    dataset_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
         "e.g. to match all tables in schema analytics, use the regex 'analytics'",
@@ -198,6 +345,10 @@ class BigQueryFilterConfig(SQLFilterConfig):
     )
 
     # NOTE: `schema_pattern` is added here only to hide it from docs.
+    # Deliberately not annotated with Filters(...): it is a deprecated alias that
+    # the validator below folds into dataset_pattern, and only when
+    # dataset_pattern is unset. Labelling it would point an agent at a field that
+    # is ignored whenever the canonical one is set.
     schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
     )
@@ -332,6 +483,30 @@ class BigQueryV2Config(
         default=True, description="Whether table snapshots should be ingested."
     )
 
+    use_legacy_table_stats: bool = Field(
+        default=False,
+        description="Source table row count, size, and last-altered time from the undocumented "
+        "`__TABLES__` Legacy SQL construct instead of the supported `INFORMATION_SCHEMA.PARTITIONS` "
+        "view. `__TABLES__` additionally covers views and snapshots: views keep their `lastModified` "
+        "timestamp, and snapshots keep their `lastModified` timestamp along with the `rows_count` and "
+        "`size_in_bytes` custom properties. `__TABLES__` is undocumented and unsupported by Google, so "
+        "it may change or stop working without notice. Leave `False` to use `PARTITIONS`, which is "
+        "dataset-scoped but covers base tables only.",
+    )
+
+    include_materialized_view_stats: bool = Field(
+        default=False,
+        description="Emit row count and size statistics for materialized views. Materialized view "
+        "stats are fetched from the BigQuery `tables.get` API (a metadata-only call that does not "
+        "scan data and does not require `profiling.enabled`). The stats are emitted as a "
+        "`datasetProfile` aspect so they appear in the DataHub UI Stats panel. Defaults to `False` "
+        "(opt-in): set to `True` to make one `tables.get` call per materialized view (capped at "
+        "1000 per dataset, after which remaining MVs in that dataset are ingested without stats) "
+        "and emit `datasetProfile` for them. The same call also populates the view's `lastModified` "
+        "in dataset properties. Both the fetch and the emit respect `view_pattern` and "
+        "`profile_pattern`, so excluded MVs make no API call.",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
@@ -369,10 +544,26 @@ class BigQueryV2Config(
         default=True,
         description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
     )
+    capture_job_labels_as_query_properties: bool = Field(
+        default=False,
+        description=f"{CAPTURE_JOB_LABELS_DESCRIPTION} Only applicable if `use_queries_v2` is enabled.",
+    )
 
     @property
     def have_table_data_read_permission(self) -> bool:
         return self.use_tables_list_query_v2 or self.is_profiling_enabled()
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Datasets sit in projects, not databases: the SQL default would judge
+        # the project against a database_pattern BigQuery does not have.
+        return ancestors_in(
+            (
+                DatasetContainerSubTypes.BIGQUERY_PROJECT,
+                DatasetContainerSubTypes.SCHEMA,
+            ),
+            kind,
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+        )
 
     column_limit: int = Field(
         default=300,
@@ -393,8 +584,13 @@ class BigQueryV2Config(
 
     extract_column_lineage: bool = Field(
         default=False,
-        description="If enabled, generate column level lineage. "
-        "Requires lineage_use_sql_parser to be enabled.",
+        description="Generate column-level lineage. Only honoured by the legacy audit-log "
+        "extractor, i.e. when `use_queries_v2` is disabled, and additionally requires "
+        "`lineage_use_sql_parser` to be enabled. Under the default `use_queries_v2: True` "
+        "this option has no effect: column-level lineage then comes from the SQL parsing "
+        "aggregator, and cannot be disabled independently of `include_table_lineage`. "
+        "Column-level lineage for BigQuery-to-GCS external tables is separate, and is "
+        "controlled by `include_column_lineage_with_gcs`.",
     )
 
     extract_lineage_from_catalog: bool = Field(
@@ -427,6 +623,27 @@ class BigQueryV2Config(
     include_table_lineage: Optional[bool] = Field(
         default=True,
         description="Option to enable/disable lineage generation. Is enabled by default.",
+    )
+
+    include_linked_dataset_lineage: bool = Field(
+        default=False,
+        description=(
+            "Detect BigQuery Sharing linked datasets and emit their source dataset, "
+            "link state, and lineage to the dataset they were shared from. Needs no "
+            "permissions beyond those already required for dataset metadata, but it "
+            "changes the subtype of containers already in your catalogue and points "
+            "lineage at the publisher's project, so it is opt-in."
+        ),
+    )
+
+    extract_subscriptions_from_analytics_hub: bool = Field(
+        default=False,
+        description=(
+            "Additionally query the BigQuery Sharing (Analytics Hub) API for the "
+            "listing and subscription state of each linked dataset. Requires the "
+            "`analyticshub.subscriptions.list` permission and the Analytics Hub API "
+            "enabled on the project."
+        ),
     )
 
     include_column_lineage_with_gcs: bool = Field(
@@ -504,6 +721,22 @@ class BigQueryV2Config(
         "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
 
+    profiling: BigQueryProfilingConfig = Field(
+        default_factory=BigQueryProfilingConfig,
+        description="Profiling related configs",
+    )
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        # A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+        # Re-validating it as the BigQueryProfilingConfig subclass runs ProfilingConfig's
+        # inherited before-validators, which assume a dict and raise on a model instance;
+        # dump it back to a dict so re-validation runs on plain data.
+        if isinstance(v, ProfilingConfig):
+            return v.dict()
+        return v
+
     pushdown_deny_usernames: List[str] = Field(
         default=[],
         description="List of user email patterns using SQL LIKE syntax (e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
@@ -533,6 +766,46 @@ class BigQueryV2Config(
 
     @model_validator(mode="before")
     @classmethod
+    def forward_deprecated_usage_fields(cls, values: Any) -> Any:
+        # `usage.start_time`/`end_time`/`bucket_duration`/`max_query_duration` are
+        # inherited from BaseTimeWindowConfig/BaseUsageConfig via BigQueryUsageConfig
+        # but were never read by either the queries-v2 or legacy code paths, which
+        # both use the top-level copies. These are connector-wide settings governing
+        # lineage, usage, and operations together, so they belong at the top level only.
+        if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
+            # usage.pop() below requires a dict; skip if usage is already a
+            # BigQueryUsageConfig object. Accepted since recipes always come from YAML.
+            return values
+        # Copy first: usage.pop() below must not mutate the caller's dict.
+        values = deepcopy(values)
+        usage = values["usage"]
+        for field in _DEPRECATED_USAGE_TOP_LEVEL_FIELDS:
+            if field not in usage:
+                continue
+            if field in values and values[field] is not None:
+                raise ValueError(
+                    f"`{field}` is set both at the top level and under `usage`. "
+                    f"The top-level `{field}` is the only valid setting - remove `usage.{field}` from your recipe."
+                )
+            if field == "max_query_duration":
+                # Unlike start_time/end_time/bucket_duration, the top-level max_query_duration
+                # is only read on the legacy (non-queries-v2) extraction path - it has no effect
+                # under the default use_queries_v2=True, so don't claim otherwise.
+                logger.warning(
+                    "`usage.max_query_duration` is deprecated and will be ignored in a future release. "
+                    "Please set `max_query_duration` at the top level instead - note it only takes "
+                    "effect with the legacy extraction path (`use_queries_v2: False`)."
+                )
+            else:
+                logger.warning(
+                    f"`usage.{field}` is deprecated and will be ignored in a future release. "
+                    f"Please set `{field}` at the top level instead - it applies to lineage, usage, and operations together."
+                )
+            values[field] = usage.pop(field)
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -558,7 +831,7 @@ class BigQueryV2Config(
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         values.setdefault("options", {}).setdefault("max_overflow", -1)
 
         return values
@@ -599,6 +872,58 @@ class BigQueryV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def warn_sharing_properties_without_linked_datasets(self) -> "BigQueryV2Config":
+        # The handler is only constructed when include_linked_dataset_lineage is on, so
+        # this pairing requires a permission grant and an enabled API but produces nothing.
+        if (
+            self.extract_subscriptions_from_analytics_hub
+            and not self.include_linked_dataset_lineage
+        ):
+            logger.warning(
+                "`extract_subscriptions_from_analytics_hub` has no effect while "
+                "`include_linked_dataset_lineage` is False - linked datasets are not "
+                "detected, so there is nothing to attach subscription properties to."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def warn_linked_dataset_lineage_needs_table_lineage(self) -> "BigQueryV2Config":
+        # The COPY edge, this feature's main output, is gated on table lineage; with it
+        # off the flag produces nothing, so warn rather than silently no-op.
+        if self.include_linked_dataset_lineage and not self.include_table_lineage:
+            logger.warning(LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE)
+        return self
+
+    @model_validator(mode="after")
+    def warn_legacy_only_usage_fields_under_queries_v2(self) -> "BigQueryV2Config":
+        # `include_read_operational_stats`, `apply_view_usage_to_tables`,
+        # `max_query_duration` and `extract_column_lineage` are only read by the legacy
+        # (non-queries-v2) extraction path; qv2 either has no equivalent mechanism or
+        # simply never references the field (`max_query_duration` - see
+        # queries_extractor.py). `extract_column_lineage` defaults to False and column
+        # lineage is emitted under queries-v2 either way, so an explicit False is only
+        # detectable via `model_fields_set`.
+        if self.use_queries_v2:
+            if self.usage.include_read_operational_stats:
+                logger.warning(
+                    "`usage.include_read_operational_stats` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.usage.apply_view_usage_to_tables:
+                logger.warning(
+                    "`usage.apply_view_usage_to_tables` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.max_query_duration != timedelta(minutes=15):
+                logger.warning(
+                    "`max_query_duration` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if "extract_column_lineage" in self.model_fields_set:
+                logger.warning(EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE)
         return self
 
     @field_validator(

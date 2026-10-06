@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Run LookML ingestion
         run: |
           pip install 'acryl-datahub[lookml,datahub-rest]'

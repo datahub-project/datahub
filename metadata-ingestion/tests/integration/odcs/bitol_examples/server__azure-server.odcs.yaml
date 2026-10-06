@@ -1,0 +1,13 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/server/azure-server.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+apiVersion: v3.0.2
+kind: DataContract
+id: abc123
+status: in development
+servers:
+  - server: my-azure
+    type: azure
+    location: az://my-data-location
+    format: parquet

@@ -6,14 +6,15 @@ import { filterQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/f
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import { LINEAGE_FILTER_PAGINATION, isQuery } from '@app/lineageV2/common';
+import { LINEAGE_FILTER_PAGINATION, isQuery } from '@app/lineageV3/common';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { useSearchAcrossLineageForQueriesQuery } from '@graphql/query.generated';
 import { Entity, EntityType, LineageDirection, QueryEntity } from '@types';
 
-export default function useDownstreamQueries(filterText: string) {
+/** @param canViewQueries Skips the query rather than waiting on a result the actor can't see. */
+export default function useDownstreamQueries(filterText: string, canViewQueries: boolean) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
@@ -46,7 +47,7 @@ export default function useDownstreamQueries(filterText: string) {
                 },
             },
         },
-        skip: !baseEntity?.dataset?.urn,
+        skip: !baseEntity?.dataset?.urn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
 

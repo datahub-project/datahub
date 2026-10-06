@@ -1,11 +1,14 @@
 package io.datahubproject.metadata.services;
 
-import static com.linkedin.metadata.Constants.DATAHUB_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
@@ -60,6 +63,10 @@ public class SecretServiceTest {
   }
 
   private OperationContext mockOpCtxWithActorUrn(String actorUrnStr) {
+    return mockOpCtxWithActorUrn(actorUrnStr, false);
+  }
+
+  private OperationContext mockOpCtxWithActorUrn(String actorUrnStr, boolean systemCorpUser) {
     ActorContext actorCtx = Mockito.mock(ActorContext.class);
     when(actorCtx.getActorUrn()).thenReturn(UrnUtils.getUrn(actorUrnStr));
 
@@ -67,6 +74,19 @@ public class SecretServiceTest {
     when(opCtx.isSystemAuth()).thenReturn(false);
     when(opCtx.getSessionActorContext()).thenReturn(actorCtx);
     when(opCtx.getRequestContext()).thenReturn(null);
+
+    if (systemCorpUser) {
+      AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+      SystemAspect systemAspect = Mockito.mock(SystemAspect.class);
+      when(systemAspect.getAspect(CorpUserInfo.class))
+          .thenReturn(new CorpUserInfo().setSystem(true));
+      when(aspectRetriever.getLatestSystemAspect(
+              eq(opCtx),
+              eq(UrnUtils.getUrn(actorUrnStr)),
+              eq(Constants.CORP_USER_INFO_ASPECT_NAME)))
+          .thenReturn(systemAspect);
+      when(opCtx.getAspectRetriever()).thenReturn(aspectRetriever);
+    }
     return opCtx;
   }
 
@@ -365,10 +385,37 @@ public class SecretServiceTest {
   }
 
   @Test
-  public void testDecryptAllowedForDataHubActorUrn() {
-    OperationContext opCtx = mockOpCtxWithActorUrn(DATAHUB_ACTOR);
-    String plaintext = "datahub-actor-secret";
+  public void testDecryptAllowedForSystemCorpUserFlag() {
+    String systemUserUrn = "urn:li:corpuser:system-user";
+    OperationContext opCtx = mockOpCtxWithActorUrn(systemUserUrn, true);
+    String plaintext = "system-corp-user-secret";
     assertEquals(secretService.decrypt(opCtx, secretService.encrypt(null, plaintext)), plaintext);
+  }
+
+  @Test(expectedExceptions = SecurityException.class)
+  public void testDecryptDeniedForRegularCorpUserWithoutSystemFlag() {
+    OperationContext opCtx =
+        mockOpCtxWithAgentAndActor(AgentClass.INGESTION, "urn:li:corpuser:regular", false);
+    secretService.decrypt(opCtx, secretService.encrypt(null, "regular-user-secret"));
+  }
+
+  @Test(expectedExceptions = SecurityException.class)
+  public void testDecryptDeniedWhenSystemFlagLookupFails() {
+    String corpUserUrn = "urn:li:corpuser:lookup-failure";
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    when(aspectRetriever.getLatestSystemAspect(any(), any(), any()))
+        .thenThrow(new RuntimeException("aspect lookup failed"));
+
+    ActorContext actorCtx = Mockito.mock(ActorContext.class);
+    when(actorCtx.getActorUrn()).thenReturn(UrnUtils.getUrn(corpUserUrn));
+
+    OperationContext opCtx = Mockito.mock(OperationContext.class);
+    when(opCtx.isSystemAuth()).thenReturn(false);
+    when(opCtx.getSessionActorContext()).thenReturn(actorCtx);
+    when(opCtx.getRequestContext()).thenReturn(null);
+    when(opCtx.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    secretService.decrypt(opCtx, secretService.encrypt(null, "lookup-failure-secret"));
   }
 
   @Test

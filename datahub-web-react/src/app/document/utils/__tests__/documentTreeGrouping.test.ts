@@ -5,9 +5,10 @@ import { formatPlatformLabel, partitionRootNodesByLayer } from '@app/document/ut
 
 import { DataPlatform } from '@types';
 
-const NOTION = { urn: 'urn:li:dataPlatform:notion' } as DataPlatform;
-const GITHUB = { urn: 'urn:li:dataPlatform:github' } as DataPlatform;
-const CONFLUENCE = { urn: 'urn:li:dataPlatform:confluence' } as DataPlatform;
+const NOTION = { urn: 'urn:li:dataPlatform:notion', name: 'notion' } as DataPlatform;
+const GITHUB = { urn: 'urn:li:dataPlatform:github', name: 'github' } as DataPlatform;
+const CONFLUENCE = { urn: 'urn:li:dataPlatform:confluence', name: 'confluence' } as DataPlatform;
+const DATAHUB = { urn: 'urn:li:dataPlatform:datahub', name: 'datahub' } as DataPlatform;
 
 function makeNode(overrides: Partial<DocumentTreeNode> = {}): DocumentTreeNode {
     return {
@@ -31,9 +32,9 @@ describe('partitionRootNodesByLayer', () => {
         });
     });
 
-    it('places non-external nodes into the native bucket', () => {
-        const native1 = makeNode({ urn: 'a', isExternal: false });
-        const native2 = makeNode({ urn: 'b', isExternal: false });
+    it('places DataHub-platform nodes into the native bucket', () => {
+        const native1 = makeNode({ urn: 'a', platform: DATAHUB });
+        const native2 = makeNode({ urn: 'b', platform: DATAHUB });
 
         const result = partitionRootNodesByLayer([native1, native2]);
 
@@ -41,51 +42,68 @@ describe('partitionRootNodesByLayer', () => {
         expect(result.sourcesByPlatform).toEqual([]);
     });
 
-    it('groups external nodes by platform URN', () => {
-        const notionDoc = makeNode({ urn: 'n1', isExternal: true, platform: NOTION });
-        const githubDoc1 = makeNode({ urn: 'g1', isExternal: true, platform: GITHUB });
-        const githubDoc2 = makeNode({ urn: 'g2', isExternal: true, platform: GITHUB });
+    it('places nodes with no platform into the native bucket', () => {
+        const noPlatform = makeNode({ urn: 'orphan', platform: null });
+
+        const result = partitionRootNodesByLayer([noPlatform]);
+
+        expect(result.native).toEqual([noPlatform]);
+        expect(result.sourcesByPlatform).toEqual([]);
+    });
+
+    it('groups nodes by resolved platform into per-platform source sections', () => {
+        const notionDoc = makeNode({ urn: 'n1', platform: NOTION });
+        const githubDoc1 = makeNode({ urn: 'g1', platform: GITHUB });
+        const githubDoc2 = makeNode({ urn: 'g2', platform: GITHUB });
 
         const result = partitionRootNodesByLayer([githubDoc1, notionDoc, githubDoc2]);
 
         expect(result.native).toEqual([]);
         expect(result.sourcesByPlatform).toEqual([
-            { platform: GITHUB, nodes: [githubDoc1, githubDoc2] },
-            { platform: NOTION, nodes: [notionDoc] },
+            { platform: GITHUB, label: 'Github', nodes: [githubDoc1, githubDoc2] },
+            { platform: NOTION, label: 'Notion', nodes: [notionDoc] },
+        ]);
+    });
+
+    it('groups by platform independent of NATIVE/EXTERNAL source type', () => {
+        // A GitHub doc imported as NATIVE still resolves platform=github, so it
+        // lands in the GitHub source section, not the DataHub section.
+        const nativeGithubDoc = makeNode({ urn: 'g-native', isExternal: false, platform: GITHUB });
+        const externalGithubDoc = makeNode({ urn: 'g-ext', isExternal: true, platform: GITHUB });
+
+        const result = partitionRootNodesByLayer([nativeGithubDoc, externalGithubDoc]);
+
+        expect(result.native).toEqual([]);
+        expect(result.sourcesByPlatform).toEqual([
+            { platform: GITHUB, label: 'Github', nodes: [nativeGithubDoc, externalGithubDoc] },
         ]);
     });
 
     it('preserves first-appearance order across platform groups', () => {
-        const confluenceDoc = makeNode({ urn: 'c1', isExternal: true, platform: CONFLUENCE });
-        const githubDoc = makeNode({ urn: 'g1', isExternal: true, platform: GITHUB });
-        const notionDoc = makeNode({ urn: 'n1', isExternal: true, platform: NOTION });
+        const confluenceDoc = makeNode({ urn: 'c1', platform: CONFLUENCE });
+        const githubDoc = makeNode({ urn: 'g1', platform: GITHUB });
+        const notionDoc = makeNode({ urn: 'n1', platform: NOTION });
 
         const result = partitionRootNodesByLayer([confluenceDoc, githubDoc, notionDoc]);
 
         expect(result.sourcesByPlatform.map((g) => g.platform)).toEqual([CONFLUENCE, GITHUB, NOTION]);
     });
 
-    it('separates the native and sources layers when both are present', () => {
-        const native = makeNode({ urn: 'native', isExternal: false });
-        const external = makeNode({ urn: 'external', isExternal: true, platform: GITHUB });
+    it('separates the DataHub and source layers when both are present', () => {
+        const native = makeNode({ urn: 'native', platform: DATAHUB });
+        const external = makeNode({ urn: 'external', platform: GITHUB });
 
         const result = partitionRootNodesByLayer([native, external]);
 
         expect(result.native).toEqual([native]);
-        expect(result.sourcesByPlatform).toEqual([{ platform: GITHUB, nodes: [external] }]);
+        expect(result.sourcesByPlatform).toEqual([{ platform: GITHUB, label: 'Github', nodes: [external] }]);
     });
 
-    it('drops external nodes that have no platform', () => {
-        const noPlatform = makeNode({ urn: 'orphan', isExternal: true, platform: null });
-        const withPlatform = makeNode({ urn: 'gh', isExternal: true, platform: GITHUB });
+    it('falls back to the native bucket when the platform name is unresolvable', () => {
+        // Non-DataHub platform but no name/displayName to label a section with.
+        const unlabeledPlatform = { urn: 'urn:li:dataPlatform:mystery' } as DataPlatform;
+        const node = makeNode({ urn: 'mystery', platform: unlabeledPlatform });
 
-        const result = partitionRootNodesByLayer([noPlatform, withPlatform]);
-
-        expect(result.sourcesByPlatform).toEqual([{ platform: GITHUB, nodes: [withPlatform] }]);
-    });
-
-    it('treats nodes with missing isExternal/platform as native', () => {
-        const node = makeNode({ urn: 'legacy' });
         const result = partitionRootNodesByLayer([node]);
 
         expect(result.native).toEqual([node]);

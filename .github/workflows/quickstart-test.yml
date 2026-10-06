@@ -25,7 +25,7 @@ jobs:
   test-quickstart-pr:
     name: Quickstart Smoke Tests
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Free up disk space
         run: |
@@ -39,7 +39,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -76,20 +76,6 @@ jobs:
           source metadata-ingestion/venv/bin/activate
           datahub docker check
 
-      - name: Smoke test
-        if: false
-        env:
-          RUN_QUICKSTART: false
-          DATAHUB_VERSION: quickstart
-          CLEANUP_DATA: "false"
-          TEST_STRATEGY: cypress
-          BATCH_COUNT: 30
-          BATCH_NUMBER: 2
-        run: |
-          echo "$DATAHUB_VERSION"
-          ./gradlew --stop
-          ./smoke-test/smoke.sh
-
       - name: Run quickstart check
         run: |
           source metadata-ingestion/venv/bin/activate
@@ -98,7 +84,7 @@ jobs:
   test-quickstart-pr-compatiblity-checks:
     name: Quickstart compatiliby Tests
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Free up disk space
         run: |
@@ -109,7 +95,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install older datahub cli
         run: |
           pip install acryl-datahub==1.0
@@ -175,7 +161,7 @@ jobs:
   test-quickstart-regression:
     name: Verify upgrades work with latest CLI
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # TODO: once more supported versions are added, this should become list last n versions
@@ -192,7 +178,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install datahub cli
         run: |
           pip install acryl-datahub
@@ -218,7 +204,7 @@ jobs:
   test-quickstart-regression-unsupported-versions:
     name: Verifiy handling of unsupported older versions
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # TODO: last n unsupported versions to be added here
@@ -234,7 +220,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install datahub cli
         run: |
           pip install acryl-datahub
@@ -251,7 +237,7 @@ jobs:
   test-quickstart-regression-old-cli:
     name: Verify migration from old-cli deployments
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # TODO: once more supported versions are aded, this should become list last n versions
@@ -267,7 +253,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install datahub cli
         run: |
           pip install acryl-datahub==${{ matrix.datahub_version }}
@@ -297,7 +283,7 @@ jobs:
   test-docker-compose-version-compatibility:
     name: Docker Compose Version Compatibility
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -405,7 +391,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |

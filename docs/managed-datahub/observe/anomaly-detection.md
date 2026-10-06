@@ -34,6 +34,12 @@ Anomaly Detection can be enabled on the following assertion types:
 - **Column Value** assertions — checks like "value matches regex" or "value in set" are deterministic and do not have a statistical notion of "normal".
 - **Schema** assertions — schema changes are discrete events, not anomalies. Use [Monitoring Rules](./data-health-dashboard.md#monitoring-rules) to apply Schema assertions at scale across many datasets.
 
+## How much history does Anomaly Detection need?
+
+A new Anomaly Detection assertion collects **14 days of history** before it starts alerting. During that period the assertion evaluates on its normal schedule and records results, but does not raise failures. This gives the model enough data to learn daily and weekly patterns, and avoids noisy false alarms from a thinly-trained model.
+
+To skip the wait entirely, enable [Backfill Assertion History](./assertion-backfill.md) at creation time — it populates the assertion's metrics history from your warehouse so predictions are available from day one.
+
 ## Does Anomaly Detection require a warehouse connection?
 
 No — Anomaly Detection is **not** limited to Snowflake, Redshift, BigQuery, or Databricks. For Freshness, Volume, and Column Metric, the ML model trains on whichever signal the underlying assertion is configured to use:
@@ -71,7 +77,7 @@ Bucketing requires an active warehouse query, so it is only available on Snowfla
 Backfill is currently in **Private Beta** — contact your DataHub Cloud representative to request access.
 :::
 
-When you enable Anomaly Detection with time-series bucketing, you can optionally **backfill historical data** so the AI model has enough context to make accurate predictions from day one. Without backfill, the model needs to accumulate data over days or weeks of scheduled evaluations before it can reliably detect anomalies.
+When you enable Anomaly Detection with time-series bucketing, you can optionally **backfill historical data** so the AI model has enough context to make accurate predictions from day one. Without backfill, the assertion must accumulate 14 days of history through scheduled evaluations before it starts alerting.
 
 With backfill enabled, the system queries your warehouse for historical data and populates the assertion's metrics history immediately. This means you get meaningful anomaly detection thresholds right away, with full awareness of seasonality patterns.
 

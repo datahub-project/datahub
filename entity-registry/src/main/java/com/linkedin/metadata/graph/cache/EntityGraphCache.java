@@ -116,6 +116,16 @@ public interface EntityGraphCache {
   Optional<EntityGraphBinding> bindingForPolicyField(@Nonnull String fieldType);
 
   /**
+   * Configured {@code bounds.maxEdges} for {@code graphId}, when the registry has a definition.
+   * Used as the GraphQL {@code relatedEntityTypes} pre-filter fetch cap so the limit tracks the
+   * membership (or other) graph's configured size rather than an unbounded {@code MAX_VALUE}.
+   */
+  @Nonnull
+  default java.util.OptionalInt maxEdgesForGraph(@Nonnull String graphId) {
+    return java.util.OptionalInt.empty();
+  }
+
+  /**
    * Walks ancestors along stored forward edges (e.g. domain {@code IsPartOf} child → parents), up
    * to {@code maxDepth} levels.
    */

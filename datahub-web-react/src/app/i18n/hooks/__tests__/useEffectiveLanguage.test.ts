@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react-hooks';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_LANGUAGE } from '@app/i18n/constants';
 import { useEffectiveLanguage } from '@app/i18n/hooks/useEffectiveLanguage';
@@ -15,45 +15,63 @@ const mockUseUserLanguage = vi.mocked(useUserLanguage);
 describe('useEffectiveLanguage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.stubGlobal('navigator', { languages: [], language: undefined });
     });
 
-    it('returns DEFAULT_LANGUAGE when i18n is disabled', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('returns DEFAULT_LANGUAGE when i18n is disabled, even if the browser language is supported', () => {
         mockUseIsI18nEnabled.mockReturnValue(false);
-        mockUseUserLanguage.mockReturnValue('en');
+        mockUseUserLanguage.mockReturnValue('de');
+        vi.stubGlobal('navigator', { languages: ['de'], language: 'de' });
 
         const { result } = renderHook(() => useEffectiveLanguage());
 
         expect(result.current).toBe(DEFAULT_LANGUAGE);
     });
 
-    it('returns user language when i18n is enabled and language is supported', () => {
+    it('returns the user language when i18n is enabled and it is supported', () => {
         mockUseIsI18nEnabled.mockReturnValue(true);
-        mockUseUserLanguage.mockReturnValue('en');
+        mockUseUserLanguage.mockReturnValue('de');
 
         const { result } = renderHook(() => useEffectiveLanguage());
 
-        expect(result.current).toBe('en');
+        expect(result.current).toBe('de');
     });
 
-    it('returns DEFAULT_LANGUAGE when i18n is enabled but language is unsupported', () => {
+    it('prefers the in-app user language over the browser language', () => {
         mockUseIsI18nEnabled.mockReturnValue(true);
-        mockUseUserLanguage.mockReturnValue('unsupported');
+        mockUseUserLanguage.mockReturnValue('de');
+        vi.stubGlobal('navigator', { languages: ['fr'], language: 'fr' });
 
         const { result } = renderHook(() => useEffectiveLanguage());
 
-        expect(result.current).toBe(DEFAULT_LANGUAGE);
+        expect(result.current).toBe('de');
     });
 
-    it('returns DEFAULT_LANGUAGE when i18n is enabled but language is null', () => {
+    it('falls back to the browser language when the user has no supported preference', () => {
         mockUseIsI18nEnabled.mockReturnValue(true);
         mockUseUserLanguage.mockReturnValue(null);
+        vi.stubGlobal('navigator', { languages: ['fr'], language: 'fr' });
+
+        const { result } = renderHook(() => useEffectiveLanguage());
+
+        expect(result.current).toBe('fr');
+    });
+
+    it('falls back to DEFAULT_LANGUAGE when neither the user nor the browser language is supported', () => {
+        mockUseIsI18nEnabled.mockReturnValue(true);
+        mockUseUserLanguage.mockReturnValue('unsupported');
+        vi.stubGlobal('navigator', { languages: ['ko-KR'], language: 'ko-KR' });
 
         const { result } = renderHook(() => useEffectiveLanguage());
 
         expect(result.current).toBe(DEFAULT_LANGUAGE);
     });
 
-    it('updates when language changes', () => {
+    it('updates when the user language changes', () => {
         mockUseIsI18nEnabled.mockReturnValue(true);
         mockUseUserLanguage.mockReturnValue('en');
 

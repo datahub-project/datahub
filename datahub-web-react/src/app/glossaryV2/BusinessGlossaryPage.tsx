@@ -25,15 +25,21 @@ const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     height: 100%;
+    min-height: 0;
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm}`}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 16px 12px 12px')};
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 `;
 
 const BusinessGlossaryPage = () => {
@@ -122,7 +128,6 @@ const BusinessGlossaryPage = () => {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
-                    canSelectParentUrn={false}
                 />
             )}
         </>

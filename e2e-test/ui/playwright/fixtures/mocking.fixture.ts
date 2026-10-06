@@ -16,7 +16,12 @@
  */
 
 import { test as base } from '@playwright/test';
-import { PageApiMocker, type ApiMocker } from '../utils/api-mock';
+import {
+  PageApiMocker,
+  type ApiMocker,
+  type FeatureFlagOverrides,
+  type FeatureFlagOverrideValue,
+} from '../utils/api-mock';
 
 type MockingFixtures = {
   /** DataHub-aware GraphQL/route interception helper. Opt-in (not auto-use). */
@@ -36,4 +41,4 @@ export const mockingFixture = base.extend<MockingFixtures>({
   },
 });
 
-export type { ApiMocker };
+export type { ApiMocker, FeatureFlagOverrides, FeatureFlagOverrideValue };

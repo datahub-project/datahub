@@ -120,6 +120,7 @@ class Constants:
     OPERATION_CONFIG = "config"
     TAG = "tag"
     TERM = "term"
+    DOMAIN = "domain"
     DOC_LINK = "link"
     DOC_DESCRIPTION = "description"
     OWNER_TYPE = "owner_type"
@@ -558,6 +559,12 @@ class OperationProcessor:
             term = operation_config[Constants.TERM]
             term = _insert_match_value(term, _get_best_match(match, "term"))
             return mce_builder.make_term_urn(term)
+        elif operation_type == Constants.ADD_DOMAIN_OPERATION and operation_config.get(
+            Constants.DOMAIN
+        ):
+            domain = operation_config[Constants.DOMAIN]
+            domain = _insert_match_value(domain, _get_best_match(match, "domain"))
+            return mce_builder.make_domain_urn(domain)
         elif (
             operation_type == Constants.ADD_DOC_LINK_OPERATION
             and operation_config[Constants.DOC_LINK]

@@ -23,6 +23,7 @@ import {
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     Embed,
+    Entity,
     EntityLineageResult,
     EntityPrivileges,
     EntityRelationshipsResult,
@@ -70,6 +71,9 @@ export type GenericEntityProperties = {
     urn?: string;
     type?: EntityType;
     name?: Maybe<string>;
+    // Deprecated in the schema in favour of `properties.description`, but still the only
+    // description some types (notably Tag) expose and select in their fragments.
+    description?: Maybe<string>;
     properties?: Maybe<{
         name?: Maybe<string>;
         description?: Maybe<string>;
@@ -136,6 +140,10 @@ export type GenericEntityProperties = {
     // Data job / data process instance
     lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
+
+    // Logical models
+    logicalParent?: Maybe<Entity>;
+    physicalChildren?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {
@@ -166,6 +174,7 @@ interface EntityState {
 
 export enum DrawerType {
     VERSIONS,
+    CHANGE_HISTORY,
 }
 
 export type EntityContextType = {

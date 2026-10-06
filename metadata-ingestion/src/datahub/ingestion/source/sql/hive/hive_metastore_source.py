@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -61,7 +61,6 @@ logger = logging.getLogger(__name__)
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
-@capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
@@ -218,8 +217,7 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                     SQLAlchemyDataFetcher,
                 )
 
-                fetcher = SQLAlchemyDataFetcher(config)
-                try:
+                with SQLAlchemyDataFetcher(config) as fetcher:
                     schemas = list(fetcher.fetch_schema_rows())
                     test_report.basic_connectivity = CapabilityReport(
                         capable=True,
@@ -231,8 +229,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                             mitigation_message=f"Found {len(schemas)} schemas",
                         )
                     }
-                finally:
-                    fetcher.close()
 
         except Exception as e:
             error_msg = str(e)
@@ -293,14 +289,16 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
 
         if isinstance(self._fetcher, ThriftDataFetcher):
             for db_name, error_msg in self._fetcher.get_database_failures():
-                self.report.report_warning(
-                    f"database-{db_name}",
-                    f"Failed to process database: {error_msg}",
+                self.report.warning(
+                    message="Failed to process database",
+                    context=f"database-{db_name}: {error_msg}",
+                    log=False,
                 )
             for db_name, table_name, error_msg in self._fetcher.get_table_failures():
-                self.report.report_warning(
-                    f"table-{db_name}.{table_name}",
-                    f"Failed to process table: {error_msg}",
+                self.report.warning(
+                    message="Failed to process table",
+                    context=f"table-{db_name}.{table_name}: {error_msg}",
+                    log=False,
                 )
 
         # Close fetcher

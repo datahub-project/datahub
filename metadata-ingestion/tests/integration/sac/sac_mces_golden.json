@@ -128,6 +128,105 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "namespace": "t.4.ACQUIREDMODEL123",
+                "modelId": "ACQUIREDMODEL123",
+                "isImport": "false"
+            },
+            "externalUrl": "http://tenant/sap/fpa/ui/tenants/3c44c#view_id=model;model_id=t.4.ACQUIREDMODEL123:ACQUIREDMODEL123",
+            "name": "Name of the fourth model (Acquired)",
+            "description": "Description of an acquired SAC-stored model whose schema comes from the Data Export Service",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "sac-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "ACQUIREDMODEL123",
+            "platform": "urn:li:dataPlatform:sac",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "Account",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "NVARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "SignedData",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.Decimal(31,7)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "Account"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "sac-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "sac-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ANL8Q577BA2F73KU3VELDXGWZK:ANL8Q577BA2F73KU3VELDXGWZK,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -176,6 +275,40 @@
             "name": "Name of the second model (HANA)",
             "description": "Description of the second model which has a connection to a HANA view",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "sac-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "sac-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sac"
         }
     },
     "systemMetadata": {
@@ -486,10 +619,12 @@
             "description": "Description of the story",
             "charts": [],
             "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ANL8Q577BA2F73KU3VELDXGWZK:ANL8Q577BA2F73KU3VELDXGWZK,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.K73U3VELDXGWZKANL8Q577BA2F:K73U3VELDXGWZKANL8Q577BA2F,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.K73U3VELDXGWZKANL8Q577BA2F:K73U3VELDXGWZKANL8Q577BA2F,PROD)"
             ],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 1667544309783,
@@ -578,10 +713,12 @@
             "description": "Description of the application",
             "charts": [],
             "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ACQUIREDMODEL123:ACQUIREDMODEL123,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.ANL8Q577BA2F73KU3VELDXGWZK:ANL8Q577BA2F73KU3VELDXGWZK,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.K73U3VELDXGWZKANL8Q577BA2F:K73U3VELDXGWZKANL8Q577BA2F,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.K73U3VELDXGWZKANL8Q577BA2F:K73U3VELDXGWZKANL8Q577BA2F,PROD)"
             ],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 1673279404272,

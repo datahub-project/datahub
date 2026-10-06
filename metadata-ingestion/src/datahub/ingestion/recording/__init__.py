@@ -27,7 +27,12 @@ Key Classes:
 
 Limitations:
     - HTTP requests are serialized during recording (slower but complete)
-    - Secrets are redacted in stored recipes
+    - Secrets are redacted in stored recipes and scrubbed from recorded HTTP
+      traffic (auth headers, secret-bearing query parameters, and
+      secret-bearing fields in JSON/form request and response bodies).
+      Redaction is pattern-based on key names, so secrets transmitted under
+      unrecognized names or inside binary payloads may still be captured -
+      treat recording archives as sensitive artifacts.
     - Database replay mocks connections entirely
 """
 

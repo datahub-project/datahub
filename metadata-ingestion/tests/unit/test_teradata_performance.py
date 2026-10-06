@@ -322,7 +322,6 @@ class TestPerformanceReporting:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text="SELECT * FROM test_table",
             )
             source._tables_cache["test_schema"] = [test_view]
 
@@ -612,7 +611,6 @@ class TestQueryOptimizations:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
         tables_cache = {"test_schema": [test_table]}

@@ -260,17 +260,6 @@
                             }
                         ]
                     },
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false,
                     "isPartitioningKey": false
                 },
@@ -288,17 +277,6 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false,
                     "isPartitioningKey": false
                 }
@@ -306,8 +284,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastObserved": 1643868000000,
+        "runId": "bigquery-2022_02_03-07_00_00-l2gys1",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -976,38 +954,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Age",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Age"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
         }
     },
     "systemMetadata": {
