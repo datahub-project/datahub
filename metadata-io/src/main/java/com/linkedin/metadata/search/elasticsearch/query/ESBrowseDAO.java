@@ -7,7 +7,6 @@ import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -19,7 +18,6 @@ import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -28,7 +26,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -90,14 +87,6 @@ public class ESBrowseDAO {
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
   private static final String BROWSE_PATH_V2 = "browsePathV2";
   private static final String BROWSE_PATH_V2_DEPTH = "browsePathV2.length";
-  // V3 reaches browsePathV2 through a root alias, and an alias cannot expose the length token
-  // count, so V3 filters depth on the aspect field itself.
-  private static final String V3_BROWSE_PATH_V2_DEPTH =
-      MappingConstants.ASPECTS_FIELD_NAME
-          + "."
-          + Constants.BROWSE_PATHS_V2_ASPECT_NAME
-          + "."
-          + BROWSE_PATH_V2_DEPTH;
   private static final String BROWSE_V2_DELIMITER = "␟";
   private static final String URN = "urn";
   private static final String REMOVED = "removed";
@@ -155,8 +144,7 @@ public class ESBrowseDAO {
             flags -> applyDefaultSearchFlags(flags, path, DEFAULT_BROWSE_SEARCH_FLAGS));
 
     try {
-      // V1 browsePaths / browsePaths.length exist only on V2 mappings.
-      final String indexName = v2EntityIndexName(opContext, entityName);
+      final String indexName = entityIndexName(opContext, entityName);
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
@@ -291,7 +279,7 @@ public class ESBrowseDAO {
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
     applyDefaultSearchFilters(
-        opContext, List.of(entityName), null, queryBuilder, (EntityIndexConfiguration) null);
+        opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));
@@ -458,10 +446,12 @@ public class ESBrowseDAO {
   @Nonnull
   public List<String> getBrowsePaths(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
-    final String indexName = v2EntityIndexName(opContext, entityName);
+    final String indexName = entityIndexName(opContext, entityName);
     final SearchRequest searchRequest = new SearchRequest(indexName);
     BoolQueryBuilder query =
         QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(URN, urn.toString()));
+    EntitySearchIndexResolver.applyEntityTypeFilter(
+        query, List.of(entityName), searchConfiguration.getEntityIndex());
     searchRequest.source(new SearchSourceBuilder().query(query));
     final SearchHit[] searchHits;
     try {
@@ -479,7 +469,8 @@ public class ESBrowseDAO {
       return Collections.emptyList();
     }
     final Map sourceMap = searchHits[0].getSourceAsMap();
-    if (!sourceMap.containsKey(BROWSE_PATH)) {
+    // A removed browsePaths aspect leaves the field null rather than absent
+    if (!(sourceMap.get(BROWSE_PATH) instanceof List)) {
       return Collections.emptyList();
     }
     List<String> browsePaths =
@@ -714,7 +705,7 @@ public class ESBrowseDAO {
       queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
     }
 
-    queryBuilder.filter(QueryBuilders.rangeQuery(browsePathV2DepthField()).gt(browseDepthVal));
+    queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
     queryBuilder.filter(
         SearchRequestHandler.getFilterQuery(
@@ -761,7 +752,7 @@ public class ESBrowseDAO {
       queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
     }
 
-    queryBuilder.filter(QueryBuilders.rangeQuery(browsePathV2DepthField()).gt(browseDepthVal));
+    queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFields =
         entitySpecs.stream()
@@ -852,12 +843,6 @@ public class ESBrowseDAO {
     return browseGroup;
   }
 
-  private String browsePathV2DepthField() {
-    return EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-        ? V3_BROWSE_PATH_V2_DEPTH
-        : BROWSE_PATH_V2_DEPTH;
-  }
-
   private boolean rewriteEntityTypeToIndex() {
     return !EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex());
   }
@@ -873,14 +858,5 @@ public class ESBrowseDAO {
   private String entityIndexName(@Nonnull OperationContext opContext, @Nonnull String entityName) {
     return EntitySearchIndexResolver.indexName(
         opContext, entityName, searchConfiguration.getEntityIndex());
-  }
-
-  @Nonnull
-  private String v2EntityIndexName(
-      @Nonnull OperationContext opContext, @Nonnull String entityName) {
-    return opContext
-        .getSearchContext()
-        .getIndexConvention()
-        .getEntityIndexName(opContext, entityName);
   }
 }

@@ -309,6 +309,7 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.api.ApiType;
 import com.linkedin.datahub.graphql.types.application.ApplicationType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.assertion.AssertionType;
@@ -554,6 +555,7 @@ public class GmsGraphQLEngine {
   private final QueryType queryType;
   private final DataProductType dataProductType;
   private final ApplicationType applicationType;
+  private final ApiType apiType;
   private final OwnershipType ownershipType;
   private final StructuredPropertyType structuredPropertyType;
   private final DataTypeType dataTypeType;
@@ -705,6 +707,7 @@ public class GmsGraphQLEngine {
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
     this.applicationType = new ApplicationType(entityClient);
+    this.apiType = new ApiType(entityClient);
     this.ownershipType = new OwnershipType(entityClient);
     this.structuredPropertyType = new StructuredPropertyType(entityClient);
     this.dataTypeType = new DataTypeType(entityClient);
@@ -777,6 +780,7 @@ public class GmsGraphQLEngine {
                 businessAttributeType,
                 dataProcessInstanceType,
                 applicationType,
+                apiType,
                 executionRequestType,
                 dataHubPageTemplateType,
                 dataHubPageModuleType,
@@ -860,6 +864,7 @@ public class GmsGraphQLEngine {
     configureDocumentResolvers(builder);
     configureDataProductResolvers(builder);
     configureApplicationResolvers(builder);
+    configureApiResolvers(builder);
     configureAssertionResolvers(builder);
     configureContractResolvers(builder);
     configurePolicyResolvers(builder);
@@ -964,7 +969,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(DATA_PRODUCT_MARKETPLACE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(API_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -3561,6 +3567,23 @@ public class GmsGraphQLEngine {
                                 env.getSource())
                             .getApplication()
                             .getUrn())));
+  }
+
+  private void configureApiResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Api",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration)));
   }
 
   private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {
