@@ -90,14 +90,14 @@ Work with DataHub team to receive deployment templates specific to your environm
 :::
 
 :::caution DataHub Cloud instances on GCP
-The executor must use the same channel as its Executor Pool, or it does not receive work. If your DataHub Cloud instance is deployed on Google Cloud Platform (GCP), ask your DataHub representative which channel your Executor Pools use.
+The executor must use the same channel as its Executor Pool, or it does not receive work. DataHub Cloud instances deployed on Google Cloud Platform (GCP) can create Executor Pools on the Kafka channel. The **Channel** column in **Data Sources > Executors** shows the channel of each pool (`SQS` or `KAFKA`).
 
 For pools on the Kafka channel, use Remote Executor v2.3.0 or later (Helm chart 0.0.70 or later) and set:
 
 - **Helm:** `--set global.datahub.executor.channel="KAFKA"` (default: `SQS`) in the `helm install` command in [Deploy on Kubernetes](#deploy-on-kubernetes).
 - **Docker or ECS:** the environment variable `DATAHUB_EXECUTOR_MODE=kafka-worker` (instead of `worker`).
 
-Do not change the channel of a running executor unless your DataHub representative tells you to. An existing pool keeps the channel it was created with.
+To move an existing pool from SQS to Kafka, follow [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md). Do not change the channel of a running executor outside that procedure.
 :::
 
 ### Custom images with additional connectors
@@ -332,7 +332,7 @@ Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
-- `global.datahub.executor.channel`: Set to `KAFKA` if your Executor Pool uses the Kafka channel (see [Deploying Remote Executors in Your Environment](#deploying-remote-executors-in-your-environment))
+- `global.datahub.executor.channel`: Set to `KAFKA` if your Executor Pool uses the Kafka channel (see [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md))
 
 4. **Configure Secret Mounting (Optional)**
 
