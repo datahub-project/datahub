@@ -261,6 +261,17 @@ def test_sql_gate_refuses_an_executable_comment(
     assert executed_queries == []
 
 
+def test_a_misspelled_column_in_the_callers_query_is_the_callers(
+    mysql_port: int, tmp_path: Path, executed_queries: List[str]
+) -> None:
+    """The server answers errno 1054 and the driver no SQLSTATE; the query
+    reached the server, and the mistake was the caller's."""
+    query = "SELECT no_such_column FROM information_schema.tables"
+    result = _probe_cli(tmp_path, _recipe(mysql_port), "sql", "--query", query)
+    assert result.exit_code == _EXIT_USER, result.output
+    assert len(executed_queries) == 1
+
+
 def _budget(monkeypatch: pytest.MonkeyPatch, seconds: int) -> None:
     monkeypatch.setattr(
         _provider_class(), "query_budget", QueryBudget(timeout_seconds=seconds)
