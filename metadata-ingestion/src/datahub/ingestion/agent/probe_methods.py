@@ -54,10 +54,8 @@ from datahub.ingestion.agent.verdicts import (
 
 if TYPE_CHECKING:
     # Annotations only: configuration.common stays off this module's import
-    # path (see source_class_for), and the gates import sqlglot lazily (see
-    # _enforce_gates).
+    # path (see source_class_for).
     from datahub.configuration.common import ConfigModel
-    from datahub.ingestion.agent.sql_gate import CatalogScope
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
@@ -691,7 +689,7 @@ def _enforce_gates(
     """
     if spec.scoped_sql_param is not None:
         # Lazy: sqlglot is paid for only by a probe that runs a query.
-        from datahub.ingestion.agent.sql_gate import check_query_scope
+        from datahub.ingestion.agent.sql_gate import CatalogScope, check_query_scope
 
         dialect = _provider_attribute(provider, "sql_dialect")
         if not isinstance(dialect, str) or not dialect:
@@ -703,10 +701,17 @@ def _enforce_gates(
             )
         # The connector's declared catalog; absent one, information_schema only.
         scope = _provider_attribute(provider, "catalog_scope")
+        if scope is not None and not isinstance(scope, CatalogScope):
+            raise ProbeInternalError(
+                f"probe method '{spec.command}' takes SQL but its provider's "
+                f"catalog_scope is a {type(scope).__name__}, not a CatalogScope, "
+                f"so the query cannot be checked; this is a defect in the probe "
+                f"provider"
+            )
         check_query_scope(
             str(call_kwargs[spec.scoped_sql_param]),
             platform=dialect,
-            scope=cast(Optional["CatalogScope"], scope),
+            scope=scope,
         )
 
     if spec.scoped_path_param is not None:
@@ -718,14 +723,37 @@ def _enforce_gates(
                 f"provider declares no api_allowlist, so no path can be "
                 f"permitted; this is a defect in the probe provider"
             )
+        # A str is iterable too, and would read as one entry per character.
+        if isinstance(allowlist, (str, bytes)) or not isinstance(
+            allowlist, Iterable
+        ):
+            raise ProbeInternalError(
+                f"probe method '{spec.command}' takes an API path but its "
+                f"provider's api_allowlist is a {type(allowlist).__name__}, not "
+                f"a collection of endpoints; this is a defect in the probe "
+                f"provider"
+            )
+        endpoints = tuple(allowlist)
+        if not all(isinstance(entry, str) for entry in endpoints):
+            raise ProbeInternalError(
+                f"probe method '{spec.command}' takes an API path but its "
+                f"provider's api_allowlist holds a non-string entry; this is a "
+                f"defect in the probe provider"
+            )
         # GET only. The base URL lets the gate match the path the client will
         # send, not the caller's string (see api_gate._effective_path).
         base_url = _provider_attribute(provider, "api_base_url")
+        if base_url is not None and not isinstance(base_url, str):
+            raise ProbeInternalError(
+                f"probe method '{spec.command}' takes an API path but its "
+                f"provider's api_base_url is a {type(base_url).__name__}, not a "
+                f"string; this is a defect in the probe provider"
+            )
         check_api_request(
             READ_METHOD,
             str(call_kwargs[spec.scoped_path_param]),
-            cast(Iterable[str], allowlist),
-            base_url=cast(Optional[str], base_url),
+            endpoints,
+            base_url=base_url,
         )
 
 

@@ -143,6 +143,48 @@ def test_a_provider_with_no_allowlist_at_all_is_a_provider_bug():
         _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
 
 
+class MistypedScopeProvider(FakeSqlProvider):
+    catalog_scope = {"schemas": ["information_schema"]}
+
+
+class StringAllowlistProvider(FakeApiProvider):
+    # A bare string iterates as characters, each one a "listed endpoint".
+    api_allowlist = "GET /spaces"
+
+
+class MistypedBaseUrlProvider(FakeApiProvider):
+    api_base_url = b"https://example.invalid/api"
+
+
+def test_a_catalog_scope_that_is_not_a_catalog_scope_is_a_provider_bug():
+    provider = MistypedScopeProvider()
+    with pytest.raises(ProbeInternalError):
+        _enforce_gates(
+            _spec(provider, "sql"),
+            provider,
+            {"query": "SELECT table_name FROM information_schema.tables"},
+        )
+    assert provider.ran == []
+
+
+@pytest.mark.parametrize(
+    "provider", [StringAllowlistProvider(), MistypedBaseUrlProvider()]
+)
+def test_a_mistyped_api_gate_input_is_a_provider_bug(provider: FakeApiProvider):
+    with pytest.raises(ProbeInternalError):
+        _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
+    assert provider.ran == []
+
+
+def test_a_list_allowlist_and_string_base_url_pass_the_gate():
+    class ListAllowlistProvider(FakeApiProvider):
+        api_allowlist = ["GET /spaces"]
+        api_base_url = "https://example.invalid/api"
+
+    provider = ListAllowlistProvider()
+    _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
+
+
 def test_a_row_limit_beyond_the_maximum_is_clamped_before_the_fetch():
     # The getter fetches `limit + 1` rows, so an unclamped limit is a fetch the
     # connector actually performs -- capping the output afterwards would be too
