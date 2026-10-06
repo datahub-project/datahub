@@ -1,4 +1,3 @@
-import { useApolloClient } from '@apollo/client';
 import { Menu, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,15 +7,13 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
-import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertViewToBuilderState } from '@app/entityV2/view/utils';
-import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { DeleteViewConfirmationModal } from '@app/entityV2/view/menu/DeleteViewConfirmationModal';
+import { convertViewToBuilderState } from '@app/entityV2/view/utils';
 import { MenuItemType } from '@src/alchemy-components/components/Menu/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
-import { useDeleteViewMutation } from '@graphql/view.generated';
 import { DataHubView, DataHubViewType } from '@types';
 
 const MenuTrigger = styled.div<{ $visible?: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -65,11 +62,9 @@ export const ViewDropdownMenu = ({
     const { t: tc } = useTranslation('common.actions');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const userContext = useUserContext();
-    const client = useApolloClient();
 
     const [updateUserViewSettingMutation] = useUpdateCorpUserViewsSettingsMutation();
     const [updateGlobalViewSettingMutation] = useUpdateGlobalViewsSettingsMutation();
-    const [deleteViewMutation] = useDeleteViewMutation();
 
     const [viewBuilderState, setViewBuilderState] = useState(DEFAULT_VIEW_BUILDER_STATE);
     const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
@@ -152,37 +147,12 @@ export const ViewDropdownMenu = ({
         setViewBuilderState(DEFAULT_VIEW_BUILDER_STATE);
     };
 
-    const deleteView = (viewUrn: string) => {
-        deleteViewMutation({ variables: { urn: viewUrn } })
-            .then(({ errors }) => {
-                if (!errors) {
-                    removeFromViewSelectCaches(viewUrn, client);
-                    removeFromListMyViewsCache(viewUrn, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined, undefined);
-                    if (viewUrn === userContext.localState?.selectedViewUrn) {
-                        userContext.updateLocalState({
-                            ...userContext.localState,
-                            selectedViewUrn: undefined,
-                        });
-                    }
-                    toast.success(t('deleteSuccess'), { duration: 2 });
-                }
-            })
-            .catch(() => {
-                toast.error(t('deleteError'), { duration: 3 });
-            });
-    };
-
     const confirmDeleteView = () => {
         if (onClickDelete) {
             onClickDelete();
         } else {
             setIsDeleteConfirmationOpen(true);
         }
-    };
-
-    const deleteConfirmedView = () => {
-        setIsDeleteConfirmationOpen(false);
-        deleteView(view.urn);
     };
 
     const canManageGlobalViews = userContext.platformPrivileges?.manageGlobalViews;
@@ -294,14 +264,9 @@ export const ViewDropdownMenu = ({
                     onCancel={onViewBuilderClose}
                 />
             )}
-            <ConfirmationModal
-                isOpen={isDeleteConfirmationOpen}
-                handleClose={() => setIsDeleteConfirmationOpen(false)}
-                handleConfirm={deleteConfirmedView}
-                modalTitle={t('deleteConfirm.title', { name: view.name })}
-                modalText={t('deleteConfirm.content')}
-                confirmButtonText={tc('yes')}
-                isDeleteModal
+            <DeleteViewConfirmationModal
+                view={isDeleteConfirmationOpen ? view : undefined}
+                onClose={() => setIsDeleteConfirmationOpen(false)}
             />
         </>
     );

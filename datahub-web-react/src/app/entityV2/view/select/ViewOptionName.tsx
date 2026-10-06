@@ -83,6 +83,7 @@ type Props = {
     // Custom Action Handlers - useful if you do NOT want the Menu to handle Modal rendering.
     onClickEdit?: () => void;
     onClickPreview?: () => void;
+    onClickDelete?: () => void;
     selectView: () => void;
 };
 
@@ -104,6 +105,7 @@ export const ViewOptionName = ({
     fixedWidth,
     onClickEdit,
     onClickPreview,
+    onClickDelete,
     selectView,
 }: Props) => {
     const { t } = useTranslation('entity.views');
@@ -212,6 +214,7 @@ export const ViewOptionName = ({
                     visible={visible}
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
+                    onClickDelete={onClickDelete}
                     selectView={selectView}
                 />
             </ViewDropdownMenuContainer>
