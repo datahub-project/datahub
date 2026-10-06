@@ -1953,6 +1953,23 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         Set.of("load-job"));
   }
 
+  @Test
+  public void testV3LightQueryCutsLongQueriesAtAWordBoundary() {
+    // The light query matches the first 80 characters of a longer query, cut between words
+    String query =
+        "quarterly revenue forecast by region and product line for the north american sales team";
+    List<MultiMatchQueryBuilder> multiMatches = v3LightMultiMatches(query);
+    assertFalse(multiMatches.isEmpty());
+    for (MultiMatchQueryBuilder multiMatch : multiMatches) {
+      String value = String.valueOf(multiMatch.value());
+      assertTrue(value.length() <= 80 && query.startsWith(value + " "), value);
+    }
+    // A word longer than that is cut at 80 characters
+    assertTrue(
+        v3LightMultiMatches("x".repeat(90)).stream()
+            .allMatch(multiMatch -> String.valueOf(multiMatch.value()).equals("x".repeat(80))));
+  }
+
   private List<MultiMatchQueryBuilder> v3LightMultiMatches(String query) {
     List<QueryBuilder> clauses = new ArrayList<>();
     collectClauses(
