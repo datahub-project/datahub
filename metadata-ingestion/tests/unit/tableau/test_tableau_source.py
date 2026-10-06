@@ -1,6 +1,16 @@
 import json
 import pathlib
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 from unittest import mock
 
 import pytest
@@ -2233,3 +2243,93 @@ class TestNullApiResponseHandling:
         assert result is not None
         assert len(result.fields) == 1
         assert result.fields[0].fieldPath == "my_column"
+
+
+def _report_titles(entries: Iterable[Any]) -> List[Optional[str]]:
+    # _make_site_source() always reports "Insufficient Permissions" because the mocked
+    # server cannot verify the user's role; it is unrelated to what these tests check.
+    return [e.title for e in entries if e.title != "Insufficient Permissions"]
+
+
+def _registry_project(project_id: str, name: str = "default") -> TableauProject:
+    return TableauProject(
+        id=project_id,
+        name=name,
+        description="",
+        parent_id=None,
+        parent_name=None,
+        path=[name],
+    )
+
+
+def test_workbook_project_luid_falls_back_to_rest_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(
+        project_id="project-1"
+    )
+    workbook = {c.ID: "wb-1", c.NAME: "wb", c.LUID: "wb-luid-1"}
+
+    assert source._get_workbook_project_luid(workbook) == "project-1"
+    # The second call is served from the map; the REST API is only hit once.
+    assert source._get_workbook_project_luid(workbook) == "project-1"
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
+    assert source.report.num_workbook_project_lookups == 1
+
+
+def test_workbook_project_luid_lookup_failure_is_not_retried() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.side_effect = Exception("boom")
+    workbook = {c.ID: "wb-1", c.NAME: "wb", c.LUID: "wb-luid-1"}
+
+    assert source._get_workbook_project_luid(workbook) is None
+    assert source._get_workbook_project_luid(workbook) is None
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
+    assert source.report.num_get_workbook_query_failures == 1
+    assert _report_titles(source.report.warnings) == ["Unexpected Query Error"]
+
+
+def test_workbook_project_luid_without_luid_skips_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+
+    assert source._get_workbook_project_luid({c.ID: "wb-1", c.NAME: "wb"}) is None
+    source.server.workbooks.get_by_id.assert_not_called()
+
+
+def test_emit_workbooks_distinguishes_unresolved_from_unselected_project() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(project_id=None)
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.workbook_project_map = {"wb-luid-unselected": "project-other"}
+
+    workbooks = [
+        {
+            c.ID: "wb-unresolved",
+            c.NAME: "Unresolved",
+            c.LUID: "wb-luid-unresolved",
+            c.PROJECT_NAME: "default",
+        },
+        {
+            c.ID: "wb-unselected",
+            c.NAME: "Unselected",
+            c.LUID: "wb-luid-unselected",
+            c.PROJECT_NAME: "default",
+        },
+    ]
+
+    with mock.patch.object(source, "get_connection_objects", return_value=workbooks):
+        work_units = list(source.emit_workbooks())
+
+    assert work_units == []
+    assert _report_titles(source.report.warnings) == [
+        "Unable to Resolve Workbook Project"
+    ]
+    assert _report_titles(source.report.infos) == [
+        "Skipping Workbook in Unselected Project"
+    ]
