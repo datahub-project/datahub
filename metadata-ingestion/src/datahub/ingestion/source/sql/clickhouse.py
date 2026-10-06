@@ -1275,8 +1275,9 @@ ORDER BY event_time ASC
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         # Config-file dictionaries are not in system.tables, so the base scan never
-        # emits them. They go first so their schemas are registered before view and
-        # materialized view SQL is parsed.
+        # emits them. They go first so their schemas are registered before
+        # gen_metadata() parses view and materialized view SQL at the end of the
+        # base scan.
         xml_dictionary_workunits = (
             self._emit_xml_dictionaries() if self.config.include_tables else []
         )
@@ -1360,6 +1361,15 @@ ORDER BY event_time ASC
         try:
             dictionaries = self._fetch_xml_dictionaries()
         except Exception as e:
+            if "ACCESS_DENIED" in str(e):
+                # Nothing was ingested without access, so there is nothing for
+                # stale entity removal to delete; a warning keeps the run green.
+                self.report.warning(
+                    title="Config-file dictionaries not ingested",
+                    message="Grant SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.* to ingest config-file dictionaries",
+                    exc=e,
+                )
+                return
             self.report.failure(
                 title="Config-file dictionary fetch failed",
                 message="Failed to fetch config-file dictionaries",
@@ -1399,7 +1409,7 @@ ORDER BY event_time ASC
             except Exception as e:
                 self.report.warning(
                     title="Failed to process config-file dictionary",
-                    message="Skipped a config-file dictionary that could not be processed",
+                    message="Error while processing a config-file dictionary",
                     context=dataset_name,
                     exc=e,
                 )
@@ -1415,7 +1425,7 @@ ORDER BY event_time ASC
             self.report.warning(
                 title="Config-file dictionary has no columns",
                 message="ClickHouse reported no structure for the dictionary, so its schema was not updated",
-                context=dataset_name,
+                context=f"{dataset_name} (status: {dictionary.status})",
             )
         schema_fields = [
             SchemaFieldClass(
