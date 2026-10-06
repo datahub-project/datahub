@@ -281,6 +281,11 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    volume_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for volumes to filter in ingestion. Specify regex to match the entire volume name in `catalog.schema.volume` format. e.g. to match all volumes starting with landing in the Customer catalog and public schema, use the regex `Customer\\.public\\.landing.*`.",
+    )
+
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
 
@@ -329,6 +334,14 @@ class UnityCatalogSourceConfig(
     include_notebooks: bool = pydantic.Field(
         default=False,
         description="Ingest notebooks, represented as DataHub datasets.",
+    )
+
+    include_volumes: bool = pydantic.Field(
+        default=False,
+        description="Ingest Unity Catalog volumes, represented as DataHub datasets "
+        "with the `Volume` subtype inside their schema container. Only volume-level "
+        "metadata is ingested, not the files inside. When enabled, lineage from "
+        "volume paths (`/Volumes/...`) to tables is also emitted.",
     )
 
     include_ownership: bool = pydantic.Field(

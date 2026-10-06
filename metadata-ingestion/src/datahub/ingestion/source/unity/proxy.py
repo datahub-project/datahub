@@ -74,6 +74,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
     escape_unity_name,
     usage_statement_types,
 )
@@ -660,6 +661,26 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             optional_ml_model = self._create_ml_model(schema, ml_model)
             if optional_ml_model:
                 yield optional_ml_model
+
+    def volumes(self, schema: Schema) -> Iterable[Volume]:
+        for obj in self._workspace_client.volumes.list(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            include_browse=True,
+        ):
+            if not obj.name or not obj.full_name:
+                continue
+            yield Volume(
+                id=obj.full_name,
+                name=obj.name,
+                comment=obj.comment,
+                schema=schema,
+                volume_type=obj.volume_type.value if obj.volume_type else None,
+                storage_location=obj.storage_location,
+                owner=obj.owner,
+                created_at=parse_ts_millis(obj.created_at),
+                updated_at=parse_ts_millis(obj.updated_at),
+            )
 
     def ml_model_versions(
         self, ml_model: Model, include_aliases: bool = False

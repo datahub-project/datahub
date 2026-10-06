@@ -1116,6 +1116,59 @@ class TestUnityCatalogProxy:
         result = proxy._create_ml_model_version(model, version_info)
         assert result is None
 
+    def test_volumes_converts_volume_info(self, mock_proxy):
+        from databricks.sdk.service.catalog import VolumeInfo, VolumeType
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        mock_proxy._workspace_client.volumes.list.return_value = [
+            VolumeInfo(
+                name="raw",
+                full_name="c.s.raw",
+                comment="landing zone",
+                volume_type=VolumeType.MANAGED,
+                storage_location="s3://bucket/vol",
+                owner="alice@example.com",
+                created_at=1735689600000,
+                updated_at=1735776000000,
+            ),
+            VolumeInfo(full_name=None, name=None),
+        ]
+
+        volumes = list(mock_proxy.volumes(schema))
+
+        mock_proxy._workspace_client.volumes.list.assert_called_once_with(
+            catalog_name="c", schema_name="s", include_browse=True
+        )
+        assert len(volumes) == 1
+        volume = volumes[0]
+        assert volume.id == "c.s.raw"
+        assert volume.schema is schema
+        assert volume.volume_type == "MANAGED"
+        assert volume.storage_location == "s3://bucket/vol"
+        assert volume.owner == "alice@example.com"
+        assert volume.created_at == datetime(
+            2025, 1, 1, tzinfo=volume.created_at.tzinfo
+        )
+
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_create_ml_model_success(self, mock_workspace_client):
         """Test _create_ml_model() successfully creates a model."""

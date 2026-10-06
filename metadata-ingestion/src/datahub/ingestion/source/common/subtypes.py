@@ -60,6 +60,7 @@ class DatasetSubTypes(StrEnum):
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
+    VOLUME = "Volume"
 
 
 class GenericContainerSubTypes(StrEnum):
