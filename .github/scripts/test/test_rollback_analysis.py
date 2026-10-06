@@ -3,7 +3,10 @@
 import json
 import sys
 from pathlib import Path
+from contextlib import ExitStack, contextmanager
 from unittest.mock import patch
+
+import pytest
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -1076,6 +1079,14 @@ class TestComparableType:
     def test_real_type_change_is_still_detected(self):
         assert ra._comparable_type("string") != ra._comparable_type("int")
 
+    def test_change_after_nested_default_is_a_type_change(self):
+        a = "record Inner { x: int = 1, y: string }"
+        b = "record Inner { x: int = 1, y: long }"
+        assert ra._comparable_type(a) != ra._comparable_type(b)
+
+    def test_map_default_is_stripped(self):
+        assert ra._comparable_type("map[string, string] = { }") == "map[string, string]"
+
     def test_enum_addition_is_reported_once_not_as_type_change(self):
         with patch.object(ra.rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_ENUM_ADDED,
@@ -1085,6 +1096,32 @@ class TestComparableType:
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
         assert not any(f.summary.startswith("Type change") for f in findings)
         assert not any(f.reindex_required for f in findings)
+
+
+class TestHasDefault:
+    def test_default_after_inline_record_on_later_line(self):
+        pdl = 'record A {\n  inner: record I {\n    x: int\n  } = { "x": 1 }\n  other: int\n}'
+        assert ra._has_default(pdl, "inner", "A") is True
+        assert ra._has_default(pdl, "other", "A") is False
+
+    def test_default_on_same_named_field_in_another_record_is_ignored(self):
+        pdl = 'record A {\n  x: string\n}\nrecord B {\n  x: string = "d"\n}'
+        assert ra._has_default(pdl, "x", "A") is False
+        assert ra._has_default(pdl, "x", "B") is True
+
+    def test_default_inside_inline_nested_record_is_ignored(self):
+        pdl = 'record A {\n  inner: record I {\n    x: string = "d"\n  }\n  x: string\n}'
+        assert ra._has_default(pdl, "x", "A") is False
+
+    def test_removed_required_field_still_blocks_when_other_record_has_default(self):
+        n1 = _ASPECT_V1 + '\nrecord Other {\n  bar: int = 0\n}\n'
+        n = _ASPECT_V1_REMOVED_FIELD + '\nrecord Other {\n  bar: int = 0\n}\n'
+        with patch.object(ra.rac, "file_at", _mock_file_at({("N", "test.pdl"): n, ("N-1", "test.pdl"): n1})), \
+             patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
+        removed = [f for f in findings if f.summary.startswith("Removed field `bar`")]
+        assert len(removed) == 1 and removed[0].risk == ra.BLOCKS_ROLLBACK
 
 
 class TestMutatorImpact:
@@ -1099,10 +1136,11 @@ class TestMutatorImpact:
         ra._set_mutator_impact(findings)
         assert (mutator.read_impact, mutator.write_impact, mutator.data_loss) == ("API fails", "fails", "no")
 
-    def test_mutator_without_field_changes_is_ok(self):
+    def test_mutator_without_schema_change_is_unknown(self):
         mutator = _finding(dimension=ra.DIM_MUTATOR, risk=ra.REQUIRES_ATTENTION, aspect_name="a")
         ra._set_mutator_impact([mutator])
-        assert (mutator.read_impact, mutator.write_impact, mutator.data_loss) == ("ok", "ok", "no")
+        assert (mutator.read_impact, mutator.write_impact, mutator.data_loss) == ("unknown", "unknown", "unknown")
+        assert "check its transform" in mutator.detail
 
 
 class TestMutatorDetail:
@@ -1183,6 +1221,24 @@ record PolicyAspect {
 }
 """
 _P = "metadata-models/src/main/pegasus/com/linkedin/test/"
+
+
+@contextmanager
+def _mock_repo(files: dict, all_paths: tuple = ()):
+    """Patch git access so `files` ({(ref, path): content}) is the repo.
+    `all_paths` are the PDLs listed at ref N (for dependency lookups)."""
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(ra.rac, "file_at", lambda ref, path: files.get((ref, path), "")))
+        stack.enter_context(patch.object(ra.rac, "pr_numbers_for_file", return_value=[]))
+        stack.enter_context(patch.object(ra.rac, "last_author_for_file", return_value=None))
+        stack.enter_context(patch.object(ra, "_first_pr", return_value=None))
+        stack.enter_context(patch.object(ra, "_file_author", return_value=None))
+        if all_paths:
+            stack.enter_context(patch.object(ra.rac, "_git", return_value="\n".join(all_paths) + "\n"))
+            stack.enter_context(patch.object(
+                ra, "_read_files_at", return_value={p: files[("N", p)] for p in all_paths}
+            ))
+        yield
 
 
 class TestNestedChanges:
@@ -1280,7 +1336,7 @@ class TestRelationshipAndIncludes:
              patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(ra.rac, "last_author_for_file", return_value=None):
             findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        added = [f for f in findings if f.summary.startswith("Via includes `Extra`: Added field `customProperties`")]
+        added = [f for f in findings if f.summary.startswith("Added field `customProperties` (via includes `Extra`)")]
         assert len(added) == 1 and added[0].risk == ra.SAFE
 
 
@@ -1311,7 +1367,7 @@ class TestUpgradeStepImpact:
 
     def test_aspect_unknown_to_n1_breaks_restore_indices(self):
         step = self._run({"dataProducts", "dataHubUpgradeResult"}, {"dataHubUpgradeResult"}, [])
-        assert (step.read_impact, step.write_impact, step.data_loss) == ("restore-indices fails", "ok", "no")
+        assert (step.read_impact, step.write_impact, step.data_loss) == ("restore-indices fails", "fails", "no")
         assert "`dataProducts` (not in N-1)" in step.detail
         assert "dataHubUpgradeResult" not in step.detail
 
@@ -1323,3 +1379,233 @@ class TestUpgradeStepImpact:
         step = self._run(set(), set(), [])
         assert step.read_impact == "unknown"
         assert "Couldn't tell" in step.detail
+
+
+_BASE = "namespace com.linkedin.test\nrecord Base {\n  a: string\n}\n"
+_ASP_INCLUDES = 'namespace com.linkedin.test\n@Aspect = { "name": "asp" }\nrecord Asp includes Base {\n  b: string\n}\n'
+_ASP_INLINED = 'namespace com.linkedin.test\n@Aspect = { "name": "asp" }\nrecord Asp {\n  a: string\n  b: string\n}\n'
+
+
+class TestEffectiveFields:
+    def _classify(self, n, n1):
+        files = {("N", "asp.pdl"): n, ("N-1", "asp.pdl"): n1, ("N", _P + "Base.pdl"): _BASE, ("N-1", _P + "Base.pdl"): _BASE}
+        with _mock_repo(files):
+            return ra.classify_pdl_for_rollback("asp.pdl", "N", "N-1")
+
+    def test_inlining_an_include_is_not_a_change(self):
+        assert self._classify(_ASP_INLINED, _ASP_INCLUDES) == []
+
+    def test_moving_fields_into_an_include_is_not_a_change(self):
+        assert self._classify(_ASP_INCLUDES, _ASP_INLINED) == []
+
+    def test_included_field_keeps_its_own_default(self):
+        base = "namespace com.linkedin.test\nrecord Base {\n  a: string = \"x\"\n}\n"
+        files = {("N-1", _P + "Base.pdl"): base}
+        with patch.object(ra.rac, "file_at", lambda ref, path: files.get((ref, path), "")):
+            fields = ra._effective_fields(_ASP_INCLUDES, "N-1")
+        assert fields["a"]["has_default"] is True and fields["a"]["via"] == "Base"
+        assert fields["b"]["has_default"] is False and fields["b"]["via"] is None
+
+
+class TestRequiredToOptionalWithDefault:
+    def test_n1_default_makes_flip_safe(self):
+        n1 = _ASPECT_V1.replace("bar: int", "bar: int = 0")
+        n = _ASPECT_V1.replace("bar: int", "bar: optional int")
+        with patch.object(ra.rac, "file_at", _mock_file_at({("N", "test.pdl"): n, ("N-1", "test.pdl"): n1})), \
+             patch.object(ra.rac, "pr_numbers_for_file", return_value=[]), \
+             patch.object(ra.rac, "last_author_for_file", return_value=None):
+            findings = ra.classify_pdl_for_rollback("test.pdl", "N", "N-1")
+        flip = [f for f in findings if "flip on `bar`" in f.summary]
+        assert len(flip) == 1 and flip[0].risk == ra.SAFE
+        assert (flip[0].read_impact, flip[0].write_impact) == ("ok", "ok")
+
+
+class TestReindexSection:
+    def test_nested_finding_shows_record_and_field(self):
+        f = _finding(summary="In `Foo`: Search mapping changed on `bar`", aspect_name="a | b",
+                     detail="x | y", reindex_required=True)
+        row = ra._render_reindex_section([f])[4]
+        assert "`Foo.bar`" in row
+        assert "a \\| b" in row and "x \\| y" in row
+
+    def test_top_level_finding_shows_field(self):
+        f = _finding(summary="Search mapping changed on `title`", reindex_required=True)
+        assert "`title`" in ra._render_reindex_section([f])[4]
+
+
+class TestResolveRefName:
+    def test_falls_back_to_remote_tracking_branch(self):
+        resolves = {"origin/releases/v1.3.0"}
+        with patch.object(ra.rac, "_resolve_ref", lambda *c: next((r for r in c if r in resolves), None)):
+            assert ra._resolve_ref_name("releases/v1.3.0") == "origin/releases/v1.3.0"
+            assert ra._resolve_ref_name("v9.9.9") == "v9.9.9"
+
+
+_U_V1 = "namespace com.linkedin.test\ntyperef U = union[string, int]\n"
+_U_V2 = "namespace com.linkedin.test\ntyperef U = union[string, int, long]\n"
+_ASP_U = 'namespace com.linkedin.test\n@Aspect = { "name": "uAspect" }\nrecord UAspect {\n  u: U\n}\n'
+
+
+class TestFullReviewFixes:
+    def _nested(self, files, pdl_paths, all_files):
+        with _mock_repo(files, tuple(all_files)):
+            return ra.analyze_nested_changes("N", "N-1", pdl_paths)
+
+    def test_union_member_added_in_shared_typeref_requires_attention(self):
+        u, asp = _P + "U.pdl", _P + "UAspect.pdl"
+        files = {("N", u): _U_V2, ("N-1", u): _U_V1, ("N", asp): _ASP_U, ("N-1", asp): _ASP_U}
+        findings = self._nested(files, [u], [u, asp])
+        assert [f.summary.split(" — ")[0] for f in findings] == ["Union `U`: added member `long`"]
+        f = findings[0]
+        assert f.risk == ra.REQUIRES_ATTENTION and (f.read_impact, f.write_impact) == ("API fails", "fails")
+        assert f.affected_aspects == ["uAspect"]
+        assert ra.compute_verdict(findings) == ra.VERDICT_MANUAL
+
+    def test_comment_only_change_in_typeref_file_is_not_reported(self):
+        u, asp = _P + "U.pdl", _P + "UAspect.pdl"
+        files = {("N", u): "/** new doc */\n" + _U_V1, ("N-1", u): _U_V1, ("N", asp): _ASP_U, ("N-1", asp): _ASP_U}
+        assert self._nested(files, [u], [u, asp]) == []
+
+    def test_file_the_parser_cannot_read_requires_attention(self):
+        bad_v1 = "namespace com.linkedin.test\nrecord U {\n  a: string\n"
+        bad_v2 = bad_v1 + "  b: string\n"
+        u, asp = _P + "U.pdl", _P + "UAspect.pdl"
+        files = {("N", u): bad_v2, ("N-1", u): bad_v1, ("N", asp): _ASP_U, ("N-1", asp): _ASP_U}
+        findings = self._nested(files, [u], [u, asp])
+        assert len(findings) == 1
+        f = findings[0]
+        assert "couldn't be analysed" in f.summary and f.risk == ra.REQUIRES_ATTENTION
+        assert (f.read_impact, f.write_impact, f.data_loss) == ("not analysed",) * 3
+        assert f.affected_aspects == ["uAspect"]
+        assert ra.compute_verdict(findings) == ra.VERDICT_MANUAL
+
+    def test_include_change_not_repeated_for_aspect_whose_file_changed(self):
+        base, asp = _P + "Base.pdl", _P + "Asp.pdl"
+        base_v2 = _BASE.replace("a: string", "a: string\n  x: optional string")
+        files = {("N", base): base_v2, ("N-1", base): _BASE, ("N", asp): _ASP_INCLUDES, ("N-1", asp): _ASP_INCLUDES}
+        # Aspect file changed too (e.g. version bump): its own diff covers Base.
+        assert self._nested(files, [base, asp], [base, asp]) == []
+        # Aspect file unchanged: the nested finding is still reported for it.
+        reported = self._nested(files, [base], [base, asp])
+        assert [f.summary.split(" — ")[0] for f in reported] == ["In `Base`: Added field `x`"]
+
+    def test_upgrade_step_added_twice_is_reported_once(self):
+        step = {"path": "datahub-upgrade/x/S.java", "class_name": "S", "step_type": "NonBlockingSystemUpgrade", "author": None}
+        with patch.object(ra, "find_upgrade_steps_added_in_window",
+                          return_value=[{**step, "pr": "1"}, {**step, "pr": "2"}]):
+            findings = ra.classify_upgrade_steps_for_rollback("N", "N-1")
+        assert len(findings) == 1 and findings[0].pr_number == "1, 2"
+
+
+_BASE_ENUM_V1 = "namespace com.linkedin.test\nrecord Base {\n  status: enum Status { A B }\n}\n"
+_BASE_ENUM_V2 = _BASE_ENUM_V1.replace("{ A B }", "{ A B C }")
+_ASP_INC_V1 = 'namespace com.linkedin.test\n@Aspect = { "name": "asp", "schemaVersion": 1 }\nrecord Asp includes Base {\n  b: string\n}\n'
+_ASP_INC_V2 = _ASP_INC_V1.replace('"schemaVersion": 1', '"schemaVersion": 2')
+
+
+class TestIncludedRecordChanges:
+    def _run(self, files, changed):
+        with _mock_repo(files, (_P + "Base.pdl", _P + "Asp.pdl")):
+            findings = []
+            for p in changed:
+                findings += ra.classify_pdl_for_rollback(p, "N", "N-1")
+            return findings + ra.analyze_nested_changes("N", "N-1", changed)
+
+    def test_enum_added_in_included_record_is_reported_when_aspect_also_changed(self):
+        files = {("N", _P + "Base.pdl"): _BASE_ENUM_V2, ("N-1", _P + "Base.pdl"): _BASE_ENUM_V1,
+                 ("N", _P + "Asp.pdl"): _ASP_INC_V2, ("N-1", _P + "Asp.pdl"): _ASP_INC_V1}
+        findings = self._run(files, [_P + "Base.pdl", _P + "Asp.pdl"])
+        enum = [f for f in findings if f.summary.startswith("Enum `Status`: added value `C`")]
+        assert len(enum) == 1 and enum[0].affected_aspects == ["asp"]
+
+    def test_unreadable_included_file_is_reported_when_aspect_also_changed(self):
+        bad = "namespace com.linkedin.test\nrecord Base {\n  status: string\n"
+        files = {("N", _P + "Base.pdl"): bad + "  extra: string\n", ("N-1", _P + "Base.pdl"): bad,
+                 ("N", _P + "Asp.pdl"): _ASP_INC_V2, ("N-1", _P + "Asp.pdl"): _ASP_INC_V1}
+        findings = self._run(files, [_P + "Base.pdl", _P + "Asp.pdl"])
+        unread = [f for f in findings if "couldn't be analysed" in f.summary]
+        assert len(unread) == 1 and unread[0].affected_aspects == ["asp"]
+        assert unread[0].risk == ra.REQUIRES_ATTENTION
+
+    def test_typeref_change_in_included_file_is_reported_when_aspect_also_changed(self):
+        u1 = "namespace com.linkedin.test\ntyperef Base = union[string, int]\n"
+        files = {("N", _P + "Base.pdl"): u1.replace("int]", "int, long]"), ("N-1", _P + "Base.pdl"): u1,
+                 ("N", _P + "Asp.pdl"): _ASP_INC_V2, ("N-1", _P + "Asp.pdl"): _ASP_INC_V1}
+        findings = self._run(files, [_P + "Base.pdl", _P + "Asp.pdl"])
+        assert any(f.summary.startswith("Union `Base`: added member `long`") and f.affected_aspects == ["asp"]
+                   for f in findings)
+
+
+class TestCachedReader:
+    def test_each_file_is_read_once_per_run(self):
+        calls = []
+        with patch.object(ra.rac, "file_at", lambda ref, path: calls.append((ref, path)) or "x"):
+            read = ra._cached_reader()
+            read("N", "a.pdl"), read("N", "a.pdl"), read("N-1", "a.pdl")
+        assert calls == [("N", "a.pdl"), ("N-1", "a.pdl")]
+
+
+class TestDiffFieldsRequiresDefaultFlag:
+    def test_missing_has_default_is_an_error_not_a_silent_no(self):
+        removed = {"x": {"optional": False, "type": "string", "annotations": {}}}
+        with pytest.raises(KeyError):
+            ra._diff_fields({}, removed, {}, {}, None, "p", "a", None, None)
+
+
+class TestTyperefs:
+    def test_split_typerefs_leaves_records_parseable(self):
+        pdl = 'namespace a\n/** doc */\ntyperef U = union[\n  string,\n  @x = "y"\n  int\n]\nrecord R { a: string }\nfixed MD5 16\n'
+        typerefs, fixed, rest = ra._split_typerefs(pdl)
+        assert ra._union_members(typerefs["U"]) == {"string", "int"}
+        assert fixed == {"MD5": 16}
+        assert set(ra.bsv.parse_top_level_defs(rest)) == {"R"}
+
+    def test_union_members_without_commas(self):
+        # PDL commas are optional; named members are often newline-separated.
+        assert ra._union_members("union[\n  costId: double\n  costCode: string\n]") == {
+            "costId: double", "costCode: string"}
+        assert ra._union_members("union[array[string] map[string, int] long]") == {
+            "array[string]", "map[string, int]", "long"}
+
+    def test_inline_record_with_includes_is_one_union_member(self):
+        assert ra._union_members("union[a: record R includes Base { x: int } b: long]") == {
+            "a: record R includes Base { x: int }", "b: long"}
+
+    def test_reordered_union_is_not_a_change(self):
+        old = "typeref U = union[\n a: int\n b: long\n]"
+        new = "typeref U = union[\n b: long\n a: int\n]"
+        assert ra._typeref_findings(new, old, "p", None, None) == []
+
+    def test_typeref_text_inside_a_string_is_ignored(self):
+        old = 'namespace a\n@doc = "typeref Display = long"\nrecord R { x: int }\n'
+        new = 'namespace a\n@doc = "typeref Display = string"\nrecord R { x: int }\n'
+        assert ra._typeref_findings(new, old, "p", None, None) == []
+
+    def test_removed_union_member_is_not_reported(self):
+        assert ra._typeref_findings("typeref U = union[string]", "typeref U = union[string, int]", "p", None, None) == []
+
+    def test_typeref_target_and_fixed_size_changes(self):
+        summaries = [f.summary for f in ra._typeref_findings(
+            "typeref T = long\nfixed H 32", "typeref T = string\nfixed H 16", "p", None, None)]
+        assert summaries == ["Type change on `T`: `string`→`long`", "Fixed `H`: size 16→32"]
+
+
+class TestUnknownImpactCarriesThrough:
+    def test_worst_prefers_unknown_over_any_known_value(self):
+        assert ra._worst(["ok", "not analysed"], ra._READ_SEVERITY) == "not analysed"
+        assert ra._worst(["ok"], ra._READ_SEVERITY) == "ok"
+
+    def test_mutator_with_unanalysed_change_is_not_reported_as_fine(self):
+        mutator = _finding(dimension=ra.DIM_MUTATOR, risk=ra.REQUIRES_ATTENTION, aspect_name="a")
+        unparsed = _finding(summary="`U` changed but couldn't be analysed", affected_aspects=["a"],
+                            **ra._impact("not analysed", "not analysed", "not analysed"))
+        ra._set_mutator_impact([mutator, unparsed])
+        assert mutator.read_impact == "not analysed"
+        assert "couldn't be analysed" in mutator.detail and "fine" not in mutator.detail
+
+
+class TestMainRecord:
+    def test_record_is_read_even_when_file_has_typeref(self):
+        pdl = "namespace a\ntyperef T = string\nrecord R includes Base {\n  x: T\n}\n"
+        rdef = ra._main_record(pdl)
+        assert rdef is not None and rdef["includes"] == {"Base"} and set(rdef["fields"]) == {"x"}

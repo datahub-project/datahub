@@ -21,7 +21,7 @@ import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import bump_schema_versions as bsv
 import report_aspect_changes as rac
@@ -99,7 +99,6 @@ def _impact(read: str, write: str, data_loss: str) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-_DEFAULT_RE = re.compile(r"\s*=.*$", re.DOTALL)
 _INLINE_ENUM_RE = re.compile(r"^enum\s+(\w+)\s*\{[^{}]*\}$", re.DOTALL)
 
 
@@ -184,14 +183,69 @@ def _enums(pdl: str) -> dict[str, list[str]]:
     return out
 
 
-def _has_default(pdl: str, field_name: str) -> bool:
-    """True if the field's declaration line in `pdl` assigns a default.
+def _record_top_level(pdl: str, record: str) -> Optional[str]:
+    """`record`'s body with comments removed and nested blocks blanked out,
+    so only its own field declarations remain, one per line."""
+    text = rac._strip_comments(pdl)
+    m = re.search(rf"\brecord\s+{re.escape(record)}\b[^{{]*\{{", text)
+    if not m:
+        return None
+    end = bsv._skip_balanced(text, m.end() - 1)
+    if end is None:
+        return None
+    body = text[m.end() : end - 1]
+    # Nested text (including its newlines) becomes spaces, so a default
+    # written after an inline record or map stays on the field's line.
+    return "".join(
+        ch if depth == 0 else " " for _, ch, depth in _top_level_chars(body)
+    )
+
+
+def _has_default(pdl: str, field_name: str, record: Optional[str]) -> bool:
+    """True if `record`'s own declaration of the field assigns a default.
 
     Read from the source because the field parser keeps some defaults in the
-    type text (enums) and drops others (numbers).
+    type text (enums) and drops others (numbers). Scoped to the record so a
+    same-named field elsewhere in the file doesn't count.
     """
+    if not record:
+        return False
+    body = _record_top_level(pdl, record)
+    if body is None:
+        return False
     pattern = rf"^\s*{re.escape(field_name)}\s*:[^\n]*="
-    return re.search(pattern, pdl, re.MULTILINE) is not None
+    return re.search(pattern, body, re.MULTILINE) is not None
+
+
+def _top_level_chars(text: str):
+    """Yield (index, char, depth) for `text`, skipping string literals.
+    Depth counts open (), [] and {} so nested types can be told apart."""
+    depth, in_str, escaped = 0, False, False
+    for i, ch in enumerate(text):
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[(":
+            depth += 1
+        elif ch in "}])":
+            depth -= 1
+        yield i, ch, depth
+
+
+def _strip_top_level_default(type_text: str) -> str:
+    """Type text without the field's own `= default`. An `=` inside an inline
+    record, union or map belongs to that nested type and is kept."""
+    for i, ch, depth in _top_level_chars(type_text):
+        if ch == "=" and depth == 0:
+            return type_text[:i].strip()
+    return type_text.strip()
 
 
 def _comparable_type(type_text: str) -> str:
@@ -200,7 +254,7 @@ def _comparable_type(type_text: str) -> str:
     A default change or moving an enum into its own file doesn't change the
     stored type; enum symbol changes are reported separately.
     """
-    t = _DEFAULT_RE.sub("", type_text).strip()
+    t = _strip_top_level_default(type_text)
     m = _INLINE_ENUM_RE.match(t)
     return m.group(1) if m else t
 
@@ -212,15 +266,19 @@ def _diff_fields(
     pr: Optional[str], author: Optional[str], where: str = "",
 ) -> list[RollbackFinding]:
     """Field and enum changes of one record, classified for N-1. `where`
-    prefixes summaries for nested records (e.g. "In `Foo`: ")."""
+    prefixes summaries for nested records (e.g. "In `Foo`: "). Field maps
+    come from `_effective_fields`, which sets `has_default` on every field."""
     findings: list[RollbackFinding] = []
+
+    def has_default(name: str) -> bool:
+        return tgt_fields[name]["has_default"]
 
     for name in sorted(set(cur_fields) - set(tgt_fields)):
         findings.append(RollbackFinding(
             dimension=DIM_PDL_SCHEMA, risk=SAFE, path=path,
             aspect_name=aspect_name,
             **_impact("ok", DROPS_NEW_FIELD, "no"),
-            summary=where + f"Added field `{name}` — N-1 ignores unknown fields",
+            summary=where + f"Added field `{name}`{_via(cur_fields[name])} — N-1 ignores unknown fields",
             pr_number=pr, author=author,
         ))
 
@@ -228,15 +286,13 @@ def _diff_fields(
         tgt = tgt_fields[name]
         # N-1 fills an absent field from its default, so only a required
         # field without one breaks N-1 on records N wrote without it.
-        required_no_default = (
-            not tgt["optional"] and not _has_default(target_content or "", name)
-        )
+        required_no_default = not tgt["optional"] and not has_default(name)
         if required_no_default:
             findings.append(RollbackFinding(
                 dimension=DIM_PDL_SCHEMA, risk=BLOCKS_ROLLBACK, path=path,
                 aspect_name=aspect_name,
                 **_impact("API fails", "fails", "yes"),
-                summary=where + f"Removed field `{name}` — required in N-1, no default",
+                summary=where + f"Removed field `{name}`{_via(tgt)} — required in N-1, no default",
                 detail=(
                     "N writes records without this field and N-1 can't read "
                     "or write them. Backfill a value before rolling back."
@@ -248,7 +304,7 @@ def _diff_fields(
                 dimension=DIM_PDL_SCHEMA, risk=REQUIRES_ATTENTION, path=path,
                 aspect_name=aspect_name,
                 **_impact("ok", "ok", "yes"),
-                summary=where + f"Removed field `{name}` — N-1 expects it",
+                summary=where + f"Removed field `{name}`{_via(tgt)} — N-1 expects it",
                 detail=(
                     "Records N wrote lose this field's value; N-1 reads them "
                     "as empty or with its default."
@@ -310,9 +366,17 @@ def _diff_fields(
                 pr_number=pr, author=author,
             ))
 
-        # N may write records without a field it made optional; N-1 still
-        # requires it, so reading those records fails after rollback.
-        if not tgt["optional"] and cur["optional"]:
+        # N may write records without a field it made optional. N-1 fills
+        # it from its default if it has one; otherwise reading them fails.
+        if not tgt["optional"] and cur["optional"] and has_default(name):
+            findings.append(RollbackFinding(
+                dimension=DIM_PDL_SCHEMA, risk=SAFE, path=path,
+                aspect_name=aspect_name,
+                **_impact("ok", "ok", "no"),
+                summary=where + f"Required→optional flip on `{name}` — N-1 uses its default",
+                pr_number=pr, author=author,
+            ))
+        elif not tgt["optional"] and cur["optional"]:
             findings.append(RollbackFinding(
                 dimension=DIM_PDL_SCHEMA, risk=REQUIRES_ATTENTION, path=path,
                 aspect_name=aspect_name,
@@ -348,7 +412,7 @@ def _diff_fields(
 
 
 def classify_pdl_for_rollback(
-    path: str, current: str, target: str
+    path: str, current: str, target: str, read: Optional[Reader] = None,
 ) -> list[RollbackFinding]:
     """Classify field/enum/rename changes for rollback risk.
 
@@ -356,8 +420,9 @@ def classify_pdl_for_rollback(
     in N means N-1 doesn't know about it.
     """
     findings: list[RollbackFinding] = []
-    current_content = rac.file_at(current, path)
-    target_content = rac.file_at(target, path)
+    read = read or rac.file_at
+    current_content = read(current, path)
+    target_content = read(target, path)
 
     cur_meta = rac.aspect_meta(current_content) if current_content else None
     tgt_meta = rac.aspect_meta(target_content) if target_content else None
@@ -401,13 +466,10 @@ def classify_pdl_for_rollback(
         return findings
 
     findings.extend(_diff_fields(
-        rac.fields(current_content), rac.fields(target_content),
+        _effective_fields(current_content, current, read=read),
+        _effective_fields(target_content, target, read=read),
         _enums(current_content), _enums(target_content),
         target_content, path, aspect_name, pr, author,
-    ))
-    findings.extend(_include_findings(
-        current_content, target_content, current, target, path,
-        aspect_name, pr, author,
     ))
 
     # --- Record rename ---
@@ -456,42 +518,68 @@ def _fqn(path: str) -> str:
 
 
 def _main_record(content: str) -> Optional[dict]:
-    defs = bsv.parse_top_level_defs(content) if content else None
+    # bsv gives up on files with typeref/fixed; read the records without them.
+    defs = bsv.parse_top_level_defs(_split_typerefs(content)[2]) if content else None
     name = rac.record_name(content) if content else None
     rdef = (defs or {}).get(name or "")
     return rdef if rdef and rdef["kind"] == "record" else None
 
 
-def _include_findings(
-    current_content: str, target_content: str, current: str, target: str,
-    path: str, aspect_name: Optional[str], pr: Optional[str],
-    author: Optional[str], where: str = "",
-) -> list[RollbackFinding]:
-    """Fields gained or lost through a changed `includes` list. The included
-    records' own field changes are covered by `analyze_nested_changes`."""
-    cur_rec, tgt_rec = _main_record(current_content), _main_record(target_content)
-    if not cur_rec or not tgt_rec:
-        return []
-    findings: list[RollbackFinding] = []
-    for content, ref, names, added in (
-        (current_content, current, cur_rec["includes"] - tgt_rec["includes"], True),
-        (target_content, target, tgt_rec["includes"] - cur_rec["includes"], False),
-    ):
-        namespace, imports = bsv.parse_pdl_header(content)
-        for short in sorted(names):
-            fqn = imports.get(short) or f"{namespace}.{short}"
-            inc_content = rac.file_at(ref, _pdl_path(fqn))
-            inc = _main_record(inc_content)
-            if not inc:
-                continue
-            fields = _record_fields(inc)
-            via = f"{where}Via includes `{short}`: "
-            findings.extend(_diff_fields(
-                fields if added else {}, {} if added else fields, {}, {},
-                None if added else inc_content, path, aspect_name, pr, author,
-                via,
-            ))
-    return findings
+Reader = Callable[[str, str], str]
+
+
+def _cached_reader() -> Reader:
+    """`rac.file_at` with a per-run cache: include walks read the same shared
+    records (e.g. `CustomProperties`) for many aspects."""
+    cache: dict[tuple[str, str], str] = {}
+
+    def read(ref: str, path: str) -> str:
+        if (ref, path) not in cache:
+            cache[(ref, path)] = rac.file_at(ref, path)
+        return cache[(ref, path)]
+
+    return read
+
+
+def _via(field: dict) -> str:
+    return f" (via includes `{field['via']}`)" if field.get("via") else ""
+
+
+def _effective_fields(
+    content: str, ref: str, record: Optional[str] = None,
+    rdef: Optional[dict] = None, _seen: Optional[set[str]] = None,
+    read: Optional[Reader] = None,
+) -> dict[str, dict]:
+    """All fields a record stores: its own plus those of included records
+    (recursively). Where a field is declared doesn't change the stored data,
+    so moving it into or out of an include isn't reported as a change.
+
+    Each field carries `has_default` (looked up in the record that declares
+    it) and `via` (the include it came from, if any).
+    """
+    if not content:
+        return {}
+    read = read or rac.file_at
+    record = record or rac.record_name(content)
+    if rdef is None:
+        rdef = _main_record(content)
+    own = _record_fields(rdef) if rdef else rac.fields(content)
+    seen = _seen if _seen is not None else set()
+    namespace, imports = bsv.parse_pdl_header(content)
+    out: dict[str, dict] = {}
+    for short in sorted((rdef or {}).get("includes", set())):
+        fqn = imports.get(short) or f"{namespace}.{short}"
+        if fqn in seen:
+            continue
+        seen.add(fqn)
+        inc_content = read(ref, _pdl_path(fqn))
+        for name, f in _effective_fields(inc_content, ref, _seen=seen, read=read).items():
+            out.setdefault(name, {**f, "via": f.get("via") or short})
+    for name, f in own.items():
+        out[name] = {
+            **f, "has_default": _has_default(content, name, record), "via": None,
+        }
+    return out
 
 
 def _read_files_at(ref: str, paths: list[str]) -> dict[str, str]:
@@ -554,51 +642,226 @@ def _aspects_using_at(ref: str, fqns: set[str]) -> dict[str, set[str]]:
     return _aspects_using(fqns, _read_files_at(ref, all_paths))
 
 
+# Declarations start a line; anchoring keeps text inside string literals
+# (e.g. an annotation value "typeref X = long") from matching.
+_TYPEREF_RE = re.compile(r"(?m)^[ \t]*typeref\s+(\w+)\s*=\s*")
+_FIXED_RE = re.compile(r"(?m)^[ \t]*fixed\s+(\w+)\s+(\d+)")
+_TYPE_NAME_RE = re.compile(r"[\w.]+")
+
+
+def _type_expr_end(text: str, i: int) -> int:
+    """End of the type expression starting at `i`: a name, optionally followed
+    by a bracketed part (`union[...]`, `array[...]`, `map[...]`)."""
+    m = _TYPE_NAME_RE.match(text, i)
+    if not m:
+        return i
+    j = m.end()
+    k = j
+    while k < len(text) and text[k] in " \t\r\n":
+        k += 1
+    if k < len(text) and text[k] == "[":
+        end = bsv._skip_balanced(text, k)
+        return end if end is not None else len(text)
+    return j
+
+
+def _split_typerefs(pdl: str) -> tuple[dict[str, str], dict[str, int], str]:
+    """Typerefs {name: type}, fixed types {name: size}, and the rest of the
+    file (comments removed) without them, so `bsv.parse_top_level_defs`,
+    which gives up on typeref/fixed, can still read the file's records."""
+    text = bsv.strip_pdl_comments(pdl)
+    typerefs: dict[str, str] = {}
+    spans: list[tuple[int, int]] = []
+    for m in _TYPEREF_RE.finditer(text):
+        end = _type_expr_end(text, m.end())
+        typerefs[m.group(1)] = " ".join(text[m.end() : end].split())
+        spans.append((m.start(), end))
+    fixed: dict[str, int] = {}
+    for m in _FIXED_RE.finditer(text):
+        fixed[m.group(1)] = int(m.group(2))
+        spans.append((m.start(), m.end()))
+    rest = text
+    for start, end in sorted(spans, reverse=True):
+        rest = rest[:start] + rest[end:]
+    return typerefs, fixed, rest
+
+
+_ALIAS_RE = re.compile(r"(\w+)\s*:")
+# An inline definition up to its `{`, including an optional `includes` list.
+_INLINE_DEF_RE = re.compile(
+    r"(record|enum)\s+\w+\s*(?:includes\s+[\w.]+(?:\s*,\s*[\w.]+)*\s*)?(?=\{)"
+)
+
+
+def _union_members(type_text: str) -> Optional[set[str]]:
+    """Members of `union[...]` as normalised "alias: type" strings; None if it
+    isn't a union. PDL commas are optional, so members are read one by one:
+    an optional `alias:`, then a type name (with `[...]`) or an inline
+    record/enum definition."""
+    t = type_text.strip()
+    if not (t.startswith("union") and t.endswith("]") and "[" in t):
+        return None
+    inner = _ANNOTATION_RE.sub(" ", t[t.index("[") + 1 : -1])
+    members: set[str] = set()
+    i = 0
+    while i < len(inner):
+        if inner[i] in " \t\r\n,":
+            i += 1
+            continue
+        start = i
+        alias = _ALIAS_RE.match(inner, i)
+        if alias and not inner[alias.end() - 1 :].startswith("::"):
+            i = alias.end()
+            while i < len(inner) and inner[i] in " \t\r\n":
+                i += 1
+        inline = _INLINE_DEF_RE.match(inner, i)
+        if inline:
+            end = bsv._skip_balanced(inner, inline.end())
+            i = end if end is not None else len(inner)
+        else:
+            nxt = _type_expr_end(inner, i)
+            i = nxt if nxt > i else i + 1
+        members.add(" ".join(inner[start:i].split()))
+    return members
+
+
+def _typeref_findings(
+    cur: str, tgt: str, path: str, pr: Optional[str], author: Optional[str],
+) -> list[RollbackFinding]:
+    """Changes to typerefs and fixed types defined in a file."""
+    cur_t, cur_f, _ = _split_typerefs(cur)
+    tgt_t, tgt_f, _ = _split_typerefs(tgt)
+    findings: list[RollbackFinding] = []
+    for name in sorted(set(cur_t) & set(tgt_t)):
+        old, new = tgt_t[name], cur_t[name]
+        old_m, new_m = _union_members(old), _union_members(new)
+        if old_m is not None and new_m is not None:
+            # A member removed in N never appears in N's data (roll-forward only).
+            for member in sorted(new_m - old_m):
+                findings.append(RollbackFinding(
+                    dimension=DIM_PDL_SCHEMA, risk=REQUIRES_ATTENTION, path=path,
+                    aspect_name=None, **_impact("API fails", "fails", "no"),
+                    summary=f"Union `{name}`: added member `{member}` — N-1 doesn't know it",
+                    detail=(
+                        "N-1's typed getters throw on a union member they don't "
+                        "know and writes fail schema validation. Check whether N "
+                        "wrote this member before rolling back."
+                    ),
+                    pr_number=pr, author=author,
+                ))
+        elif _comparable_type(old) != _comparable_type(new):
+            findings.append(_type_change_finding(
+                name, _comparable_type(old), _comparable_type(new), path, None, pr, author,
+            ))
+    for name in sorted(set(cur_f) & set(tgt_f)):
+        if cur_f[name] != tgt_f[name]:
+            findings.append(RollbackFinding(
+                dimension=DIM_PDL_SCHEMA, risk=REQUIRES_ATTENTION, path=path,
+                aspect_name=None, **_impact("API fails", "fails", "no"),
+                summary=f"Fixed `{name}`: size {tgt_f[name]}→{cur_f[name]}",
+                detail="N-1 rejects values of a different size.",
+                pr_number=pr, author=author,
+            ))
+    return findings
+
+
+def _include_closure(content: str, ref: str, seen: set[str], read: Reader) -> set[str]:
+    """FQNs of every record `content`'s main record includes, transitively."""
+    rdef = _main_record(content)
+    if not rdef:
+        return seen
+    namespace, imports = bsv.parse_pdl_header(content)
+    for short in rdef["includes"]:
+        fqn = imports.get(short) or f"{namespace}.{short}"
+        if fqn not in seen:
+            seen.add(fqn)
+            _include_closure(read(ref, _pdl_path(fqn)), ref, seen, read)
+    return seen
+
+
+def _include_closures_of_changed_aspects(
+    current: str, pdl_paths: list[str], read: Reader
+) -> dict[str, set[str]]:
+    """{aspect name: records it includes} for aspects whose own file changed."""
+    out: dict[str, set[str]] = {}
+    for path in pdl_paths:
+        content = read(current, path)
+        meta = rac.aspect_meta(content) if content else None
+        if meta and meta.get("name"):
+            out[meta["name"]] = _include_closure(content, current, set(), read)
+    return out
+
+
 def analyze_nested_changes(
-    current: str, target: str, pdl_paths: list[str]
+    current: str, target: str, pdl_paths: list[str], read: Optional[Reader] = None,
 ) -> list[RollbackFinding]:
     """Field and enum changes in non-aspect records, reported once per change
     and attributed to every aspect that uses the record."""
+    read = read or rac.file_at
     changed: dict[str, tuple[str, str]] = {}
     for path in pdl_paths:
-        cur, tgt = rac.file_at(current, path), rac.file_at(target, path)
+        cur, tgt = read(current, path), read(target, path)
         if cur and tgt and not rac.aspect_meta(cur):
             changed[_fqn(path)] = (cur, tgt)
     if not changed:
         return []
     users = _aspects_using_at(current, set(changed))
+    covered = _include_closures_of_changed_aspects(current, pdl_paths, read)
 
     findings: list[RollbackFinding] = []
     for fqn, (cur, tgt) in sorted(changed.items()):
         aspects = sorted(users.get(fqn, ()))
+        if bsv.normalize_pdl_for_compare(cur) == bsv.normalize_pdl_for_compare(tgt):
+            continue  # comments or formatting only
+        # An aspect whose own file changed already compares this record's
+        # *fields* through its `includes` (see _effective_fields). Enum values
+        # and unparseable files aren't covered that way, so they still count.
+        field_aspects = [a for a in aspects if fqn not in covered.get(a, ())]
         if not aspects:
             continue
         path = _pdl_path(fqn)
         pr = _first_pr(current, path, target)
         author = _file_author(current, path, target)
-        cur_defs = bsv.parse_top_level_defs(cur) or {}
-        tgt_defs = bsv.parse_top_level_defs(tgt) or {}
-        record_findings: list[RollbackFinding] = []
+        # Typerefs and fixed types are compared here; bsv's record parser gives
+        # up on files containing them, so it reads the rest of the file.
+        record_findings: list[RollbackFinding] = _typeref_findings(cur, tgt, path, pr, author)
+        field_findings: list[RollbackFinding] = []
+        cur_defs = bsv.parse_top_level_defs(_split_typerefs(cur)[2])
+        tgt_defs = bsv.parse_top_level_defs(_split_typerefs(tgt)[2])
+        if cur_defs is None or tgt_defs is None:
+            # Never let a change the parser can't read pass silently.
+            record_findings.append(RollbackFinding(
+                dimension=DIM_PDL_SCHEMA, risk=REQUIRES_ATTENTION, path=path,
+                aspect_name=None,
+                **_impact("not analysed", "not analysed", "not analysed"),
+                summary=f"`{fqn.rsplit('.', 1)[-1]}` changed but couldn't be analysed",
+                detail=(
+                    "The file uses a construct this tool doesn't parse. Check "
+                    "the PR for changes N-1 can't read."
+                ),
+                pr_number=pr, author=author,
+            ))
+            cur_defs, tgt_defs = {}, {}
         for name in sorted(set(cur_defs) & set(tgt_defs)):
             if cur_defs[name]["kind"] == tgt_defs[name]["kind"] == "record":
-                record_findings.extend(_diff_fields(
-                    _record_fields(cur_defs[name]), _record_fields(tgt_defs[name]),
+                field_findings.extend(_diff_fields(
+                    _effective_fields(cur, current, name, cur_defs[name], read=read),
+                    _effective_fields(tgt, target, name, tgt_defs[name], read=read),
                     {}, {}, tgt, path, None, pr, author, f"In `{name}`: ",
                 ))
         record_findings.extend(_diff_fields(
             {}, {}, _enums(cur), _enums(tgt), tgt, path, None, pr, author,
         ))
-        record_findings.extend(_include_findings(
-            cur, tgt, current, target, path, None, pr, author,
-            f"In `{fqn.rsplit('.', 1)[-1]}`: ",
-        ))
-        shown = ", ".join(aspects[:3]) + (f" +{len(aspects) - 3} more" if len(aspects) > 3 else "")
-        for f in record_findings:
-            f.aspect_name = shown
-            f.affected_aspects = aspects
-            used_by = f"Used by: {', '.join(aspects)}."
-            f.detail = f"{f.detail} {used_by}" if f.detail else used_by
-        findings.extend(record_findings)
+        for group, users_of in ((record_findings, aspects), (field_findings, field_aspects)):
+            if not users_of:
+                continue
+            shown = ", ".join(users_of[:3]) + (f" +{len(users_of) - 3} more" if len(users_of) > 3 else "")
+            for f in group:
+                f.aspect_name = shown
+                f.affected_aspects = users_of
+                used_by = f"Used by: {', '.join(users_of)}."
+                f.detail = f"{f.detail} {used_by}" if f.detail else used_by
+            findings.extend(group)
     return findings
 
 
@@ -922,9 +1185,16 @@ def find_upgrade_steps_added_in_window(
 def classify_upgrade_steps_for_rollback(
     current: str, target: str
 ) -> list[RollbackFinding]:
-    steps = find_upgrade_steps_added_in_window(target, current)
+    # The same file can be added by several commits in the window (e.g. a
+    # revert and re-land); report each step once with all its PRs.
+    seen: dict[tuple[str, str], dict] = {}
+    for s in find_upgrade_steps_added_in_window(target, current):
+        key = (s["path"], s["class_name"])
+        entry = seen.setdefault(key, {**s, "_prs": []})
+        if s.get("pr") and s["pr"] not in entry["_prs"]:
+            entry["_prs"].append(s["pr"])
     findings: list[RollbackFinding] = []
-    for s in steps:
+    for s in seen.values():
         findings.append(RollbackFinding(
             dimension=DIM_UPGRADE_STEP,
             risk=REQUIRES_ATTENTION,
@@ -933,7 +1203,7 @@ def classify_upgrade_steps_for_rollback(
             **_impact("unknown", "unknown", "unknown"),
             summary=f"New {s['step_type']}: `{s['class_name']}`",
             detail="Verify idempotency and rollback safety",
-            pr_number=s.get("pr"),
+            pr_number=", ".join(s["_prs"]) or None,
             author=s.get("author"),
         ))
     return findings
@@ -992,6 +1262,12 @@ def _first_pr(head: str, path: str, base: str) -> Optional[str]:
 
 def _file_author(head: str, path: str, base: str) -> Optional[str]:
     return rac.last_author_for_file(head, path, base)
+
+
+def _resolve_ref_name(ref: str) -> str:
+    """`ref`, or `origin/<ref>` when only the remote-tracking branch exists
+    (CI checkouts usually have no local branches)."""
+    return rac._resolve_ref(ref, f"origin/{ref}") or ref
 
 
 def _resolve_sha(ref: str) -> str:
@@ -1211,10 +1487,11 @@ def _render_reindex_section(findings: list[RollbackFinding]) -> list[str]:
     ]
     for f in findings:
         pr = _format_pr(f.pr_number)
-        aspect = f.aspect_name or "—"
-        field_m = re.search(r"`([^`]+)`", f.summary)
-        field = field_m.group(1) if field_m else "—"
-        reason = f.detail or f.summary
+        aspect = _table_cell(f.aspect_name) or "—"
+        # Summaries look like "[In `Rec`: ]<change> on `field`[ (via ...)]".
+        m = re.match(r"(?:In `([^`]+)`: )?[^`]*`([^`]+)`", f.summary)
+        field = (f"{m.group(1)}.{m.group(2)}" if m.group(1) else m.group(2)) if m else "—"
+        reason = _table_cell(f.detail or f.summary)
         lines.append(f"| {aspect} | `{field}` | {reason} | {pr} |")
     lines.append("")
     return lines
@@ -1329,7 +1606,12 @@ _LOSS_SEVERITY = ["yes", "if out of range", "no"]
 
 
 def _worst(values: list[Optional[str]], order: list[str]) -> str:
-    present = [v for v in values if v in order]
+    """Most severe value. Values outside `order` ("not analysed", "unknown")
+    mean the impact isn't known, so they win over any known value."""
+    present = [v for v in values if v]
+    unranked = [v for v in present if v not in order]
+    if unranked:
+        return unranked[0]
     return min(present, key=order.index) if present else order[-1]
 
 
@@ -1344,9 +1626,13 @@ def _set_mutator_impact(findings: list[RollbackFinding]) -> None:
             if f.dimension == DIM_PDL_SCHEMA
             and (f.aspect_name == m.aspect_name or m.aspect_name in f.affected_aspects)
         ]
-        m.read_impact = _worst([f.read_impact for f in fields], _READ_SEVERITY)
-        m.write_impact = _worst([f.write_impact for f in fields], _WRITE_SEVERITY)
-        m.data_loss = _worst([f.data_loss for f in fields], _LOSS_SEVERITY)
+        if fields:
+            m.read_impact = _worst([f.read_impact for f in fields], _READ_SEVERITY)
+            m.write_impact = _worst([f.write_impact for f in fields], _WRITE_SEVERITY)
+            m.data_loss = _worst([f.data_loss for f in fields], _LOSS_SEVERITY)
+        else:
+            # A mutator can rewrite values without changing the schema.
+            m.read_impact = m.write_impact = m.data_loss = "unknown"
         m.detail = _mutator_detail(fields, m)
 
 
@@ -1354,15 +1640,18 @@ def _mutator_detail(fields: list[RollbackFinding], m: RollbackFinding) -> str:
     gate = "Only runs when ASPECT_MIGRATION_MUTATOR_ENABLED is on (off by default)."
     if not fields:
         return (
-            "No field changes found for this aspect. If you roll back with the "
-            "Option F restore, check the aspect's version history covers "
-            f"records this mutator changed. {gate}"
+            "No schema change found for this aspect, so the impact depends on "
+            "what the mutator rewrites; check its transform. If you roll back "
+            "with the Option F restore, check the aspect's version history "
+            f"covers records this mutator changed. {gate}"
         )
     changes = "; ".join(
         f.summary.split(" — ")[0][0].lower() + f.summary.split(" — ")[0][1:]
         for f in fields
     )
-    if "fails" in (m.read_impact or "") or m.write_impact == "fails":
+    if {m.read_impact, m.write_impact, m.data_loss} & {"not analysed", "unknown"}:
+        effect = "Some of these changes couldn't be analysed; check the PR."
+    elif "fails" in (m.read_impact or "") or m.write_impact == "fails":
         effect = "N-1 can't read or write the records it converts."
     elif m.write_impact == DROPS_NEW_FIELD:
         effect = "N-1 drops the new field when it saves a record."
@@ -1444,6 +1733,7 @@ def _set_upgrade_step_impact(
         for a in aspects:
             if a not in n1_aspects:
                 reads.append("restore-indices fails")
+                writes.append("fails")
                 notes.append(f"`{a}` (not in N-1)")
                 continue
             related = [
@@ -1495,9 +1785,10 @@ def run(
     findings: list[RollbackFinding] = []
 
     pdl_paths = rac.changed_pdls(target, current)
+    read = _cached_reader()
     for path in pdl_paths:
-        findings.extend(classify_pdl_for_rollback(path, current, target))
-    findings.extend(analyze_nested_changes(current, target, pdl_paths))
+        findings.extend(classify_pdl_for_rollback(path, current, target, read))
+    findings.extend(analyze_nested_changes(current, target, pdl_paths, read))
     attribute_embedded_aspect_changes(findings, current, target, pdl_paths)
 
     findings.extend(classify_mutators_for_rollback(current, target))
@@ -1543,6 +1834,8 @@ def main(argv: Optional[list[str]] = None) -> None:
     if args.target is None:
         args.target = rac.resolve_base()
         print(f"Resolved target (N-1): {args.target}", file=sys.stderr)
+    args.current = _resolve_ref_name(args.current)
+    args.target = _resolve_ref_name(args.target)
 
     findings, current_sha, target_sha = run(args.current, args.target)
     warning = order_warning(args.current, args.target, current_sha, target_sha)
