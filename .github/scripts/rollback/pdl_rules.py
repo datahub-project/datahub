@@ -15,57 +15,80 @@ _LOSSLESS_NUMERIC = {("long", "int"), ("double", "int"), ("double", "float")}
 _NUMERIC = {"int", "long", "float", "double"}
 
 
+def _finding(
+    origin: model.Origin,
+    risk: str,
+    impact: dict[str, str],
+    change: str,
+    note: Optional[str] = None,
+    *,
+    subject: Optional[str] = None,
+    record: Optional[str] = None,
+    detail: Optional[str] = None,
+    dimension: str = model.DIM_PDL_SCHEMA,
+    reindex_required: bool = False,
+) -> model.RollbackFinding:
+    """A finding summarised as "[In `record`: ]<change>[ — <note>]"."""
+    head = (f"In `{record}`: " if record else "") + change
+    return model.RollbackFinding(
+        dimension=dimension,
+        risk=risk,
+        path=origin.path,
+        aspect_name=origin.aspect_name,
+        **impact,
+        summary=f"{head} — {note}" if note else head,
+        detail=detail,
+        pr_number=origin.pr,
+        author=origin.author,
+        reindex_required=reindex_required,
+        subject=subject,
+        record=record,
+    )
+
+
 def type_change_finding(
+    origin: model.Origin,
     name: str,
     tgt_t: str,
     cur_t: str,
-    path: str,
-    aspect_name: Optional[str],
-    pr: Optional[str],
-    author: Optional[str],
-    where: str = "",
+    record: Optional[str] = None,
 ) -> model.RollbackFinding:
-    summary = where + f"Type change on `{name}`: `{tgt_t}`→`{cur_t}`"
+    change = f"Type change on `{name}`: `{tgt_t}`→`{cur_t}`"
     if tgt_t in _NUMERIC and cur_t in _NUMERIC:
         # Pegasus converts between number types with Number.intValue() etc.
         if (tgt_t, cur_t) in _LOSSLESS_NUMERIC:
-            return model.RollbackFinding(
-                dimension=model.DIM_PDL_SCHEMA,
-                risk=model.SAFE,
-                path=path,
-                aspect_name=aspect_name,
-                **model.impact("ok", "ok", "no"),
-                summary=f"{summary} — N-1's type holds every value",
-                pr_number=pr,
-                author=author,
+            return _finding(
+                origin,
+                model.SAFE,
+                model.impact(model.OK, model.OK, model.LOSS_NO),
+                change,
+                "N-1's type holds every value",
+                subject=name,
+                record=record,
             )
-        return model.RollbackFinding(
-            dimension=model.DIM_PDL_SCHEMA,
-            risk=model.REQUIRES_ATTENTION,
-            path=path,
-            aspect_name=aspect_name,
-            **model.impact("ok, may truncate", "ok", "if out of range"),
-            summary=summary,
+        return _finding(
+            origin,
+            model.REQUIRES_ATTENTION,
+            model.impact(model.MAY_TRUNCATE, model.OK, model.LOSS_IF_OUT_OF_RANGE),
+            change,
+            subject=name,
+            record=record,
             detail=(
                 f"N-1 converts N's `{cur_t}` values to `{tgt_t}` without error; "
                 f"values outside `{tgt_t}`'s range are silently truncated."
             ),
-            pr_number=pr,
-            author=author,
         )
-    return model.RollbackFinding(
-        dimension=model.DIM_PDL_SCHEMA,
-        risk=model.REQUIRES_ATTENTION,
-        path=path,
-        aspect_name=aspect_name,
-        **model.impact("API fails", "fails", "no"),
-        summary=summary,
+    return _finding(
+        origin,
+        model.REQUIRES_ATTENTION,
+        model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
+        change,
+        subject=name,
+        record=record,
         detail=(
             "N-1's typed getters throw on N's values and writes fail schema "
             "validation. Raw storage reads only log a warning."
         ),
-        pr_number=pr,
-        author=author,
     )
 
 
@@ -79,11 +102,12 @@ def diff_fields(
     aspect_name: Optional[str],
     pr: Optional[str],
     author: Optional[str],
-    where: str = "",
+    record: Optional[str] = None,
 ) -> list[model.RollbackFinding]:
-    """Field and enum changes of one record, classified for N-1. `where`
-    prefixes summaries for nested records (e.g. "In `Foo`: "). Field maps
-    come from `_effective_fields`, which sets `has_default` on every field."""
+    """Field and enum changes of one record, classified for N-1. `record` names
+    a nested record (summaries then start "In `Foo`: "). Field maps come from
+    `pdl_parser.effective_fields`, which sets `has_default` on every field."""
+    origin = model.Origin(path, aspect_name, pr, author)
     findings: list[model.RollbackFinding] = []
 
     def has_default(name: str) -> bool:
@@ -91,58 +115,53 @@ def diff_fields(
 
     for name in sorted(set(cur_fields) - set(tgt_fields)):
         findings.append(
-            model.RollbackFinding(
-                dimension=model.DIM_PDL_SCHEMA,
-                risk=model.SAFE,
-                path=path,
-                aspect_name=aspect_name,
-                **model.impact("ok", model.DROPS_NEW_FIELD, "no"),
-                summary=where
-                + f"Added field `{name}`{pdl_parser.via_note(cur_fields[name])} — N-1 ignores unknown fields",
-                pr_number=pr,
-                author=author,
+            _finding(
+                origin,
+                model.SAFE,
+                model.impact(model.OK, model.DROPS_NEW_FIELD, model.LOSS_NO),
+                f"Added field `{name}`{pdl_parser.via_note(cur_fields[name])}",
+                "N-1 ignores unknown fields",
+                subject=name,
+                record=record,
             )
         )
 
     for name in sorted(set(tgt_fields) - set(cur_fields)):
         tgt = tgt_fields[name]
+        removed = f"Removed field `{name}`{pdl_parser.via_note(tgt)}"
         # N-1 fills an absent field from its default, so only a required
         # field without one breaks N-1 on records N wrote without it.
         required_no_default = not tgt["optional"] and not has_default(name)
         if required_no_default:
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.BLOCKS_ROLLBACK,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("API fails", "fails", "yes"),
-                    summary=where
-                    + f"Removed field `{name}`{pdl_parser.via_note(tgt)} — required in N-1, no default",
+                _finding(
+                    origin,
+                    model.BLOCKS_ROLLBACK,
+                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_YES),
+                    removed,
+                    "required in N-1, no default",
+                    subject=name,
+                    record=record,
                     detail=(
                         "N writes records without this field and N-1 can't read "
                         "or write them. Backfill a value before rolling back."
                     ),
-                    pr_number=pr,
-                    author=author,
                 )
             )
         else:
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("ok", "ok", "yes"),
-                    summary=where
-                    + f"Removed field `{name}`{pdl_parser.via_note(tgt)} — N-1 expects it",
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.OK, model.OK, model.LOSS_YES),
+                    removed,
+                    "N-1 expects it",
+                    subject=name,
+                    record=record,
                     detail=(
                         "Records N wrote lose this field's value; N-1 reads them "
                         "as empty or with its default."
                     ),
-                    pr_number=pr,
-                    author=author,
                 )
             )
 
@@ -154,31 +173,25 @@ def diff_fields(
             pdl_parser.comparable_type(tgt["type"]),
         )
         if cur_t != tgt_t:
-            findings.append(
-                type_change_finding(
-                    name, tgt_t, cur_t, path, aspect_name, pr, author, where
-                )
-            )
+            findings.append(type_change_finding(origin, name, tgt_t, cur_t, record))
 
         cur_map = pdl_parser.mapping_annotations(cur["annotations"])
         tgt_map = pdl_parser.mapping_annotations(tgt["annotations"])
         if cur_map != tgt_map:
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("ok", "ok", "no"),
-                    summary=where + f"Search mapping changed on `{name}`",
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Search mapping changed on `{name}`",
+                    subject=name,
+                    record=record,
                     detail=(
                         "N built the search index with a different mapping for this "
                         "field. N-1 reindexes only if "
                         "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true (default "
                         "false); otherwise search keeps N's mapping for this field."
                     ),
-                    pr_number=pr,
-                    author=author,
                     reindex_required=True,
                 )
             )
@@ -187,21 +200,19 @@ def diff_fields(
             cur["annotations"].get("Relationship")
         ) != pdl_parser.normalized_annotation(tgt["annotations"].get("Relationship")):
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("ok", "ok", "no"),
-                    summary=where + f"Graph relationship changed on `{name}`",
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Graph relationship changed on `{name}`",
+                    subject=name,
+                    record=record,
                     detail=(
                         "N built graph edges for this field by its own @Relationship "
                         "rule. N-1 expects its rule, so relationship and lineage "
                         "views can show missing or extra edges until restore-indices "
                         "rebuilds this aspect."
                     ),
-                    pr_number=pr,
-                    author=author,
                 )
             )
 
@@ -209,16 +220,14 @@ def diff_fields(
         # not N-1 requires it.
         if tgt["optional"] and not cur["optional"]:
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.SAFE,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("ok", "ok", "no"),
-                    summary=where
-                    + f"Optional→required flip on `{name}` — safe for rollback",
-                    pr_number=pr,
-                    author=author,
+                _finding(
+                    origin,
+                    model.SAFE,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Optional→required flip on `{name}`",
+                    "safe for rollback",
+                    subject=name,
+                    record=record,
                 )
             )
 
@@ -226,34 +235,30 @@ def diff_fields(
         # it from its default if it has one; otherwise reading them fails.
         if not tgt["optional"] and cur["optional"] and has_default(name):
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.SAFE,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("ok", "ok", "no"),
-                    summary=where
-                    + f"Required→optional flip on `{name}` — N-1 uses its default",
-                    pr_number=pr,
-                    author=author,
+                _finding(
+                    origin,
+                    model.SAFE,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Required→optional flip on `{name}`",
+                    "N-1 uses its default",
+                    subject=name,
+                    record=record,
                 )
             )
         elif not tgt["optional"] and cur["optional"]:
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("API fails", "fails", "no"),
-                    summary=where
-                    + f"Required→optional flip on `{name}` — N-1 requires it",
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
+                    f"Required→optional flip on `{name}`",
+                    "N-1 requires it",
+                    subject=name,
+                    record=record,
                     detail=(
                         "N may write records without this field; N-1 fails to read "
                         "them. Check for records missing it before rolling back."
                     ),
-                    pr_number=pr,
-                    author=author,
                 )
             )
 
@@ -263,21 +268,19 @@ def diff_fields(
         # which GraphQL mappers using `valueOf(x.toString())` throw on.
         for v in sorted(set(cur_enums[ename]) - set(tgt_enums[ename])):
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=aspect_name,
-                    **model.impact("UI/API fails", "fails", "no"),
-                    summary=where
-                    + f"Enum `{ename}`: added value `{v}` — N-1 doesn't know it",
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.UI_API_FAILS, model.FAILS, model.LOSS_NO),
+                    f"Enum `{ename}`: added value `{v}`",
+                    "N-1 doesn't know it",
+                    subject=ename,
+                    record=record,
                     detail=(
                         "Records N writes with this value read as $UNKNOWN in N-1 "
                         "and fail schema validation. Check whether N wrote it and "
                         "whether N-1 reads this field before rolling back."
                     ),
-                    pr_number=pr,
-                    author=author,
                 )
             )
         # A value removed in N is never in N's data, so it can't affect N-1;
@@ -314,37 +317,32 @@ def classify_pdl_for_rollback(
 
     pr = repo.first_pr(current, path, target)
     author = repo.file_author(current, path, target)
+    origin = model.Origin(path, aspect_name, pr, author)
 
     if current_content and not target_content:
         findings.append(
-            model.RollbackFinding(
-                dimension=model.DIM_PDL_SCHEMA,
-                risk=model.SAFE,
-                path=path,
-                aspect_name=aspect_name,
-                **model.impact("restore-indices fails", "fails", "no"),
-                summary="New file in N — absent in N-1 (N-1 rejects writes to it)",
+            _finding(
+                origin,
+                model.SAFE,
+                model.impact(model.RESTORE_FAILS, model.FAILS, model.LOSS_NO),
+                "New file in N",
+                "absent in N-1 (N-1 rejects writes to it)",
                 detail=(
                     "N-1's restore-indices fails on these rows and skips the whole "
                     "batch, including valid rows. Normal API reads are unaffected."
                 ),
-                pr_number=pr,
-                author=author,
             )
         )
         return findings
 
     if not current_content and target_content:
         findings.append(
-            model.RollbackFinding(
-                dimension=model.DIM_PDL_SCHEMA,
-                risk=model.REQUIRES_ATTENTION,
-                path=path,
-                aspect_name=aspect_name,
-                **model.impact("ok, stale", "ok", "no"),
-                summary="File deleted in N — N-1 expects it",
-                pr_number=pr,
-                author=author,
+            _finding(
+                origin,
+                model.REQUIRES_ATTENTION,
+                model.impact(model.STALE, model.OK, model.LOSS_NO),
+                "File deleted in N",
+                "N-1 expects it",
             )
         )
         return findings
@@ -370,18 +368,13 @@ def classify_pdl_for_rollback(
     tgt_name = rac.record_name(target_content)
     if cur_name and tgt_name and cur_name != tgt_name:
         findings.append(
-            model.RollbackFinding(
-                dimension=model.DIM_PDL_SCHEMA,
-                risk=model.SAFE,
-                path=path,
-                aspect_name=aspect_name,
-                **model.impact("ok", "ok", "no"),
-                summary=(
-                    f"Record renamed `{tgt_name}`→`{cur_name}` — stored by "
-                    f"aspect name, N-1 unaffected"
-                ),
-                pr_number=pr,
-                author=author,
+            _finding(
+                origin,
+                model.SAFE,
+                model.impact(model.OK, model.OK, model.LOSS_NO),
+                f"Record renamed `{tgt_name}`→`{cur_name}`",
+                "stored by aspect name, N-1 unaffected",
+                subject=cur_name,
             )
         )
 
@@ -438,6 +431,7 @@ def typeref_findings(
     author: Optional[str],
 ) -> list[model.RollbackFinding]:
     """Changes to typerefs and fixed types defined in a file."""
+    origin = model.Origin(path, None, pr, author)
     cur_t, cur_f, _ = pdl_parser.split_typerefs(cur)
     tgt_t, tgt_f, _ = pdl_parser.split_typerefs(tgt)
     findings: list[model.RollbackFinding] = []
@@ -448,47 +442,39 @@ def typeref_findings(
             # A member removed in N never appears in N's data (roll-forward only).
             for member in sorted(new_m - old_m):
                 findings.append(
-                    model.RollbackFinding(
-                        dimension=model.DIM_PDL_SCHEMA,
-                        risk=model.REQUIRES_ATTENTION,
-                        path=path,
-                        aspect_name=None,
-                        **model.impact("API fails", "fails", "no"),
-                        summary=f"Union `{name}`: added member `{member}` — N-1 doesn't know it",
+                    _finding(
+                        origin,
+                        model.REQUIRES_ATTENTION,
+                        model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
+                        f"Union `{name}`: added member `{member}`",
+                        "N-1 doesn't know it",
+                        subject=name,
                         detail=(
                             "N-1's typed getters throw on a union member they don't "
                             "know and writes fail schema validation. Check whether N "
                             "wrote this member before rolling back."
                         ),
-                        pr_number=pr,
-                        author=author,
                     )
                 )
         elif pdl_parser.comparable_type(old) != pdl_parser.comparable_type(new):
             findings.append(
                 type_change_finding(
+                    origin,
                     name,
                     pdl_parser.comparable_type(old),
                     pdl_parser.comparable_type(new),
-                    path,
-                    None,
-                    pr,
-                    author,
                 )
             )
     for name in sorted(set(cur_f) & set(tgt_f)):
         if cur_f[name] != tgt_f[name]:
             findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=None,
-                    **model.impact("API fails", "fails", "no"),
-                    summary=f"Fixed `{name}`: size {tgt_f[name]}→{cur_f[name]}",
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
+                    f"Fixed `{name}`: size {tgt_f[name]}→{cur_f[name]}",
+                    subject=name,
                     detail="N-1 rejects values of a different size.",
-                    pr_number=pr,
-                    author=author,
                 )
             )
     return findings
@@ -552,20 +538,20 @@ def analyze_nested_changes(
         tgt_defs = bsv.parse_top_level_defs(pdl_parser.split_typerefs(tgt)[2])
         if cur_defs is None or tgt_defs is None:
             # Never let a change the parser can't read pass silently.
+            short = fqn.rsplit(".", 1)[-1]
             record_findings.append(
-                model.RollbackFinding(
-                    dimension=model.DIM_PDL_SCHEMA,
-                    risk=model.REQUIRES_ATTENTION,
-                    path=path,
-                    aspect_name=None,
-                    **model.impact("not analysed", "not analysed", "not analysed"),
-                    summary=f"`{fqn.rsplit('.', 1)[-1]}` changed but couldn't be analysed",
+                _finding(
+                    model.Origin(path, None, pr, author),
+                    model.REQUIRES_ATTENTION,
+                    model.impact(
+                        model.NOT_ANALYSED, model.NOT_ANALYSED, model.NOT_ANALYSED
+                    ),
+                    f"`{short}` changed but couldn't be analysed",
+                    subject=short,
                     detail=(
                         "The file uses a construct this tool doesn't parse. Check "
                         "the PR for changes N-1 can't read."
                     ),
-                    pr_number=pr,
-                    author=author,
                 )
             )
             cur_defs, tgt_defs = {}, {}
@@ -586,7 +572,7 @@ def analyze_nested_changes(
                         None,
                         pr,
                         author,
-                        f"In `{name}`: ",
+                        name,
                     )
                 )
         record_findings.extend(
@@ -675,24 +661,25 @@ def analyze_schema_version_gaps(
         tgt_v = tgt_meta.get("schemaVersion") or 1
         if cur_v > tgt_v:
             gap = cur_v - tgt_v
+            origin = model.Origin(
+                path,
+                cur_meta.get("name"),
+                repo.first_pr(current, path, target),
+                repo.file_author(current, path, target),
+            )
             findings.append(
-                model.RollbackFinding(
+                _finding(
+                    origin,
+                    model.SAFE,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Schema version gap: v{tgt_v}→v{cur_v} "
+                    f"({gap} hop{'s' if gap > 1 else ''})",
                     dimension=model.DIM_SCHEMA_VERSION,
-                    risk=model.SAFE,
-                    path=path,
-                    aspect_name=cur_meta.get("name"),
-                    **model.impact("ok", "ok", "no"),
-                    summary=(
-                        f"Schema version gap: v{tgt_v}→v{cur_v} "
-                        f"({gap} hop{'s' if gap > 1 else ''})"
-                    ),
                     detail=(
                         f"N-1 reads records at version {cur_v} and writes its own "
                         f"version {tgt_v}. Field-level changes for this aspect are "
                         f"listed separately."
                     ),
-                    pr_number=repo.first_pr(current, path, target),
-                    author=repo.file_author(current, path, target),
                 )
             )
     return findings

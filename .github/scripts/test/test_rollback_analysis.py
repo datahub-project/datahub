@@ -754,6 +754,13 @@ class TestRenderJsonReport:
         assert data["verdict"] == model.VERDICT_FEASIBLE
         assert data["summary"]["total"] == 0
 
+    def test_internal_fields_stay_out_of_json(self):
+        f = _finding(subject="bar", record="Foo", hop="v1→v2", step_type="x")
+        raw = report.render_json_report([f], "v2.0", "v1.0", "abc1234567", "def1234567")
+        keys = set(json.loads(raw)["findings"][0])
+        assert not keys & {"subject", "record", "hop", "step_type"}
+        assert {"summary", "read_impact", "affected_aspects"} <= keys
+
 
 # ---------------------------------------------------------------------------
 # Upgrade step detection
@@ -815,6 +822,8 @@ class TestRenderStepSection:
                 dimension=model.DIM_UPGRADE_STEP,
                 risk=model.REQUIRES_ATTENTION,
                 summary="New NonBlockingSystemUpgrade: `MyAsyncStep`",
+                subject="MyAsyncStep",
+                step_type="NonBlockingSystemUpgrade",
             ),
         ]
         lines = report._render_step_section(findings)
@@ -1425,7 +1434,7 @@ class TestRequiredToOptionalWithDefault:
 class TestReindexSection:
     def test_nested_finding_shows_record_and_field(self):
         f = _finding(summary="In `Foo`: Search mapping changed on `bar`", aspect_name="a | b",
-                     detail="x | y", reindex_required=True)
+                     detail="x | y", reindex_required=True, record="Foo", subject="bar")
         row = report._render_reindex_section([f])[4]
         assert "`Foo.bar`" in row
         assert "a \\| b" in row and "x \\| y" in row

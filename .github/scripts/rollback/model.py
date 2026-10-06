@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 
@@ -57,9 +57,51 @@ class RollbackFinding:
     read_impact: Optional[str] = None
     write_impact: Optional[str] = None
     data_loss: Optional[str] = None
+    # Structure behind `summary`, used to render the report; not in the JSON.
+    subject: Optional[str] = None  # the field, member, type or class changed
+    record: Optional[str] = None  # nested record that holds `subject`
+    hop: Optional[str] = None  # mutator version hop, e.g. "v1→v2"
+    step_type: Optional[str] = None
+
+    @property
+    def change(self) -> str:
+        """The summary without its " — <note>" suffix."""
+        return self.summary.split(" — ")[0]
 
 
+_INTERNAL_FIELDS = {"subject", "record", "hop", "step_type"}
+
+
+def public_dict(f: RollbackFinding) -> dict:
+    """The finding as written to the JSON report."""
+    return {k: v for k, v in asdict(f).items() if k not in _INTERNAL_FIELDS}
+
+
+@dataclass(frozen=True)
+class Origin:
+    """Where a finding comes from: the changed file, its aspect and its PR."""
+
+    path: str
+    aspect_name: Optional[str]
+    pr: Optional[str]
+    author: Optional[str]
+
+
+# Impact on N-1 after rollback. Each *_SEVERITY list below ranks them.
+OK = "ok"
+API_FAILS = "API fails"
+UI_API_FAILS = "UI/API fails"
+RESTORE_FAILS = "restore-indices fails"
+MAY_TRUNCATE = "ok, may truncate"
+STALE = "ok, stale"
+FAILS = "fails"
 DROPS_NEW_FIELD = "ok, drops N's new field"
+LOSS_YES = "yes"
+LOSS_NO = "no"
+LOSS_IF_OUT_OF_RANGE = "if out of range"
+# Unranked: the impact isn't known, so `worst` lets these win.
+UNKNOWN = "unknown"
+NOT_ANALYSED = "not analysed"
 
 
 def impact(read: str, write: str, data_loss: str) -> dict[str, str]:
@@ -76,16 +118,9 @@ def compute_verdict(findings: list[RollbackFinding]) -> str:
 
 
 # Worst first.
-READ_SEVERITY = [
-    "API fails",
-    "UI/API fails",
-    "restore-indices fails",
-    "ok, may truncate",
-    "ok, stale",
-    "ok",
-]
-WRITE_SEVERITY = ["fails", DROPS_NEW_FIELD, "ok"]
-LOSS_SEVERITY = ["yes", "if out of range", "no"]
+READ_SEVERITY = [API_FAILS, UI_API_FAILS, RESTORE_FAILS, MAY_TRUNCATE, STALE, OK]
+WRITE_SEVERITY = [FAILS, DROPS_NEW_FIELD, OK]
+LOSS_SEVERITY = [LOSS_YES, LOSS_IF_OUT_OF_RANGE, LOSS_NO]
 
 
 def worst(values: list[Optional[str]], order: list[str]) -> str:

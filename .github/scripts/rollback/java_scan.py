@@ -143,6 +143,8 @@ def classify_mutators_for_rollback(
                 detail=None,  # set by set_mutator_impact from the field changes
                 pr_number=pr_str,
                 author=m.get("author"),
+                subject=m["class_name"],
+                hop=hop or None,
             )
         )
 
@@ -298,11 +300,13 @@ def classify_upgrade_steps_for_rollback(
                 risk=model.REQUIRES_ATTENTION,
                 path=s["path"],
                 aspect_name=None,
-                **model.impact("unknown", "unknown", "unknown"),
+                **model.impact(model.UNKNOWN, model.UNKNOWN, model.UNKNOWN),
                 summary=f"New {s['step_type']}: `{s['class_name']}`",
                 detail="Verify idempotency and rollback safety",
                 pr_number=", ".join(s["_prs"]) or None,
                 author=s.get("author"),
+                subject=s["class_name"],
+                step_type=s["step_type"],
             )
         )
     return findings

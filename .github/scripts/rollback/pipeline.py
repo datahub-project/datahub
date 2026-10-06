@@ -33,7 +33,7 @@ def set_mutator_impact(findings: list[model.RollbackFinding]) -> None:
             )
         else:
             # A mutator can rewrite values without changing the schema.
-            m.read_impact = m.write_impact = m.data_loss = "unknown"
+            m.read_impact = m.write_impact = m.data_loss = model.UNKNOWN
         m.detail = _mutator_detail(fields, m)
 
 
@@ -48,13 +48,14 @@ def _mutator_detail(
             "with the Option F restore, check the aspect's version history "
             f"covers records this mutator changed. {gate}"
         )
-    changes = "; ".join(
-        f.summary.split(" — ")[0][0].lower() + f.summary.split(" — ")[0][1:]
-        for f in fields
-    )
-    if {m.read_impact, m.write_impact, m.data_loss} & {"not analysed", "unknown"}:
+    changes = "; ".join(f.change[0].lower() + f.change[1:] for f in fields)
+    if {m.read_impact, m.write_impact, m.data_loss} & {
+        model.NOT_ANALYSED,
+        model.UNKNOWN,
+    }:
         effect = "Some of these changes couldn't be analysed; check the PR."
-    elif "fails" in (m.read_impact or "") or m.write_impact == "fails":
+    # Every failing read impact ends in "fails" ("API fails", ...).
+    elif model.FAILS in (m.read_impact or "") or m.write_impact == model.FAILS:
         effect = "N-1 can't read or write the records it converts."
     elif m.write_impact == model.DROPS_NEW_FIELD:
         effect = "N-1 drops the new field when it saves a record."
@@ -95,8 +96,8 @@ def set_upgrade_step_impact(
         reads, writes, losses, notes = [], [], [], []
         for a in aspects:
             if a not in n1_aspects:
-                reads.append("restore-indices fails")
-                writes.append("fails")
+                reads.append(model.RESTORE_FAILS)
+                writes.append(model.FAILS)
                 notes.append(f"`{a}` (not in N-1)")
                 continue
             related = [
@@ -105,7 +106,7 @@ def set_upgrade_step_impact(
                 if f.dimension == model.DIM_PDL_SCHEMA
                 and (f.aspect_name == a or a in f.affected_aspects)
             ]
-            reads += [f.read_impact for f in related] or ["ok"]
+            reads += [f.read_impact for f in related] or [model.OK]
             writes += [f.write_impact for f in related]
             losses += [f.data_loss for f in related]
             notes.append(f"`{a}`" + (" (changed in N)" if related else ""))
@@ -131,7 +132,7 @@ def flag_unexplained_version_gaps(findings: list[model.RollbackFinding]) -> None
         if g.dimension != model.DIM_SCHEMA_VERSION or g.aspect_name in explained:
             continue
         g.risk = model.REQUIRES_ATTENTION
-        g.read_impact = g.write_impact = g.data_loss = "not analysed"
+        g.read_impact = g.write_impact = g.data_loss = model.NOT_ANALYSED
         g.detail = (
             "Version bumped but no change found in this aspect or the records "
             "it uses (the tool doesn't parse typerefs or unions). Check the PR "

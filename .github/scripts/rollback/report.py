@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
-from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -183,10 +181,8 @@ def _render_mutator_section(findings: list[model.RollbackFinding]) -> list[str]:
     for f in findings:
         pr = _format_pr(f.pr_number)
         aspect = f.aspect_name or "—"
-        cls_m = re.search(r"`([^`]+)`", f.summary)
-        cls = cls_m.group(1) if cls_m else "?"
-        hop_m = re.search(r"\(v\d+→v\d+\)", f.summary)
-        hop = hop_m.group(0).strip("()") if hop_m else "—"
+        cls = f.subject or "?"
+        hop = f.hop or "—"
         lines.append(f"| `{cls}` | {aspect} | {hop} | {f.risk} | {pr} |")
     lines.append("")
     return lines
@@ -201,9 +197,10 @@ def _render_step_section(findings: list[model.RollbackFinding]) -> list[str]:
     ]
     for f in findings:
         pr = _format_pr(f.pr_number)
-        cls_m = re.search(r"`([^`]+)`", f.summary)
-        cls = cls_m.group(1) if cls_m else "?"
-        step_type = "Non-blocking" if "NonBlocking" in f.summary else "Blocking"
+        cls = f.subject or "?"
+        step_type = (
+            "Non-blocking" if "NonBlocking" in (f.step_type or "") else "Blocking"
+        )
         lines.append(f"| `{cls}` | {step_type} | {f.risk} | {pr} |")
     lines.append("")
     return lines
@@ -219,11 +216,7 @@ def _render_reindex_section(findings: list[model.RollbackFinding]) -> list[str]:
     for f in findings:
         pr = _format_pr(f.pr_number)
         aspect = _table_cell(f.aspect_name) or "—"
-        # Summaries look like "[In `Rec`: ]<change> on `field`[ (via ...)]".
-        m = re.match(r"(?:In `([^`]+)`: )?[^`]*`([^`]+)`", f.summary)
-        field = (
-            (f"{m.group(1)}.{m.group(2)}" if m.group(1) else m.group(2)) if m else "—"
-        )
+        field = f"{f.record}.{f.subject}" if f.record else f.subject or "—"
         reason = _table_cell(f.detail or f.summary)
         lines.append(f"| {aspect} | `{field}` | {reason} | {pr} |")
     lines.append("")
@@ -273,6 +266,6 @@ def render_json_report(
                 1 for f in findings if f.risk == model.BLOCKS_ROLLBACK
             ),
         },
-        "findings": [asdict(f) for f in findings],
+        "findings": [model.public_dict(f) for f in findings],
     }
     return json.dumps(data, indent=2)
