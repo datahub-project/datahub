@@ -814,7 +814,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
         self._query_log_aggregator: Optional[SqlParsingAggregator] = None
-        self._xml_dictionaries: Optional[List[_XmlDictionary]] = None
 
         # Initialize query log aggregator if needed
         if self._should_extract_query_log():
@@ -1305,9 +1304,6 @@ ORDER BY event_time ASC
             yield from self._extract_query_log()
 
     def _fetch_xml_dictionaries(self) -> List[_XmlDictionary]:
-        if self._xml_dictionaries is not None:
-            return self._xml_dictionaries
-
         # Config-file dictionaries are absent from system.tables, <database> tag
         # or not; DDL dictionaries are ingested from there. NOT IN rather than
         # LEFT JOIN ... IS NULL: unmatched columns are defaults unless
@@ -1332,13 +1328,10 @@ ORDER BY event_time ASC
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
-            dictionaries = [
+            return [
                 _xml_dictionary_from_row(row)
                 for row in conn.execute(text(query)).mappings()
             ]
-
-        self._xml_dictionaries = dictionaries
-        return dictionaries
 
     def _xml_dictionary_columns(
         self, dictionary: _XmlDictionary
@@ -1446,56 +1439,35 @@ ORDER BY event_time ASC
         dataset_urn = str(dataset.urn)
 
         if self.config.include_table_lineage:
-            lineage_mcp = self.get_lineage_mcp(dataset_urn)
-            if lineage_mcp is not None and isinstance(
-                lineage_mcp.aspect, UpstreamLineage
-            ):
-                dataset.set_upstreams(lineage_mcp.aspect)
+            source_path = _dictionary_source_table(dictionary.source)
+            if source_path is not None:
+                if self._all_tables_set is None:
+                    self._all_tables_set = self._get_all_tables()
+                if source_path in self._all_tables_set:
+                    dataset.set_upstreams(
+                        [
+                            UpstreamClass(
+                                dataset=builder.make_dataset_urn_with_platform_instance(
+                                    self.platform,
+                                    source_path,
+                                    self.config.platform_instance,
+                                    self.config.env,
+                                ),
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ]
+                    )
+                else:
+                    logger.warning(
+                        f"Skipping dictionary source lineage for {dataset_name}: "
+                        f"{source_path} missing table"
+                    )
 
         if self._save_schema_to_resolver():
             self.aggregator.register_schema(dataset_urn, schema_metadata)
             self.discovered_datasets.add(dataset_name)
 
         yield from dataset.as_workunits()
-
-    def _populate_xml_dictionary_lineage(
-        self, dictionaries: List[_XmlDictionary]
-    ) -> None:
-        assert self._lineage_map is not None
-        if not self._all_tables_set:
-            self._all_tables_set = self._get_all_tables()
-
-        for dictionary in dictionaries:
-            source_path = _dictionary_source_table(dictionary.source)
-            if source_path is None:
-                continue
-            if source_path not in self._all_tables_set:
-                logger.warning(
-                    "Skipping dictionary source lineage for "
-                    f"{dictionary.dataset_name}: {source_path} missing table"
-                )
-                continue
-
-            target_path = (
-                f"{self.config.platform_instance}.{dictionary.dataset_name}"
-                if self.config.platform_instance
-                else dictionary.dataset_name
-            )
-            target = self._lineage_map.get(target_path)
-            if target is None:
-                target = LineageItem(
-                    dataset=LineageDataset(
-                        platform=LineageDatasetPlatform.CLICKHOUSE, path=target_path
-                    ),
-                    upstreams=set(),
-                    collector_type=LineageCollectorType.TABLE,
-                )
-                self._lineage_map[target_path] = target
-            target.upstreams.add(
-                LineageDataset(
-                    platform=LineageDatasetPlatform.CLICKHOUSE, path=source_path
-                )
-            )
 
     def _get_all_tables(self) -> Set[str]:
         all_tables_query: str = textwrap.dedent(
@@ -1693,13 +1665,6 @@ ORDER BY event_time ASC
             self._populate_lineage_map(
                 query=table_lineage_query, lineage_type=LineageCollectorType.TABLE
             )
-            try:
-                self._populate_xml_dictionary_lineage(self._fetch_xml_dictionaries())
-            except Exception as e:
-                logger.warning(
-                    f"Extracting XML dictionary lineage from ClickHouse failed. "
-                    f"Continuing...\nError was {e}."
-                )
 
         if self.config.include_views:
             # Populate table level lineage for views

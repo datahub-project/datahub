@@ -1405,18 +1405,16 @@ def test_emit_xml_dictionary_with_database_tag_joins_database_container(monkeypa
     assert any(wu.get_aspect_of_type(ContainerClass) for wu in workunits)
 
 
-def test_xml_dictionary_lineage_from_clickhouse_source():
+def test_emit_xml_dictionary_adds_clickhouse_source_as_upstream(monkeypatch):
     source = _clickhouse_source(platform_instance="ch1", include_table_lineage=True)
-    source._lineage_map = {}
     source._all_tables_set = {"db.src_table"}
-
-    source._populate_xml_dictionary_lineage([_sample_xml_dictionary()])
-
-    mcp = source.get_lineage_mcp(
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.db.My_Dict,PROD)"
+    monkeypatch.setattr(
+        source, "_fetch_xml_dictionaries", lambda: [_sample_xml_dictionary()]
     )
-    assert mcp is not None
-    assert isinstance(mcp.aspect, UpstreamLineageClass)
-    assert [u.dataset for u in mcp.aspect.upstreams] == [
+
+    workunits = list(source._emit_xml_dictionaries())
+
+    [lineage] = _aspects_of(workunits, UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.db.src_table,PROD)"
     ]
