@@ -1,0 +1,189 @@
+"""
+An API — a named callable with a typed input and output schema (an MCP tool,
+REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a
+first-class entity for discovery and caller-to-API dependency tracking (services
+that compose APIs, agents that invoke them). The kind of API is captured via
+the standard subTypes aspect (e.g. MCP_TOOL, REST_ENDPOINT, GRPC_METHOD,
+GRAPHQL_OPERATION, FUNCTION).
+"""
+type Api implements EntityWithRelationships & Entity {
+  """
+  The URN of the API
+  """
+  urn: String! @noAspects
+
+  """
+  Entity type — always API
+  """
+  type: EntityType! @noAspects
+
+  """
+  The platform (framework/runtime) this API belongs to, e.g. LangChain or MCP
+  """
+  dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Properties of the API
+  """
+  properties: ApiProperties @aspectMapping(aspects: ["apiProperties"])
+
+  """
+  The input/output signature of the API (its schema). Scraped from the
+  endpoint and versioned independently of the catalog identity in properties.
+  """
+  signature: ApiSignature @aspectMapping(aspects: ["apiSignature"])
+
+  """
+  REST-specific properties (HTTP method + path). Present only for APIs of
+  subtype REST_ENDPOINT.
+  """
+  restProperties: RestApiProperties
+    @aspectMapping(aspects: ["restApiProperties"])
+
+  """
+  The subtypes of the API (e.g. MCP_TOOL, REST_ENDPOINT, FUNCTION)
+  """
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
+
+  """
+  Ownership of the API
+  """
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
+
+  """
+  Tags applied to the API
+  """
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
+
+  """
+  Glossary terms applied to the API
+  """
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
+
+  """
+  The Domain this API is cataloged under, if any
+  """
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
+
+  """
+  References to internal/external documentation
+  """
+  institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean @noAspects
+
+  """
+  Status (soft-delete) of the API
+  """
+  status: Status @aspectMapping(aspects: ["status"])
+
+  """
+  Structured properties attached to this API
+  """
+  structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
+
+  """
+  Experimental API. For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!] @noAspects
+
+  """
+  Edges extending from this entity grouped by direction in the lineage graph.
+  Lets an API render as a full lineage node.
+  """
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
+
+  """
+  Privileges the current actor has on this API (e.g. canEditTags).
+  """
+  privileges: EntityPrivileges @noAspects
+}
+
+"""
+Properties of an API.
+"""
+type ApiProperties {
+  """
+  Display name of the API
+  """
+  name: String!
+
+  """
+  Description of what the API does and when to use it
+  """
+  description: String
+
+  """
+  Link to the API's registry entry, documentation, or source
+  """
+  externalUrl: String
+}
+
+"""
+The input/output signature of an API — the schema that defines what the callable
+accepts and returns. Modeled as a separate aspect from ApiProperties because the
+signature is scraped from the endpoint and re-ingested on its own cadence when
+the contract changes.
+"""
+type ApiSignature {
+  """
+  Input/output schema or signature (opaque string, typically JSON Schema)
+  """
+  schemaDefinition: String
+
+  """
+  Typed input parameters of the API's signature (the input schema), reusing
+  DataHub's SchemaField model. Each field's fieldPath is the parameter name;
+  nullable=false denotes a required argument.
+  """
+  inputFields: [SchemaField!]
+
+  """
+  The output shape the API returns, modeled as schema fields.
+  """
+  outputFields: [SchemaField!]
+}
+
+"""
+REST-specific properties for an API of subtype REST_ENDPOINT. The (method, path)
+pair identifies a REST operation; endpoints sharing a path across methods are
+distinct API entities.
+"""
+type RestApiProperties {
+  """
+  The HTTP method this endpoint responds to.
+  """
+  method: HttpMethod!
+
+  """
+  The route/path template of the endpoint, relative to the owning service's base
+  URL (e.g. "/orders/{orderId}").
+  """
+  path: String!
+}
+
+"""
+An HTTP method.
+"""
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+  HEAD
+  OPTIONS
+  TRACE
+}

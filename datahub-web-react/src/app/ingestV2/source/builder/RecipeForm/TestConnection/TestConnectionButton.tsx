@@ -1,4 +1,4 @@
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { message } from 'antd';
 import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
@@ -213,7 +213,7 @@ function TestConnectionButton({
     return (
         <>
             <Button variant="outline" type="button" size={size} onClick={testConnection}>
-                {!hideIcon && <CheckCircleOutlined />}
+                {!hideIcon && <CheckCircle />}
                 <Text weight={textWeight} lineHeight="none">
                     {t('testConnection.button')}
                 </Text>
