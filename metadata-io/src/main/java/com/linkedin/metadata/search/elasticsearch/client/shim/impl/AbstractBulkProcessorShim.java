@@ -94,7 +94,13 @@ public abstract class AbstractBulkProcessorShim<T> {
     bulkWriteResultTracker.recordEnqueued(1);
     bulkTelemetry.onAdd(writeRequest);
     int index = Math.floorMod(urn.hashCode(), threadCount);
-    addToProcessor(bulkProcessors[index], writeRequest);
+    try {
+      addToProcessor(bulkProcessors[index], writeRequest);
+    } catch (RuntimeException e) {
+      // Never reaches a batch: drop the origin recorded above instead of holding it until overflow.
+      bulkTelemetry.onAddFailed(writeRequest);
+      throw e;
+    }
   }
 
   /**
@@ -136,6 +142,7 @@ public abstract class AbstractBulkProcessorShim<T> {
   protected void requeueFailedRequest(@Nonnull DocWriteRequest<?> writeRequest) {
     if (bulkProcessors == null || bulkProcessors.length == 0) {
       log.warn("Cannot requeue bulk item; processors not initialized");
+      bulkTelemetry.forget(writeRequest); // the carried origin would otherwise never be consumed
       return;
     }
     String routingKey =
@@ -145,7 +152,12 @@ public abstract class AbstractBulkProcessorShim<T> {
     int index = Math.floorMod(routingKey.hashCode(), threadCount);
     // Re-added from the flush thread, so the retry batch would otherwise lose the request's link.
     bulkTelemetry.onRequeue(writeRequest);
-    addToProcessor(bulkProcessors[index], writeRequest);
+    try {
+      addToProcessor(bulkProcessors[index], writeRequest);
+    } catch (RuntimeException e) {
+      bulkTelemetry.onAddFailed(writeRequest);
+      throw e;
+    }
   }
 
   /**
