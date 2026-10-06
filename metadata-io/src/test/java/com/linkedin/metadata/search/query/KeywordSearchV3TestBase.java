@@ -1277,7 +1277,22 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 1, 10);
     assertEquals(secondPage.getNumEntities().intValue(), 1);
     assertTrue(secondPage.getEntities().isEmpty());
-    // Another sort order, including an ascending score, and scroll run the full query
+    // Another sort order, including an ascending score, and scroll run the full query, and so
+    // does the explain of a scroll
+    assertTrue(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                null,
+                null,
+                "5m",
+                10,
+                List.of())
+            .isMatch());
     assertUrns(
         searchService
             .search(

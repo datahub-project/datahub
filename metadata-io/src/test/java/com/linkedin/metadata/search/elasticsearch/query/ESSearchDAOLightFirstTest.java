@@ -10,20 +10,27 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -156,6 +163,43 @@ public class ESSearchDAOLightFirstTest {
     assertSame(dao.searchLightFirst(opContext, request, LIGHT, "orders"), full);
     verify(client).search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT));
     assertSame(request.source().query(), FULL);
+  }
+
+  @Test
+  public void testLightQueryGates() {
+    ESSearchDAO v3Dao =
+        new ESSearchDAO(
+            false,
+            TEST_OS_SEARCH_CONFIG.toBuilder()
+                .entityIndex(
+                    EntityIndexConfiguration.builder()
+                        .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                        .v3(
+                            EntityIndexVersionConfiguration.builder()
+                                .enabled(true)
+                                .keywordReadEnabled(true)
+                                .build())
+                        .build())
+                .build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    List<EntitySpec> datasets = List.of(fulltext.getEntityRegistry().getEntitySpec("dataset"));
+    assertNotNull(v3Dao.lightFirstQuery(fulltext, datasets, "orders", null, null));
+    // The name-focused light query would hide every dataset that only holds the column
+    assertNull(
+        v3Dao.lightFirstQuery(
+            fulltext, datasets, "orders", null, QueryUtils.newFilter("fieldPaths", "customer_id")));
+    assertNull(
+        v3Dao.lightFirstQuery(
+            fulltext,
+            datasets,
+            "orders",
+            List.of(new SortCriterion().setField("_score").setOrder(SortOrder.ASCENDING)),
+            null));
+    // V2 reads keep the V2 query
+    assertNull(dao.lightFirstQuery(fulltext, datasets, "orders", null, null));
   }
 
   private SearchRequest request(QueryBuilder query) {

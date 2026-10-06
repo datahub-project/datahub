@@ -1526,6 +1526,19 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       assertEquals(root.mustNot().size(), 1, query);
       assertEquals(root.must().size(), 1, query);
     }
+    // The light query keeps the wrapper too
+    BoolQueryBuilder lightRoot =
+        (BoolQueryBuilder)
+            ((FunctionScoreQueryBuilder)
+                    builder.buildQuery(
+                        opContext,
+                        ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                        "orders",
+                        true,
+                        true))
+                .query();
+    assertEquals(lightRoot.mustNot().size(), 1);
+    assertEquals(lightRoot.must().size(), 1);
   }
 
   @Test

@@ -443,8 +443,9 @@ public class ESSearchDAO {
    * match-all, quoted and URN or path queries, whose light and full queries are the same or whose
    * quotes ask for exact matches only.
    */
+  @VisibleForTesting
   @Nullable
-  private QueryBuilder lightFirstQuery(
+  QueryBuilder lightFirstQuery(
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String input,
@@ -605,8 +606,10 @@ public class ESSearchDAO {
   }
 
   /**
-   * Counts which query served a light-first search: light, full (fell through), stopped, or direct
-   * (a request shape the light query cannot replace), and light queries with failed shards.
+   * Counts which query served a search that built a light query: light, full (fell through),
+   * stopped, or direct (a request shape the light query cannot replace), and light queries with
+   * failed shards. A search the light query does not apply to, including one whose custom
+   * configuration leaves the light query no clause, runs the full query uncounted.
    */
   private static void countLightFirst(@Nonnull OperationContext opContext, @Nonnull String served) {
     opContext
@@ -1218,8 +1221,9 @@ public class ESSearchDAO {
               opContext,
               explainRequest.index(),
               searchRequest.getLeft().source().query(),
-              // Scroll and searches without hits never run the light query
-              scrollId != null || (size != null && size == 0)
+              // Scroll (a scroll id or a keep-alive) and searches without hits never run the light
+              // query
+              scrollId != null || keepAlive != null || (size != null && size == 0)
                   ? null
                   : lightFirstQuery(
                       opContext, searchRequest.getRight(), query, sortCriteria, postFilters),
