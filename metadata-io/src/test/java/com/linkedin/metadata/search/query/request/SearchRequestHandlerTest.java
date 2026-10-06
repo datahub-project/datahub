@@ -81,11 +81,13 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.DisMaxQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -839,9 +841,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
-  /** V3 root fields carry the V2 subfields, so V3 runs the V2 full-text query and highlights. */
+  /**
+   * V3 root fields carry the V2 subfields, so V3 highlights as V2 does, but V3 runs the Stage 1
+   * query, with a dis_max root, where V2 runs the V2 query.
+   */
   @Test
-  public void testV3FullTextQueryMatchesV2() {
+  public void testV3FullTextQueryUsesStage1() {
     ElasticSearchConfiguration v3Config =
         testQueryConfig.toBuilder()
             .entityIndex(
@@ -855,9 +860,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         List.of("test query", "\"test query\"", STRUCTURED_QUERY_PREFIX + "name:test")) {
       SearchSourceBuilder v2 = getDatasetSearchSource(fulltext, testQueryConfig, query);
       SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, v3Config, query);
-      assertEquals(((BoolQueryBuilder) v3.query()).must(), ((BoolQueryBuilder) v2.query()).must());
+      assertTrue(relevancyQuery(v2) instanceof BoolQueryBuilder, query);
+      assertTrue(relevancyQuery(v3) instanceof DisMaxQueryBuilder, query);
       assertEquals(v3.highlighter(), v2.highlighter(), query);
     }
+  }
+
+  private static QueryBuilder relevancyQuery(SearchSourceBuilder source) {
+    return ((FunctionScoreQueryBuilder) ((BoolQueryBuilder) source.query()).must().get(0)).query();
   }
 
   private SearchSourceBuilder getDatasetSearchSource(

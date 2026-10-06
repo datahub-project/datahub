@@ -138,7 +138,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .collect(Collectors.toList());
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     highlights = getDefaultHighlights(opContext);
-    searchQueryBuilder = new SearchQueryBuilder(configs.getSearch(), customSearchConfiguration);
+    searchQueryBuilder =
+        new SearchQueryBuilder(
+            configs.getSearch(),
+            customSearchConfiguration,
+            EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex()));
     aggregationQueryBuilder =
         new AggregationQueryBuilder(
             configs.getSearch(),
@@ -634,6 +638,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // falls through to the transient path (no regression vs pre-change — the text-fielddata symptom
     // that causes the SP poisoning still matches on every backend). Carrying the type through the
     // shim is a follow-up.
+    // A clause overflow (too_many_nested_clauses) also repeats for the same query, but it stays
+    // here: failing the search would drop the results of the indices that answered too.
     return reason.contains("illegal_argument_exception")
         || reason.contains("illegalargumentexception")
         || reason.contains("text fields are not optimised");
