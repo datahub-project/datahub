@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -67,17 +68,6 @@ public class StructuredPropertiesMapperTest {
         DATASET_VALUE_URN.toString());
   }
 
-  @Test
-  public void testUrnValueWithSurroundingWhitespaceProducesValueEntity() {
-    com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
-        StructuredPropertiesMapper.map(
-            null, propertiesWithValue("  urn:li:domain:marketing  "), ENTITY_URN);
-
-    assertEquals(mapped.getProperties().get(0).getValueEntities().size(), 1);
-    assertEquals(
-        mapped.getProperties().get(0).getValueEntities().get(0).getType(), EntityType.DOMAIN);
-  }
-
   // A value that only contains an urn is text, and mapping it must never throw (#19019).
   @Test
   public void testTextContainingUrnProducesNoValueEntity() {
@@ -104,6 +94,33 @@ public class StructuredPropertiesMapperTest {
     assertEquals(
         ((StringValue) mapped.getProperties().get(0).getValues().get(0)).getStringValue(),
         TEXT_ENDING_WITH_PARENS);
+  }
+
+  @Test
+  public void testUrnValueRejectedByEntityRegistryProducesNoValueEntity() {
+    String invalidFabricUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,foo,NOT_A_FABRIC)";
+    com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
+        StructuredPropertiesMapper.map(
+            TestUtils.getMockAllowContext(), propertiesWithValue(invalidFabricUrn), ENTITY_URN);
+
+    assertEquals(mapped.getProperties().get(0).getValueEntities().size(), 0);
+    assertEquals(
+        ((StringValue) mapped.getProperties().get(0).getValues().get(0)).getStringValue(),
+        invalidFabricUrn);
+  }
+
+  @Test
+  public void testUrnValueAcceptedByEntityRegistryProducesValueEntity() {
+    com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
+        StructuredPropertiesMapper.map(
+            TestUtils.getMockAllowContext(),
+            propertiesWithValue(DATASET_VALUE_URN.toString()),
+            ENTITY_URN);
+
+    assertEquals(mapped.getProperties().get(0).getValueEntities().size(), 1);
+    assertEquals(
+        mapped.getProperties().get(0).getValueEntities().get(0).getUrn(),
+        DATASET_VALUE_URN.toString());
   }
 
   // A value that parses as a URN of an entity type UrnToEntityMapper cannot map (here a valid but

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import java.util.ArrayList;
@@ -88,8 +89,8 @@ public class StructuredPropertiesMapper {
       String stringValue,
       List<PropertyValue> values,
       List<Entity> entities) {
-    final Urn urnValue = parseValueAsUrn(stringValue.trim());
-    if (urnValue != null) {
+    final Urn urnValue = parseValueAsUrn(stringValue);
+    if (urnValue != null && isValidAgainstRegistry(context, urnValue)) {
       // UrnToEntityMapper returns null for entity types it does not know how to map. A string value
       // that merely parses as a URN (e.g. free text on a non-urn property, or a URN of an unmapped
       // entity type) must not contribute a null entity, otherwise downstream resolution of
@@ -136,6 +137,19 @@ public class StructuredPropertiesMapper {
       log.debug("String value is not an urn for this structured property entry");
     }
     return null;
+  }
+
+  private static boolean isValidAgainstRegistry(@Nullable QueryContext context, Urn urn) {
+    if (context == null) {
+      return true;
+    }
+    try {
+      ValidationApiUtils.validateUrn(context.getOperationContext().getEntityRegistry(), urn);
+      return true;
+    } catch (RuntimeException e) {
+      log.debug("Structured property value {} is not a valid urn: {}", urn, e.getMessage());
+      return false;
+    }
   }
 
   private static boolean hasValidKeyParts(Urn urn) {
