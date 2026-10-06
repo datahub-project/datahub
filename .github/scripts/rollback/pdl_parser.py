@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import cache, cached_property
 from typing import Optional
 
 import bump_schema_versions as bsv
@@ -46,6 +47,10 @@ _SYMBOL_RE = re.compile(r"[A-Za-z_]\w*")
 def enum_symbols(pdl: str) -> dict[str, list[str]]:
     """Enum symbols per enum, ignoring comments, commas and annotations such
     as `@deprecated = "..."` (which `rac.enums` splits into fake symbols)."""
+    return parse(pdl).enums
+
+
+def _enum_symbols(pdl: str) -> dict[str, list[str]]:
     cleaned = repo.strip_comments(pdl)
     out: dict[str, list[str]] = {}
     for m in _ENUM_BLOCK_RE.finditer(cleaned):
@@ -149,11 +154,7 @@ def fqn_of_path(path: str) -> str:
 
 
 def main_record(content: str) -> Optional[dict]:
-    # bsv gives up on files with typeref/fixed; read the records without them.
-    defs = bsv.parse_top_level_defs(split_typerefs(content)[2]) if content else None
-    name = rac.record_name(content) if content else None
-    rdef = (defs or {}).get(name or "")
-    return rdef if rdef and rdef["kind"] == "record" else None
+    return parse(content).main_record if content else None
 
 
 def via_note(field: dict) -> str:
@@ -178,15 +179,14 @@ def effective_fields(
     if not content:
         return {}
     read = read or rac.file_at
-    record = record or rac.record_name(content)
+    pdl = parse(content)
+    record = record or pdl.record_name
     if rdef is None:
-        rdef = main_record(content)
+        rdef = pdl.main_record
     own = record_fields(rdef) if rdef else rac.fields(content)
     seen = _seen if _seen is not None else set()
-    namespace, imports = bsv.parse_pdl_header(content)
     out: dict[str, dict] = {}
-    for short in sorted((rdef or {}).get("includes", set())):
-        fqn = imports.get(short) or f"{namespace}.{short}"
+    for short, fqn in pdl.includes(rdef):
         if fqn in seen:
             continue
         seen.add(fqn)
@@ -231,6 +231,10 @@ def split_typerefs(pdl: str) -> tuple[dict[str, str], dict[str, int], str]:
     """Typerefs {name: type}, fixed types {name: size}, and the rest of the
     file (comments removed) without them, so `bsv.parse_top_level_defs`,
     which gives up on typeref/fixed, can still read the file's records."""
+    return parse(pdl).split
+
+
+def _split_typerefs(pdl: str) -> tuple[dict[str, str], dict[str, int], str]:
     text = bsv.strip_pdl_comments(pdl)
     typerefs: dict[str, str] = {}
     spans: list[tuple[int, int]] = []
@@ -294,10 +298,64 @@ def include_closure(
     rdef = main_record(content)
     if not rdef:
         return seen
-    namespace, imports = bsv.parse_pdl_header(content)
-    for short in rdef["includes"]:
-        fqn = imports.get(short) or f"{namespace}.{short}"
+    for _, fqn in parse(content).includes(rdef):
         if fqn not in seen:
             seen.add(fqn)
             include_closure(read(ref, path_of_fqn(fqn)), ref, seen, read)
     return seen
+
+
+class PdlFile:
+    """One PDL file's parsed parts. Each is computed on first use, once per
+    distinct file content (see `parse`). Callers must not mutate them."""
+
+    def __init__(self, content: str):
+        self.content = content
+
+    @cached_property
+    def split(self) -> tuple[dict[str, str], dict[str, int], str]:
+        return _split_typerefs(self.content)
+
+    @cached_property
+    def defs(self) -> Optional[dict]:
+        """Top-level definitions; None if bsv can't parse the file. bsv gives
+        up on files with typeref/fixed, so it reads the file without them."""
+        return bsv.parse_top_level_defs(self.split[2])
+
+    @cached_property
+    def header(self) -> tuple[str, dict[str, str]]:
+        """(namespace, {imported short name: FQN})."""
+        return bsv.parse_pdl_header(self.content)
+
+    @cached_property
+    def record_name(self) -> Optional[str]:
+        return rac.record_name(self.content)
+
+    @cached_property
+    def aspect(self) -> Optional[dict]:
+        """The @Aspect annotation, or None if the file isn't an aspect."""
+        return rac.aspect_meta(self.content)
+
+    @cached_property
+    def enums(self) -> dict[str, list[str]]:
+        return _enum_symbols(self.content)
+
+    @property
+    def main_record(self) -> Optional[dict]:
+        rdef = (self.defs or {}).get(self.record_name or "")
+        return rdef if rdef and rdef["kind"] == "record" else None
+
+    def includes(self, rdef: Optional[dict]) -> list[tuple[str, str]]:
+        """(short name, FQN) of each record `rdef` includes, sorted by name."""
+        namespace, imports = self.header
+        return [
+            (short, imports.get(short) or f"{namespace}.{short}")
+            for short in sorted((rdef or {}).get("includes", set()))
+        ]
+
+
+@cache
+def parse(content: str) -> PdlFile:
+    """Parsing depends only on the text, so files read at several refs or by
+    several analyses are parsed once."""
+    return PdlFile(content)

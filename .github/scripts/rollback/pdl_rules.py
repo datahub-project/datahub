@@ -304,8 +304,8 @@ def classify_pdl_for_rollback(
     current_content = read(current, path)
     target_content = read(target, path)
 
-    cur_meta = rac.aspect_meta(current_content) if current_content else None
-    tgt_meta = rac.aspect_meta(target_content) if target_content else None
+    cur_meta = pdl_parser.parse(current_content).aspect if current_content else None
+    tgt_meta = pdl_parser.parse(target_content).aspect if target_content else None
     aspect_name = (cur_meta or {}).get("name") or (tgt_meta or {}).get("name")
 
     # Skip non-aspect PDL files (enums, shared records) — they're not stored
@@ -364,8 +364,8 @@ def classify_pdl_for_rollback(
         )
     )
 
-    cur_name = rac.record_name(current_content)
-    tgt_name = rac.record_name(target_content)
+    cur_name = pdl_parser.parse(current_content).record_name
+    tgt_name = pdl_parser.parse(target_content).record_name
     if cur_name and tgt_name and cur_name != tgt_name:
         findings.append(
             _finding(
@@ -390,7 +390,7 @@ def aspects_using(
     aspect_of: dict[str, str] = {}
     for path, content in contents.items():
         own = pdl_parser.fqn_of_path(path)
-        meta = rac.aspect_meta(content)
+        meta = pdl_parser.parse(content).aspect
         if meta and meta.get("name"):
             aspect_of[own] = meta["name"]
         for dep in bsv.resolve_dependencies(content):
@@ -432,8 +432,8 @@ def typeref_findings(
 ) -> list[model.RollbackFinding]:
     """Changes to typerefs and fixed types defined in a file."""
     origin = model.Origin(path, None, pr, author)
-    cur_t, cur_f, _ = pdl_parser.split_typerefs(cur)
-    tgt_t, tgt_f, _ = pdl_parser.split_typerefs(tgt)
+    cur_t, cur_f, _ = pdl_parser.parse(cur).split
+    tgt_t, tgt_f, _ = pdl_parser.parse(tgt).split
     findings: list[model.RollbackFinding] = []
     for name in sorted(set(cur_t) & set(tgt_t)):
         old, new = tgt_t[name], cur_t[name]
@@ -487,7 +487,7 @@ def _include_closures_of_changed_aspects(
     out: dict[str, set[str]] = {}
     for path in pdl_paths:
         content = read(current, path)
-        meta = rac.aspect_meta(content) if content else None
+        meta = pdl_parser.parse(content).aspect if content else None
         if meta and meta.get("name"):
             out[meta["name"]] = pdl_parser.include_closure(
                 content, current, set(), read
@@ -507,7 +507,7 @@ def analyze_nested_changes(
     changed: dict[str, tuple[str, str]] = {}
     for path in pdl_paths:
         cur, tgt = read(current, path), read(target, path)
-        if cur and tgt and not rac.aspect_meta(cur):
+        if cur and tgt and not pdl_parser.parse(cur).aspect:
             changed[pdl_parser.fqn_of_path(path)] = (cur, tgt)
     if not changed:
         return []
@@ -534,8 +534,8 @@ def analyze_nested_changes(
             cur, tgt, path, pr, author
         )
         field_findings: list[model.RollbackFinding] = []
-        cur_defs = bsv.parse_top_level_defs(pdl_parser.split_typerefs(cur)[2])
-        tgt_defs = bsv.parse_top_level_defs(pdl_parser.split_typerefs(tgt)[2])
+        cur_defs = pdl_parser.parse(cur).defs
+        tgt_defs = pdl_parser.parse(tgt).defs
         if cur_defs is None or tgt_defs is None:
             # Never let a change the parser can't read pass silently.
             short = fqn.rsplit(".", 1)[-1]
@@ -620,7 +620,7 @@ def attribute_embedded_aspect_changes(
     changed: dict[str, str] = {}
     for path in pdl_paths:
         cur, tgt = rac.file_at(current, path), rac.file_at(target, path)
-        meta = rac.aspect_meta(cur) if cur and tgt else None
+        meta = pdl_parser.parse(cur).aspect if cur and tgt else None
         if meta and meta.get("name"):
             changed[path] = meta["name"]
     by_path: dict[str, list[model.RollbackFinding]] = {}
@@ -653,8 +653,8 @@ def analyze_schema_version_gaps(
     for path in pdl_paths:
         cur_content = rac.file_at(current, path)
         tgt_content = rac.file_at(target, path)
-        cur_meta = rac.aspect_meta(cur_content) if cur_content else None
-        tgt_meta = rac.aspect_meta(tgt_content) if tgt_content else None
+        cur_meta = pdl_parser.parse(cur_content).aspect if cur_content else None
+        tgt_meta = pdl_parser.parse(tgt_content).aspect if tgt_content else None
         if not cur_meta or not tgt_meta:
             continue
         cur_v = cur_meta.get("schemaVersion") or 1
