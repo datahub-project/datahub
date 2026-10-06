@@ -231,6 +231,7 @@ public class JdbcUrlParserTest {
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(postgres, "public"), postgres);
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(postgres, " PUBLIC "), postgres);
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(mysql, "dhub"), mysql);
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(mysql, "bad-name"), mysql);
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(null, "dhub"), null);
   }
 
@@ -246,6 +247,34 @@ public class JdbcUrlParserTest {
         JdbcUrlParser.applyPostgresMetadataSchema(
             "jdbc:postgresql://localhost:5432/datahub?CurrentSchema=Dhub", "dhub"),
         "jdbc:postgresql://localhost:5432/datahub?currentSchema=dhub");
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_keepsSearchPathListWhenFirstEntryMatches() {
+    String url = "jdbc:postgresql://localhost:5432/datahub?currentSchema=dhub,public";
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(url, "dhub"), url);
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_rejectsSearchPathListWithDifferentFirstEntry() {
+    try {
+      JdbcUrlParser.applyPostgresMetadataSchema(
+          "jdbc:postgresql://localhost:5432/datahub?currentSchema=public,dhub", "dhub");
+      throw new AssertionError("expected search path starting at public to fail");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("public,dhub"));
+    }
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_rejectsPublicSchemaWhenUrlUsesAnotherSchema() {
+    try {
+      JdbcUrlParser.applyPostgresMetadataSchema(
+          "jdbc:postgresql://localhost:5432/datahub?currentSchema=other", "public");
+      throw new AssertionError("expected public schema to reject a different currentSchema");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("other"));
+    }
   }
 
   @Test

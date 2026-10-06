@@ -75,17 +75,23 @@ public class JdbcUrlParser {
    * Point a PostgreSQL Ebean URL at {@code postgres.schema} by setting JDBC {@code currentSchema}.
    *
    * <p>SqlSetup creates unqualified metadata tables in that schema. The pool must use the same
-   * search path or runtime reads {@code public}. {@code public} (the default) leaves the URL
-   * unchanged so existing {@code "$user", public} search paths stay as they are. A URL that already
-   * sets {@code currentSchema} to a different schema fails fast. Non-PostgreSQL URLs are returned
-   * unchanged.
+   * search path or runtime reads {@code public}. {@code public} (the default) leaves a URL with no
+   * {@code currentSchema} unchanged so existing {@code "$user", public} search paths stay as they
+   * are. An existing {@code currentSchema} whose first entry names a different schema fails fast,
+   * including when {@code postgres.schema} is {@code public}. A search-path list such as {@code
+   * dhub,public} is kept when its first entry is the configured schema. Non-PostgreSQL URLs are
+   * returned unchanged and are not validated.
    */
   public static String applyPostgresMetadataSchema(String jdbcUrl, String schema) {
     if (jdbcUrl == null || schema == null) {
       return jdbcUrl;
     }
     String trimmed = schema.trim();
-    if (trimmed.isEmpty() || "public".equalsIgnoreCase(trimmed)) {
+    if (trimmed.isEmpty()) {
+      return jdbcUrl;
+    }
+    JdbcInfo info = parseJdbcUrl(jdbcUrl);
+    if (info.databaseType != DatabaseType.POSTGRES) {
       return jdbcUrl;
     }
     if (!trimmed.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
@@ -94,14 +100,14 @@ public class JdbcUrlParser {
               + "(letters, digits, underscore; must not start with a digit).");
     }
     String normalized = trimmed.toLowerCase(Locale.ROOT);
-    JdbcInfo info = parseJdbcUrl(jdbcUrl);
-    if (info.databaseType != DatabaseType.POSTGRES) {
-      return jdbcUrl;
+    if (info.currentSchema == null) {
+      if ("public".equals(normalized)) {
+        return jdbcUrl;
+      }
+      return upsertQueryParameter(jdbcUrl, "currentSchema", normalized);
     }
-    if (normalized.equals(info.currentSchema)) {
-      return jdbcUrl;
-    }
-    if (info.currentSchema != null && !normalized.equalsIgnoreCase(info.currentSchema)) {
+    String firstEntry = firstCurrentSchemaEntry(info.currentSchema);
+    if (!normalized.equalsIgnoreCase(firstEntry)) {
       throw new IllegalStateException(
           "postgres.schema is '"
               + normalized
@@ -109,7 +115,19 @@ public class JdbcUrlParser {
               + info.currentSchema
               + "'. Use the same schema for SqlSetup and the Ebean pool.");
     }
-    return upsertQueryParameter(jdbcUrl, "currentSchema", normalized);
+    // A single entry that differs only by case must be lowercased so the driver quotes the
+    // identifier SqlSetup created. A list whose first entry already matches is left as-is.
+    if (info.currentSchema.indexOf(',') < 0 && !normalized.equals(info.currentSchema)) {
+      return upsertQueryParameter(jdbcUrl, "currentSchema", normalized);
+    }
+    return jdbcUrl;
+  }
+
+  /** First entry of a PgJDBC {@code currentSchema} search-path list. */
+  private static String firstCurrentSchemaEntry(String currentSchema) {
+    int comma = currentSchema.indexOf(',');
+    String first = comma < 0 ? currentSchema : currentSchema.substring(0, comma);
+    return first.trim();
   }
 
   /** Insert or replace a query parameter, preserving the rest of the URL. */

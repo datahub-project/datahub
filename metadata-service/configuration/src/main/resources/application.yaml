@@ -644,8 +644,9 @@ cassandra:
 # postgres.schema / DATAHUB_POSTGRES_SCHEMA: Ebean/metadata tables (default public). SqlSetup
 # CREATE SCHEMA (unless CREATE_SCHEMA=false) and search_path use this value. GMS and MCE copy a
 # non-public schema onto the Ebean JDBC URL as currentSchema so runtime reads the same schema.
-# Default public does not rewrite the URL. A URL currentSchema that names a different schema
-# fails startup. pgQueue uses postgres.pgQueue.schema only (default queue)—queue DDL never
+# Default public does not rewrite a URL that omits currentSchema. A URL currentSchema whose
+# first entry names a different schema fails startup. A list such as dhub,public is kept when
+# its first entry matches. pgQueue uses postgres.pgQueue.schema only (default queue)—queue DDL never
 # lands in postgres.schema unless you explicitly set both to the same value. The JDBC URL
 # path selects the database only.
 postgres:
