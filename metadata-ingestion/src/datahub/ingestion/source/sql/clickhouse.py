@@ -72,6 +72,7 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -1361,7 +1362,8 @@ ORDER BY event_time ASC
             # A failure, not a warning, so stale entity removal does not
             # soft-delete previously ingested dictionaries.
             self.report.failure(
-                "Failed to fetch XML-defined ClickHouse dictionaries",
+                title="Config-file dictionary fetch failed",
+                message="Failed to fetch config-file dictionaries or the tables for their lineage",
                 exc=e,
             )
             return
@@ -1393,7 +1395,8 @@ ORDER BY event_time ASC
                 )
             except Exception as e:
                 self.report.warning(
-                    "Error processing XML-defined dictionary",
+                    title="Failed to process config-file dictionary",
+                    message="Skipped a config-file dictionary that could not be processed",
                     context=dataset_name,
                     exc=e,
                 )
@@ -1407,7 +1410,8 @@ ORDER BY event_time ASC
             # ClickHouse reports no structure when the dictionary config fails to
             # load. Emitting an empty schema would overwrite the last good one.
             self.report.warning(
-                "XML-defined dictionary has no columns; schema not updated",
+                title="Config-file dictionary has no columns",
+                message="ClickHouse reported no structure for the dictionary, so its schema was not updated",
                 context=dataset_name,
             )
         schema_fields = [
@@ -1492,6 +1496,14 @@ ORDER BY event_time ASC
             self.discovered_datasets.add(dataset_name)
 
         yield from dataset.as_workunits()
+
+        if self.config.domain and self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+            )
 
     def _get_all_tables(self) -> Set[str]:
         all_tables_query: str = textwrap.dedent(

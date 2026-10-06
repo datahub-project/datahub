@@ -27,15 +27,16 @@ Usage attributed to `INSERT`/`CREATE` queries still comes from SQL parsing, so i
 columns that contribute to the written output — a column read solely in an `INSERT ... SELECT`'s
 `WHERE` clause is not counted.
 
-#### XML-Defined Dictionaries
+#### Config-File Dictionaries
 
-Dictionaries defined in server XML config files are not listed in `system.tables`, so they are
-read from `system.dictionaries`. A dictionary that declares `<database>` is ingested as
-`<database>.<name>` under that database's container, and `database_pattern` applies to that
-database. Otherwise it belongs to the server and is ingested under its full name without a
-container. A global name, even a dotted one such as `db.my_dict`, is filtered only by
-`table_pattern`. When `database` is set, only dictionaries declared in that database are
-ingested. If the dictionary's source is a ClickHouse table, that table is added as its upstream.
+Dictionaries defined in server config files (XML or YAML) are not listed in `system.tables`, so
+when `include_tables` is enabled they are read from `system.dictionaries`. A dictionary that
+declares `<database>` is ingested as `<database>.<name>` under that database's container, and
+`database_pattern` applies to that database. Otherwise it belongs to the server and is ingested
+under its full name without a container. A global name, even a dotted one such as `db.my_dict`, is
+filtered only by `table_pattern`. When `database` is set, only dictionaries declared in that
+database are ingested. With `include_table_lineage`, a dictionary whose source is an existing
+ClickHouse table gets that table as its upstream.
 
 ### Limitations
 
