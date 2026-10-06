@@ -22,8 +22,11 @@ locally.
 
 import binascii
 import copy
+import errno
 import json
 import re
+import socket
+import ssl
 from typing import (
     AbstractSet,
     Callable,
@@ -241,6 +244,82 @@ def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> st
         raise
     except BaseException:
         return name
+
+
+# Why a source could not be opened, read from the stdlib network exception a
+# driver keeps in its chain, and what the caller can do about each. Fixed
+# text: nothing here comes from the exception but its type and errno.
+NETWORK_REASON_HINTS: Dict[str, str] = {
+    "HostNotResolved": (
+        "the recipe's host name did not resolve; check its spelling, and the "
+        "DNS or VPN this machine uses"
+    ),
+    "ConnectionRefused": (
+        "nothing is listening at the recipe's host and port; check the port, "
+        "and that the server is running"
+    ),
+    "Timeout": (
+        "the host did not answer; a firewall, allowlist or private network "
+        "may be dropping this machine's traffic, and retrying will not help "
+        "until that changes"
+    ),
+    "HostUnreachable": (
+        "there is no network route to the host from this machine; it may be "
+        "on a private network"
+    ),
+    "TlsVerifyFailed": (
+        "the server's TLS certificate failed verification; check the "
+        "recipe's CA or TLS settings"
+    ),
+}
+
+_UNREACHABLE_ERRNOS = frozenset({errno.EHOSTUNREACH, errno.ENETUNREACH})
+
+
+def _network_reason_of(link: BaseException) -> Optional[str]:
+    # Before OSError's own checks: a certificate failure is an OSError too.
+    if isinstance(link, ssl.SSLCertVerificationError):
+        return "TlsVerifyFailed"
+    if isinstance(link, (socket.gaierror, socket.herror)):
+        return "HostNotResolved"
+    if isinstance(link, ConnectionRefusedError):
+        return "ConnectionRefused"
+    # socket.timeout is TimeoutError since Python 3.10.
+    if isinstance(link, TimeoutError):
+        return "Timeout"
+    if isinstance(link, OSError) and _attr(link, "errno") in _UNREACHABLE_ERRNOS:
+        return "HostUnreachable"
+    return None
+
+
+def network_reason(exc: BaseException) -> Optional[str]:
+    """The NETWORK_REASON_HINTS key for the innermost stdlib network
+    exception in `exc`'s chain, or None. Never raises.
+
+    The chain is the one a traceback prints: each link's cause, else its
+    context. The context counts here, unlike in foreign_code, because drivers
+    such as PyMySQL raise their own error while handling the socket's without
+    `from`; for a failure opening a source, the exception being handled is
+    the failure. The innermost match wins, so pytds's TimeoutError raised
+    from a ConnectionRefusedError reads as refused. Only types and errno are
+    read, never text.
+    """
+    try:
+        reason: Optional[str] = None
+        seen: List[BaseException] = []
+        link: object = exc
+        while isinstance(link, BaseException) and len(seen) < _MAX_CHAIN_LINKS:
+            if any(link is prior for prior in seen):
+                break
+            seen.append(link)
+            reason = _network_reason_of(link) or reason
+            cause = _attr(link, "__cause__")
+            link = cause if cause is not None else _attr(link, "__context__")
+        return reason
+    except PASS_THROUGH:
+        raise
+    except BaseException:
+        return None
 
 
 # SQLSTATE class 42, syntax error or access rule violation: a query the

@@ -32,6 +32,7 @@ from datahub.configuration.env_vars import (
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import (
+    NETWORK_REASON_HINTS,
     PASS_THROUGH,
     call_config_hook,
     classify_foreign,
@@ -41,6 +42,7 @@ from datahub.ingestion.agent.error_policy import (
     label_foreign_text,
     missing_module,
     name_foreign,
+    network_reason,
     police_trusted,
     verbose_detail,
 )
@@ -953,12 +955,20 @@ class _ProviderCall:
         return frozenset(str(v) for v in self.call_kwargs.values() if v is not None)
 
 
+# The verb of the open path, the one place a network cause is named: a
+# context there is the failure being handled, while elsewhere it can be an
+# unrelated earlier retry.
+_OPENING = "opening"
+
+
 def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoReturn:
     """Re-raise a failure while opening or closing the provider.
 
     A trusted type keeps its message. Anything else is a connection error (exit
     3) named by label: the caller's input was checked before the provider was
-    built, so an untrusted failure here is the source's.
+    built, so an untrusted failure here is the source's. On opening, a stdlib
+    network exception in its chain adds a reason and a fixed hint
+    (error_policy.network_reason).
     """
     if is_trusted(exc):
         _reraise_trusted(exc, call.provider_cls, call.own_values)
@@ -972,9 +982,16 @@ def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoRet
             f"(pip install 'acryl-datahub[{call.source_type}]') or the driver "
             f"its connection URL names"
         ) from None
+    reason = network_reason(exc) if verb == _OPENING else None
+    if reason is None:
+        raise ProbeConnectionError(
+            f"{verb} source '{call.source_type}' failed "
+            f"{name_foreign(exc, call.provider_cls)}"
+        ) from None
     raise ProbeConnectionError(
         f"{verb} source '{call.source_type}' failed "
-        f"{name_foreign(exc, call.provider_cls)}"
+        f"({foreign_label(exc, call.provider_cls)}): {reason} - "
+        f"{NETWORK_REASON_HINTS[reason]}{verbose_detail(exc)}"
     ) from None
 
 
@@ -1029,7 +1046,7 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     except PASS_THROUGH:
         raise
     except BaseException as exc:
-        _source_failure(exc, call, "opening")
+        _source_failure(exc, call, _OPENING)
     _enforce_gates(call.spec, provider, call.call_kwargs)
     method = _bound_method(provider, command)
     try:

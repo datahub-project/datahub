@@ -601,6 +601,23 @@ this also turns log scrubbing off, so do not use it where the output is shared o
 stderr also carries the connector's log lines at INFO and above, scrubbed of the recipe's secrets
 and of credential shapes, with tracebacks dropped.
 
+When a source cannot be opened and the driver's exception chain holds a standard network error,
+the label is followed by a reason and a fixed hint, for example `opening source 'mysql' failed
+(OperationalError; errno 2003): ConnectionRefused - nothing is listening at the recipe's host and
+port; ...`. The reason is read from the exception's type, never its text, and the exit code is
+still 3:
+
+| Reason              | Meaning and fix                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `HostNotResolved`   | The host name did not resolve. Check its spelling, and the DNS or VPN in use.                 |
+| `ConnectionRefused` | Nothing listens at the host and port. Check the port, and that the server is running.         |
+| `Timeout`           | The host did not answer. A firewall, allowlist or private network is likely dropping traffic. |
+| `HostUnreachable`   | There is no network route to the host from this machine.                                      |
+| `TlsVerifyFailed`   | The server's TLS certificate failed verification. Check the recipe's CA or TLS settings.      |
+
+Drivers built on libpq (Postgres and its relatives) report no reason, since libpq is C and leaves no
+Python network error to read.
+
 A non-empty `warnings` list alongside an empty or partial result means _part of the source
 could not be read_ — not that the source is empty. Treat the two differently.
 

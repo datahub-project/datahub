@@ -10,6 +10,7 @@ goldens built from setup.sql never see it.
 """
 
 import json
+import socket
 import subprocess
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Set, Type
@@ -292,6 +293,28 @@ def test_max_execution_time_cuts_a_slow_catalog_query(
     assert result.exit_code == _EXIT_CONNECTION, result.output
     # ER_QUERY_TIMEOUT: max_execution_time, not a dropped connection.
     assert "3024" in json.loads(result.stderr)["error"]
+
+
+def _closed_local_port() -> int:
+    """A port nothing listens on: one the OS just handed out and took back."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe_socket:
+        probe_socket.bind(("127.0.0.1", 0))
+        return probe_socket.getsockname()[1]
+
+
+def test_a_refused_connection_is_named_through_the_real_driver(
+    tmp_path: Path,
+) -> None:
+    """PyMySQL keeps the socket's ConnectionRefusedError only as the context
+    of its errno-2003 OperationalError, which covers DNS, timeouts and TLS
+    as well; the chain is what tells them apart."""
+    recipe = {**_recipe(0), "host_port": f"127.0.0.1:{_closed_local_port()}"}
+    result = _probe_cli(tmp_path, recipe, "containers")
+    assert result.exit_code == _EXIT_CONNECTION, result.output
+    error = json.loads(result.stderr)["error"]
+    assert "errno 2003" in error
+    assert "ConnectionRefused" in error
+    assert _PASSWORD not in result.output
 
 
 def _datasets(sub_type: str) -> Callable[[EmittedIndex], Set[str]]:

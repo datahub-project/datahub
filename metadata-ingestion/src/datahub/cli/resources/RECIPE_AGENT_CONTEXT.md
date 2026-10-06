@@ -371,6 +371,20 @@ also turns log scrubbing off. stderr carries the connector's log lines (INFO and
 tracebacks dropped) before the final `{"error": ...}` line; read that line, not the whole
 stream.
 
+When the source cannot be opened because of the network, the label is followed by a reason and a
+fixed hint: `opening source 'mysql' failed (OperationalError; errno 2003): ConnectionRefused - ...`.
+The reason comes from the exception's type, never its text. Act on it before touching credentials:
+
+| reason              | what to do                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `HostNotResolved`   | fix the host's spelling, or ask the user about DNS or VPN                           |
+| `ConnectionRefused` | check the port, and that the server is running                                      |
+| `Timeout`           | ask the user about a firewall, allowlist or private network; retrying will not help |
+| `HostUnreachable`   | the host is on a network this machine cannot route to; ask the user                 |
+| `TlsVerifyFailed`   | fix the recipe's CA or TLS settings                                                 |
+
+No reason means the network was not the cause, or the driver did not say (Postgres never does).
+
 ## Common Recipes
 
 ```bash
