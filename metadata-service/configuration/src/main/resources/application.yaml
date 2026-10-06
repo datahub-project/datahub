@@ -1827,7 +1827,8 @@ structuredProperties:
   # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   # Reindex when an existing SP field's copy_to disagrees with the definition-driven target.
-  # Requires systemUpdateEnabled as well. A put-mapping does not backfill already-indexed documents.
+  # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+  # (stock default false). A put-mapping does not backfill already-indexed documents.
   copyToMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
   # When true, persist oversized string-backed SP values in SQL but omit them from search documents.

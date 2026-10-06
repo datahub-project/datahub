@@ -158,6 +158,8 @@ Requirements:
 
 ### Potential Downtime
 
+- **(GMS / Structured Properties / search indices)** With `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true`, `ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX=true` (the default), and `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true`, system-update `BuildIndices` reindexes entity search indices when an existing structured-property field's `copy_to` targets differ from the definition-driven mapping (for example adding `customFullTextSearchFields`). A put-mapping does not copy values already in the index into the new target, so those values stay out of full-text search until the reindex. All three flags are required. Mappings reindex defaults to off, so turning on system update alone does not start this reindex. **Action:** Expect longer system-update runtime on the first upgrade if any structured-property `copy_to` targets disagree with the index. Set `ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX=false` to skip that reindex and leave other structured-property system-update behavior intact.
+
 ### Deprecations
 
 - **(Frontend / `/admin`)** `GET /admin` and `GET /health` on the Play port (9002) are deprecated as health checks. They still return `200 GOOD` (or `503` during graceful shutdown) so existing monitors keep working, but they run on the Play connection table and can time out while the process is up. Use `GET /health/live` and `GET /health/ready` on `MANAGEMENT_SERVER_PORT` (default 4319). **Action:** point Kubernetes liveness and readiness, Docker healthchecks, and any other prober at those management paths. Do not add new checks against `/admin`. The route will be removed in a later release after charts and monitors have moved.
