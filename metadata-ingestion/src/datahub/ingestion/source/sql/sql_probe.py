@@ -9,12 +9,13 @@ get_identifier needs state only ingestion sets.
 
 import sys
 from dataclasses import dataclass
-from typing import Optional, Protocol, Type, cast
+from typing import Any, Optional, Protocol, Type, cast
 
 from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.agent.declarations import declares_qualifier
+from datahub.ingestion.agent.sql_passthrough import CatalogRows
 from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -32,6 +33,23 @@ _SOURCE_CLASS_SUFFIX = "Source"
 # The stable part of the degrade warning. A contract test imports it to tell a
 # degraded source from one whose identifier really is the bare name.
 IDENTIFIER_DEGRADE_MARKER = "needs source state the probe doesn't have"
+
+
+def execute_on_cursor(cursor: Any, query: str, limit: int) -> CatalogRows:
+    """Run a gate-cleared `sql` query on a raw DB-API cursor, then close it.
+
+    No parameters at all: pytds and redshift_connector rewrite the statement
+    for their paramstyle whenever a parameter set is passed (SQLAlchemy's
+    exec_driver_sql always passes one), so a `%` in a LIKE literal would
+    break. With none, the SQL reaches the server as written.
+    """
+    try:
+        cursor.execute(query)
+        columns = [str(d[0]) for d in cursor.description or []]
+        rows = cursor.fetchmany(limit) if cursor.description else []
+        return CatalogRows(columns=columns, rows=[list(row) for row in rows])
+    finally:
+        cursor.close()
 
 
 def _source_class_for(config: object) -> Type[SQLAlchemySource]:

@@ -18,6 +18,7 @@ from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_probe import execute_on_cursor
 from datahub.ingestion.source.sql.sqlalchemy_probe import (
     SqlAlchemyMetadataProbe,
     build_probe_engine,
@@ -112,21 +113,8 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             super().__exit__(*exc)
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
-        # On the driver's cursor with no parameters at all. SQLAlchemy's
-        # exec_driver_sql always hands the cursor a (possibly empty) parameter
-        # set, and pytds then %-formats the statement with it, so a query the
-        # gate has cleared -- `LIKE 'P%'` -- died with "unsupported format
-        # character". With none, pytds sends the text as a plain batch, as
-        # pyodbc does, so the SQL reaches the server exactly as written.
         with self._engine.connect() as conn:
-            cursor = conn.connection.cursor()
-            try:
-                cursor.execute(query)
-                columns = [str(d[0]) for d in cursor.description or []]
-                rows = cursor.fetchmany(limit) if cursor.description else []
-                return CatalogRows(columns=columns, rows=[list(row) for row in rows])
-            finally:
-                cursor.close()
+            return execute_on_cursor(conn.connection.cursor(), query, limit)
 
     # -- the two server round-trips, separate so tests can stand in for them --
 
