@@ -667,7 +667,7 @@ public class BulkTelemetryTest {
               .toList();
       assertEquals(warnings.size(), 1, "the second overflow falls inside the debounce interval");
       String line = warnings.get(0).getFormattedMessage();
-      assertTrue(line.contains("20000 origin span(s) discarded"), line);
+      assertTrue(line.contains("20000 trace link(s) lost"), line);
       assertTrue(line.contains("writes are unaffected"), line);
     } finally {
       logger.detachAppender(appender);
@@ -714,6 +714,31 @@ public class BulkTelemetryTest {
   }
 
   @Test
+  public void lossMetersAreTaggedByTableAndCause() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    BulkTelemetry t =
+        BulkTelemetry.create(
+            BulkTelemetryConfig.builder()
+                .tracer(tracer(new Collector()))
+                .batchSpans(true)
+                .meterRegistry(registry)
+                .build());
+    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+      for (int i = 0; i <= 20_000; i++) {
+        t.onAdd(new IndexRequest("idx").id("" + i)); // the last add overflows pending
+      }
+    }
+    for (int i = 0; i <= 1_024; i++) {
+      t.beforeBulk(new Object(), List.of()); // the last batch evicts the oldest open one
+    }
+    assertEquals(counter(registry, "links_lost", "table", "pending"), 20_000.0);
+    assertEquals(counter(registry, "links_lost", "table", "carried"), 0.0);
+    assertEquals(counter(registry, "spans_ended_incomplete", "cause", "evicted"), 1.0);
+    assertEquals(counter(registry, "spans_ended_incomplete", "cause", "shutdown"), 0.0);
+    t.close();
+  }
+
+  @Test
   public void closeReleasesEverythingAndUnregistersMeters() {
     Collector collector = new Collector();
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -739,8 +764,9 @@ public class BulkTelemetryTest {
     assertEquals(gauge(registry, "pending"), 1.0);
     assertEquals(gauge(registry, "carried"), 1.0);
     assertEquals(gauge(registry, "open_batches"), 1.0);
-    assertEquals(counter(registry, "origins_dropped"), 0.0);
-    assertEquals(counter(registry, "batches_abandoned"), 0.0);
+    assertEquals(counter(registry, "links_lost", "table", "pending"), 0.0);
+    assertEquals(counter(registry, "links_lost", "table", "carried"), 0.0);
+    assertEquals(counter(registry, "spans_ended_incomplete", "cause", "shutdown"), 0.0);
 
     Reference.reachabilityFence(pendingAction);
     Reference.reachabilityFence(failedAction);
@@ -748,7 +774,7 @@ public class BulkTelemetryTest {
     assertEquals(t.pendingCount(), 0);
     assertEquals(t.carriedCount(), 0);
     assertEquals(t.openBatches(), 0);
-    assertEquals(t.abandonedBatches(), 1L);
+    assertEquals(t.abandonedBatches(), 1L, "the open batch ended at shutdown");
     assertEquals(collector.spans.size(), 2);
     assertEquals(collector.spans.get(1).getAttributes().get(BulkTelemetry.ABANDONED), Boolean.TRUE);
     assertTrue(registry.getMeters().isEmpty(), "meters are unregistered on close");
@@ -782,8 +808,13 @@ public class BulkTelemetryTest {
     return registry.get(BulkTelemetry.METRIC_PREFIX + "." + name).gauge().value();
   }
 
-  private static double counter(SimpleMeterRegistry registry, String name) {
-    return registry.get(BulkTelemetry.METRIC_PREFIX + "." + name).functionCounter().count();
+  private static double counter(
+      SimpleMeterRegistry registry, String name, String tagKey, String tagValue) {
+    return registry
+        .get(BulkTelemetry.METRIC_PREFIX + "." + name)
+        .tag(tagKey, tagValue)
+        .functionCounter()
+        .count();
   }
 
   private static void collectUntil(BooleanSupplier done) throws InterruptedException {

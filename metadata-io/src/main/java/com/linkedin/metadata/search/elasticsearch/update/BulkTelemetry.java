@@ -101,12 +101,20 @@ public final class BulkTelemetry {
       AttributeKey.booleanKey("datahub.bulk.abandoned");
 
   /**
-   * Prefix of the meters published when a registry is configured, each tagged {@code
-   * processor=<batch id prefix>}: gauges {@code .pending}, {@code .carried}, {@code .open_batches}
-   * and counters {@code .origins_dropped} (origin spans discarded because {@code pending} or {@code
-   * carried} reached {@value #MAX_PENDING}; the writes themselves are unaffected, their batch spans
-   * just lack those links) and {@code .batches_abandoned} (batch spans ended without the batch's
-   * result).
+   * Prefix of the meters published when a registry is configured. Every meter is tagged {@code
+   * processor=<batch id prefix>}, and every one measures telemetry only, never the writes:
+   *
+   * <ul>
+   *   <li>gauges {@code .pending}, {@code .carried}, {@code .open_batches}: how full each table is;
+   *   <li>counter {@code .links_lost{table=pending|carried, cause=overflow}}: origin spans
+   *       discarded because their table reached {@value #MAX_PENDING}, so a batch span lacks those
+   *       links;
+   *   <li>counter {@code .spans_ended_incomplete{cause=evicted|collected|shutdown}}: batch spans
+   *       ended without the batch's result, because the open-batch table reached {@value
+   *       #MAX_OPEN_BATCHES} ({@code evicted}; the request may still complete), the bulk request
+   *       was garbage collected while open ({@code collected}; its completion can never arrive), or
+   *       the telemetry was closed with the batch open ({@code shutdown}).
+   * </ul>
    */
   public static final String METRIC_PREFIX = "datahub.bulk.telemetry";
 
@@ -144,6 +152,9 @@ public final class BulkTelemetry {
   private final String prefix;
   private final AtomicLong seq = new AtomicLong();
   private final AtomicLong abandoned = new AtomicLong();
+  private final AtomicLong endedEvicted = new AtomicLong();
+  private final AtomicLong endedCollected = new AtomicLong();
+  private final AtomicLong endedShutdown = new AtomicLong();
 
   // Loss warnings: when the next line may be written, and the totals the previous line reported.
   private final AtomicLong nextLossLogNanos = new AtomicLong(Long.MIN_VALUE);
@@ -156,7 +167,11 @@ public final class BulkTelemetry {
   // One put per batch, so a weak identity table is affordable here: a batch whose afterBulk never
   // runs is purged (and its span ended as abandoned) once the client lets go of the bulk request.
   private final WeakIdentityTable<Batch> batches =
-      new WeakIdentityTable<>(MAX_OPEN_BATCHES, this::abandon);
+      new WeakIdentityTable<>(
+          MAX_OPEN_BATCHES,
+          (batch, drop) ->
+              abandon(
+                  batch, drop == WeakIdentityTable.Drop.EVICTED ? endedEvicted : endedCollected));
 
   /**
    * Origins of failed actions between the end of their batch and the listener's decision to requeue
@@ -195,16 +210,29 @@ public final class BulkTelemetry {
         Gauge.builder(METRIC_PREFIX + ".open_batches", this, BulkTelemetry::openBatches)
             .tag("processor", prefix)
             .register(registry));
-    meters.add(
-        FunctionCounter.builder(
-                METRIC_PREFIX + ".origins_dropped", this, BulkTelemetry::droppedOrigins)
-            .tag("processor", prefix)
-            .register(registry));
-    meters.add(
-        FunctionCounter.builder(
-                METRIC_PREFIX + ".batches_abandoned", this, BulkTelemetry::abandonedBatches)
-            .tag("processor", prefix)
-            .register(registry));
+    meters.add(linksLost(registry, "pending", pending));
+    meters.add(linksLost(registry, "carried", carried));
+    meters.add(spansEndedIncomplete(registry, "evicted", endedEvicted));
+    meters.add(spansEndedIncomplete(registry, "collected", endedCollected));
+    meters.add(spansEndedIncomplete(registry, "shutdown", endedShutdown));
+  }
+
+  private Meter linksLost(
+      @Nonnull MeterRegistry registry, @Nonnull String table, @Nonnull OriginTable origins) {
+    return FunctionCounter.builder(METRIC_PREFIX + ".links_lost", origins, OriginTable::dropped)
+        .tag("processor", prefix)
+        .tag("table", table)
+        .tag("cause", "overflow")
+        .register(registry);
+  }
+
+  private Meter spansEndedIncomplete(
+      @Nonnull MeterRegistry registry, @Nonnull String cause, @Nonnull AtomicLong count) {
+    return FunctionCounter.builder(
+            METRIC_PREFIX + ".spans_ended_incomplete", count, AtomicLong::get)
+        .tag("processor", prefix)
+        .tag("cause", cause)
+        .register(registry);
   }
 
   /** The no-op instance used when attribution is off. */
@@ -319,14 +347,18 @@ public final class BulkTelemetry {
     long droppedSince = droppedNow - loggedDropped.getAndSet(droppedNow);
     long abandonedSince = abandonedNow - loggedAbandoned.getAndSet(abandonedNow);
     log.warn(
-        "Bulk-write attribution lost telemetry (processor {}): {} origin span(s) discarded and {}"
-            + " batch span(s) ended incomplete since the last report ({} and {} in total);"
-            + " writes are unaffected. pending={}, carried={}, open_batches={}, limits {}/{}",
+        "Bulk-write attribution lost telemetry (processor {}): {} trace link(s) lost and {}"
+            + " batch span(s) ended incomplete since the last report ({} and {} in total;"
+            + " incomplete by cause: evicted={}, collected={}, shutdown={}); writes are unaffected."
+            + " pending={}, carried={}, open_batches={}, limits {}/{}",
         prefix,
         droppedSince,
         abandonedSince,
         droppedNow,
         abandonedNow,
+        endedEvicted.get(),
+        endedCollected.get(),
+        endedShutdown.get(),
         pending.size(),
         carried.size(),
         batches.size(),
@@ -489,7 +521,8 @@ public final class BulkTelemetry {
    * Ends the span of a batch that will never see {@code afterBulk}: evicted at {@value
    * #MAX_OPEN_BATCHES}, collected without ending, or still open at {@link #close}.
    */
-  private void abandon(@Nonnull Batch batch) {
+  private void abandon(@Nonnull Batch batch, @Nonnull AtomicLong cause) {
+    cause.incrementAndGet();
     abandoned.incrementAndGet();
     if (batch.span != null) {
       batch.span.setAttribute(ABANDONED, true);
@@ -511,7 +544,7 @@ public final class BulkTelemetry {
     pending.clear();
     carried.clear();
     for (Batch batch : batches.clear()) {
-      abandon(batch);
+      abandon(batch, endedShutdown);
     }
     if (meterRegistry != null) {
       synchronized (meters) {
