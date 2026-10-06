@@ -305,6 +305,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         exists
@@ -349,6 +352,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModel {
@@ -405,6 +411,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLFeatureTable {
@@ -544,6 +553,27 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+    }
+    ... on Api {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
         }
     }
     ... on Restricted {
@@ -846,6 +876,11 @@ fragment entityLineageV2 on Entity {
         }
         queryPlatform: platform {
             ...platformFields
+        }
+    }
+    ... on Api {
+        properties {
+            name
         }
     }
     ... on DataProcessInstance {

@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -389,6 +391,98 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class));
+  }
+
+  /** A V3 index whose root alias is now a field cannot take V3 writes until it is rebuilt. */
+  @Test
+  void testApplyMappings_ReportsV3IndexThatNeedsRebuild() throws IOException {
+    Map<String, Object> rootAlias =
+        Map.of("type", "alias", "path", "_aspects.datasetProperties.name");
+    assertEquals(rebuildErrors("datasetindex_v3", rootAlias, Map.of("type", "keyword")), 1);
+    // Other changes put-mapping cannot apply only warn, as for every index
+    assertEquals(
+        rebuildErrors("datasetindex_v3", Map.of("type", "keyword"), Map.of("type", "text")), 0);
+    assertEquals(rebuildErrors("datasetindex_v2", rootAlias, Map.of("type", "keyword")), 0);
+  }
+
+  /** system-update stops on such an index only while V3 serves reads. */
+  @Test
+  void testBuildIndex_FailsWhenV3IndexThatNeedsRebuildServesReads() throws IOException {
+    Map<String, Object> rootAlias =
+        Map.of("type", "alias", "path", "_aspects.datasetProperties.name");
+    EntityIndexVersionConfiguration on =
+        EntityIndexVersionConfiguration.builder().enabled(true).build();
+    EntityIndexVersionConfiguration off =
+        EntityIndexVersionConfiguration.builder().enabled(false).build();
+
+    when(elasticSearchConfiguration.getEntityIndex())
+        .thenReturn(EntityIndexConfiguration.builder().v2(on).v3(on).build());
+    assertEquals(
+        indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v3", rootAlias)),
+        ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+
+    for (EntityIndexConfiguration v3Reads :
+        List.of(
+            EntityIndexConfiguration.builder()
+                .v2(on)
+                .v3(on.toBuilder().keywordReadEnabled(true).build())
+                .build(),
+            EntityIndexConfiguration.builder()
+                .v2(on)
+                .v3(on.toBuilder().semanticReadEnabled(true).build())
+                .build(),
+            EntityIndexConfiguration.builder().v2(off).v3(on).build())) {
+      when(elasticSearchConfiguration.getEntityIndex()).thenReturn(v3Reads);
+      assertThrows(
+          IllegalStateException.class,
+          () -> indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v3", rootAlias)));
+      // Other unapplied changes, and V2 indices, keep only the warning
+      assertEquals(
+          indexBuilder.buildIndex(
+              opContext, staleIndexState("datasetindex_v3", Map.of("type", "text"))),
+          ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+      assertEquals(
+          indexBuilder.buildIndex(opContext, staleIndexState("datasetindex_v2", rootAlias)),
+          ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+    }
+  }
+
+  private static ReindexConfig staleIndexState(String index, Object currentName) {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(index);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(
+            Map.<String, Object>of("properties", Map.of("name", Map.of("type", "keyword"))));
+    return indexState;
+  }
+
+  private long rebuildErrors(String index, Object currentName, Object targetName)
+      throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(index);
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", targetName)));
+    ch.qos.logback.classic.Logger builderLogger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ESIndexBuilder.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    logAppender.start();
+    builderLogger.addAppender(logAppender);
+    try {
+      indexBuilder.applyMappings(opContext, indexState, true);
+    } finally {
+      builderLogger.detachAppender(logAppender);
+    }
+    return logAppender.list.stream()
+        .filter(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+        .filter(event -> event.getFormattedMessage().contains(index))
+        .count();
   }
 
   @Test
@@ -1295,6 +1389,166 @@ public class ESIndexBuilderTest {
     when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
     when(searchClient.getIndexMapping(any(), any(), any())).thenReturn(mappingsResponse);
     return indexBuilder.buildReindexState(opContext, TEST_INDEX_NAME, mappings, Map.of());
+  }
+
+  @Test
+  void testIndexSettingOverridesDeepMergeAnalysis() throws IOException {
+    // Generated settings carry a full analysis block
+    Map<String, Object> generated = new HashMap<>(createTestSettings());
+    generated.put(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                        Map.of("tokenizer", "main_tokenizer", "filter", List.of("min_length")),
+                    "keyword", Map.of("tokenizer", "keyword"))));
+
+    // Override names only what changes: a new filter and one analyzer's filter chain
+    Map<String, Map<String, Object>> indexOverrides = new HashMap<>();
+    indexOverrides.put(
+        TEST_INDEX_NAME,
+        Map.of(
+            "number_of_shards",
+            "3",
+            "analysis",
+            Map.of(
+                "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                "analyzer", Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+
+    ESIndexBuilder builderWithOverrides =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            indexOverrides,
+            gitVersion);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    ReindexConfig result =
+        builderWithOverrides.buildReindexState(
+            opContext, TEST_INDEX_NAME, createTestMappings(), generated);
+
+    Map<String, Object> index = (Map<String, Object>) result.targetSettings().get("index");
+    assertEquals(index.get("number_of_shards"), "3");
+    assertEquals(index.get("refresh_interval"), REFRESH_INTERVAL_SECONDS + "s");
+    Map<String, Object> analysis = (Map<String, Object>) index.get("analysis");
+    Map<String, Object> filters = (Map<String, Object>) analysis.get("filter");
+    // generated filter kept, override filter added
+    assertEquals(filters.get("min_length"), Map.of("type", "length", "min", "3"));
+    assertEquals(filters.get("min_length_2"), Map.of("type", "length", "min", "2"));
+    Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
+    // untouched analyzer kept as generated
+    assertEquals(analyzers.get("keyword"), Map.of("tokenizer", "keyword"));
+    // overridden analyzer: list replaced, sibling keys kept
+    Map<String, Object> wordDelimited = (Map<String, Object>) analyzers.get("word_delimited");
+    assertEquals(wordDelimited.get("filter"), List.of("min_length_2"));
+    assertEquals(wordDelimited.get("tokenizer"), "main_tokenizer");
+    // generated maps are immutable Map.of: merging copied them instead of writing into them
+    assertEquals(
+        ((Map<String, Object>) generated.get("analysis")).get("filter"),
+        Map.of("min_length", Map.of("type", "length", "min", "3")));
+  }
+
+  @Test
+  void testIndexSettingOverridesExistingIndexUnchangedAnalysisNoReindex() throws IOException {
+    mockExistingIndex(storedAnalysis("2"));
+
+    ReindexConfig result =
+        builderWithAnalysisOverride()
+            .buildReindexState(
+                opContext, TEST_INDEX_NAME, createTestMappings(), generatedAnalysis());
+
+    assertTrue(result.exists());
+    assertFalse(result.isSettingsReindex());
+    assertFalse(result.requiresReindex());
+  }
+
+  @Test
+  void testIndexSettingOverridesExistingIndexChangedAnalysisReindex() throws IOException {
+    // Stored index still has the old filter value
+    mockExistingIndex(storedAnalysis("3"));
+
+    ReindexConfig result =
+        builderWithAnalysisOverride()
+            .buildReindexState(
+                opContext, TEST_INDEX_NAME, createTestMappings(), generatedAnalysis());
+
+    assertTrue(result.exists());
+    assertTrue(result.isSettingsReindex());
+  }
+
+  private Map<String, Object> generatedAnalysis() {
+    return Map.of(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                    Map.of("tokenizer", "main", "filter", List.of("min_length")))));
+  }
+
+  private ESIndexBuilder builderWithAnalysisOverride() {
+    Map<String, Map<String, Object>> overrides =
+        Map.of(
+            TEST_INDEX_NAME,
+            Map.of(
+                "analysis",
+                Map.of(
+                    "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                    "analyzer",
+                        Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        overrides,
+        gitVersion);
+  }
+
+  /** Stored settings as the engine returns them after the override was applied once. */
+  private Settings storedAnalysis(String minLength2) {
+    return Settings.builder()
+        .put("index.number_of_shards", String.valueOf(NUM_SHARDS))
+        .put("index.number_of_replicas", String.valueOf(NUM_REPLICAS))
+        .put("index.refresh_interval", REFRESH_INTERVAL_SECONDS + "s")
+        .put("index.analysis.filter.min_length.type", "length")
+        .put("index.analysis.filter.min_length.min", "3")
+        .put("index.analysis.filter.min_length_2.type", "length")
+        .put("index.analysis.filter.min_length_2.min", minLength2)
+        .put("index.analysis.analyzer.word_delimited.tokenizer", "main")
+        .putList("index.analysis.analyzer.word_delimited.filter", "min_length_2")
+        .build();
+  }
+
+  private void mockExistingIndex(Settings currentSettings) throws IOException {
+    // searchClient is also the settings comparison; use its default (strict) comparison
+    when(searchClient.indexSettingNamesForComparison(any(), any())).thenCallRealMethod();
+    when(searchClient.indexSettingValuesEqual(any(), any())).thenCallRealMethod();
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+    GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
+    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+    when(mappingMetadata.getSourceAsMap()).thenReturn(createTestMappings());
+    when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
+    when(searchClient.getIndexMapping(
+            any(OperationFingerprint.class),
+            any(GetMappingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mappingsResponse);
   }
 
   @DataProvider(name = "settingsOverrideData")
