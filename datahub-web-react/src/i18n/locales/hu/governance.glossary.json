@@ -9,6 +9,7 @@
     "empty.title": "Üres fogalomtár",
     "list.error": "Nem sikerült betölteni a fogalomtárat! Váratlan hiba történt.",
     "list.loading": "Fogalomtár betöltése...",
+    "page.contactAdmin": "A fogalomtár beállításához forduljon a DataHub-adminisztrátorhoz.",
     "page.createGlossary": "Fogalomtár létrehozása",
     "page.subtitle": "Osztályozza adateszközeit és oszlopait adatszótárak segítségével",
     "page.title": "Üzleti fogalomtár",
@@ -17,5 +18,11 @@
     "sidebar.collapse": "Fogalomtár összecsukása",
     "sidebar.expand": "Fogalomtár kibontása",
     "sidebar.home": "Fogalomtár kezdőlapja",
-    "sidebar.section.allTerms": "Összes fogalomtári kifejezés"
+    "sidebar.ownerFilter.label": "Tulajdonosok",
+    "sidebar.ownerFilter.placeholder": "Szűrés tulajdonos szerint",
+    "sidebar.domainFilter.label": "Tartományok",
+    "sidebar.domainFilter.placeholder": "Szűrés tartomány szerint",
+    "sidebar.section.allTerms": "Összes fogalomtári kifejezés",
+    "sidebar.tagFilter.label": "Címkék",
+    "sidebar.tagFilter.placeholder": "Szűrés címke szerint"
 }
