@@ -1587,14 +1587,21 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                     + " pipeline inventory")
             .stream()
             .noneMatch(sqs -> sqs.value().contains("~")));
-    // A pasted paragraph is matched on its first 16 words
+    // A pasted paragraph keeps the words that fit, an apostrophe or not
     List<SimpleQueryStringBuilder> paragraph =
         v3SimpleQueries(
             datasetSpec,
-            "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november"
-                + " oscar papa quebec romeo sierra tango");
+            "alpha's bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike"
+                + " november oscar papa quebec romeo sierra tango");
     assertTrue(paragraph.stream().anyMatch(sqs -> sqs.value().contains("papa")));
     assertTrue(paragraph.stream().noneMatch(sqs -> sqs.value().contains("quebec")));
+    // A letter/digit run counts its parts and its unsplit copy
+    List<SimpleQueryStringBuilder> runs =
+        v3SimpleQueries(
+            datasetSpec,
+            "orders2017 sales2018 ledger2019 orders2020 sales2021 ledger2022 orders2023 sales2024");
+    assertTrue(runs.stream().anyMatch(sqs -> sqs.value().contains("ledger 2022")));
+    assertTrue(runs.stream().noneMatch(sqs -> sqs.value().contains("2023")));
   }
 
   private List<SimpleQueryStringBuilder> v3SimpleQueries(EntitySpec spec, String query) {

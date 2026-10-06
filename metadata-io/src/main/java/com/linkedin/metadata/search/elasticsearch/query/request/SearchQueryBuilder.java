@@ -33,6 +33,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.understanding.Qu
 import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.elasticsearch.query.request.understanding.SynonymMapLoader;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -84,6 +85,10 @@ public class SearchQueryBuilder {
   private static final Pattern LETTER_DIGIT_BOUNDARY = Pattern.compile("(?<=[a-zA-Z])(?=\\d)");
   private static final Pattern DIGIT_LETTER_BOUNDARY = Pattern.compile("(?<=\\d)(?=[a-zA-Z])");
   private static final Pattern FUZZY_SPLIT_PATTERN = Pattern.compile("[\\s_\\-]+");
+
+  /** A query in quotes, the rule the quoted query configuration of search_config.yaml uses. */
+  private static final Pattern FULLY_QUOTED_PATTERN = Pattern.compile("^[\"'].+[\"']$");
+
   private static final Pattern SQS_OPERATOR_PATTERN = Pattern.compile("[+|\\-~()\\\\*]");
   private static final Pattern WORD_GRAM_SUFFIX_PATTERN = Pattern.compile("\\.wordGrams\\d+$");
 
@@ -167,22 +172,19 @@ public class SearchQueryBuilder {
   private static final float SYNONYM_BOOST_MULTIPLIER = 1.5f;
 
   /**
-   * Stage 1: budget for the terms the fuzzy simple queries expand to. Each fuzzy term expands to up
-   * to {@link #MAX_FUZZY_EXPANSIONS} index terms per field, and Lucene counts every expanded term
-   * against {@code indices.query.bool.max_clause_count} (1024 by default on OpenSearch), so a query
-   * of several words over a field-rich entity fails with too_many_nested_clauses. Sized so a
-   * one-word dataset query keeps every expansion.
+   * Stage 1: clauses the per-term queries of one index may add. Lucene counts every term clause,
+   * and every term a fuzzy term expands to, against {@code indices.query.bool.max_clause_count}
+   * (1024 by default on OpenSearch, which fails the search with too_many_nested_clauses past it).
+   * Each term adds a clause per field to the synonym-priority query, the word gram queries and,
+   * when fuzzy, the simple query, so a query keeps the words that fit and its fuzzy terms share
+   * what is left. The rest of 1024 covers the exact, prefix, wildcard and FQN clauses.
    */
-  private static final int FUZZY_EXPANSION_BUDGET = 360;
+  private static final int CLAUSE_BUDGET = 850;
+
+  /** Stage 1: clauses per term outside the per-field queries (all-terms, description, FQN). */
+  private static final int PER_TERM_EXTRA_CLAUSES = 6;
 
   private static final int MAX_FUZZY_EXPANSIONS = 10;
-
-  /**
-   * Stage 1: words of a full-text query that are matched. Every word adds a clause per searched
-   * field to several simple queries, so a pasted paragraph passes the clause limit even without
-   * fuzziness.
-   */
-  private static final int MAX_QUERY_WORDS = 16;
 
   private static final QueryStrategy IDENTITY_STRATEGY = new IdentityQueryStrategy();
 
@@ -362,11 +364,12 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
-    String stripped = query.replaceFirst("^:+", "");
-    if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX) && !isQuoted(stripped)) {
-      stripped = firstWords(stripped, MAX_QUERY_WORDS);
-    }
-    final String colonStripped = stripped;
+    final boolean simpleSyntax = fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX);
+    final int[] fieldCounts = simpleSyntax ? indexFieldCounts(opContext, entitySpecs) : null;
+    final String colonStripped =
+        simpleSyntax
+            ? firstTermsWithinBudget(query.replaceFirst("^:+", ""), fieldCounts[0], fieldCounts[1])
+            : query.replaceFirst("^:+", "");
     final String operatorEscaped = escapeSimpleQueryStringOperators(colonStripped);
     final String sanitizedQuery = splitAlphanumericTokens(operatorEscaped);
 
@@ -386,8 +389,13 @@ public class SearchQueryBuilder {
                         opContext.getObjectMapper(), cqc, colonStripped))
             .orElse(null);
 
-    if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      getSimpleQueryV2_5(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
+    if (simpleSyntax) {
+      getSimpleQueryV2_5(
+              opContext,
+              customQueryConfig,
+              entitySpecs,
+              sanitizedQuery,
+              fuzzyExpansions(sanitizedQuery, operatorEscaped, fieldCounts[0], fieldCounts[1]))
           .ifPresent(disMaxQuery::add);
       // Exact/prefix match with term queries, phrase prefixes, synonyms and word grams.
       getPrefixAndExactMatchQueryV2_5(
@@ -399,7 +407,7 @@ public class SearchQueryBuilder {
           .ifPresent(disMaxQuery::add);
       // Wildcard contains query for substring matching, except for a quoted query, which asks for
       // the words as they are
-      if (!isQuoted(colonStripped)
+      if (!FULLY_QUOTED_PATTERN.matcher(colonStripped.trim()).matches()
           && (customQueryConfig == null
               || customQueryConfig.isSimpleQuery()
               || customQueryConfig.isPrefixMatchQuery()
@@ -411,8 +419,7 @@ public class SearchQueryBuilder {
           .ifPresent(disMaxQuery::add);
       // splitAlphanumericTokens turned "orders2017" into "orders 2017", but the analyzers index
       // such a run as one token, so also match the unsplit query, without fuzziness
-      if (LETTER_DIGIT_BOUNDARY.matcher(operatorEscaped).find()
-          || DIGIT_LETTER_BOUNDARY.matcher(operatorEscaped).find()) {
+      if (splitsLetterDigitRun(operatorEscaped)) {
         getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, operatorEscaped)
             .ifPresent(disMaxQuery::add);
       }
@@ -603,10 +610,115 @@ public class SearchQueryBuilder {
     return fuzzyQuery.toString();
   }
 
-  /** The first {@code maxWords} whitespace-separated words of {@code query}. */
-  private static String firstWords(@Nonnull String query, int maxWords) {
-    String[] words = WHITESPACE_PATTERN.split(query.trim());
-    return words.length <= maxWords ? query : String.join(" ", Arrays.copyOf(words, maxWords));
+  /**
+   * The most fields one index queries by default, outside and inside the word gram analyzers.
+   * Lucene counts clauses per index, and a field an index does not map adds none.
+   */
+  private int[] indexFieldCounts(
+      @Nonnull OperationContext opContext, @Nonnull List<EntitySpec> entitySpecs) {
+    int fields = 0;
+    int wordGramFields = 0;
+    for (List<EntitySpec> indexSpecs :
+        entitySpecs.stream().collect(Collectors.groupingBy(V3IndexKeys::resolve)).values()) {
+      Map<Boolean, Long> counts =
+          customizedQueryHandler
+              .applySearchFieldConfiguration(
+                  getStandardFields(opContext.getEntityRegistry(), indexSpecs),
+                  customizedQueryHandler.resolveFieldConfiguration(
+                      opContext.getSearchContext().getSearchFlags(),
+                      CustomConfiguration::getSearchFieldConfigDefault))
+              .stream()
+              .filter(SearchFieldConfig::isQueryByDefault)
+              .map(cfg -> cfg.analyzer() + " " + cfg.fieldName())
+              .distinct()
+              .collect(
+                  Collectors.partitioningBy(
+                      field -> field.contains("word_gram"), Collectors.counting()));
+      fields = Math.max(fields, counts.get(false).intValue());
+      wordGramFields = Math.max(wordGramFields, counts.get(true).intValue());
+    }
+    return new int[] {fields, wordGramFields};
+  }
+
+  /** The terms the per-term queries match in {@code text}: words split at _, - and letter/digit. */
+  private static int termCount(@Nonnull String text) {
+    return (int)
+        Arrays.stream(FUZZY_SPLIT_PATTERN.split(splitAlphanumericTokens(text).trim()))
+            .filter(term -> !term.isEmpty())
+            .count();
+  }
+
+  /**
+   * Clauses the per-term queries add for {@code operatorEscaped} without fuzziness: the
+   * synonym-priority query, the word gram queries and the bonus clauses per term, plus the unsplit
+   * copy of letter/digit runs.
+   */
+  private static int termClauses(@Nonnull String operatorEscaped, int fields, int wordGramFields) {
+    int clauses = termCount(operatorEscaped) * (fields + wordGramFields + PER_TERM_EXTRA_CLAUSES);
+    if (splitsLetterDigitRun(operatorEscaped)) {
+      clauses += WHITESPACE_PATTERN.split(operatorEscaped.trim()).length * fields;
+    }
+    return clauses;
+  }
+
+  /**
+   * The leading words of {@code query} whose per-term clauses fit {@link #CLAUSE_BUDGET}, so a
+   * pasted paragraph stays under the clause limit. A fully quoted query keeps its quotes.
+   */
+  private static String firstTermsWithinBudget(
+      @Nonnull String query, int fields, int wordGramFields) {
+    String trimmed = query.trim();
+    boolean quoted = FULLY_QUOTED_PATTERN.matcher(trimmed).matches();
+    String[] words =
+        WHITESPACE_PATTERN.split(quoted ? trimmed.substring(1, trimmed.length() - 1) : trimmed);
+    int clauses = 0;
+    int kept = 0;
+    for (String word : words) {
+      clauses += termClauses(escapeSimpleQueryStringOperators(word), fields, wordGramFields);
+      if (kept > 0 && clauses > CLAUSE_BUDGET) {
+        break;
+      }
+      kept++;
+    }
+    if (kept == words.length) {
+      return query;
+    }
+    String keptWords = String.join(" ", Arrays.copyOf(words, kept));
+    return quoted
+        ? trimmed.charAt(0) + keptWords + trimmed.charAt(trimmed.length() - 1)
+        : keptWords;
+  }
+
+  /**
+   * Expansions per fuzzy term that keep the per-term queries within {@link #CLAUSE_BUDGET}, or 0
+   * for no fuzziness: a quoted query, no term long enough to be fuzzy, or no room for one expansion
+   * each. A short query keeps every expansion; a long one gets fewer, then none.
+   */
+  private static int fuzzyExpansions(
+      @Nonnull String sanitizedQuery,
+      @Nonnull String operatorEscaped,
+      int fields,
+      int wordGramFields) {
+    long fuzzyTerms = makeFuzzyQuery(sanitizedQuery).chars().filter(c -> c == '~').count();
+    if (isQuoted(sanitizedQuery) || fuzzyTerms == 0 || fields == 0) {
+      return 0;
+    }
+    // The fuzzy simple query adds a clause per term and field, and every expansion past the first
+    // one more per fuzzy term and field
+    long room =
+        CLAUSE_BUDGET
+            - termClauses(operatorEscaped, fields, wordGramFields)
+            - (long) termCount(operatorEscaped) * fields;
+    if (room < 0) {
+      return 0;
+    }
+    return (int) Math.min(MAX_FUZZY_EXPANSIONS, 1 + room / (fuzzyTerms * fields));
+  }
+
+  /** Whether {@link #splitAlphanumericTokens} splits a letter/digit run of {@code query}. */
+  private static boolean splitsLetterDigitRun(@Nonnull String query) {
+    return LETTER_DIGIT_BOUNDARY.matcher(query).find()
+        || DIGIT_LETTER_BOUNDARY.matcher(query).find();
   }
 
   /**
@@ -931,7 +1043,8 @@ public class SearchQueryBuilder {
       @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
-      String sanitizedQuery) {
+      String sanitizedQuery,
+      int maxExpansions) {
     Optional<QueryBuilder> result = Optional.empty();
     EntityRegistry entityRegistry = operationContext.getEntityRegistry();
 
@@ -964,23 +1077,8 @@ public class SearchQueryBuilder {
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
 
-      // Spread the expansion budget over the fuzzy (term, field) pairs, and match without
-      // fuzziness when even one expansion each would pass it
       final String fuzzyQuery = makeFuzzyQuery(sanitizedQuery);
-      final long fuzzyPairs =
-          fuzzyQuery.chars().filter(c -> c == '~').count()
-              * analyzerGroup.entrySet().stream()
-                  .filter(group -> !group.getKey().contains("word_gram"))
-                  .mapToLong(
-                      group ->
-                          group.getValue().stream()
-                              .map(SearchFieldConfig::fieldName)
-                              .distinct()
-                              .count())
-                  .sum();
-      final boolean fuzzy = !isQuoted(sanitizedQuery) && fuzzyPairs <= FUZZY_EXPANSION_BUDGET;
-      final int maxExpansions =
-          (int) Math.min(MAX_FUZZY_EXPANSIONS, FUZZY_EXPANSION_BUDGET / Math.max(1, fuzzyPairs));
+      final boolean fuzzy = maxExpansions > 0;
 
       analyzerGroup.keySet().stream()
           .sorted()
@@ -988,8 +1086,14 @@ public class SearchQueryBuilder {
               analyzer -> {
                 List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
                 boolean isWordGram = analyzer.contains("word_gram");
+                if (!isWordGram && !fuzzy) {
+                  // Without fuzziness this group would repeat the synonym-priority query, which
+                  // matches the same words on the same fields at a higher boost, and only add
+                  // clauses
+                  return;
+                }
 
-                String queryToUse = isWordGram || !fuzzy ? sanitizedQuery : fuzzyQuery;
+                String queryToUse = isWordGram ? sanitizedQuery : fuzzyQuery;
 
                 Map<String, SearchFieldConfig> uniqueFields = new LinkedHashMap<>();
                 for (SearchFieldConfig cfg : fieldConfigs) {
@@ -1099,8 +1203,13 @@ public class SearchQueryBuilder {
 
               for (Map.Entry<String, List<SearchFieldConfig>> fieldAnalyzer :
                   fieldAnalyzers.entrySet()) {
-                SearchFieldConfig cfg = fieldAnalyzer.getValue().get(0);
-                simpleBuilder.field(cfg.fieldName(), cfg.boost() * SYNONYM_BOOST_MULTIPLIER);
+                float boost =
+                    (float)
+                        fieldAnalyzer.getValue().stream()
+                            .mapToDouble(SearchFieldConfig::boost)
+                            .max()
+                            .orElse(1.0);
+                simpleBuilder.field(fieldAnalyzer.getKey(), boost * SYNONYM_BOOST_MULTIPLIER);
               }
 
               if (!simpleBuilder.fields().isEmpty()) {
