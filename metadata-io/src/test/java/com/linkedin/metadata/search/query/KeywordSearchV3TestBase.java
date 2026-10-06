@@ -1005,6 +1005,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                   .stream()
                   .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
               entityTypes + ": " + query);
+          // The light query serves most of these searches; a scroll always runs the full query
+          assertTrue(
+              searchService
+                  .fullTextScroll(
+                      fulltext, entityTypes, query, null, null, null, null, 100, List.of())
+                  .getEntities()
+                  .stream()
+                  .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
+              "scroll " + entityTypes + ": " + query);
         }
       }
     } finally {

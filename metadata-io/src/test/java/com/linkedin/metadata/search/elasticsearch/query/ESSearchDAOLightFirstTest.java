@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -200,6 +201,23 @@ public class ESSearchDAOLightFirstTest {
             null));
     // V2 reads keep the V2 query
     assertNull(dao.lightFirstQuery(fulltext, datasets, "orders", null, null));
+    // Quoted, structured, browse-all and URN queries run the full query
+    for (String query :
+        List.of(
+            "\"orders\"",
+            SearchQueryBuilder.STRUCTURED_QUERY_PREFIX + "name:orders",
+            "*",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)")) {
+      assertNull(v3Dao.lightFirstQuery(fulltext, datasets, query, null, null), query);
+    }
+    // And so does a search that is not full text
+    assertNull(
+        v3Dao.lightFirstQuery(
+            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            datasets,
+            "orders",
+            null,
+            null));
   }
 
   private SearchRequest request(QueryBuilder query) {

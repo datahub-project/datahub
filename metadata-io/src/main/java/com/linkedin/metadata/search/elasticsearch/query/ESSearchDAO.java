@@ -555,7 +555,8 @@ public class ESSearchDAO {
 
   /**
    * The search request's query with the light query in place of the full one: the filters of the
-   * bool root are kept, and so is a function_score wrapper around it.
+   * bool root are kept, and so is a function_score wrapper around it, the request shape of DataHub
+   * Cloud (OSS requests have a bool root).
    */
   @VisibleForTesting
   @Nullable
@@ -1256,7 +1257,8 @@ public class ESSearchDAO {
     }
     SearchRequest countRequest =
         new SearchRequest(index)
-            .source(new SearchSourceBuilder().query(lightSourceQuery).size(0).trackTotalHits(true));
+            .source(
+                new SearchSourceBuilder().query(lightSourceQuery).size(0).trackTotalHitsUpTo(1));
     SearchResponse count =
         searchClient(opContext, countRequest)
             .search(opContext, countRequest, RequestOptions.DEFAULT);
