@@ -2460,9 +2460,8 @@ def test_a_test_connection_refusing_the_recipe_exits_on_the_bad_argument_code(
     res = _crashing_test_connection(monkeypatch, tmp_path, raised)
     assert res.exit_code == 2, res.output
     assert _CRASH_SENTINEL not in res.output
-    assert json.loads(res.stderr)["error"] == (
-        "source 'postgres' test_connection failed (ValidationError)"
-    )
+    # The failing field is named, so the recipe author knows what to fix.
+    assert "port" in json.loads(res.stderr)["error"]
 
 
 class _UnrenderableReport:

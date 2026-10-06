@@ -27,12 +27,12 @@ from datahub.configuration.config_loader import (
     MalformedRecipeEnvelope,
     parse_recipe_envelope,
 )
+from datahub.ingestion.agent.config_validation import describe_validation_error
 from datahub.ingestion.agent.error_policy import (
     DEFECT_TYPES,
     PASS_THROUGH,
     classify_foreign,
     is_trusted,
-    name_foreign,
     police_trusted,
 )
 from datahub.ingestion.agent.filter_check import check_filters
@@ -644,7 +644,11 @@ def _test_connection_crash(exc: BaseException, source_type: str) -> Exception:
     (exit 2), where a provider call's is a response failing its own (3)."""
     context = f"source '{source_type}' test_connection"
     if isinstance(exc, ValidationError):
-        return ProbeArgumentError(f"{context} failed {name_foreign(exc)}")
+        # Field paths and messages, never inputs; scrubbed on the way out like
+        # every other error line.
+        return ProbeArgumentError(
+            f"{context} failed: {describe_validation_error(exc)}"
+        )
     return classify_foreign(exc, context)
 
 

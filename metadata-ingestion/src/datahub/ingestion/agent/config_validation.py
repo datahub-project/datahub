@@ -41,10 +41,11 @@ def validate_source_config(
             return config_cls.model_validate(config_dict)
         return config_cls.model_validate(config_dict, context=context)
     except pydantic.ValidationError as exc:
-        raise ValueError(_describe_validation_error(exc)) from None
+        raise ValueError(describe_validation_error(exc)) from None
 
 
-def _describe_validation_error(exc: pydantic.ValidationError) -> str:
+def describe_validation_error(exc: pydantic.ValidationError) -> str:
+    """Each failing field's path, message and error type, never its input."""
     errors = exc.errors(include_input=False, include_url=False)
     lines = [
         f"{len(errors)} validation error{'s' if len(errors) != 1 else ''} "
