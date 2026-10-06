@@ -617,6 +617,34 @@ def _clickhouse_extract_dictionary_tables(
     return result
 
 
+def _clickhouse_bare_dictget_tables(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+) -> Set[_TableName]:
+    """dictGet names without a database, which may refer to global XML dictionaries."""
+    return {
+        table
+        for table in _clickhouse_extract_dictget_tables(statement, dialect)
+        if table.database is None and table.db_schema is None
+    }
+
+
+def _resolve_table_for_lineage(
+    schema_resolver: SchemaResolverInterface,
+    table: _TableName,
+    qualified_table: _TableName,
+    bare_dictget_tables: Set[_TableName],
+) -> Tuple[str, Optional[SchemaInfo]]:
+    urn, schema_info = schema_resolver.resolve_table(qualified_table)
+    # ClickHouse looks up a bare dictGet name as a global (XML) dictionary
+    # before trying the current database.
+    if table in bare_dictget_tables:
+        global_urn, global_schema_info = schema_resolver.resolve_table(table)
+        if global_schema_info is not None:
+            return global_urn, global_schema_info
+    return urn, schema_info
+
+
 def _clickhouse_extract_to_tables(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -2248,6 +2276,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+    bare_dictget_tables = _clickhouse_bare_dictget_tables(statement, dialect)
 
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
@@ -2256,7 +2285,12 @@ def _sqlglot_lineage_inner(
             default_db=default_db, default_schema=default_schema
         )
 
-        urn, schema_info = schema_resolver.resolve_table(qualified_table)
+        urn, schema_info = _resolve_table_for_lineage(
+            schema_resolver,
+            table=table,
+            qualified_table=qualified_table,
+            bare_dictget_tables=bare_dictget_tables,
+        )
 
         table_name_urn_mapping[qualified_table] = urn
         if schema_info:

@@ -2309,6 +2309,58 @@ FROM db1.raw_events
     )
 
 
+def test_clickhouse_bare_dictget_resolves_global_xml_dictionary() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_resolves_global_xml_dictionary.json",
+    )
+
+
+def test_clickhouse_bare_dictget_falls_back_to_current_database() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('Ddl_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.Ddl_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_falls_back_to_current_database.json",
+    )
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 
