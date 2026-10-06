@@ -5112,13 +5112,8 @@ def test_multiple_aspect_transformer_passes_through_non_matching_mcpw() -> None:
 
 
 def test_simple_dataset_ownership_dedupes_owner_already_in_stream():
-    """A source that already emits the owner the transformer is configured to add
-    must not produce two identical entries.
-
-    A source that merges current server state into the stream hands the
-    transformer back the owner it added on the previous run; without dedup the
-    aspect grows by one entry per ingestion run.
-    """
+    """The transformer adds an owner the stream already carries: the result must
+    hold one entry, not two identical ones."""
     group_owner = "urn:li:corpGroup:data-engineering"
     ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
 
@@ -5147,8 +5142,8 @@ def test_simple_dataset_ownership_dedupes_owner_already_in_stream():
 
 
 def test_simple_dataset_ownership_collapses_preexisting_duplicates():
-    """Duplicates already present in the incoming aspect are collapsed, so an
-    affected entity self-heals on the next ingestion run."""
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
     group_owner = "urn:li:corpGroup:data-engineering"
     ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
 
