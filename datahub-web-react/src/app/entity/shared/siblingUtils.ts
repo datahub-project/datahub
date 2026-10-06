@@ -34,7 +34,7 @@ export function stripSiblingsFromEntity(entity: any) {
     };
 }
 
-function cleanHelper(obj, visited) {
+export function cleanHelper(obj, visited) {
     if (visited.has(obj)) return obj;
     visited.add(obj);
 
@@ -241,7 +241,7 @@ const mergeUsageStatsBuckets = (destinationArray, sourceArray, _options) => {
     return Array.from(bucketMap.values()).sort((a, b) => a.bucket - b.bucket);
 };
 
-const mergeOwners = (destinationArray, sourceArray, _options) => {
+export const mergeOwners = (destinationArray, sourceArray, _options) => {
     return uniqWith([...destinationArray, ...sourceArray], (ownerA, ownerB) => {
         if (!ownerA.ownershipType?.urn && !ownerB.ownershipType?.urn) {
             return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.type === ownerB.type;
