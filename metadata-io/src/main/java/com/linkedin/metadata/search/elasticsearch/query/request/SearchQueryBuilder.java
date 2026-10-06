@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.apache.lucene.search.FuzzyQuery;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
@@ -115,6 +117,12 @@ public class SearchQueryBuilder {
 
   /** Fields eligible for the exact-name constant boost (only primary name fields). */
   private static final Set<String> EXACT_NAME_BOOST_FIELDS = Set.of("name", "title");
+
+  /**
+   * Stage 1: fields the {@code *word*} contains-wildcard searches. A leading wildcard is costly,
+   * and a URN is a different fact from a name.
+   */
+  private static final Set<String> WILDCARD_CONTAINS_FIELDS = Set.of("name", "title");
 
   /**
    * Stage 1: BM25-scored boost for FQN matches on qualifiedName. Ensures the target dataset ranks
@@ -1780,6 +1788,56 @@ public class SearchQueryBuilder {
             .boost(DESCRIPTION_PHRASE_MATCH_BOOST));
   }
 
+  /**
+   * Stage 1: whether a synonym is the same name as the query written another way, so it shares the
+   * exact-name score. That holds when:
+   *
+   * <ul>
+   *   <li>they differ only in spaces ({@code data platform} / {@code dataplatform});
+   *   <li>one is a prefix of the other ({@code prod} / {@code production});
+   *   <li>they are within two edits ({@code s3} / {@code s_3});
+   *   <li>the shorter, of 3 to 5 letters, abbreviates the longer: same first and last letter,
+   *       letters in order ({@code stg} / {@code staging}).
+   * </ul>
+   *
+   * A related name ({@code glue} / {@code athena}) only matches through the analyzers' synonyms.
+   */
+  @VisibleForTesting
+  public static boolean isSameName(@Nonnull String query, @Nonnull String synonym) {
+    String q = query.trim().toLowerCase(Locale.ROOT);
+    String s = synonym.trim().toLowerCase(Locale.ROOT);
+    if (q.isEmpty() || s.isEmpty()) {
+      return false;
+    }
+    if (WHITESPACE_PATTERN
+        .matcher(q)
+        .replaceAll("")
+        .equals(WHITESPACE_PATTERN.matcher(s).replaceAll(""))) {
+      return true;
+    }
+    if (WHITESPACE_PATTERN.matcher(q).find() || WHITESPACE_PATTERN.matcher(s).find()) {
+      return false;
+    }
+    if (q.startsWith(s) || s.startsWith(q) || new LevenshteinDistance(2).apply(q, s) >= 0) {
+      return true;
+    }
+    String shorter = q.length() <= s.length() ? q : s;
+    String longer = q.length() <= s.length() ? s : q;
+    if (shorter.length() < 3
+        || shorter.length() > 5
+        || shorter.charAt(0) != longer.charAt(0)
+        || shorter.charAt(shorter.length() - 1) != longer.charAt(longer.length() - 1)) {
+      return false;
+    }
+    int matched = 0;
+    for (int i = 0; i < longer.length() && matched < shorter.length(); i++) {
+      if (longer.charAt(i) == shorter.charAt(matched)) {
+        matched++;
+      }
+    }
+    return matched == shorter.length();
+  }
+
   private Optional<QueryBuilder> getWildcardContainsQuery(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull List<EntitySpec> entitySpecs,
@@ -1796,11 +1854,7 @@ public class SearchQueryBuilder {
 
     getStandardFields(entityRegistry, entitySpecs).stream()
         .filter(SearchFieldConfig::isDelimitedSubfield)
-        .filter(
-            cfg ->
-                cfg.fieldName().contains("name")
-                    || cfg.fieldName().contains("title")
-                    || cfg.fieldName().contains("urn"))
+        .filter(cfg -> WILDCARD_CONTAINS_FIELDS.contains(cfg.shortName()))
         .forEach(
             cfg ->
                 // No caseInsensitive(true): wildcardPattern is already lower-cased above and every
@@ -1936,6 +1990,8 @@ public class SearchQueryBuilder {
 
     DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
     disMaxQuery.tieBreaker(EXACT_PREFIX_DISMAX_TIE_BREAKER);
+    // A quoted query names a value, so it does not expand to its synonyms
+    final boolean quoted = FULLY_QUOTED_PATTERN.matcher(query.trim()).matches();
     String unquotedQuery = unquote(query);
     Map<String, BoolQueryBuilder> wordGramQueries = new HashMap<>();
 
@@ -1979,11 +2035,11 @@ public class SearchQueryBuilder {
                 // synonyms, so "stg" won't prefix-match "STAGING_ORDERS".
                 // Restrict to name/title to avoid exceeding ES max_clause_count (1024)
                 // when queries with many synonyms are searched across all entity types.
-                if (EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
+                if (!quoted && EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
                   Set<String> prefixSynonyms = getSynonymMap().get(query.toLowerCase());
                   if (prefixSynonyms != null) {
                     for (String synonym : prefixSynonyms) {
-                      if (!synonym.equalsIgnoreCase(query)) {
+                      if (!synonym.equalsIgnoreCase(query) && isSameName(query, synonym)) {
                         disMaxQuery.add(
                             QueryBuilders.matchPhrasePrefixQuery(
                                     searchFieldConfig.fieldName(), synonym)
@@ -2055,11 +2111,12 @@ public class SearchQueryBuilder {
                 // name/title fields to keep the clause count under ES's max_clause_count (1024).
                 // Other keyword fields (qualifiedName, id, etc.) get synonym coverage through
                 // their analyzed (non-keyword) counterparts.
-                if (EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
+                if (!quoted && EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
                   Set<String> synonyms = getSynonymMap().get(unquotedQuery.toLowerCase());
                   if (synonyms != null) {
                     for (String synonym : synonyms) {
-                      if (!synonym.equalsIgnoreCase(unquotedQuery)) {
+                      if (!synonym.equalsIgnoreCase(unquotedQuery)
+                          && isSameName(unquotedQuery, synonym)) {
                         disMaxQuery.add(
                             QueryBuilders.termQuery(keywordField, synonym)
                                 .caseInsensitive(true)
