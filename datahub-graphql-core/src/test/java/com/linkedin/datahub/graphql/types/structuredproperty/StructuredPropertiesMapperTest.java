@@ -149,10 +149,9 @@ public class StructuredPropertiesMapperTest {
 
   @Test
   public void testDeeplyNestedUrnProducesNoValueEntity() {
-    String value = "urn:li:dataPlatform:hive";
-    for (int i = 0; i < 10_000; i++) {
-      value = "urn:li:schemaField:(" + value + ",f)";
-    }
+    int depth = 10_000;
+    String value =
+        "urn:li:schemaField:(".repeat(depth) + "urn:li:dataPlatform:hive" + ",f)".repeat(depth);
     com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
         StructuredPropertiesMapper.map(null, propertiesWithValue(value), ENTITY_URN);
 
