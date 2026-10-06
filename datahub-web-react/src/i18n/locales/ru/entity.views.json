@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Поиск представлений...",
     "viewSelect.searchPlaceholderLegacy": "Поиск",
     "viewSelect.selectYourView": "Выберите представление",
+    "viewSelect.buttonLabel": "Представления",
+    "viewSelect.clearView": "Сбросить представление",
     "viewType.privateDescription": "<bold>Приватное</bold> — видно только вам.",
     "viewType.publicDescription": "<bold>Публичное</bold> — видно всем."
 }
