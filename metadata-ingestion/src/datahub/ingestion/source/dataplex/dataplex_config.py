@@ -629,7 +629,7 @@ class DataplexConfig(
                 f"filter_config.entry_groups.pattern; filter entries with "
                 f"filter_config.entries instead"
             )
-            return Verdict(True)
+            return Verdict.include()
         if not ctx.name.endswith(f"/entryGroups/{_SPANNER_ENTRY_GROUP}"):
             return None
         if pattern_verdict(self, ctx.pattern_field, ctx.target).included:
@@ -640,7 +640,7 @@ class DataplexConfig(
             f"not apply it, so they are ingested anyway; filter them with "
             f"filter_config.entries instead"
         )
-        return Verdict(True)
+        return Verdict.include()
 
     def _probe_project_verdict(
         self, project: str, ctx: VerdictContext, *, labels_checked: bool
@@ -652,8 +652,8 @@ class DataplexConfig(
                     "projects and project_id_pattern is not consulted"
                 )
             if project in self.project_ids:
-                return Verdict(True)
-            return Verdict(False, "project_ids")
+                return Verdict.include()
+            return Verdict.exclude("project_ids")
         if self.project_labels and not labels_checked:
             # Labels narrow the Resource Manager search before the pattern
             # runs, and neither a bare name nor an entry record carries them.
