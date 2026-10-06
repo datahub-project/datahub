@@ -26,16 +26,14 @@ def normalized_annotation(value: object) -> Optional[str]:
     return re.sub(r",(?=[}\]])", "", re.sub(r"\s+", "", str(value)))
 
 
-def mapping_annotations(annotations: dict) -> dict[str, str]:
+def mapping_annotations(annotations: dict) -> dict[str, Optional[str]]:
     """Mapping-affecting annotations, with whitespace and trailing commas
     normalised so formatting-only edits don't count as changes."""
-    out = {}
-    for key in _MAPPING_ANNOTATIONS:
-        if key in annotations:
-            out[key] = re.sub(
-                r",(?=[}\]])", "", re.sub(r"\s+", "", str(annotations[key]))
-            )
-    return out
+    return {
+        key: normalized_annotation(annotations[key])
+        for key in _MAPPING_ANNOTATIONS
+        if key in annotations
+    }
 
 
 _ENUM_BLOCK_RE = re.compile(r"\benum\s+(\w+)\s*\{((?:[^{}]|\{[^{}]*\})*)\}")

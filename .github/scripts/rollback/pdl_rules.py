@@ -13,6 +13,7 @@ from rollback import model, pdl_parser, repo
 # (N-1 type, N type) pairs where N-1 holds every value N can write.
 _LOSSLESS_NUMERIC = {("long", "int"), ("double", "int"), ("double", "float")}
 _NUMERIC = {"int", "long", "float", "double"}
+_INTEGRAL = {"int", "long"}
 
 
 def _finding(
@@ -66,17 +67,37 @@ def type_change_finding(
                 subject=name,
                 record=record,
             )
+        if tgt_t in _INTEGRAL and cur_t in _INTEGRAL:
+            loss, what = (
+                model.LOSS_IF_OUT_OF_RANGE,
+                f"values outside `{tgt_t}`'s range are silently truncated.",
+            )
+        elif tgt_t in _INTEGRAL:
+            loss, what = (
+                model.LOSS_FRACTIONS,
+                "fractional parts are dropped and values outside "
+                f"`{tgt_t}`'s range are truncated.",
+            )
+        elif cur_t in _INTEGRAL:
+            loss, what = (
+                model.LOSS_PRECISION,
+                f"`{tgt_t}` can't hold every large integer exactly "
+                f"(above 2^{24 if tgt_t == 'float' else 53}), so those are rounded.",
+            )
+        else:  # double -> float
+            loss, what = (
+                model.LOSS_PRECISION,
+                "values lose precision, and values beyond `float`'s range "
+                "become infinite.",
+            )
         return _finding(
             origin,
             model.REQUIRES_ATTENTION,
-            model.impact(model.MAY_TRUNCATE, model.OK, model.LOSS_IF_OUT_OF_RANGE),
+            model.impact(model.MAY_TRUNCATE, model.OK, loss),
             change,
             subject=name,
             record=record,
-            detail=(
-                f"N-1 converts N's `{cur_t}` values to `{tgt_t}` without error; "
-                f"values outside `{tgt_t}`'s range are silently truncated."
-            ),
+            detail=f"N-1 converts N's `{cur_t}` values to `{tgt_t}` without error; {what}",
         )
     return _finding(
         origin,

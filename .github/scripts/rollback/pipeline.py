@@ -9,18 +9,32 @@ import report_aspect_changes as rac
 from rollback import java_scan, model, pdl_rules, repo
 
 
+def _aspect_changes(
+    findings: list[model.RollbackFinding], aspect: Optional[str]
+) -> list[model.RollbackFinding]:
+    """Schema changes that reach `aspect`, plus its version bump when no
+    change explains it (that bump's impact is "not analysed")."""
+    return [
+        f
+        for f in findings
+        if (f.aspect_name == aspect or aspect in f.affected_aspects)
+        and (
+            f.dimension == model.DIM_PDL_SCHEMA
+            or (
+                f.dimension == model.DIM_SCHEMA_VERSION
+                and f.read_impact == model.NOT_ANALYSED
+            )
+        )
+    ]
+
+
 def set_mutator_impact(findings: list[model.RollbackFinding]) -> None:
     """A mutator only reshapes records into N's schema, so N-1 sees its output
     as that aspect's field changes. Use the worst of those."""
     for m in findings:
         if m.dimension != model.DIM_MUTATOR:
             continue
-        fields = [
-            f
-            for f in findings
-            if f.dimension == model.DIM_PDL_SCHEMA
-            and (f.aspect_name == m.aspect_name or m.aspect_name in f.affected_aspects)
-        ]
+        fields = _aspect_changes(findings, m.aspect_name)
         if fields:
             m.read_impact = model.worst(
                 [f.read_impact for f in fields], model.READ_SEVERITY
@@ -100,12 +114,7 @@ def set_upgrade_step_impact(
                 writes.append(model.FAILS)
                 notes.append(f"`{a}` (not in N-1)")
                 continue
-            related = [
-                f
-                for f in findings
-                if f.dimension == model.DIM_PDL_SCHEMA
-                and (f.aspect_name == a or a in f.affected_aspects)
-            ]
+            related = _aspect_changes(findings, a)
             reads += [f.read_impact for f in related] or [model.OK]
             writes += [f.write_impact for f in related]
             losses += [f.data_loss for f in related]
@@ -175,8 +184,9 @@ def combine_findings(
 ) -> None:
     """Stages that update findings from other dimensions' results, in place.
     Order matters: attribution sets the aspects each schema change reaches,
-    which the mutator, upgrade-step and version-gap stages then read."""
+    which the version-gap stage reads to find unexplained bumps; the mutator
+    and upgrade-step stages then read both."""
     pdl_rules.attribute_embedded_aspect_changes(findings, current, target, pdl_paths)
+    flag_unexplained_version_gaps(findings)
     set_mutator_impact(findings)
     set_upgrade_step_impact(findings, current, target)
-    flag_unexplained_version_gaps(findings)

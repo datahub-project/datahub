@@ -259,6 +259,16 @@ class TestClassifyPdlForRollback:
         assert (f.read_impact, f.write_impact, f.data_loss) == ("ok, may truncate", "ok", "if out of range")
         assert f.reindex_required is False
 
+    def test_number_conversion_loss_depends_on_kind(self):
+        def loss(n1_type, n_type):
+            f = self._bar_change(_ASPECT_V1.replace("bar: int", f"bar: {n_type}"),
+                                 n_minus_1=_ASPECT_V1.replace("bar: int", f"bar: {n1_type}"))
+            return f.data_loss
+        assert loss("int", "long") == "if out of range"
+        assert loss("int", "double") == "drops fractions"
+        assert loss("double", "long") == "rounds large values"
+        assert loss("float", "double") == "rounds large values"
+
     def test_narrowed_number_is_safe(self):
         f = self._bar_change(_ASPECT_V1, n_minus_1=_ASPECT_V1_TYPE_CHANGE)  # long -> int
         assert f.risk == model.SAFE
@@ -1385,6 +1395,20 @@ class TestUpgradeStepImpact:
         step = self._run({"aliases"}, {"aliases"}, [])
         assert (step.read_impact, step.write_impact, step.data_loss) == ("ok", "ok", "no")
 
+    def test_unexplained_version_gap_is_not_analysed(self):
+        gap = _finding(dimension=model.DIM_SCHEMA_VERSION, aspect_name="aliases",
+                       **model.impact("not analysed", "not analysed", "not analysed"))
+        step = self._run({"aliases"}, {"aliases"}, [gap])
+        assert step.read_impact == "not analysed"
+        assert "`aliases` (changed in N)" in step.detail
+
+    def test_explained_version_gap_adds_nothing(self):
+        gap = _finding(dimension=model.DIM_SCHEMA_VERSION, aspect_name="aliases",
+                       **model.impact("ok", "ok", "no"))
+        step = self._run({"aliases"}, {"aliases"}, [gap])
+        assert (step.read_impact, step.write_impact, step.data_loss) == ("ok", "ok", "no")
+        assert "changed in N" not in step.detail
+
     def test_no_aspects_found_stays_unknown(self):
         step = self._run(set(), set(), [])
         assert step.read_impact == "unknown"
@@ -1612,6 +1636,15 @@ class TestUnknownImpactCarriesThrough:
         pipeline.set_mutator_impact([mutator, unparsed])
         assert mutator.read_impact == "not analysed"
         assert "couldn't be analysed" in mutator.detail and "fine" not in mutator.detail
+
+    def test_mutator_on_aspect_with_unexplained_version_gap(self):
+        mutator = _finding(dimension=model.DIM_MUTATOR, risk=model.REQUIRES_ATTENTION, aspect_name="a")
+        gap = _finding(dimension=model.DIM_SCHEMA_VERSION, aspect_name="a",
+                       summary="Schema version gap: v1→v2 (1 hop)")
+        pipeline.combine_findings([mutator, gap], "N", "N-1", [])
+        assert gap.read_impact == "not analysed"
+        assert mutator.read_impact == "not analysed"
+        assert "schema version gap: v1→v2" in mutator.detail
 
 
 class TestMainRecord:

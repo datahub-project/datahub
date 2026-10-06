@@ -98,6 +98,8 @@ DROPS_NEW_FIELD = "ok, drops N's new field"
 LOSS_YES = "yes"
 LOSS_NO = "no"
 LOSS_IF_OUT_OF_RANGE = "if out of range"
+LOSS_FRACTIONS = "drops fractions"
+LOSS_PRECISION = "rounds large values"
 # Unranked: the impact isn't known, so `worst` lets these win.
 UNKNOWN = "unknown"
 NOT_ANALYSED = "not analysed"
@@ -119,7 +121,13 @@ def compute_verdict(findings: list[RollbackFinding]) -> str:
 # Worst first.
 READ_SEVERITY = [API_FAILS, UI_API_FAILS, RESTORE_FAILS, MAY_TRUNCATE, STALE, OK]
 WRITE_SEVERITY = [FAILS, DROPS_NEW_FIELD, OK]
-LOSS_SEVERITY = [LOSS_YES, LOSS_IF_OUT_OF_RANGE, LOSS_NO]
+LOSS_SEVERITY = [
+    LOSS_YES,
+    LOSS_FRACTIONS,
+    LOSS_IF_OUT_OF_RANGE,
+    LOSS_PRECISION,
+    LOSS_NO,
+]
 
 
 def worst(values: list[Optional[str]], order: list[str]) -> str:
