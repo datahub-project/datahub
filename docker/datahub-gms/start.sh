@@ -133,7 +133,7 @@ HAZELCAST_JVM_OPTS="--add-modules java.se --add-exports java.base/jdk.internal.r
 
 datahub_wait_begin
 
-if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
+if datahub_should_wait_elasticsearch; then
   datahub_wait_http "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" "$ELASTICSEARCH_AUTH_HEADER"
 fi
 
@@ -157,7 +157,7 @@ if [[ $SKIP_KAFKA_CHECK != true ]]; then
   done
 fi
 
-if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
+if [[ $GRAPH_SERVICE_IMPL == neo4j ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
   datahub_wait_endpoint "$NEO4J_HOST"
 fi
 

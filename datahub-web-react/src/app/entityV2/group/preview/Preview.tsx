@@ -1,5 +1,6 @@
 import { Tag, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -73,28 +74,27 @@ export const Preview = ({
     description?: string | null;
     membersCount?: number;
 }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
 
     return (
         <PreviewContainer>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
-                        <PlatformInfo>
-                            <PreviewImage>
-                                {entityRegistry.getIcon(EntityType.CorpGroup, 20, IconStyleType.HIGHLIGHT)}
-                            </PreviewImage>
-                            <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
-                        </PlatformInfo>
-                        <Link to={url}>
-                            <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
-                            <MemberCountContainer>
-                                <Tag>{membersCount} members</Tag>
-                            </MemberCountContainer>
-                        </Link>
-                    </TitleContainer>
-                </Link>
+                <TitleContainer>
+                    <PlatformInfo>
+                        <PreviewImage>
+                            {entityRegistry.getIcon(EntityType.CorpGroup, 20, IconStyleType.HIGHLIGHT)}
+                        </PreviewImage>
+                        <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
+                    </PlatformInfo>
+                    <Link to={url}>
+                        <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
+                        <MemberCountContainer>
+                            <Tag>{t('shared.membersCount', { count: membersCount || 0 })}</Tag>
+                        </MemberCountContainer>
+                    </Link>
+                </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer

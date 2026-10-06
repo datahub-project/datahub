@@ -17,7 +17,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -34,7 +34,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -50,7 +50,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -73,7 +73,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -90,7 +90,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -106,152 +106,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:john.doe@test.com",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "john.doe@test.com",
-                            "mobilePhone": "555-415-1337"
-                        },
-                        "active": true,
-                        "displayName": "JDoe",
-                        "email": "john.doe@test.com",
-                        "firstName": "John",
-                        "lastName": "Doe",
-                        "fullName": "John Doe",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@test.com",
-    "changeType": "UPSERT",
-    "aspectName": "origin",
-    "aspect": {
-        "json": {
-            "type": "EXTERNAL",
-            "externalType": "OKTA"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@test.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:mary.jane@test.com",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "mary.jane@test.com",
-                            "mobilePhone": "666-415-1337"
-                        },
-                        "active": true,
-                        "displayName": "Mary Jane",
-                        "email": "mary.jane@test.com",
-                        "title": "Software Engineer",
-                        "departmentName": "Engineering",
-                        "firstName": "Mary",
-                        "lastName": "Jane",
-                        "fullName": "Mary Jane",
-                        "countryCode": "us",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:mary.jane@test.com",
-    "changeType": "UPSERT",
-    "aspectName": "origin",
-    "aspect": {
-        "json": {
-            "type": "EXTERNAL",
-            "externalType": "OKTA"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:mary.jane@test.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -280,6 +135,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": []
                     }
@@ -288,7 +152,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -305,7 +169,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -321,7 +185,170 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:john.doe@test.com",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "login": "john.doe@test.com",
+                            "mobilePhone": "555-415-1337"
+                        },
+                        "active": true,
+                        "displayName": "JDoe",
+                        "email": "john.doe@test.com",
+                        "firstName": "John",
+                        "lastName": "Doe",
+                        "fullName": "John Doe",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:All%20Employees",
+                            "urn:li:corpGroup:Engineering"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@test.com",
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "json": {
+            "type": "EXTERNAL",
+            "externalType": "OKTA"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@test.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:mary.jane@test.com",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "login": "mary.jane@test.com",
+                            "mobilePhone": "666-415-1337"
+                        },
+                        "active": true,
+                        "displayName": "Mary Jane",
+                        "email": "mary.jane@test.com",
+                        "title": "Software Engineer",
+                        "departmentName": "Engineering",
+                        "firstName": "Mary",
+                        "lastName": "Jane",
+                        "fullName": "Mary Jane",
+                        "countryCode": "us",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:All%20Employees",
+                            "urn:li:corpGroup:All%20Employees",
+                            "urn:li:corpGroup:Engineering",
+                            "urn:li:corpGroup:Engineering"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane@test.com",
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "json": {
+            "type": "EXTERNAL",
+            "externalType": "OKTA"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane@test.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }

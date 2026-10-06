@@ -6,6 +6,7 @@ import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { ThemeProvider, useTheme } from 'styled-components';
 
 import {
@@ -122,6 +123,7 @@ function destroyToast(key?: string) {
 }
 
 const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
+    const { t: tc } = useTranslation('common.actions');
     const icon = entry.options?.icon ?? VARIANT_ICONS[entry.variant];
     const liveRegion = ASSERTIVE_VARIANTS.has(entry.variant) ? 'assertive' : 'polite';
 
@@ -147,7 +149,8 @@ const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
                 className="toast-btn"
                 type="button"
                 onClick={() => removeToast(entry.id)}
-                aria-label="Dismiss"
+                aria-label={tc('dismiss')}
+                data-testid="toast-notification-close-icon"
             >
                 <X size={14} weight="bold" />
             </ToastCloseButton>
@@ -157,7 +160,7 @@ const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
 
 /**
  * Mount once inside the app's ThemeProvider tree.
- * Renders toast notifications into a portal at the top-right of the viewport.
+ * Renders toast notifications into viewport-level placement containers.
  */
 export function ToastRenderer() {
     const [, setTick] = useState(0);
@@ -170,13 +173,35 @@ export function ToastRenderer() {
     const currentToasts = toasts;
     if (currentToasts.length === 0) return null;
 
+    const topRightToasts = currentToasts.filter(
+        (entry) => entry.options?.placement !== 'bottomRight' && entry.options?.placement !== 'bottomCenter',
+    );
+    const bottomRightToasts = currentToasts.filter((entry) => entry.options?.placement === 'bottomRight');
+    const bottomCenterToasts = currentToasts.filter((entry) => entry.options?.placement === 'bottomCenter');
+
     return ReactDOM.createPortal(
         <ThemeProvider theme={theme}>
-            <ToastContainer>
-                {currentToasts.map((entry) => (
-                    <ToastItem key={entry.id} entry={entry} />
-                ))}
-            </ToastContainer>
+            {topRightToasts.length > 0 && (
+                <ToastContainer data-testid="toast-notification-container">
+                    {topRightToasts.map((entry) => (
+                        <ToastItem key={entry.id} entry={entry} />
+                    ))}
+                </ToastContainer>
+            )}
+            {bottomRightToasts.length > 0 && (
+                <ToastContainer $placement="bottomRight" data-testid="toast-notification-container-bottom-right">
+                    {bottomRightToasts.map((entry) => (
+                        <ToastItem key={entry.id} entry={entry} />
+                    ))}
+                </ToastContainer>
+            )}
+            {bottomCenterToasts.length > 0 && (
+                <ToastContainer $placement="bottomCenter" data-testid="toast-notification-container-bottom-center">
+                    {bottomCenterToasts.map((entry) => (
+                        <ToastItem key={entry.id} entry={entry} />
+                    ))}
+                </ToastContainer>
+            )}
         </ThemeProvider>,
         document.body,
     );

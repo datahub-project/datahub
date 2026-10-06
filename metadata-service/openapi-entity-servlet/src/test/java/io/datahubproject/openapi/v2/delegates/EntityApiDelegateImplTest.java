@@ -5,9 +5,13 @@ import static org.testng.Assert.*;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.timeline.TimelineService;
 import io.datahubproject.openapi.config.OpenAPIEntityTestConfiguration;
 import io.datahubproject.openapi.config.SpringWebConfig;
+import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.generated.BrowsePathEntry;
 import io.datahubproject.openapi.generated.BrowsePathsV2;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectRequestV2;
@@ -33,18 +37,20 @@ import io.datahubproject.openapi.generated.ScrollDatasetEntityResponseV2;
 import io.datahubproject.openapi.generated.Status;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.TagAssociation;
+import io.datahubproject.openapi.v1.relationships.RelationshipsController;
+import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.openapi.v2.generated.controller.ChartApiController;
 import io.datahubproject.openapi.v2.generated.controller.DatasetApiController;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -70,7 +76,16 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
   @Autowired private DatasetApiController datasetApiController;
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private MockMvc mockMvc;
-  @MockBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private TracingInterceptor tracingInterceptor;
+  @MockitoBean private EntityService<?> entityService;
+
+  @MockitoBean(name = "elasticSearchSystemMetadataService")
+  private SystemMetadataService systemMetadataService;
+
+  @MockitoBean private TimelineService timelineService;
+  @MockitoBean private TimelineControllerV2 timelineControllerV2;
+  @MockitoBean private RelationshipsController relationshipsController;
 
   @Test
   public void initTest() {

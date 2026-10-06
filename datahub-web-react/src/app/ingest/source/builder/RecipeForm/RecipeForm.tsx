@@ -1,7 +1,10 @@
-import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { Collapse, Form, Typography, message } from 'antd';
-import { get } from 'lodash';
+import get from 'lodash/get';
 import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
@@ -50,10 +53,10 @@ const TestConnectionWrapper = styled.div`
     margin-top: 16px;
 `;
 
-const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
+const HeaderTooltipWrapper = styled(Question)`
     margin-left: 5px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     cursor: help;
 `;
 
@@ -159,11 +162,7 @@ function RecipeForm(props: Props) {
                 onValuesChange={updateFormValues}
             >
                 <StyledCollapse defaultActiveKey="0">
-                    <Collapse.Panel
-                        forceRender
-                        header={<SectionHeader icon={<ApiOutlined />} text="Connection" />}
-                        key="0"
-                    >
+                    <Collapse.Panel forceRender header={<SectionHeader icon={<Plugs />} text="Connection" />} key="0">
                         {fields.map((field, i) => {
                             // Check if field has conditional visibility logic
                             if (field.shouldShow && !field.shouldShow(formValues)) {
@@ -197,11 +196,7 @@ function RecipeForm(props: Props) {
                         <Collapse.Panel
                             forceRender
                             header={
-                                <SectionHeader
-                                    icon={<FilterOutlined />}
-                                    text="Filter"
-                                    sectionTooltip={filterSectionTooltip}
-                                />
+                                <SectionHeader icon={<Funnel />} text="Filter" sectionTooltip={filterSectionTooltip} />
                             }
                             key="1"
                         >
@@ -232,7 +227,7 @@ function RecipeForm(props: Props) {
                             forceRender
                             header={
                                 <SectionHeader
-                                    icon={<SettingOutlined />}
+                                    icon={<Gear />}
                                     text="Settings"
                                     sectionTooltip={advancedSectionTooltip}
                                 />
@@ -257,7 +252,9 @@ function RecipeForm(props: Props) {
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button onClick={onClickNext}>Next</Button>
+                <Button onClick={onClickNext} data-testid="recipe-builder-next-button">
+                    Next
+                </Button>
             </ControlsContainer>
         </>
     );

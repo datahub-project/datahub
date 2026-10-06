@@ -1,5 +1,6 @@
-import { List, Pagination, Typography } from 'antd';
+import { Pagination, Text } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
@@ -8,6 +9,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 
 import { EntityType } from '@types';
+
+const LOADING_MARGIN_TOP = '10%';
 
 const ScrollWrapper = styled.div`
     overflow: auto;
@@ -25,26 +28,16 @@ const ScrollWrapper = styled.div`
     }
 `;
 
-const StyledList = styled(List)`
+const StyledList = styled.div`
     padding-left: 40px;
     padding-right: 40px;
-    .ant-list-items > .ant-list-item {
-        padding-right: 0px;
-        padding-left: 0px;
-    }
-    > .ant-list-header {
-        padding-right: 0px;
-        padding-left: 0px;
-        font-size: 14px;
-        font-weight: 600;
-        margin-left: -20px;
-        border-bottom: none;
-        padding-bottom: 0px;
-        padding-top: 0px;
-    }
-` as typeof List;
+`;
 
-const StyledListItem = styled(List.Item)`
+const ListHeader = styled(Text)`
+    margin-left: -20px;
+`;
+
+const StyledListItem = styled.div`
     padding-top: 20px;
 `;
 
@@ -66,7 +59,7 @@ const StyledPagination = styled(Pagination)`
     justify-content: center;
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
     width: 20%;
 `;
@@ -101,35 +94,49 @@ export const EntityList = ({
     setNumResultsPerPage,
 }: EntityListProps) => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation('common.feedback');
+    // Callers map `relationship.entity` without a null check, and an unresolved related entity
+    // comes back null. Reading `.urn` on it throws and blanks the tab.
+    const resolvedEntities = entities.filter((item) => item?.urn);
 
     return (
         <>
             <ScrollWrapper>
-                <StyledList
-                    dataSource={entities}
-                    header={title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
-                    renderItem={(item) => (
-                        <StyledListItem>{entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}</StyledListItem>
-                    )}
-                />
+                <StyledList>
+                    <ListHeader weight="semiBold">
+                        {title || `${resolvedEntities.length} ${entityRegistry.getCollectionName(type)}`}
+                    </ListHeader>
+                    {resolvedEntities.map((item) => (
+                        <StyledListItem key={item.urn}>
+                            {entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}
+                        </StyledListItem>
+                    ))}
+                </StyledList>
             </ScrollWrapper>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {loading && <Message type="loading" content={tc('loading')} style={{ marginTop: LOADING_MARGIN_TOP }} />}
+            {error && <Message type="error" content={t('entity.list.loadError')} />}
             {showPagination && (
                 <PaginationInfoContainer>
                     <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>{' '}
-                        of <b>{totalAssets}</b>
+                        <Trans
+                            t={t}
+                            i18nKey="entity.paginationRange"
+                            values={{
+                                start: lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0,
+                                end: lastResultIndex,
+                                total: totalAssets,
+                            }}
+                            components={{ bold: <b /> }}
+                        />
                     </PaginationInfo>
                     <StyledPagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalAssets}
+                        currentPage={page ?? 1}
+                        itemsPerPage={pageSize}
+                        total={totalAssets ?? 0}
                         showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={(totalAssets as any) > SearchCfg.RESULTS_PER_PAGE}
+                        onPageChange={onChangePage}
+                        showSizeChanger={(totalAssets ?? 0) > SearchCfg.RESULTS_PER_PAGE}
                         onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage?.(newNum)}
                         pageSizeOptions={['10', '20', '50', '100']}
                     />

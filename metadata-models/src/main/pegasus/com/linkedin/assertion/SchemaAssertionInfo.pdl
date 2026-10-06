@@ -10,9 +10,6 @@ record SchemaAssertionInfo {
     /**
     * The entity targeted by the assertion
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset", "dataJob" ]

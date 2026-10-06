@@ -41,7 +41,12 @@ class UnityCatalogAnalyzeProfiler:
                     if wu:
                         yield wu
         except Exception as e:
-            self.report.report_warning("profiling", str(e))
+            self.report.warning(
+                message="Unexpected error during profiling",
+                context="profiling",
+                exc=e,
+                log=False,
+            )
             logger.warning(f"Unexpected error during profiling: {e}", exc_info=True)
             return
 
@@ -67,7 +72,12 @@ class UnityCatalogAnalyzeProfiler:
             elif table_profile is not None:  # table_profile is Falsy == empty
                 self.report.profile_table_empty.append(str(ref))
         except Exception as e:
-            self.report.report_warning("profiling", str(e))
+            self.report.warning(
+                message="Unexpected error during profiling table",
+                context=str(ref),
+                exc=e,
+                log=False,
+            )
             logger.warning(
                 f"Unexpected error during profiling table {ref}: {e}", exc_info=True
             )

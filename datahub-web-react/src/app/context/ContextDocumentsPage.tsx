@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Result } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -21,9 +22,8 @@ const ContentCard = styled.div`
     height: 100%;
     width: 100%;
     background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 12px;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     box-shadow: ${(props) => props.theme.colors.shadowSm};
-    margin: 4px;
 `;
 
 /**
@@ -35,6 +35,7 @@ const ContentCard = styled.div`
  * 3. If no documents AND user cannot create: show unauthorized/empty state
  */
 export default function ContextDocumentsPage() {
+    const { t } = useTranslation('misc');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { getRootNodes } = useDocumentTree();
@@ -56,6 +57,7 @@ export default function ContextDocumentsPage() {
         setIsCreating(true);
         try {
             const newUrn = await createDocument({
+                /* untranslated-text -- default new-document title persisted as backend data, not UI chrome */
                 title: 'New Document',
                 parentDocument: null,
             });
@@ -125,8 +127,8 @@ export default function ContextDocumentsPage() {
             <ContentCard data-testid="context-documents-empty-unauthorized">
                 <Result
                     status="403"
-                    title="No Documents Available"
-                    subTitle="There are no documents available. Contact your DataHub administrator to get started."
+                    title={t('document.noDocumentsTitle')}
+                    subTitle={t('document.noDocumentsSubtitle')}
                 />
             </ContentCard>
         );

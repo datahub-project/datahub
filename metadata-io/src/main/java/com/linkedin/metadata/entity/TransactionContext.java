@@ -16,6 +16,7 @@ import org.springframework.lang.Nullable;
 @Accessors(fluent = true)
 public class TransactionContext {
   public static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
+  public static final int DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES = 3;
 
   public static TransactionContext empty() {
     return empty(DEFAULT_MAX_TRANSACTION_RETRY);
@@ -54,6 +55,11 @@ public class TransactionContext {
 
   public boolean lastExceptionIsDuplicateKey() {
     return lastException() instanceof DuplicateKeyException;
+  }
+
+  public boolean shouldFallbackToDatabaseMaxVersion() {
+    return getFailedAttempts() >= DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES
+        && lastExceptionIsDuplicateKey();
   }
 
   public boolean shouldAttemptRetry() {

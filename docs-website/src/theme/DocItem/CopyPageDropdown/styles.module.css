@@ -1,0 +1,24 @@
+.copyPageWrapper {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.copyPageButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.copyPageChevron {
+  font-size: 0.6rem;
+}
+
+/* Collapse to an icon-only button on narrow viewports. */
+@media (max-width: 768px) {
+  .copyPageLabel {
+    display: none;
+  }
+}

@@ -39,6 +39,33 @@ Please refer to the BigQuery [Permissions](https://cloud.google.com/iam/docs/per
 You can always add/remove roles to Service Accounts later on. Please refer to the BigQuery [Manage access to projects, folders, and organizations](https://cloud.google.com/iam/docs/granting-changing-revoking-access) guide for more details.
 :::
 
+### Permissions for DataHub Cloud Assertions (Observe)
+
+If you plan to use DataHub Cloud's [Freshness](/docs/managed-datahub/observe/freshness-assertions.md), [Volume](/docs/managed-datahub/observe/volume-assertions.md), [Column](/docs/managed-datahub/observe/column-assertions.md), or [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md) Assertions, the required permissions depend on which source type and assertion type you select.
+
+#### Freshness & Volume Assertions
+
+| Source Type                                                      | Required Role(s)                                                                                                                                                                                              | Notes                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Platform API**                                                 | [BigQuery Metadata Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) (`roles/bigquery.metadataViewer`)                                                                   | Free API call, no query costs. Subject to BigQuery [API rate limits](https://cloud.google.com/bigquery/quotas#api_quotas_and_limits) — stagger custom schedules across many assertions to avoid bursts. |
+| **Information Schema**                                           | [BigQuery Metadata Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) + [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) | Uses `__TABLES__` system table.                                                                                                                                                                         |
+| **Audit Log**                                                    | `logging.logEntries.list` + `logging.privateLogEntries.list`                                                                                                                                                  | Via [Logs View Accessor](https://cloud.google.com/logging/docs/access-control#logging.viewAccessor) role.                                                                                               |
+| **Query** / **Last Modified Column** / **High Watermark Column** | [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer)                                                                                                             | Runs SQL queries against the table.                                                                                                                                                                     |
+| **DataHub Operation** / **DataHub Dataset Profile**              | _(none)_                                                                                                                                                                                                      | Uses DataHub metadata only, no BigQuery access needed.                                                                                                                                                  |
+
+#### Column (Field) Assertions
+
+| Source Type                                 | Required Role(s)                                                                                  | Notes                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **All Rows Query** / **Changed Rows Query** | [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) | Runs SQL queries against the table to evaluate column-level conditions.                   |
+| **DataHub Dataset Profile**                 | _(none)_                                                                                          | Uses column metrics from DataHub profiling runs. Only available for certain metric types. |
+
+#### Custom SQL Assertions
+
+| Required Role(s)                                                                                                                                                                                | Notes                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [BigQuery Job User](https://cloud.google.com/bigquery/docs/access-control#bigquery.jobUser) + [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) | Executes user-defined SQL queries. Ensure the Service Account can access all tables referenced in the query. |
+
 3. To filter projects based on the `project_labels` configuration, first visit [cloudresourcemanager.googleapis.com](https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview) and enable the `Cloud Resource Manager API`
 
 4. Create and download a [Service Account Key](https://cloud.google.com/iam/docs/creating-managing-service-account-keys). We will use this to set up authentication within DataHub.

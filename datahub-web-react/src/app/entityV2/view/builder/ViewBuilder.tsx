@@ -1,5 +1,7 @@
 import { useApolloClient } from '@apollo/client';
+import { toast } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -9,7 +11,6 @@ import { updateListMyViewsCache, updateViewSelectCache } from '@app/entityV2/vie
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entityV2/view/utils';
 import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
-import { notification } from '@src/alchemy-components';
 
 import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
 import { DataHubView } from '@types';
@@ -26,6 +27,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
     const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
@@ -34,7 +36,9 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
     const [createViewMutation] = useCreateViewMutation();
 
     const emitTrackingEvent = (viewUrn: string, state: ViewBuilderState, isCreate: boolean) => {
-        const filterFields = Array.from(new Set(state.definition?.filter?.filters.map((filter) => filter.field) ?? []));
+        const filterFields = Array.from(
+            new Set(state.definition?.filter?.filters?.map((filter) => filter.field) ?? []),
+        );
         const entityTypes = Array.from(new Set(state.definition?.entityTypes ?? []));
 
         analytics.event({
@@ -109,11 +113,7 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
                 onSubmit?.(state);
             })
             .catch((_) => {
-                notification.error({
-                    message: 'Failed to save View',
-                    description: 'An unexpected error occurred.',
-                    duration: 3,
-                });
+                toast.error(t('builder.saveError'), { duration: 3 });
             });
     };
 

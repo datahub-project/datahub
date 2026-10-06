@@ -1,4 +1,5 @@
-import { WarningOutlined } from '@ant-design/icons';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
@@ -10,12 +11,12 @@ export class HasActiveIncidentsRenderer implements FilterRenderer {
 
     render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} icon={this.icon()} />;
 
-    icon = () => <WarningOutlined />;
+    icon = () => <Warning />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Has Active Incidents</>;
+            return <>{i18next.t('search:filters.incidents.hasActiveLabel')}</>;
         }
-        return <>Has Resolved Incidents</>;
+        return <>{i18next.t('search:filters.incidents.hasResolvedLabel')}</>;
     };
 }

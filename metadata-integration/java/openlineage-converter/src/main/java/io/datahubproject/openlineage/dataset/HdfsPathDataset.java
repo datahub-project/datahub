@@ -65,7 +65,7 @@ public class HdfsPathDataset extends SparkDataset {
 
         // Filter out path specs that don't match the platform
         for (PathSpec pathSpec : datahubConf.getPathSpecsForPlatform(platform)) {
-          log.debug("Checking match for path_alias: " + pathSpec.getAlias());
+          log.debug("Checking match for path_alias: {}", pathSpec.getAlias());
 
           String rawName = getRawNameFromUri(pathUri, pathSpec.getPathSpecList());
           if (rawName != null) {
@@ -124,7 +124,13 @@ public class HdfsPathDataset extends SparkDataset {
     return null;
   }
 
-  private static String getRawNameWithoutPartition(String pathUri, String partitionRegexp) {
+  /**
+   * Strips a trailing partition (matched by {@code partitionRegexp}, anchored at the end) from a
+   * path. Public so the converter can apply the same {@code file_partition_regexp} logic to
+   * bare-namespace FS datasets (e.g. {@code file}, {@code dbfs}) that don't flow through {@link
+   * #create}.
+   */
+  public static String getRawNameWithoutPartition(String pathUri, String partitionRegexp) {
     String result = pathUri.replaceAll(partitionRegexp + "$", "");
     // Remove trailing slash
     return result.replaceAll("/$", "");
@@ -162,14 +168,14 @@ public class HdfsPathDataset extends SparkDataset {
             uri.append(pathFolderList[i]).append("/");
           } else if (specFolderList[i].equals(TABLE)) {
             uri.append(pathFolderList[i]);
-            log.debug("Actual path [" + pathUri + "] matched with path_spec [" + pathSpec + "]");
+            log.debug("Actual path [{}] matched with path_spec [{}]", pathUri, pathSpec);
             return uri.toString();
           } else {
             break;
           }
         }
       }
-      log.debug("No path spec matched with actual path [" + pathUri + "]");
+      log.debug("No path spec matched with actual path [{}]", pathUri);
     } else {
       log.warn("Invalid path spec [" + pathSpec + "]. Path spec should contain {table}");
     }

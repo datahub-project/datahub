@@ -17,9 +17,13 @@ from datahub_actions.plugin.source.acryl.datahub_cloud_event_source import (
     DataHubEventSource,
 )
 from datahub_actions.plugin.source.kafka.kafka_event_source import KafkaEventSource
+from datahub_actions.plugin.source.pgqueue.pg_queue_event_source import (
+    PgQueueEventSource,
+)
 from datahub_actions.source.event_source import EventSource
 
 event_source_registry = PluginRegistry[EventSource]()
 event_source_registry.register_from_entrypoint("datahub_actions.source.plugins")
 event_source_registry.register("kafka", KafkaEventSource)
+event_source_registry.register("pg_queue", PgQueueEventSource)
 event_source_registry.register("datahub-cloud", DataHubEventSource)

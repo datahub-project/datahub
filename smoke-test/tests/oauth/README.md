@@ -1,0 +1,78 @@
+# Local OAuth smoke test (Keycloak + GMS)
+
+Proves a DataHub SDK/CLI client authenticates to GMS using a real OAuth token
+fetched from an OSS OIDC provider (Keycloak) — no cloud, no AKS/EKS required. It
+exercises the SDK token-provider stack end to end (`oidc_client_credentials`
+provider → `TokenProviderAuth` → GMS external-OAuth validation).
+
+## What's here
+
+- `keycloak/datahub-realm.json` — realm import with two confidential clients
+  (client-credentials enabled): `datahub-executor` (audience `datahub-gms`,
+  accepted) and `datahub-wrong-aud` (audience `not-datahub`, rejected).
+- `docker-compose.oauth.yml` — overlay that adds Keycloak, configures GMS's
+  `EXTERNAL_OAUTH_*` to trust the realm, and provides a `tester` runner. Public
+  images only (no registry creds), so it runs in generic CI.
+- `test_oauth_cli_gms.py` — the suite (8 tests):
+  - valid audience → authenticated `me` query succeeds; wrong audience → rejected;
+    anonymous request → 401 (guards against `METADATA_SERVICE_AUTH_ENABLED`
+    regressing to vacuous passes)
+  - env-based auth: `DATAHUB_AUTH_TYPE` (no `DATAHUB_GMS_TOKEN`) resolves through
+    `load_client_config()` into an authenticated graph client
+  - ingest matrix: recipe with no sink block (default sink from env); explicit
+    credential-less `sink: datahub-rest` (inherits env OAuth); explicit static
+    token beats env auth (fails with 401 by design)
+  - connector-client path: recipe-declared `datahub_api.auth` + sink auth, then a
+    connector-style authenticated read through `pipeline.ctx.graph`
+- `run-oauth-ci.sh` — CI entrypoint: brings up quickstart + the OAuth overlay,
+  waits for readiness, runs `test_oauth_cli_gms.py`, always tears down. Wired into
+  `.github/workflows/oauth-smoke.yml` (path-gated + on-demand + nightly).
+
+> Bind-mount paths in the overlays are anchored on `${DATAHUB_OAUTH_HARNESS_DIR:-.}`.
+> Run standalone from this directory and the default `.` works; when layering under
+> the quickstart compose from elsewhere, set `DATAHUB_OAUTH_HARNESS_DIR` to this
+> directory's absolute path (the CI script does this automatically).
+
+## Why run from inside the compose network
+
+GMS validates the token's `iss` claim and fetches the IdP's JWKS. The token's
+issuer is fixed to `http://keycloak:8080/realms/datahub` (internal hostname). If
+the client ran on the host (`localhost:8083`), GMS could not reach that issuer's
+JWKS. Running the test from the `tester` service keeps the token endpoint, the
+issuer, and the JWKS URL all on internal hostnames and consistent.
+
+## Run
+
+1. Start the standard DataHub quickstart (GMS + dependencies).
+2. Apply this overlay:
+
+   ```bash
+   docker compose -f <quickstart-compose> -f smoke-test/tests/oauth/docker-compose.oauth.yml up -d
+   ```
+
+3. Wait for GMS health and the Keycloak realm import, then run the test from
+   inside the network:
+
+   ```bash
+   docker compose -f <quickstart-compose> -f smoke-test/tests/oauth/docker-compose.oauth.yml \
+     exec tester sh -c "pip install -e /repo/metadata-ingestion && pytest /smoke/test_oauth_cli_gms.py -v"
+   ```
+
+   Expected: 8 passed, 0 skipped (the env-auth tests skip themselves on an SDK
+   without `datahub.ingestion.auth.env`; the editable install above — or the CI
+   script's source overlay onto the released SDK — guarantees it).
+
+> **Authorization note:** the overlay disables authorization
+> (`AUTH_POLICIES_ENABLED=false` + `REST_API_AUTHORIZATION_ENABLED=false`)
+> because this canary tests _authentication_ — anonymous requests still 401.
+> An OAuth machine principal appears to GMS as a fresh synthetic corpuser with
+> no roles — on a real deployment you must grant it a role/policy or every
+> write fails with `403 ... is unauthorized to modify entity`.
+
+## Deterministic variant (no IdP), for fast CI
+
+If Keycloak proves flaky in CI, swap it for a fully deterministic setup: generate
+an RSA keypair, serve a static `jwks.json` from a tiny container, mint a JWT with
+`pyjwt` (chosen `iss`/`aud`/`sub`/`exp`), write it to a file, and use
+`auth: {type: k8s_oidc, config: {token_file: ...}}` with GMS pointed at the static
+issuer + JWKS. This removes IdP flakiness but does not exercise a token endpoint.

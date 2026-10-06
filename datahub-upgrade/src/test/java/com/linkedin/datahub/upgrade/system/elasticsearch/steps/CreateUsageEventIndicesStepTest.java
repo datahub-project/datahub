@@ -2,21 +2,34 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static org.mockito.Mockito.atLeastOnce;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
+import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Function;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -59,6 +72,7 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     Mockito.when(searchClient.getEngineType()).thenReturn(searchEngineType);
     Mockito.when(esComponents.getIndexBuilder()).thenReturn(indexBuilder);
+    Mockito.when(esComponents.getConfig()).thenReturn(elasticSearch);
 
     Mockito.when(configurationProvider.getPlatformAnalytics()).thenReturn(platformAnalytics);
     Mockito.when(configurationProvider.getElasticSearch()).thenReturn(elasticSearch);
@@ -113,19 +127,27 @@ public class CreateUsageEventIndicesStepTest {
               }
             });
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(rawResponse.getEntity())
+        .thenReturn(new StringEntity("{}", ContentType.APPLICATION_JSON));
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
 
     // Mock index existence check
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationFingerprint.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
 
     // Mock alias check - return empty map by default (no alias exists)
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationFingerprint.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
 
@@ -133,7 +155,9 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
     Mockito.when(
             searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationFingerprint.class),
+                Mockito.any(CreateIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
   }
 
@@ -358,16 +382,20 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
-    Mockito.verify(searchClient, Mockito.atLeast(2)).performLowLevelRequest(Mockito.any());
+    Mockito.verify(searchClient, Mockito.atLeast(2))
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
 
     // Verify specific endpoint calls were made
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request.getEndpoint().equals("/_ilm/policy/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -397,11 +425,13 @@ public class CreateUsageEventIndicesStepTest {
     // Verify that the low-level requests were made with correct names (with underscore prefix)
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request.getEndpoint().equals("/_ilm/policy/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -432,6 +462,7 @@ public class CreateUsageEventIndicesStepTest {
     // Verify that the low-level requests were made with correct names (with underscore prefix)
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -440,6 +471,7 @@ public class CreateUsageEventIndicesStepTest {
                             "/_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -472,6 +504,7 @@ public class CreateUsageEventIndicesStepTest {
     // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
     Mockito.verify(searchClient, Mockito.atLeast(1))
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -479,6 +512,7 @@ public class CreateUsageEventIndicesStepTest {
                         .equals("/_plugins/_ism/policies/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -510,6 +544,7 @@ public class CreateUsageEventIndicesStepTest {
     // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
     Mockito.verify(searchClient, Mockito.atLeast(1))
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -517,6 +552,7 @@ public class CreateUsageEventIndicesStepTest {
                         .equals("/_plugins/_ism/policies/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -576,5 +612,208 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify that the executable function can be called multiple times
     Mockito.verify(searchEngineType, Mockito.times(2)).isOpenSearch();
+  }
+
+  @Test
+  public void testExecutable_UsageOnSecondaryUsesThatCluster() throws Exception {
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    Mockito.when(esComponents.getIndexConvention()).thenReturn(Mockito.mock(IndexConvention.class));
+
+    SearchClientShim<?> primaryClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim<?> usageClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim.SearchEngineType usageEngine =
+        Mockito.mock(SearchClientShim.SearchEngineType.class);
+    Mockito.when(usageEngine.isOpenSearch()).thenReturn(false);
+    Mockito.when(usageClient.getEngineType()).thenReturn(usageEngine);
+    Mockito.when(
+            usageClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+
+    IndexConfiguration usageIndex = Mockito.mock(IndexConfiguration.class);
+    Mockito.when(usageIndex.getFinalPrefix()).thenReturn("test_");
+    Mockito.when(usageIndex.getNumShards()).thenReturn(7);
+    Mockito.when(usageIndex.getNumReplicas()).thenReturn(3);
+    ElasticSearchConfiguration usageConfig = Mockito.mock(ElasticSearchConfiguration.class);
+    Mockito.when(usageConfig.getIndex()).thenReturn(usageIndex);
+
+    ElasticSearchConfiguration routingConfig =
+        ElasticSearchConfiguration.builder()
+            .componentCluster(ComponentClusterConfiguration.builder().usage("secondary").build())
+            .build();
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary",
+            elasticSearch,
+            primaryClient,
+            Mockito.mock(ESBulkProcessor.class),
+            Mockito.mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary",
+            usageConfig,
+            usageClient,
+            Mockito.mock(ESBulkProcessor.class),
+            Mockito.mock(ESIndexBuilder.class)));
+
+    CreateUsageEventIndicesStep usageStep =
+        new CreateUsageEventIndicesStep(
+            esComponents,
+            configurationProvider,
+            new SearchClusterRegistry(routingConfig, connections));
+
+    UpgradeStepResult result = usageStep.executable().apply(upgradeContext);
+
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    Mockito.verify(usageIndex).getNumShards();
+    Mockito.verify(usageIndex).getNumReplicas();
+    Mockito.verify(usageClient, atLeastOnce())
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
+    Mockito.verify(primaryClient, Mockito.never())
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
+
+    IndexConvention convention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("prod"),
+            new EntityIndexConfiguration(),
+            Map.of(SearchComponent.USAGE, "test"));
+    Assert.assertEquals(
+        convention.getIndexName(upgradeContext.opContext(), "datahub_usage_event"),
+        usageIndex.getFinalPrefix() + "datahub_usage_event");
+  }
+
+  @Test
+  public void testExecutable_SkipsLegacyIndexMigrationWhenEnvVarSet() throws Exception {
+    System.setProperty("SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION", "true");
+    try {
+      Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+
+      UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      Mockito.verify(searchClient, Mockito.never())
+          .performLowLevelRequest(
+              Mockito.any(OperationFingerprint.class),
+              Mockito.argThat(request -> request.getEndpoint().startsWith("/_resolve/index/")));
+    } finally {
+      System.clearProperty("SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION");
+    }
+  }
+
+  @Test
+  public void testExecutable_RetriesDoNotMoveTheLegacyIndexAgainButStillCopyBack()
+      throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    java.util.List<String> calls = new java.util.ArrayList<>();
+    java.util.concurrent.atomic.AtomicReference<String> leaseOwner =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    java.util.concurrent.atomic.AtomicBoolean moved =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (moved.get()) {
+                // The first attempt removed the original and left a backup behind.
+                switch (call) {
+                  case "GET /_resolve/index/test_datahub_usage_event":
+                    return json(
+                        "{\"indices\":[],\"data_streams\":[{\"name\":\"test_datahub_usage_event\"}]}");
+                  case "GET /_resolve/index/test_legacy_datahub_usage_event_*":
+                    return json("{\"indices\":[{\"name\":\"test_legacy_datahub_usage_event_1\"}]}");
+                  case "GET /_data_stream/test_datahub_usage_event":
+                    return json(
+                        "{\"data_streams\":[{\"indices\":[{\"index_name\":\".ds-test-1\"}]}]}");
+                  case "GET /_tasks":
+                    return json("{\"nodes\":{}}");
+                  default:
+                    if (call.startsWith("POST /_reindex")) {
+                      return json("{\"task\":\"node:1\"}");
+                    }
+                }
+              }
+              switch (call) {
+                case "GET /_resolve/index/test_datahub_usage_event":
+                  // Still the legacy plain index: the clone below never starts.
+                  return json("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+                case "PUT /test_legacy_datahub_usage_event_lease":
+                  String body =
+                      new String(
+                          request.getEntity().getContent().readAllBytes(),
+                          java.nio.charset.StandardCharsets.UTF_8);
+                  leaseOwner.set(body.replaceAll(".*\"datahub_lease_owner\":\"([^\"]+)\".*", "$1"));
+                  return json("{\"acknowledged\":true}");
+                case "GET /test_legacy_datahub_usage_event_lease/_mapping":
+                  return json(
+                      "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                          + "{\"datahub_lease_owner\":\""
+                          + leaseOwner.get()
+                          + "\"}}}}");
+                case "GET /test_datahub_usage_event/_settings/index.creation_date":
+                  return json(
+                      "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                          + "{\"creation_date\":\"1000\"}}}}");
+                default:
+                  if (call.contains("/_clone/")) {
+                    return json("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+                  }
+                  return json(call.endsWith("/_count") ? "{\"count\":3}" : "{}");
+              }
+            });
+
+    step.executable().apply(upgradeContext);
+    moved.set(true);
+    step.executable().apply(upgradeContext);
+
+    Assert.assertEquals(calls.stream().filter(call -> call.contains("/_clone/")).count(), 1);
+    // The retry did not move anything again, but copied the backup back.
+    Assert.assertEquals(
+        calls.stream().filter(call -> call.startsWith("POST /_reindex")).count(), 1);
+    // Both attempts took the lease for the copy back and released it.
+    Assert.assertEquals(
+        calls.stream().filter("PUT /test_legacy_datahub_usage_event_lease"::equals).count(), 2);
+    Assert.assertEquals(
+        calls.stream().filter("DELETE /test_legacy_datahub_usage_event_lease"::equals).count(), 2);
+  }
+
+  private static RawResponse json(String body) {
+    RawResponse response = Mockito.mock(RawResponse.class);
+    Mockito.when(response.getStatusLine())
+        .thenReturn(
+            new org.apache.http.message.BasicStatusLine(
+                org.apache.http.HttpVersion.HTTP_1_1, 200, "OK"));
+    Mockito.when(response.getEntity())
+        .thenReturn(new StringEntity(body, ContentType.APPLICATION_JSON));
+    return response;
+  }
+
+  @Test
+  public void testExecutable_LegacyIndexMigrationFailureDoesNotFailTheStep() throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class),
+                Mockito.argThat(request -> request.getEndpoint().startsWith("/_resolve/index/"))))
+        .thenThrow(new IOException("resolve failed"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // The rest of the setup still ran.
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
+            Mockito.argThat(
+                request -> request.getEndpoint().equals("/_data_stream/test_datahub_usage_event")));
   }
 }

@@ -2,7 +2,7 @@
   "auditHeader": null,
   "oldSnapshot": {
     "MetricSnapshot": {
-      "urn": "urn:li:metric:(foo,bar)",
+      "urn": "urn:li:metric:(foo,default,bar)",
       "aspects": [
         {
           "Ownership": {
@@ -21,7 +21,7 @@
   },
   "newSnapshot": {
     "MetricSnapshot": {
-      "urn": "urn:li:metric:(foo,bar)",
+      "urn": "urn:li:metric:(foo,default,bar)",
       "aspects": [
         {
           "Ownership": {

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
+import jakarta.annotation.PostConstruct;
 import jakarta.inject.Named;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -44,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -322,7 +322,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
       final String type = internalAuthenticatorConfig.getType();
       final Map<String, Object> configs = internalAuthenticatorConfig.getConfigs();
 
-      log.debug(String.format("Found configs for Authenticator of type %s: %s ", type, configs));
+      log.debug("Found configs for Authenticator of type {}: {} ", type, configs);
 
       // Instantiate the Authenticator class.
       Class<?> clazz = null;
@@ -347,7 +347,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
         final Authenticator authenticator =
             (Authenticator) clazz.getDeclaredConstructor().newInstance();
         // Successfully created authenticator. Now init and register it.
-        log.debug(String.format("Initializing Authenticator with name %s", type));
+        log.debug("Initializing Authenticator with name {}", type);
         if (authenticator instanceof HealthStatusAuthenticator) {
           Map<String, Object> authenticatorConfig =
               new HashMap<>(

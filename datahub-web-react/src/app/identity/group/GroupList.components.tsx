@@ -2,6 +2,7 @@ import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -89,17 +90,23 @@ const GroupDetails = styled.div`
 `;
 
 const truncateStyle = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+const linkStyle = { textDecoration: 'none' } as const;
 
 // --- Cell components ---
 
 export const GroupNameCell = ({ group }: { group: CorpGroup }) => {
+    const { t } = useTranslation('entity.identity');
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const isExternalGroup = group.origin?.type === OriginType.External;
     const avatarUrl = group?.editableProperties?.pictureLink || undefined;
 
     return (
-        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)} style={{ textDecoration: 'none' }}>
+        <Link
+            to={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}
+            style={linkStyle}
+            data-testid={`group-link-${group.name}`}
+        >
             <GroupInfo>
                 <Avatar size="xl" name={displayName} imageUrl={avatarUrl} />
                 <GroupDetails>
@@ -108,7 +115,7 @@ export const GroupNameCell = ({ group }: { group: CorpGroup }) => {
                     </Text>
                     {isExternalGroup && (
                         <Text size="xs" color="gray">
-                            External
+                            {t('groups.externalBadge')}
                         </Text>
                     )}
                 </GroupDetails>
@@ -127,13 +134,17 @@ export const GroupDescriptionCell = ({ group }: { group: CorpGroup }) => {
 };
 
 export const GroupMembersCell = ({ group }: { group: ListGroupsGroup }) => {
+    const { t } = useTranslation('entity.identity');
     const memberCount = group.memberCount?.total || 0;
     return (
         <Pill
             variant="outline"
             color="gray"
             size="sm"
-            label={`${getElasticCappedTotalValueText(memberCount)} members`}
+            label={t('groups.membersCount', {
+                count: memberCount,
+                formattedCount: getElasticCappedTotalValueText(memberCount),
+            })}
         />
     );
 };
@@ -153,6 +164,7 @@ export const GroupRoleCell = ({
     onRoleChange,
     noRoleUrn,
 }: GroupRoleCellProps) => {
+    const { t } = useTranslation('entity.identity');
     const entityRegistry = useEntityRegistry();
     const roleRelationships = group.roles?.relationships;
     const serverRole =
@@ -170,7 +182,7 @@ export const GroupRoleCell = ({
                     onRoleChange(group.urn, displayName, newRoleUrn, serverRoleUrn);
                 }
             }}
-            placeholder="No Role"
+            placeholder={t('groups.noRole')}
             size="md"
             width="fit-content"
         />
@@ -185,6 +197,8 @@ type GroupActionsMenuProps = {
 };
 
 export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -192,7 +206,7 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
 
     const handleCopyUrn = () => {
         navigator.clipboard.writeText(group.urn);
-        toast.success('URN copied to clipboard');
+        toast.success(t('groups.urnCopied'));
     };
 
     const handleDeleteConfirm = () => {
@@ -204,12 +218,12 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
                         entityUrn: group.urn,
                         entityType: EntityType.CorpGroup,
                     });
-                    toast.success(`Deleted ${displayName}!`);
+                    toast.success(t('groups.deleteSuccess', { name: displayName }));
                     onDelete(group.urn);
                 }
             })
             .catch((e) => {
-                toast.error(`Failed to delete: ${e.message || ''}`);
+                toast.error(t('groups.deleteError', { error: e.message || '' }));
             });
         setIsConfirmingDelete(false);
     };
@@ -218,14 +232,14 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
         {
             type: 'item' as const,
             key: 'copy-urn',
-            title: 'Copy URN',
+            title: t('groups.copyUrn'),
             icon: Copy,
             onClick: handleCopyUrn,
         },
         {
             type: 'item' as const,
             key: 'delete',
-            title: 'Delete',
+            title: tc('delete'),
             icon: Trash,
             danger: true,
             onClick: () => setIsConfirmingDelete(true),
@@ -245,23 +259,25 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
             {isConfirmingDelete && (
                 <Modal
                     open={isConfirmingDelete}
-                    title="Delete Group"
+                    title={t('groups.deleteTitle')}
                     onCancel={() => setIsConfirmingDelete(false)}
                     footer={
                         <ModalFooter>
                             <Button variant="outline" onClick={() => setIsConfirmingDelete(false)}>
-                                Cancel
+                                {tc('cancel')}
                             </Button>
-                            <Button variant="filled" color="red" onClick={handleDeleteConfirm}>
-                                Delete
+                            <Button
+                                variant="filled"
+                                color="red"
+                                onClick={handleDeleteConfirm}
+                                data-testid="delete-group-confirm-button"
+                            >
+                                {tc('delete')}
                             </Button>
                         </ModalFooter>
                     }
                 >
-                    <Text>
-                        Are you sure you want to delete the group &quot;{displayName}&quot;? This action cannot be
-                        undone.
-                    </Text>
+                    <Text>{t('groups.deleteConfirm', { name: displayName })}</Text>
                 </Modal>
             )}
         </>

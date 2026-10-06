@@ -11,7 +11,7 @@ import com.linkedin.metadata.dao.throttle.NoOpSensor;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
-import javax.inject.Named;
+import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,7 +21,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     args = {"-u", "SystemUpdate"},
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class})

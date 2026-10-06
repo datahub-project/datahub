@@ -13,6 +13,8 @@ from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
 )
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
 
@@ -110,6 +112,107 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_view_and_query_history_merge_into_single_upstream_lineage(
+    create_engine_mock,
+):
+    """Regression for the double-emit bug fixed by this PR (originally introduced by #16084).
+
+    A view whose CREATE/ALTER DDL also shows up in Query Store gets lineage from
+    two sources: the view-definition path and the query-history path. When those
+    fed two separate aggregators, each emitted its own ``upstreamLineage`` MCP for
+    the view; the second SET-overwrote v0 with a partial payload (only
+    ``fineGrainedLineages``, empty ``upstreams``), wiping table-level lineage.
+
+    This drives the REAL shared aggregator with BOTH sources for the same view URN
+    and asserts the merged output is a single ``upstreamLineage`` aspect that still
+    carries table-level upstreams. With the pre-fix two-aggregator design this would
+    produce two aspects for the view; with the fix it produces exactly one.
+    """
+    config = SQLServerConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+
+    # mssql lowercases URNs by default (convert_urns_to_lowercase=True), so the
+    # parser resolves table refs to lowercase URNs — register/assert in lowercase.
+    view_urn = DatasetUrn("mssql", "testdb.dbo.my_view")
+    source_urn = DatasetUrn("mssql", "testdb.dbo.source_table")
+
+    # Schema info lets the parser resolve table- and column-level lineage.
+    for urn in (view_urn, source_urn):
+        source.aggregator._schema_resolver.add_raw_schema_info(
+            urn=urn.urn(), schema_info={"id": "int", "name": "varchar"}
+        )
+
+    view_definition = "create view my_view as select id, name from source_table"
+    # Source 1: view-definition lineage.
+    source.aggregator.add_view_definition(
+        view_urn=view_urn,
+        view_definition=view_definition,
+        default_db="TestDB",
+        default_schema="dbo",
+    )
+    # Source 2: the same view's DDL observed in Query Store.
+    source.aggregator.add_observed_query(
+        ObservedQuery(
+            query=view_definition,
+            default_db="TestDB",
+            default_schema="dbo",
+            override_dialect="mssql",
+        )
+    )
+
+    # Query history is fed manually above, so skip the DB round-trip.
+    with patch.object(source, "_populate_aggregator_with_query_history"):
+        workunits = list(source._generate_aggregator_workunits())
+
+    upstream_aspects = []
+    for wu in workunits:
+        if wu.get_urn() != view_urn.urn():
+            continue
+        aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+        if aspect is not None:
+            upstream_aspects.append(aspect)
+
+    assert len(upstream_aspects) == 1, (
+        f"Expected exactly one upstreamLineage aspect for {view_urn.urn()!r}, "
+        f"got {len(upstream_aspects)}. Two aspects mean the view received a "
+        "duplicate emit that SET-overwrites v0 with a partial payload."
+    )
+    # Table-level upstreams must survive the merge (the bug wiped them).
+    upstreams = {u.dataset for u in upstream_aspects[0].upstreams}
+    assert source_urn.urn() in upstreams
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_query_history_feeds_shared_aggregator(create_engine_mock):
+    """Query history must flow into the inherited ``self.aggregator``, not a second one.
+
+    The double-emit bug came from a separate ``self.sql_aggregator`` that also called
+    ``gen_metadata()``. This guards against reintroducing a second aggregator by
+    asserting the lineage extractor is wired to the single shared aggregator.
+    """
+    config = SQLServerConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+
+    inspector = Mock()
+    inspector.engine.connect.return_value.__enter__ = Mock(return_value=Mock())
+    inspector.engine.connect.return_value.__exit__ = Mock(return_value=False)
+
+    with (
+        patch.object(source, "get_inspectors", return_value=[inspector]),
+        patch(
+            "datahub.ingestion.source.sql.mssql.source.MSSQLLineageExtractor"
+        ) as extractor_cls,
+    ):
+        source._populate_aggregator_with_query_history()
+
+    assert extractor_cls.call_args.kwargs["sql_aggregator"] is source.aggregator
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
     """Test that query extraction failures are reported but don't stop ingestion."""
     config = SQLServerConfig.model_validate(
@@ -128,11 +231,11 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
         )
 
         connection_mock.execute.side_effect = DatabaseError(
-            "statement", "params", "orig"
+            "statement", "params", Exception("orig")
         )
 
         with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
-            list(source._get_query_based_lineage_workunits())
+            source._populate_aggregator_with_query_history()
 
     assert len(source.report.failures) > 0
     failure_messages = [f.message for f in source.report.failures]
@@ -152,7 +255,7 @@ def test_mssql_lineage_extractor_version_check(mssql_extractor_setup):
     extractor = mssql_extractor_setup["extractor"]
     conn_mock = mssql_extractor_setup["conn_mock"]
 
-    conn_mock.execute.return_value.fetchone.return_value = {
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
@@ -168,7 +271,7 @@ def test_mssql_lineage_extractor_version_check_old_version(mssql_extractor_setup
     extractor = mssql_extractor_setup["extractor"]
     conn_mock = mssql_extractor_setup["conn_mock"]
 
-    conn_mock.execute.return_value.fetchone.return_value = {
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2014 (SP2) - 12.0.5000.0",
         "major_version": 12,
     }
@@ -184,7 +287,9 @@ def test_mssql_lineage_extractor_query_store_enabled(mssql_extractor_setup):
     extractor = mssql_extractor_setup["extractor"]
     conn_mock = mssql_extractor_setup["conn_mock"]
 
-    conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 1}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "is_enabled": 1
+    }
 
     is_enabled = extractor._check_query_store_available()
 
@@ -202,7 +307,9 @@ def test_mssql_lineage_extractor_query_store_disabled():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 0}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "is_enabled": 0
+    }
 
     is_enabled = extractor._check_query_store_available()
 
@@ -220,7 +327,9 @@ def test_mssql_lineage_extractor_dmv_permissions_granted():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 1}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 1
+    }
 
     has_permission = extractor._check_dmv_permissions()
 
@@ -238,7 +347,9 @@ def test_mssql_lineage_extractor_dmv_permissions_denied():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 0}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 0
+    }
 
     has_permission = extractor._check_dmv_permissions()
 
@@ -257,13 +368,13 @@ def test_mssql_lineage_extractor_check_prerequisites_query_store():
     )
 
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     conn_mock.execute.side_effect = [version_result, qs_result]
 
@@ -285,16 +396,18 @@ def test_mssql_lineage_extractor_check_prerequisites_dmv_fallback():
     )
 
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 0}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 0}
 
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"has_view_server_state": 1}
+    dmv_result.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 1
+    }
 
     conn_mock.execute.side_effect = [version_result, qs_result, dmv_result]
 
@@ -317,16 +430,18 @@ def test_mssql_lineage_extractor_check_prerequisites_fails():
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 0}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 0}
 
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"has_view_server_state": 0}
+    dmv_result.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 0
+    }
 
     conn_mock.execute.side_effect = [version_result, qs_result, dmv_result]
 
@@ -371,7 +486,7 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     # Mock prerequisites check
@@ -420,7 +535,7 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     with patch.object(
@@ -471,7 +586,7 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     with patch.object(
@@ -501,7 +616,9 @@ def test_mssql_lineage_extractor_handles_extraction_failure():
     )
 
     # Mock database error during extraction
-    conn_mock.execute.side_effect = DatabaseError("statement", "params", "orig")
+    conn_mock.execute.side_effect = DatabaseError(
+        "statement", "params", Exception("orig")
+    )
 
     with patch.object(
         extractor,
@@ -676,7 +793,7 @@ def test_mssql_lineage_extractor_version_check_fails():
     )
 
     # Mock no version result
-    conn_mock.execute.return_value.fetchone.return_value = None
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = None
 
     version = extractor._check_version()
 
@@ -695,7 +812,9 @@ def test_mssql_lineage_extractor_query_store_check_fails():
     )
 
     # Mock database error (e.g., sys.database_query_store_options doesn't exist)
-    conn_mock.execute.side_effect = ProgrammingError("statement", "params", "orig")
+    conn_mock.execute.side_effect = ProgrammingError(
+        "statement", "params", Exception("orig")
+    )
 
     # Should raise the exception (handled by caller)
     with pytest.raises(ProgrammingError):
@@ -735,7 +854,7 @@ def test_mssql_lineage_extractor_malformed_query_text():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     with patch.object(
@@ -764,7 +883,7 @@ def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
 
     # Mock version check to succeed, but Query Store and DMV checks to fail
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
@@ -776,7 +895,7 @@ def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
         if call_count[0] == 1:
             return version_result
         else:
-            raise OperationalError("statement", "params", "orig")
+            raise OperationalError("statement", "params", Exception("orig"))
 
     conn_mock.execute.side_effect = execute_side_effect
 
@@ -799,17 +918,19 @@ def test_mssql_lineage_extractor_fallback_to_dmv():
     )
 
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     # Mock Query Store check fails (not available on this database)
-    qs_error = ProgrammingError("statement", "params", "orig")
+    qs_error = ProgrammingError("statement", "params", Exception("orig"))
 
     # Mock DMV check succeeds
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"has_view_server_state": 1}
+    dmv_result.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 1
+    }
 
     call_count = [0]
 
@@ -1160,19 +1281,21 @@ def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
 
     # Mock version check
     version_result = MagicMock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     # Mock Query Store initially enabled, then disabled
     result_enabled = MagicMock()
-    result_enabled.fetchone.return_value = {"is_enabled": True}
+    result_enabled.mappings.return_value.fetchone.return_value = {"is_enabled": True}
 
     connection_mock.execute.side_effect = [
         version_result,
         result_enabled,
-        ProgrammingError("Query Store is not enabled", None, None),
+        ProgrammingError(
+            "Query Store is not enabled", None, Exception("Query Store is not enabled")
+        ),
     ]
 
     sql_aggregator_mock = MagicMock()
@@ -1206,13 +1329,13 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
 
     # Mock version check to succeed
     version_result = MagicMock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = MagicMock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     call_count = [0]
 
@@ -1223,7 +1346,9 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
         elif call_count[0] == 2:
             return qs_result
         else:
-            raise OperationalError("Timeout expired", None, None)
+            raise OperationalError(
+                "Timeout expired", None, Exception("Timeout expired")
+            )
 
     connection_mock.execute.side_effect = execute_side_effect
 
@@ -1264,30 +1389,26 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     # Mock query results
     query_result = Mock()
-    query_result.__iter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "query_id": "1",
-                    "query_text": query_with_unicode,
-                    "execution_count": 10,
-                    "total_exec_time_ms": 100.0,
-                    "database_name": "TestDB",
-                    "user_name": None,
-                }
-            ]
-        )
-    )
+    query_result.mappings.return_value = [
+        {
+            "query_id": "1",
+            "query_text": query_with_unicode,
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+            "user_name": None,
+        }
+    ]
 
     call_count = [0]
 
@@ -1352,30 +1473,26 @@ def test_mssql_very_long_query_text_handling():
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     # Mock row with very long query text
     query_result = Mock()
-    query_result.__iter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "query_id": "1",
-                    "query_text": long_query,
-                    "execution_count": 10,
-                    "total_exec_time_ms": 100.0,
-                    "database_name": "TestDB",
-                    "user_name": "testuser",
-                }
-            ]
-        )
-    )
+    query_result.mappings.return_value = [
+        {
+            "query_id": "1",
+            "query_text": long_query,
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+            "user_name": "testuser",
+        }
+    ]
 
     call_count = [0]
 
@@ -1449,28 +1566,24 @@ def test_mssql_user_attribution_not_supported():
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     query_result = Mock()
-    query_result.__iter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "query_id": "1",
-                    "query_text": "SELECT * FROM test",
-                    "execution_count": 10,
-                    "total_exec_time_ms": 100.0,
-                    "database_name": "TestDB",
-                }
-            ]
-        )
-    )
+    query_result.mappings.return_value = [
+        {
+            "query_id": "1",
+            "query_text": "SELECT * FROM test",
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+        }
+    ]
 
     call_count = [0]
 

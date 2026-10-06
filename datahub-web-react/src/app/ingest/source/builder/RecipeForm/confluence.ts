@@ -35,7 +35,7 @@ export const CONFLUENCE_API_TOKEN: RecipeField = {
     rules: null,
 };
 
-const spaceAllowFieldPath = 'source.config.space_allow';
+const spaceAllowFieldPath = 'source.config.spaces.allow';
 export const CONFLUENCE_SPACE_ALLOW: RecipeField = {
     name: 'space_allow',
     label: 'Allow Spaces',
@@ -49,7 +49,7 @@ export const CONFLUENCE_SPACE_ALLOW: RecipeField = {
         setListValuesOnRecipe(recipe, values, spaceAllowFieldPath),
 };
 
-const spaceDenyFieldPath = 'source.config.space_deny';
+const spaceDenyFieldPath = 'source.config.spaces.deny';
 export const CONFLUENCE_SPACE_DENY: RecipeField = {
     name: 'space_deny',
     label: 'Deny Spaces',
@@ -63,7 +63,7 @@ export const CONFLUENCE_SPACE_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, spaceDenyFieldPath),
 };
 
-const pageAllowFieldPath = 'source.config.page_allow';
+const pageAllowFieldPath = 'source.config.pages.allow';
 export const CONFLUENCE_PAGE_ALLOW: RecipeField = {
     name: 'page_allow',
     label: 'Allow Pages',
@@ -77,7 +77,7 @@ export const CONFLUENCE_PAGE_ALLOW: RecipeField = {
         setListValuesOnRecipe(recipe, values, pageAllowFieldPath),
 };
 
-const pageDenyFieldPath = 'source.config.page_deny';
+const pageDenyFieldPath = 'source.config.pages.deny';
 export const CONFLUENCE_PAGE_DENY: RecipeField = {
     name: 'page_deny',
     label: 'Deny Pages',

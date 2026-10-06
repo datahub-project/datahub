@@ -28,30 +28,30 @@ export class BusinessAttributePage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.createButton = page.locator('[data-testid="add-business-attribute-button"]');
-    this.addBusinessAttributeButton = page.locator('[data-testid="add-business-attribute-button"]');
-    this.nameInput = page.locator('[data-testid="create-business-attribute-name"]');
+    this.createButton = page.getByTestId('add-business-attribute-button');
+    this.addBusinessAttributeButton = page.getByTestId('add-business-attribute-button');
+    this.nameInput = page.getByTestId('create-business-attribute-name');
+    // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror focused state has no ARIA equivalent
     this.descriptionInput = page.locator('.ProseMirror-focused');
-    this.saveButton = page.locator('[data-testid="create-business-attribute-button"]');
-    this.cancelButton = page.locator('[data-testid="cancel-create-business-attribute-button"]');
-    this.attributeList = page.locator('[data-testid="attribute-list"]');
-    this.dataTypeSelect = page.locator('[data-testid="select-data-type"]');
-    this.editDataTypeButton = page.locator('[data-testid="edit-data-type-button"]');
-    this.addDataTypeOption = page.locator('[data-testid="add-data-type-option"]');
-    this.businessAttributeModalInput = page.locator('[data-testid="business-attribute-modal-input"]');
-    this.businessAttributeOption = page.locator('[data-testid="business-attribute-option"]');
-    this.addAttributeFromModalBtn = page.locator('[data-testid="add-attribute-from-modal-btn"]');
+    this.saveButton = page.getByTestId('create-business-attribute-button');
+    this.cancelButton = page.getByTestId('cancel-create-business-attribute-button');
+    this.attributeList = page.getByTestId('attribute-list');
+    this.dataTypeSelect = page.getByTestId('select-data-type');
+    this.editDataTypeButton = page.getByTestId('edit-data-type-button');
+    this.addDataTypeOption = page.getByTestId('add-data-type-option');
+    this.businessAttributeModalInput = page.getByTestId('business-attribute-modal-input');
+    this.businessAttributeOption = page.getByTestId('business-attribute-option');
+    this.addAttributeFromModalBtn = page.getByTestId('add-attribute-from-modal-btn');
     this.createBusinessAttributeText = page.getByText('Create Business Attribute');
     // In V2 entity view, the more-actions trigger is inside ActionMenuItem with data-testid="view-more-button".
-    this.moreActionsButton = page.locator('[data-testid="view-more-button"]');
-    // Scoped to the Ant Design dropdown menu so "Delete" text in other contexts is not matched.
+    this.moreActionsButton = page.getByTestId('view-more-button');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown menu has no ARIA role; scoping needed to avoid false matches
     this.deleteMenuButton = page.locator('.ant-dropdown-menu').getByText('Delete', { exact: true });
     // Scoped to the confirmation dialog so "Yes" text elsewhere is not matched.
     this.deleteConfirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
     this.relatedEntitiesTab = page.getByText('Related Entities');
-    this.filterEntitiesInput = page.locator('[placeholder="Filter entities..."]');
-    // Scoped to the Ant Design select dropdown portal to avoid matching other option-like elements.
-    // Use .ant-select-item-option (Ant Design v5) since [role="option"] is not present.
+    this.filterEntitiesInput = page.getByPlaceholder('Filter entities...');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design v5 select options lack [role="option"]; no semantic equivalent
     this.dataTypeDropdownOption = page.locator('.ant-select-dropdown .ant-select-item-option');
     this.businessAttributePageTitle = page.getByRole('heading', { name: 'Business Attribute', exact: true });
   }
@@ -128,11 +128,12 @@ export class BusinessAttributePage extends BasePage {
   }
 
   async updateDataType(dataType: string): Promise<void> {
-    // In V2 the edit icon is an img, not a span — target by aria-label on any element type.
-    const editButton = this.editDataTypeButton.locator('[aria-label="edit"]');
+    // In V2 the edit icon is an img, not a span — target by accessible name.
+    const editButton = this.editDataTypeButton.getByRole('img', { name: 'edit' });
     await editButton.hover();
     await editButton.click();
 
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design internal search input class; no data-testid available
     const selectInput = this.addDataTypeOption.locator('.ant-select-selection-search-input');
     await selectInput.click({ force: true });
     // The select input is readonly (showSearch disabled) — fill() will hang.
@@ -202,7 +203,7 @@ export class BusinessAttributePage extends BasePage {
 
   getBusinessAttributeSection(_fieldName: string): Locator {
     // In the V2 entity view, SidebarSection sets data-testid="sidebar-section-content-{title}".
-    return this.page.locator('[data-testid="sidebar-section-content-Business Attribute"]');
+    return this.page.getByTestId('sidebar-section-content-Business Attribute');
   }
 
   async clickAddAttributeButton(fieldName: string): Promise<void> {
@@ -212,7 +213,7 @@ export class BusinessAttributePage extends BasePage {
     // hover so the "Add Attribute" button becomes visible (CSS :hover reveal).
     await section.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
     await section.dispatchEvent('mouseover');
-    const addButton = section.locator('text=Add Attribute');
+    const addButton = section.getByText('Add Attribute');
     // If the attribute is already set (e.g. from seed data), "Add Attribute" won't exist — skip.
     if ((await addButton.count()) === 0) return;
     await addButton.evaluate((el: HTMLElement) => el.click());
@@ -222,6 +223,7 @@ export class BusinessAttributePage extends BasePage {
     // If the modal isn't open (e.g. clickAddAttributeButton returned early), skip.
     if ((await this.businessAttributeModalInput.count()) === 0) return;
     // The Select component requires typing into the inner search input, not fill() on the outer wrapper.
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design internal search input class; no data-testid available
     const searchInput = this.businessAttributeModalInput.locator('.ant-select-selection-search-input');
     await searchInput.fill(attributeName);
     // Wait for options to appear, then use ArrowDown + Enter to select without depending on click position.
@@ -239,8 +241,9 @@ export class BusinessAttributePage extends BasePage {
 
   async removeAttributeFromSection(section: Locator, attributeName: string): Promise<void> {
     await section.waitFor({ state: 'visible', timeout: 15000 });
-    // In V2 the close icon is an img element; use [aria-label="close"] to match both
-    // the old span[aria-label=close] (Ant Design v4) and new img[aria-label="close"] (V2).
+    // In V2 the close icon is an img element; both span and img elements carry aria-label="close"
+    // across Ant Design versions; no single getByRole covers both element types.
+    // eslint-disable-next-line playwright/no-raw-locators -- aria-label on mixed element types (span v4, img v2); no semantic equivalent
     const closeIcon = section.locator('[aria-label="close"]').first();
     // Use evaluate to click directly, bypassing viewport and pointer-event intercept checks.
     await closeIcon.evaluate((el: HTMLElement) => {

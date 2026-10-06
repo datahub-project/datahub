@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.filter;
 
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
@@ -9,6 +10,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.client.EntityGraphCacheClients;
+import com.linkedin.metadata.graph.cache.client.GraphExpandRequest;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -16,7 +22,9 @@ import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -25,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -148,6 +157,17 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
     if (!queryUrns.isEmpty()) {
 
+      TraversalDirection direction =
+          relationshipDirection == RelationshipDirection.INCOMING
+              ? TraversalDirection.REVERSE
+              : TraversalDirection.FORWARD;
+      Optional<TermsQueryBuilder> cached =
+          tryExpandTermsViaEntityGraphCache(
+              opContext, termsQueryBuilder, List.of(direction), limit);
+      if (cached.isPresent()) {
+        return cached.get();
+      }
+
       try (CascadeOperationContext cascade =
           CascadeOperationContext.begin(
               metricUtils, getClass().getSimpleName(), null, -1, "datahub.filter_rewrite")) {
@@ -168,11 +188,18 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     return termsQueryBuilder;
   }
 
+  /**
+   * Matches with or without the {@code .keyword} subfield: Search V3 entity indices filter on the
+   * root field, which has no such subfield.
+   */
   private static boolean matchTermsQueryFieldName(
       QueryBuilder queryBuilder, Set<String> fieldNames) {
     if (queryBuilder instanceof TermsQueryBuilder) {
+      String queryField =
+          StringUtils.removeEnd(((TermsQueryBuilder) queryBuilder).fieldName(), KEYWORD_SUFFIX);
       return fieldNames.stream()
-          .anyMatch(fieldName -> fieldName.equals(((TermsQueryBuilder) queryBuilder).fieldName()));
+          .anyMatch(
+              fieldName -> StringUtils.removeEnd(fieldName, KEYWORD_SUFFIX).equals(queryField));
     }
     return false;
   }
@@ -183,6 +210,56 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
             termsQueryBuilder.fieldName(), values.stream().map(Urn::toString).sorted().toArray())
         .queryName(termsQueryBuilder.queryName())
         .boost(termsQueryBuilder.boost());
+  }
+
+  /** Resolve the graph binding for this rewriter from registry bindings. */
+  @Nonnull
+  protected Optional<EntityGraphBinding> resolveEntityGraphBinding(
+      @Nonnull OperationContext opContext) {
+    return Optional.empty();
+  }
+
+  /**
+   * Attempt cached expansion for the rewriter's bound graph. Returns empty when cache is
+   * unavailable, inactive, or cannot expand all requested directions (caller should use legacy
+   * path).
+   */
+  @Nonnull
+  protected Optional<TermsQueryBuilder> tryExpandTermsViaEntityGraphCache(
+      @Nonnull OperationContext opContext,
+      @Nonnull TermsQueryBuilder termsQueryBuilder,
+      @Nonnull List<TraversalDirection> directions,
+      int limit) {
+    Optional<EntityGraphBinding> binding = resolveEntityGraphBinding(opContext);
+    if (binding.isEmpty()) {
+      return Optional.empty();
+    }
+    Set<String> roots =
+        termsQueryBuilder.values().stream().map(Object::toString).collect(Collectors.toSet());
+    if (roots.isEmpty()) {
+      return Optional.empty();
+    }
+
+    Set<String> union = new LinkedHashSet<>(roots);
+    for (TraversalDirection direction : directions) {
+      GraphReadResult expanded =
+          EntityGraphCacheClients.expand(
+              GraphExpandRequest.builder()
+                  .opContext(opContext)
+                  .cache(opContext.getEntityGraphCache())
+                  .binding(binding.get())
+                  .direction(direction)
+                  .roots(roots)
+                  .limit(limit)
+                  .build());
+      if (expanded.isMiss()) {
+        return Optional.empty();
+      }
+      union.addAll(expanded.verticesOrEmpty());
+    }
+
+    Set<Urn> expandedUrns = union.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+    return Optional.of(expandTermsQueryUrnValues(termsQueryBuilder, expandedUrns));
   }
 
   private void scrollGraph(
@@ -205,8 +282,12 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
     Set<Urn> nextUrns = new HashSet<>();
 
-    Supplier<Boolean> earlyExitCriteria =
-        () -> (queryUrns.size() + visitedUrns.size() + nextUrns.size()) >= limit;
+    // Mark visited before scrolling: the budget below has to count each urn once, and the current
+    // frontier is already part of the expanded set. Counting queryUrns separately charged them
+    // twice, which cost a multi-urn filter its whole expansion budget.
+    visitedUrns.addAll(queryUrns);
+
+    Supplier<Boolean> earlyExitCriteria = () -> (visitedUrns.size() + nextUrns.size()) >= limit;
 
     Function<RelatedEntitiesScrollResult, Boolean> consumer =
         result -> {
@@ -236,14 +317,17 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
         null,
         null);
 
-    // mark visited
-    visitedUrns.addAll(queryUrns);
-
     if (cascade != null && !nextUrns.isEmpty()) {
       cascade.recordEntitiesProcessed(nextUrns.size());
     }
     if (earlyExitCriteria.get()) {
       visitedUrns.addAll(nextUrns);
+      log.warn(
+          "{} truncated filter expansion for {} at limit {}; the filter is incomplete and results "
+              + "may be missing. Raise the expansion limit for this rewriter if this is expected.",
+          getClass().getSimpleName(),
+          getRewriterFieldNames(),
+          limit);
     } else if (!nextUrns.isEmpty()) {
       // next hop
       scrollGraph(

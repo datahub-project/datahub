@@ -350,3 +350,18 @@ def test_datahub_source_no_warning_with_default_urn_pattern():
         "urn_pattern_override" in str(w) for w in source.report.warnings
     )
     assert not warning_found, "Unexpected urn_pattern_override warning found"
+
+
+def test_soft_deleted_urns_query_uses_dialect_aware_json_extraction(mock_reader):
+    """soft_deleted_urns_query must render valid SQL for both PostgreSQL and MySQL."""
+    mock_reader.engine.dialect.name = "postgresql"
+    query = mock_reader.soft_deleted_urns_query
+    assert "JSON_EXTRACT" not in query
+    assert "((metadata::json)->>'removed')::boolean" in query
+    # Double-quoted "status" would be parsed as an identifier by PostgreSQL
+    assert "aspect = 'status'" in query
+
+    mock_reader.engine.dialect.name = "mysql"
+    query = mock_reader.soft_deleted_urns_query
+    assert "JSON_EXTRACT(metadata, '$.removed')" in query
+    assert "aspect = 'status'" in query

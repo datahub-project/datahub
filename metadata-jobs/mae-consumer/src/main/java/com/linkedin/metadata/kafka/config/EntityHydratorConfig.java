@@ -26,6 +26,6 @@ public class EntityHydratorConfig {
   public EntityHydrator getEntityHydrator(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Qualifier("systemEntityClient") final SystemEntityClient entityClient) {
-    return new EntityHydrator(systemOperationContext, entityClient);
+    return new EntityHydrator(systemOperationContext.getEntityRegistry(), entityClient);
   }
 }

@@ -18,7 +18,6 @@ Create a policy with the following permissions and attach it to the AWS role or 
         "athena:StartQueryExecution",
         "athena:GetQueryResults",
         "athena:GetDatabase",
-        "athena:ListDataCatalogs",
         "athena:GetDataCatalog",
         "athena:ListQueryExecutions",
         "athena:GetWorkGroup",
@@ -68,6 +67,12 @@ Create a policy with the following permissions and attach it to the AWS role or 
         "arn:aws:s3:::${athena-query-result-bucket}/*",
         "arn:aws:s3:::${athena-query-result-bucket}"
       ]
+    },
+    {
+      "Sid": "VisualEditor2",
+      "Effect": "Allow",
+      "Action": ["athena:ListDataCatalogs"],
+      "Resource": ["*"]
     }
   ]
 }

@@ -2,6 +2,8 @@ package com.linkedin.metadata.aspect.patch.template;
 
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.StructuredPropertiesTemplate;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -10,7 +12,9 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -130,6 +134,45 @@ public class StructuredPropertiesTemplateTest {
         propUrns.contains("urn:li:structuredProperty:propA"), "propA should be present");
     Assert.assertTrue(
         propUrns.contains("urn:li:structuredProperty:propB"), "propB should be present");
+  }
+
+  @Test
+  public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
+    // Regression: StructuredPropertiesPatchBuilder.set*Property emits /properties/<urn>/ paired
+    // with APK [propertyUrn, attribution_source]; previously threw on an empty aspect.
+    StructuredProperties initial = new StructuredProperties();
+    initial.setProperties(new StructuredPropertyValueAssignmentArray());
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/properties/urn:li:structuredProperty:propA/");
+    addOp.setValue(
+        Json.createObjectBuilder()
+            .add("propertyUrn", "urn:li:structuredProperty:propA")
+            .add(
+                "values",
+                Json.createArrayBuilder().add(Json.createObjectBuilder().add("string", "v1")))
+            .build());
+
+    GenericJsonPatch patch =
+        GenericJsonPatch.builder()
+            .patch(List.of(addOp))
+            .arrayPrimaryKeys(
+                Map.of("properties", Arrays.asList("propertyUrn", "attribution␟source")))
+            .build();
+
+    StructuredProperties result =
+        GenericPatchTemplate.<StructuredProperties>builder()
+            .genericJsonPatch(patch)
+            .templateType(StructuredProperties.class)
+            .templateDefault(new StructuredPropertiesTemplate().getDefault())
+            .build()
+            .applyPatch(initial);
+
+    Assert.assertEquals(result.getProperties().size(), 1);
+    Assert.assertEquals(
+        result.getProperties().get(0).getPropertyUrn().toString(),
+        "urn:li:structuredProperty:propA");
   }
 
   @Test

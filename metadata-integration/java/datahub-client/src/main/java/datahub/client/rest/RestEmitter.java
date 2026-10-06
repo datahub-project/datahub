@@ -17,7 +17,6 @@ import datahub.client.MetadataWriteResponse;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
@@ -161,7 +160,6 @@ public class RestEmitter implements Emitter {
     }
     // Read response content
     try {
-      ByteArrayOutputStream result = new ByteArrayOutputStream();
       builder.responseContent(response.getBody().getBodyText());
     } catch (Exception e) {
       // Catch all exceptions and still return a valid response object

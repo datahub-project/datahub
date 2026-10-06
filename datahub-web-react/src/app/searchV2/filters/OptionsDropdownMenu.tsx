@@ -1,11 +1,14 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Button } from 'antd';
-import React from 'react';
+import React, { CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
+const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -43,11 +46,6 @@ const LoadingWrapper = styled.div`
     display: flex;
     justify-content: center;
     padding: 9px;
-
-    svg {
-        height: 16px;
-        width: 16px;
-    }
 `;
 
 interface Props {
@@ -73,6 +71,7 @@ export default function OptionsDropdownMenu({
     type = 'card',
     className,
 }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
 
@@ -100,18 +99,18 @@ export default function OptionsDropdownMenu({
                         onQueryChange={updateSearchQuery}
                         entityRegistry={entityRegistry}
                         textColor={theme.colors.text}
-                        placeholderColor={theme.colors.textDisabled}
+                        placeholderColor={theme.colors.textPlaceholder}
                     />
                 )}
-                {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}
+                {React.cloneElement(menu as React.ReactElement, { style: STYLE_NO_SHADOW })}
                 {isLoading && (
                     <LoadingWrapper>
-                        <LoadingOutlined />
+                        <Loader size="xs" />
                     </LoadingWrapper>
                 )}
             </ScrollableContent>
             <StyledButton id="updateFiltersButton" type="text" onClick={updateFilters} data-testid="update-filters">
-                Update
+                {tc('update')}
             </StyledButton>
         </DropdownMenu>
     );

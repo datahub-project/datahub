@@ -1,6 +1,8 @@
-import { FormOutlined, SearchOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
@@ -39,7 +41,7 @@ const StyledSearchBar = styled(Input)`
     font-size: 16px;
 `;
 
-const StyledSearchOutlined = styled(SearchOutlined)`
+const StyledSearchOutlined = styled(MagnifyingGlass)`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
@@ -75,7 +77,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
+        logoComponent = <PencilLine style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
     }
 
     return (
@@ -85,6 +87,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
             logoUrl={logoUrl}
             description={description}
             logoComponent={logoComponent}
+            dataTestId={`source-option-${name}`}
         />
     );
 }
@@ -99,6 +102,7 @@ export const SelectTemplateStep = ({
     ingestionSources,
     setSelectedSourceType,
 }: StepProps) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [searchFilter, setSearchFilter] = useState('');
 
     // Callback ref that focuses immediately when the element is attached
@@ -143,7 +147,8 @@ export const SelectTemplateStep = ({
                 <SearchBarContainer>
                     <StyledSearchBar
                         ref={searchInputCallbackRef}
-                        placeholder="Search data sources..."
+                        data-testid="source-type-search-input"
+                        placeholder={t('selectTemplate.searchPlaceholder')}
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
                         allowClear
@@ -160,7 +165,7 @@ export const SelectTemplateStep = ({
                             />
                         ))
                     ) : (
-                        <NoResultsMessage>Data Source with name &quot;{searchFilter}&quot; not found.</NoResultsMessage>
+                        <NoResultsMessage>{t('selectTemplate.noResults', { searchFilter })}</NoResultsMessage>
                     )}
                 </PlatformListContainer>
             </Section>

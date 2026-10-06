@@ -1,6 +1,7 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import { Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -12,9 +13,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, Maybe } from '@types';
 
-import ExternalLink from '@images/link-out.svg?react';
-
-const Linkicon = styled(Icon)<{ $isSelected: boolean }>`
+const Linkicon = styled(ArrowSquareOut)<{ $isSelected: boolean }>`
     && {
         color: ${(props) => props.theme.colors.iconBrand};
         ${(props) => !props.$isSelected && 'display: none;'}
@@ -36,6 +35,7 @@ const EmptySpace = styled.span`
 `;
 
 const EntityLink = ({ entity, targetNode }: Props) => {
+    const { t } = useTranslation('search');
     const registry = useEntityRegistry();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
@@ -49,10 +49,10 @@ const EntityLink = ({ entity, targetNode }: Props) => {
     if (!entityUrl) return null;
 
     return (
-        <Tooltip placement="top" title={`View ${displayName} profile`} mouseEnterDelay={1}>
+        <Tooltip placement="top" title={t('sidebar.viewEntityProfile', { name: displayName })} mouseEnterDelay={1}>
             <Link to={entityUrl}>
                 <ExpandableNode.StaticButton
-                    icon={<Linkicon $isSelected={isBrowsePathSelected} component={ExternalLink} />}
+                    icon={<Linkicon $isSelected={isBrowsePathSelected} size={12} />}
                     onClick={onClickButton}
                 />
             </Link>

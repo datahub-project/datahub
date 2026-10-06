@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentSubTypeInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -61,7 +62,8 @@ public class UpdateDocumentSubTypeResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(TEST_SUB_TYPE),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -81,7 +83,8 @@ public class UpdateDocumentSubTypeResolverTest {
 
     // Verify service was NOT called
     verify(mockService, times(0))
-        .updateDocumentSubType(any(OperationContext.class), any(), any(), any());
+        .updateDocumentSubType(
+            any(OperationContext.class), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -100,7 +103,11 @@ public class UpdateDocumentSubTypeResolverTest {
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
         .updateDocumentSubType(
-            any(OperationContext.class), any(Urn.class), any(String.class), any(Urn.class));
+            any(OperationContext.class),
+            any(Urn.class),
+            any(String.class),
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
 
     // Execute and expect exception
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -130,6 +137,7 @@ public class UpdateDocumentSubTypeResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(customType),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 }

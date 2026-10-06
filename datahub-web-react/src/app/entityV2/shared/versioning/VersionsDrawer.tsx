@@ -1,17 +1,17 @@
-import { CloseOutlined } from '@ant-design/icons';
-import { Icon, Input, Table, Text } from '@components';
+import { Button, Drawer, Input, Menu, OverflowText, Pagination, Table, Text } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { Drawer, Dropdown, Pagination, Typography } from 'antd';
-import { ItemType } from 'antd/es/menu/hooks/useItems';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
+import { ItemType } from '@components/components/Menu/types';
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -23,30 +23,7 @@ import { FilterOperator } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 const PAGE_SIZE = 10;
-
-const COLUMNS = [
-    {
-        title: 'Name',
-        dataIndex: 'label',
-        key: 'name',
-    },
-    {
-        title: 'Note',
-        dataIndex: 'comment',
-        key: 'notes',
-        width: '200px',
-    },
-    {
-        title: 'Created',
-        dataIndex: 'createdAt',
-        key: 'created',
-    },
-    {
-        title: '',
-        dataIndex: 'menu',
-        key: 'menu',
-    },
-];
+const TIMESTAMP_FORMAT = 'MMMM D, YYYY h:mm A';
 
 const LinkOutIcon = styled(LinkOut)`
     width: 14px;
@@ -60,40 +37,10 @@ const Contents = styled.div`
     gap: 18px;
 `;
 
-const Title = styled(Text)`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-`;
-
-const CloseIcon = styled.div`
-    color: ${(props) => props.theme.colors.textTertiary};
-    cursor: pointer;
-`;
-
-const MenuIcon = styled(Icon)`
-    border-radius: 200px;
-    border: ${(props) => props.theme.colors.border} 1px solid;
-    cursor: pointer;
-    transition: border 0.3s ease;
-
-    svg {
-        padding: 2px; // To match 3 dot icon in EntityDropdown
-    }
-
-    :hover {
-        border: ${(props) => props.theme.colors.borderBrand} 1px solid;
-    }
-`;
-
 const MenuItemText = styled(Text)`
     display: flex;
     align-items: center;
     gap: 12px;
-`;
-
-const StyledDropdown = styled(Dropdown)`
-    border-radius: 100px;
 `;
 
 interface Props {
@@ -101,10 +48,43 @@ interface Props {
     open: boolean;
 }
 
+const VersionLabelCell = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
     const { setDrawer } = useEntityContext();
+    const { urn: entityProfileUrn } = useEntityData();
+
+    const columns = [
+        {
+            title: tcl('name'),
+            dataIndex: 'label',
+            key: 'name',
+        },
+        {
+            title: t('noteColumn'),
+            dataIndex: 'comment',
+            key: 'notes',
+            width: '200px',
+        },
+        {
+            title: tcl('created'),
+            dataIndex: 'createdAt',
+            key: 'created',
+        },
+        {
+            title: '',
+            dataIndex: 'menu',
+            key: 'menu',
+        },
+    ];
 
     const [searchInput, setSearchInput] = useState<string>('');
     const [query, setQuery] = useState<string>('');
@@ -131,25 +111,33 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                         ],
                     },
                 ],
+                searchFlags: { includeHiddenLifecycleStages: true },
             },
         },
     });
 
     const tableData = data?.versionSet?.versionsSearch?.searchResults?.map((version) => {
         const { urn, type } = version.entity;
-        const versionProperties = entityRegistry.getGenericEntityProperties(type, version.entity)?.versionProperties;
+        const genericProps = entityRegistry.getGenericEntityProperties(type, version.entity);
+        const versionProperties = genericProps?.versionProperties;
+        const status = genericProps?.status;
+        const isViewing = urn === entityProfileUrn;
         const items: ItemType[] = [
             {
+                type: 'item',
                 key: 'COPY',
-                label: <SimpleCopyLinkMenuItem urn={urn} entityType={type} text="Copy Version Link" />,
+                title: t('copyVersionLink'),
+                render: () => <SimpleCopyLinkMenuItem urn={urn} entityType={type} text={t('copyVersionLink')} />,
             },
             {
+                type: 'item',
                 key: 'OPEN',
-                label: (
+                title: tc('open'),
+                render: () => (
                     <Link to={entityRegistry.getEntityUrl(type, urn)} onClick={() => setDrawer?.(undefined)}>
                         <MenuItemText>
                             <LinkOutIcon />
-                            Open
+                            {tc('open')}
                         </MenuItemText>
                     </Link>
                 ),
@@ -159,24 +147,34 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
         return {
             urn,
             label: (
-                <VersionPill
-                    label={versionProperties?.version?.versionTag || '<unlabeled>'}
-                    isLatest={versionProperties?.isLatest}
-                />
+                <VersionLabelCell>
+                    {/* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */}
+                    <VersionPill
+                        label={versionProperties?.version?.versionTag || '<unlabeled>'}
+                        isLatest={versionProperties?.isLatest}
+                    />
+                    {/* eslint-enable i18next/no-literal-string */}
+                    <LifecycleStageBadge lifecycleStage={status?.lifecycleStage} />
+                    {isViewing && (
+                        <Text size="md" color="gray" colorLevel={1800} weight="semiBold">
+                            {t('viewing')}
+                        </Text>
+                    )}
+                </VersionLabelCell>
             ),
-            comment: <Typography.Text ellipsis={{ tooltip: true }}>{versionProperties?.comment}</Typography.Text>,
+            comment: <OverflowText text={versionProperties?.comment || ''} />,
             createdAt: (
                 <StructuredPopover
                     width={250}
                     placement="topRight"
                     sections={[
                         {
-                            title: 'Created in Source',
-                            content: dayjs(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
+                            title: t('createdInSource'),
+                            content: dayjs(versionProperties?.createdInSource?.time).format(TIMESTAMP_FORMAT),
                         },
                         {
-                            title: 'Synced to DataHub',
-                            content: dayjs(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
+                            title: t('syncedToDataHub'),
+                            content: dayjs(versionProperties?.created?.time).format(TIMESTAMP_FORMAT),
                         },
                     ]}
                 >
@@ -184,46 +182,33 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                 </StructuredPopover>
             ),
             menu: (
-                <StyledDropdown
-                    menu={{ items, style: { borderRadius: '12px', boxShadow: theme.colors.shadowLg } }}
-                    trigger={['click']}
-                    overlayStyle={{ borderRadius: '100px' }}
-                >
-                    <MenuIcon icon={DotsThreeVertical} size="2xl" color="gray" />
-                </StyledDropdown>
+                <Menu items={items} trigger={['click']}>
+                    <Button
+                        variant="text"
+                        icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'icon' }}
+                        isCircle
+                    />
+                </Menu>
             ),
         };
     });
 
     return (
-        <Drawer
-            title={
-                <Title size="xl" color="gray" colorLevel={600} weight="semiBold">
-                    Versions
-                    <CloseIcon onClick={() => setDrawer?.(undefined)}>
-                        <CloseOutlined />
-                    </CloseIcon>
-                </Title>
-            }
-            open={open}
-            width="542px"
-            onClose={() => setDrawer?.(undefined)}
-            closable={false}
-        >
+        <Drawer title={t('versionsTitle')} open={open} width="542px" onClose={() => setDrawer?.(undefined)}>
             <Contents>
                 <Input
                     label=""
-                    placeholder="Search versions by name..."
+                    placeholder={t('searchPlaceholder')}
                     icon={{ icon: MagnifyingGlass }}
                     value={searchInput}
                     setValue={setSearchInput}
                 />
-                <Table data={tableData || []} columns={COLUMNS} />
+                <Table data={tableData || []} columns={columns} />
                 <Pagination
-                    pageSize={PAGE_SIZE}
-                    current={page}
-                    onChange={setPage}
-                    total={data?.versionSet?.versionsSearch?.total}
+                    itemsPerPage={PAGE_SIZE}
+                    currentPage={page}
+                    onPageChange={setPage}
+                    total={data?.versionSet?.versionsSearch?.total ?? 0}
                     hideOnSinglePage
                 />
             </Contents>

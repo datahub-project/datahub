@@ -15,13 +15,14 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     JobContainerSubTypes,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    QueryLanguageClass,
     SubTypesClass,
 )
 
@@ -46,6 +47,18 @@ class ProcedureLineageStream:
         return {
             f"{dep.db}.{dep.schema}.{dep.name}": dep.type for dep in self.dependencies
         }
+
+
+@dataclass
+class ProcedureDependencies:
+    """Catalogue dependencies per direction; None where the query couldn't be read.
+
+    None and an empty stream are different: the caller omits the property for None so
+    an unreadable direction isn't reported as "no dependencies".
+    """
+
+    upstream: Optional[ProcedureLineageStream]
+    downstream: Optional[ProcedureLineageStream]
 
 
 @dataclass
@@ -147,7 +160,7 @@ class StoredProcedure:
             comment=None,
             argument_signature=None,
             return_type=None,
-            language="SQL",
+            language=QueryLanguageClass.SQL,
             extra_properties=None,
         )
 

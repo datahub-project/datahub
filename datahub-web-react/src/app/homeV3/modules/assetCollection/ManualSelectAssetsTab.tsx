@@ -1,6 +1,7 @@
 import { Checkbox, Loader, SearchBar, Text } from '@components';
 import { Divider } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EntityItem from '@app/homeV3/module/components/EntityItem';
@@ -25,10 +26,14 @@ const ResultsContainer = styled.div`
     position: relative;
     max-height: 300px;
     padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const ScrollableResultsContainer = styled.div`
-    max-height: inherit;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
 `;
 
@@ -36,16 +41,24 @@ const Container = styled.div`
     display: flex;
     width: 100%;
     gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 const LeftSection = styled.div`
     flex: 6;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const RightSection = styled.div`
     flex: 4;
     width: calc(40% - 20px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const VerticalDivider = styled(Divider)`
@@ -57,12 +70,17 @@ const SearchHeader = styled(Text)`
     margin-bottom: 8px;
 `;
 
+const HintText = styled(Text)`
+    flex-shrink: 0;
+`;
+
 type Props = {
     selectedAssetUrns: string[];
     setSelectedAssetUrns: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
+    const { t } = useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
 
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
@@ -116,29 +134,34 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     }
 
     return (
-        <Container>
-            <LeftSection>
-                <SearchHeader weight="bold">Search and Select Assets</SearchHeader>
-                <SearchBar value={searchQuery} onChange={handleSearchChange} />
-                <AssetFilters
-                    searchQuery={searchQuery}
-                    appliedFilters={appliedFilters}
-                    updateFieldFilters={updateFieldFilters}
-                />
-                <ResultsContainer>
-                    <ScrollableResultsContainer data-testid="select-assets-search-results">
-                        {content}
-                    </ScrollableResultsContainer>
-                </ResultsContainer>
-            </LeftSection>
-            <VerticalDivider type="vertical" />
-            <RightSection>
-                <SelectedAssetsSection
-                    selectedAssetUrns={selectedAssetUrns}
-                    setSelectedAssetUrns={setSelectedAssetUrns}
-                />
-            </RightSection>
-        </Container>
+        <>
+            <Container>
+                <LeftSection>
+                    <SearchHeader weight="bold">{t('assetCollection.searchAndSelectHeader')}</SearchHeader>
+                    <SearchBar value={searchQuery} onChange={handleSearchChange} />
+                    <AssetFilters
+                        searchQuery={searchQuery}
+                        appliedFilters={appliedFilters}
+                        updateFieldFilters={updateFieldFilters}
+                    />
+                    <ResultsContainer>
+                        <ScrollableResultsContainer data-testid="select-assets-search-results">
+                            {content}
+                        </ScrollableResultsContainer>
+                    </ResultsContainer>
+                </LeftSection>
+                <VerticalDivider type="vertical" />
+                <RightSection>
+                    <SelectedAssetsSection
+                        selectedAssetUrns={selectedAssetUrns}
+                        setSelectedAssetUrns={setSelectedAssetUrns}
+                    />
+                </RightSection>
+            </Container>
+            <HintText size="sm" color="gray" data-testid="manual-view-all-hint">
+                {t('assetCollection.viewAllManualHint')}
+            </HintText>
+        </>
     );
 };
 

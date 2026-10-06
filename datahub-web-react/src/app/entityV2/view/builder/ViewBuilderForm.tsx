@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -9,14 +10,17 @@ import { Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 
 import { DataHubViewType } from '@types';
 
-const FormSection = styled.div`
-    margin-bottom: 12px;
+const FormContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
-const VIEW_TYPE_OPTIONS = [
-    { value: DataHubViewType.Personal, label: 'Private', description: 'Only visible to you' },
-    { value: DataHubViewType.Global, label: 'Public', description: 'Visible to everyone' },
-];
+const FormSection = styled.div`
+    margin-bottom: 12px;
+    flex-shrink: 0;
+`;
 
 type Props = {
     urn?: string;
@@ -26,7 +30,13 @@ type Props = {
 };
 
 export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
+    const { t } = useTranslation('entity.views');
     const userContext = useUserContext();
+
+    const VIEW_TYPE_OPTIONS = [
+        { value: DataHubViewType.Personal, label: t('typePrivate'), description: t('typePrivateTooltip') },
+        { value: DataHubViewType.Global, label: t('typePublic'), description: t('typePublicTooltip') },
+    ];
 
     const setName = (name: string) => {
         updateState({
@@ -53,12 +63,13 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     const isDisabled = mode === ViewBuilderMode.PREVIEW;
 
     return (
-        <div data-testid="view-builder-form">
+        <FormContainer data-testid="view-builder-form">
             <FormSection>
                 <Input
-                    label="Name"
+                    label={t('viewForm.nameLabel')}
                     data-testid="view-name-input"
-                    placeholder="Data Analyst"
+                    inputTestId="view-name-input-inner"
+                    placeholder={t('viewForm.namePlaceholder')}
                     value={state.name || ''}
                     onChange={(e) => setName(e.target.value)}
                     isDisabled={isDisabled}
@@ -68,9 +79,9 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
             </FormSection>
             <FormSection>
                 <TextArea
-                    label="Description"
+                    label={t('viewForm.descriptionLabel')}
                     data-testid="view-description-input"
-                    placeholder="This view contains certified datasets, dashboards, and documents for use by data analysts"
+                    placeholder={t('viewForm.descriptionPlaceholder')}
                     value={state.description || ''}
                     onChange={(e) => setDescription(e.target.value)}
                     isDisabled={isDisabled}
@@ -78,7 +89,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
             </FormSection>
             <FormSection>
                 <SimpleSelect
-                    label="Type"
+                    label={t('viewForm.typeLabel')}
                     options={VIEW_TYPE_OPTIONS}
                     values={state.viewType ? [state.viewType] : []}
                     onUpdate={setViewType}
@@ -89,6 +100,6 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                 />
             </FormSection>
             <ViewDefinitionBuilder mode={mode} state={state} updateState={updateState} />
-        </div>
+        </FormContainer>
     );
 };

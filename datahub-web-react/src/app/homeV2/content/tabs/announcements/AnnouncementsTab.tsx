@@ -24,7 +24,7 @@ export const AnnouncementsTab = () => {
     return (
         <>
             {loading && <AnnouncementsSkeleton />}
-            <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID}>
+            <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID} data-testid="home-page-announcements">
                 {sortedAnnouncements?.length ? (
                     sortedAnnouncements.map((announcement) => (
                         <AnnouncementCard

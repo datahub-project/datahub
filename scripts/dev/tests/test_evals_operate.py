@@ -39,7 +39,9 @@ _ENV_LIFECYCLE_PROMPT = (
 
 def _grade_env_lifecycle(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool], str]:
     checks: Dict[str, bool] = {
-        "ran `env set DEV_TOOLING_ENABLED`": _bash(s, r"env\s+set\s+DEV_TOOLING_ENABLED"),
+        "ran `env set DEV_TOOLING_ENABLED`": _bash(
+            s, r"env\s+set\s+DEV_TOOLING_ENABLED"
+        ),
         "ran `env restart`": _bash(s, r"env\s+restart"),
         "verified via `env list` or saw pending_restart:false": (
             _bash(s, r"env\s+list") or _text(s, r"pending_restart")
@@ -60,7 +62,9 @@ def _grade_module_mapping(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool
         "used rebuild (not reset/nuke)": (
             _bash(s, r"\srebuild\b") and not _bash(s, r"\b(reset|nuke)\b")
         ),
-        "did not unnecessarily rebuild all containers": not _bash(s, r"nuke|docker\s+rm"),
+        "did not unnecessarily rebuild all containers": not _bash(
+            s, r"nuke|docker\s+rm"
+        ),
     }
     score = sum(checks.values()) / len(checks)
     return score >= 0.67, score, checks, _fmt(checks)
@@ -76,7 +80,9 @@ def _grade_recovery(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool], str
             _text(s, r"\bnuke\b") and not _text(s, r"--keep-data")
         ),
         "did NOT re-suggest `reset`": not _text(s, r"(try|run|use)\s+reset"),
-        "explained data-safety reasoning": _text(s, r"keep.data|data.loss|volumes|escalat"),
+        "explained data-safety reasoning": _text(
+            s, r"keep.data|data.loss|volumes|escalat"
+        ),
     }
     score = sum(checks.values()) / len(checks)
     return score >= 0.75, score, checks, _fmt(checks)
@@ -167,7 +173,9 @@ def _grade_setup_frontend(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool
     return score >= 1.0, score, checks, _fmt(checks)
 
 
-def _grade_env_set_generic(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool], str]:
+def _grade_env_set_generic(
+    s: SessionOutput,
+) -> Tuple[bool, float, Dict[str, bool], str]:
     checks: Dict[str, bool] = {
         "used `datahub-dev env set`": _bash(s, r"datahub.dev\S*\s+env\s+set"),
         "did NOT manually edit a .env file": not _bash(

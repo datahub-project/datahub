@@ -31,5 +31,42 @@ source:
     #   - "ACCOUNTING_DB.*.*"
     #   - "MARKETING_DB.*.*"
 
+    # (Optional) Ingest INTERNAL marketplace (private data sharing) listings as Data Products
+    # NOTE: This is for INTERNAL marketplace only, not the public Snowflake Data Marketplace
+    # marketplace:
+    #   enabled: true
+    #   marketplace_mode: "consumer"  # Options: "consumer" (default), "provider", "both"
+    #   internal_marketplace_listing_pattern:
+    #     allow: [".*"]
+    #   internal_marketplace_owner_patterns:
+    #     "^Customer.*": ["data-team"]
+    #     "^Finance.*": ["finance-team"]
+    #   fetch_internal_marketplace_listing_details: false
+    #   marketplace_properties_as_structured_properties: false
+    #   # Time window for marketplace usage statistics (optional)
+    #   # start_time: "-7 days"  # Default: -1 day
+    #   # end_time: "now"
+    #   # bucket_duration: "DAY"  # Options: "DAY", "HOUR"
+    
+    # (Optional) Map data products to domains using purchased database names
+    # domain:
+    #   "urn:li:domain:finance":
+    #     allow: ["^FINANCE_.*", "^FIN_.*"]
+    #   "Marketing":
+    #     allow: ["^MARKETING_.*", "^MKT_.*"]
+    
+    # (REQUIRED for marketplace) Link imported databases to their source shares/listings
+    # Without this, Data Products will be created but won't have any associated datasets
+    # Run: SHOW SHARES; and SELECT DATABASE_NAME FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES WHERE TYPE='IMPORTED DATABASE';
+    # shares:
+    #   <SHARE_NAME>:
+    #     database: "<SOURCE_DATABASE>"  # Database in the share
+    #     platform_instance: null
+    #     consumers:
+    #       - database: "<IMPORTED_DATABASE>"  # Your purchased/imported database
+    #         platform_instance: null
+    #         # (Optional) Explicit marketplace listing mapping for precise linking
+    #         # listing_global_name: "ACME.DATA.LISTING"  # From: SHOW AVAILABLE LISTINGS
+
 # Default sink is datahub-rest and doesn't need to be configured
 # See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

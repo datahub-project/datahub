@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import TimelineSkeleton from '@app/entityV2/shared/TimelineSkeleton';
 import IncidentActivityAvatar from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivityAvatar';
@@ -17,9 +18,10 @@ type IncidentActivitySectionProps = {
 };
 
 export const IncidentActivitySection = ({ loading, renderActivities }: IncidentActivitySectionProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     return (
         <ActivitySection>
-            <ActivityLabelSection>Activity</ActivityLabelSection>
+            <ActivityLabelSection>{t('activity.title')}</ActivityLabelSection>
             {loading ? (
                 <TimelineSkeleton />
             ) : (

@@ -12,7 +12,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchUnsetApplicationInput;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -30,6 +34,7 @@ public class BatchUnsetApplicationResolverTest {
   private BatchUnsetApplicationResolver resolver;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
+  private Set<Urn> existingUrns;
 
   @BeforeMethod
   public void setupTest() {
@@ -38,9 +43,22 @@ public class BatchUnsetApplicationResolverTest {
     mockContext = getMockAllowContext(TEST_ACTOR_URN);
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    existingUrns = new HashSet<>();
+    // Mirrors the real contract: returns the subset of the requested urns that exist.
+    Mockito.when(mockApplicationService.filterExistingEntities(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Collection<Urn> requested = invocation.getArgument(1);
+              return requested.stream().filter(existingUrns::contains).collect(Collectors.toSet());
+            });
   }
 
   private void mockExists(Urn urn, boolean exists) {
+    if (exists) {
+      existingUrns.add(urn);
+    } else {
+      existingUrns.remove(urn);
+    }
     Mockito.when(mockApplicationService.verifyEntityExists(any(), eq(urn))).thenReturn(exists);
   }
 
@@ -141,13 +159,18 @@ public class BatchUnsetApplicationResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    // Verify that all resources were checked for existence
+    // All resources are checked for existence in a single request; the application is checked
+    // separately since it is not part of the resource list.
     Mockito.verify(mockApplicationService, Mockito.times(1))
-        .verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)));
-    Mockito.verify(mockApplicationService, Mockito.times(1))
-        .verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)));
+        .filterExistingEntities(
+            any(),
+            eq(
+                ImmutableList.of(
+                    UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))));
     Mockito.verify(mockApplicationService, Mockito.times(1))
         .verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_APPLICATION_URN)));
+    Mockito.verify(mockApplicationService, Mockito.never())
+        .verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)));
 
     // Verify batchUnsetApplication was called with correct parameters
     Mockito.verify(mockApplicationService, Mockito.times(1))

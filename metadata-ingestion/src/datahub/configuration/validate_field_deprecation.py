@@ -1,13 +1,10 @@
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import Any, Optional, Type
 
 from pydantic import model_validator
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.utilities.global_warning_util import add_global_warning
-
-if TYPE_CHECKING:
-    from pydantic.deprecated.class_validators import V1RootValidator
 
 _unset = object()
 
@@ -16,7 +13,7 @@ def pydantic_field_deprecated(
     field: str,
     warn_if_value_is_not: Any = _unset,
     message: Optional[str] = None,
-) -> "V1RootValidator":
+) -> Any:
     if message:
         output = message
     else:

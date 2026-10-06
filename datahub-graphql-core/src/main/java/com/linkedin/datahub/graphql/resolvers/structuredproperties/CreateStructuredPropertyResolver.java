@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.applyProposalUiSource;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 import static com.linkedin.metadata.Constants.*;
 
@@ -29,6 +30,7 @@ import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -66,7 +68,9 @@ public class CreateStructuredPropertyResolver
             final Urn propertyUrn =
                 EntityKeyUtils.convertEntityKeyToUrn(key, STRUCTURED_PROPERTY_ENTITY_NAME);
 
-            if (_entityClient.exists(context.getOperationContext(), propertyUrn)) {
+            if (_entityClient.exists(
+                context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                propertyUrn)) {
               throw new IllegalArgumentException(
                   "A structured property already exists with this urn");
             }
@@ -166,10 +170,13 @@ public class CreateStructuredPropertyResolver
     if (input.getCardinality() != null) {
       builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
     }
+    if (input.getAllowedPlatforms() != null) {
+      input.getAllowedPlatforms().forEach(builder::addAllowedPlatform);
+    }
     builder.setCreated(context.getOperationContext().getAuditStamp());
     builder.setLastModified(context.getOperationContext().getAuditStamp());
 
-    return builder.build();
+    return applyProposalUiSource(builder.build());
   }
 
   private void buildTypeQualifier(
@@ -197,7 +204,7 @@ public class CreateStructuredPropertyResolver
                 primitiveValue.setString(allowedValueInput.getStringValue());
               }
               if (allowedValueInput.getNumberValue() != null) {
-                primitiveValue.setDouble(allowedValueInput.getNumberValue().doubleValue());
+                primitiveValue.setDouble(allowedValueInput.getNumberValue());
               }
               value.setValue(primitiveValue);
               value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);

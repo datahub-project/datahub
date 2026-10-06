@@ -18,7 +18,12 @@ public enum SchemaIdOrdinal {
   METADATA_CHANGE_EVENT_V1(5),
   FAILED_METADATA_CHANGE_EVENT_V1(6),
   METADATA_AUDIT_EVENT_V1(7),
-  DATAHUB_UPGRADE_HISTORY_EVENT(8),
+  /**
+   * Reserved former DataHubUpgradeHistoryEvent wire id. Do not assign this id to a new OSS event
+   * schema. Kept occupied so leftover Kafka/pgQueue payloads and the internal registry never reuse
+   * id 8.
+   */
+  RESERVED_8(8),
   METADATA_CHANGE_PROPOSAL_V1_FIX(9),
   FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX(10),
   METADATA_CHANGE_LOG_V1_FIX(11),
@@ -34,7 +39,14 @@ public enum SchemaIdOrdinal {
   METADATA_CHANGE_LOG_TIMESERIES(19),
   METADATA_CHANGE_EVENT(20),
   FAILED_METADATA_CHANGE_EVENT(21),
-  METADATA_AUDIT_EVENT(22);
+  METADATA_AUDIT_EVENT(22),
+
+  /**
+   * Reserved placeholder schema id. Do not assign this id to a new OSS event schema. Kept occupied
+   * so forks / external deployments that already emit wire-format schema id 23 do not collide when
+   * OSS later allocates new ordinals.
+   */
+  RESERVED_23(23);
 
   private final int schemaId;
 
@@ -49,6 +61,11 @@ public enum SchemaIdOrdinal {
    */
   public int getSchemaId() {
     return schemaId;
+  }
+
+  /** Whether this ordinal is a reservation placeholder (no published event schema). */
+  public boolean isReserved() {
+    return this == RESERVED_8 || this == RESERVED_23;
   }
 
   /**

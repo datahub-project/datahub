@@ -6,34 +6,42 @@ import styled from 'styled-components';
 import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
-import { CommandK } from '@app/searchV2/CommandK';
 import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     border-width: 2px !important;
     border-color: ${(props) => props.theme.colors.border};
+    padding-right: 4px !important;
+
+    &.ant-input-affix-wrapper {
+        padding-right: 4px !important;
+    }
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-background: ${props.theme.colors.bgSurfaceDarker};
-        border-color: ${props.theme.colors.bgSurfaceDarker};
+        background: ${props.theme.colors.bgSurfaceDarker};
+        border-color: transparent;
 
- &:hover,
- &:focus,
- &:focus-within {
-border-color: ${props.theme.colors.borderBrand} !important;
- }
+        &:hover,
+        &:focus,
+        &:focus-within {
+            border-color: ${props.theme.colors.borderBrand} !important;
+        }
 
- .ant-input, .ant-input-clear-icon {
-color: ${props.theme.colors.bg};
+        .ant-input, .ant-input-clear-icon {
+            color: ${props.theme.colors.textBrandOnBgFill};
             background: ${props.theme.colors.bgSurfaceDarker};
- }
+        }
  `}
 `;
 
-const ViewSelectContainer = styled.div``;
+const ViewSelectContainer = styled.div`
+    display: flex;
+    align-items: center;
+    align-self: center;
+`;
 
 const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
@@ -58,16 +66,14 @@ background: ${props.theme.colors.bgSurface};
 `;
 
 const SuffixWrapper = styled.div`
-    display: flex;
+    display: inline-flex;
     flex-direction: row;
     align-items: center;
-    gap: 4px;
-    padding: 4px 0 4px 0;
-    line-height: 20px;
+    align-self: center;
 `;
 
 interface Props {
-    value: string;
+    defaultValue?: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch?: () => void;
     onFocus?: () => void;
@@ -76,18 +82,19 @@ interface Props {
     onClear?: () => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
-    showCommandK?: boolean;
     viewsEnabled?: boolean;
     viewsWithPopover?: boolean;
     isViewsSelectOpened?: boolean;
     setIsViewsSelectOpened?: (value: boolean) => void;
     width?: string;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
         {
-            value,
+            defaultValue,
             onChange,
             onSearch,
             onFocus,
@@ -96,12 +103,13 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             onClear,
             isDropdownOpened,
             placeholder,
-            showCommandK,
             viewsEnabled,
             viewsWithPopover,
             width,
             isViewsSelectOpened,
             setIsViewsSelectOpened,
+            onCompositionStart,
+            onCompositionEnd,
         },
         ref,
     ) => {
@@ -142,10 +150,10 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
+                    defaultValue={defaultValue}
                     placeholder={placeholder}
                     onPressEnter={onSearch}
                     onKeyDown={onKeyDown}
-                    value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
                     onFocus={onFocusHandler}
@@ -153,9 +161,11 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     allowClear={isDropdownOpened || isFocused}
                     clearIcon={<Icon onClick={onClear} icon={XCircle} size="2xl" data-testid="button-clear" />}
                     ref={ref}
+                    onCompositionStart={onCompositionStart}
+                    onCompositionEnd={onCompositionEnd}
+                    forceUncontrolled
                     suffix={
                         <SuffixWrapper>
-                            {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
                             {viewsEnabled && (
                                 <ViewSelectContainer
                                     onClick={onViewSelectContainerClickHandler}

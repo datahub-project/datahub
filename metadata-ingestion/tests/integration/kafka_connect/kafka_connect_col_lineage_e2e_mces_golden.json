@@ -1,0 +1,347 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "debezium_orders_source",
+            "description": "Source connector using `io.debezium.connector.postgresql.PostgresConnector` plugin."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD),testdb.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "debezium_orders_source:testdb.public.orders",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD),testdb.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),customer_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD),customer_name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD),amount)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                "snowflake.database.name": "analytics_db",
+                "snowflake.schema.name": "public",
+                "snowflake.topic2table.map": "debezium.public.orders:orders",
+                "topics": "debezium.public.orders",
+                "snowflake.url.name": "account.snowflakecomputing.com:443",
+                "snowflake.user.name": "kafka_user",
+                "name": "snowflake_sink_orders"
+            },
+            "name": "snowflake_sink_orders",
+            "description": "Sink connector using `com.snowflake.kafka.connector.SnowflakeSinkConnector` plugin."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD),testdb.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD),debezium.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "snowflake_sink_orders:debezium.public.orders",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD),debezium.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.public.orders,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.public.orders,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD),customer_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.public.orders,PROD),CUSTOMER_NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.orders,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.public.orders,PROD),AMOUNT)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD),debezium.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.debezium_orders_source,PROD),testdb.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink_orders,PROD),debezium.public.orders)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

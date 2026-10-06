@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -39,11 +39,11 @@ const Contents = styled.div<{ $disabled?: boolean }>`
     }
 
     :hover {
-        color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.iconBrand)};
+        color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.textBrand)};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
 
         && svg {
-            color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.iconBrand)};
+            color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.textBrand)};
         }
     }
 `;

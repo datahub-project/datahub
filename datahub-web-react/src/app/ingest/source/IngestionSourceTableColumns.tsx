@@ -1,7 +1,8 @@
-import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button, Image, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 
@@ -13,6 +14,7 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingest/source/utils';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { cronToString } from '@utils/cronstrue';
 
 const PreviewImage = styled(Image)`
     max-height: 28px;
@@ -27,7 +29,6 @@ const StatusContainer = styled.div`
     justify-content: left;
     align-items: center;
 `;
-
 const AllStatusWrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -95,7 +96,7 @@ export function TypeColumn({ type, record }: TypeColumnProps) {
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
                     <CliBadge>
-                        <CodeOutlined />
+                        <Code />
                         CLI
                     </CliBadge>
                 </Tooltip>
@@ -113,7 +114,7 @@ function LastExecutionColumn({ time }: { time: number }) {
 export function ScheduleColumn(schedule: any, record: any) {
     let tooltip: string;
     try {
-        tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+        tooltip = schedule && `Runs ${cronToString(schedule).toLowerCase()} (${record.timezone})`;
     } catch (e) {
         tooltip = 'Invalid cron schedule';
         console.debug('Error parsing cron schedule', e);
@@ -177,7 +178,7 @@ export function ActionsColumn({
                 <Tooltip title="Copy Ingestion Source URN">
                     <Button
                         style={{ marginRight: 16 }}
-                        icon={<CopyOutlined />}
+                        icon={<Copy />}
                         onClick={() => {
                             navigator.clipboard.writeText(record.urn);
                         }}
@@ -219,7 +220,7 @@ export function ActionsColumn({
                 shape="circle"
                 danger
             >
-                <DeleteOutlined />
+                <Trash />
             </Button>
         </ActionButtonContainer>
     );

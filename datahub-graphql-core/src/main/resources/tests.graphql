@@ -5,37 +5,38 @@ type Test implements Entity {
   """
   The primary key of the Test itself
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The name of the Test
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["testInfo"])
 
   """
   The category of the Test (user defined)
   """
-  category: String!
+  category: String! @aspectMapping(aspects: ["testInfo"])
 
   """
   Description of the test
   """
-  description: String
+  description: String @aspectMapping(aspects: ["testInfo"])
 
   """
   Definition for the test
   """
-  definition: TestDefinition!
+  definition: TestDefinition! @aspectMapping(aspects: ["testInfo"])
 
   """
   Unused for tests
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -97,7 +98,7 @@ extend type Dataset {
   """
   The results of evaluating tests
   """
-  testResults: TestResults
+  testResults: TestResults @noAspects
 }
 
 extend type Query {

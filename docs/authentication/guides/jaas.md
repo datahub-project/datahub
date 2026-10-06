@@ -33,7 +33,7 @@ datahub-frontend-react:
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-quickstart}
     env_file: datahub-frontend/env/docker.env
     hostname: datahub-frontend-react
     container_name: datahub-frontend-react
@@ -59,7 +59,7 @@ datahub-frontend-react:
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-quickstart}
     env_file: datahub-frontend/env/docker.env
     hostname: datahub-frontend-react
     container_name: datahub-frontend-react

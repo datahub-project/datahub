@@ -1,8 +1,10 @@
 import { Select, SelectOption } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
 
@@ -47,6 +49,7 @@ export const EntitySearchValueInput = ({
     placeholder,
     onChangeSelectedUrns,
 }: Props) => {
+    const { t } = useTranslation('shared.query-builder');
     const entityRegistry = useEntityRegistry();
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
 
@@ -98,14 +101,19 @@ export const EntitySearchValueInput = ({
     };
 
     const onSearch = (text: string) => {
+        const input = addUserFiltersToMultiEntitySearchInput(
+            {
+                types: entityTypes,
+                query: text,
+                start: 0,
+                count: 10,
+            },
+            entityTypes,
+        );
+
         searchResources({
             variables: {
-                input: {
-                    types: entityTypes,
-                    query: text,
-                    start: 0,
-                    count: 10,
-                },
+                input,
             },
         });
     };
@@ -117,18 +125,23 @@ export const EntitySearchValueInput = ({
         const searchedEntities: Entity[] = searchResults.map((result) => result.entity);
 
         const mergedEntities = mergeArraysOfObjects(searchedEntities, selectedEntities, (item) => item.urn);
+        const resolvedUrns = new Set(mergedEntities.map((entity) => entity.urn));
 
         const selectedSet = new Set(selectedUrns);
-        return mergedEntities
-            .map((entity) => ({
-                value: entity.urn,
-                label: entityRegistry.getDisplayName(entity.type, entity),
-            }))
-            .sort((a, b) => {
-                const aSelected = selectedSet.has(a.value) ? 0 : 1;
-                const bSelected = selectedSet.has(b.value) ? 0 : 1;
-                return aSelected - bSelected;
-            });
+        const resolvedOptions = mergedEntities.map((entity) => ({
+            value: entity.urn,
+            label: entityRegistry.getDisplayName(entity.type, entity),
+        }));
+        // Keep selected URNs visible while entity resolution is in flight.
+        const unresolvedOptions = selectedUrns
+            .filter((urn) => !resolvedUrns.has(urn))
+            .map((urn) => ({ value: urn, label: urn }));
+
+        return [...resolvedOptions, ...unresolvedOptions].sort((a, b) => {
+            const aSelected = selectedSet.has(a.value) ? 0 : 1;
+            const bSelected = selectedSet.has(b.value) ? 0 : 1;
+            return aSelected - bSelected;
+        });
     }, [searchResults, entityCache, selectedUrns, entityRegistry]);
 
     const customOptionRenderer = useCallback(
@@ -172,13 +185,13 @@ export const EntitySearchValueInput = ({
             isMultiSelect={isMultiSelect}
             onUpdate={onUpdate}
             onSearchChange={onSearch}
-            placeholder={placeholder || 'Select a value...'}
+            placeholder={placeholder || t('value.defaultPlaceholder')}
             data-testid="entity-search-input"
             selectLabelProps={
                 isMultiSelect && selectedUrns.length > 0
                     ? {
                           variant: 'labeled',
-                          label: label ?? 'Items',
+                          label: label ?? t('value.items'),
                       }
                     : undefined
             }

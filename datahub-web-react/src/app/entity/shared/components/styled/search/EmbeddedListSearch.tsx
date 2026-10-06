@@ -1,5 +1,6 @@
 import { ApolloError } from '@apollo/client';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -28,7 +29,7 @@ import { Message } from '@app/shared/Message';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType, FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput } from '@types';
+import { EntityType, FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput, SearchFlags } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -92,6 +93,7 @@ type Props = {
     searchBarInputStyle?: any;
     entityAction?: React.FC<EntityActionProps>;
     skipCache?: boolean;
+    searchFlags?: SearchFlags;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
@@ -134,6 +136,7 @@ export const EmbeddedListSearch = ({
     searchBarInputStyle,
     entityAction,
     skipCache,
+    searchFlags: extraSearchFlags,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
@@ -144,6 +147,7 @@ export const EmbeddedListSearch = ({
     isViewAllMode = false,
     handleViewAllClickWarning,
 }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
@@ -188,8 +192,11 @@ export const EmbeddedListSearch = ({
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
     };
-    if (skipCache) {
-        searchInput = { ...searchInput, searchFlags: { skipCache: true } };
+    if (skipCache || extraSearchFlags) {
+        searchInput = {
+            ...searchInput,
+            searchFlags: { ...extraSearchFlags, ...(skipCache ? { skipCache: true } : {}) },
+        };
     }
 
     const { data, loading, error, refetch } = useGetSearchResults({
@@ -309,7 +316,7 @@ export const EmbeddedListSearch = ({
         onChangeFilters(defaultFilters);
     };
 
-    const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
+    const ErrorMessage = () => <Message type="error" content={t('embeddedListSearch.loadError')} />;
 
     return (
         <Container>

@@ -1,6 +1,7 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Icon } from '@src/alchemy-components';
@@ -93,6 +94,7 @@ export function SearchSelectUrnInput({
     selectedValues,
     updateSelectedValues,
 }: SearchSelectUrnInputProps) {
+    const { t } = useTranslation('entity.shared.components');
     const [tempSelectedEntities, setTempSelectedEntities] = useState<EntityAndType[]>(INITIAL_SELECTED_ENTITIES);
 
     // Convert the selected values (urns) to EntityAndType format for SearchSelect
@@ -127,7 +129,7 @@ export function SearchSelectUrnInput({
     return (
         <Container>
             <SearchSection>
-                <SectionHeader>Search Values</SectionHeader>
+                <SectionHeader>{t('embeddedSearch.searchValues')}</SectionHeader>
                 <SubSearchSection>
                     <SearchSelect
                         fixedEntityTypes={allowedEntityTypes}
@@ -138,10 +140,10 @@ export function SearchSelectUrnInput({
                 </SubSearchSection>
             </SearchSection>
             <CurrentSection>
-                <SectionHeader>Selected Values</SectionHeader>
+                <SectionHeader>{t('embeddedSearch.selectedValues')}</SectionHeader>
                 <ScrollableContent>
                     {tempSelectedEntities.length === 0 ? (
-                        <div>No values selected</div>
+                        <div>{t('embeddedSearch.noValuesSelected')}</div>
                     ) : (
                         tempSelectedEntities.map((entity) => (
                             <SelectedItem key={entity.urn}>

@@ -1,5 +1,6 @@
 import { ApolloError } from '@apollo/client';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -99,6 +100,8 @@ type Props = {
     onChangeUnionType: (unionType: UnionType) => void;
     onTotalChanged?: (newTotal: number) => void;
     emptySearchQuery?: string | null;
+    /** Shown in place of "no results found" when the query is empty, e.g. "Type a query to search...". */
+    emptyQueryMessage?: string;
     fixedFilters?: FilterSet;
     fixedOrFilters?: AndFilterInput[];
     fixedQuery?: string | null;
@@ -147,6 +150,7 @@ export const EmbeddedListSearch = ({
     onChangeUnionType,
     onTotalChanged,
     emptySearchQuery,
+    emptyQueryMessage,
     fixedFilters,
     fixedOrFilters,
     fixedQuery,
@@ -167,6 +171,7 @@ export const EmbeddedListSearch = ({
     sort,
     searchFlags,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const userContext = useUserContext();
 
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
@@ -381,7 +386,12 @@ export const EmbeddedListSearch = ({
     let errorMessage = '';
     if (error) {
         console.error('Failed to load results', error);
-        errorMessage = `Failed to load results due to an unexpected error. Please try again later.`;
+        errorMessage = t('embeddedSearch.loadError');
+    } else if (!finalQuery.trim() && emptyQueryMessage) {
+        // Reuses the same empty-state slot as the error/no-results message -- for callers like
+        // semantic search where an empty query has no meaningful results to show yet, this lets
+        // them show a "type a query" prompt instead of a misleading "no results found".
+        errorMessage = emptyQueryMessage;
     }
 
     return (

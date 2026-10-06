@@ -1,4 +1,5 @@
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -38,13 +39,13 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getPathName: () => string = () => 'group';
 
-    getEntityName = () => 'Group';
+    getEntityName = () => i18next.t('entity.types:group.name');
 
-    getCollectionName: () => string = () => 'Groups';
+    getCollectionName: () => string = () => i18next.t('entity.types:group.namePlural');
 
     renderProfile = (urn: string) => <GroupProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpGroup) => (
+    renderPreview = (_previewType: PreviewType, data: CorpGroup) => (
         <Preview
             urn={data.urn}
             name={this.displayName(data)}

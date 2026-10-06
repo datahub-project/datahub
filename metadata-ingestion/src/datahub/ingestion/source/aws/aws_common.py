@@ -1,16 +1,28 @@
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 from urllib.parse import parse_qs, urlparse
 
 import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
+from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -271,6 +283,17 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
+    # boto3 clients are thread-safe (Sessions are not), so cached clients may be
+    # shared across threads; only construction is guarded by the lock.
+    _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
+        default_factory=dict
+    )
+    # Class-level, not a PrivateAttr: a threading.Lock cannot be deep-copied, and
+    # dbt's config validators run copy.deepcopy over the recipe values (see
+    # DBTCommonConfig / DBTCloudConfig), so a per-instance lock would break
+    # DBTCoreConfig(aws_connection=AwsConnectionConfig(...)). One shared lock only
+    # serializes the brief, one-time client construction across configs.
+    _s3_client_lock: ClassVar[threading.Lock] = threading.Lock()
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -461,12 +484,32 @@ class AwsConnectionConfig(ConfigModel):
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
-        return self.get_session().client(
-            "s3",
-            endpoint_url=self.aws_endpoint_url,
-            config=self._aws_config(),
-            verify=verify_ssl,
-        )
+        # Building a session + client per call is expensive (fresh TLS pool and
+        # credential resolution, ~seconds with an SSO profile), so memoize the
+        # client per verify_ssl value. Manually-assumed role credentials are
+        # static, so drop cached clients once those credentials need a refresh.
+        # This invalidation only covers the manual assume-role path; profile,
+        # instance-profile, ECS task-role, and explicit-key sessions self-refresh
+        # inside botocore's cached client and need no invalidation here.
+        with self._s3_client_lock:
+            # _cached_credentials is set only when a role was actually assumed (see
+            # get_session); that is the one path whose static creds expire. Guard on
+            # it rather than on aws_role merely being configured, else a role that
+            # matches the ambient identity (never assumed, so no expiry recorded)
+            # would rebuild the client on every call.
+            if (
+                self._cached_credentials is not None
+                and self._should_refresh_credentials()
+            ):
+                self._s3_client_cache.clear()
+            if verify_ssl not in self._s3_client_cache:
+                self._s3_client_cache[verify_ssl] = self.get_session().client(
+                    "s3",
+                    endpoint_url=self.aws_endpoint_url,
+                    config=self._aws_config(),
+                    verify=verify_ssl,
+                )
+            return self._s3_client_cache[verify_ssl]
 
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
@@ -486,10 +529,16 @@ class AwsConnectionConfig(ConfigModel):
         return resource
 
     def get_glue_client(self) -> "GlueClient":
+        # TODO: apply aws_endpoint_url consistently across all service clients (and
+        # a separate S3 endpoint) in a dedicated PR — doing it here would redirect
+        # Glue for recipes that set the field to steer only their S3 reads.
         return self.get_session().client("glue", config=self._aws_config())
 
     def get_dynamodb_client(self) -> "DynamoDBClient":
-        return self.get_session().client("dynamodb", config=self._aws_config())
+        # Safe to honor here: DynamoDB has no sibling S3 client (see get_glue_client).
+        return self.get_session().client(
+            "dynamodb", endpoint_url=self.aws_endpoint_url, config=self._aws_config()
+        )
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())
@@ -675,3 +724,26 @@ class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
+
+
+def aws_error_code(e: Union[ClientError, BotoCoreError]) -> str:
+    """Return a short human-readable code for an AWS SDK exception.
+
+    For ``ClientError`` (the structured API error: 4xx/5xx with a wire-format
+    response body), returns ``e.response["Error"]["Code"]`` —
+    e.g. ``AccessDeniedException``, ``ThrottlingException``,
+    ``ValidationException``.
+
+    For ``BotoCoreError`` (the unstructured client-side errors:
+    ``NoCredentialsError``, ``EndpointConnectionError``, ``ConnectTimeoutError``,
+    etc., which don't have a ``.response`` attribute), returns the exception's
+    class name, since that's the only stable identifier those exceptions
+    expose.
+
+    The returned string is safe to log without further sanitization.
+    """
+    if isinstance(e, ClientError):
+        return e.response.get("Error", {}).get("Code", "")
+    # BotoCoreError subclasses don't carry a structured code; the class name
+    # (e.g. "NoCredentialsError") is the next-best stable identifier.
+    return type(e).__name__

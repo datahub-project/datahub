@@ -49,9 +49,9 @@ public class SchemaConfigLoaderTest {
     assertTrue(
         config.getSchemas().containsKey("MetadataAuditEvent"),
         "Should contain MetadataAuditEvent schema");
-    assertTrue(
+    assertFalse(
         config.getSchemas().containsKey("DataHubUpgradeHistoryEvent"),
-        "Should contain DataHubUpgradeHistoryEvent schema");
+        "Should not contain retired DataHubUpgradeHistoryEvent schema");
   }
 
   @Test
@@ -182,42 +182,6 @@ public class SchemaConfigLoaderTest {
     assertEquals(version1.getVersion(), 1);
     assertEquals(version1.getOrdinalId(), "PLATFORM_EVENT");
     assertEquals(version1.getDescription(), "Platform event schema");
-  }
-
-  @Test
-  public void testDataHubUpgradeHistoryEventSchema() {
-    // Given
-    SchemaConfigLoader loader = new SchemaConfigLoader(YAML_MAPPER);
-
-    // When
-    SchemaConfigLoader.SchemaConfig config = loader.getConfig();
-    SchemaConfigLoader.SchemaDefinition duheSchema =
-        config.getSchemas().get("DataHubUpgradeHistoryEvent");
-
-    // Then
-    assertNotNull(duheSchema, "DUHE schema should not be null");
-    assertEquals(duheSchema.getDescription(), "DataHub upgrade history events");
-    assertEquals(duheSchema.getCompatibility(), "BACKWARD");
-
-    // Verify schema IDs derived from versions
-    Set<String> schemaIds = new HashSet<>();
-    for (SchemaConfigLoader.VersionDefinition version : duheSchema.getVersions()) {
-      schemaIds.add(version.getOrdinalId());
-    }
-    assertEquals(schemaIds.size(), 1, "Should have 1 unique schema ID");
-    assertTrue(
-        schemaIds.contains("DATAHUB_UPGRADE_HISTORY_EVENT"),
-        "Should contain DATAHUB_UPGRADE_HISTORY_EVENT");
-
-    // Verify versions
-    List<SchemaConfigLoader.VersionDefinition> versions = duheSchema.getVersions();
-    assertNotNull(versions, "Versions should not be null");
-    assertEquals(versions.size(), 1, "Should have 1 version");
-
-    SchemaConfigLoader.VersionDefinition version1 = versions.get(0);
-    assertEquals(version1.getVersion(), 1);
-    assertEquals(version1.getOrdinalId(), "DATAHUB_UPGRADE_HISTORY_EVENT");
-    assertEquals(version1.getDescription(), "DataHub upgrade history schema");
   }
 
   @Test

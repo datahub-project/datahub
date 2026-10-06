@@ -1,7 +1,7 @@
-import { Tooltip } from '@components';
-import EditIcon from '@mui/icons-material/Edit';
-import { Button, Typography } from 'antd';
+import { Button, Heading, Text, Tooltip } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
@@ -36,7 +36,7 @@ const SummaryMessage = styled.div`
     margin-left: 20px;
 `;
 
-const SummaryTitle = styled(Typography.Title)`
+const SummaryTitle = styled(Heading)`
     && {
         padding-bottom: 0px;
         margin-bottom: 0px;
@@ -49,24 +49,8 @@ const Actions = styled.div`
 `;
 
 const CreateButton = styled(Button)`
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
     margin-right: 12px;
-    border-color: ${(props) => props.theme.colors.borderBrand};
-    color: ${(props) => props.theme.colors.textBrand};
     letter-spacing: 2px;
-    &&:hover {
-        color: ${(props) => props.theme.colors.textOnFillBrand};
-        background-color: ${(props) => props.theme.colors.buttonFillBrand};
-        border-color: ${(props) => props.theme.colors.borderBrand};
-    }
-`;
-
-const EditIconStyle = styled(EditIcon)`
-    && {
-        font-size: 16px;
-    }
 `;
 
 type Props = {
@@ -84,6 +68,7 @@ export const DataContractSummary = ({
     editDisabled,
     editDisabledMessage,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const summaryIcon = getContractSummaryIcon(state, summary, theme.colors);
     const summaryTitle = getContractSummaryTitle(state, summary);
@@ -94,16 +79,22 @@ export const DataContractSummary = ({
                 <SummaryDescription>
                     {summaryIcon}
                     <SummaryMessage>
-                        <SummaryTitle level={5}>{summaryTitle}</SummaryTitle>
-                        <Typography.Text type="secondary">{summaryMessage}</Typography.Text>
+                        <SummaryTitle type="h5">{summaryTitle}</SummaryTitle>
+                        <Text type="span" color="textSecondary">
+                            {summaryMessage}
+                        </Text>
                     </SummaryMessage>
                 </SummaryDescription>
             </SummaryContainer>
             <Actions>
                 <Tooltip title={editDisabled ? editDisabledMessage : null}>
-                    <CreateButton disabled={editDisabled} onClick={showContractBuilder}>
-                        <EditIconStyle />
-                        EDIT
+                    <CreateButton
+                        variant="outline"
+                        disabled={editDisabled}
+                        onClick={showContractBuilder}
+                        icon={{ icon: PencilSimple }}
+                    >
+                        {tc('edit')}
                     </CreateButton>
                 </Tooltip>
             </Actions>

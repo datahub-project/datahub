@@ -25,6 +25,8 @@ public class IngestRetentionPolicies implements NonBlockingSystemUpgrade {
       @Nonnull final EntityService<?> entityService,
       final boolean enabled,
       final boolean applyAfterIngest,
+      final boolean applyOnPolicyChange,
+      final boolean overwriteNonSystemPolicies,
       @Nonnull final String pluginPath) {
     stepList =
         ImmutableList.of(
@@ -33,6 +35,8 @@ public class IngestRetentionPolicies implements NonBlockingSystemUpgrade {
                 retentionService,
                 entityService,
                 applyAfterIngest,
+                applyOnPolicyChange,
+                overwriteNonSystemPolicies,
                 pluginPath,
                 new PathMatchingResourcePatternResolver()));
   }

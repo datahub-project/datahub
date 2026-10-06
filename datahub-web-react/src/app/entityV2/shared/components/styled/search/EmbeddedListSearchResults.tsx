@@ -1,7 +1,7 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader, Pagination, Text } from '@components';
 import LanguageIcon from '@mui/icons-material/Language';
-import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
@@ -37,7 +37,7 @@ const SearchBody = styled.div<{ showFilters?: boolean }>`
                `};
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
 `;
 
@@ -100,12 +100,6 @@ const LoadingContainer = styled.div`
     flex: 1;
 `;
 
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
-    color: ${(props) => props.theme.colors.textTertiary};
-    padding-bottom: 18px;
-`;
-
 const ViewsContainer = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
@@ -130,8 +124,8 @@ const Pill = styled.div<{ selected?: boolean }>`
 
 const Count = styled.div<{ selected: boolean }>`
     background-color: ${(props) =>
-        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.textTertiary};
-    color: ${(props) => props.theme.colors.bg};
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgSurfaceDarker};
+    color: ${(props) => (props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.textSecondary)};
     border-radius: 20px;
     min-width: 25px;
     padding: 2px 4px;
@@ -145,7 +139,7 @@ const Count = styled.div<{ selected: boolean }>`
 
 const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
     font-size: 18px !important;
-    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.textTertiary)};
+    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.icon)};
 `;
 
 const ViewLabel = styled.span`
@@ -212,6 +206,8 @@ export const EmbeddedListSearchResults = ({
     errorMessage,
     selectLimit,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
@@ -239,13 +235,13 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
 
-                <ResultContainer>
+                <ResultContainer data-testid="embedded-list-search-results">
                     {view && (
                         <ViewsContainer>
-                            <ViewLabel>View</ViewLabel>
+                            <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
                                 <LanguageIconStyle selected={!selectedViewUrn} />
-                                <span>All</span>
+                                <span>{tc('all')}</span>
                                 {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
                             </Pill>
                             {defaultViewUrn === view.urn && (
@@ -263,7 +259,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {loading && (
                         <LoadingContainer>
-                            <Spin indicator={<StyledLoading />} />
+                            <Loader size="md" />
                         </LoadingContainer>
                     )}
                     {!loading && (
@@ -288,20 +284,26 @@ export const EmbeddedListSearchResults = ({
                         />
                     )}
                 </ResultContainer>
-                <PaginationInfoContainer>
+                <PaginationInfoContainer data-testid="embedded-list-search-pagination">
                     <PaginationRow>
                         <PaginationInfo>
-                            <b>
-                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                            </b>{' '}
-                            of <b>{totalResults}</b>
+                            <Trans
+                                t={t}
+                                i18nKey="embeddedSearch.paginationRange"
+                                components={{ bold: <b /> }}
+                                values={{
+                                    rangeStart: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                                    rangeEnd: lastResultIndex,
+                                    total: totalResults,
+                                }}
+                            />
                         </PaginationInfo>
                         <StyledPagination
-                            current={page}
-                            pageSize={numResultsPerPage}
+                            currentPage={page}
+                            itemsPerPage={numResultsPerPage}
                             total={totalResults}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                             onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                             pageSizeOptions={['10', '20', '30']}

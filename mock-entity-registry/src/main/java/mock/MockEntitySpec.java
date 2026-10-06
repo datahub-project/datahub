@@ -145,7 +145,6 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public String getSearchGroup() {
-    // Return a default search index group for mock entities
-    return "default";
+    return null;
   }
 }

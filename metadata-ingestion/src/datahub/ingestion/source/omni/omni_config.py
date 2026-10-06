@@ -6,6 +6,7 @@ from pydantic import Field, field_validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -20,6 +21,7 @@ class OmniSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     """Configuration for the Omni BI platform DataHub source."""
 
@@ -57,13 +59,14 @@ class OmniSourceConfig(
         le=100,
         description="Number of records per page for paginated Omni API endpoints. Lower values reduce memory usage; higher values speed up ingestion.",
     )
-    max_requests_per_minute: int = Field(
-        default=50,
+    max_workers: int = Field(
+        default=4,
         ge=1,
-        le=60,
+        le=20,
         description=(
-            "Client-side throttle cap for Omni API requests (requests per minute). "
-            "Omni's default rate limit is 60 req/min; set lower to leave headroom for other API consumers."
+            "Maximum number of parallel threads for processing models and documents. "
+            "Higher values speed up ingestion but increase API load and memory usage. "
+            "Recommended: 4-8 for most Omni instances."
         ),
     )
     timeout_seconds: int = Field(
@@ -133,7 +136,8 @@ class OmniSourceConfig(
         default=True,
         description=(
             "Upper-case database, schema, and table name components in URNs when the "
-            "resolved platform is Snowflake. Snowflake identifiers are case-insensitive "
-            "and DataHub's Snowflake connector stores them in upper case by default."
+            "resolved platform is Snowflake. Set convert_urns_to_lowercase=True when "
+            "your warehouse connector uses lowercase URNs to ensure lineage stitches "
+            "correctly."
         ),
     )

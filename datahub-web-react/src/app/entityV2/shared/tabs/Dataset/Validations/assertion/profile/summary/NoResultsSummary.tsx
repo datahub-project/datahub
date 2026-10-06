@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const SecondaryText = styled.div`
@@ -9,5 +10,6 @@ const SecondaryText = styled.div`
  * No results yet summarization.
  */
 export const NoResultsSummary = () => {
-    return <SecondaryText>This assertion has not been evaluated yet! Come back later to view results.</SecondaryText>;
+    const { t } = useTranslation('entity.profile.validations');
+    return <SecondaryText>{t('noResults.thisAssertionNotEvaluated')}</SecondaryText>;
 };

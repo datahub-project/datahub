@@ -1,9 +1,10 @@
 import { BUILD_FILTERS_TAB_KEY, SELECT_ASSETS_TAB_KEY, URN_FILTER_NAME } from '@app/entityV2/view/builder/constants';
 import { ViewFilter } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
+import { parseJsonToLogicalPredicate } from '@app/entityV2/view/utils';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { FacetFilter, FilterOperator, LogicalOperator } from '@types';
+import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types';
 
 /** Non-nullable shorthand for the definition property of ViewBuilderState. */
 type ViewDefinition = NonNullable<ViewBuilderState['definition']>;
@@ -17,6 +18,7 @@ export function mapUiOperatorToCondition(operator: string | undefined): FilterOp
     const map: Record<string, FilterOperator> = {
         equals: FilterOperator.Equal,
         exists: FilterOperator.Exists,
+        within: FilterOperator.DescendantsIncl,
         contains_str: FilterOperator.Contain,
         contains_any: FilterOperator.Contain,
         starts_with: FilterOperator.StartWith,
@@ -46,6 +48,7 @@ export function mapConditionToUiOperator(condition: FilterOperator | null | unde
     const map: Record<string, string> = {
         [FilterOperator.Equal]: 'equals',
         [FilterOperator.Exists]: 'exists',
+        [FilterOperator.DescendantsIncl]: 'within',
         [FilterOperator.Contain]: 'contains_str',
         [FilterOperator.StartWith]: 'starts_with',
         [FilterOperator.GreaterThan]: 'greater_than',
@@ -69,7 +72,7 @@ export function selectedUrnsToFilters(selectedUrns: string[]): ViewFilter[] {
  * Boolean operators (is_true/is_false) are unary — the UI provides no value
  * input, so we inject "true"/"false" as the value to send to the backend.
  */
-function resolveFilterValues(prop: PropertyPredicate): string[] {
+export function resolveFilterValues(prop: PropertyPredicate): string[] {
     if (prop.operator === 'is_true') return ['true'];
     if (prop.operator === 'is_false') return ['false'];
     return prop.values || [];
@@ -121,12 +124,48 @@ export function logicalPredicateToFilters(predicate: LogicalPredicate | null | u
 }
 
 /**
+ * Extracts selected asset URNs from a LogicalPredicate by recursively searching
+ * for the "urn" property. Used when restoring from json field.
+ */
+export function extractUrnsFromLogicalPredicate(
+    predicate: LogicalPredicate | PropertyPredicate | null | undefined,
+): string[] {
+    if (!predicate) return [];
+
+    if (predicate.type === 'property') {
+        const prop = predicate as PropertyPredicate;
+        if (prop.property === URN_FILTER_NAME) {
+            return prop.values ?? [];
+        }
+        return [];
+    }
+
+    const logical = predicate as LogicalPredicate;
+    const foundUrns = (logical.operands ?? [])
+        .map((operand) => extractUrnsFromLogicalPredicate(operand))
+        .find((urns) => urns.length > 0);
+    return foundUrns ?? [];
+}
+
+/**
  * Extracts selected asset URNs from saved view filters.
  * Only reads URNs from the "urn" filter field (produced by the Select Assets tab).
+ * Falls back to searching json structure if filters array is empty.
  */
-export function filtersToSelectedUrns(filters: ViewFilter[]): string[] {
+export function filtersToSelectedUrns(filters: ViewFilter[], json?: string | null): string[] {
+    // First try legacy filters array
     const urnFilter = filters.find((f) => f.field === URN_FILTER_NAME);
-    return urnFilter?.values ?? [];
+    if (urnFilter?.values?.length) {
+        return urnFilter.values;
+    }
+
+    // Fallback: extract from json LogicalPredicate structure
+    if (json) {
+        const logicalPredicate = parseJsonToLogicalPredicate(json);
+        return extractUrnsFromLogicalPredicate(logicalPredicate);
+    }
+
+    return [];
 }
 
 /**
@@ -140,15 +179,23 @@ export function filtersToLogicalPredicate(
 ): LogicalPredicate {
     const allNegated = filters.length > 0 && filters.every((f) => f.negated);
 
-    const operands: PropertyPredicate[] = filters.map((filter) => {
+    const operands: (PropertyPredicate | LogicalPredicate)[] = filters.map((filter) => {
         const uiOperator = mapConditionToUiOperator(filter.condition, filter.values);
         const isBooleanOp = uiOperator === 'is_true' || uiOperator === 'is_false';
-        return {
+        const propertyPredicate: PropertyPredicate = {
             type: 'property' as const,
             property: filter.field,
             operator: uiOperator,
             values: isBooleanOp ? [] : filter.values || [],
         };
+        if (filter.negated && !allNegated) {
+            return {
+                type: 'logical' as const,
+                operator: LogicalOperatorType.NOT,
+                operands: [propertyPredicate],
+            };
+        }
+        return propertyPredicate;
     });
 
     if (allNegated) {
@@ -175,27 +222,48 @@ export function filtersToLogicalPredicate(
  * 1. Empty filters → Build Filters (default for new views).
  * 2. Any filter uses the "urn" field → Select Assets (only that tab produces it).
  * 3. Otherwise → Build Filters.
+ * Falls back to json field if filters array is empty (for new views with json).
  */
-export function getInitialTabKey(filters: ViewFilter[]): string {
+export function getInitialTabKey(filters: ViewFilter[], json?: string | null): string {
+    // First check legacy filters array
     const hasUrnField = filters.some((f) => f.field === URN_FILTER_NAME);
     if (hasUrnField) {
         return SELECT_ASSETS_TAB_KEY;
     }
+
+    // Fallback: check json structure for urn property
+    if (!hasUrnField && json) {
+        const logicalPredicate = parseJsonToLogicalPredicate(json);
+        const urns = extractUrnsFromLogicalPredicate(logicalPredicate);
+        if (urns.length > 0) {
+            return SELECT_ASSETS_TAB_KEY;
+        }
+    }
+
     return BUILD_FILTERS_TAB_KEY;
 }
 
 /**
  * Builds a view definition object compatible with ViewBuilderState.
+ * A View's entity-type scope lives in its own top-level `entityTypes` field rather
+ * than in the filter list, and this builder edits filters only — so the caller's
+ * existing scope is threaded through unchanged instead of being rebuilt here.
  * ViewFilter is structurally compatible with FacetFilter; the cast bridges
  * the generated __typename field that ViewFilter intentionally omits.
  */
-export function buildViewDefinition(operator: LogicalOperator, filters: ViewFilter[]): ViewDefinition {
+export function buildViewDefinition(
+    operator: LogicalOperator,
+    filters: ViewFilter[],
+    entityTypes: EntityType[],
+    logicalPredicate?: LogicalPredicate | null,
+): ViewDefinition {
     return {
-        entityTypes: [],
+        entityTypes,
         filter: {
             operator,
             filters: filters as FacetFilter[],
         },
+        ...(logicalPredicate && { logicalPredicate }),
     };
 }
 

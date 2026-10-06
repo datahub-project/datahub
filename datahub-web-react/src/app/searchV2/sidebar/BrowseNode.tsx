@@ -1,7 +1,7 @@
-import { FolderOutlined } from '@ant-design/icons';
 import { Loader } from '@components';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Typography } from 'antd';
-import React from 'react';
+import React, { CSSProperties } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import {
@@ -25,8 +25,9 @@ import useToggle from '@app/shared/useToggle';
 
 import { EntityType } from '@types';
 
-const FolderStyled = styled(FolderOutlined)`
-    font-size: 16px;
+const TRIANGLE_BUTTON_STYLE: CSSProperties = { display: 'block', width: 18 };
+
+const FolderStyled = styled(Folder).attrs({ size: 16 })`
     color: ${(props) => props.theme.colors.text};
     margin-right: 4px;
 `;
@@ -94,7 +95,7 @@ const BrowseNode = () => {
                             isVisible={browseResultGroup.hasSubGroups}
                             onClick={onClickTriangle}
                             dataTestId={`browse-node-expand-${displayName}`}
-                            style={{ display: 'block', width: 18 }}
+                            style={TRIANGLE_BUTTON_STYLE}
                         />
                         <FolderStyled />
                         <ExpandableNode.Title color={color} size={12} dynamicWidth padLeft>

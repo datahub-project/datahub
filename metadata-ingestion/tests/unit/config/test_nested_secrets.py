@@ -262,7 +262,7 @@ class TestConfigLoggingMasking:
 
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
     def teardown_method(self):
         from datahub.masking.bootstrap import shutdown_secret_masking

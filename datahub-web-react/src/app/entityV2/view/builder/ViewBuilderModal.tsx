@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entityV2/view/types';
+import { hasAtLeastOneValidCondition } from '@app/entityV2/view/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Modal } from '@src/alchemy-components';
@@ -16,31 +18,44 @@ type Props = {
     onCancel?: () => void;
 };
 
-const getTitleText = (mode: ViewBuilderMode, urn?: string): string => {
-    if (mode === ViewBuilderMode.PREVIEW) {
-        return 'Preview View';
-    }
-    return urn !== undefined ? 'Edit View' : 'Create New View';
+const MODAL_WIDTH = '60%';
+const MODAL_WRAP_CLASS = 'view-builder-modal';
+const CLICK_OUTSIDE_CLASS = 'test-builder-modal';
+const MODAL_WRAP_PROPS = { style: { overflow: 'hidden' } };
+// Flex column so the inner result lists shrink to fit on short viewports instead of being clipped
+const MODAL_BODY_STYLE = {
+    overflow: 'hidden',
+    maxHeight: '75vh',
+    display: 'flex',
+    flexDirection: 'column' as const,
 };
 
-const MODAL_WIDTH = '60%';
-
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const previousUrnRef = useRef<string | undefined>(urn);
 
     useEffect(() => {
-        setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
-    }, [initialState]);
+        if (urn !== previousUrnRef.current) {
+            setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
+            previousUrnRef.current = urn;
+        }
+    }, [urn, initialState]);
 
-    const hasFilters = (viewBuilderState?.definition?.filter?.filters?.length ?? 0) > 0;
+    const hasFilters = hasAtLeastOneValidCondition(viewBuilderState?.definition?.logicalPredicate);
     const canSave = viewBuilderState.name && viewBuilderState.viewType && hasFilters;
-    const titleText = getTitleText(mode, urn);
+
+    const titleText = useMemo(() => {
+        if (mode === ViewBuilderMode.PREVIEW) return t('builder.titlePreview');
+        return urn !== undefined ? t('builder.titleEdit') : t('builder.titleCreate');
+    }, [mode, urn, t]);
 
     const footerButtons: ModalButton[] = useMemo(() => {
         const buttons: ModalButton[] = [
             {
-                text: 'Cancel',
+                text: tc('cancel'),
                 variant: 'text',
                 color: 'gray',
                 onClick: () => onCancel?.(),
@@ -50,7 +65,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
 
         if (mode === ViewBuilderMode.EDITOR) {
             buttons.push({
-                text: 'Save',
+                text: tc('save'),
                 onClick: () => onSubmit(viewBuilderState),
                 disabled: !canSave,
                 buttonDataTestId: 'view-builder-save',
@@ -58,17 +73,17 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
         }
 
         return buttons;
-    }, [mode, onCancel, onSubmit, viewBuilderState, canSave]);
+    }, [mode, onCancel, onSubmit, viewBuilderState, canSave, tc]);
 
     return (
-        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName="test-builder-modal">
+        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName={CLICK_OUTSIDE_CLASS}>
             <Modal
-                wrapClassName="view-builder-modal"
-                wrapProps={{ style: { overflow: 'hidden' } }}
-                bodyStyle={{ overflow: 'hidden', maxHeight: '75vh' }}
+                wrapClassName={MODAL_WRAP_CLASS}
+                wrapProps={MODAL_WRAP_PROPS}
+                bodyStyle={MODAL_BODY_STYLE}
                 buttons={footerButtons}
                 title={titleText}
-                subtitle="Views control which assets are visible when applied. Define filters to scope search results, recommendations, and browsing to only the assets that match."
+                subtitle={t('builder.subtitle')}
                 onCancel={() => onCancel?.()}
                 data-testid="view-modal"
                 width={MODAL_WIDTH}
@@ -84,9 +99,9 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                     setShowConfirmationModal(false);
                     onCancel?.();
                 }}
-                modalTitle="Exit View Editor"
-                modalText="Are you sure you want to exit the View editor? All changes will be lost."
-                confirmButtonText="Yes"
+                modalTitle={t('builder.exitTitle')}
+                modalText={t('builder.exitText')}
+                confirmButtonText={tc('yes')}
             />
         </ClickOutside>
     );

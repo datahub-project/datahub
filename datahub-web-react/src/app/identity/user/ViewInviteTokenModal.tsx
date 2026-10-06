@@ -1,12 +1,11 @@
-import { UserOutlined } from '@ant-design/icons';
-import { Button, Modal, Tooltip } from '@components';
-import { Select, Typography, message } from 'antd';
+import { Button, Modal, Text, Tooltip } from '@components';
+import { Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
-import { mapRoleIcon } from '@app/identity/user/UserUtils';
-import { useRoleSelector } from '@app/identity/user/useRoleSelector';
+import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -20,7 +19,7 @@ const ModalSection = styled.div`
     padding-bottom: 12px;
 `;
 
-const ModalSectionFooter = styled(Typography.Paragraph)`
+const ModalSectionFooter = styled(Text)`
     &&&& {
         padding: 0px;
         margin: 0px;
@@ -37,31 +36,11 @@ const InviteLinkDiv = styled.div`
     align-items: center;
 `;
 
-const ActionsContainer = styled.div`
-    display: flex;
-    gap: 10px;
-`;
-
-const InfoContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-`;
-
 const CopyText = styled(Typography.Text)`
     display: flex;
     gap: 10px;
     align-items: center;
     flex: 1;
-`;
-
-const RoleSelect = styled(Select)`
-    min-width: 105px;
-`;
-
-const RoleIcon = styled.span`
-    margin-right: 6px;
-    font-size: 12px;
 `;
 
 type Props = {
@@ -70,27 +49,10 @@ type Props = {
 };
 
 export default function ViewInviteTokenModal({ open, onClose }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const baseUrl = window.location.origin;
     const [selectedRole, setSelectedRole] = useState<DataHubRole>();
-
-    const noRoleText = 'No Role';
-
-    const { roles: selectRoleOptions } = useRoleSelector();
-
-    const rolesMap: Map<string, DataHubRole> = new Map();
-    selectRoleOptions.forEach((role) => {
-        rolesMap.set(role.urn, role);
-    });
-
-    const roleSelectOptions = () =>
-        selectRoleOptions.map((role) => {
-            return (
-                <Select.Option key={role.urn} value={role.urn}>
-                    <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
-                    {role.name}
-                </Select.Option>
-            );
-        });
 
     // Code related to getting or creating an invite token
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
@@ -108,11 +70,6 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
         }
     }, [getInviteTokenData]);
 
-    const onSelectRole = (roleUrn: string) => {
-        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
-        setSelectedRole(roleFromMap);
-    };
-
     const createInviteToken = (roleUrn?: string) => {
         createInviteTokenMutation({
             variables: {
@@ -128,13 +85,13 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         roleUrn,
                     });
                     setInviteToken(data?.createInviteToken?.inviteToken || '');
-                    message.success('Generated new invite link');
+                    message.success(t('inviteToken.generateSuccess'));
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to create Invite Token for role ${selectedRole?.name} : \n ${e.message || ''}`,
+                    content: t('inviteToken.createError', { roleName: selectedRole?.name, error: e.message || '' }),
                     duration: 3,
                 });
             });
@@ -143,57 +100,47 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`)}`;
 
     return (
-        <Modal width={950} footer={null} buttons={[]} title="Share Invite Link" open={open} onCancel={onClose}>
+        <Modal
+            width={950}
+            footer={null}
+            buttons={[]}
+            title={t('inviteToken.modalTitle')}
+            open={open}
+            onCancel={onClose}
+        >
             <ModalSection>
                 <InviteLinkDiv>
-                    <InfoContainer>
-                        <RoleSelect
-                            placeholder={
-                                <>
-                                    <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
-                                    {noRoleText}
-                                </>
-                            }
-                            value={selectedRole?.urn || undefined}
-                            onChange={(e) => onSelectRole(e as string)}
+                    <SimpleSelectRole
+                        selectedRole={selectedRole}
+                        onRoleSelect={setSelectedRole}
+                        placeholder={t('inviteToken.noRole')}
+                        size="md"
+                    />
+                    <CopyText className="meticulous-ignore">
+                        <pre className="meticulous-ignore">{inviteLink}</pre>
+                    </CopyText>
+                    <Tooltip title={t('inviteToken.copyTooltip')}>
+                        <Button
+                            onClick={() => {
+                                navigator.clipboard.writeText(inviteLink);
+                                message.success(t('inviteToken.copiedSuccess'));
+                            }}
                         >
-                            <Select.Option value="">
-                                <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
-                                {noRoleText}
-                            </Select.Option>
-                            {roleSelectOptions()}
-                        </RoleSelect>
-                        <CopyText>
-                            <pre>{inviteLink}</pre>
-                        </CopyText>
-                    </InfoContainer>
-                    <ActionsContainer>
-                        <Tooltip title="Copy invite link.">
-                            <Button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(inviteLink);
-                                    message.success('Copied invite link to clipboard');
-                                }}
-                            >
-                                Copy
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Generate a new link. Any old links will no longer be valid.">
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    createInviteToken(selectedRole?.urn);
-                                }}
-                            >
-                                Refresh
-                            </Button>
-                        </Tooltip>
-                    </ActionsContainer>
+                            {tc('copy')}
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title={t('inviteToken.generateNewLinkTooltip')}>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                createInviteToken(selectedRole?.urn);
+                            }}
+                        >
+                            {tc('refresh')}
+                        </Button>
+                    </Tooltip>
                 </InviteLinkDiv>
-                <ModalSectionFooter type="secondary">
-                    Copy an invite link to send to your users. When they join, users will be automatically assigned to
-                    the selected role.
-                </ModalSectionFooter>
+                <ModalSectionFooter color="textSecondary">{t('inviteToken.footerText')}</ModalSectionFooter>
             </ModalSection>
         </Modal>
     );

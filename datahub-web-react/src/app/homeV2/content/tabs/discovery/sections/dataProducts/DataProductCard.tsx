@@ -18,7 +18,7 @@ const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
 
     :hover {
         border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
-            ${(props) => props.theme.colors.hyperlinks};
+            ${(props) => props.theme.colors.borderHover};
     }
 
     display: flex;

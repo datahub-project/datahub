@@ -1,10 +1,14 @@
-import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
-import { message } from 'antd';
+import { toast } from '@components';
+import { Minus } from '@phosphor-icons/react/dist/csr/Minus';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import {
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useIsContractsEnabled } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/useIsContractsEnabled';
 import {
     buildAddAssertionToContractMutationVariables,
@@ -14,34 +18,30 @@ import {
     getDataContractCategoryFromAssertion,
     isAssertionPartOfContract,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+import { ActionItem } from '@app/shared/actions/ActionItem';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, DataContract } from '@types';
 
-const StyledMinusOutlined = styled(MinusOutlined)`
-    && {
-        font-size: 12px;
-        display: flex;
-    }
-`;
-
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 12px;
-        display: flex;
-    }
-`;
-
 type Props = {
     assertion: Assertion;
-    contract?: DataContract;
+    contract?: DataContract | null;
     canEdit: boolean;
     // Should be defined if canEdit
     refetch?: () => void;
     isExpandedView?: boolean;
+    onActionTriggered?: () => void;
 };
 
-export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpandedView = false }: Props) => {
+export const ContractAction = ({
+    assertion,
+    contract,
+    canEdit,
+    refetch,
+    isExpandedView = false,
+    onActionTriggered,
+}: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();
@@ -59,13 +59,13 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Added assertion to contract!', duration: 2 });
+                    toast.success(t('action.addedToContract'), { duration: 2 });
                     refetch?.();
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to add Assertion to Contract. An unexpected error occurred' });
+                toast.destroy();
+                toast.error(t('action.failedAddToContract'));
             });
     };
 
@@ -75,20 +75,20 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed assertion from contract.', duration: 2 });
+                    toast.success(t('action.removedFromContract'), { duration: 2 });
                     refetch?.();
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to remove Assertion from Contract. An unexpected error occurred' });
+                toast.destroy();
+                toast.error(t('action.failedRemoveFromContract'));
             });
     };
 
     const isPartOfContract = contract ? isAssertionPartOfContract(assertion, contract) : false;
-    const contractTip = isPartOfContract ? 'Remove from contract' : 'Add to contract';
+    const contractTip = isPartOfContract ? t('action.removeFromContract') : t('action.addToContract');
 
-    const unauthorizedTip = canEdit ? undefined : 'You do not have permission to edit the contract';
+    const unauthorizedTip = canEdit ? undefined : t('action.noPermissionEditContract');
     const tip = canEdit ? contractTip : unauthorizedTip;
 
     return (
@@ -99,9 +99,16 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
                     tip={tip}
                     disabled={!canEdit}
                     onClick={isPartOfContract ? onRemoveFromContract : onAddToContract}
-                    icon={isPartOfContract ? <StyledMinusOutlined /> : <StyledPlusOutlined />}
+                    icon={
+                        isPartOfContract ? (
+                            <Minus size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                        ) : (
+                            <Plus size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                        )
+                    }
                     isExpandedView={isExpandedView}
                     actionName={contractTip}
+                    onActionTriggered={onActionTriggered}
                 />
             )) ||
                 null}

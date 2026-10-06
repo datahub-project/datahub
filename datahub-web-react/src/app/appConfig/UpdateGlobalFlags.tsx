@@ -3,8 +3,7 @@ import { useEffect } from 'react';
 
 import { setInLocalStorage } from '@app/sharedV2/hooks/useFeatureFlag';
 import { useAppConfig } from '@app/useAppConfig';
-
-import { AppConfig } from '@types';
+import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
 
 export const hideLineageInSearchCardsRef = { current: false };
 export const showSeparateSiblingsRef = { current: false };
@@ -31,7 +30,7 @@ export default function UpdateGlobalFlags() {
 function useUpdateGlobalFlag(
     ref: { current: boolean },
     localStorageKey: string,
-    getValue: (appConfig: AppConfig) => boolean,
+    getValue: (appConfig: AppConfigWithoutPolicyPrivileges) => boolean,
 ) {
     const { config, loaded } = useAppConfig();
     const value = getValue(config);

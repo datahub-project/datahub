@@ -1,6 +1,7 @@
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button, Text, borders, radius, spacing } from '@src/alchemy-components';
@@ -25,9 +26,11 @@ const Sample = styled(Text)`
 `;
 
 export default function SampleValueDetailed({ sample }: SampleValueDetailedProps) {
+    const { t: tc } = useTranslation('common.feedback');
+
     const copySample = () => {
         navigator.clipboard.writeText(sample);
-        message.success('Copied!');
+        message.success(tc('copiedSuccess'));
     };
 
     return (

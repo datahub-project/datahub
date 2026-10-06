@@ -1,6 +1,7 @@
 import { ConsoleSqlOutlined, EyeOutlined, ToolOutlined, UserOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -76,11 +77,12 @@ function getTier(
     return getDatasetPopularityTier(queryCountPercentileLast30Days, uniqueUserPercentileLast30Days);
 }
 
-function shouldRender(
-    entityType,
-    queryCountPercentileLast30Days,
-    uniqueUserPercentileLast30Days,
-    viewCountPercentileLast30Days,
+/** Whether the stats summary carries the percentiles the popularity bars are derived from. */
+export function hasPopularityStats(
+    entityType: EntityType | undefined,
+    queryCountPercentileLast30Days?: number | null,
+    uniqueUserPercentileLast30Days?: number | null,
+    viewCountPercentileLast30Days?: number | null,
 ) {
     if (entityType === EntityType.Chart || entityType === EntityType.Dashboard) {
         return isValuePresent(viewCountPercentileLast30Days) || isValuePresent(uniqueUserPercentileLast30Days);
@@ -95,18 +97,20 @@ interface Props {
 }
 
 const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, size, entityType }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const dataset = entityData as any;
 
-    // To determine the popularity for the dataset, we need to pull out the stats summary.
-    const statsSummary = dataset?.statsSummary || statsSummaryFromProps;
+    // An explicit summary wins. The hover card passes the hovered entity's stats, and falling
+    // back to the page entity first painted that page's popularity bars on the card.
+    const statsSummary = statsSummaryFromProps || dataset?.statsSummary;
     const viewCountPercentileLast30Days = statsSummary?.viewCountPercentileLast30Days;
     const queryCountPercentileLast30Days = statsSummary?.queryCountPercentileLast30Days;
     const uniqueUserPercentileLast30Days = statsSummary?.uniqueUserPercentileLast30Days;
     const updatePercentileLast30Days = statsSummary?.updatePercentileLast30Days;
 
     if (
-        !shouldRender(
+        !hasPopularityStats(
             entityType || entityData?.type,
             queryCountPercentileLast30Days,
             uniqueUserPercentileLast30Days,
@@ -134,8 +138,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledEyeOutlined />
                             <div>
-                                Viewed more than <b>{viewCountPercentileLast30Days}%</b> of similar assets in the past
-                                30 days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.viewedMoreThan"
+                                    values={{ pct: viewCountPercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}
@@ -143,8 +151,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledConsoleSqlOutlined />
                             <div>
-                                Queried more than <b>{queryCountPercentileLast30Days}%</b> of similar assets in the past
-                                30 days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.queriedMoreThan"
+                                    values={{ pct: queryCountPercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}
@@ -152,8 +164,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledUserOutlined />
                             <div>
-                                More users than <b>{uniqueUserPercentileLast30Days}%</b> of similar assets in the past
-                                30 days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.moreUsersThan"
+                                    values={{ pct: uniqueUserPercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}
@@ -161,8 +177,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledToolOutlined />
                             <div>
-                                More changes than <b>{updatePercentileLast30Days}%</b> of similar assets in the past 30
-                                days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.moreChangesThan"
+                                    values={{ pct: updatePercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}

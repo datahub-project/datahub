@@ -1,11 +1,12 @@
 import { Empty } from 'antd';
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageNodesContext, getEdgeId, setDifference } from '@app/lineageV3/common';
 import EntityEdge from '@app/lineageV3/manualLineage/EntityEdge';
 
-import { CorpUser, Entity, LineageDirection } from '@types';
+import { CorpUser, Entity, EntityType, LineageDirection } from '@types';
 
 const LineageEdgesWrapper = styled.div`
     padding: 0 20px 10px 20px;
@@ -24,26 +25,50 @@ const EmptyWrapper = styled.div`
 interface Props {
     parentUrn: string;
     direction: LineageDirection;
+    validEntityTypes: EntityType[];
     entitiesToAdd: Entity[];
     entitiesToRemove: Entity[];
     onRemoveEntity: (entity: Entity) => void;
 }
 
-export default function LineageEdges({ parentUrn, direction, entitiesToAdd, entitiesToRemove, onRemoveEntity }: Props) {
+export default function LineageEdges({
+    parentUrn,
+    direction,
+    validEntityTypes,
+    entitiesToAdd,
+    entitiesToRemove,
+    onRemoveEntity,
+}: Props) {
+    const { t } = useTranslation('lineage');
     const { nodes, edges, adjacencyList } = useContext(LineageNodesContext);
 
-    const children = adjacencyList[direction].get(parentUrn) || new Set();
+    const allowedTypes = useMemo(() => new Set(validEntityTypes), [validEntityTypes]);
+    const writableChildren = useMemo(() => {
+        const children = adjacencyList[direction].get(parentUrn) ?? new Set<string>();
+        return new Set(
+            Array.from(children).filter((childUrn) => {
+                const childType = nodes.get(childUrn)?.type;
+                return !!childType && allowedTypes.has(childType);
+            }),
+        );
+    }, [adjacencyList, direction, parentUrn, allowedTypes, nodes]);
     const urnsToRemove = useMemo(
         () => new Set(entitiesToRemove.map((entityToRemove) => entityToRemove.urn)),
         [entitiesToRemove],
     );
-    const filteredChildren = setDifference(children, urnsToRemove);
+    const filteredChildren = setDifference(writableChildren, urnsToRemove);
 
     return (
         <LineageEdgesWrapper>
             {!filteredChildren?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
-                    <Empty description={`No ${direction.toLocaleLowerCase()} entities`} />
+                    <Empty
+                        description={
+                            direction === LineageDirection.Upstream
+                                ? t('edges.noUpstreamEntities')
+                                : t('edges.noDownstreamEntities')
+                        }
+                    />
                 </EmptyWrapper>
             )}
             {filteredChildren?.map((childUrn) => {

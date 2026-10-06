@@ -4,27 +4,30 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
-import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
-import * as useSearchDocumentsModule from '@app/document/hooks/useSearchDocuments';
+import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
+import { DocumentTreeContext, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
+import { DOCUMENT_PAGE_SIZE, useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 
 import * as documentGenerated from '@graphql/document.generated';
 
-vi.mock('../useSearchDocuments');
 vi.mock('@graphql/document.generated');
 
 describe('useLoadDocumentTree', () => {
     let mockClient: ApolloClient<any>;
     let mockSearchDocumentsLazyQuery: any;
     const mockInitializeTree = vi.fn();
+    const mockAppendRootNodes = vi.fn();
     const mockSetNodeChildren = vi.fn();
+    const mockAppendNodeChildren = vi.fn();
     const mockGetRootNodes = vi.fn();
 
     const mockContextValue = {
         nodes: new Map(),
         rootUrns: [],
         initializeTree: mockInitializeTree,
+        appendRootNodes: mockAppendRootNodes,
         setNodeChildren: mockSetNodeChildren,
+        appendNodeChildren: mockAppendNodeChildren,
         getRootNodes: mockGetRootNodes,
         getChildren: vi.fn(),
         addNode: vi.fn(),
@@ -41,78 +44,41 @@ describe('useLoadDocumentTree', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        console.log = vi.fn(); // Suppress console.log in tests
-        console.error = vi.fn(); // Suppress console.error in tests
+        console.log = vi.fn();
+        console.error = vi.fn();
 
         mockClient = new ApolloClient({
             cache: new InMemoryCache(),
-            defaultOptions: {
-                query: {
-                    fetchPolicy: 'no-cache',
-                },
-            },
+            defaultOptions: { query: { fetchPolicy: 'no-cache' } },
         });
 
         mockGetRootNodes.mockReturnValue([]);
 
-        // Set up default mock for useSearchDocumentsLazyQuery
         mockSearchDocumentsLazyQuery = vi.fn().mockResolvedValue({
-            data: {
-                searchDocuments: {
-                    documents: [],
-                    total: 0,
-                },
-            },
+            data: { searchDocuments: { documents: [], total: 0 } },
         });
 
         vi.mocked(documentGenerated.useSearchDocumentsLazyQuery).mockReturnValue([
             mockSearchDocumentsLazyQuery,
-            {} as any, // query result object (not used in the implementation)
+            {} as any,
         ]);
     });
 
-    it('should load and initialize tree with root documents', async () => {
-        const mockRootDocuments = [
-            {
-                urn: 'urn:li:document:root1',
-                info: {
-                    title: 'Root Document 1',
-                    created: { time: 2000 },
-                    parentDocument: null,
-                },
-            },
-            {
-                urn: 'urn:li:document:root2',
-                info: {
-                    title: 'Root Document 2',
-                    created: { time: 1000 },
-                    parentDocument: null,
-                },
-            },
+    const wrapper = ({ children }: any) => (
+        <ApolloProvider client={mockClient}>
+            <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
+        </ApolloProvider>
+    );
+
+    it('should load first page of root documents and initialize tree', async () => {
+        const mockDocs = [
+            { urn: 'urn:li:document:root1', info: { title: 'Root 1', created: { time: 2000 }, parentDocument: null } },
+            { urn: 'urn:li:document:root2', info: { title: 'Root 2', created: { time: 1000 }, parentDocument: null } },
         ];
 
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: mockRootDocuments as any,
-            total: 2,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
         mockSearchDocumentsLazyQuery.mockResolvedValue({
-            data: {
-                searchDocuments: {
-                    documents: [],
-                    total: 0,
-                },
-            },
+            data: { searchDocuments: { documents: mockDocs, total: 2 } },
         });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
 
         renderHook(() => useLoadDocumentTree(), { wrapper });
 
@@ -120,102 +86,38 @@ describe('useLoadDocumentTree', () => {
             expect(mockInitializeTree).toHaveBeenCalled();
         });
 
-        // Check that documents were sorted by creation time (DESC)
+        expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({
+                        start: 0,
+                        count: DOCUMENT_PAGE_SIZE,
+                        rootOnly: true,
+                    }),
+                }),
+            }),
+        );
+
         const initializeCall = mockInitializeTree.mock.calls[0][0];
-        expect(initializeCall[0].urn).toBe('urn:li:document:root1'); // Newer document first
+        expect(initializeCall[0].urn).toBe('urn:li:document:root1');
         expect(initializeCall[1].urn).toBe('urn:li:document:root2');
     });
 
-    it('should not initialize tree if already initialized', async () => {
-        const mockRootDocuments = [
-            {
-                urn: 'urn:li:document:root1',
-                info: {
-                    title: 'Root Document 1',
-                    created: { time: 1000 },
-                },
-            },
-        ];
-
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: mockRootDocuments as any,
-            total: 1,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        // Tree already has nodes
+    it('should re-initialize tree on first page even if already populated', async () => {
+        // Sort remounts share DocumentTreeContext; page 0 must replace roots so the
+        // new order wins over whatever the previous sort left in context.
         mockGetRootNodes.mockReturnValue([
-            {
-                urn: 'urn:li:document:existing',
-                title: 'Existing',
-                parentUrn: null,
-                hasChildren: false,
-                children: [],
-            },
+            { urn: 'urn:li:document:existing', title: 'Existing', parentUrn: null, hasChildren: false },
         ]);
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        await waitFor(() => {
-            // Should not initialize because tree already has nodes
-            expect(mockInitializeTree).not.toHaveBeenCalled();
-        });
-    });
-
-    it('should check which root documents have children', async () => {
-        const mockRootDocuments = [
-            {
-                urn: 'urn:li:document:root1',
-                info: {
-                    title: 'Root Document 1',
-                    created: { time: 1000 },
-                },
-            },
-        ];
-
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: mockRootDocuments as any,
-            total: 1,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        const mockChildDocuments = [
-            {
-                urn: 'urn:li:document:child1',
-                info: {
-                    parentDocument: {
-                        document: {
-                            urn: 'urn:li:document:root1',
-                        },
-                    },
-                },
-            },
-        ];
 
         mockSearchDocumentsLazyQuery.mockResolvedValue({
             data: {
                 searchDocuments: {
-                    documents: mockChildDocuments,
+                    documents: [{ urn: 'urn:li:document:root1', info: { title: 'Root 1', created: { time: 1000 } } }],
                     total: 1,
                 },
             },
         });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
 
         renderHook(() => useLoadDocumentTree(), { wrapper });
 
@@ -223,313 +125,318 @@ describe('useLoadDocumentTree', () => {
             expect(mockInitializeTree).toHaveBeenCalled();
         });
 
-        const initializeCall = mockInitializeTree.mock.calls[0][0];
-        expect(initializeCall[0].hasChildren).toBe(true);
+        expect(mockInitializeTree.mock.calls[0][0][0].urn).toBe('urn:li:document:root1');
     });
 
-    it('should handle loading state correctly', () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: true,
-            error: undefined,
-            refetch: vi.fn(),
-        });
+    it('should report hasMoreRoots when total exceeds loaded count', async () => {
+        const docs = Array.from({ length: DOCUMENT_PAGE_SIZE }, (_, i) => ({
+            urn: `urn:li:document:root${i}`,
+            info: { title: `Root ${i}`, created: { time: 1000 - i }, parentDocument: null },
+        }));
 
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        expect(result.current.loading).toBe(true);
-    });
-
-    it('should expose checkForChildren function', () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        expect(typeof result.current.checkForChildren).toBe('function');
-    });
-
-    it('should check for children correctly', async () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        const urns = ['urn:li:document:1', 'urn:li:document:2'];
-        const mockChildDocuments = [
-            {
-                urn: 'urn:li:document:child1',
-                info: {
-                    parentDocument: {
-                        document: {
-                            urn: 'urn:li:document:1',
-                        },
-                    },
-                },
-            },
-        ];
-
-        mockSearchDocumentsLazyQuery.mockResolvedValue({
-            data: {
-                searchDocuments: {
-                    documents: mockChildDocuments,
-                    total: 1,
-                },
-            },
-        });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        const childrenMap = await result.current.checkForChildren(urns);
-
-        expect(childrenMap).toEqual({
-            'urn:li:document:1': true,
-            'urn:li:document:2': false,
-        });
-
-        expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith({
-            variables: {
-                input: {
-                    query: '*',
-                    parentDocuments: urns,
-                    start: 0,
-                    count: 200, // 2 * 100
-                },
-            },
-            fetchPolicy: 'network-only',
-        });
-    });
-
-    it('should return empty map for checkForChildren with empty array', async () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        const childrenMap = await result.current.checkForChildren([]);
-
-        expect(childrenMap).toEqual({});
-    });
-
-    it('should handle errors in checkForChildren', async () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        mockSearchDocumentsLazyQuery.mockRejectedValue(new Error('Network error'));
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        const childrenMap = await result.current.checkForChildren(['urn:li:document:1']);
-
-        expect(childrenMap).toEqual({});
-    });
-
-    it('should expose loadChildren function', () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        expect(typeof result.current.loadChildren).toBe('function');
-    });
-
-    it('should load children for a parent', async () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        const parentUrn = 'urn:li:document:parent1';
-        const mockChildDocuments = [
-            {
-                urn: 'urn:li:document:child1',
-                info: {
-                    title: 'Child 1',
-                    created: { time: 2000 },
-                },
-            },
-            {
-                urn: 'urn:li:document:child2',
-                info: {
-                    title: 'Child 2',
-                    created: { time: 1000 },
-                },
-            },
-        ];
-
-        let queryCount = 0;
+        let callCount = 0;
         mockSearchDocumentsLazyQuery.mockImplementation(() => {
-            queryCount++;
-            // First call is to fetch children
-            if (queryCount === 1) {
+            callCount++;
+            if (callCount === 1) {
                 return Promise.resolve({
-                    data: { searchDocuments: { documents: mockChildDocuments, total: 2 } },
+                    data: { searchDocuments: { documents: docs, total: 50 } },
                 });
             }
-            // Second call is for checkForChildren (checking if those children have children)
             return Promise.resolve({
                 data: { searchDocuments: { documents: [], total: 0 } },
             });
         });
 
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        const children = await result.current.loadChildren(parentUrn);
-
-        expect(children).toHaveLength(2);
-        expect(children[0].urn).toBe('urn:li:document:child1'); // Sorted by time DESC
-        expect(children[1].urn).toBe('urn:li:document:child2');
-        expect(mockSetNodeChildren).toHaveBeenCalledWith(parentUrn, children);
-
-        // Verify the first query call (loadChildren) matches the implementation
-        const firstCall = mockSearchDocumentsLazyQuery.mock.calls[0];
-        expect(firstCall[0]).toMatchObject({
-            variables: {
-                input: {
-                    query: '*',
-                    parentDocuments: [parentUrn],
-                    start: 0,
-                    count: 100,
-                },
-            },
-            fetchPolicy: 'network-only',
-        });
-    });
-
-    it('should handle errors in loadChildren', async () => {
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: [],
-            total: 0,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        mockSearchDocumentsLazyQuery.mockRejectedValue(new Error('Network error'));
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
-
-        const children = await result.current.loadChildren('urn:li:document:parent1');
-
-        expect(children).toEqual([]);
-    });
-
-    it('should use "Untitled" as default title for documents without title', async () => {
-        const mockRootDocuments = [
-            {
-                urn: 'urn:li:document:root1',
-                info: {
-                    title: null,
-                    created: { time: 1000 },
-                },
-            },
-        ];
-
-        vi.mocked(useSearchDocumentsModule.useSearchDocuments).mockReturnValue({
-            documents: mockRootDocuments as any,
-            total: 1,
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        });
-
-        mockSearchDocumentsLazyQuery.mockResolvedValue({
-            data: {
-                searchDocuments: {
-                    documents: [],
-                    total: 0,
-                },
-            },
-        });
-
-        const wrapper = ({ children }: any) => (
-            <ApolloProvider client={mockClient}>
-                <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
-            </ApolloProvider>
-        );
-
-        renderHook(() => useLoadDocumentTree(), { wrapper });
 
         await waitFor(() => {
             expect(mockInitializeTree).toHaveBeenCalled();
         });
 
-        const initializeCall = mockInitializeTree.mock.calls[0][0];
-        expect(initializeCall[0].title).toBe('Untitled');
+        expect(result.current.hasMoreRoots).toBe(true);
+    });
+
+    it('should report hasMoreRoots=false when all loaded', async () => {
+        const docs = [
+            { urn: 'urn:li:document:root1', info: { title: 'Root 1', created: { time: 1000 }, parentDocument: null } },
+        ];
+
+        mockSearchDocumentsLazyQuery.mockResolvedValue({
+            data: { searchDocuments: { documents: docs, total: 1 } },
+        });
+
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(mockInitializeTree).toHaveBeenCalled();
+        });
+
+        expect(result.current.hasMoreRoots).toBe(false);
+    });
+
+    it('should load children with pagination tracking', async () => {
+        const parentUrn = 'urn:li:document:parent1';
+        const mockChildren = [
+            { urn: 'urn:li:document:child1', info: { title: 'Child 1', created: { time: 2000 } } },
+            { urn: 'urn:li:document:child2', info: { title: 'Child 2', created: { time: 1000 } } },
+        ];
+
+        let queryCount = 0;
+        mockSearchDocumentsLazyQuery.mockImplementation(() => {
+            queryCount++;
+            if (queryCount === 1) {
+                // Initial root load (empty)
+                return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
+            }
+            if (queryCount === 2) {
+                // loadChildren call
+                return Promise.resolve({
+                    data: { searchDocuments: { documents: mockChildren, total: 10 } },
+                });
+            }
+            // checkForChildren
+            return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
+        });
+
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        const children = await result.current.loadChildren(parentUrn);
+
+        expect(children).toHaveLength(2);
+        expect(mockSetNodeChildren).toHaveBeenCalledWith(parentUrn, children);
+        expect(result.current.hasMoreChildren(parentUrn)).toBe(true);
+    });
+
+    it('should handle checkForChildren correctly', async () => {
+        const urns = ['urn:li:document:1', 'urn:li:document:2'];
+        // checkForChildren queries each parent independently, so drive the mock
+        // off the requested parent: urn:1 has a child, urn:2 does not.
+        const child1 = {
+            urn: 'urn:li:document:child1',
+            info: { parentDocument: { document: { urn: 'urn:li:document:1' } } },
+        };
+        mockSearchDocumentsLazyQuery.mockImplementation((opts: any) => {
+            const parents = opts?.variables?.input?.parentDocuments ?? [];
+            if (parents.includes('urn:li:document:1')) {
+                return Promise.resolve({ data: { searchDocuments: { documents: [child1], total: 1 } } });
+            }
+            return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
+        });
+
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        const childrenMap = await result.current.checkForChildren(urns);
+
+        expect(childrenMap).toEqual({
+            'urn:li:document:1': 1,
+            'urn:li:document:2': 0,
+        });
+    });
+
+    it('should return empty map for checkForChildren with empty array', async () => {
+        mockSearchDocumentsLazyQuery.mockResolvedValue({
+            data: { searchDocuments: { documents: [], total: 0 } },
+        });
+
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        const childrenMap = await result.current.checkForChildren([]);
+        expect(childrenMap).toEqual({});
+    });
+
+    it('should handle errors gracefully', async () => {
+        mockSearchDocumentsLazyQuery.mockRejectedValue(new Error('Network error'));
+
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+    });
+
+    it('should handle loading state correctly', () => {
+        // isInitializing starts true, so loading is true on first render
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        expect(result.current.loading).toBe(true);
+    });
+
+    it('should scope tree queries to the active View', async () => {
+        const viewUrn = 'urn:li:dataHubView:test';
+        const viewWrapper = ({ children }: any) => (
+            <ApolloProvider client={mockClient}>
+                <UserContext.Provider
+                    value={{
+                        loaded: true,
+                        urn: 'urn:li:corpuser:test',
+                        localState: { selectedViewUrn: viewUrn },
+                        state: DEFAULT_STATE,
+                        updateLocalState: () => null,
+                        updateState: () => null,
+                        refetchUser: () => null,
+                    }}
+                >
+                    <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
+                </UserContext.Provider>
+            </ApolloProvider>
+        );
+
+        renderHook(() => useLoadDocumentTree(), { wrapper: viewWrapper });
+
+        await waitFor(() => {
+            expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled();
+        });
+
+        expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({ viewUrn }),
+                }),
+            }),
+        );
+    });
+
+    // Regression coverage for a bug where changing the active View left the sidebar tree
+    // stuck: fetchRootDocuments' "already populated" guard silently dropped the new View's
+    // results, and even when it didn't, nothing but a visible IntersectionObserver sentinel
+    // could ever re-trigger a load, so `loading` could get stuck `true` forever once the
+    // sentinel unmounted. These tests exercise the explicit clear-and-refetch fix directly.
+    describe('active View changes', () => {
+        const viewWrapper = ({ children, viewUrn }: any) => (
+            <ApolloProvider client={mockClient}>
+                <UserContext.Provider
+                    value={{
+                        loaded: true,
+                        urn: 'urn:li:corpuser:test',
+                        localState: { selectedViewUrn: viewUrn },
+                        state: DEFAULT_STATE,
+                        updateLocalState: () => null,
+                        updateState: () => null,
+                        refetchUser: () => null,
+                    }}
+                >
+                    <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
+                </UserContext.Provider>
+            </ApolloProvider>
+        );
+
+        it('clears cached tree state and refetches root documents for the new View', async () => {
+            mockSearchDocumentsLazyQuery.mockResolvedValue({
+                data: { searchDocuments: { documents: [], total: 0 } },
+            });
+
+            const { rerender } = renderHook(() => useLoadDocumentTree(), {
+                wrapper: viewWrapper,
+                initialProps: { viewUrn: 'urn:li:dataHubView:a' },
+            });
+
+            await waitFor(() => expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled());
+            mockInitializeTree.mockClear();
+            mockSearchDocumentsLazyQuery.mockClear();
+
+            rerender({ viewUrn: 'urn:li:dataHubView:b' });
+
+            // The clear happens synchronously in the same effect that kicks off the refetch.
+            expect(mockInitializeTree).toHaveBeenCalledWith([]);
+
+            await waitFor(() => {
+                expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        variables: expect.objectContaining({
+                            input: expect.objectContaining({ start: 0, viewUrn: 'urn:li:dataHubView:b' }),
+                        }),
+                    }),
+                );
+            });
+        });
+
+        it('does not clear or refetch when rerendering with the same View', async () => {
+            mockSearchDocumentsLazyQuery.mockResolvedValue({
+                data: { searchDocuments: { documents: [], total: 0 } },
+            });
+
+            const { rerender } = renderHook(() => useLoadDocumentTree(), {
+                wrapper: viewWrapper,
+                initialProps: { viewUrn: 'urn:li:dataHubView:a' },
+            });
+
+            await waitFor(() => expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled());
+            mockInitializeTree.mockClear();
+            mockSearchDocumentsLazyQuery.mockClear();
+
+            rerender({ viewUrn: 'urn:li:dataHubView:a' });
+
+            expect(mockInitializeTree).not.toHaveBeenCalled();
+            expect(mockSearchDocumentsLazyQuery).not.toHaveBeenCalled();
+        });
+
+        it('replaces stale root documents from the previous View and never gets stuck loading', async () => {
+            const viewADoc = {
+                urn: 'urn:li:document:viewA-doc',
+                info: { title: 'View A Doc', created: { time: 1000 }, parentDocument: null },
+            };
+            const viewBDoc = {
+                urn: 'urn:li:document:viewB-doc',
+                info: { title: 'View B Doc', created: { time: 1000 }, parentDocument: null },
+            };
+
+            mockSearchDocumentsLazyQuery.mockImplementation((opts: any) => {
+                const requestedViewUrn = opts?.variables?.input?.viewUrn;
+                const doc = requestedViewUrn === 'urn:li:dataHubView:b' ? viewBDoc : viewADoc;
+                return Promise.resolve({ data: { searchDocuments: { documents: [doc], total: 1 } } });
+            });
+
+            // Use the real DocumentTreeProvider here (rather than the mocked context value used
+            // elsewhere in this file) so getRootNodes/initializeTree are actually wired together —
+            // that coupling is exactly what the original "already populated" guard bug hid.
+            const realWrapper = ({ children, viewUrn }: any) => (
+                <ApolloProvider client={mockClient}>
+                    <UserContext.Provider
+                        value={{
+                            loaded: true,
+                            urn: 'urn:li:corpuser:test',
+                            localState: { selectedViewUrn: viewUrn },
+                            state: DEFAULT_STATE,
+                            updateLocalState: () => null,
+                            updateState: () => null,
+                            refetchUser: () => null,
+                        }}
+                    >
+                        <DocumentTreeProvider>{children}</DocumentTreeProvider>
+                    </UserContext.Provider>
+                </ApolloProvider>
+            );
+
+            const { result, rerender } = renderHook(
+                () => {
+                    const tree = useLoadDocumentTree();
+                    const ctx = useDocumentTree();
+                    return { tree, ctx };
+                },
+                { wrapper: realWrapper, initialProps: { viewUrn: 'urn:li:dataHubView:a' } },
+            );
+
+            await waitFor(() => expect(result.current.tree.loading).toBe(false));
+            expect(result.current.ctx.getRootNodes().map((n) => n.urn)).toEqual(['urn:li:document:viewA-doc']);
+
+            rerender({ viewUrn: 'urn:li:dataHubView:b' });
+
+            // Must resolve back to false — a regression here means the sidebar spinner
+            // never clears (see the bug description above).
+            await waitFor(() => expect(result.current.tree.loading).toBe(false));
+            expect(result.current.ctx.getRootNodes().map((n) => n.urn)).toEqual(['urn:li:document:viewB-doc']);
+        });
     });
 });

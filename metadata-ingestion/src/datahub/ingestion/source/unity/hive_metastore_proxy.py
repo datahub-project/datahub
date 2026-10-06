@@ -1,11 +1,11 @@
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Sequence
 
 from databricks.sdk.service.catalog import ColumnTypeName, DataSourceFormat
-from databricks.sql.types import Row
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Connection, Row
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.closeable import Closeable
@@ -124,8 +124,11 @@ class HiveMetastoreProxy(Closeable):
             # 3 columns - database, tableName, isTemporary
             return [row.tableName for row in rows]
         except Exception as e:
-            self.report.report_warning(
-                "Failed to get tables for schema", f"{HIVE_METASTORE}.{schema_name}"
+            self.report.warning(
+                message="Failed to get tables for schema",
+                context=f"{HIVE_METASTORE}.{schema_name}",
+                exc=e,
+                log=False,
             )
             logger.warning(
                 f"Failed to get tables {schema_name} due to {e}", exc_info=True
@@ -138,7 +141,12 @@ class HiveMetastoreProxy(Closeable):
             # 4 columns - namespace, viewName, isTemporary, isMaterialized
             return [row.viewName for row in rows]
         except Exception as e:
-            self.report.report_warning("Failed to get views for schema", schema_name)
+            self.report.warning(
+                message="Failed to get views for schema",
+                context=schema_name,
+                exc=e,
+                log=False,
+            )
             logger.warning(
                 f"Failed to get views {schema_name} due to {e}", exc_info=True
             )
@@ -286,9 +294,11 @@ class HiveMetastoreProxy(Closeable):
             for row in rows:
                 return row[0]
         except Exception as e:
-            self.report.report_warning(
-                "Failed to get view definition for table",
-                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+            self.report.warning(
+                message="Failed to get view definition for table",
+                context=f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                exc=e,
+                log=False,
             )
             logger.debug(
                 f"Failed to get view definition for {schema_name}.{table_name} due to {e}",
@@ -314,7 +324,18 @@ class HiveMetastoreProxy(Closeable):
         try:
             rows = self._describe_extended(schema_name, table_name)
 
-            index = rows.index(("# Detailed Table Information", "", ""))
+            # Match on the column value, not Row equality: these are SQLAlchemy
+            # rows, and cross-type tuple equality isn't something to rely on.
+            index = next(
+                (
+                    i
+                    for i, row in enumerate(rows)
+                    if row[0] == "# Detailed Table Information"
+                ),
+                None,
+            )
+            if index is None:
+                raise ValueError("DESCRIBE EXTENDED has no detailed table section")
             rows = rows[index + 1 :]
             # Copied from https://github.com/acryldata/PyHive/blob/master/pyhive/sqlalchemy_hive.py#L375
 
@@ -335,9 +356,11 @@ class HiveMetastoreProxy(Closeable):
                     prop_name = f"{active_heading} {data_type.rstrip()}"
                     properties[prop_name] = value.rstrip()
         except Exception as e:
-            self.report.report_warning(
-                "Failed to get detailed info for table",
-                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+            self.report.warning(
+                message="Failed to get detailed info for table",
+                context=f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                exc=e,
+                log=False,
             )
             logger.debug(
                 f"Failed to get detailed info for table {schema_name}.{table_name} due to {e}",
@@ -373,9 +396,11 @@ class HiveMetastoreProxy(Closeable):
                     )
                 )
         except Exception as e:
-            self.report.report_warning(
-                "Failed to get columns for table",
-                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+            self.report.warning(
+                message="Failed to get columns for table",
+                context=f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                exc=e,
+                log=False,
             )
             logger.debug(
                 f"Failed to get columns for table {schema_name}.{table_name} due to {e}",
@@ -384,7 +409,9 @@ class HiveMetastoreProxy(Closeable):
         return columns
 
     @lru_cache(maxsize=1)
-    def _describe_extended(self, schema_name: str, table_name: str) -> List[Row]:
+    def _describe_extended(
+        self, schema_name: str, table_name: str
+    ) -> Sequence[Row[Any]]:
         """
         Rows are structured as shown in examples here
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
@@ -393,7 +420,7 @@ class HiveMetastoreProxy(Closeable):
 
     def _column_describe_extended(
         self, schema_name: str, table_name: str, column_name: str
-    ) -> List[Row]:
+    ) -> Sequence[Row[Any]]:
         """
         Rows are structured as shown in examples here
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
@@ -402,8 +429,17 @@ class HiveMetastoreProxy(Closeable):
             f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}` {column_name}"
         )
 
-    def _execute_sql(self, sql: str) -> List[Row]:
-        return self.inspector.bind.execute(sql).fetchall()
+    def _execute_sql(self, sql: str) -> Sequence[Row[Any]]:
+        return self._connection().execute(text(sql)).fetchall()
+
+    def _connection(self) -> Connection:
+        # get_inspector() builds the Inspector from a Connection, so bind is a
+        # Connection here (an Engine would have no execute() or close() on 2.0).
+        conn = self.inspector.bind
+        assert isinstance(conn, Connection)
+        return conn
 
     def close(self):
-        self.inspector.bind.close()  # type:ignore
+        bind = self.inspector.bind
+        if isinstance(bind, Connection):
+            bind.close()

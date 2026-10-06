@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +34,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,6 +46,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -61,6 +66,7 @@ public class AggregationQueryBuilderTest {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
+    Urn stewardUrn = Urn.createFromString("urn:li:structuredProperty:steward");
 
     // legacy
     aspectRetriever = mock(CachingAspectRetriever.class);
@@ -71,7 +77,8 @@ public class AggregationQueryBuilderTest {
     structPropHelloDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     structPropHelloDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropHelloDefinition.setQualifiedName("hello");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(helloUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(helloUrn)), anySet()))
         .thenReturn(
             Map.of(
                 helloUrn,
@@ -84,13 +91,27 @@ public class AggregationQueryBuilderTest {
     structPropAbFghTenDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinition.setQualifiedName("ab.fgh.ten");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropAbFghTenDefinition.data()))));
+
+    StructuredPropertyDefinition stewardDefinition = new StructuredPropertyDefinition();
+    stewardDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    stewardDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    stewardDefinition.setQualifiedName("steward");
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(stewardUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                stewardUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(stewardDefinition.data()))));
 
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
@@ -99,7 +120,8 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinition.setQualifiedName("under.scores.and.dots_make_a_mess");
     structPropUnderscoresAndDotsDefinition.setDisplayName("under.scores.and.dots_make_a_mess");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -116,7 +138,8 @@ public class AggregationQueryBuilderTest {
     structPropHelloDefinitionV1.setVersion("00000000000001");
     structPropHelloDefinitionV1.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropHelloDefinitionV1.setQualifiedName("hello");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(helloUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(helloUrn)), anySet()))
         .thenReturn(
             Map.of(
                 helloUrn,
@@ -130,7 +153,8 @@ public class AggregationQueryBuilderTest {
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -145,7 +169,8 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinitionV1.setQualifiedName("under.scores.and.dots_make_a_mess");
     structPropUnderscoresAndDotsDefinitionV1.setDisplayName("under.scores.and.dots_make_a_mess");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -443,6 +468,28 @@ public class AggregationQueryBuilderTest {
   }
 
   @Test
+  public void testAggregateOverUrnStructuredProperty() {
+    // URN SPs aggregate on the parent keyword field — no .keyword subfield.
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+            List.of("structuredProperties.steward"));
+    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of("structuredProperties.steward", DEFAULT_FILTER));
+  }
+
+  @Test
   public void testAggregateOverStructuredPropertyV1() {
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -610,6 +657,65 @@ public class AggregationQueryBuilderTest {
             "structuredProperties.ab_fgh_ten.keyword",
             "structuredProperties.hello.keyword",
             DEFAULT_FILTER));
+  }
+
+  /** V3 root fields keep the V2 .keyword subfield, so facets aggregate on it as on V2. */
+  @Test
+  public void testV3KeywordReadFacetsUseKeywordSubfields() {
+    SearchableAnnotation annotation =
+        new SearchableAnnotation(
+            "test1",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            false,
+            Optional.empty(),
+            Optional.of("Has Test"),
+            1.0,
+            Optional.of("hasTest1"),
+            Optional.empty(),
+            Collections.<Object, Double>emptyMap(),
+            Collections.<String>emptyList(),
+            false,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            false);
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(entitySpec.getName()).thenReturn("dataset");
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)), true);
+
+    List<TermsAggregationBuilder> aggs =
+        builder
+            .getAggregations(
+                TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+                ImmutableList.of("test1", "hasTest1", "structuredProperties.hello"))
+            .stream()
+            .map(TermsAggregationBuilder.class::cast)
+            .collect(Collectors.toList());
+    // V3 documents store their entity type, so the type facet does not read _index
+    Assert.assertEquals(
+        aggs.stream().map(TermsAggregationBuilder::field).collect(Collectors.toSet()),
+        ImmutableSet.of(
+            "test1.keyword",
+            "hasTest1",
+            "structuredProperties.hello.keyword",
+            INDEX_VIRTUAL_FIELD));
+    // A V3 index can hold other entity types; only the requested ones are reported
+    TermsAggregationBuilder entityTypeAgg =
+        aggs.stream().filter(agg -> agg.field().equals(INDEX_VIRTUAL_FIELD)).findFirst().get();
+    Assert.assertEquals(
+        entityTypeAgg.includeExclude(), new IncludeExclude(new String[] {"dataset"}, null));
   }
 
   @Test
@@ -783,6 +889,65 @@ public class AggregationQueryBuilderTest {
   }
 
   @Test
+  public void testProcessTermAggregationsConvertsDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final Terms.Bucket nonDateBucket = mock(Terms.Bucket.class);
+    final String nonDateKey = "not-a-date";
+    when(nonDateBucket.getKeyAsString()).thenReturn(nonDateKey);
+    when(nonDateBucket.getDocCount()).thenReturn(3L);
+    when(nonDateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket, nonDateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+    Assert.assertEquals(aggregations.get(nonDateKey), Long.valueOf(3));
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsMinutePrecisionDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+  }
+
+  @Test
   public void testAddFiltersToMetadataWithStructuredPropsNoResults() {
     final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
 
@@ -803,7 +968,7 @@ public class AggregationQueryBuilderTest {
 
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     builder.addCriterionFiltersToAggregationMetadata(
-        criterion, aggregationMetadataList, mockAspectRetriever);
+        criterion, aggregationMetadataList, null, mockAspectRetriever);
 
     // ensure we add the correct structured prop aggregation here
     Assert.assertEquals(aggregationMetadataList.size(), 1);
@@ -846,7 +1011,7 @@ public class AggregationQueryBuilderTest {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     aggregationMetadataList.add(aggregationMetadata);
     builder.addCriterionFiltersToAggregationMetadata(
-        criterion, aggregationMetadataList, mockAspectRetriever);
+        criterion, aggregationMetadataList, null, mockAspectRetriever);
 
     Assert.assertEquals(aggregationMetadataList.size(), 1);
     Assert.assertEquals(aggregationMetadataList.get(0).getEntity(), propertyUrn);
@@ -1521,7 +1686,9 @@ public class AggregationQueryBuilderTest {
     mockResult.put(propertyUrn, aspectMap);
     Set<Urn> urns = new HashSet<>();
     urns.add(propertyUrn);
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(eq(urns), any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                any(OperationFingerprint.class), eq(urns), any()))
         .thenReturn(mockResult);
 
     return mockAspectRetriever;

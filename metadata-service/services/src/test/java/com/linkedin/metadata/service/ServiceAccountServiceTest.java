@@ -22,6 +22,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.List;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -70,14 +71,18 @@ public class ServiceAccountServiceTest {
     // Verify entity client interactions
     verify(mockEntityClient).exists(eq(opContext), eq(expectedUrn));
 
-    // Verify 3 proposals were ingested (CorpUserKey, CorpUserInfo, SubTypes)
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockEntityClient, times(3)).ingestProposal(eq(opContext), mcpCaptor.capture());
+    // Verify 3 proposals were ingested in one batch (CorpUserKey, CorpUserInfo, SubTypes)
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 3);
 
     // Verify CorpUserKey proposal
     MetadataChangeProposal keyProposal =
-        mcpCaptor.getAllValues().stream()
+        mcps.stream()
             .filter(mcp -> CORP_USER_KEY_ASPECT_NAME.equals(mcp.getAspectName()))
             .findFirst()
             .orElse(null);
@@ -94,7 +99,7 @@ public class ServiceAccountServiceTest {
 
     // Verify CorpUserInfo proposal
     MetadataChangeProposal infoProposal =
-        mcpCaptor.getAllValues().stream()
+        mcps.stream()
             .filter(mcp -> CORP_USER_INFO_ASPECT_NAME.equals(mcp.getAspectName()))
             .findFirst()
             .orElse(null);
@@ -112,7 +117,7 @@ public class ServiceAccountServiceTest {
 
     // Verify SubTypes proposal
     MetadataChangeProposal subTypesProposal =
-        mcpCaptor.getAllValues().stream()
+        mcps.stream()
             .filter(mcp -> SUB_TYPES_ASPECT_NAME.equals(mcp.getAspectName()))
             .findFirst()
             .orElse(null);
@@ -144,12 +149,13 @@ public class ServiceAccountServiceTest {
     assertEquals(resultUrn.toString(), expectedUrn.toString());
 
     // Verify CorpUserInfo doesn't have title when description is null
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockEntityClient, times(3)).ingestProposal(eq(opContext), mcpCaptor.capture());
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(opContext), mcpListCaptor.capture(), eq(false));
 
     MetadataChangeProposal infoProposal =
-        mcpCaptor.getAllValues().stream()
+        mcpListCaptor.getValue().stream()
             .filter(mcp -> CORP_USER_INFO_ASPECT_NAME.equals(mcp.getAspectName()))
             .findFirst()
             .orElse(null);
@@ -179,12 +185,13 @@ public class ServiceAccountServiceTest {
     assertNotNull(resultUrn);
 
     // Verify CorpUserInfo uses name as displayName when displayName is null
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockEntityClient, times(3)).ingestProposal(eq(opContext), mcpCaptor.capture());
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(opContext), mcpListCaptor.capture(), eq(false));
 
     MetadataChangeProposal infoProposal =
-        mcpCaptor.getAllValues().stream()
+        mcpListCaptor.getValue().stream()
             .filter(mcp -> CORP_USER_INFO_ASPECT_NAME.equals(mcp.getAspectName()))
             .findFirst()
             .orElse(null);

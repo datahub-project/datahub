@@ -1,7 +1,8 @@
 import { Tag as TagIcon } from '@phosphor-icons/react/dist/csr/Tag';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
@@ -39,13 +40,13 @@ export class TagEntity implements Entity<Tag> {
 
     getPathName: () => string = () => this.getGraphName();
 
-    getCollectionName: () => string = () => 'Tags';
+    getCollectionName: () => string = () => i18next.t('entity.types:tag.namePlural');
 
-    getEntityName: () => string = () => 'Tag';
+    getEntityName: () => string = () => i18next.t('entity.types:tag.name');
 
     renderProfile: (urn: string) => JSX.Element = (urn) => <TagProfile urn={urn} />;
 
-    renderPreview = (previewType: PreviewType, data: Tag, _actions, extraContext?: PreviewContext) => {
+    renderPreview = (previewType: PreviewType, data: Tag) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <DefaultPreviewCard
@@ -58,13 +59,13 @@ export class TagEntity implements Entity<Tag> {
                 entityType={EntityType.Tag}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}
-                propagationDetails={extraContext?.propagationDetails}
+                deprecation={data.deprecation}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag, undefined, undefined);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);
     };
 
     displayName = (data: Tag) => {
@@ -76,6 +77,6 @@ export class TagEntity implements Entity<Tag> {
     };
 
     supportedCapabilities = () => {
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.DEPRECATION]);
     };
 }

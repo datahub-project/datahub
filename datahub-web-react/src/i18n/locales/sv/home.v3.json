@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Redigerar organisationens standardstartsida",
+    "header.discoverLabel": "Upptäck",
+    "error.failedToAddSummaryElement": "Kunde inte lägga till sammanfattningselement",
+    "error.failedToRemoveSummaryElement": "Kunde inte ta bort sammanfattningselement",
+    "error.failedToReplaceSummaryElement": "Kunde inte ersätta sammanfattningselement",
+    "error.noTemplateAvailable": "Ingen mall tillgänglig att uppdatera",
+    "toast.editedDescription": "För att återställa din startsida klickar du på \"Återställ till organisationens standard\"",
+    "toast.editedTitle": "Du har redigerat din startsida"
+}

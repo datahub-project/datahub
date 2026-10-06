@@ -7,7 +7,7 @@ import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { Post } from '@types';
 
 const Card = styled.div`
-    border: 1px solid ${(props) => props.theme.colors.bgHover};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     background-color: ${(props) => props.theme.colors.bg};
     overflow: auto;

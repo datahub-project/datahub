@@ -1,0 +1,13 @@
+# Overlay that enables endpoint limiting without RATE_LIMITS_ENDPOINT_ENABLED.
+datahub:
+  gms:
+    rateLimits:
+      endpoint:
+        enabled: true
+        rules:
+          - id: aspects-ingest
+            pathPattern: /aspects**
+            methods: [POST]
+            capacity: 100
+            refillTokens: 100
+            refillPeriodSeconds: 60

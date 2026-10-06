@@ -14,8 +14,9 @@
 
 import logging
 import os
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, Optional
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 # Confluent important
 import confluent_kafka
@@ -26,11 +27,15 @@ from prometheus_client import Counter, Gauge
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.configuration.kafka import (
+    KafkaConsumerConnectionConfig,
+    _resolve_kafka_oauth_callback,
+)
 from datahub.emitter.serialization_helper import post_json_transform
 
 # DataHub imports.
 from datahub.metadata.schema_classes import GenericPayloadClass, MetadataChangeLogClass
+from datahub_actions.event.event import PlaceholderEvent
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
@@ -40,6 +45,7 @@ from datahub_actions.event.event_registry import (
     MetadataChangeLogEvent,
     RelationshipChangeEvent,
 )
+from datahub_actions.filter.filter import Filter
 
 # May or may not need these.
 from datahub_actions.observability.kafka_lag_monitor import KafkaLagMonitor
@@ -58,6 +64,13 @@ DEFAULT_TOPIC_ROUTES = {
     "pe": "PlatformEvent_v1",
 }
 
+# Top-level scalar fields in the MetadataChangeLog Avro schema that are
+# accessible on the raw Kafka message dict before avrogen deserialization.
+# Only these fields are candidates for pre-deserialization filtering.
+_MCL_EARLY_FILTER_FIELDS = frozenset(
+    {"entityType", "aspectName", "entityUrn", "changeType"}
+)
+
 OFFSET_METRIC = Gauge(
     name="kafka_offset",
     documentation="Kafka offsets per topic, partition",
@@ -69,6 +82,76 @@ MESSAGE_COUNTER_METRIC = Counter(
     documentation="Number of kafka messages",
     labelnames=["pipeline_name", "error"],
 )
+
+MCL_EARLY_FILTER_METRIC = Counter(
+    name="kafka_mcl_early_filter",
+    documentation="MCL events handled by KafkaSource pre-deserialization filter",
+    labelnames=["pipeline_name", "result"],  # result: rejected | passed
+)
+
+_KAFKA_PROPERTIES_ENV_PREFIX = "KAFKA_PROPERTIES_"
+# The Helm charts pass the same Kafka overrides to the Java services and to this pod.
+# librdkafka refuses to start on Java-only and schema-registry client properties, and
+# the chart default for partition.assignment.strategy is a Java class name.
+# group.id is owned by the pipeline name so that each pipeline keeps its own group.
+_ENV_SKIPPED_PROPERTY_PREFIXES = (
+    "ssl.keystore",
+    "ssl.truststore",
+    "kafkastore.",
+    "basic.auth.",
+    "schema.registry.",
+)
+_ENV_SKIPPED_PROPERTIES = frozenset(
+    {
+        "sasl.jaas.config",
+        "sasl.client.callback.handler.class",
+        "sasl.login.class",
+        "sasl.login.callback.handler.class",
+        "ssl.protocol",
+        "ssl.enabled.protocols",
+        "partition.assignment.strategy",
+        "group.id",
+    }
+)
+
+
+def kafka_consumer_config_from_env() -> Dict[str, str]:
+    """Map KAFKA_PROPERTIES_* env vars to consumer properties, the way DataHub's
+    other Python Kafka consumers do: KAFKA_PROPERTIES_SASL_MECHANISM -> sasl.mechanism,
+    KAFKA_PROPERTIES_OAUTH_CB -> oauth_cb. Empty values are ignored."""
+    if (
+        os.environ.get("DATAHUB_ACTIONS_KAFKA_ENV_PROPERTIES_ENABLED", "true").lower()
+        == "false"
+    ):
+        return {}
+
+    consumer_config: Dict[str, str] = {}
+    skipped: List[str] = []
+    for env_var, value in os.environ.items():
+        if not env_var.startswith(_KAFKA_PROPERTIES_ENV_PREFIX) or not value:
+            continue
+        param_name = env_var[len(_KAFKA_PROPERTIES_ENV_PREFIX) :]
+        prop = (
+            "oauth_cb"
+            if param_name == "OAUTH_CB"
+            else param_name.lower().replace("_", ".")
+        )
+        if prop in _ENV_SKIPPED_PROPERTIES or prop.startswith(
+            _ENV_SKIPPED_PROPERTY_PREFIXES
+        ):
+            skipped.append(env_var)
+        else:
+            consumer_config[prop] = value
+
+    if consumer_config:
+        logger.info(
+            f"Kafka consumer properties from environment: {sorted(consumer_config)}"
+        )
+    if skipped:
+        logger.info(
+            f"Ignoring environment variables that are not librdkafka consumer properties: {sorted(skipped)}"
+        )
+    return consumer_config
 
 
 # Converts a Kafka Message to a Kafka Metadata Dictionary.
@@ -102,6 +185,25 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
+    enable_mcl_pre_deserialization_filter: bool = Field(
+        default=True,
+        description=(
+            "When True, use the pipeline's EventTypeFilter criteria to drop "
+            "MetadataChangeLog (MCL) messages before the expensive avrogen "
+            "MetadataChangeLogClass.from_obj() deserialization call. "
+            "Scope is intentionally limited to MCL events: MCL has entityType, "
+            "aspectName, entityUrn, and changeType as top-level Avro fields that "
+            "are accessible on the raw Kafka message without any deserialization. "
+            "EntityChangeEvent (ECE) events arrive inside a PlatformEvent envelope "
+            "with a JSON-encoded payload — their fields (category, operation, etc.) "
+            "can only be read after deserializing the envelope, so pre-deserialization "
+            "filtering of ECE events is not supported and ECE delivery is never affected "
+            "by this flag. Requires at least one EventTypeFilter in the pipeline's "
+            "'filters' section that does NOT include MetadataChangeLogEvent_v1 (or "
+            "includes it with predicate fields restricted to entityType, aspectName, "
+            "entityUrn, or changeType)."
+        ),
+    )
 
 
 def kafka_messages_observer(pipeline_name: str) -> Callable:
@@ -121,12 +223,42 @@ def kafka_messages_observer(pipeline_name: str) -> Callable:
     return _observe
 
 
+# How long a pipeline keeps retrying its first connection to the cluster before it
+# fails. Long enough to ride out a broker restart; short enough that a client that can
+# never connect (wrong protocol, bad credentials) fails the process instead of idling.
+_STARTUP_CONNECT_TIMEOUT_SECONDS = 60.0
+
+# librdkafka recovers from these on its own, but while they persist nothing is consumed.
+_SEVERE_CLIENT_ERRORS = frozenset(
+    {KafkaError._AUTHENTICATION, KafkaError._ALL_BROKERS_DOWN}
+)
+
+
+def kafka_error_logger(pipeline_name: str) -> Callable[[KafkaError], None]:
+    # Without an error_cb these errors reach the logs only as librdkafka FAIL lines.
+    def _log(err: KafkaError) -> None:
+        severe = err.fatal() or err.code() in _SEVERE_CLIENT_ERRORS
+        logger.log(
+            logging.ERROR if severe else logging.WARNING,
+            f"Kafka client error in pipeline '{pipeline_name}': {err.name()}: {err.str()}",
+        )
+
+    return _log
+
+
 # This is the default Kafka-based Event Source.
 @dataclass
 class KafkaEventSource(EventSource):
     running = False
     source_config: KafkaEventSourceConfig
     _lag_monitor: Optional[KafkaLagMonitor] = None
+
+    # Pre-deserialization filter state (populated by set_filters when enabled)
+    _skip_mcl_entirely: bool = field(default=False, init=False)
+    _early_mcl_criteria_list: List[Dict[str, Any]] = field(
+        default_factory=list, init=False
+    )
+    _pipeline_name: str = field(default="", init=False)
 
     def __init__(self, config: KafkaEventSourceConfig, ctx: PipelineContext):
         self.source_config = config
@@ -143,6 +275,15 @@ class KafkaEventSource(EventSource):
                 self.source_config.async_commit_interval
             )
 
+        recipe_consumer_config = self.source_config.connection.consumer_config
+        env_consumer_config = _resolve_kafka_oauth_callback(
+            {
+                key: value
+                for key, value in kafka_consumer_config_from_env().items()
+                if key not in recipe_consumer_config
+            }
+        )
+
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
             {
                 # Provide a custom group id to subscribe to multiple partitions via separate actions pods.
@@ -150,17 +291,22 @@ class KafkaEventSource(EventSource):
                 "bootstrap.servers": self.source_config.connection.bootstrap,
                 "enable.auto.commit": False,  # We manually commit offsets.
                 "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
+                "error_cb": kafka_error_logger(ctx.pipeline_name),
                 "value.deserializer": AvroDeserializer(
                     schema_registry_client=self.schema_registry_client,
                     return_record_name=True,
                 ),
                 "session.timeout.ms": "10000",  # 10s timeout.
                 "max.poll.interval.ms": "10000",  # 10s poll max.
-                **self.source_config.connection.consumer_config,
+                **env_consumer_config,
+                **recipe_consumer_config,
                 **async_commit_config,
             }
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
+        self._skip_mcl_entirely = False
+        self._early_mcl_criteria_list: List[Dict[str, Any]] = []
+        self._pipeline_name = ctx.pipeline_name
 
         # Initialize lag monitoring (if enabled)
         if self._is_lag_monitoring_enabled():
@@ -202,7 +348,178 @@ class KafkaEventSource(EventSource):
         config = KafkaEventSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def set_filters(self, filters: List[Filter]) -> None:
+        """
+        Configure pre-deserialization filtering for MCL events (optimization).
+
+        CONSERVATIVE BY DESIGN: This optimization extracts what it CAN check before
+        deserialization and uses that for early rejection. Events that pass the early
+        filter will still be fully evaluated by the pipeline filter after deserialization.
+
+        FILTER SEMANTICS:
+        - Predicates are evaluated with OR logic: pass if ANY predicate matches
+        - Within a predicate, constraints are AND: must match ALL constraints
+        - List values use IN logic: field value must be in the list
+
+        Example:
+          predicates = [
+            {
+              entityType: "dataset",
+              aspectName: ["documentation", "ownership"]  # matches if aspectName IN this list
+            },  # predicate 1
+            {
+              entityType: "dataHubExecutionRequest",
+              changeType: "UPSERT",
+              aspectName: ["dataHubExecutionRequestInput", "dataHubExecutionRequestSignal"],
+              aspect: {value: {executorId: "default"}}  # NOT extractable - requires deserialization
+            },  # predicate 2
+            {
+              aspect: {value: {executorId: "default"}}  # NO extractable fields
+            }   # predicate 3
+          ]
+
+          Filter logic:
+            (entityType="dataset" AND aspectName IN ["documentation", "ownership"])
+            OR
+            (entityType="dataHubExecutionRequest" AND changeType="UPSERT"
+             AND aspectName IN ["dataHubExecutionRequestInput", "dataHubExecutionRequestSignal"]
+             AND aspect.value.executorId="default")
+            OR
+            (aspect.value.executorId="default")
+
+        OPTIMIZATION REQUIREMENT:
+        Optimization is ONLY enabled when ALL predicates have at least one extractable
+        field from _MCL_EARLY_FILTER_FIELDS (entityType, aspectName, entityUrn, changeType).
+
+        WHY: If ANY predicate has zero extractable fields (like predicate 3 above),
+        we cannot check that predicate early. Since predicates use OR semantics,
+        any message MIGHT match the unoptimizable predicate, so we cannot safely
+        reject anything. The optimization becomes useless and must be disabled.
+
+        When enabled, we extract partial criteria from each predicate (ignoring
+        non-extractable fields like aspect.value.executorId in predicate 2) and
+        apply OR semantics for early rejection. Messages passing the early filter
+        proceed to full deserialization and complete evaluation.
+        """
+        if not self.source_config.enable_mcl_pre_deserialization_filter:
+            logger.debug(
+                f"KafkaEventSource [{self._pipeline_name}]: MCL pre-deserialization filter disabled. "
+                "Set enable_mcl_pre_deserialization_filter: true on the Kafka source to reduce "
+                "deserialization overhead when the pipeline filters on MCL fields."
+            )
+            return
+
+        # Import here to avoid a circular import at module load time.
+        from datahub_actions.plugin.filter.event_type_filter import EventTypeFilter
+
+        mcl_predicates: List[Dict[str, Any]] = []
+        mcl_seen = False
+        has_event_type_filter = False
+
+        for f in filters:
+            if not isinstance(f, EventTypeFilter):
+                continue
+            has_event_type_filter = True
+            spec = f.config.filter.get(METADATA_CHANGE_LOG_EVENT_V1_TYPE)
+            if spec is not None:
+                mcl_seen = True
+                if spec.event is not None:
+                    mcl_predicates.extend(spec.event)
+
+        if not has_event_type_filter:
+            # No EventTypeFilter configured — nothing to optimize; pass MCL through normally.
+            logger.debug(
+                f"KafkaEventSource [{self._pipeline_name}]: enable_mcl_pre_deserialization_filter is set "
+                "but no EventTypeFilter was found in the pipeline's filters. MCL events will be passed through."
+            )
+            return
+
+        if not mcl_seen:
+            # An EventTypeFilter exists but does not include MCL at all.
+            # The pipeline filter will drop all MCL events regardless, so we can
+            # skip avrogen deserialization entirely for every MCL message.
+            self._skip_mcl_entirely = True
+            logger.info(
+                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization filter active — "
+                "all MCL messages will be dropped before avrogen deserialization "
+                "(MetadataChangeLogEvent_v1 is not present in the EventTypeFilter)"
+            )
+            return
+
+        # Extract early-checkable criteria from each predicate.
+        # CONSERVATIVE: We extract only what we CAN check (scalar/list fields from
+        # _MCL_EARLY_FILTER_FIELDS) and ignore fields that require deserialization.
+        # This creates a "partial view" of each predicate that's safe for early rejection.
+        criteria_list: List[Dict[str, Any]] = []
+
+        for predicate in mcl_predicates:
+            # Extract ONLY the fields we can check pre-deserialization
+            predicate_criteria: Dict[str, Any] = {}
+
+            for key, val in predicate.items():
+                if key in _MCL_EARLY_FILTER_FIELDS and not isinstance(val, dict):
+                    # Scalar or list value that's accessible on raw Kafka message
+                    predicate_criteria[key] = val
+                # Ignore: key not in _MCL_EARLY_FILTER_FIELDS or dict-valued (requires deserialization)
+
+            if not predicate_criteria:
+                # This predicate has NO extractable fields - cannot optimize.
+                # If we can't check this predicate early, any message might match it (OR semantics),
+                # so we cannot safely reject anything. Disable optimization.
+                logger.warning(
+                    f"KafkaEventSource [{self._pipeline_name}]: MCL pre-deserialization "
+                    f"optimization skipped - at least one predicate has no extractable fields. "
+                    f"All fields in that predicate require deserialization. "
+                    f"Optimization only supports scalar/list values for: {sorted(_MCL_EARLY_FILTER_FIELDS)}. "
+                    f"All MCL events will proceed to full deserialization and filter evaluation."
+                )
+                return
+
+            criteria_list.append(predicate_criteria)
+
+        self._early_mcl_criteria_list = criteria_list
+        logger.info(
+            f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization MCL optimization active. "
+            f"Criteria (OR semantics - pass if ANY match, conservative by design): {criteria_list}"
+        )
+
+    def _wait_until_connected(self) -> None:
+        """Block until the cluster answers a metadata request, so that a client that
+        cannot connect or authenticate fails the pipeline instead of polling forever."""
+        bootstrap = self.source_config.connection.bootstrap
+        deadline = time.monotonic() + _STARTUP_CONNECT_TIMEOUT_SECONDS
+        while True:
+            try:
+                self.consumer.list_topics(
+                    timeout=max(0.1, min(5.0, deadline - time.monotonic()))
+                )
+                logger.info(
+                    f"Kafka event source for pipeline '{self._pipeline_name}' "
+                    f"connected to Kafka at {bootstrap}."
+                )
+                return
+            except KafkaException as e:
+                last_error = e
+            if not self.running:  # close() was called during startup.
+                return
+            # Nothing is subscribed yet, so this only serves error_cb, which logs the
+            # underlying cause (e.g. a SASL error) that list_topics does not report.
+            self.consumer.poll(1.0)
+            if time.monotonic() >= deadline:
+                logger.error(
+                    f"Could not connect to Kafka at {bootstrap} for pipeline "
+                    f"'{self._pipeline_name}' within {_STARTUP_CONNECT_TIMEOUT_SECONDS:.0f}s: "
+                    f"{last_error}. Check the source connection settings (bootstrap, "
+                    "security.protocol, SASL/SSL properties) against the broker listener."
+                )
+                raise last_error
+
     def events(self) -> Iterable[EventEnvelope]:
+        self.running = True
+        self._wait_until_connected()
+        if not self.running:
+            return
+
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
         topics_to_subscribe = list(topic_routes.values())
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
@@ -212,7 +529,6 @@ class KafkaEventSource(EventSource):
         if self._lag_monitor is not None:
             self._lag_monitor.start()
 
-        self.running = True
         while self.running:
             try:
                 msg = self.consumer.poll(timeout=2.0)
@@ -224,15 +540,16 @@ class KafkaEventSource(EventSource):
                 continue
 
             self._observe_message(msg)
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
+            error = msg.error()
+            if error:
+                if error.code() == KafkaError._PARTITION_EOF:
                     # End of partition event
                     logger.debug(
-                        "%% %s [%d] reached end at offset %d\n"
+                        "%% %s [%s] reached end at offset %s\n"
                         % (msg.topic(), msg.partition(), msg.offset())
                     )
-                elif msg.error():
-                    raise KafkaException(msg.error())
+                else:
+                    raise KafkaException(error)
             else:
                 if "mcl" in topic_routes and msg.topic() == topic_routes["mcl"]:
                     yield from self.handle_mcl(msg)
@@ -248,13 +565,77 @@ class KafkaEventSource(EventSource):
 
         logger.info("Kafka consumer exiting main loop")
 
-    @staticmethod
-    def handle_mcl(msg: Any) -> Iterable[EventEnvelope]:
+    def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
+        """
+        Handle MCL message with optional pre-deserialization filtering.
+
+        CONSERVATIVE BY DESIGN: If early criteria are configured, we check if the
+        message matches ANY criteria (OR semantics). If no match, reject early.
+        If match, proceed to deserialization and full filter evaluation.
+        """
+        if self._skip_mcl_entirely:
+            MCL_EARLY_FILTER_METRIC.labels(
+                pipeline_name=self._pipeline_name, result="entirely_rejected"
+            ).inc()
+            self._ack_filtered_message(msg)
+            return
+
+        if self._early_mcl_criteria_list:
+            raw: Dict[str, Any] = msg.value()
+
+            # OR semantics: pass if ANY criteria matches
+            matched = False
+            for criteria in self._early_mcl_criteria_list:
+                # AND within a single criteria: all keys must match
+                all_match = True
+                for key, val in criteria.items():
+                    raw_val = raw.get(key)
+                    match = raw_val in val if isinstance(val, list) else raw_val == val
+                    if not match:
+                        all_match = False
+                        break
+
+                if all_match:
+                    matched = True
+                    break
+
+            if not matched:
+                # No criteria matched - early reject (conservative: definite non-match)
+                MCL_EARLY_FILTER_METRIC.labels(
+                    pipeline_name=self._pipeline_name, result="rejected"
+                ).inc()
+                self._ack_filtered_message(msg)
+                return
+
+            # At least one criteria matched - pass through (conservative: might match after full eval)
+            MCL_EARLY_FILTER_METRIC.labels(
+                pipeline_name=self._pipeline_name, result="passed"
+            ).inc()
+
         metadata_change_log_event = build_metadata_change_log_event(msg)
         kafka_meta = build_kafka_meta(msg)
         yield EventEnvelope(
             METADATA_CHANGE_LOG_EVENT_V1_TYPE, metadata_change_log_event, kafka_meta
         )
+
+    def _ack_filtered_message(self, msg: Any) -> None:
+        """Commit the offset of a message dropped by the pre-deserialization filter."""
+
+        try:
+            self.ack(
+                EventEnvelope(
+                    METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+                    PlaceholderEvent(),
+                    build_kafka_meta(msg),
+                ),
+                processed=True,
+            )
+        except Exception:
+            logger.debug(
+                "Failed to advance offset for pre-filtered message "
+                f"{msg.topic()}[{msg.partition()}]@{msg.offset()}",
+                exc_info=True,
+            )
 
     @staticmethod
     def handle_pe(msg: Any) -> Iterable[EventEnvelope]:

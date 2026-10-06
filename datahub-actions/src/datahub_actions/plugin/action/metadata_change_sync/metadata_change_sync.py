@@ -3,10 +3,12 @@ import logging
 import re
 from typing import Dict, List, Optional, Set, Union, cast
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth.registry import AuthConfig, build_token_provider
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     MetadataChangeLogClass,
@@ -23,11 +25,23 @@ logger = logging.getLogger(__name__)
 class MetadataChangeEmitterConfig(BaseModel):
     gms_server: Optional[str] = None
     gms_auth_token: Optional[TransparentSecretStr] = None
+    auth: Optional[AuthConfig] = Field(
+        default=None,
+        description="Declarative token-provider auth (datahub.ingestion.auth) for the "
+        "destination DataHub, e.g. OAuth client credentials with per-request refresh; "
+        "mutually exclusive with gms_auth_token.",
+    )
     aspects_to_exclude: Optional[List] = None
     aspects_to_include: Optional[List] = None
     entity_type_to_exclude: List[str] = Field(default_factory=list)
     extra_headers: Optional[Dict[str, str]] = None
     urn_regex: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_auth_exclusive(self) -> "MetadataChangeEmitterConfig":
+        if self.auth is not None and self.gms_auth_token is not None:
+            raise ValueError("auth and gms_auth_token are mutually exclusive")
+        return self
 
 
 class MetadataChangeSyncAction(Action):
@@ -59,6 +73,9 @@ class MetadataChangeSyncAction(Action):
             gms_server=self.config.gms_server,
             token=self.config.gms_auth_token.get_secret_value()
             if self.config.gms_auth_token
+            else None,
+            auth=TokenProviderAuth(build_token_provider(self.config.auth))
+            if self.config.auth
             else None,
             extra_headers=self.config.extra_headers,
         )

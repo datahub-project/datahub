@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -44,7 +45,7 @@ public class UpdateIndicesHookBatchTest {
     List<MetadataChangeLog> events = Arrays.asList(event1, event2, event3);
 
     // Invoke batch processing
-    hook.invokeBatch(events);
+    hook.invokeBatch(mockOperationContext, events);
 
     // Verify that handleChangeEvents was called once with all events
     verify(mockUpdateIndicesService, times(1))
@@ -54,7 +55,7 @@ public class UpdateIndicesHookBatchTest {
   @Test
   public void testInvokeBatchWithEmptyCollection() {
     // Invoke batch processing with empty collection
-    hook.invokeBatch(Collections.emptyList());
+    hook.invokeBatch(mockOperationContext, Collections.emptyList());
 
     // Verify that handleChangeEvents was not called
     verify(mockUpdateIndicesService, times(0))
@@ -75,11 +76,25 @@ public class UpdateIndicesHookBatchTest {
     List<MetadataChangeLog> events = Arrays.asList(uiEvent, normalEvent);
 
     // Invoke batch processing
-    hookNoReprocess.invokeBatch(events);
+    hookNoReprocess.invokeBatch(mockOperationContext, events);
 
     // Verify that handleChangeEvents was called only with the non-UI event
     verify(mockUpdateIndicesService, times(1))
         .handleChangeEvents(eq(mockOperationContext), eq(Arrays.asList(normalEvent)));
+  }
+
+  @Test
+  public void testConstructorRejectsBothIndexPathsOffWhenConsumingMcl() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new UpdateIndicesHook(
+                mockUpdateIndicesService, true, false, false, "test-suffix", true));
+  }
+
+  @Test
+  public void testConstructorAllowsBothIndexPathsOffWhenNotConsumingMcl() {
+    new UpdateIndicesHook(mockUpdateIndicesService, true, false, false, "test-suffix", false);
   }
 
   private MetadataChangeLog createTestEvent(String urnString) {

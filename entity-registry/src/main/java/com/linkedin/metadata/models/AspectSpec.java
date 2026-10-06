@@ -5,6 +5,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,6 +32,21 @@ public class AspectSpec {
   private final Class<RecordTemplate> _aspectClass;
   @Setter @Getter private String registryName = "unknownRegistry";
   @Setter @Getter private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
+
+  @EqualsAndHashCode.Exclude private volatile List<SearchableFieldSpec> _searchableFieldSpecsList;
+
+  @EqualsAndHashCode.Exclude
+  private volatile List<SearchableRefFieldSpec> _searchableRefFieldSpecsList;
+
+  @EqualsAndHashCode.Exclude private volatile List<SearchScoreFieldSpec> _searchScoreFieldSpecsList;
+
+  @EqualsAndHashCode.Exclude
+  private volatile List<RelationshipFieldSpec> _relationshipFieldSpecsList;
+
+  @EqualsAndHashCode.Exclude private volatile List<TimeseriesFieldSpec> _timeseriesFieldSpecsList;
+
+  @EqualsAndHashCode.Exclude
+  private volatile List<TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecsList;
 
   public AspectSpec(
       @Nonnull final AspectAnnotation aspectAnnotation,
@@ -107,6 +123,11 @@ public class AspectSpec {
     return _aspectAnnotation.getSchemaVersion();
   }
 
+  @Nonnull
+  public AspectAnnotation getAspectAnnotation() {
+    return _aspectAnnotation;
+  }
+
   public Map<String, SearchableFieldSpec> getSearchableFieldSpecMap() {
     return _searchableFieldSpecs;
   }
@@ -131,28 +152,87 @@ public class AspectSpec {
     return _timeseriesFieldCollectionSpecs;
   }
 
+  /**
+   * Returns a memoized list view of the searchable field specs, backed by the same List instance on
+   * every call. Callers must treat the returned List as immutable and must not mutate it in place;
+   */
   public List<SearchableFieldSpec> getSearchableFieldSpecs() {
-    return new ArrayList<>(_searchableFieldSpecs.values());
+    List<SearchableFieldSpec> list = _searchableFieldSpecsList;
+    if (list == null) {
+      list = Collections.unmodifiableList(new ArrayList<>(_searchableFieldSpecs.values()));
+      _searchableFieldSpecsList = list;
+    }
+    return list;
   }
 
+  /**
+   * Returns a memoized list view of the searchable ref field specs, backed by the same List
+   * instance on every call. Callers must treat the returned List as immutable and must not mutate
+   * it in place;
+   */
   public List<SearchableRefFieldSpec> getSearchableRefFieldSpecs() {
-    return new ArrayList<>(_searchableRefFieldSpecs.values());
+    List<SearchableRefFieldSpec> list = _searchableRefFieldSpecsList;
+    if (list == null) {
+      list = Collections.unmodifiableList(new ArrayList<>(_searchableRefFieldSpecs.values()));
+      _searchableRefFieldSpecsList = list;
+    }
+    return list;
   }
 
+  /**
+   * Returns a memoized list view of the search score field specs, backed by the same List instance
+   * on every call. Callers must treat the returned List as immutable and must not mutate it in
+   * place;
+   */
   public List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {
-    return new ArrayList<>(_searchScoreFieldSpecs.values());
+    List<SearchScoreFieldSpec> list = _searchScoreFieldSpecsList;
+    if (list == null) {
+      list = Collections.unmodifiableList(new ArrayList<>(_searchScoreFieldSpecs.values()));
+      _searchScoreFieldSpecsList = list;
+    }
+    return list;
   }
 
+  /**
+   * Returns a memoized list view of the relationship field specs, backed by the same List instance
+   * on every call. Callers must treat the returned List as immutable and must not mutate it in
+   * place;
+   */
   public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
-    return new ArrayList<>(_relationshipFieldSpecs.values());
+    List<RelationshipFieldSpec> list = _relationshipFieldSpecsList;
+    if (list == null) {
+      list = Collections.unmodifiableList(new ArrayList<>(_relationshipFieldSpecs.values()));
+      _relationshipFieldSpecsList = list;
+    }
+    return list;
   }
 
+  /**
+   * Returns a memoized list view of the timeseries field specs, backed by the same List instance on
+   * every call. Callers must treat the returned List as immutable and must not mutate it in place;
+   */
   public List<TimeseriesFieldSpec> getTimeseriesFieldSpecs() {
-    return new ArrayList<>(_timeseriesFieldSpecs.values());
+    List<TimeseriesFieldSpec> list = _timeseriesFieldSpecsList;
+    if (list == null) {
+      list = Collections.unmodifiableList(new ArrayList<>(_timeseriesFieldSpecs.values()));
+      _timeseriesFieldSpecsList = list;
+    }
+    return list;
   }
 
+  /**
+   * Returns a memoized list view of the timeseries field collection specs, backed by the same List
+   * instance on every call. Callers must treat the returned List as immutable and must not mutate
+   * it in place;
+   */
   public List<TimeseriesFieldCollectionSpec> getTimeseriesFieldCollectionSpecs() {
-    return new ArrayList<>(_timeseriesFieldCollectionSpecs.values());
+    List<TimeseriesFieldCollectionSpec> list = _timeseriesFieldCollectionSpecsList;
+    if (list == null) {
+      list =
+          Collections.unmodifiableList(new ArrayList<>(_timeseriesFieldCollectionSpecs.values()));
+      _timeseriesFieldCollectionSpecsList = list;
+    }
+    return list;
   }
 
   public RecordDataSchema getPegasusSchema() {

@@ -1,6 +1,7 @@
 # Looker SDK is imported here and higher level wrapper functions/classes are provided to interact with Looker Server
 import json
 import logging
+import os
 from enum import Enum
 from functools import lru_cache
 from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, cast
@@ -43,7 +44,10 @@ class LookerQueryResponseFormat(Enum):
 
 class TransportOptionsConfig(ConfigModel):
     timeout: int
-    headers: MutableMapping[str, str]
+    # Previously required-without-default, so a recipe setting only
+    # transport_options.timeout failed validation ("transport_options.headers
+    # Field required") and aborted the ingestion run before any dashboard was fetched.
+    headers: MutableMapping[str, str] = Field(default_factory=dict)
 
     def get_transport_options(self) -> TransportOptions:
         return TransportOptions(timeout=self.timeout, headers=self.headers)
@@ -60,6 +64,10 @@ class LookerAPIConfig(ConfigModel):
         description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
     )
     max_retries: int = Field(3, description="Number of retries for Looker API calls")
+    max_threads: int = Field(
+        default_factory=lambda: os.cpu_count() or 40,
+        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
+    )
 
 
 class LookerAPIStats(BaseModel):
@@ -129,8 +137,11 @@ class LookerAPI:
         if isinstance(
             self.client.transport, looker_requests_transport.RequestsTransport
         ):
+            pool_size = self.config.max_threads + 10
             adapter = HTTPAdapter(
                 max_retries=self.config.max_retries,
+                pool_connections=pool_size,
+                pool_maxsize=pool_size,
             )
             self.client.transport.session.mount("http://", adapter)
             self.client.transport.session.mount("https://", adapter)

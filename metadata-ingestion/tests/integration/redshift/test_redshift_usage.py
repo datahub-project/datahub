@@ -1,5 +1,6 @@
 import json
 import pathlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Union
 from unittest.mock import MagicMock, Mock, patch
@@ -15,7 +16,10 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
+from datahub.ingestion.source.redshift.usage import (
+    RedshiftAccessEvent,
+    RedshiftUsageExtractor,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -45,6 +49,21 @@ def test_redshift_usage_config():
     assert config.email_domain == "xxxxx"
     assert config.include_views
     assert config.include_tables
+
+
+def _access_event(query: int, table: str) -> RedshiftAccessEvent:
+    return RedshiftAccessEvent(
+        userid=1,
+        username="alice",
+        query=query,
+        querytxt=f"select col_a from public.{table}",
+        tbl=1,
+        database="dev",
+        schema="public",
+        table=table,
+        starttime=datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+        endtime=datetime(2021, 9, 15, 9, 0, 1, tzinfo=timezone.utc),
+    )
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

@@ -1,8 +1,9 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination, Typography } from 'antd';
+import { Button, EmptyState, Pagination, Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -36,13 +37,15 @@ const DomainsPaginationContainer = styled.div`
     align-items: center;
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
 `;
 
 const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
+    const { t } = useTranslation('governance.domain');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const location = useLocation();
@@ -86,7 +89,7 @@ export const DomainsList = () => {
 
     const allColumns = [
         {
-            title: 'Name',
+            title: tl('name'),
             dataIndex: '',
             key: 'name',
             sorter: (sourceA, sourceB) => {
@@ -99,10 +102,11 @@ export const DomainsList = () => {
                         color: theme.colors.icon,
                     }}
                 />,
+                t,
             ),
         },
         {
-            title: 'Owners',
+            title: tl('owners'),
             dataIndex: 'ownership',
             width: '10%',
             key: 'ownership',
@@ -134,17 +138,22 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content={t('list.loading')} />}
+            {error && <Message type="error" content={t('list.loadError')} />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
-                    <Button id={DOMAINS_CREATE_DOMAIN_ID} type="text" onClick={() => setIsCreatingDomain(true)}>
-                        <PlusOutlined /> New Domain
+                    <Button
+                        id={DOMAINS_CREATE_DOMAIN_ID}
+                        variant="text"
+                        icon={{ icon: Plus }}
+                        onClick={() => setIsCreatingDomain(true)}
+                    >
+                        {t('list.newDomain')}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search domains..."
+                        placeholderText={t('list.searchPlaceholder')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -165,21 +174,27 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <EmptyState title={t('list.empty')} size="sm" /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>
-                        of <b>{totalDomains}</b>
+                        <Trans
+                            t={t}
+                            i18nKey="list.paginationRange"
+                            values={{
+                                startIndex: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                                lastResultIndex,
+                                totalDomains,
+                            }}
+                            components={{ bold: <b /> }}
+                        />
                     </PaginationInfo>
                     <Pagination
-                        current={page}
-                        pageSize={pageSize}
+                        currentPage={page}
+                        itemsPerPage={pageSize}
                         total={totalDomains}
                         showLessItems
-                        onChange={onChangePage}
+                        onPageChange={onChangePage}
                         showSizeChanger={false}
                     />
                     <span />

@@ -1,27 +1,25 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
-export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
+export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;
     margin-right: 12px;
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     display: flex;
     align-items: center;
     box-shadow: none;
     ${(props) =>
-        props.isActive &&
+        props.$isActive &&
         `
-        background-color: ${props.theme.styles['primary-color']};
-        border: 1px solid ${props.theme.styles['primary-color']};
-        color: white;
+        background-color: ${props.theme.colors.buttonFillBrand};
+        border: 1px solid ${props.theme.colors.borderBrand};
+        color: ${props.theme.colors.textOnFillBrand};
     `}
 `;
 
-export const MoreFilterOptionLabel = styled.div<{ isActive: boolean; isOpen: boolean }>`
+export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen: boolean }>`
     padding: 5px 12px;
     font-size: 14px;
     display: flex;
@@ -30,11 +28,11 @@ export const MoreFilterOptionLabel = styled.div<{ isActive: boolean; isOpen: boo
     cursor: pointer;
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
-    ${(props) => props.isActive && `color: ${props.theme.styles['primary-color']};`}
-    ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
+    ${(props) => props.$isActive && `color: ${props.theme.colors.textBrand};`}
+    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
 `;
 
 export const Label = styled(Typography.Text)`

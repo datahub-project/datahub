@@ -1,6 +1,7 @@
 import { Input } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -21,13 +22,14 @@ interface DropdownSearchBarProps {
 }
 
 export default function DropdownSearchBar({ placeholder, value, size, onChange, onClear }: DropdownSearchBarProps) {
+    const { t } = useTranslation('alchemy');
     return (
         <SearchInputContainer>
             <Input
                 label=""
                 type="text"
                 icon={{ icon: MagnifyingGlass }}
-                placeholder={placeholder || 'Search...'}
+                placeholder={placeholder || t('search.placeholder')}
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
                 style={{ fontSize: size || 'md' }}

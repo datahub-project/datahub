@@ -270,6 +270,7 @@ export const SearchResultList = ({
                                     isSelectMode={isSelectMode}
                                     // class name for counting in test purposes only
                                     className="test-search-result"
+                                    data-testid="search-result-item"
                                 >
                                     {isSelectMode && (
                                         <StyledCheckbox

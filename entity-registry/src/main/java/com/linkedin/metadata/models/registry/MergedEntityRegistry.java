@@ -11,11 +11,14 @@ import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.RelationshipEdgeUniquenessValidator;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -82,6 +85,24 @@ public class MergedEntityRegistry implements EntityRegistry {
               validationResult.validationFailures.stream().collect(Collectors.joining("\n"))));
     }
 
+    // Compute entity merges first and validate relationship uniqueness before mutating
+    // the live maps, so a uniqueness failure leaves the registry unchanged.
+    Map<String, EntitySpec> pendingEntitySpecs = new HashMap<>();
+    for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
+      EntitySpec candidate;
+      if (entityNameToSpec.containsKey(e2Entry.getKey())) {
+        candidate = mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
+      } else {
+        candidate = e2Entry.getValue();
+      }
+      try {
+        RelationshipEdgeUniquenessValidator.validate(candidate);
+      } catch (ModelValidationException e) {
+        throw new RelationshipEdgeUniquenessException(e.getMessage());
+      }
+      pendingEntitySpecs.put(e2Entry.getKey(), candidate);
+    }
+
     // Merge Aspect Specs
     // (Fixed issue where custom defined aspects are not included in the API specification.)
     //
@@ -89,23 +110,12 @@ public class MergedEntityRegistry implements EntityRegistry {
       _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
     }
 
-    // Merge Entity Specs
-    for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
-      if (entityNameToSpec.containsKey(e2Entry.getKey())) {
-        EntitySpec mergeEntitySpec =
-            mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
-        entityNameToSpec.put(e2Entry.getKey(), mergeEntitySpec);
-      } else {
-        // We are inserting a new entity into the registry
-        entityNameToSpec.put(e2Entry.getKey(), e2Entry.getValue());
-      }
-    }
+    entityNameToSpec.putAll(pendingEntitySpecs);
 
     // Merge Event Specs
     if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
-    // TODO: Validate that the entity registries don't have conflicts among each other
 
     // Merge Plugins
     this.pluginFactory =
@@ -171,10 +181,8 @@ public class MergedEntityRegistry implements EntityRegistry {
   }
 
   /**
-   * Validates that searchGroup values are compatible between existing and new entity specs. Rules:
-   * 1. If only one registry defines searchGroup (not default), it's compatible 2. If both define
-   * the same searchGroup, it's compatible 3. If both define different non-default searchGroups,
-   * it's incompatible
+   * Validates that searchGroup values are compatible between existing and new entity specs. Unset
+   * groups are overridable. Two explicit different groups are incompatible.
    */
   private void validateSearchGroupCompatibility(
       EntitySpec existingEntitySpec, EntitySpec newEntitySpec, ValidationResult validationResult) {
@@ -182,18 +190,17 @@ public class MergedEntityRegistry implements EntityRegistry {
     String existingSearchGroup = existingEntitySpec.getSearchGroup();
     String newSearchGroup = newEntitySpec.getSearchGroup();
 
-    // If both have the same searchGroup, it's compatible
-    if (existingSearchGroup.equals(newSearchGroup)) {
+    if (Objects.equals(existingSearchGroup, newSearchGroup)) {
       return;
     }
 
-    // If one has default and the other doesn't, it's compatible
-    if (EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(existingSearchGroup)
-        || EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(newSearchGroup)) {
+    // Unset (entity-named) is compatible with an explicit group from the other registry.
+    if (EntityAnnotation.isSearchGroupUnset(existingSearchGroup)
+        || EntityAnnotation.isSearchGroupUnset(newSearchGroup)) {
       return;
     }
 
-    // If both have non-default different searchGroups, it's incompatible
+    // If both have explicit different searchGroups, it's incompatible
     validationResult.setValid(false);
     validationResult
         .getValidationFailures()
@@ -214,28 +221,26 @@ public class MergedEntityRegistry implements EntityRegistry {
     // 3. If both define searchGroup and they're different, this is an error (should be caught in
     // validation)
     String mergedSearchGroup = determineSearchGroup(existingEntitySpec, newEntitySpec);
+    // viewUnrestricted: true if either side marks the entity unrestricted
+    boolean mergedViewUnrestricted =
+        existingEntitySpec.isViewUnrestricted() || newEntitySpec.isViewUnrestricted();
 
     // If the base is a config spec, always create another config spec.
     if (existingEntitySpec instanceof ConfigEntitySpec) {
-      // Create a new EntityAnnotation with the merged searchGroup
-      EntityAnnotation mergedAnnotation =
-          new EntityAnnotation(
-              existingEntitySpec.getEntityAnnotation().getName(),
-              existingEntitySpec.getEntityAnnotation().getKeyAspect(),
-              mergedSearchGroup);
-
       return new ConfigEntitySpec(
-          mergedAnnotation.getName(),
-          mergedAnnotation.getKeyAspect(),
+          existingEntitySpec.getEntityAnnotation().getName(),
+          existingEntitySpec.getEntityAnnotation().getKeyAspect(),
           aspectSpecMap.values(),
-          mergedSearchGroup);
+          mergedSearchGroup,
+          mergedViewUnrestricted);
     }
     // For DefaultEntitySpec, create a new EntityAnnotation with the merged searchGroup
     EntityAnnotation mergedAnnotation =
         new EntityAnnotation(
             existingEntitySpec.getEntityAnnotation().getName(),
             existingEntitySpec.getEntityAnnotation().getKeyAspect(),
-            mergedSearchGroup);
+            mergedSearchGroup,
+            mergedViewUnrestricted);
 
     return new DefaultEntitySpec(
         aspectSpecMap.values(),
@@ -245,34 +250,25 @@ public class MergedEntityRegistry implements EntityRegistry {
   }
 
   /**
-   * Determines the searchGroup to use when merging two entity specs. Rules: 1. If only one registry
-   * defines searchGroup (not default), use that one 2. If both define the same searchGroup, use
-   * that one 3. If both define different searchGroups, this is an error (should be caught in
-   * validation) 4. If neither defines searchGroup, use default
+   * Determines the searchGroup to use when merging two entity specs. Unset is overridable by an
+   * explicit group. Two explicit different groups are an error (caught in validation).
    */
   private String determineSearchGroup(EntitySpec existingEntitySpec, EntitySpec newEntitySpec) {
     String existingSearchGroup = existingEntitySpec.getSearchGroup();
     String newSearchGroup = newEntitySpec.getSearchGroup();
 
-    // If both have the same searchGroup, use it
-    if (existingSearchGroup.equals(newSearchGroup)) {
+    if (Objects.equals(existingSearchGroup, newSearchGroup)) {
       return existingSearchGroup;
     }
 
-    // If one has default and the other doesn't, use the non-default one
-    if (EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(existingSearchGroup)
-        && !EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(newSearchGroup)) {
+    if (EntityAnnotation.isSearchGroupUnset(existingSearchGroup)) {
       return newSearchGroup;
     }
 
-    if (!EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(existingSearchGroup)
-        && EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(newSearchGroup)) {
+    if (EntityAnnotation.isSearchGroupUnset(newSearchGroup)) {
       return existingSearchGroup;
     }
 
-    // If both have non-default different searchGroups, this is an error
-    // This should be caught in validation, but if we get here, use the existing one
-    // and log a warning
     log.warn(
         "Conflicting searchGroups for entity {}: existing='{}', new='{}'. Using existing searchGroup.",
         existingEntitySpec.getName(),

@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -59,6 +59,7 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
                     })}
                     {hasMoreValues && (
                         <Tooltip title={tooltipContent} showArrow={false}>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative more-indicator ellipsis */}
                             <MoreIndicator>...</MoreIndicator>
                         </Tooltip>
                     )}

@@ -10,7 +10,7 @@ import argparse
 import json
 import logging
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -88,13 +88,13 @@ def create_glossary_term(
     definition: str,
     category: str,
     actor_urn: str = "urn:li:corpuser:datahub",
-) -> List[MetadataChangeProposalWrapper]:
+) -> Tuple[List[MetadataChangeProposalWrapper], str]:
     """Create a glossary term with its metadata."""
     # Create a URL-friendly term ID
     term_id = term_name.lower().replace(" ", "_")
     term_urn = make_term_urn(term_id)
 
-    mcps = []
+    mcps: List[MetadataChangeProposalWrapper] = []
 
     # GlossaryTermInfo aspect
     term_info = GlossaryTermInfoClass(
@@ -123,20 +123,6 @@ def attach_terms_to_dataset(
     dataset_urn: str, term_urns: List[str], actor_urn: str = "urn:li:corpuser:datahub"
 ) -> MetadataChangeProposalWrapper:
     """Attach glossary terms to a dataset."""
-    glossary_terms = GlossaryTermsClass(
-        terms=[
-            AuditStampClass(
-                time=0,
-                actor=actor_urn,
-            )
-            for _ in term_urns
-        ],
-        auditStamp=AuditStampClass(
-            time=0,
-            actor=actor_urn,
-        ),
-    )
-
     # Create GlossaryTerms aspect with term associations
     from datahub.metadata.schema_classes import GlossaryTermAssociationClass
 
@@ -163,15 +149,15 @@ def attach_terms_to_dataset(
 def generate_and_emit_glossary_terms(
     gms_url: str,
     token: str,
-    entity_urns_file: str = None,
-    output_file: str = None,
+    entity_urns_file: Optional[str] = None,
+    output_file: Optional[str] = None,
 ) -> Dict:
     """Generate glossary terms and attach them to datasets."""
     logger.info("Generating glossary terms...")
 
     emitter = DataHubRestEmitter(gms_server=gms_url, token=token)
     created_terms = []
-    term_urn_map = {}
+    term_urn_map: Dict[str, List[str]] = {}
 
     # Create all glossary terms
     for category, data in GLOSSARY_TERMS.items():

@@ -17,7 +17,7 @@ interface AcrylAssertionRecommendedFiltersProps {
 const FilterContainer = styled.div`
     display: flex;
     flex-direction: row;
-    padding: 10px;
+    padding: 8px 0px 20px 0px;
     gap: 10px;
     overflow: auto;
 `;
@@ -53,9 +53,13 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
 }) => {
     const [visibleFilters, setVisibleFilters] = useState<FilterItem[]>([]);
     const handleFilterClick = (filter: FilterItem) => {
-        const isSelected = appliedFilters.some((appliedFilter) => appliedFilter.name === filter.name);
+        const isSelected = appliedFilters.some(
+            (appliedFilter) => appliedFilter.name === filter.name && appliedFilter.category === filter.category,
+        );
         const updatedFilters = isSelected
-            ? appliedFilters.filter((appliedFilter) => appliedFilter.name !== filter.name)
+            ? appliedFilters.filter(
+                  (appliedFilter) => appliedFilter.name !== filter.name || appliedFilter.category !== filter.category,
+              )
             : [...appliedFilters, filter];
 
         onFilterChange(updatedFilters);
@@ -65,7 +69,9 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
         const transformedAppliedFilters = appliedFilters.map((filter) => filter.name);
         const newVisibleFilters = filters.filter(
             (filter: FilterItem) =>
-                filter.category !== 'column' && (filter.count || transformedAppliedFilters.includes(filter.name)),
+                filter.category !== 'column' &&
+                filter.category !== 'tags' &&
+                (filter.count || transformedAppliedFilters.includes(filter.name)),
         );
         setVisibleFilters(newVisibleFilters);
     }, [filters, appliedFilters]);
@@ -73,8 +79,11 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
         <FilterContainer>
             {visibleFilters.map((filter) => (
                 <FilterItemRow
-                    key={filter.name}
-                    selected={appliedFilters.some((appliedFilter) => appliedFilter.name === filter.name)}
+                    key={`${filter.category}-${filter.name}`}
+                    selected={appliedFilters.some(
+                        (appliedFilter) =>
+                            appliedFilter.name === filter.name && appliedFilter.category === filter.category,
+                    )}
                     onClick={() => handleFilterClick(filter)}
                 >
                     <FilterName>{filter.displayName}</FilterName>

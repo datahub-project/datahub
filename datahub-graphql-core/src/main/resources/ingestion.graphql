@@ -210,37 +210,41 @@ type ExecutionRequest implements Entity {
   """
   Urn of the execution request
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Unique id for the execution request
   """
-  id: String!
+  id: String! @noAspects
 
   """
   Input provided when creating the Execution Request
   """
   input: ExecutionRequestInput!
+    @aspectMapping(aspects: ["dataHubExecutionRequestInput"])
 
   """
   Result of the execution request
   """
   result: ExecutionRequestResult
+    @aspectMapping(aspects: ["dataHubExecutionRequestResult"])
 
   """
   The ingestion source of this execution request
   """
   source: IngestionSource
+    @aspectMapping(aspects: ["dataHubExecutionRequestInput"])
 
   """
   Unused for execution requests
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -568,6 +572,11 @@ type ListIngestionSourcesResult {
   The Ingestion Sources themselves
   """
   ingestionSources: [IngestionSource!]!
+
+  """
+  Candidate facets for search filters, including the source type facet
+  """
+  facets: [FacetMetadata!]
 }
 
 """

@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import OutputIcon from '@mui/icons-material/Output';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import ImageWithColoredBackground, { Icon } from '@app/previewV2/ImageWIthColoredBackground';
@@ -49,6 +50,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
     } = props;
 
     const theme = useTheme();
+    const { t } = useTranslation('entity.preview');
     const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
 
@@ -87,7 +89,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                     />
                                 ))}
                         {isOutputPort && (
-                            <Tooltip title="This asset is an output port for this Data Product" placement="topLeft">
+                            <Tooltip title={t('outputPortTooltip')} placement="topLeft">
                                 <Icon size={backgroundSize} background={theme.colors.bgSurface} borderRadius={10}>
                                     <OutputIcon style={{ fontSize: imgSize }} htmlColor={theme.colors.textSecondary} />
                                 </Icon>

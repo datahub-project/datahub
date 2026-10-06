@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -57,15 +56,7 @@ public class BatchAddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubAllUrnsExist(mockService);
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 
@@ -99,11 +90,17 @@ public class BatchAddTagsResolverTest {
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true));
+    verifyBatchedExistenceChecks(mockService);
+  }
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true));
+  /** Both tags and both resources resolve as existing, via the batched existence check. */
+  private static void stubAllUrnsExist(EntityService<?> mockService) throws Exception {
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_TAG_1_URN),
+        Urn.createFromString(TEST_TAG_2_URN),
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2));
   }
 
   @Test
@@ -133,15 +130,7 @@ public class BatchAddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalTags);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubAllUrnsExist(mockService);
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 
@@ -175,11 +164,12 @@ public class BatchAddTagsResolverTest {
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true));
+    verifyBatchedExistenceChecks(mockService);
+  }
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true));
+  /** One batched existence call for the tags, one for the resources — never one per urn. */
+  private static void verifyBatchedExistenceChecks(EntityService<?> mockService) {
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -194,10 +184,9 @@ public class BatchAddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(false);
+    // Only the second tag resolves, so validation must reject the first.
+    stubExistingUrns(
+        mockService, Urn.createFromString(TEST_TAG_2_URN), Urn.createFromString(TEST_ENTITY_URN_1));
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 
@@ -235,12 +224,12 @@ public class BatchAddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
+    // Both tags resolve, but the first resource does not.
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_TAG_1_URN),
+        Urn.createFromString(TEST_TAG_2_URN),
+        Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 

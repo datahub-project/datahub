@@ -1,10 +1,11 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { Alert, Empty } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import DomainNode from '@app/domain/nestedDomains/domainNavigator/DomainNode';
 import useListDomains from '@app/domain/useListDomains';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { Domain } from '@types';
 
@@ -15,6 +16,18 @@ const NavigatorWrapper = styled.div`
     overflow: auto;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${(props) => props.theme.colors.textSecondary};
+    }
+`;
+
 interface Props {
     domainUrnToHide?: string;
     displayDomainColoredIcon?: boolean;
@@ -22,30 +35,41 @@ interface Props {
 }
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
-    const { sortedDomains, error } = useListDomains({});
+    const { t } = useTranslation('governance.domain');
+    const theme = useTheme();
+    const { sortedDomains, loading, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
+
+    const domainNavigatorNodes = noDomainsFound
+        ? [
+              <Empty
+                  key="empty"
+                  description={t('navigator.empty')}
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  style={{ color: theme.colors.textSecondary }}
+              />,
+          ]
+        : sortedDomains?.map((domain) => (
+              <DomainNode
+                  key={domain.urn}
+                  domain={domain as Domain}
+                  numDomainChildren={domain.children?.total || 0}
+                  domainUrnToHide={domainUrnToHide}
+                  selectDomainOverride={selectDomainOverride}
+                  displayDomainColoredIcon={displayDomainColoredIcon}
+              />
+          ));
 
     return (
         <NavigatorWrapper>
-            {error && <Alert message="Loading Domains failed." showIcon type="error" />}
-            {noDomainsFound && (
-                <Empty
-                    description="No Domains Found"
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    style={{ color: ANTD_GRAY[7] }}
-                />
+            {error && <Alert message={t('navigator.loadError')} showIcon type="error" />}
+            {loading ? (
+                <LoadingWrapper>
+                    <LoadingOutlined />
+                </LoadingWrapper>
+            ) : (
+                domainNavigatorNodes
             )}
-            {!noDomainsFound &&
-                sortedDomains?.map((domain) => (
-                    <DomainNode
-                        key={domain.urn}
-                        domain={domain as Domain}
-                        numDomainChildren={domain.children?.total || 0}
-                        domainUrnToHide={domainUrnToHide}
-                        selectDomainOverride={selectDomainOverride}
-                        displayDomainColoredIcon={displayDomainColoredIcon}
-                    />
-                ))}
         </NavigatorWrapper>
     );
 }

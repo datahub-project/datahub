@@ -1,0 +1,22 @@
+{
+    "logOut": "Logg ut",
+    "nav.access": "Tilgang",
+    "nav.accessTokens": "Tilgangstokener",
+    "nav.appearance": "Utseende",
+    "nav.developer": "Utvikler",
+    "nav.features": "Funksjoner",
+    "nav.homePage": "Hjemmeside",
+    "nav.manage": "Administrer",
+    "nav.myNotifications": "Mine varsler",
+    "nav.mySubscriptions": "Mine abonnementer",
+    "nav.ownershipTypes": "Eierskapstyper",
+    "nav.permissions": "Tillatelser",
+    "nav.personal": "Personlig",
+    "nav.preferences": "Preferanser",
+    "nav.collapseSidebar": "Skjul innstillingssidefelt",
+    "nav.expandSidebar": "Vis innstillingssidefelt",
+    "nav.usersGroups": "Brukere og grupper",
+    "nav.views": "Visninger",
+    "subTitle": "Administrer innstillingene dine",
+    "title": "Innstillinger"
+}

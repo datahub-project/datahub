@@ -4,7 +4,9 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
@@ -18,12 +20,16 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -39,12 +45,16 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -86,6 +96,60 @@ public class AspectsBatchImplTest {
   }
 
   @Test
+  public void buildValidatesWithPrimaryReadPreference() {
+    AtomicReference<OperationFingerprint> seen = new AtomicReference<>();
+    AspectPayloadValidator validator =
+        new AspectPayloadValidator() {
+          @Override
+          protected Stream<AspectValidationException> validateProposedAspects(
+              @Nonnull OperationFingerprint operationContext,
+              @Nonnull Collection<? extends BatchItem> mcpItems,
+              @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
+            seen.set(operationContext);
+            return Stream.empty();
+          }
+
+          @Override
+          protected Stream<AspectValidationException> validatePreCommitAspects(
+              @Nonnull OperationFingerprint operationContext,
+              @Nonnull Collection<ChangeMCP> changeMCPs,
+              @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
+            return Stream.empty();
+          }
+
+          @Override
+          public AspectPluginConfig getConfig() {
+            return null;
+          }
+
+          @Override
+          public AspectPayloadValidator setConfig(@Nonnull AspectPluginConfig config) {
+            return this;
+          }
+        };
+    EntityRegistry registry = mock(EntityRegistry.class);
+    when(registry.getAllAspectPayloadValidators()).thenReturn(List.of(validator));
+    CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
+    when(retriever.getEntityRegistry()).thenReturn(registry);
+    RetrieverContext context =
+        RetrieverContext.builder()
+            .searchRetriever(mock(SearchRetriever.class))
+            .cachingAspectRetriever(retriever)
+            .graphRetriever(mock(GraphRetriever.class))
+            .build();
+    OperationContext readContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withReadPreference(ReadPreference.READ);
+
+    AspectsBatchImpl.builder().items(List.of()).retrieverContext(context).build(readContext);
+
+    assertNotNull(seen.get());
+    assertEquals(
+        ((OperationContext) seen.get()).getPrimaryStorageContext().getReadPreference(),
+        ReadPreference.PRIMARY);
+  }
+
+  @Test
   public void toUpsertBatchItemsChangeItemTest() {
     List<ChangeItemImpl> testItems =
         List.of(
@@ -123,7 +187,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -180,7 +247,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -268,7 +338,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -355,7 +428,10 @@ public class AspectsBatchImplTest {
     assertEquals(
         testBatch
             .toUpsertBatchItems(
-                new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect)
+                OperationFingerprint.EMPTY,
+                new HashMap<>(),
+                new HashMap<>(),
+                (changeMCP, systemAspect) -> systemAspect)
             .getSecond()
             .size(),
         1,
@@ -371,6 +447,7 @@ public class AspectsBatchImplTest {
 
     @Override
     protected Stream<MCPItem> proposalMutation(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<MCPItem> mcpItems,
         @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
       return mcpItems.stream()

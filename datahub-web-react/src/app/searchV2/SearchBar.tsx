@@ -1,7 +1,8 @@
-import { CloseCircleFilled } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -10,7 +11,6 @@ import { useUserContext } from '@app/context/useUserContext';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
-import { CommandK } from '@app/searchV2/CommandK';
 import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';
 import AutoCompleteItem from '@app/searchV2/autoComplete/AutoCompleteItem';
 import RecommendedOption from '@app/searchV2/autoComplete/RecommendedOption';
@@ -25,6 +25,7 @@ import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
 import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { getCommandKShortcutLabel } from '@app/utils/checkIfMac';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { Button } from '@src/alchemy-components';
 import { EntityRegistry } from '@src/entityRegistryContext';
@@ -52,7 +53,7 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
         border-radius: 8px;
         &:focus-within {
             border-color: ${
-                props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.styles['primary-color']
+                props.$isShowNavBarRedesign ? props.theme.colors.borderBrand : props.theme.colors.borderBrand
             };
         }
     `}
@@ -77,7 +78,7 @@ const StyledSearchBar = styled(Input)<{
             !props.viewsEnabled &&
             `
         &:focus-within {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.theme.colors.borderBrand};
         }`}
     }
 
@@ -97,12 +98,7 @@ const StyledSearchBar = styled(Input)<{
     }
 `;
 
-const ClearIcon = styled(CloseCircleFilled)`
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
+const ClearIcon = styled(XCircle).attrs({ weight: 'fill', size: 15 })``;
 
 const ViewSelectContainer = styled.div`
     color: ${(props) => props.theme.colors.textOnFillDefault};
@@ -189,6 +185,7 @@ export const SearchBar = ({
     placeholderColor,
     isShowNavBarRedesign,
 }: SearchBarProps) => {
+    const { t } = useTranslation('search');
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
@@ -202,6 +199,12 @@ export const SearchBar = ({
     const searchViewAll = useSearchViewAll();
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
+    const resolvedPlaceholder = showCommandK
+        ? t('searchBar.placeholderWithShortcut', {
+              message: placeholderText,
+              shortcut: getCommandKShortcutLabel(),
+          })
+        : placeholderText;
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -230,7 +233,7 @@ export const SearchBar = ({
             return null;
         }
         return {
-            label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+            label: <EntityTypeLabel>{t('searchBar.filterBy')}</EntityTypeLabel>,
             options: [
                 {
                     value: 'quick-filter-unique-key',
@@ -241,7 +244,7 @@ export const SearchBar = ({
                 },
             ],
         };
-    }, [searchQuery, quickFilters, showAutoCompleteResults, showQuickFilters]);
+    }, [searchQuery, quickFilters, showAutoCompleteResults, showQuickFilters, t]);
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
@@ -321,7 +324,7 @@ export const SearchBar = ({
                 type: '',
                 label: (
                     <Button variant="text" onClick={onClickExploreAll}>
-                        Explore all →
+                        {t('searchBar.viewAll')}
                     </Button>
                 ),
                 style: { marginLeft: 'auto', cursor: 'auto' },
@@ -337,6 +340,7 @@ export const SearchBar = ({
         showViewAllResults,
         showAutoCompleteResults,
         onClickExploreAll,
+        t,
     ]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
@@ -452,7 +456,7 @@ export const SearchBar = ({
                     >
                         <StyledSearchBar
                             bordered={false}
-                            placeholder={placeholderText}
+                            placeholder={resolvedPlaceholder}
                             onPressEnter={() => {
                                 handleSearch(
                                     filterSearchQuery(searchQuery || ''),
@@ -482,7 +486,7 @@ export const SearchBar = ({
                                 </>
                             }
                             ref={searchInputRef}
-                            suffix={<>{(showCommandK && !isFocused && <CommandK />) || null}</>}
+                            suffix={null}
                             $textColor={textColor}
                             $placeholderColor={placeholderColor}
                         />

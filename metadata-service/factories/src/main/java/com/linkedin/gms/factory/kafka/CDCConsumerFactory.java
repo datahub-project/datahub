@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.CDC_EVENT_CONSUMER_NAME;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
@@ -14,17 +15,19 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@DependsOn("configurationProvider")
+@Import(AwsClientFactory.class)
+@DependsOn({"configurationProvider", "defaultAwsCredentialsProvider"})
 @ConditionalOnProperty(
     name = "mclProcessing.cdcSource.enabled",
     havingValue = "true",
@@ -64,10 +67,11 @@ public class CDCConsumerFactory {
       consumerProps.getSecurity().setProtocol(securityProtocol);
     }
 
-    Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);
+    Map<String, Object> customizedProperties = properties.buildConsumerProperties();
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
+    KafkaMskIamAuth.configure(customizedProperties);
 
     // customizedProperties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     // Create factory using GenericRecord typing to match ThreadPoolContainerCustomizer

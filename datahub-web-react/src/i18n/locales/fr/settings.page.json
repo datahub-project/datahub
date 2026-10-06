@@ -1,0 +1,22 @@
+{
+    "logOut": "Se déconnecter",
+    "nav.access": "Accès",
+    "nav.accessTokens": "Jetons d'accès",
+    "nav.appearance": "Apparence",
+    "nav.developer": "Développeur",
+    "nav.features": "Fonctionnalités",
+    "nav.homePage": "Page d'accueil",
+    "nav.manage": "Gérer",
+    "nav.myNotifications": "Mes notifications",
+    "nav.mySubscriptions": "Mes abonnements",
+    "nav.ownershipTypes": "Ownership Types",
+    "nav.permissions": "Autorisations",
+    "nav.personal": "Personnel",
+    "nav.preferences": "Préférences",
+    "nav.collapseSidebar": "Réduire la barre latérale des paramètres",
+    "nav.expandSidebar": "Développer la barre latérale des paramètres",
+    "nav.usersGroups": "Utilisateurs et groupes",
+    "nav.views": "Vues",
+    "subTitle": "Gérez vos paramètres",
+    "title": "Paramètres"
+}

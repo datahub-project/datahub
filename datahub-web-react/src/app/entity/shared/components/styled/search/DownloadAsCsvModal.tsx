@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Input, Modal, Spin, notification } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -38,6 +39,8 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
@@ -47,10 +50,10 @@ export default function DownloadAsCsvModal({
     const entityRegistry = useEntityRegistry();
     const openNotification = () => {
         notification.info({
-            message: 'Preparing Download',
+            message: t('downloadCsv.preparing'),
             description: totalResults
-                ? `Creating CSV with ${totalResults} entities to download`
-                : 'Creating CSV to download',
+                ? t('downloadCsv.creatingWithCount', { count: totalResults })
+                : t('downloadCsv.creating'),
             placement: 'bottomRight',
             duration: null,
             icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
@@ -66,8 +69,8 @@ export default function DownloadAsCsvModal({
     const showFailedDownloadNotification = () => {
         notification.destroy();
         notification.error({
-            message: 'Download Failed',
-            description: 'The CSV file could not be downloaded',
+            message: t('downloadCsv.failed'),
+            description: t('downloadCsv.failedDescription'),
             placement: 'bottomRight',
             duration: 3,
         });
@@ -87,19 +90,29 @@ export default function DownloadAsCsvModal({
             path: location.pathname,
         });
 
+        let sizeForDownload = SEARCH_PAGE_SIZE_FOR_DOWNLOAD;
+        let timeTaken = 0;
+
         function fetchNextPage() {
+            const startTime = new Date().getTime();
             downloadSearchResults({
                 scrollId: nextScrollId,
                 query,
-                count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
+                count: sizeForDownload,
                 orFilters: filters,
                 viewUrn,
             })
                 .then((refetchData) => {
+                    timeTaken += new Date().getTime() - startTime;
                     accumulatedResults = [
                         ...accumulatedResults,
                         ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                     ];
+                    console.log(
+                        `Downloaded ${accumulatedResults.length} rows out of ${
+                            refetchData?.total
+                        } rows. Time taken for download so far: ${timeTaken / 1000}s`,
+                    );
                     // If we have a "next offset", then we continue.
                     // Otherwise, we terminate fetching.
                     if (refetchData?.nextScrollId) {
@@ -116,8 +129,14 @@ export default function DownloadAsCsvModal({
                     }
                 })
                 .catch((_) => {
-                    setIsDownloadingCsv(false);
-                    showFailedDownloadNotification();
+                    if (sizeForDownload > 10) {
+                        sizeForDownload = Math.floor(sizeForDownload / 2);
+                        console.log(`Failed to download, retrying with smaller page size of ${sizeForDownload}`);
+                        fetchNextPage();
+                    } else {
+                        setIsDownloadingCsv(false);
+                        showFailedDownloadNotification();
+                    }
                 });
         }
         fetchNextPage();
@@ -127,12 +146,12 @@ export default function DownloadAsCsvModal({
         <Modal
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
-            title="Download as..."
+            title={t('downloadCsv.modalTitle')}
             open={showDownloadAsCsvModal}
             footer={
                 <>
                     <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">
-                        Close
+                        {tc('close')}
                     </Button>
                     <Button
                         data-testid="csv-modal-download-button"
@@ -142,14 +161,14 @@ export default function DownloadAsCsvModal({
                         }}
                         disabled={saveAsTitle.length === 0}
                     >
-                        Download
+                        {tc('download')}
                     </Button>
                 </>
             }
         >
             <Input
                 data-testid="download-as-csv-input"
-                placeholder="datahub.csv"
+                placeholder={t('downloadCsv.filenamePlaceholder')}
                 value={saveAsTitle}
                 onChange={(e) => {
                     setSaveAsTitle(e.target.value);

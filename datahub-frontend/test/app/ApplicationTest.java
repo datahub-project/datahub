@@ -2,6 +2,7 @@ package app;
 
 import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -589,6 +590,96 @@ public class ApplicationTest extends WithBrowser {
 
     Result result = route(app, request);
     assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testCspHeaderPresent() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.healthcheck());
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+    boolean hasEnforcing = result.headers().containsKey(Http.HeaderNames.CONTENT_SECURITY_POLICY);
+    boolean hasReportOnly = result.headers().containsKey("Content-Security-Policy-Report-Only");
+    assertTrue(
+        hasEnforcing || hasReportOnly,
+        "Play CSPFilter should set Content-Security-Policy (or -Report-Only when DATAHUB_CSP_REPORT_ONLY=true)");
+  }
+
+  /**
+   * CSPFilter is composed outermost so BasePathRedirectFilter redirect responses (301) still pass
+   * through CSPFilter and include CSP headers — same mechanism as for non-root play.http.context.
+   */
+  @Test
+  public void testCspHeaderPresentOnBasePathRedirectResponse() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/test", result.redirectLocation().orElse(""));
+    assertTrue(
+        result.headers().containsKey(Http.HeaderNames.CONTENT_SECURITY_POLICY)
+            || result.headers().containsKey("Content-Security-Policy-Report-Only"),
+        "CSP headers must apply to BasePathRedirectFilter redirect responses");
+  }
+
+  @Test
+  public void testSecurityHeadersAbsentByDefault() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.healthcheck());
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+    assertFalse(
+        result.headers().containsKey(Http.HeaderNames.X_FRAME_OPTIONS),
+        "X-Frame-Options must be omitted unless DATAHUB_SECURITY_HEADERS_FRAME_OPTIONS is set");
+    assertFalse(
+        result.headers().containsKey(Http.HeaderNames.X_CONTENT_TYPE_OPTIONS),
+        "X-Content-Type-Options must be omitted unless DATAHUB_SECURITY_HEADERS_CONTENT_TYPE_OPTIONS is set");
+    assertFalse(
+        result.headers().containsKey("Referrer-Policy"),
+        "Referrer-Policy must be omitted unless DATAHUB_SECURITY_HEADERS_REFERRER_POLICY is set");
+  }
+
+  @Test
+  public void testSecurityHeadersPresentWhenConfigured() {
+    Application customApp = applicationWithSecurityHeaders();
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/health");
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    assertEquals("DENY", result.headers().get(Http.HeaderNames.X_FRAME_OPTIONS));
+    assertEquals("nosniff", result.headers().get(Http.HeaderNames.X_CONTENT_TYPE_OPTIONS));
+    assertEquals("strict-origin-when-cross-origin", result.headers().get("Referrer-Policy"));
+  }
+
+  /**
+   * SecurityHeadersFilter is composed outside BasePathRedirectFilter so 301 redirects still carry
+   * configured X-Frame-Options / X-Content-Type-Options / Referrer-Policy.
+   */
+  @Test
+  public void testSecurityHeadersPresentOnBasePathRedirectResponse() {
+    Application customApp = applicationWithSecurityHeaders();
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/");
+    Result result = route(customApp, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/test", result.redirectLocation().orElse(""));
+    assertEquals("DENY", result.headers().get(Http.HeaderNames.X_FRAME_OPTIONS));
+    assertEquals("nosniff", result.headers().get(Http.HeaderNames.X_CONTENT_TYPE_OPTIONS));
+    assertEquals("strict-origin-when-cross-origin", result.headers().get("Referrer-Policy"));
+  }
+
+  private Application applicationWithSecurityHeaders() {
+    return new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .configure("play.filters.headers.frameOptions", "DENY")
+        .configure("play.filters.headers.contentTypeOptions", "nosniff")
+        .configure("play.filters.headers.referrerPolicy", "strict-origin-when-cross-origin")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
   }
 
   @Test
@@ -1540,7 +1631,11 @@ public class ApplicationTest extends WithBrowser {
       // Mock GracefulShutdownModule for the test
       GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
       return new controllers.Application(
-          mockHttpClient, mockEnvironment, config, mockShutdownModule);
+          mockHttpClient,
+          mockEnvironment,
+          config,
+          mockShutdownModule,
+          new controllers.ProxyAdmission(controllers.ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
     }
 
     @Provides

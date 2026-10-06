@@ -1,5 +1,5 @@
-import { CopyOutlined } from '@ant-design/icons';
 import { Avatar, Text, Tooltip } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -12,6 +12,7 @@ import {
     MANUAL_INGESTION_SOURCE,
     RUNNING,
     SCHEDULED_INGESTION_SOURCE,
+    SUCCEEDED_WITH_WARNINGS,
     SUCCESS,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -129,7 +130,7 @@ export function ButtonsColumn({
                 <Tooltip title="Copy Execution Request URN">
                     <Button
                         style={{ marginRight: 16 }}
-                        icon={<CopyOutlined />}
+                        icon={<Copy />}
                         onClick={() => {
                             navigator.clipboard.writeText(record.urn);
                         }}
@@ -146,7 +147,7 @@ export function ButtonsColumn({
                     CANCEL
                 </Button>
             )}
-            {record.status === SUCCESS && record.showRollback && (
+            {(record.status === SUCCESS || record.status === SUCCEEDED_WITH_WARNINGS) && record.showRollback && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
                     ROLLBACK
                 </Button>

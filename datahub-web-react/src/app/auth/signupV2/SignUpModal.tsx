@@ -1,13 +1,17 @@
 import { useReactiveVar } from '@apollo/client';
-import { Modal } from '@components';
-import { Form, message } from 'antd';
+import { Modal, toast } from '@components';
+import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
+import { useLocation } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import ModalHeader from '@app/auth/shared/ModalHeader';
+import { confirmPassword, password, required } from '@app/auth/shared/shared.utils';
 import { SignupFormValues } from '@app/auth/shared/types';
+import { useAuthForm } from '@app/auth/shared/useAuthForm';
 import SignupForm from '@app/auth/signupV2/SignupForm';
 import useGetInviteTokenFromUrlParams from '@app/auth/useGetInviteTokenFromUrlParams';
 import { useAppConfig } from '@app/useAppConfig';
@@ -18,8 +22,9 @@ import { useAcceptRoleMutation } from '@graphql/mutations.generated';
 
 export default function SignUpModal() {
     const history = useHistory();
+    const location = useLocation();
 
-    const [form] = Form.useForm();
+    const { t } = useTranslation('auth');
 
     const [loading, setLoading] = useState(false);
     const { refreshContext } = useAppConfig();
@@ -27,9 +32,25 @@ export default function SignUpModal() {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const inviteToken = useGetInviteTokenFromUrlParams();
 
-    const [acceptRoleMutation] = useAcceptRoleMutation();
+    useEffect(() => {
+        const params = QueryString.parse(location.search, { decode: true });
+        if (params.redirect_on_sso) {
+            fetch(resolveRuntimePath('/sso'), {
+                method: 'HEAD',
+                redirect: 'manual',
+            })
+                .then((response) => {
+                    if (response.type === 'opaqueredirect' || response.status === 302) {
+                        window.location.href = resolveRuntimePath('/sso');
+                    }
+                })
+                .catch(() => {
+                    // SSO not configured or error - stay on signup
+                });
+        }
+    }, [location.search]);
 
-    const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
+    const [acceptRoleMutation] = useAcceptRoleMutation();
 
     const acceptRole = () => {
         acceptRoleMutation({
@@ -41,18 +62,12 @@ export default function SignUpModal() {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Accepted invite!`,
-                        duration: 2,
-                    });
+                    toast.success(t('signup.acceptedInvite'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to accept invite: \n ${e.message || ''}`,
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('signup.acceptInviteFailed', { error: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -62,14 +77,6 @@ export default function SignUpModal() {
             history.push(PageRoutes.ROOT);
         }
     });
-
-    const onFormChange = () => {
-        const hasErrors = form.getFieldsError().some(({ errors }) => errors.length > 0);
-
-        const isTouched = form.isFieldsTouched(true);
-
-        setIsSubmitDisabled(hasErrors || !isTouched);
-    };
 
     const handleSignUp = useCallback(
         (values: SignupFormValues) => {
@@ -97,21 +104,35 @@ export default function SignUpModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                    toast.error(t('signup.loginFailed'));
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, inviteToken],
+        [refreshContext, inviteToken, t],
+    );
+
+    const form = useAuthForm<SignupFormValues>(
+        { email: '', fullName: '', password: '', confirmPassword: '' },
+        {
+            email: required(t('emailRequired')),
+            fullName: required(t('fullNameRequired')),
+            password: password({ required: t('passwordRequired'), tooShort: t('passwordHint') }),
+            confirmPassword: confirmPassword({
+                required: t('confirmPasswordRequired'),
+                mismatch: t('passwordsDoNotMatch'),
+            }),
+        },
+        handleSignUp,
     );
 
     return (
         <Modal
-            title={<ModalHeader subHeading="Before we get started we just have a few questions" />}
+            title={<ModalHeader subHeading={t('signup.subHeading')} />}
             buttons={[
                 {
-                    text: 'Get Started',
-                    onClick: () => form.submit(),
-                    disabled: isSubmitDisabled,
+                    text: t('signup.submitButton'),
+                    onClick: form.submit,
+                    disabled: form.isSubmitDisabled,
                     buttonDataTestId: 'sign-up',
                 },
             ]}
@@ -120,12 +141,7 @@ export default function SignUpModal() {
             closable={false}
             width="533px"
         >
-            <SignupForm
-                form={form}
-                handleSubmit={handleSignUp}
-                onFormChange={onFormChange}
-                isSubmitDisabled={isSubmitDisabled}
-            />
+            <SignupForm form={form} />
         </Modal>
     );
 }

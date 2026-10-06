@@ -1,18 +1,18 @@
-import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React, { useMemo, useState } from 'react';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { Button } from '@src/alchemy-components';
+import { cronToString } from '@utils/cronstrue';
 
 const Section = styled.div`
     display: flex;
@@ -31,7 +31,7 @@ const CronText = styled(Typography.Paragraph)`
     &&& {
         margin-bottom: 0px;
     }
-    color: ${ANTD_GRAY[7]};
+    color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const CronInput = styled(Input)`
@@ -53,8 +53,8 @@ const AdvancedCheckBox = styled(Typography.Text)`
     margin-right: 10px;
 `;
 
-const CronSuccessCheck = styled(CheckCircleOutlined)`
-    color: ${REDESIGN_COLORS.BLUE};
+const CronSuccessCheck = styled(CheckCircle)`
+    color: ${({ theme }) => theme.colors.iconSuccess};
     margin-right: 4px;
 `;
 
@@ -66,7 +66,7 @@ const ControlsContainer = styled.div`
 
 const StyledFormItem = styled(Form.Item)`
     .cron-builder {
-        color: ${ANTD_GRAY[7]};
+        color: ${({ theme }) => theme.colors.textSecondary};
     }
     .cron-builder-select {
         min-width: 100px;
@@ -74,10 +74,10 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 const WarningContainer = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
-const StyledWarningOutlined = styled(WarningOutlined)`
+const StyledWarningOutlined = styled(Warning)`
     margin-right: 4px;
     margin-top: 12px;
 `;
@@ -99,7 +99,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
         if (scheduleCronInterval) {
             try {
                 return {
-                    text: `Runs ${lowerFirstLetter(cronstrue.toString(scheduleCronInterval))}.`,
+                    text: `Runs ${lowerFirstLetter(cronToString(scheduleCronInterval))}.`,
                     error: false,
                 };
             } catch (e) {

@@ -1,6 +1,6 @@
-import { Tooltip } from '@components';
-import { Col, Pagination, Row } from 'antd';
+import { Pagination, Tooltip } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -14,6 +14,7 @@ type Props = {
     urn: string;
     initialRelationships?: Array<EntityRelationship> | null;
     pageSize: number;
+    totalRelationships: number;
 };
 
 const GroupsViewWrapper = styled.div`
@@ -34,8 +35,30 @@ const GroupsViewWrapper = styled.div`
     }
 `;
 
-const GroupItemColumn = styled(Col)`
+const GroupsGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    @media (max-width: 992px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 576px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+`;
+
+const GroupItemColumn = styled.div`
     padding: 10px;
+`;
+
+const GroupRow = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const PaginationRow = styled.div`
+    display: flex;
 `;
 
 const GroupItem = styled.div`
@@ -83,7 +106,8 @@ const GroupDescription = styled.span`
     max-width: 100%;
 `;
 
-export default function UserGroups({ urn, initialRelationships, pageSize }: Props) {
+export default function UserGroups({ urn, initialRelationships, pageSize, totalRelationships }: Props) {
+    const { t } = useTranslation('entity.types');
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
 
@@ -97,53 +121,45 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     };
 
     const relationships = groupsData ? groupsData.corpUser?.relationships?.relationships : initialRelationships;
-    const userGroups = [...(relationships || [])]
-        .filter((rel) => {
-            const group = rel?.entity as CorpGroup;
-            return group?.info || group?.editableProperties;
-        })
-        .map((rel) => rel.entity as CorpGroup);
-    const total = userGroups.length;
-
+    const userGroups = [...(relationships || [])].map((rel) => rel.entity as CorpGroup);
     return (
         <GroupsViewWrapper>
-            <Row justify="start">
+            <GroupsGrid>
                 {userGroups &&
                     userGroups.map((item) => {
                         return (
-                            <GroupItemColumn xl={8} lg={8} md={12} sm={12} xs={24} key={item.urn}>
+                            <GroupItemColumn key={item.urn}>
                                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.urn)}>
                                     <GroupItem>
-                                        <Row className="title-row">
+                                        <GroupRow className="title-row">
                                             <GroupTitle>{item.info?.displayName || item.name}</GroupTitle>
                                             <GroupMember>
-                                                {item.relationships?.total}
-                                                {item.relationships?.total === 1 ? ' member' : ' members'}
+                                                {t('shared.membersCount', { count: item.relationships?.total || 0 })}
                                             </GroupMember>
-                                        </Row>
-                                        <Row className="description-row">
+                                        </GroupRow>
+                                        <GroupRow className="description-row">
                                             <GroupDescription>
                                                 <Tooltip title={item.info?.description}>
                                                     {item.info?.description}
                                                 </Tooltip>
                                             </GroupDescription>
-                                        </Row>
+                                        </GroupRow>
                                     </GroupItem>
                                 </Link>
                             </GroupItemColumn>
                         );
                     })}
-            </Row>
-            <Row className="user-group-pagination">
+            </GroupsGrid>
+            <PaginationRow className="user-group-pagination">
                 <Pagination
-                    current={page}
-                    pageSize={pageSize}
-                    total={total}
+                    currentPage={page}
+                    itemsPerPage={pageSize}
+                    total={totalRelationships}
                     showLessItems
-                    onChange={onChangeGroupsPage}
+                    onPageChange={onChangeGroupsPage}
                     showSizeChanger={false}
                 />
-            </Row>
+            </PaginationRow>
         </GroupsViewWrapper>
     );
 }

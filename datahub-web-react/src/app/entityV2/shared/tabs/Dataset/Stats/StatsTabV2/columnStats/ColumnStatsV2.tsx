@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import ColumnStatsTable from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/ColumnStatsTable';
+import {
+    formatColumnStatsSubtitle,
+    getProfileScope,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/profileScope';
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { PageTitle, SearchBar } from '@src/alchemy-components';
+import { toLocalDateString } from '@src/app/shared/time/timeUtils';
 
 const ColumnStatsContainer = styled.div`
     display: flex;
@@ -14,8 +20,14 @@ const ColumnStatsContainer = styled.div`
 `;
 
 const ColumnStatsV2 = () => {
+    const { t } = useTranslation('entity.profile.stats');
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const { columnStats } = useGetStatsData();
+    const { columnStats, partitionSpec, profileTimestampMillis } = useGetStatsData();
+    const columnStatsSubtitle = formatColumnStatsSubtitle(
+        t,
+        getProfileScope(partitionSpec),
+        profileTimestampMillis ? toLocalDateString(profileTimestampMillis) : undefined,
+    );
     const {
         setSectionState,
         sections,
@@ -43,12 +55,12 @@ const ColumnStatsV2 = () => {
     return (
         <ColumnStatsContainer data-testid="column-stats-container">
             <PageTitle
-                title="Column Stats"
-                subTitle="View latest stats for each column in this table."
+                title={t('columnStatsV2.title')}
+                subTitle={<span data-testid="column-stats-scope">{columnStatsSubtitle}</span>}
                 variant="sectionHeader"
             />
             <SearchBar
-                placeholder="Search Column Name"
+                placeholder={t('columnStatsV2.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}
                 data-testid="column-stats-search-bar"

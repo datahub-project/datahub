@@ -1,5 +1,6 @@
 import { Input } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 interface ApplicationDetailsProps {
@@ -26,15 +27,17 @@ const ApplicationDetailsSection: React.FC<ApplicationDetailsProps> = ({
     applicationDescription,
     setApplicationDescription,
 }) => {
+    const { t } = useTranslation('misc');
+    const { t: tl } = useTranslation('common.labels');
     return (
         <SectionContainer>
             <FormSection>
                 <Input
-                    label="Name"
+                    label={tl('name')}
                     inputTestId="application-name-input"
                     value={applicationName}
                     setValue={setApplicationName}
-                    placeholder="Enter application name"
+                    placeholder={t('applications.namePlaceholder')}
                     required
                 />
             </FormSection>
@@ -42,10 +45,10 @@ const ApplicationDetailsSection: React.FC<ApplicationDetailsProps> = ({
             <FormSection>
                 <Input
                     inputTestId="application-description-input"
-                    label="Description"
+                    label={tl('description')}
                     value={applicationDescription}
                     setValue={setApplicationDescription}
-                    placeholder="Add a description for your new application"
+                    placeholder={t('applications.descriptionPlaceholder')}
                     type="textarea"
                 />
             </FormSection>

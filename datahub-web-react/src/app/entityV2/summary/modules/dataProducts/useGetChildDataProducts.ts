@@ -24,7 +24,6 @@ export const useGetChildDataProducts = (initialCount = MAX_ASSETS_TO_FETCH) => {
                 filters: [
                     {
                         field: DOMAINS_FILTER_NAME,
-                        value: urn,
                         values: [urn],
                     },
                 ],

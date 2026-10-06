@@ -1,38 +1,36 @@
-import unittest
-from datetime import datetime, timedelta, timezone
+import warnings
 from unittest.mock import MagicMock, patch
 
+import pytest
+from pydantic import ValidationError
+
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
+from datahub.ingestion.api.source import TestConnectionReport
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+from datahub.ingestion.source.hex.api import HexApiConnection
+from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
+from datahub.ingestion.source.hex.hex import HexSource
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
 from tests.unit.hex.conftest import load_json_data
 
 
-def datetime_approx_equal(
-    dt1: datetime, dt2: datetime, tolerance_seconds: int = 5
-) -> bool:
-    if dt1.tzinfo is None:
-        dt1 = dt1.replace(tzinfo=timezone.utc)
-    if dt2.tzinfo is None:
-        dt2 = dt2.replace(tzinfo=timezone.utc)
-
-    diff = abs((dt1 - dt2).total_seconds())
-    return diff <= tolerance_seconds
-
-
-class TestHexSourceConfig(unittest.TestCase):
-    def setUp(self):
-        self.minimum_input_config = {
-            "workspace_name": "test-workspace",
-            "token": "test-token",
-        }
+class TestHexSourceConfig:
+    minimum_input_config = {
+        "workspace_name": "test-workspace",
+        "token": "test-token",
+    }
 
     def test_required_fields(self):
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             input_config = {**self.minimum_input_config}
             del input_config["workspace_name"]
             HexSourceConfig.model_validate(input_config)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             input_config = {**self.minimum_input_config}
             del input_config["token"]
             HexSourceConfig.model_validate(input_config)
@@ -52,112 +50,38 @@ class TestHexSourceConfig(unittest.TestCase):
         config = HexSourceConfig.model_validate(input_config)
         assert config and not config.include_lineage
 
-        # default values for lineage_start_time and lineage_end_time
-        config = HexSourceConfig.model_validate(self.minimum_input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime.now(tz=timezone.utc) - timedelta(days=1),
-            )
+    def test_connection_platform_map_rich_object_round_trips(self):
+        config = HexSourceConfig.model_validate(
+            {
+                **self.minimum_input_config,
+                "connection_platform_map": {
+                    "conn-sf": {
+                        "platform": "snowflake",
+                        "platform_instance": "prod_snowflake",
+                    },
+                },
+            }
         )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time, datetime.now(tz=timezone.utc)
-            )
-        )
-        # set values for lineage_start_time and lineage_end_time
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_start_time": "2025-03-24 12:00:00",
-            "lineage_end_time": "2025-03-25 12:00:00",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime(2025, 3, 24, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        # set lineage_end_time only
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_end_time": "2025-03-25 12:00:00",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc)
-                - timedelta(days=1),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        # set lineage_start_time only
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_start_time": "2025-03-25 12:00:00",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time, datetime.now(tz=timezone.utc)
-            )
-        )
-        # set relative times for lineage_start_time and lineage_end_time
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_start_time": "-3day",
-            "lineage_end_time": "now",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime.now(tz=timezone.utc) - timedelta(days=3),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time, datetime.now(tz=timezone.utc)
-            )
-        )
+        detail = config.connection_platform_map["conn-sf"]
+        assert detail.platform == "snowflake"
+        assert detail.platform_instance == "prod_snowflake"
+
+    def test_deprecated_lineage_fields_emit_warnings(self):
+        """Removed fields emit ConfigurationWarning instead of silently being ignored."""
+        deprecated_fields = [
+            "lineage_start_time",
+            "lineage_end_time",
+            "datahub_page_size",
+        ]
+        for field in deprecated_fields:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                HexSourceConfig.model_validate(
+                    {**self.minimum_input_config, field: "some-value"}
+                )
+                assert any(
+                    issubclass(warning.category, ConfigurationWarning) for warning in w
+                ), f"Expected ConfigurationWarning for deprecated field '{field}'"
 
     def test_category_pattern_filtering(self):
         """Test that category_pattern filters projects/components correctly using page3_data"""
@@ -312,3 +236,639 @@ class TestHexSourceConfig(unittest.TestCase):
 
         # Verify: all components are kept
         assert "4759f33c-1ab9-403d-92e8-9bef48de00cg" in source.component_registry
+
+
+class TestResolveConnections:
+    """Tests for HexSource._resolve_connections — the boundary that resolves
+    raw API output + user overrides into a {conn_id → HexConnection} map.
+    """
+
+    def _make_source(self, **overrides: object) -> HexSource:
+        config = HexSourceConfig.model_validate(
+            {
+                "workspace_name": "ws",
+                "token": "t",
+                **overrides,
+            }
+        )
+        return HexSource(config, PipelineContext(run_id="resolve-conn-test"))
+
+    def test_api_only_known_types_resolve(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(name="Analytics Hub", type="snowflake"),
+                "conn-bq": HexApiConnection(name="BQ Hub", type="bigquery"),
+            },
+            connection_overrides={},
+        )
+        assert connections["conn-sf"].name == "Analytics Hub"
+        assert connections["conn-sf"].platform == "snowflake"
+        # No user override → no platform_instance pinned.
+        assert connections["conn-sf"].platform_instance is None
+        assert connections["conn-bq"].name == "BQ Hub"
+        assert connections["conn-bq"].platform == "bigquery"
+
+    def test_api_unknown_type_is_unmapped_and_warned(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-vt": HexApiConnection(name="Vertica Prod", type="vertica"),
+            },
+            connection_overrides={},
+        )
+        # Name is retained for the document builder…
+        assert connections["conn-vt"].name == "Vertica Prod"
+        # …but platform is not resolvable, so the lineage builder will skip it.
+        assert connections["conn-vt"].platform is None
+        # A warning is surfaced naming the offending type in its context.
+        assert any(
+            any("vertica" in c.lower() for c in w.context)
+            for w in source.report.warnings
+        )
+
+    def test_user_override_bypasses_canonical_map(self):
+        """An override naming a platform outside CONNECTION_TYPE_TO_DATAHUB_PLATFORM
+        should still resolve — this is the M2 fix."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-vt": HexApiConnection(name="Vertica Prod", type="vertica"),
+            },
+            connection_overrides={"conn-vt": HexConnectionDetail(platform="vertica")},
+        )
+        # Display name from the API is preserved, override supplies platform.
+        assert connections["conn-vt"].name == "Vertica Prod"
+        assert connections["conn-vt"].platform == "vertica"
+        # Override fully resolves the connection — no spurious "unmapped"
+        # warning should fire.
+        assert not source.report.warnings
+
+    def test_partial_override_still_warns_for_remaining_unmapped(self):
+        """When only some connections of an unmapped type are overridden,
+        warn about the rest — but not the overridden ones."""
+        source = self._make_source()
+        source._resolve_connections(
+            api_connections={
+                "conn-vt-1": HexApiConnection(name="Vertica A", type="vertica"),
+                "conn-vt-2": HexApiConnection(name="Vertica B", type="vertica"),
+                "conn-mz": HexApiConnection(name="Materialize", type="materialize"),
+            },
+            connection_overrides={
+                "conn-vt-1": HexConnectionDetail(platform="vertica"),
+            },
+        )
+        # Both unmapped types appear in the warning context; only the
+        # still-unmapped vertica connection is counted.
+        assert source.report.warnings
+        contexts = [c for w in source.report.warnings for c in w.context]
+        joined = " ".join(contexts).lower()
+        assert "vertica (x1)" in joined
+        assert "materialize (x1)" in joined
+
+    def test_user_override_for_unknown_connection_id(self):
+        """Override applies even when the connection isn't in the API result
+        (deleted connection, permission gap)."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={},
+            connection_overrides={
+                "conn-deleted": HexConnectionDetail(platform="snowflake"),
+            },
+        )
+        # Falls back to the conn_id itself when no display name is known.
+        assert connections["conn-deleted"].name == "conn-deleted"
+        assert connections["conn-deleted"].platform == "snowflake"
+
+    def test_user_override_wins_over_api(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-1": HexApiConnection(name="Prod SF", type="snowflake"),
+            },
+            connection_overrides={"conn-1": HexConnectionDetail(platform="redshift")},
+        )
+        assert connections["conn-1"].platform == "redshift"
+        # Display name from the API is preserved on override.
+        assert connections["conn-1"].name == "Prod SF"
+
+    def test_empty_inputs_produce_empty_outputs(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={}, connection_overrides={}
+        )
+        assert connections == {}
+
+    def test_rich_override_with_platform_instance_and_env(self):
+        """When the user supplies a HexConnectionDetail, the resolved
+        HexConnection carries platform_instance for the lineage builder."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(name="Prod SF", type="snowflake"),
+            },
+            connection_overrides={
+                "conn-sf": HexConnectionDetail(platform_instance="prod_snowflake"),
+            },
+        )
+        c = connections["conn-sf"]
+        # platform still auto-resolves from the API since override.platform is None
+        assert c.platform == "snowflake"
+        assert c.platform_instance == "prod_snowflake"
+
+    def test_api_default_database_and_schema_flow_through(self):
+        """API-extracted defaults populate the HexConnection when no override
+        touches them — caller has no override fields set."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(
+                    name="A",
+                    type="snowflake",
+                    default_database="ANALYTICS",
+                    default_schema="PUBLIC",
+                ),
+            },
+            connection_overrides={},
+        )
+        c = connections["conn-sf"]
+        assert c.default_database == "ANALYTICS"
+        assert c.default_schema == "PUBLIC"
+
+    def test_override_default_schema_only_preserves_api_default_database(self):
+        """Per-field merge: override.default_schema is set, default_database
+        is None on the override → only schema is replaced, db comes from API.
+        """
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(
+                    name="A",
+                    type="snowflake",
+                    default_database="ANALYTICS",
+                    default_schema="PUBLIC",
+                ),
+            },
+            connection_overrides={
+                "conn-sf": HexConnectionDetail(default_schema="REPORTING"),
+            },
+        )
+        c = connections["conn-sf"]
+        assert c.default_database == "ANALYTICS"  # unchanged from API
+        assert c.default_schema == "REPORTING"  # override wins
+
+    def test_override_default_database_only_preserves_api_default_schema(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(
+                    name="A",
+                    type="snowflake",
+                    default_database="ANALYTICS",
+                    default_schema="PUBLIC",
+                ),
+            },
+            connection_overrides={
+                "conn-sf": HexConnectionDetail(default_database="WAREHOUSE"),
+            },
+        )
+        c = connections["conn-sf"]
+        assert c.default_database == "WAREHOUSE"
+        assert c.default_schema == "PUBLIC"  # unchanged from API
+
+    def test_override_supplies_defaults_when_api_has_none(self):
+        """API didn't extract any defaults (e.g. type missing from
+        CONNECTION_TYPE_DEFAULTS, or `connectionDetails` absent). The override
+        fills in both slots."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-vt": HexApiConnection(name="Vertica", type="vertica"),
+            },
+            connection_overrides={
+                "conn-vt": HexConnectionDetail(
+                    platform="vertica",
+                    default_database="WAREHOUSE",
+                    default_schema="public",
+                ),
+            },
+        )
+        c = connections["conn-vt"]
+        assert c.default_database == "WAREHOUSE"
+        assert c.default_schema == "public"
+
+
+def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
+    """The pipeline-level ``AutoLowercaseUrnsProcessor`` fires when the recipe
+    exposes a top-level ``convert_urns_to_lowercase`` key on the source config.
+    Hex must never take that on: blanket lowercasing would rewrite every URN
+    in the stream — including BigQuery / db2 connections whose table IDs are
+    case-sensitive — and would also lowercase ``platform_instance`` inside
+    ``DatasetUrn.name``, dangling lineage for instanced connections.
+
+    Casing is instead applied by the shared ``SchemaResolver`` used by both
+    tier-1 (queriedTables) and tier-2 (SQL parsing), which follows each
+    platform's default (lowercase for snowflake/postgres/redshift/mssql;
+    preserve case for bigquery/db2) and, for tables that are in DataHub,
+    picks the exact URN that landed on the warehouse side. Pins that design
+    decision so a future refactor can't quietly opt back into the global
+    processor.
+    """
+    recipe = {
+        "workspace_name": "ws",
+        "token": "t",
+        "connection_platform_map": {
+            "conn-sf": {"platform": "snowflake", "platform_instance": "prod_sf"},
+            "conn-bq": {"platform": "bigquery"},
+        },
+    }
+    config = HexSourceConfig.model_validate(recipe)
+    pipeline_ctx = PipelineContext(
+        run_id="pipeline-lower-test",
+        pipeline_config=PipelineConfig(
+            source=SourceConfig(type="hex", config=recipe),
+        ),
+    )
+    src = HexSource(config, pipeline_ctx)
+    ctx = WorkunitProcessorContext(
+        source_report=src.report,
+        pipeline_context=src.ctx,
+        source_config=src.source_config,
+        platform="hex",
+    )
+    assert not AutoLowercaseUrnsProcessor.should_enable(ctx)
+
+    # Contrast: the same processor with the key present in the recipe dict
+    # *would* fire. That proves the assertion above is reading the recipe,
+    # not short-circuiting on a missing pipeline_config.
+    opt_in_ctx = WorkunitProcessorContext(
+        source_report=src.report,
+        pipeline_context=PipelineContext(
+            run_id="pipeline-lower-opt-in",
+            pipeline_config=PipelineConfig(
+                source=SourceConfig(
+                    type="hex",
+                    config={**recipe, "convert_urns_to_lowercase": True},
+                ),
+            ),
+        ),
+        source_config=src.source_config,
+        platform="hex",
+    )
+    assert AutoLowercaseUrnsProcessor.should_enable(opt_in_ctx)
+
+    # Negative control: HexSourceConfig must not accept
+    # ``convert_urns_to_lowercase`` at the top level either — a recipe that
+    # tries to set it fails validation up front instead of silently enabling
+    # the global processor.
+    with pytest.raises(ValidationError):
+        HexSourceConfig.model_validate(
+            {
+                "workspace_name": "ws",
+                "token": "t",
+                "convert_urns_to_lowercase": True,
+            }
+        )
+
+
+class TestHexTestConnection:
+    """Tests for test_connection() — especially the cells access probe."""
+
+    def _make_response(self, status_code: int, json_data: dict) -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.ok = status_code < 400
+        resp.json.return_value = json_data
+        resp.raise_for_status = MagicMock(
+            side_effect=None if status_code < 400 else Exception(f"HTTP {status_code}")
+        )
+        return resp
+
+    def _run_test_connection(self, cells_status: int) -> "TestConnectionReport":
+        """Run test_connection with a controlled cells endpoint status code."""
+        config = {
+            "workspace_name": "test-ws",
+            "token": "test-token",
+            "base_url": "https://app.hex.tech/api/v1",
+        }
+
+        def mock_get(url, **kwargs):
+            if "users/me" in url:
+                return self._make_response(200, {"email": "test@test.com"})
+            if "projects" in url and "queriedTables" in url:
+                return self._make_response(403, {})
+            if "projects" in url:
+                return self._make_response(
+                    200, {"values": [{"id": "proj-1"}], "pagination": {}}
+                )
+            if "data-connections" in url:
+                return self._make_response(200, {"values": []})
+            if "cells" in url:
+                return self._make_response(cells_status, {"values": []})
+            return self._make_response(404, {})
+
+        def mock_post(url, **kwargs):
+            # Export API — return a valid but empty YAML so sampling completes quickly
+            if "export" in url:
+                return self._make_response(
+                    200,
+                    {
+                        "filename": "test.yaml",
+                        "content": "meta:\n  title: Test\ncells: []\n",
+                    },
+                )
+            return self._make_response(404, {})
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as mock_session_factory:
+            mock_session = MagicMock()
+            mock_session.get.side_effect = mock_get
+            mock_session.post.side_effect = mock_post
+            mock_session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            mock_session_factory.return_value = mock_session
+
+            return HexSource.test_connection(config)
+
+    def test_cells_accessible_reports_lineage_capable(self):
+        report = self._run_test_connection(cells_status=200)
+        assert report.capability_report is not None
+        lineage_cap = report.capability_report.get(
+            "Lineage via SQL parsing (all tiers)"
+        )
+        assert lineage_cap is not None
+        assert lineage_cap.capable is True
+
+    def test_cells_403_reports_lineage_not_capable(self):
+        """Metadata-only token (can list projects, cannot read cells) → lineage not capable."""
+        report = self._run_test_connection(cells_status=403)
+        assert report.capability_report is not None
+        lineage_cap = report.capability_report.get(
+            "Lineage via SQL parsing (all tiers)"
+        )
+        assert lineage_cap is not None
+        assert lineage_cap.capable is False
+        assert lineage_cap.failure_reason is not None
+        assert "403" in lineage_cap.failure_reason
+        assert "Read projects" in lineage_cap.failure_reason
+
+
+class TestQueriedTablesFallback:
+    """Ingestion-level: when use_queried_tables_lineage=True and Hex's
+    /projects/{id}/queriedTables returns 403, SQL-cell parsing takes over,
+    the tier is marked unavailable, and a warning is surfaced in the report."""
+
+    def test_queried_tables_403_falls_back_to_sql_parsing(self):
+        project_id = "proj-1"
+        # lastPublishedAt is required — _build_lineage skips queriedTables for drafts.
+        project = {
+            "id": project_id,
+            "title": "Published",
+            "type": "PROJECT",
+            "lastPublishedAt": "2024-08-22T10:00:00Z",
+        }
+        sql_cell = {
+            "staticId": "cell-1",
+            "cellType": "SQL",
+            "dataConnectionId": "conn-sf",
+            "contents": {"sqlCell": {"source": "SELECT * FROM db.public.customers"}},
+        }
+
+        def make_response(status: int, payload: dict) -> MagicMock:
+            response = MagicMock(status_code=status, ok=status < 400)
+            response.json.return_value = payload
+            response.raise_for_status = MagicMock(
+                side_effect=None if status < 400 else Exception(f"HTTP {status}")
+            )
+            return response
+
+        def mock_get(url: str, **_: object) -> MagicMock:
+            if "queriedTables" in url:
+                return make_response(403, {})
+            if url.endswith("/data-connections"):
+                return make_response(
+                    200,
+                    {"values": [{"id": "conn-sf", "name": "SF", "type": "snowflake"}]},
+                )
+            if url.endswith("/cells"):
+                return make_response(200, {"values": [sql_cell], "pagination": {}})
+            if url.endswith("/projects"):
+                return make_response(200, {"values": [project], "pagination": {}})
+            return make_response(404, {})
+
+        # Empty export forces the connector down the /cells path.
+        def mock_post(_url: str, **_kwargs: object) -> MagicMock:
+            return make_response(200, {"content": "cells: []\n"})
+
+        config = {
+            "workspace_name": "ws",
+            "workspace_id": "ws-uuid",  # skip /users/me discovery
+            "token": "t",
+            "use_queried_tables_lineage": True,
+            "include_run_history": False,
+            "include_context_documents": False,
+        }
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as factory:
+            session = MagicMock()
+            session.get.side_effect = mock_get
+            session.post.side_effect = mock_post
+            session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            factory.return_value = session
+
+            source = HexSource.create(config, PipelineContext(run_id="t"))
+            list(source.get_workunits_internal())
+
+        assert source.hex_api._queried_tables_tier_available is False
+        upstream = source.project_registry[project_id].upstream_datasets
+        assert upstream and any("db.public.customers" in u for u in upstream)
+        assert any("queriedTables" in (w.title or "") for w in source.report.warnings)
+
+    def test_fully_skipped_queried_tables_falls_back_to_sql_parsing(self):
+        """A 200 queriedTables response whose every row is skipped (unmapped
+        connection) must not suppress the SQL-cell path. Reverting
+        ``used_queried_tables = bool(upstream_urns)`` to ``True`` would leave
+        this project's upstreams empty."""
+        project_id = "proj-1"
+        project = {
+            "id": project_id,
+            "title": "Published",
+            "type": "PROJECT",
+            "lastPublishedAt": "2024-08-22T10:00:00Z",
+        }
+        sql_cell = {
+            "staticId": "cell-1",
+            "cellType": "SQL",
+            "dataConnectionId": "conn-sf",
+            "contents": {"sqlCell": {"source": "SELECT * FROM db.public.customers"}},
+        }
+
+        def make_response(status: int, payload: dict) -> MagicMock:
+            response = MagicMock(status_code=status, ok=status < 400)
+            response.json.return_value = payload
+            response.raise_for_status = MagicMock(
+                side_effect=None if status < 400 else Exception(f"HTTP {status}")
+            )
+            return response
+
+        def mock_get(url: str, **_: object) -> MagicMock:
+            if "queriedTables" in url:
+                return make_response(
+                    200,
+                    {
+                        "values": [
+                            {
+                                "dataConnectionId": "conn-unmapped",
+                                "tableName": "db.schema.orders",
+                            }
+                        ]
+                    },
+                )
+            if url.endswith("/data-connections"):
+                return make_response(
+                    200,
+                    {"values": [{"id": "conn-sf", "name": "SF", "type": "snowflake"}]},
+                )
+            if url.endswith("/cells"):
+                return make_response(200, {"values": [sql_cell], "pagination": {}})
+            if url.endswith("/projects"):
+                return make_response(200, {"values": [project], "pagination": {}})
+            return make_response(404, {})
+
+        def mock_post(_url: str, **_kwargs: object) -> MagicMock:
+            return make_response(200, {"content": "cells: []\n"})
+
+        config = {
+            "workspace_name": "ws",
+            "workspace_id": "ws-uuid",
+            "token": "t",
+            "use_queried_tables_lineage": True,
+            "include_run_history": False,
+            "include_context_documents": False,
+        }
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as factory:
+            session = MagicMock()
+            session.get.side_effect = mock_get
+            session.post.side_effect = mock_post
+            session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            factory.return_value = session
+
+            source = HexSource.create(config, PipelineContext(run_id="t"))
+            list(source.get_workunits_internal())
+
+        upstream = source.project_registry[project_id].upstream_datasets
+        assert upstream and any("db.public.customers" in u for u in upstream)
+
+    def test_column_lineage_dropped_warns_when_sql_disagrees_with_queried_tables(self):
+        """When queriedTables and SQL cells resolve to different tables, all
+        column lineage is dropped — the run must surface a ``Column lineage
+        dropped`` warning rather than staying green and silent."""
+        project_id = "proj-drop"
+        project = {
+            "id": project_id,
+            "title": "Published",
+            "type": "PROJECT",
+            "lastPublishedAt": "2024-08-22T10:00:00Z",
+        }
+        # queriedTables says the project touched db.schema.orders.
+        sql_cell = {
+            "staticId": "cell-1",
+            "cellType": "SQL",
+            "dataConnectionId": "conn-sf",
+            "contents": {"sqlCell": {"source": "SELECT id FROM db.schema.customers"}},
+        }
+
+        def make_response(status: int, payload: dict) -> MagicMock:
+            response = MagicMock(status_code=status, ok=status < 400)
+            response.json.return_value = payload
+            response.raise_for_status = MagicMock(
+                side_effect=None if status < 400 else Exception(f"HTTP {status}")
+            )
+            return response
+
+        def mock_get(url: str, **_: object) -> MagicMock:
+            if "queriedTables" in url:
+                return make_response(
+                    200,
+                    {
+                        "values": [
+                            {
+                                "dataConnectionId": "conn-sf",
+                                "tableName": "db.schema.orders",
+                            }
+                        ]
+                    },
+                )
+            if url.endswith("/data-connections"):
+                return make_response(
+                    200,
+                    {"values": [{"id": "conn-sf", "name": "SF", "type": "snowflake"}]},
+                )
+            if url.endswith("/cells"):
+                return make_response(200, {"values": [sql_cell], "pagination": {}})
+            if url.endswith("/projects"):
+                return make_response(200, {"values": [project], "pagination": {}})
+            return make_response(404, {})
+
+        def mock_post(_url: str, **_kwargs: object) -> MagicMock:
+            return make_response(200, {"content": "cells: []\n"})
+
+        config = {
+            "workspace_name": "ws",
+            "workspace_id": "ws-uuid",
+            "token": "t",
+            "use_queried_tables_lineage": True,
+            "include_run_history": False,
+            "include_context_documents": False,
+        }
+
+        # A truthy graph gates the column-lineage path; the resolver probes it
+        # and falls back to synthesized URNs when nothing is found.
+        ctx = PipelineContext(run_id="t", graph=MagicMock())
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as factory:
+            session = MagicMock()
+            session.get.side_effect = mock_get
+            session.post.side_effect = mock_post
+            session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            factory.return_value = session
+
+            source = HexSource.create(config, ctx)
+            list(source.get_workunits_internal())
+
+        upstream = source.project_registry[project_id].upstream_datasets
+        assert upstream and any("db.schema.orders" in u for u in upstream)
+        assert any(
+            "Column lineage dropped" in (w.title or "") for w in source.report.warnings
+        )
+        # The warning must be backed by real cross-validation signal: the
+        # mismatch counters have to move, otherwise the assertion above could
+        # pass even when build_validated_column_lineage silently produces no
+        # fields for an unrelated reason (a SELECT * on a missing schema,
+        # DDL-only cells, sqlglot parse failures). Locking these in prevents
+        # the warning from regressing to a "always fires on empty result" gate.
+        assert source.report.enterprise_cells_with_mismatch == 1
+        assert source.report.enterprise_column_fields_skipped_mismatch >= 1

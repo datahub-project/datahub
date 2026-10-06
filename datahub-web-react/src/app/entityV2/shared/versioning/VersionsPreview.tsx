@@ -1,11 +1,14 @@
 import { Pill, Text } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { DrawerType } from '@app/entity/shared/types';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -25,6 +28,7 @@ const Header = styled(Text)`
     justify-content: start;
     gap: 6px;
     margin-bottom: 8px;
+    width: 100%;
 
     color: ${(props) => props.theme.colors.text};
     font-size: 14px;
@@ -50,21 +54,44 @@ const ShowAllButton = styled(Text)`
     cursor: pointer;
 `;
 
+const HistoryButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    padding: 2px 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.textSecondary};
+    border-radius: 4px;
+    &:hover {
+        color: ${(props) => props.theme.colors.text};
+        background: ${(props) => props.theme.colors.bgHover};
+    }
+`;
+
 interface Props {
     versionSet?: VersionSet;
 }
 
 export default function VersionsPreview({ versionSet }: Props) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const { urn, entityType, setDrawer } = useEntityContext();
 
     const count = versionSet?.versionsSearch?.count;
     const total = versionSet?.versionsSearch?.total;
     return (
-        <Wrapper>
+        <Wrapper data-testid="versions-preview-panel">
             <Header size="xl" type="div">
-                <Text weight="semiBold">Versions</Text>
+                <Text weight="semiBold">{t('versionsTitle')}</Text>
                 {!!total && <VersionsCount label={total.toString()} size="sm" clickable={false} />}
+                {setDrawer && (
+                    <HistoryButton title={t('viewHistory')} onClick={() => setDrawer(DrawerType.CHANGE_HISTORY)}>
+                        <ClockCounterClockwise size={15} />
+                    </HistoryButton>
+                )}
             </Header>
             <VersionsWrapper>
                 {versionSet?.versionsSearch?.searchResults?.map((result) => (
@@ -89,7 +116,7 @@ export default function VersionsPreview({ versionSet }: Props) {
                             setDrawer(DrawerType.VERSIONS);
                         }}
                     >
-                        View all
+                        {tc('viewAll')}
                     </ShowAllButton>
                 </Footer>
             )}
@@ -118,35 +145,42 @@ interface VersionPreviewRowProps {
 }
 
 function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { urn: entityProfileUrn } = useEntityData();
 
-    const versionProperties = entityRegistry.getGenericEntityProperties(entity.type, entity)?.versionProperties;
+    const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+    const versionProperties = genericProps?.versionProperties;
+    const status = genericProps?.status;
 
     const isViewing = entity.urn === entityProfileUrn;
     return (
         <VersionPreviewEntry isViewing={isViewing}>
             <VersionPreviewHeader>
+                {/* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */}
                 <VersionPill
                     label={versionProperties?.version?.versionTag ?? '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
+                {/* eslint-enable i18next/no-literal-string */}
                 {!!versionProperties?.isLatest && (
                     <Text size="md" style={{ color: theme.colors.textSecondary }}>
-                        Latest
+                        {t('latest')}
                     </Text>
                 )}
+                <LifecycleStageBadge lifecycleStage={status?.lifecycleStage} />
             </VersionPreviewHeader>
             {isViewing && (
                 <Text size="md" weight="semiBold" style={{ color: theme.colors.textTertiary }}>
-                    Viewing
+                    {t('viewing')}
                 </Text>
             )}
             {!isViewing && (
                 <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
                     <Text size="md" color="primary" weight="semiBold">
-                        View
+                        {tc('view')}
                     </Text>
                 </Link>
             )}

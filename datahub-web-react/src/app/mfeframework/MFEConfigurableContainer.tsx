@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -10,6 +11,9 @@ import {
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+// Used when the MFE config yaml specifies no loadTimeoutMs.
+export const DEFAULT_LOAD_TIMEOUT_MS = 10000;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
@@ -39,6 +43,7 @@ interface MountMFEParams {
     containerElement: HTMLDivElement | null;
     onError: () => void;
     aliveRef: { current: boolean };
+    loadTimeoutMs: number;
 }
 
 async function mountMFE({
@@ -46,6 +51,7 @@ async function mountMFE({
     containerElement,
     onError,
     aliveRef,
+    loadTimeoutMs,
 }: MountMFEParams): Promise<(() => void) | undefined> {
     const { module, remoteEntry } = config;
     const mountStart = performance.now();
@@ -76,11 +82,12 @@ async function mountMFE({
         };
         setRemote(remoteName, remoteConfig);
 
-        // Create a timeout promise that rejects in a few seconds
+        // Create a timeout promise that rejects once the configured load timeout elapses
+        let timeoutHandle: number | undefined;
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(
+            timeoutHandle = window.setTimeout(
                 () => reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`)),
-                5000,
+                loadTimeoutMs,
             );
         });
 
@@ -89,7 +96,10 @@ async function mountMFE({
         if (import.meta.env.DEV) {
             console.log('[HOST] Attempting to load remote module with config:', remoteConfig);
         }
-        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]);
+        // Clear the timer once the race settles so it doesn't outlive a successful load or an unmount.
+        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]).finally(
+            () => window.clearTimeout(timeoutHandle),
+        );
         const fetchEnd = performance.now();
         if (import.meta.env.DEV) {
             console.log(`latency for remote module fetch: ${config.id}`, fetchEnd - fetchStart, 'ms');
@@ -158,7 +168,17 @@ async function mountMFE({
     }
 }
 
-export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
+interface MFEBaseConfigurablePageProps {
+    config: MFEConfig;
+    // Already resolved from the yaml by useDynamicRoutes (the yaml's loadTimeoutMs, else the default).
+    loadTimeoutMs?: number;
+}
+
+export const MFEBaseConfigurablePage = ({
+    config,
+    loadTimeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+}: MFEBaseConfigurablePageProps) => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
@@ -174,6 +194,7 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
             containerElement: box.current,
             onError: () => setHasError(true),
             aliveRef,
+            loadTimeoutMs,
         }).then((cleanupFn) => {
             cleanup = cleanupFn;
         });
@@ -192,13 +213,13 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
                 }
             }
         };
-    }, [config, history]);
+    }, [config, history, loadTimeoutMs]);
 
     if (hasError) {
-        return <ErrorComponent message={`${config.label} is not available at this time`} />;
+        return <ErrorComponent message={t('mfeframework.notAvailableError', { label: config.label })} />;
     }
     if (!config.flags.enabled) {
-        return <ErrorComponent message={`${config.label} is disabled.`} />;
+        return <ErrorComponent message={t('mfeframework.disabledError', { label: config.label })} />;
     }
 
     return (

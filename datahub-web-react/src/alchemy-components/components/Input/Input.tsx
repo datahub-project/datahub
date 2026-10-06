@@ -5,6 +5,7 @@ import { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
@@ -51,7 +52,7 @@ export const Input = ({
     value = inputDefaults.value,
     setValue = inputDefaults.setValue,
     label = inputDefaults.label,
-    placeholder = inputDefaults.placeholder,
+    placeholder,
     icon, // default undefined
     error = inputDefaults.error,
     warning = inputDefaults.warning,
@@ -69,8 +70,12 @@ export const Input = ({
     inputTestId,
     onClear,
     maxLength,
+    autoFocus,
     ...props
 }: InputProps) => {
+    const { t } = useTranslation('alchemy');
+    const resolvedPlaceholder = placeholder ?? t('input.placeholder');
+
     // Invalid state is always true if error is present
     let invalid = isInvalid;
     if (error) invalid = true;
@@ -103,12 +108,13 @@ export const Input = ({
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}
                     type={getInputType(type, isPassword, showPassword)}
-                    placeholder={placeholder}
+                    placeholder={resolvedPlaceholder}
                     readOnly={isReadOnly}
                     disabled={isDisabled}
                     required={isRequired}
                     id={id}
                     maxLength={maxLength}
+                    autoFocus={autoFocus}
                     style={{ paddingLeft: icon ? '8px' : '', ...inputStyles }}
                     data-testid={inputTestId}
                 />

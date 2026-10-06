@@ -27,16 +27,20 @@ const ChartCol = styled(Col)`
 
 type Props = {
     chartGroup: AnalyticsChartGroup;
+    testId?: string;
 };
 
-export const ChartGroup = ({ chartGroup }: Props) => {
+export const ChartGroup = ({ chartGroup, testId }: Props) => {
     return (
-        <Container>
+        <Container data-testid={testId}>
             {chartGroup.title?.length > 0 && <PageTitle title={chartGroup.title} variant="sectionHeader" />}
             <Row gutter={[16, 16]}>
                 {chartGroup.charts.map((chart) => (
                     <ChartCol key={chart.title} sm={24} md={24} lg={8} xl={8}>
-                        <AnalyticsChart chartData={chart} />
+                        <AnalyticsChart
+                            chartData={chart}
+                            testId={`analytics-${chart.title?.toLowerCase().replace(/\s+/g, '-')}`}
+                        />
                     </ChartCol>
                 ))}
             </Row>

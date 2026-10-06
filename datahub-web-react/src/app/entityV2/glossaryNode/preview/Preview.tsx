@@ -1,13 +1,13 @@
-import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType, Owner, ParentNodesResult } from '@types';
+import { EntityType, GlossaryNode, Owner, ParentNodesResult } from '@types';
 
 export const Preview = ({
     urn,
@@ -29,6 +29,16 @@ export const Preview = ({
     previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const iconEntity = useMemo(
+        () =>
+            ({
+                urn,
+                type: EntityType.GlossaryNode,
+                displayProperties: data?.displayProperties ?? undefined,
+                parentNodes: parentNodes ?? undefined,
+            }) as Pick<GlossaryNode, 'urn' | 'type' | 'displayProperties' | 'parentNodes'>,
+        [urn, data?.displayProperties, parentNodes],
+    );
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.GlossaryNode, urn)}
@@ -37,7 +47,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<BookmarksSimple size={20} color="currentColor" />}
+            entityIcon={<GlossaryEntityIcon entity={iconEntity} size={32} iconSize={18} />}
             entityType={EntityType.GlossaryNode}
             parentEntities={parentNodes?.nodes}
             headerDropdownItems={headerDropdownItems}

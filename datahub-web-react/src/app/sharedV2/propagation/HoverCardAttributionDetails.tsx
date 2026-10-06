@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { usePropagationDetails } from '@app/entity/shared/propagation/utils';
@@ -7,7 +8,8 @@ import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEnt
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
-import { PropagationContext, usePropagationContextEntities } from '@app/sharedV2/tags/usePropagationContextEntities';
+import { parsePropagationContext } from '@app/sharedV2/propagation/utils';
+import { usePropagationContextEntities } from '@app/sharedV2/tags/usePropagationContextEntities';
 
 const DetailsWrapper = styled.div<{ $addMargin?: boolean }>`
     ${({ $addMargin }) => $addMargin && 'margin-top: 8px;'}
@@ -18,15 +20,9 @@ interface Props {
 }
 
 export default function HoverCardAttributionDetails({ propagationDetails, addMargin }: Props) {
+    const { t } = useTranslation('shared.propagation');
     const sourceDetail = usePropagationDetails(propagationDetails?.attribution?.sourceDetail);
-    let context: PropagationContext | null = null;
-    if (propagationDetails?.context) {
-        try {
-            context = JSON.parse(propagationDetails.context) as PropagationContext;
-        } catch (e) {
-            console.warn('Failed to parse propagation context as JSON:', propagationDetails.context, e);
-        }
-    }
+    const context = parsePropagationContext(propagationDetails?.context);
     const contextEntities = usePropagationContextEntities(context);
     const isPropagated = sourceDetail.isPropagated || context?.propagated;
 
@@ -37,29 +33,23 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
     const time = propagationDetails?.attribution?.time;
 
     return (
-        <DetailsWrapper $addMargin={addMargin}>
-            <Text color="gray" weight="bold" colorLevel={600} size="sm">
-                Propagated
+        <DetailsWrapper $addMargin={addMargin} data-testid="docPropagationIndicator">
+            <Text color="text" weight="bold" size="md">
+                {t('propagated')}
             </Text>
-            {time && (
-                <>
-                    <Text color="gray" colorLevel={600}>
-                        {capitalizeFirstLetterOnly(toRelativeTimeString(time))}
-                    </Text>
-                </>
-            )}
+            {time && <Text color="textSecondary">{capitalizeFirstLetterOnly(toRelativeTimeString(time))}</Text>}
             {originEntity && (
                 <div>
-                    <Text color="gray" weight="bold" colorLevel={1700} size="sm">
-                        origin
+                    <Text color="text" weight="bold" size="md">
+                        {t('origin')}
                     </Text>
                     <AutoCompleteEntityItem entity={originEntity} hideType padding="4px 4px 4px 0" />
                 </div>
             )}
             {viaEntity && (
                 <div>
-                    <Text color="gray" weight="bold" colorLevel={1700} size="sm">
-                        via
+                    <Text color="text" weight="bold" size="md">
+                        {t('via')}
                     </Text>
                     <AutoCompleteEntityItem entity={viaEntity} hideType padding="4px 4px 4px 0" />
                 </div>

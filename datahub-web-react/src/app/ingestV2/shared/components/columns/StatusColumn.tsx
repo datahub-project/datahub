@@ -1,6 +1,6 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Pill } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -13,6 +13,7 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 const StatusContainer = styled.div`
     display: flex;
@@ -45,8 +46,9 @@ interface StatusProps {
 }
 
 export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
+    const { t } = useTranslation('ingestion');
     const icon = getExecutionRequestStatusIcon(status);
-    const text = getExecutionRequestStatusDisplayText(status) || 'Pending';
+    const text = getExecutionRequestStatusDisplayText(status) || t('status.pending');
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <AllStatusWrapper>
@@ -63,7 +65,7 @@ export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
                         customIconRenderer={() =>
                             status === EXECUTION_REQUEST_STATUS_LOADING ||
                             status === EXECUTION_REQUEST_STATUS_RUNNING ? (
-                                <LoadingOutlined />
+                                <StyledSpinner $height={14} />
                             ) : (
                                 <Icon icon={icon} size="md" />
                             )

@@ -285,7 +285,7 @@
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -294,19 +294,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "date",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -315,19 +308,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "issue_date",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -336,19 +322,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "issue_date_3",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -357,19 +336,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -378,13 +350,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -639,7 +604,7 @@
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -648,19 +613,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "date",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -669,19 +627,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "issue_date",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -690,19 +641,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "issue_date_3",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -711,19 +655,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -732,13 +669,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -960,7 +890,7 @@
                 {
                     "fieldPath": "order_id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -969,19 +899,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "book_id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -990,13 +913,6 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1229,7 +1145,7 @@
                 {
                     "fieldPath": "book_name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1238,19 +1154,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "user_name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1259,19 +1168,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1280,13 +1182,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1339,38 +1234,6 @@
                     "id": "views"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Dimension",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Dimension"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Measure",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Measure"
         }
     },
     "systemMetadata": {

@@ -2,6 +2,7 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -17,6 +18,8 @@ type Props = {
 };
 
 export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
+    const { t } = useTranslation('settings.posts');
+    const { t: tc } = useTranslation('common.actions');
     const [deletePostMutation] = useDeletePostMutation();
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
@@ -28,15 +31,15 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success('Deleted Post!');
+                    toast.success(t('deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to delete Post! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to delete Post. Please contact your DataHub administrator.',
+                    defaultMessage: t('deleteError'),
+                    permissionMessage: t('deleteUnauthorized'),
                 });
             });
     };
@@ -48,14 +51,14 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                     {
                         type: 'item',
                         key: 'edit',
-                        title: 'Edit',
+                        title: tc('edit'),
                         icon: PencilSimple,
                         onClick: () => onEdit?.(),
                     },
                     {
                         type: 'item',
                         key: 'delete',
-                        title: 'Delete',
+                        title: tc('delete'),
                         icon: Trash,
                         danger: true,
                         onClick: () => setShowConfirmDelete(true),
@@ -74,8 +77,8 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                 isOpen={showConfirmDelete}
                 handleClose={() => setShowConfirmDelete(false)}
                 handleConfirm={deletePost}
-                modalTitle={`Delete Post '${title}'`}
-                modalText="Are you sure you want to remove this Post?"
+                modalTitle={t('deleteConfirmTitle', { title })}
+                modalText={t('deleteConfirmText')}
             />
         </>
     );

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -36,6 +37,7 @@ const Role = styled.div`
 `;
 
 export const GreetingText = ({ role }: { role?: string | null }) => {
+    const { t } = useTranslation('home.v2');
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
     const greetingText = getGreetingText();
@@ -60,7 +62,15 @@ export const GreetingText = ({ role }: { role?: string | null }) => {
         <Text>
             {!!user && (
                 <>
-                    {greetingText},<Name>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}!</Name>
+                    <Trans
+                        t={t}
+                        i18nKey="greeting.title"
+                        values={{
+                            greeting: greetingText,
+                            name: entityRegistry.getDisplayName(EntityType.CorpUser, user),
+                        }}
+                        components={{ name: <Name /> }}
+                    />
                     {(role && <Role>{role}</Role>) || null}
                 </>
             )}{' '}

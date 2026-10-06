@@ -1,6 +1,6 @@
-import { DownloadOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
@@ -39,14 +39,6 @@ const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
-const StatusSection = styled.div`
-    padding: 16px 20px 16px 0;
-`;
-
-const IngestedAssetsSection = styled.div`
-    padding: 16px 20px 16px 0;
-`;
-
 export const SummaryTab = ({
     urn,
     status,
@@ -60,7 +52,9 @@ export const SummaryTab = ({
     data: GetIngestionExecutionRequestQuery | undefined;
     onTabChange: (tab: TabType) => void;
 }) => {
-    const logs = data?.executionRequest?.result?.report || 'No output found.';
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const logs = data?.executionRequest?.result?.report || t('executions.noOutput');
 
     const downloadLogs = () => {
         downloadFile(logs, `exec-${urn}.log`);
@@ -69,7 +63,9 @@ export const SummaryTab = ({
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
         (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
-            <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>
+            <Text type="span" color="textSecondary">
+                {getExecutionRequestSummaryText(status)}
+            </Text>
         )) ||
         undefined;
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
@@ -87,32 +83,36 @@ export const SummaryTab = ({
     return (
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
-                <StatusSection>
+                <SectionBase>
                     {!structuredReport && resultSummaryText && (
                         <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     )}
                     {structuredReport && <StructuredReport report={structuredReport} />}
-                </StatusSection>
+                </SectionBase>
             )}
-            <IngestedAssetsSection>
+            <SectionBase>
                 {data?.executionRequest?.id && (
                     <IngestedAssets executionResult={result} id={data?.executionRequest?.id} urn={urn} />
                 )}
-            </IngestedAssetsSection>
+            </SectionBase>
             <SectionBase>
                 <Heading type="h4" size="lg" weight="bold">
-                    Logs
+                    {t('executions.logsTitle')}
                 </Heading>
                 <SectionSubHeader>
-                    <SubHeaderParagraph>View logs that were collected during the sync.</SubHeaderParagraph>
+                    <SubHeaderParagraph>{t('executions.logsSubtitle')}</SubHeaderParagraph>
                     <ButtonGroup>
                         <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
-                            View All
+                            {tc('viewAll')}
                         </Button>
-                        <Tooltip title="Download Logs">
-                            <Button variant="text" onClick={downloadLogs}>
-                                <DownloadOutlined />
-                            </Button>
+                        <Tooltip title={t('executions.downloadLogs')}>
+                            <Button
+                                variant="text"
+                                isCircle
+                                icon={{ icon: DownloadSimple, size: 'lg' }}
+                                aria-label={t('executions.downloadLogs')}
+                                onClick={downloadLogs}
+                            />
                         </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
@@ -125,20 +125,22 @@ export const SummaryTab = ({
             {recipe && (
                 <SectionBase>
                     <Heading type="h4" size="lg" weight="bold">
-                        Recipe
+                        {t('executions.recipeTitle')}
                     </Heading>
                     <SectionSubHeader>
-                        <SubHeaderParagraph>
-                            The configurations used for this sync with the data source.
-                        </SubHeaderParagraph>
+                        <SubHeaderParagraph>{t('executions.recipeSubtitle')}</SubHeaderParagraph>
                         <ButtonGroup>
                             <Button variant="text" onClick={() => onTabChange(TabType.Recipe)}>
-                                View More
+                                {t('executions.viewMore')}
                             </Button>
-                            <Tooltip title="Download Recipe">
-                                <Button variant="text" onClick={downloadRecipe}>
-                                    <DownloadOutlined />
-                                </Button>
+                            <Tooltip title={t('executions.downloadRecipe')}>
+                                <Button
+                                    variant="text"
+                                    isCircle
+                                    icon={{ icon: DownloadSimple, size: 'lg' }}
+                                    aria-label={t('executions.downloadRecipe')}
+                                    onClick={downloadRecipe}
+                                />
                             </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function FieldTags({ expandedField, editableSchemaMetadata }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -26,7 +28,10 @@ export default function FieldTags({ expandedField, editableSchemaMetadata }: Pro
 
     return (
         <>
-            <SidebarSection title="Tags" content={tagRenderer(expandedField.globalTags as GlobalTags, expandedField)} />
+            <SidebarSection
+                title={t('fieldTags.sectionTitle')}
+                content={tagRenderer(expandedField.globalTags as GlobalTags, expandedField)}
+            />
             <StyledDivider dashed />
         </>
     );

@@ -26,6 +26,12 @@ query getUser($urn: String!, $groupsCount: Int!) {
             displayName
             title
             email
+            persona {
+                urn
+            }
+            platforms {
+                urn
+            }
         }
         privileges {
             ...entityPrivileges
@@ -374,6 +380,10 @@ mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) 
 
 mutation updateUserHomePageSettings($input: UpdateUserHomePageSettingsInput!) {
     updateUserHomePageSettings(input: $input)
+}
+
+mutation updateCorpUserLocaleSettings($input: UpdateCorpUserLocaleSettingsInput!) {
+    updateCorpUserLocaleSettings(input: $input)
 }
 
 query getUserOwnedAssets($urns: [String!]!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {

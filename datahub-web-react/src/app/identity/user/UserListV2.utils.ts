@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { ColorValues } from '@components/theme/config';
 
 import { CorpUser, CorpUserStatus, FacetFilterInput } from '@types';
@@ -19,20 +21,8 @@ export const getUserStatusText = (userStatus: CorpUserStatus | undefined | null,
     }
 
     // If no status, default to Inactive
-    return 'Inactive';
+    return i18next.t('entity.identity:users.statusInactive');
 };
-
-type StatusFilterOption = {
-    label: string;
-    value: string;
-    disabled?: boolean;
-};
-
-export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
-    { label: 'Status', value: 'all' },
-    { label: 'Active', value: 'active' },
-    { label: 'Suspended', value: 'suspended' },
-];
 
 /**
  * Builds GraphQL filter objects for user status filtering (server-side)
@@ -75,4 +65,3 @@ export function extractUserRole(
 
 // Role assignment constants
 export const NO_ROLE_URN = '';
-export const NO_ROLE_TEXT = 'No Role';

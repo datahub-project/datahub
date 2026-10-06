@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.datahubproject.metadata.context.OperationContext;
 import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,14 +43,15 @@ public class OpenSearchJvmInfo {
    * @return Map of node names to their JVM heap information
    * @throws IOException if there's an error communicating with the cluster
    */
-  public Map<String, JvmHeapInfo> getDataNodeJvmHeap() throws IOException {
+  public Map<String, JvmHeapInfo> getDataNodeJvmHeap(@Nonnull OperationContext opContext)
+      throws IOException {
     Map<String, JvmHeapInfo> result = new HashMap<>();
 
     // Create direct request to _nodes endpoint with JVM, thread pool, and OS metrics
     Request request = new Request("GET", "/_nodes/stats");
     request.addParameter("filter_path", "nodes.*.jvm,nodes.*.roles");
 
-    RawResponse response = highLevelClient.performLowLevelRequest(request);
+    RawResponse response = highLevelClient.performLowLevelRequest(opContext, request);
     HttpEntity entity = response.getEntity();
     String responseBody = EntityUtils.toString(entity);
 
@@ -92,7 +94,7 @@ public class OpenSearchJvmInfo {
    *
    * @return NodeMetrics containing both heap and rejection maps
    */
-  public NodeMetrics getDataNodeMetrics() {
+  public NodeMetrics getDataNodeMetrics(@Nonnull OperationContext opContext) {
     Map<String, JvmHeapInfo> heapMap = new HashMap<>();
     Map<String, ThreadPoolRejections> rejectionMap = new HashMap<>();
 
@@ -106,7 +108,7 @@ public class OpenSearchJvmInfo {
           nodeMetricsRetry.executeSupplier(
               () -> {
                 try {
-                  return highLevelClient.performLowLevelRequest(request);
+                  return highLevelClient.performLowLevelRequest(opContext, request);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
@@ -245,8 +247,9 @@ public class OpenSearchJvmInfo {
    * @return JVM heap information for the specified node, or null if not found
    * @throws IOException if there's an error communicating with the cluster
    */
-  public JvmHeapInfo getSpecificDataNodeJvmHeap(String nodeName) throws IOException {
-    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap();
+  public JvmHeapInfo getSpecificDataNodeJvmHeap(
+      @Nonnull OperationContext opContext, String nodeName) throws IOException {
+    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap(opContext);
     return allNodeHeapInfo.get(nodeName);
   }
 
@@ -256,8 +259,9 @@ public class OpenSearchJvmInfo {
    * @return The total maximum heap in bytes across all data nodes
    * @throws IOException if there's an error communicating with the cluster
    */
-  public long getTotalDataNodesHeapCapacity() throws IOException {
-    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap();
+  public long getTotalDataNodesHeapCapacity(@Nonnull OperationContext opContext)
+      throws IOException {
+    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap(opContext);
 
     return allNodeHeapInfo.values().stream().mapToLong(JvmHeapInfo::getHeapMax).sum();
   }
@@ -268,8 +272,8 @@ public class OpenSearchJvmInfo {
    * @return The total used heap in bytes across all data nodes
    * @throws IOException if there's an error communicating with the cluster
    */
-  public long getTotalDataNodesHeapUsed() throws IOException {
-    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap();
+  public long getTotalDataNodesHeapUsed(@Nonnull OperationContext opContext) throws IOException {
+    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap(opContext);
 
     return allNodeHeapInfo.values().stream().mapToLong(JvmHeapInfo::getHeapUsed).sum();
   }
@@ -280,8 +284,9 @@ public class OpenSearchJvmInfo {
    * @return The average heap usage percentage across all data nodes
    * @throws IOException if there's an error communicating with the cluster
    */
-  public double getAverageDataNodesHeapUsagePercentage() throws IOException {
-    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap();
+  public double getAverageDataNodesHeapUsagePercentage(@Nonnull OperationContext opContext)
+      throws IOException {
+    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap(opContext);
 
     return allNodeHeapInfo.values().stream()
         .mapToInt(JvmHeapInfo::getHeapUsedPercent)
@@ -295,8 +300,9 @@ public class OpenSearchJvmInfo {
    * @return The average maximum heap size in bytes
    * @throws IOException if there's an error communicating with the cluster
    */
-  public double getAverageDataNodeMaxHeapSize() throws IOException {
-    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap();
+  public double getAverageDataNodeMaxHeapSize(@Nonnull OperationContext opContext)
+      throws IOException {
+    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap(opContext);
 
     if (allNodeHeapInfo.isEmpty()) {
       return 0;
@@ -311,8 +317,9 @@ public class OpenSearchJvmInfo {
    * @return The average maximum heap size in gigabytes
    * @throws IOException if there's an error communicating with the cluster
    */
-  public double getAverageDataNodeMaxHeapSizeGB() throws IOException {
-    return bytesToGB(getAverageDataNodeMaxHeapSize());
+  public double getAverageDataNodeMaxHeapSizeGB(@Nonnull OperationContext opContext)
+      throws IOException {
+    return bytesToGB(getAverageDataNodeMaxHeapSize(opContext));
   }
 
   /**
@@ -321,8 +328,9 @@ public class OpenSearchJvmInfo {
    * @return A HeapSizeStats object containing min, max, avg, and total heap statistics
    * @throws IOException if there's an error communicating with the cluster
    */
-  public HeapSizeStats getDataNodeHeapSizeStats() throws IOException {
-    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap();
+  public HeapSizeStats getDataNodeHeapSizeStats(@Nonnull OperationContext opContext)
+      throws IOException {
+    Map<String, JvmHeapInfo> allNodeHeapInfo = getDataNodeJvmHeap(opContext);
 
     if (allNodeHeapInfo.isEmpty()) {
       return new HeapSizeStats(0, 0, 0, 0, 0);
@@ -360,8 +368,9 @@ public class OpenSearchJvmInfo {
    * @return List of DataNodeInfo objects containing node details
    * @throws IOException if there's an error communicating with the cluster
    */
-  public List<DataNodeInfo> listDataNodesWithHeapDetails() throws IOException {
-    Map<String, JvmHeapInfo> heapInfoMap = getDataNodeJvmHeap();
+  public List<DataNodeInfo> listDataNodesWithHeapDetails(@Nonnull OperationContext opContext)
+      throws IOException {
+    Map<String, JvmHeapInfo> heapInfoMap = getDataNodeJvmHeap(opContext);
     List<DataNodeInfo> result = new ArrayList<>();
 
     for (Map.Entry<String, JvmHeapInfo> entry : heapInfoMap.entrySet()) {

@@ -66,6 +66,7 @@ class Constant:
     CORP_USER_INFO = "corpUserInfo"
     OWNERSHIP = "ownership"
     CORP_USER_KEY = "corpUserKey"
+    PLATFORM_NAME = "powerbi"
 
 
 API_ENDPOINTS = {

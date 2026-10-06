@@ -1,0 +1,47 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/quality/column-custom.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+apiVersion: v3.1.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+schema:
+  - name: Air_Quality
+    description: Air quality of the city of New York
+    authoritativeDefinitions:
+      - url: https://catalog.data.gov/dataset/air-quality
+        type: Reference definition on Data.gov
+    dataGranularityDescription: Raw records
+    physicalType: table
+    properties:
+    - name: UniqueID
+      primaryKey: true
+      businessName: Unique identifier
+      logicalType: number
+      physicalType: int
+      quality:
+      - type: custom
+        description: This column should not contain values under 100000
+        dimension: conformity
+        severity: error
+        businessImpact: operational
+        engine: soda
+        implementation: |
+          type: duplicate_percent
+          columns:
+            - carrier
+            - shipment_numer
+          must_be_less_than: 1.0
+      - type: custom
+        dimension: uniqueness
+        severity: error
+        businessImpact: operational
+        engine: soda
+        implementation:
+          type: duplicate_percent
+          columns:
+            - carrier
+            - shipment_numer
+          must_be_less_than: 1.0

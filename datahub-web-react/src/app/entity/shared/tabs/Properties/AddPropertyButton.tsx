@@ -1,34 +1,22 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Dropdown } from 'antd';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Input as InputComponent, Text } from '@src/alchemy-components';
+import { Button, Dropdown, Input as InputComponent, Loader, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { getStructuredPropertiesSearchInputs } from '@src/app/govern/structuredProperties/utils';
+import {
+    getStructuredPropertiesSearchInputs,
+    matchesAllowedPlatforms,
+} from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
-
-const AddButton = styled.div<{ isV1Drawer?: boolean }>`
-    border-radius: 200px;
-    background-color: ${(props) => props.theme.styles['primary-color']};
-    width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
-    height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    :hover {
-        cursor: pointer;
-    }
-`;
+import { DataPlatform, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
 
 const DropdownContainer = styled.div`
     border-radius: 12px;
@@ -78,6 +66,8 @@ interface Props {
 }
 
 const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: Props) => {
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const [searchQuery, setSearchQuery] = useState('');
     const { entityData, entityType } = useEntityData();
     const me = useUserContext();
@@ -105,6 +95,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         (prop) => prop.structuredProperty.urn,
     );
     const fieldPropertiesUrns = fieldProperties?.properties?.map((prop) => prop.structuredProperty.urn);
+    const platformUrn = (entityData?.platform as DataPlatform | undefined)?.urn;
 
     // filter out the existing properties when displaying in the list of add button
     const properties = useMemo(
@@ -115,6 +106,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         ? !fieldPropertiesUrns?.includes(result.entity.urn)
                         : !entityPropertiesUrns?.includes(result.entity.urn),
                 )
+                .filter((result) => matchesAllowedPlatforms(result.entity as StructuredPropertyEntity, platformUrn))
                 .map((prop) => {
                     const entity = prop.entity as StructuredPropertyEntity;
                     const name = entityRegistry.getDisplayName(entity.type, entity);
@@ -130,7 +122,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         name: name || entity.urn,
                     };
                 }),
-        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry],
+        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry, platformUrn],
     );
 
     const canEditProperties =
@@ -141,11 +133,11 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
     const noDataText =
         properties?.length === 0 ? (
             <>
-                It looks like there are no structured properties for this asset type.
+                {t('properties.noStructuredPropertiesForAssetType')}
                 {me.platformPrivileges?.manageStructuredProperties && (
                     <span>
                         {' '}
-                        <Link to={PageRoutes.STRUCTURED_PROPERTIES}>Manage custom properties</Link>
+                        <Link to={PageRoutes.STRUCTURED_PROPERTIES}>{t('properties.manageCustomProperties')}</Link>
                     </span>
                 )}
             </>
@@ -161,7 +153,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         <SearchContainer>
                             <InputComponent
                                 label=""
-                                placeholder="Search..."
+                                placeholder={t('properties.search.placeholder')}
                                 value={searchQuery}
                                 setValue={setSearchQuery}
                                 inputTestId="search-input"
@@ -169,15 +161,15 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         </SearchContainer>
                         {loading ? (
                             <LoadingContainer>
-                                <LoadingOutlined />
-                                <Text size="sm">Loading...</Text>
+                                <Loader size="sm" />
+                                <Text size="sm">{tc('common.feedback:loading')}</Text>
                             </LoadingContainer>
                         ) : (
                             <>
                                 {properties?.length === 0 && (
                                     <EmptyContainer>
                                         <Text color="gray" weight="medium">
-                                            No results found
+                                            {tc('common.actions:noResults')}
                                         </Text>
                                         <Text size="sm" color="gray">
                                             {noDataText}
@@ -190,10 +182,16 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                     </DropdownContainer>
                 )}
             >
-                <Tooltip title="Add property" placement="left" showArrow={false}>
-                    <AddButton isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon={Plus} size={isV1Drawer ? 'lg' : '2xl'} color="white" />
-                    </AddButton>
+                <Tooltip title={t('properties.addProperty.title')} placement="left" showArrow={false}>
+                    <Button
+                        variant="text"
+                        size={isV1Drawer ? 'sm' : 'md'}
+                        icon={{ icon: Plus }}
+                        iconPosition="left"
+                        data-testid="add-structured-prop-button"
+                    >
+                        {tc('common.actions:add')}
+                    </Button>
                 </Tooltip>
             </Dropdown>
             {selectedProperty && (

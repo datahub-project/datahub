@@ -43,7 +43,7 @@ export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
 
 datahub_wait_begin
 
-if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
+if datahub_should_wait_elasticsearch; then
   datahub_wait_http "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" "$ELASTICSEARCH_AUTH_HEADER"
 fi
 
@@ -57,7 +57,8 @@ if [[ $ENTITY_SERVICE_IMPL == cassandra ]] && [[ $SKIP_CASSANDRA_CHECK != true ]
   datahub_wait_tcp "tcp://${CASSANDRA_DATASOURCE_HOST}"
 fi
 
-if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
+# Neo4j is only required when graph reads/writes use Neo4j (not Elasticsearch or Postgres graph).
+if [[ $GRAPH_SERVICE_IMPL == neo4j ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
   datahub_wait_endpoint "$NEO4J_HOST"
 fi
 

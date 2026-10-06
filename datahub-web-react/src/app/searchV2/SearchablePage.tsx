@@ -1,15 +1,18 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
 import ProductUpdates from '@app/shared/product/update/ProductUpdates';
+import { HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -39,7 +42,11 @@ const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
-const Content = styled.div<{ $isShowNavBarRedesign?: boolean; $hideSearchBar?: boolean }>`
+const Content = styled.div<{
+    $isShowNavBarRedesign?: boolean;
+    $hideSearchBar?: boolean;
+    $isNavBarCollapsed?: boolean;
+}>`
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
@@ -47,7 +54,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean; $hideSearchBar?: b
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: 11px 15px 11px 3px;
+        padding: ${HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX}px;
     `}
     flex: 1;
     display: flex;
@@ -58,7 +65,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean; $hideSearchBar?: b
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
-const FIFTH_SECOND_IN_MS = 100;
+const FIFTH_SECOND_IN_MS = 200;
 
 type Props = React.PropsWithChildren<{
     hideSearchBar?: boolean;
@@ -72,9 +79,11 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const { query: currentQuery } = useQueryAndFiltersFromLocation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { isCollapsed } = useNavBarContext();
 
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { t } = useTranslation('search');
     const { selectedQuickFilter } = useQuickFiltersContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
@@ -124,7 +133,9 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
         <>
             <SearchHeader
                 initialQuery={currentQuery as string}
-                placeholderText={themeConfig.content.search.searchbarMessage}
+                placeholderText={t('searchBar.placeholder', {
+                    defaultValue: themeConfig.content.search.searchbarMessage,
+                })}
                 suggestions={
                     (newSuggestionData &&
                         newSuggestionData?.autoCompleteForMultiple &&
@@ -141,7 +152,11 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
-                <Content $isShowNavBarRedesign={isShowNavBarRedesign} $hideSearchBar={hideSearchBar}>
+                <Content
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                    $hideSearchBar={hideSearchBar}
+                    $isNavBarCollapsed={isCollapsed}
+                >
                     {children}
                 </Content>
             </Body>

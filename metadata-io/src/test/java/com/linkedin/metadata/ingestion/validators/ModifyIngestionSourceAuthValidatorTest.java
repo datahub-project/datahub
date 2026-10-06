@@ -10,6 +10,7 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
@@ -91,6 +92,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.CREATE)
@@ -133,6 +135,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.CREATE)
@@ -175,6 +178,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -227,6 +231,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -279,6 +284,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -311,6 +317,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -348,7 +355,10 @@ public class ModifyIngestionSourceAuthValidatorTest {
             .build();
 
     assertEquals(
-        validator.validateProposed(Set.of(testItem), mockRetrieverContext, null).count(),
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, null)
+            .count(),
         0,
         "Expected no exceptions when session is null");
   }
@@ -358,7 +368,11 @@ public class ModifyIngestionSourceAuthValidatorTest {
     // Test with empty collection of batch items
     assertEquals(
         validator
-            .validateProposed(Collections.emptySet(), mockRetrieverContext, mockSession)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Collections.emptySet(),
+                mockRetrieverContext,
+                mockSession)
             .count(),
         0,
         "Expected no exceptions for empty batch items");

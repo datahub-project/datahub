@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "id": "env-1",
+      "name": "Production",
+      "projectId": "proj-1",
+      "description": "Production environment",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

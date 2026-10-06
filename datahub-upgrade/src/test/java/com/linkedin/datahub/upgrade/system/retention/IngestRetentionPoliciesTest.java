@@ -16,7 +16,7 @@ public class IngestRetentionPoliciesTest {
   public void testId() {
     IngestRetentionPolicies upgrade =
         new IngestRetentionPolicies(
-            mock(RetentionService.class), mock(EntityService.class), true, false, "");
+            mock(RetentionService.class), mock(EntityService.class), true, false, true, false, "");
     assertEquals(upgrade.id(), "IngestRetentionPolicies");
   }
 
@@ -24,12 +24,12 @@ public class IngestRetentionPoliciesTest {
   public void testStepsAlwaysSingleStep() {
     IngestRetentionPolicies enabled =
         new IngestRetentionPolicies(
-            mock(RetentionService.class), mock(EntityService.class), true, false, "");
+            mock(RetentionService.class), mock(EntityService.class), true, false, true, false, "");
     assertEquals(enabled.steps().size(), 1);
 
     IngestRetentionPolicies disabled =
         new IngestRetentionPolicies(
-            mock(RetentionService.class), mock(EntityService.class), false, false, "");
+            mock(RetentionService.class), mock(EntityService.class), false, false, true, false, "");
     assertEquals(disabled.steps().size(), 1);
   }
 
@@ -37,7 +37,7 @@ public class IngestRetentionPoliciesTest {
   public void testStepSkipsWhenDisabled() {
     IngestRetentionPolicies upgrade =
         new IngestRetentionPolicies(
-            mock(RetentionService.class), mock(EntityService.class), false, false, "");
+            mock(RetentionService.class), mock(EntityService.class), false, false, true, false, "");
     UpgradeContext mockContext = mock(UpgradeContext.class);
     assertTrue(upgrade.steps().get(0).skip(mockContext));
   }
@@ -46,7 +46,7 @@ public class IngestRetentionPoliciesTest {
   public void testStepDoesNotSkipWhenEnabled() {
     IngestRetentionPolicies upgrade =
         new IngestRetentionPolicies(
-            mock(RetentionService.class), mock(EntityService.class), true, false, "");
+            mock(RetentionService.class), mock(EntityService.class), true, false, true, false, "");
     UpgradeContext mockContext = mock(UpgradeContext.class);
     assertFalse(upgrade.steps().get(0).skip(mockContext));
   }

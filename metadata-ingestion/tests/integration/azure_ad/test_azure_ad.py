@@ -1,5 +1,6 @@
 import json
 import pathlib
+from datetime import datetime, timezone
 from functools import partial
 from typing import List
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2021-08-24 09:00:00"
+FROZEN_TIME = datetime(2021, 8, 24, 9, 0, tzinfo=timezone.utc)
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 

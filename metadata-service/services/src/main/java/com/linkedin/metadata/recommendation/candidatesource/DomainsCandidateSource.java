@@ -50,7 +50,7 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
 
   @Override
   protected int getMaxContent() {
-    return 10;
+    return 25;
   }
 
   @Override

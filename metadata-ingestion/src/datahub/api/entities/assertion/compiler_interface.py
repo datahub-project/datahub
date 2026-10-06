@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Dict, List, Literal
 
 from datahub.api.entities.assertion.assertion_config_spec import AssertionsConfigSpec
+from datahub.configuration.env_vars import (
+    get_report_failure_sample_size,
+    get_report_warning_sample_size,
+)
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.str_enum import StrEnum
@@ -36,12 +40,16 @@ class AssertionCompilationReport(Report):
     artifacts: List[Path] = field(default_factory=list)
 
     def report_warning(self, key: str, reason: str) -> None:
-        warnings = self.warnings.get(key, LossyList())
+        warnings = self.warnings.get(
+            key, LossyList(max_elements=get_report_warning_sample_size())
+        )
         warnings.append(reason)
         self.warnings[key] = warnings
 
     def report_failure(self, key: str, reason: str) -> None:
-        failures = self.failures.get(key, LossyList())
+        failures = self.failures.get(
+            key, LossyList(max_elements=get_report_failure_sample_size())
+        )
         failures.append(reason)
         self.failures[key] = failures
 

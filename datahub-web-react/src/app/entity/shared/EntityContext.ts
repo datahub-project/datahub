@@ -14,6 +14,7 @@ export const EntityContext = React.createContext<EntityContextType>({
     updateEntity: () => Promise.resolve({}),
     routeToTab: () => {},
     refetch: () => Promise.resolve({}),
+    refetchForms: undefined,
     lineage: undefined,
     dataNotCombinedWithSiblings: null,
     entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },
@@ -25,9 +26,9 @@ export function useEntityContext() {
     return useContext(EntityContext);
 }
 
-export const useBaseEntity = <T>(): T => {
+export const useBaseEntity = <T>(): T | undefined | null => {
     const { baseEntity } = useContext(EntityContext);
-    return baseEntity as T;
+    return baseEntity as T | undefined | null;
 };
 
 export const useDataNotCombinedWithSiblings = <T>(): T => {

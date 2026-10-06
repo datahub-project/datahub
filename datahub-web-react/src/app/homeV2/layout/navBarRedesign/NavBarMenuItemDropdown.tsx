@@ -1,4 +1,4 @@
-import { Dropdown, MenuItemProps } from 'antd';
+import { Dropdown } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -40,7 +40,7 @@ type Props = {
     item: NavBarMenuDropdownItem;
     isCollapsed?: boolean;
     isSelected?: boolean;
-} & MenuItemProps;
+} & React.HTMLAttributes<HTMLDivElement>;
 
 export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, ...props }: Props) {
     const history = useHistory();
@@ -71,6 +71,7 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
 
     return (
         <Dropdown
+            trigger={['click']}
             dropdownRender={() => {
                 return (
                     <StyledDropdownContentWrapper style={shouldScroll ? { maxHeight: 200, overflowY: 'auto' } : {}}>

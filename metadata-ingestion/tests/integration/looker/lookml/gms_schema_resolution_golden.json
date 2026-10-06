@@ -263,7 +263,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -272,19 +272,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -293,19 +286,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "source",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -314,13 +300,6 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -370,22 +349,6 @@
                     "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Dimension",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Dimension"
         }
     },
     "systemMetadata": {

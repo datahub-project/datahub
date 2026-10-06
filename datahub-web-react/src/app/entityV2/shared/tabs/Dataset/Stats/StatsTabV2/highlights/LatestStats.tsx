@@ -1,5 +1,7 @@
 import { Card, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import { ViewButton } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/ViewButton';
@@ -9,16 +11,30 @@ import {
     LatestStatsContainer,
     StatCards,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/styledComponents';
+import {
+    formatLatestStatsCaption,
+    getProfileScope,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/profileScope';
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { useGetStatsSections } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsSections';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralize } from '@src/app/shared/textUtil';
+import { toLocalDateString } from '@src/app/shared/time/timeUtils';
 import { countFormatter } from '@src/utils/formatter';
 
+const ScopeCaption = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 const LatestStats = () => {
-    const { columnStats, rowCount, columnCount } = useGetStatsData();
+    const { t } = useTranslation('entity.profile.stats');
+    const { columnStats, rowCount, columnCount, partitionSpec, profileTimestampMillis } = useGetStatsData();
     const hasColumnStats = columnStats?.length > 0;
+    const scopeCaption = formatLatestStatsCaption(
+        t,
+        getProfileScope(partitionSpec),
+        profileTimestampMillis ? toLocalDateString(profileTimestampMillis) : undefined,
+    );
 
     const { scrollToSection } = useGetStatsSections();
     const { sections } = useStatsSectionsContext();
@@ -26,12 +42,17 @@ const LatestStats = () => {
     return (
         <LatestStatsContainer data-testid="latest-stats">
             <Text size="sm" weight="bold">
-                Latest
+                {t('latestStats.label')}
             </Text>
+            {scopeCaption && (
+                <ScopeCaption data-testid="latest-stats-scope">
+                    <Text size="sm">{scopeCaption}</Text>
+                </ScopeCaption>
+            )}
             <StatCards>
                 <Card
                     title={countFormatter(rowCount || 0)}
-                    subTitle={pluralize(rowCount || 0, 'Row')}
+                    subTitle={t('latestStats.row', { count: rowCount || 0 })}
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={rowCount === undefined}
@@ -41,7 +62,7 @@ const LatestStats = () => {
                 />
                 <Card
                     title={columnCount !== undefined ? formatNumberWithoutAbbreviation(columnCount) : ''}
-                    subTitle={pluralize(columnCount || 0, 'Column')}
+                    subTitle={t('latestStats.column', { count: columnCount || 0 })}
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={columnCount === undefined}

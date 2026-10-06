@@ -1,8 +1,10 @@
-import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Pagination, Table, Typography } from 'antd';
+import { Pagination, Table, Text, Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
+
+import { Column } from '@components/components/Table/types';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { notEmpty } from '@app/entityV2/shared/utils';
@@ -14,9 +16,16 @@ import {
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { formatDuration } from '@app/shared/formatDuration';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 
 import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '@graphql/dataset.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus, EntityType, RelationshipDirection } from '@types';
+import {
+    DataProcessInstanceRunResultType,
+    DataProcessRunStatus,
+    Entity,
+    EntityType,
+    RelationshipDirection,
+} from '@types';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
@@ -43,94 +52,114 @@ const LoadingContainer = styled.div`
     text-align: center;
 `;
 
-function getStatusForStyling(status: DataProcessRunStatus, resultType: DataProcessInstanceRunResultType) {
+function getStatusForStyling(
+    status?: DataProcessRunStatus | null,
+    resultType?: DataProcessInstanceRunResultType | null,
+) {
     if (status === 'COMPLETE') {
         if (resultType === 'SKIPPED') {
             return 'CANCELLED';
         }
-        return resultType;
+        return resultType ?? undefined;
     }
     return 'RUNNING';
 }
 
 const PAGE_SIZE = 20;
 
+type RunRow = {
+    time?: number | null;
+    duration?: number | null;
+    name?: string | null;
+    parentTemplate?: Entity;
+    status?: DataProcessRunStatus | null;
+    resultType?: DataProcessInstanceRunResultType | null;
+    inputs?: Entity[];
+    outputs?: Entity[];
+    externalUrl?: string | null;
+};
+
 export const OperationsTab = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
     const { urn, entityData } = useEntityData();
     const [page, setPage] = useState(1);
 
     const theme = useTheme();
 
-    const columns = [
+    const columns: Column<RunRow>[] = [
         {
-            title: 'Time',
-            dataIndex: 'time',
+            title: t('shared.timeColumn'),
             key: 'time',
-            render: (value) => (
-                <Tooltip title={new Date(Number(value)).toUTCString()}>
-                    {new Date(Number(value)).toLocaleString()}
+            render: (record) => (
+                <Tooltip title={new Date(Number(record.time)).toUTCString()}>
+                    {new Date(Number(record.time)).toLocaleString()}
                 </Tooltip>
             ),
         },
         {
-            title: 'Duration',
-            dataIndex: 'duration',
+            title: t('shared.durationColumn'),
             key: 'duration',
-            render: (durationMs: number) => formatDuration(durationMs),
+            render: (record) => formatDuration(record.duration ?? 0),
         },
         {
-            title: 'Run ID',
-            dataIndex: 'name',
+            title: t('shared.runIdColumn'),
             key: 'name',
+            render: (record) => <div data-testid={`run-name-${record.name}`}>{record.name}</div>,
         },
         {
-            title: 'Task',
-            dataIndex: 'parentTemplate',
+            title: t('dataJob.name'),
             key: 'parentTemplate',
-            render: (parentTemplate) => <CompactEntityNameList entities={[parentTemplate]} />,
+            render: (record) => (
+                <CompactEntityNameList entities={record.parentTemplate ? [record.parentTemplate] : []} />
+            ),
         },
         {
-            title: 'Status',
-            dataIndex: 'status',
+            title: tl('status'),
             key: 'status',
-            render: (status: any, row) => {
-                const statusForStyling = getStatusForStyling(status, row?.resultType);
+            render: (record) => {
+                const statusForStyling = getStatusForStyling(record.status, record.resultType);
                 const Icon = getExecutionRequestStatusIcon(statusForStyling);
                 const text = getExecutionRequestStatusDisplayText(statusForStyling);
                 const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
                 return (
-                    <>
+                    <div data-testid={`run-status-${record.name}`}>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
                             {Icon && <Icon style={{ color }} />}
-                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                                {text || 'N/A'}
-                            </Typography.Text>
+                            <Text weight="bold" style={{ color, marginLeft: 8 }}>
+                                {text || tl('na')}
+                            </Text>
                         </div>
-                    </>
+                    </div>
                 );
             },
         },
         {
-            title: 'Inputs',
-            dataIndex: 'inputs',
+            title: t('shared.inputs'),
             key: 'inputs',
-            render: (inputs) => <CompactEntityNameList entities={inputs} />,
+            render: (record) => (
+                <div data-testid="run-inputs-cell">
+                    <CompactEntityNameList entities={record.inputs ?? []} />
+                </div>
+            ),
         },
         {
-            title: 'Outputs',
-            dataIndex: 'outputs',
+            title: t('shared.outputs'),
             key: 'outputs',
-            render: (outputs) => <CompactEntityNameList entities={outputs} />,
+            render: (record) => (
+                <div data-testid="run-outputs-cell">
+                    <CompactEntityNameList entities={record.outputs ?? []} />
+                </div>
+            ),
         },
         {
             title: '',
-            dataIndex: 'externalUrl',
             key: 'externalUrl',
-            render: (externalUrl) =>
-                externalUrl && (
-                    <Tooltip title="View task run details">
-                        <ExternalUrlLink href={externalUrl}>
-                            <DeliveredProcedureOutlined />
+            render: (record) =>
+                record.externalUrl && (
+                    <Tooltip title={t('shared.viewTaskRunDetails')}>
+                        <ExternalUrlLink href={safeUrl(record.externalUrl)}>
+                            <ArrowSquareOut />
                         </ExternalUrlLink>
                     </Tooltip>
                 ),
@@ -194,15 +223,16 @@ export const OperationsTab = () => {
     const tableData = runs
         ?.filter((run) => run)
         .map((run) => ({
+            key: run?.name,
             time: run?.created?.time,
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
             duration: run?.state?.[0]?.durationMillis,
-            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity)?.filter(notEmpty),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity)?.filter(notEmpty),
             externalUrl: run?.externalUrl,
-            parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
+            parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity ?? undefined,
         }));
 
     // If the table contains jobs, we need to show the job-related columns. Otherwise we can simplify the table.
@@ -222,20 +252,20 @@ export const OperationsTab = () => {
             {loading && (
                 <LoadingContainer>
                     <LoadingSvg height={80} width={80} />
-                    <LoadingText>Fetching runs...</LoadingText>
+                    <LoadingText>{t('shared.fetchingRuns')}</LoadingText>
                 </LoadingContainer>
             )}
             {!loading && (
                 <>
-                    <Table dataSource={tableData} columns={simplifiedColumns} pagination={false} />
+                    <Table data={tableData ?? []} columns={simplifiedColumns} />
                     {canPaginate && (
                         <PaginationControlContainer>
                             <Pagination
-                                current={page}
-                                pageSize={PAGE_SIZE}
+                                currentPage={page}
+                                itemsPerPage={PAGE_SIZE}
                                 total={dataRuns?.total || 0}
                                 showLessItems
-                                onChange={onChangePage}
+                                onPageChange={onChangePage}
                                 showSizeChanger={false}
                             />
                         </PaginationControlContainer>

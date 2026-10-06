@@ -38,16 +38,16 @@ export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
     const document = data?.document;
     const sourceType = document?.info?.source?.sourceType;
     const isExternal = sourceType === DocumentSourceType.External;
-    const isNative = sourceType === DocumentSourceType.Native || (document && !sourceType);
 
-    // Control sidebar visibility based on document type
-    // Sidebar is hidden by default (set in ContextRoutes)
-    // Show for native documents, hide for external documents
+    // Sidebar is hidden by default (set in ContextRoutes). Show it for any
+    // document (native or external) once the document has loaded — the tree
+    // surfaces both native + ingested-platform docs, so we want it visible
+    // regardless of source type.
     useEffect(() => {
         if (document && contextLayout?.setSidebarHidden) {
-            contextLayout.setSidebarHidden(!isNative);
+            contextLayout.setSidebarHidden(false);
         }
-    }, [document, isNative, contextLayout]);
+    }, [document, contextLayout]);
 
     if (loading || !document) {
         return (

@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
-import { Modal } from 'antd';
+import { Menu, toast } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -8,8 +9,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
-import { Menu, notification } from '@src/alchemy-components';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertViewToBuilderState } from '@app/entityV2/view/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { MenuItemType } from '@src/alchemy-components/components/Menu/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -31,6 +32,8 @@ const MenuTrigger = styled.div<{ $visible?: boolean; $isShowNavBarRedesign?: boo
         color: ${(props) => props.theme.colors.icon};
     }
 `;
+
+const VERTICAL_ELLIPSIS = '⋮';
 
 const DEFAULT_VIEW_BUILDER_STATE = {
     mode: ViewBuilderMode.EDITOR,
@@ -58,6 +61,8 @@ export const ViewDropdownMenu = ({
     onClickDelete,
     selectView,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const userContext = useUserContext();
     const client = useApolloClient();
@@ -67,6 +72,7 @@ export const ViewDropdownMenu = ({
     const [deleteViewMutation] = useDeleteViewMutation();
 
     const [viewBuilderState, setViewBuilderState] = useState(DEFAULT_VIEW_BUILDER_STATE);
+    const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
 
     const setUserDefault = (viewUrn: string | null) => {
         updateUserViewSettingMutation({
@@ -94,11 +100,7 @@ export const ViewDropdownMenu = ({
                 }
             })
             .catch(() => {
-                notification.error({
-                    message: 'Failed to update default view',
-                    description: 'An unexpected error occurred.',
-                    duration: 3,
-                });
+                toast.error(t('updateDefaultError'), { duration: 3 });
             });
     };
 
@@ -126,11 +128,7 @@ export const ViewDropdownMenu = ({
                 }
             })
             .catch(() => {
-                notification.error({
-                    message: "Failed to update organization's default view",
-                    description: 'An unexpected error occurred.',
-                    duration: 3,
-                });
+                toast.error(t('updateOrgDefaultError'), { duration: 3 });
             });
     };
 
@@ -166,18 +164,11 @@ export const ViewDropdownMenu = ({
                             selectedViewUrn: undefined,
                         });
                     }
-                    notification.success({
-                        message: 'View removed',
-                        duration: 2,
-                    });
+                    toast.success(t('deleteSuccess'), { duration: 2 });
                 }
             })
             .catch(() => {
-                notification.error({
-                    message: 'Failed to delete View',
-                    description: 'An unexpected error occurred.',
-                    duration: 3,
-                });
+                toast.error(t('deleteError'), { duration: 3 });
             });
     };
 
@@ -185,18 +176,13 @@ export const ViewDropdownMenu = ({
         if (onClickDelete) {
             onClickDelete();
         } else {
-            Modal.confirm({
-                title: `Confirm Remove ${view.name}`,
-                content: 'Are you sure you want to remove this View?',
-                onOk() {
-                    deleteView(view.urn);
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setIsDeleteConfirmationOpen(true);
         }
+    };
+
+    const deleteConfirmedView = () => {
+        setIsDeleteConfirmationOpen(false);
+        deleteView(view.urn);
     };
 
     const canManageGlobalViews = userContext.platformPrivileges?.manageGlobalViews;
@@ -218,16 +204,16 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'edit',
-            title: 'Edit',
-            tooltip: 'Edit this View',
+            title: tc('edit'),
+            tooltip: t('menu.editTooltip'),
             onClick: onEditView,
         });
     } else {
         menuItems.push({
             type: 'item',
             key: 'preview',
-            title: 'Preview',
-            tooltip: 'See the View definition',
+            title: tc('preview'),
+            tooltip: t('menu.previewTooltip'),
             onClick: onPreviewView,
         });
     }
@@ -236,16 +222,16 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'remove-default',
-            title: 'Remove as default',
-            tooltip: 'Remove this View as your personal default',
+            title: t('menu.removeDefault'),
+            tooltip: t('menu.removeDefaultTooltip'),
             onClick: () => setUserDefault(null),
         });
     } else {
         menuItems.push({
             type: 'item',
             key: 'set-default',
-            title: 'Make my default',
-            tooltip: 'Make this View your personal default',
+            title: t('menu.makeDefault'),
+            tooltip: t('menu.makeDefaultTooltip'),
             onClick: () => setUserDefault(view.urn),
         });
     }
@@ -254,8 +240,8 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'remove-global-default',
-            title: 'Remove organization default',
-            tooltip: "Remove this View as your organization's default",
+            title: t('menu.removeOrgDefault'),
+            tooltip: t('menu.removeOrgDefaultTooltip'),
             onClick: () => setGlobalDefault(null),
         });
     }
@@ -264,8 +250,8 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'set-global-default',
-            title: 'Make organization default',
-            tooltip: "Make this View your organization's default",
+            title: t('menu.makeOrgDefault'),
+            tooltip: t('menu.makeOrgDefaultTooltip'),
             onClick: () => setGlobalDefault(view.urn),
         });
     }
@@ -274,8 +260,8 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'delete',
-            title: 'Delete',
-            tooltip: 'Delete this View',
+            title: tc('delete'),
+            tooltip: t('menu.deleteTooltip'),
             danger: true,
             onClick: confirmDeleteView,
         });
@@ -296,18 +282,27 @@ export const ViewDropdownMenu = ({
                     role="button"
                     tabIndex={0}
                 >
-                    &#8942;
+                    {VERTICAL_ELLIPSIS}
                 </MenuTrigger>
             </Menu>
             {viewBuilderState.visible && (
                 <ViewBuilder
                     mode={viewBuilderState.mode}
                     urn={view.urn}
-                    initialState={view}
+                    initialState={convertViewToBuilderState(view)}
                     onSubmit={onViewBuilderClose}
                     onCancel={onViewBuilderClose}
                 />
             )}
+            <ConfirmationModal
+                isOpen={isDeleteConfirmationOpen}
+                handleClose={() => setIsDeleteConfirmationOpen(false)}
+                handleConfirm={deleteConfirmedView}
+                modalTitle={t('deleteConfirm.title', { name: view.name })}
+                modalText={t('deleteConfirm.content')}
+                confirmButtonText={tc('yes')}
+                isDeleteModal
+            />
         </>
     );
 };
