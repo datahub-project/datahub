@@ -4839,3 +4839,47 @@ def test_dbt_source_patching_dedupes_existing_owners():
 
     assert len(transformed) == 1
     assert transformed[0].owner == "urn:li:corpGroup:data-engineering"
+
+
+def test_dbt_source_patching_keeps_distinct_owner_identities():
+    """Only identical identities collapse. The same urn under a different
+    ownership type, or from a different source, is a separate owner."""
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    group = "urn:li:corpGroup:data-engineering"
+    steward = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+    )
+    # Same owner and type=CUSTOM, different custom type urn - every custom
+    # ownership type shares type=CUSTOM, so typeUrn is what tells them apart.
+    producer = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__producer",
+    )
+    # Same owner, same type, different provenance.
+    from_service = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SERVICE),
+    )
+    graph.get_ownership.return_value = OwnershipClass(
+        owners=[steward] * 88 + [producer, from_service]
+    )
+    source.ctx.graph = graph
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 3
+    assert {o.typeUrn for o in transformed} == {
+        "urn:li:ownershipType:__system__data_steward",
+        "urn:li:ownershipType:__system__producer",
+    }

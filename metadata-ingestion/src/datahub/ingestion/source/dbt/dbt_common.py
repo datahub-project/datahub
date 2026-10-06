@@ -4784,11 +4784,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # Unlike the tag and term merges below, this one accumulates into a list,
         # so duplicates already present on the server would be carried forward
-        # unchanged. Key on the full owner identity, matching OwnershipTemplate.
-        deduped: Dict[Tuple[str, str, str], OwnerClass] = {}
+        # unchanged. Key on owner + type + typeUrn, as _merge_with_server_ownership
+        # does, plus the source this method filters on, so entries that differ
+        # only by where they came from are not silently discarded. typeUrn is
+        # part of the identity because every custom ownership type shares
+        # type=CUSTOM and is distinguishable only by its urn.
+        deduped: Dict[Tuple[str, str, str, str], OwnerClass] = {}
         for owner in transformed_owners:
+            source_type = (
+                str(owner.source.type) if owner.source and owner.source.type else ""
+            )
             deduped.setdefault(
-                (owner.owner, str(owner.type), str(owner.typeUrn)), owner
+                (owner.owner, str(owner.type), str(owner.typeUrn), source_type), owner
             )
         return sorted(deduped.values(), key=self.owner_sort_key)
 
