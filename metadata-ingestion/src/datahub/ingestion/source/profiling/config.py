@@ -199,6 +199,26 @@ class ProfilingConfig(ProfilingBaseConfig):
         description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
+    # Duplicated from MAX_QUERIES_TO_COMBINE_AT_ONCE for the same reason as
+    # max_distinct_per_statement below.
+    max_queries_to_combine: pydantic.PositiveInt = Field(
+        default=40,
+        description="Only used when `query_combiner_enabled` is on. Maximum number of "
+        "profiling **queries** merged into one statement -- not columns: a 12-column "
+        "numeric table queues around 70. Raising it cuts round trips, and with "
+        "`query_combiner_flatten_enabled` also scans, because a flattened statement is "
+        "one aggregate list over one table. Without flattening each merged query is "
+        "still its own aggregate, so only round trips fall. Raising it is also bounded "
+        "by the database without flattening: the merged statement cross-joins one "
+        "subquery per query, and MySQL allows 61 tables in a join, SQLite 64. Past that "
+        "every merged statement fails and is retried one query at a time -- measured on "
+        "a 20-column SQLite table, a value of 100 turned 4 statements into 83. A "
+        "flattened statement does not join, so its normal path is not subject to "
+        "that limit -- but a flat statement that fails is re-routed through the "
+        "joining path, so above the limit that recovery skips straight to one "
+        "query at a time.",
+    )
+
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
     # because kafka / cassandra / excel configs import this module without
     # sqlalchemy. A drift test keeps the two in lockstep.
@@ -239,6 +259,29 @@ class ProfilingConfig(ProfilingBaseConfig):
             "InnoDB, REPEATABLE_READ keeps a consistent snapshot; on Postgres, "
             "READ COMMITTED already takes a fresh snapshot per statement, so "
             "AUTOCOMMIT loses no consistency there."
+        ),
+    )
+
+    query_timeout_seconds: Annotated[
+        Optional[pydantic.PositiveInt], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Server-side time limit for each profiling statement, in seconds. "
+            "Defaults to unset, so a statement runs as long as it takes. A single "
+            "aggregate over a very large table holds a read view for its whole "
+            "duration, growing the InnoDB undo log on MySQL and blocking VACUUM on "
+            "Postgres, which a limit here bounds. The limit is set on the profiling "
+            "connection and restored when the table is done. Only MySQL "
+            "(max_execution_time) and Postgres (statement_timeout) are implemented; "
+            "other platforms ignore it. "
+            "It bounds a statement, not a table, and it does not abandon the table: "
+            "a statement that exceeds the limit is retried one query at a time, so "
+            "the columns whose own query then succeeds are still profiled and only "
+            "the slow ones lose their metrics. A table is left without field "
+            "profiles only when the row count itself times out. One whose columns "
+            "are each slow enough to time out therefore costs roughly this limit "
+            "per profiling query, which on a wide table is many multiples of it."
         ),
     )
 

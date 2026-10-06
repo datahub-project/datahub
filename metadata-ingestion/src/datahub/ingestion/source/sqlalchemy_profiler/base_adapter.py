@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, NamedTuple, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
 from sqlalchemy import Select
@@ -25,6 +25,19 @@ logger = logging.getLogger(__name__)
 
 # Default quantiles for statistical profiling
 DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+
+class QueryTimeout(NamedTuple):
+    """How to read, set and put back a session statement timeout."""
+
+    read: str
+    """Returns the session's current limit, in whatever form `restore` takes."""
+
+    apply: str
+    """Sets the limit for profiling."""
+
+    restore: str
+    """Puts back what `read` returned; formatted with it as `{value}`."""
 
 
 class ProfilingConnection:
@@ -486,6 +499,18 @@ class PlatformAdapter(ABC):
         result = conn.execute_aggregate(table, avg_expr).scalar()
 
         return result
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        """
+        SQL to read, set and put back a per-statement time limit on the session.
+
+        None means the platform has no session-level equivalent, in which case
+        the timeout option is ignored for it. The restore is parameterised on
+        the value read beforehand rather than resetting to DEFAULT: the session
+        may already carry a limit from init_command or a connect listener, and
+        DEFAULT would silently discard it.
+        """
+        return None
 
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: ProfilingConnection

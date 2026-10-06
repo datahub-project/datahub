@@ -19,6 +19,12 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+    GenericAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    QueryTimeout,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -107,6 +113,93 @@ def profiler(sqlite_engine, profiler_config, mock_report):
         platform="sqlite",
         env="TEST",
     )
+
+
+class TestQueryTimeout:
+    """The limit must reach the connection, and must come back off it."""
+
+    @staticmethod
+    def _adapter(statements):
+        adapter = MagicMock()
+        adapter.get_query_timeout_statements.return_value = statements
+        return adapter
+
+    @staticmethod
+    def _timeout(read="SHOW t", apply="SET t = 1", restore="SET t = {value}"):
+        return QueryTimeout(read=read, apply=apply, restore=restore)
+
+    def test_unset_timeout_touches_nothing(self, profiler):
+        conn = MagicMock()
+        assert (
+            profiler._apply_query_timeout(conn, self._adapter(self._timeout()), "t")
+            is None
+        )
+        conn.execute.assert_not_called()
+
+    def test_unsupported_platform_is_ignored(self, profiler):
+        profiler.config.query_timeout_seconds = 30
+        conn = MagicMock()
+        assert profiler._apply_query_timeout(conn, self._adapter(None), "t") is None
+        conn.execute.assert_not_called()
+
+    def test_applied_limit_is_committed(self, profiler):
+        # Postgres rolls a plain SET back with its transaction, and the serial
+        # fallback rolls back before every retry.
+        profiler.config.query_timeout_seconds = 30
+        conn = MagicMock()
+        conn.execute.return_value.scalar.return_value = 5000
+        clear = profiler._apply_query_timeout(
+            conn, self._adapter(self._timeout(apply="SET x = 1")), "t"
+        )
+        # The prior value is put back, not the server default.
+        assert clear == "SET t = 5000"
+        # Read, then set, then commit -- in that order.
+        assert [c[0] for c in conn.mock_calls if c[0] in ("execute", "commit")] == [
+            "execute",
+            "execute",
+            "commit",
+        ]
+        assert str(conn.execute.call_args[0][0]) == "SET x = 1"
+
+    def test_failure_to_apply_warns_and_continues(self, profiler):
+        profiler.config.query_timeout_seconds = 30
+        conn = MagicMock()
+        conn.execute.side_effect = sqlite3.OperationalError("nope")
+        assert (
+            profiler._apply_query_timeout(
+                conn, self._adapter(self._timeout(apply="SET x = 1")), "t"
+            )
+            is None
+        )
+        assert profiler.report.warning.call_args.kwargs["title"] == (
+            "Profiling: query timeout unavailable"
+        )
+
+    def test_failure_to_apply_raises_when_not_catching(self, profiler):
+        profiler.config.query_timeout_seconds = 30
+        profiler.config.catch_exceptions = False
+        conn = MagicMock()
+        conn.execute.side_effect = sqlite3.OperationalError("nope")
+        with pytest.raises(sqlite3.OperationalError):
+            profiler._apply_query_timeout(
+                conn, self._adapter(self._timeout(apply="SET x = 1")), "t"
+            )
+
+    def test_clear_rolls_back_first(self, profiler):
+        # The table's last query may have left the transaction aborted.
+        conn = MagicMock()
+        profiler._clear_query_timeout(conn, "SET x = DEFAULT")
+        conn.rollback.assert_called_once()
+        assert str(conn.execute.call_args[0][0]) == "SET x = DEFAULT"
+        conn.commit.assert_called_once()
+
+    def test_failed_clear_never_raises_and_drops_the_connection(self, profiler):
+        # The profile is already built; cleanup must not be able to discard it,
+        # and a connection that may still carry the limit must not be pooled.
+        conn = MagicMock()
+        conn.execute.side_effect = sqlite3.OperationalError("in failed transaction")
+        profiler._clear_query_timeout(conn, "SET x = DEFAULT")
+        conn.invalidate.assert_called_once()
 
 
 class TestSQLAlchemyProfiler:
@@ -1562,3 +1655,80 @@ class TestSampledPartitionSpec:
 
         assert spec.type == PartitionTypeClass.PARTITION
         assert spec.partition == "20230906 SAMPLE"
+
+
+class TestEndToEndFailureHandling:
+    """Driven through generate_profiles, so the wiring is covered, not just the
+    helpers. Unit tests on the helpers alone let a reverted fix pass."""
+
+    @staticmethod
+    def _db(tmp_path, columns=12, rows=10):
+        engine = sa.create_engine(f"sqlite:///{tmp_path}/probe.db")
+        meta = sa.MetaData()
+        table = sa.Table(
+            "probe", meta, *[sa.Column(f"c{i}", Integer) for i in range(columns)]
+        )
+        conn = engine.connect()
+        meta.create_all(conn)
+        if rows:
+            conn.execute(
+                table.insert(),
+                [{f"c{i}": n for i in range(columns)} for n in range(rows)],
+            )
+        conn.commit()
+        return engine, conn
+
+    @staticmethod
+    def _profile(conn, flatten, **overrides):
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_enabled=True,
+            query_combiner_flatten_enabled=flatten,
+            include_field_sample_values=False,
+            include_field_median_value=False,
+            **overrides,
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=conn,
+            report=SQLSourceReport(),
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        request = ProfilerRequest(
+            pretty_name="main.probe", batch_kwargs={"table": "probe"}
+        )
+        results = list(
+            profiler.generate_profiles([request], max_workers=1, platform="sqlite")
+        )
+        return profiler, results[0][1]
+
+    def test_a_failing_timeout_clear_does_not_discard_the_profile(self, tmp_path):
+        # The clear runs as the table finishes, when the transaction may be
+        # aborted. The profile is already built and must survive.
+        engine, conn = self._db(tmp_path, columns=3)
+        cleared = []
+
+        def record(c, cur, statement, *_):
+            if "not_a_real_function" in statement:
+                cleared.append(statement)
+
+        sa.event.listen(engine, "before_cursor_execute", record)
+
+        with patch.object(
+            GenericAdapter,
+            "get_query_timeout_statements",
+            return_value=QueryTimeout(
+                read="SELECT 1",
+                apply="SELECT 1",
+                restore="SELECT not_a_real_function({value})",
+            ),
+        ):
+            profiler, profile = self._profile(conn, False, query_timeout_seconds=1)
+
+        # The clear was attempted (so it cannot simply be deleted) and failed...
+        assert cleared
+        # ...and the profile survived it.
+        assert profile is not None
+        assert profile.rowCount == 10
+        assert len(profile.fieldProfiles or []) == 3

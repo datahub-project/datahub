@@ -299,6 +299,10 @@ class TestGenericAdapter:
         """Create generic adapter for testing."""
         return GenericAdapter(config, report, mock_generic_engine)
 
+    def test_no_query_timeout_by_default(self, adapter):
+        """A platform without a session timeout must ignore the option, not guess."""
+        assert adapter.get_query_timeout_statements(30) is None
+
     def test_setup_profiling_creates_sql_table(self, adapter, mock_generic_engine):
         """Test setup creates SQLAlchemy table object."""
         context = ProfilingContext(
@@ -397,6 +401,19 @@ class TestMySQLAdapter:
     def adapter(self, config, report, mock_mysql_engine):
         """Create MySQL adapter for testing."""
         return MySQLAdapter(config, report, mock_mysql_engine)
+
+    def test_query_timeout_restores_the_previous_value(self, adapter):
+        """Milliseconds, and the restore puts back what was read, not DEFAULT.
+
+        DEFAULT would discard a limit the session already carried from
+        init_command or a connect listener.
+        """
+        timeout = adapter.get_query_timeout_statements(30)
+        assert timeout.apply == "SET SESSION max_execution_time = 30000"
+        assert timeout.read == "SELECT @@SESSION.max_execution_time"
+        assert timeout.restore.format(value=7000) == (
+            "SET SESSION max_execution_time = 7000"
+        )
 
     def test_get_approx_unique_count_expr(self, adapter, mock_mysql_engine):
         """Test MySQL uses COUNT(DISTINCT) for approximate unique count."""
@@ -577,6 +594,13 @@ class TestPostgresAdapter:
     def adapter(self, config, report, mock_postgres_engine):
         """Create PostgreSQL adapter for testing."""
         return PostgresAdapter(config, report, mock_postgres_engine)
+
+    def test_query_timeout_restores_the_previous_value(self, adapter):
+        """Milliseconds, and the restore puts back what was read, not DEFAULT."""
+        timeout = adapter.get_query_timeout_statements(30)
+        assert timeout.apply == "SET statement_timeout = 30000"
+        assert timeout.read == "SHOW statement_timeout"
+        assert timeout.restore.format(value="5s") == "SET statement_timeout = '5s'"
 
     def test_get_approx_unique_count_expr(self, adapter, mock_postgres_engine):
         """Test PostgreSQL uses COUNT(DISTINCT)."""

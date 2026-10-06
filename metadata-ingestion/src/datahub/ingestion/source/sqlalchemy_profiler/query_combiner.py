@@ -57,8 +57,8 @@ MAX_QUERIES_TO_COMBINE_AT_ONCE of them. That transform is only valid when every
 CTE yields exactly one row. A tagged statement that returns zero rows (a
 filtered catalog lookup that misses) or two rows (an OFFSET/LIMIT window)
 collapses or multiplies the join, trips the row-count assertion in
-_execute_queue(), and forces the whole pending batch -- up to 40 unrelated
-queries -- to be re-issued serially.
+_execute_queue(), and forces the whole pending batch -- every unrelated query
+combined with it -- to be re-issued serially.
 
 Tagging is therefore a correctness claim, not a hint. When in doubt, do not tag:
 an untagged statement is simply executed on its own.
@@ -335,6 +335,8 @@ class SQLAlchemyQueryCombiner:
     flatten_enabled: bool = False
     # See DEFAULT_MAX_DISTINCT_PER_STATEMENT.
     max_distinct_per_statement: int = DEFAULT_MAX_DISTINCT_PER_STATEMENT
+    # See MAX_QUERIES_TO_COMBINE_AT_ONCE.
+    max_queries_to_combine: int = MAX_QUERIES_TO_COMBINE_AT_ONCE
 
     # The Python GIL ensures that modifications to the report's counters
     # are safe.
@@ -534,7 +536,7 @@ class SQLAlchemyQueryCombiner:
         pending_queue = {k: v for k, v in full_queue.items() if not v.done}
 
         pending_queue = dict(
-            itertools.islice(pending_queue.items(), MAX_QUERIES_TO_COMBINE_AT_ONCE)
+            itertools.islice(pending_queue.items(), self.max_queries_to_combine)
         )
 
         if pending_queue:

@@ -10,6 +10,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     PlatformAdapter,
     ProfilingConnection,
+    QueryTimeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,15 @@ class MySQLAdapter(PlatformAdapter):
     # =========================================================================
     # Row Count Estimation
     # =========================================================================
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        # Milliseconds. Restoring the value read beforehand rather than
+        # DEFAULT keeps a limit the session already carried.
+        return QueryTimeout(
+            read="SELECT @@SESSION.max_execution_time",
+            apply=f"SET SESSION max_execution_time = {seconds * 1000}",
+            restore="SET SESSION max_execution_time = {value}",
+        )
 
     def supports_row_count_estimation(self) -> bool:
         """
