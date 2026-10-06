@@ -1277,7 +1277,9 @@ def _emitted_dataset_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
 
 
 def _sample_xml_dictionary(
-    name: str = "db.My_Dict", database: Optional[str] = None
+    name: str = "db.My_Dict",
+    database: Optional[str] = None,
+    source: str = "ClickHouse: db.src_table",
 ) -> _XmlDictionary:
     return _XmlDictionary(
         database=database,
@@ -1286,7 +1288,7 @@ def _sample_xml_dictionary(
         key_types=["UInt64"],
         attribute_names=["v"],
         attribute_types=["String"],
-        source="ClickHouse: db.src_table",
+        source=source,
         origin="/etc/clickhouse-server/config.d/dicts.xml",
         comment="",
         status="LOADED",
@@ -1409,7 +1411,11 @@ def test_emit_xml_dictionary_adds_clickhouse_source_as_upstream(monkeypatch):
     source = _clickhouse_source(platform_instance="ch1", include_table_lineage=True)
     source._all_tables_set = {"db.src_table"}
     monkeypatch.setattr(
-        source, "_fetch_xml_dictionaries", lambda: [_sample_xml_dictionary()]
+        source,
+        "_fetch_xml_dictionaries",
+        lambda: [
+            _sample_xml_dictionary(source="ClickHouse: db.src_table, where: id > 1")
+        ],
     )
 
     workunits = list(source._emit_xml_dictionaries())

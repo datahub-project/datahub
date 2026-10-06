@@ -129,9 +129,10 @@ _NON_USER_TABLE_PREFIXES = (
     "INFORMATION_SCHEMA.",
 )
 
-# ClickHouseDictionarySource::toString() emits "ClickHouse: db.table".
+# ClickHouseDictionarySource::toString() emits "ClickHouse: db.table", plus
+# ", where: <condition>" when the source has a WHERE clause. Names are unquoted.
 _CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
-    r"^ClickHouse:\s*`?([^\s.`]+)`?\.`?([^\s.`]+)`?",
+    r"^ClickHouse:\s*([^\s.,]+)\.([^\s,]+)",
     re.IGNORECASE,
 )
 
