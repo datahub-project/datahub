@@ -1928,6 +1928,27 @@ def test_an_unreadable_run_file_is_a_bad_argument(tmp_path):
         run.chmod(0o600)
 
 
+def test_a_run_file_over_the_size_limit_is_a_bad_argument(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    run = _run_file(tmp_path, {"kind": "Table", "result": ["t1"]})
+    size = pathlib.Path(run).stat().st_size
+    monkeypatch.setattr(rc, "MAX_RUN_FILE_BYTES", size)
+    assert rc._read_run_file(run) == {"kind": "Table", "result": ["t1"]}
+    monkeypatch.setattr(rc, "MAX_RUN_FILE_BYTES", size - 1)
+    res = _filter_from_run(tmp_path, run)
+    assert res.exit_code == 2, res.output
+
+
+def test_a_run_file_that_is_not_a_regular_file_is_a_bad_argument(
+    tmp_path: pathlib.Path,
+) -> None:
+    if not pathlib.Path("/dev/zero").exists():
+        pytest.skip("no /dev/zero here")
+    res = _filter_from_run(tmp_path, "/dev/zero")
+    assert res.exit_code == 2, res.output
+
+
 def test_a_redacted_listing_parent_is_refused_unless_parent_is_given(
     monkeypatch, tmp_path
 ):

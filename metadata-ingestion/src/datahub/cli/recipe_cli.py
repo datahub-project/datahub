@@ -1,7 +1,8 @@
 import importlib.resources
 import json
-import pathlib
+import os
 import re
+import stat
 import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -814,6 +815,11 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
         _emit(payload)
 
 
+# A `probe run` result is capped at MAX_PROBE_ITEMS entries, so a real one is
+# far below this; anything larger is not one.
+MAX_RUN_FILE_BYTES = 50 * 1024 * 1024
+
+
 def _read_run_file(path: str) -> object:
     """The parsed JSON of a `probe run --report-to` file.
 
@@ -822,10 +828,30 @@ def _read_run_file(path: str) -> object:
     _write_report treats it, so it exits 2 rather than as an internal error.
     """
     try:
-        text = pathlib.Path(path).read_text(encoding="utf-8")
+        with open(path, "rb") as handle:
+            # Judged on the open file's own stat, before reading a byte: a
+            # device or pipe (/dev/zero) reports no size and never ends.
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError(
+                    f"--from-run file '{path}' is not a regular file; pass the "
+                    f"file `probe run --report-to` wrote"
+                )
+            if info.st_size > MAX_RUN_FILE_BYTES:
+                raise ValueError(
+                    f"--from-run file '{path}' is {info.st_size} bytes, over "
+                    f"the {MAX_RUN_FILE_BYTES}-byte limit for a `probe run` result"
+                )
+            # Bounded too, in case the file grows after the stat.
+            data = handle.read(MAX_RUN_FILE_BYTES + 1)
     except OSError as exc:
         raise ValueError(f"cannot read --from-run file '{path}': {exc}") from exc
-    return json.loads(text)
+    if len(data) > MAX_RUN_FILE_BYTES:
+        raise ValueError(
+            f"--from-run file '{path}' is over the {MAX_RUN_FILE_BYTES}-byte "
+            f"limit for a `probe run` result"
+        )
+    return json.loads(data.decode("utf-8"))
 
 
 @probe_group.command(name="filter")
