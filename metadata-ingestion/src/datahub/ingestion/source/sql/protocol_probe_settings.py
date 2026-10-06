@@ -36,6 +36,12 @@ logger = logging.getLogger(__name__)
 _LIBPQ_DIALECTS = frozenset({"postgresql", "postgres", "cockroachdb"})
 # The one connect_arg libpq packs every `-c setting` into.
 _LIBPQ_OPTIONS = "options"
+# libpq waits as long as the OS does for a TCP handshake when no
+# connect_timeout is given: about 75s for a blackholed host on macOS, longer
+# on Linux, past the point an agent's tool call gives up. PyMySQL (10s) and
+# pytds (15s) have defaults of their own; libpq has none.
+_LIBPQ_CONNECT_TIMEOUT = "connect_timeout"
+_LIBPQ_CONNECT_TIMEOUT_SECONDS = 10
 
 # redshift_connector, this dialect's driver, is pure Python and rejects
 # libpq's `options` keyword, so its ceiling is a statement instead.
@@ -141,8 +147,8 @@ def probe_settings_for_url(
 def _libpq_settings(
     config: "SQLCommonConfig", budget: "QueryBudget"
 ) -> ProbeEngineSettings:
-    """The session's application_name, and statement_timeout in libpq's
-    options string.
+    """The session's application_name, a connect_timeout, and
+    statement_timeout in libpq's options string.
 
     The label is read from pg_stat_activity.application_name and `%a` in
     log_line_prefix. It is a parameter of its own rather than a second `-c`
@@ -155,6 +161,7 @@ def _libpq_settings(
         probe_label_connect_arg(config, "application_name")
     )
     seconds = budget.timeout_seconds
+    connect_args.update(_libpq_connect_timeout(config, seconds))
     if seconds:
         ceiling = f"-c statement_timeout={seconds * 1000}"
         # Appended: the recipe's own settings (a search_path, say) share this
@@ -162,6 +169,27 @@ def _libpq_settings(
         own = _recipe_libpq_options(config)
         connect_args[_LIBPQ_OPTIONS] = f"{own} {ceiling}" if own else ceiling
     return ProbeEngineSettings(connect_args=connect_args, timeout_applies=bool(seconds))
+
+
+def _libpq_connect_timeout(
+    config: "SQLCommonConfig", budget_seconds: Optional[int]
+) -> Dict[str, int]:
+    """`{connect_timeout: n}`, so an unreachable host fails within the
+    probe's budget instead of the OS's TCP timeout, or nothing when the recipe
+    sets its own, in connect_args or the URL's query: ingestion connects with
+    that value, and the probe should reach the source as ingestion does.
+
+    Ten seconds, or the query budget's timeout when that is shorter: opening
+    the connection should not cost more than a whole query may.
+    """
+    if _LIBPQ_CONNECT_TIMEOUT in _recipe_connect_args(
+        config
+    ) or _LIBPQ_CONNECT_TIMEOUT in _probe_url_query(config):
+        return {}
+    timeout = _LIBPQ_CONNECT_TIMEOUT_SECONDS
+    if budget_seconds:
+        timeout = min(timeout, budget_seconds)
+    return {_LIBPQ_CONNECT_TIMEOUT: timeout}
 
 
 def _recipe_libpq_options(config: "SQLCommonConfig") -> object:

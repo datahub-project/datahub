@@ -227,19 +227,19 @@ _CREDS = {"username": "u", "password": "p"}
     [
         (
             lambda: PostgresConfig(host_port="h:5432", **_CREDS),
-            ["application_name", "options"],
+            ["application_name", "connect_timeout", "options"],
             False,
             True,
         ),
         (
             lambda: CockroachDBConfig(host_port="h:26257", **_CREDS),
-            ["application_name", "options"],
+            ["application_name", "connect_timeout", "options"],
             False,
             True,
         ),
         (
             lambda: TimescaleDBConfig(host_port="h:5432", **_CREDS),
-            ["application_name", "options"],
+            ["application_name", "connect_timeout", "options"],
             False,
             True,
         ),
@@ -284,7 +284,7 @@ _CREDS = {"username": "u", "password": "p"}
             lambda: HiveMetastore(
                 host_port="h:5432", scheme="postgresql+psycopg2", **_CREDS
             ),
-            ["application_name", "options"],
+            ["application_name", "connect_timeout", "options"],
             False,
             True,
         ),
@@ -343,7 +343,7 @@ def test_a_config_pointed_at_a_url_with_no_known_protocol_declares_nothing(
             lambda: RedshiftConfig(
                 host_port="h:5439", sqlalchemy_uri="postgresql://h:5439/dev"
             ),
-            ["application_name", "options"],
+            ["application_name", "connect_timeout", "options"],
             False,
             True,
         ),
@@ -398,8 +398,18 @@ def test_no_timeout_means_no_ceiling_and_none_claimed():
 @pytest.mark.parametrize(
     "url, connect_arg_keys, prepares, applies",
     [
-        ("postgresql://h/db", ["application_name", "options"], False, True),
-        ("cockroachdb+psycopg2://h/db", ["application_name", "options"], False, True),
+        (
+            "postgresql://h/db",
+            ["application_name", "connect_timeout", "options"],
+            False,
+            True,
+        ),
+        (
+            "cockroachdb+psycopg2://h/db",
+            ["application_name", "connect_timeout", "options"],
+            False,
+            True,
+        ),
         ("redshift+redshift_connector://h/db", ["application_name"], True, True),
         ("mysql+pymysql://h/db", ["program_name"], True, False),
         ("mysql+mysqlconnector://h/db", [], True, False),

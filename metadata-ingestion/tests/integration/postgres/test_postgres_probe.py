@@ -11,6 +11,7 @@ goldens built from setup.sql never see it.
 
 import json
 import subprocess
+import time
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Set, Type
 
@@ -238,6 +239,25 @@ def test_statement_timeout_cuts_a_slow_catalog_query(
     assert result.exit_code == _EXIT_CONNECTION, result.output
     # query_canceled: statement_timeout, not a dropped connection.
     assert "57014" in json.loads(result.stderr)["error"]
+
+
+# A non-routable address: a SYN sent there is never answered, the way a
+# firewall drops one.
+_BLACKHOLE_HOST_PORT = "10.255.255.1:5432"
+
+
+def test_an_unanswered_connect_gives_up_within_the_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """libpq has no connect timeout of its own, so without the probe's an
+    unanswered SYN held the probe for the OS's TCP timeout (75s on macOS)."""
+    _budget(monkeypatch, 2)
+    recipe = {**_recipe(_POSTGRES_PORT), "host_port": _BLACKHOLE_HOST_PORT}
+    started = time.monotonic()
+    result = _probe_cli(tmp_path, recipe, "containers")
+    elapsed = time.monotonic() - started
+    assert result.exit_code == _EXIT_CONNECTION, result.output
+    assert elapsed < 20, f"the connect took {elapsed:.0f}s"
 
 
 def _datasets(sub_type: str) -> Callable[[EmittedIndex], Set[str]]:

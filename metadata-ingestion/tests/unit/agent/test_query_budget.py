@@ -584,3 +584,39 @@ def test_the_probe_sends_ingestions_libpq_options_and_then_its_ceiling(
     probe = driver_connect_kwargs(probe_url(config), _engine_options(url, options))
     assert ingestion["options"] == "-csearch_path=myschema"
     assert probe["options"] == f"{ingestion['options']} -c statement_timeout=30000"
+
+
+def test_libpq_gets_a_connect_timeout_so_an_unreachable_host_fails_fast():
+    """libpq has no connect timeout of its own: a blackholed host held the
+    probe for the OS's TCP timeout, longer than an agent's tool call waits."""
+    url = "postgresql+psycopg2://u:p@h:5432/db"
+    config = _config_for(url)
+    sent = driver_connect_kwargs(probe_url(config), _engine_options(url))
+    assert 0 < int(sent["connect_timeout"]) <= 30
+
+
+def test_the_connect_timeout_is_no_longer_than_the_query_budget():
+    connect_args = _settings(
+        "postgresql://h/db", QueryBudget(timeout_seconds=3)
+    ).connect_args
+    assert connect_args["connect_timeout"] == 3
+
+
+@pytest.mark.parametrize(
+    "url, options",
+    [
+        ("postgresql+psycopg2://u:p@h:5432/db?connect_timeout=42", None),
+        (
+            "postgresql+psycopg2://u:p@h:5432/db",
+            {"connect_args": {"connect_timeout": 42}},
+        ),
+    ],
+)
+def test_a_recipes_own_connect_timeout_wins(
+    url: str, options: Optional[Dict[str, Any]]
+) -> None:
+    config = _config_for(url, options)
+    ingestion = driver_connect_kwargs(config.get_sql_alchemy_url(), config.options)
+    probe = driver_connect_kwargs(probe_url(config), _engine_options(url, options))
+    assert int(probe["connect_timeout"]) == 42
+    assert probe["connect_timeout"] == ingestion["connect_timeout"]
