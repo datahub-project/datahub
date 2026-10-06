@@ -1197,30 +1197,30 @@ def _install_fake_column_dependencies(
 ) -> None:
     """Wire a fake ``sqlmesh.core.lineage.column_dependencies`` into sys.modules.
 
-    sqlmesh isn't installed in the test venv, so ``_build_column_lineage``'s
-    ``from sqlmesh.core.lineage import column_dependencies`` would otherwise
-    short-circuit to []. Injecting a stand-in lets us regression-test the real
-    (un-mocked) body — in particular the model_name_pattern filter on upstream
-    columns.
+    Without sqlmesh installed, ``_build_column_lineage``'s
+    ``from sqlmesh.core.lineage import column_dependencies`` would short-circuit to
+    []; with it installed, the real function can't resolve mock models. Patching in
+    a stand-in either way lets us regression-test the real (un-mocked) body.
     """
 
     def _column_dependencies(ctx: Any, model_name: str, col: str) -> dict:
         return deps_by_column.get(col, {})
 
-    lineage_mod = types.ModuleType("sqlmesh.core.lineage")
-    lineage_mod.column_dependencies = _column_dependencies  # type: ignore[attr-defined]
-    for name, mod in [
-        ("sqlmesh", types.ModuleType("sqlmesh")),
-        ("sqlmesh.core", types.ModuleType("sqlmesh.core")),
-        ("sqlmesh.core.lineage", lineage_mod),
-    ]:
-        # Don't clobber a real sqlmesh if it's importable in this venv.
-        if name not in sys.modules:
-            monkeypatch.setitem(sys.modules, name, mod)
-    if "sqlmesh.core.lineage" not in sys.modules or not hasattr(
-        sys.modules["sqlmesh.core.lineage"], "column_dependencies"
-    ):
-        monkeypatch.setitem(sys.modules, "sqlmesh.core.lineage", lineage_mod)
+    try:
+        import sqlmesh.core.lineage as lineage_mod
+    except ImportError:
+        lineage_mod = types.ModuleType("sqlmesh.core.lineage")
+        for name, mod in [
+            ("sqlmesh", types.ModuleType("sqlmesh")),
+            ("sqlmesh.core", types.ModuleType("sqlmesh.core")),
+            ("sqlmesh.core.lineage", lineage_mod),
+        ]:
+            if name not in sys.modules:
+                monkeypatch.setitem(sys.modules, name, mod)
+    # Patch the function itself, so the fake is used whether or not sqlmesh is installed
+    monkeypatch.setattr(
+        lineage_mod, "column_dependencies", _column_dependencies, raising=False
+    )
 
 
 class TestColumnLineageFilter:
@@ -1268,6 +1268,72 @@ class TestColumnLineageFilter:
         # column-level edge entirely.
         assert any("base_developer" in u for u in upstream_field_urns)
         assert not any("denied_table" in u for u in upstream_field_urns)
+
+
+def _schema_field_paths(workunits: list) -> List[str]:
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, SchemaMetadata):
+            return [field.fieldPath for field in aspect.fields]
+    raise AssertionError("no schemaMetadata emitted")
+
+
+def _column_lineage(workunits: list) -> List[Any]:
+    return [
+        fgl
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+        for fgl in (wu.metadata.aspect.fineGrainedLineages or [])
+    ]
+
+
+class TestColumnNameCasing:
+    """Schema field paths and column lineage must name a column the same way, or
+    column-level lineage has nothing to attach to."""
+
+    @pytest.mark.parametrize(
+        "platform, extra_config, expected_field, expected_upstream",
+        [
+            # Snowflake lowercases URNs by default, columns included
+            ("snowflake", {}, "psn", "id"),
+            # An explicit setting wins over the platform default, either way
+            ("snowflake", {"convert_column_urns_to_lowercase": False}, "PSN", "ID"),
+            ("bigquery", {"convert_column_urns_to_lowercase": True}, "psn", "id"),
+            # Other platforms keep SQLMesh's casing by default
+            ("bigquery", {}, "PSN", "ID"),
+        ],
+    )
+    def test_schema_and_column_lineage_use_the_same_casing(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        platform: str,
+        extra_config: dict,
+        expected_field: str,
+        expected_upstream: str,
+    ) -> None:
+        _install_fake_column_dependencies(
+            monkeypatch, {"PSN": {"star.base_developer": {"ID"}}}
+        )
+        source = _make_source({"target_platform": platform, **extra_config})
+        upstream = _make_mock_model("star.base_developer")
+        model = _make_mock_model(
+            "star.dim_developer",
+            columns={"PSN": MagicMock(__str__=lambda s: "BIGINT")},
+            depends_on={"star.base_developer"},
+        )
+
+        workunits = _run_project(
+            source,
+            {"star.dim_developer": model},
+            {},
+            connection_type=platform,
+            extra_models={"star.base_developer": upstream},
+        )
+
+        assert _schema_field_paths(workunits) == [expected_field]
+        [fgl] = _column_lineage(workunits)
+        assert [d.rsplit(",", 1)[1] for d in fgl.downstreams] == [f"{expected_field})"]
+        assert [u.rsplit(",", 1)[1] for u in fgl.upstreams] == [f"{expected_upstream})"]
 
 
 class TestLineageCategories:
