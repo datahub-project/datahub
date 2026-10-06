@@ -17,6 +17,7 @@ sql_config.
 """
 
 import logging
+import os
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping, Optional
 
@@ -176,15 +177,20 @@ def _libpq_connect_timeout(
 ) -> Dict[str, int]:
     """`{connect_timeout: n}`, so an unreachable host fails within the
     probe's budget instead of the OS's TCP timeout, or nothing when the recipe
-    sets its own, in connect_args or the URL's query: ingestion connects with
+    sets its own, in connect_args or the URL's query, or PGCONNECT_TIMEOUT is
+    set in the environment: ingestion connects with
     that value, and the probe should reach the source as ingestion does.
 
     Ten seconds, or the query budget's timeout when that is shorter: opening
     the connection should not cost more than a whole query may.
     """
-    if _LIBPQ_CONNECT_TIMEOUT in _recipe_connect_args(
-        config
-    ) or _LIBPQ_CONNECT_TIMEOUT in _probe_url_query(config):
+    if (
+        _LIBPQ_CONNECT_TIMEOUT in _recipe_connect_args(config)
+        or _LIBPQ_CONNECT_TIMEOUT in _probe_url_query(config)
+        # libpq reads this when no connect_timeout is passed, so an operator
+        # who set it gets their value, as ingestion does.
+        or os.environ.get("PGCONNECT_TIMEOUT")
+    ):
         return {}
     timeout = _LIBPQ_CONNECT_TIMEOUT_SECONDS
     if budget_seconds:

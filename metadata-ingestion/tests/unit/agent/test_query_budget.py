@@ -620,3 +620,12 @@ def test_a_recipes_own_connect_timeout_wins(
     probe = driver_connect_kwargs(probe_url(config), _engine_options(url, options))
     assert int(probe["connect_timeout"]) == 42
     assert probe["connect_timeout"] == ingestion["connect_timeout"]
+
+
+def test_an_operators_pgconnect_timeout_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    # libpq reads PGCONNECT_TIMEOUT only when no connect_timeout is passed.
+    monkeypatch.setenv("PGCONNECT_TIMEOUT", "42")
+    connect_args = _settings(
+        "postgresql://h/db", QueryBudget(timeout_seconds=3)
+    ).connect_args
+    assert "connect_timeout" not in connect_args
