@@ -619,7 +619,12 @@ public class ESSearchDAO {
   /** No sort, or only by score (the explain API's default), orders by relevance. */
   private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
     return sortCriteria == null
-        || sortCriteria.stream().allMatch(criterion -> "_score".equals(criterion.getField()));
+        || sortCriteria.stream()
+            .allMatch(
+                criterion ->
+                    "_score".equals(criterion.getField())
+                        && criterion.getOrder()
+                            != com.linkedin.metadata.query.filter.SortOrder.ASCENDING);
   }
 
   /**
@@ -1214,8 +1219,8 @@ public class ESSearchDAO {
               opContext,
               explainRequest.index(),
               searchRequest.getLeft().source().query(),
-              // Scroll never runs the light query
-              scrollId != null
+              // Scroll and searches without hits never run the light query
+              scrollId != null || (size != null && size == 0)
                   ? null
                   : lightFirstQuery(
                       opContext, searchRequest.getRight(), query, sortCriteria, postFilters),
@@ -1246,15 +1251,15 @@ public class ESSearchDAO {
     if (lightSourceQuery == null) {
       return fullQuery;
     }
-    if (skipsFullQuery(input)) {
-      return lightSourceQuery;
-    }
     SearchRequest countRequest =
         new SearchRequest(index)
             .source(new SearchSourceBuilder().query(lightSourceQuery).size(0).trackTotalHits(true));
-    return hasHits(
-            searchClient(opContext, countRequest)
-                .search(opContext, countRequest, RequestOptions.DEFAULT))
+    SearchResponse count =
+        searchClient(opContext, countRequest)
+            .search(opContext, countRequest, RequestOptions.DEFAULT);
+    // The decision searchLightFirst makes: a clean empty result stands for ID and long-name inputs
+    return hasHits(count)
+            || (skipsFullQuery(input) && count.getFailedShards() == 0 && !count.isTimedOut())
         ? lightSourceQuery
         : fullQuery;
   }

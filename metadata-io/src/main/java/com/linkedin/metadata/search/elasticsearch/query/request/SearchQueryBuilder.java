@@ -216,7 +216,12 @@ public class SearchQueryBuilder {
    * names (not shortName) so nested/reference {@code *.delimited} fields cannot sneak in.
    */
   private static final Set<String> DELIMITED_IDENTITY_FIELDS =
-      Set.of("name.delimited", "title.delimited", "urn.delimited");
+      Set.of(
+          "name.delimited",
+          "title.delimited",
+          "urn.delimited",
+          "qualifiedName.delimited",
+          "id.delimited");
 
   /**
    * Light path: max query length before truncation at a word boundary. Long S3 paths and URLs
@@ -1434,7 +1439,7 @@ public class SearchQueryBuilder {
       return Optional.empty();
     }
 
-    String unquotedQuery = isQuoted(query) ? unquote(query) : query;
+    String unquotedQuery = stripSurroundingQuotes(query);
     DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
     disMaxQuery.tieBreaker(EXACT_PREFIX_DISMAX_TIE_BREAKER);
 
