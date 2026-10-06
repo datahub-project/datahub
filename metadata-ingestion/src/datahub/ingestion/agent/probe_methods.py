@@ -36,8 +36,10 @@ from datahub.ingestion.agent.error_policy import (
     call_config_hook,
     classify_foreign,
     foreign_label,
+    is_callers_sql_error,
     is_trusted,
     label_foreign_text,
+    missing_module,
     name_foreign,
     police_trusted,
     verbose_detail,
@@ -788,9 +790,12 @@ def _raise_call_failure(
     provider_cls: type,
     command: str,
     own_values: AbstractSet[str],
+    callers_sql: bool = False,
 ) -> NoReturn:
     """Re-raise a provider call's failure as the CLI reports it (see
-    agent.error_policy): untrusted named by label only, trusted kept."""
+    agent.error_policy): untrusted named by label only, trusted kept.
+    `callers_sql` when the command ran SQL the caller wrote, whose SQLSTATE
+    class 42 is the caller's mistake."""
     recorded = _read_back(provider, "failures")
     if recorded:
         # The recorded failure explains the miss, whatever was raised after it.
@@ -803,6 +808,13 @@ def _raise_call_failure(
             f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))
         ) from None
     if not is_trusted(exc):
+        if callers_sql and is_callers_sql_error(exc, provider_cls):
+            # The caller's own query was wrong, not the source (exit 2).
+            raise ProbeArgumentError(
+                f"'{command}' failed {name_foreign(exc, provider_cls)}: the "
+                f"query names something this connection cannot read or is "
+                f"not valid SQL here; correct the query"
+            ) from None
         raise classify_foreign(exc, f"'{command}'", provider_cls) from None
     _reraise_trusted(exc, provider_cls, own_values)
 
@@ -875,6 +887,16 @@ def _source_failure(exc: BaseException, call: _ProviderCall, verb: str) -> NoRet
     """
     if is_trusted(exc):
         _reraise_trusted(exc, call.provider_cls, call.own_values)
+    module = missing_module(exc)
+    if module is not None:
+        # The environment's, not the source's: retrying cannot help (exit 1).
+        raise ProbeInternalError(
+            f"{verb} source '{call.source_type}' failed "
+            f"{name_foreign(exc, call.provider_cls)}: the Python module "
+            f"'{module}' is not installed; install the plugin for this source "
+            f"(pip install 'acryl-datahub[{call.source_type}]') or the driver "
+            f"its connection URL names"
+        ) from None
     raise ProbeConnectionError(
         f"{verb} source '{call.source_type}' failed "
         f"{name_foreign(exc, call.provider_cls)}"
@@ -950,7 +972,14 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
     except BaseException as exc:
         # A getter that recorded a failed fetch and then raised "no such name"
         # is reporting the fetch, not a bad argument.
-        _raise_call_failure(exc, provider, call.provider_cls, command, call.own_values)
+        _raise_call_failure(
+            exc,
+            provider,
+            call.provider_cls,
+            command,
+            call.own_values,
+            callers_sql=call.spec.scoped_sql_param is not None,
+        )
     return _CallOutcome(
         result=result,
         warnings=_read_back(provider, "warnings"),

@@ -208,6 +208,21 @@ def _first(
 _UNNAMED = "exception"
 
 
+def foreign_code(
+    exc: BaseException, provider_cls: Optional[type] = None
+) -> Optional[str]:
+    """The one short code foreign_label shows for `exc`: the provider's reader
+    on every link of its cause chain, then the generic ones. Never raises."""
+    try:
+        links = _cause_links(exc)
+        code = _first(links, lambda link: _provider_code(link, provider_cls))
+        return code or _first(links, generic_error_code)
+    except PASS_THROUGH:
+        raise
+    except BaseException:
+        return None
+
+
 def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> str:
     """An untrusted exception's name in place of its text: its class, plus one
     short code from it or its cause chain (`ProgrammingError; SQLSTATE 42P01`),
@@ -220,14 +235,50 @@ def foreign_label(exc: BaseException, provider_cls: Optional[type] = None) -> st
         # str, since a subclass may render as anything.
         raw = type(exc).__name__
         name = raw if type(raw) is str else _UNNAMED
-        links = _cause_links(exc)
-        code = _first(links, lambda link: _provider_code(link, provider_cls))
-        code = code or _first(links, generic_error_code)
+        code = foreign_code(exc, provider_cls)
         return f"{name}; {code}" if code else name
     except PASS_THROUGH:
         raise
     except BaseException:
         return name
+
+
+# SQLSTATE class 42, syntax error or access rule violation: a query the
+# caller wrote was wrong (a misspelled column, a missing relation, a grant it
+# lacks), not the source.
+_CALLER_SQLSTATE_CLASS = "SQLSTATE 42"
+
+
+def is_callers_sql_error(
+    exc: BaseException, provider_cls: Optional[type] = None
+) -> bool:
+    """Whether a failure running the caller's own SQL carries SQLSTATE class
+    42. Never raises."""
+    code = foreign_code(exc, provider_cls)
+    return code is not None and code.startswith(_CALLER_SQLSTATE_CLASS)
+
+
+# A Python module name, dotted: what ImportError.name holds when an import
+# fails. Anything else is not shown.
+_MODULE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}(?:\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,7}")
+
+
+def missing_module(exc: BaseException) -> Optional[str]:
+    """The module an ImportError in `exc`'s cause chain could not import, when
+    its name is a plain module name, else None. A missing driver is the
+    environment's, not the source's, and the name says which extra to
+    install. Never raises."""
+    try:
+        for link in _cause_links(exc):
+            if isinstance(link, ImportError):
+                name = _attr(link, "name")
+                if type(name) is str and _MODULE_NAME.fullmatch(name):
+                    return name
+    except PASS_THROUGH:
+        raise
+    except BaseException:
+        return None
+    return None
 
 
 def verbose_detail(exc: BaseException) -> str:

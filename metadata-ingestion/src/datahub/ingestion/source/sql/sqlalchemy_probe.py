@@ -8,6 +8,7 @@ receives a string the server produced. The engine is the recipe's own,
 bounded and labelled by the config's probe_engine_settings.
 """
 
+import re
 from dataclasses import replace
 from typing import (
     Any,
@@ -24,7 +25,8 @@ from typing import (
 
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import ArgumentError, DBAPIError, NoSuchModuleError
 
 from datahub.ingestion.agent.error_policy import (
     errno_code,
@@ -130,6 +132,30 @@ def _driver_code(error: BaseException) -> Optional[str]:
     if driver in _ERRNO_ARG_DRIVERS:
         return errno_code(first)
     return None
+
+
+# A URL scheme as SQLAlchemy reads it (`postgresql+psycopg2`): safe to show,
+# unlike the rest of the URL.
+_URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9_.+-]{0,63}")
+
+
+def _url_refusal(config: SQLCommonConfig, exc: ArgumentError) -> ProbeArgumentError:
+    """What to tell a caller whose recipe URL SQLAlchemy refused, naming only
+    its scheme."""
+    try:
+        scheme: Optional[str] = make_url(probe_url(config)).drivername
+    except Exception:
+        scheme = None
+    if isinstance(exc, NoSuchModuleError) and scheme and _URL_SCHEME.fullmatch(scheme):
+        return ProbeArgumentError(
+            f"the recipe's connection URL scheme '{scheme}' names no SQLAlchemy "
+            f"dialect installed here: correct the scheme, or install the package "
+            f"that provides it"
+        )
+    return ProbeArgumentError(
+        f"the recipe's connection URL could not be used "
+        f"({type(exc).__name__}): check its scheme and form"
+    )
 
 
 def _container_normalizer(config: object) -> Callable[[str], str]:
@@ -313,10 +339,15 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         """Build over an engine of this recipe's own making."""
         # On the engine, so the Inspector's listings are bounded as well as
         # `sql`; how is the config's to declare.
-        settings = config.probe_engine_settings(cls.query_budget)
-        engine = create_engine(
-            probe_url(config), **probe_engine_options(config, settings)
-        )
+        try:
+            settings = config.probe_engine_settings(cls.query_budget)
+            engine = create_engine(
+                probe_url(config), **probe_engine_options(config, settings)
+            )
+        except ArgumentError as exc:
+            # Raised before any connection: the recipe's URL names a dialect
+            # nothing provides, or is not a URL. The caller's to fix (exit 2).
+            raise _url_refusal(config, exc) from None
         # Before the Inspector is built, so a replaced dialect takes effect.
         if settings.prepare is not None:
             settings.prepare(engine)

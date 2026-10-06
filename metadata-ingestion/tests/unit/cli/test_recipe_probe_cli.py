@@ -2824,6 +2824,51 @@ def test_a_config_hook_raising_in_probe_filter_is_policed_like_a_provider(
     assert json.loads(res.stderr)["error"] == error
 
 
+class _PatternReadingOverrideConfig(ConfigModel):
+    table_pattern: Annotated[AllowDenyPattern, Filters("Table")] = (
+        AllowDenyPattern.allow_all()
+    )
+
+    def probe_verdict_override(self, ctx: object) -> None:
+        # Compiles the (possibly hypothetical) pattern lazily, inside the hook.
+        self.table_pattern.allowed("orders")
+
+
+@pytest.mark.parametrize(
+    "flag, regex, exit_code", [("--try-allow", "^ord", 0), ("--try-deny", "(", 2)]
+)
+def test_a_malformed_try_regex_is_the_callers_input_even_inside_a_hook(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    flag: str,
+    regex: str,
+    exit_code: int,
+) -> None:
+    from datahub.ingestion.agent import probe_methods
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    monkeypatch.setattr(
+        probe_methods, "config_class_for", lambda _st: _PatternReadingOverrideConfig
+    )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--name",
+            "orders",
+            flag,
+            regex,
+        ],
+    )
+    assert res.exit_code == exit_code, res.output
+
+
 class _UnfilteredRaisingConfig(ConfigModel):
     @classmethod
     def probe_unfiltered_kinds(cls) -> Set[str]:

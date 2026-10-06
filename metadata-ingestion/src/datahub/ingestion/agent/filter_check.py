@@ -7,6 +7,7 @@ kind switch (the field marked Enables), ask the connector
 (probe_ancestor_kinds): nothing inside an excluded container is ingested.
 """
 
+import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple, cast
 
@@ -37,6 +38,7 @@ from datahub.ingestion.agent.probe_methods import (
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
+    ProbeArgumentError,
     ProbeInternalError,
     Verdict,
     VerdictContext,
@@ -322,6 +324,18 @@ def _trial_pattern(
     Rebuilt rather than model_copy'd: the copy carries the compiled regexes
     the recipe's pattern cached on first use, and would match those.
     """
+    # Compiled here, before any hook runs: AllowDenyPattern compiles lazily,
+    # so a malformed regex would otherwise surface inside a connector's hook
+    # and read as that connector's defect.
+    for flag, regexes in (("--try-allow", try_allow), ("--try-deny", try_deny)):
+        for regex in regexes or ():
+            try:
+                re.compile(regex)
+            except re.error as exc:
+                raise ProbeArgumentError(
+                    f"{flag} {regex!r} is not a valid regular expression "
+                    f"({exc.msg})"
+                ) from None
     fields = recipe_pattern.model_dump()
     if try_allow:
         fields["allow"] = list(try_allow)
