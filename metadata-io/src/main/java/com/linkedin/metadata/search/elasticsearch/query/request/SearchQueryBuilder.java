@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.lucene.search.FuzzyQuery;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
@@ -180,8 +181,9 @@ public class SearchQueryBuilder {
    * (1024 by default on OpenSearch, which fails the search with too_many_nested_clauses past it).
    * Each term adds a clause per field to the synonym-priority query, the word gram queries and,
    * when fuzzy, the simple query, so a query keeps the words that fit and its fuzzy terms share
-   * what is left. The rest of 1024 covers the exact, prefix (at most {@link #MAX_PREFIX_EXPANSIONS}
-   * terms per field) and wildcard clauses, and the request's filters.
+   * what is left. The rest of 1024 covers the exact, prefix and wildcard clauses and the request's
+   * filters; a query of several terms expands its phrase prefixes less ({@link
+   * #MAX_PREFIX_EXPANSIONS}).
    */
   private static final int CLAUSE_BUDGET = 850;
 
@@ -191,9 +193,10 @@ public class SearchQueryBuilder {
   private static final int MAX_FUZZY_EXPANSIONS = 10;
 
   /**
-   * Stage 1: terms a phrase prefix expands to per field. The whole query is one token on the {@code
-   * .delimited} subfields, so the default of 50 would spend most of what {@link #CLAUSE_BUDGET}
-   * leaves on a query that starts many names.
+   * Stage 1: terms a phrase prefix expands to per field when the query has several terms, whose
+   * per-term clauses take most of {@link #CLAUSE_BUDGET}. The whole query is one token on the
+   * {@code .delimited} subfields. A single term keeps the default of 50: for a word too short for
+   * fuzziness and the wildcard, the prefix is its only partial match.
    */
   private static final int MAX_PREFIX_EXPANSIONS = 10;
 
@@ -418,7 +421,10 @@ public class SearchQueryBuilder {
               customQueryConfig,
               entitySpecs,
               colonStripped,
-              opContext.getAspectRetriever())
+              opContext.getAspectRetriever(),
+              termCount(operatorEscaped) > 1
+                  ? MAX_PREFIX_EXPANSIONS
+                  : FuzzyQuery.defaultMaxExpansions)
           .ifPresent(disMaxQuery::add);
       // Wildcard contains query for substring matching, except for a quoted query, which asks for
       // the words as they are
@@ -470,7 +476,8 @@ public class SearchQueryBuilder {
                 customQueryConfig,
                 entitySpecs,
                 withoutQueryPrefix,
-                opContext.getAspectRetriever())
+                opContext.getAspectRetriever(),
+                FuzzyQuery.defaultMaxExpansions)
             .ifPresent(disMaxQuery::add);
       }
     }
@@ -723,6 +730,7 @@ public class SearchQueryBuilder {
     if (kept == words.length) {
       return query;
     }
+    log.debug("Kept {} of {} words of the query within the clause budget", kept, words.length);
     String keptWords =
         kept == 0
             ? leadingTermsWithinBudget(words[0], counts)
@@ -1558,7 +1566,8 @@ public class SearchQueryBuilder {
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       String query,
-      @Nullable AspectRetriever aspectRetriever) {
+      @Nullable AspectRetriever aspectRetriever,
+      int prefixExpansions) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -1598,7 +1607,7 @@ public class SearchQueryBuilder {
                   && !PREFIX_MATCH_EXCLUDED_FIELDS.contains(searchFieldConfig.fieldName())) {
                 disMaxQuery.add(
                     QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
-                        .maxExpansions(MAX_PREFIX_EXPANSIONS)
+                        .maxExpansions(prefixExpansions)
                         .boost(
                             searchFieldConfig.boost()
                                 * exactMatchConfiguration.getPrefixFactor()
@@ -1619,7 +1628,7 @@ public class SearchQueryBuilder {
                         disMaxQuery.add(
                             QueryBuilders.matchPhrasePrefixQuery(
                                     searchFieldConfig.fieldName(), synonym)
-                                .maxExpansions(MAX_PREFIX_EXPANSIONS)
+                                .maxExpansions(prefixExpansions)
                                 .boost(
                                     searchFieldConfig.boost()
                                         * exactMatchConfiguration.getPrefixFactor()
