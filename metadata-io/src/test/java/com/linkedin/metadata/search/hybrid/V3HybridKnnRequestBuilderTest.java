@@ -46,8 +46,9 @@ public class V3HybridKnnRequestBuilderTest {
             .getIndexConvention()
             .getEntityIndexNameV3(opContext, "document"));
     assertEquals(request.vectorField(), "embeddings.text_embedding_3_small.chunks.vector");
-    // Exactly the given rows are scored
-    assertEquals(request.k(), 2);
+    // The filter bounds the hits to the given rows; k stays at the cap because it counts chunks
+    assertEquals(request.k(), V3HybridKnnRequestBuilder.MAX_K);
+    assertEquals(request.numCandidates(), 10_000);
     assertEquals(request.fieldsToFetch(), List.of("urn"));
     assertEquals(request.filter().get(), filters(documentTypeFilter(), urnFilter(DOC_A, DOC_B)));
     assertEquals(builder.vectorEntityNames(opContext, entityNames), Set.of("document"));

@@ -53,6 +53,20 @@ public class HybridScoreMapBuilderTest {
   }
 
   @Test
+  public void testVectorScoresSkipsUndecodableHitId() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,table,PROD)");
+
+    Map<Urn, Double> scores =
+        builder.vectorScores(
+            new KnnSearchResponse(
+                List.of(
+                    new KnnSearchResponse.Hit("%ZZ", 0.9, Map.of()),
+                    new KnnSearchResponse.Hit(urn.toString(), 0.4, Map.of()))));
+
+    assertEquals(scores, Map.of(urn, 0.4));
+  }
+
+  @Test
   public void testVectorScoresUsesSourceUrnWhenHitIdIsEncoded() throws Exception {
     Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,table,PROD)");
 

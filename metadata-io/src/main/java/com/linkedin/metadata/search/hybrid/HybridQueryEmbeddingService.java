@@ -48,13 +48,21 @@ public class HybridQueryEmbeddingService {
     try {
       vector =
           recentEmbeddings.get(
-              query, () -> embeddingProvider.embed(query, modelId, EmbeddingTaskType.QUERY));
+              query,
+              () ->
+                  checkDimension(embeddingProvider.embed(query, modelId, EmbeddingTaskType.QUERY)));
     } catch (ExecutionException | RuntimeException e) {
       final Throwable cause = e.getCause() != null ? e.getCause() : e;
       throw cause instanceof RuntimeException
           ? (RuntimeException) cause
           : new IllegalStateException("Query embedding failed", cause);
     }
+    return new QueryEmbedding(modelEmbeddingKey, vector);
+  }
+
+  // Checked while loading, so a wrong-sized vector is not cached and the next search retries
+  @Nonnull
+  private float[] checkDimension(@Nonnull final float[] vector) {
     if (expectedDimension > 0 && vector.length != expectedDimension) {
       throw new IllegalStateException(
           "Embedding provider returned "
@@ -64,7 +72,7 @@ public class HybridQueryEmbeddingService {
               + "'; configured mapping expects "
               + expectedDimension);
     }
-    return new QueryEmbedding(modelEmbeddingKey, vector);
+    return vector;
   }
 
   @Nonnull

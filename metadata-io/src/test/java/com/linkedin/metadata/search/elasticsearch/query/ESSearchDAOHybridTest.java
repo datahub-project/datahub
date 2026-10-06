@@ -152,6 +152,20 @@ public class ESSearchDAOHybridTest {
         List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
 
     dao.search(opContext, ENTITY_NAMES, "revenue", null, byName, 0, 10, List.of());
+
+    dao.search(
+        opContext,
+        ENTITY_NAMES,
+        "revenue",
+        null,
+        List.of(new SortCriterion().setField("_score").setOrder(SortOrder.ASCENDING)),
+        0,
+        10,
+        List.of());
+
+    // The fetch from the top would pass the result limit of 1000
+
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 50, 1000, List.of());
     dao.search(opContext, ENTITY_NAMES, "*", null, null, 0, 10, List.of());
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 0, List.of());
     dao.search(
@@ -187,14 +201,18 @@ public class ESSearchDAOHybridTest {
     when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), any()))
         .thenAnswer(
             invocation -> {
+              // Changes made by a rerank that runs past the timeout stay off the served rows
+              List<SearchEntity> rows = invocation.getArgument(3);
+              rows.forEach(row -> row.setScore(-1d));
               Thread.sleep(5_000);
-              return List.of();
+              return rows;
             });
 
     SearchResult result =
         dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
 
     assertEquals(rowIds(result), range(0, 10));
+    assertEquals(result.getEntities().get(0).getScore(), 100d);
   }
 
   @Test

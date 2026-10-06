@@ -95,7 +95,10 @@ public class HybridSearchResultRerankerTest {
             .getIndexConvention()
             .getEntityIndexNameV3(opContext, "document"));
     // The kNN query scores exactly the three document rows
-    assertEquals(request.getValue().k(), 3);
+    Map<?, ?> bool = (Map<?, ?>) request.getValue().filter().get().get("bool");
+    assertEquals(
+        ((Map<?, ?>) ((List<?>) bool.get("filter")).get(1)).get("terms"),
+        Map.of("urn", List.of(DOC_A.toString(), DOC_B.toString(), DOC_C.toString())));
     verify(primaryClient, never())
         .searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
   }

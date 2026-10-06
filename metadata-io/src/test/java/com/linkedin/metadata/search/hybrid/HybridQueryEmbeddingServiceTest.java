@@ -43,6 +43,22 @@ public class HybridQueryEmbeddingServiceTest {
   }
 
   @Test
+  public void testFailedEmbeddingIsRetriedNotCached() {
+    EmbeddingProvider provider = mock(EmbeddingProvider.class);
+    when(provider.embed("revenue", null, EmbeddingTaskType.QUERY))
+        .thenThrow(new IllegalStateException("provider down"))
+        .thenReturn(new float[] {0.1f})
+        .thenReturn(new float[] {0.1f, 0.2f});
+    HybridQueryEmbeddingService service =
+        new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
+
+    assertThrows(IllegalStateException.class, () -> service.embed("revenue"));
+    // A wrong-sized vector is rejected and not cached either
+    assertThrows(IllegalStateException.class, () -> service.embed("revenue"));
+    assertEquals(service.embed("revenue").vector(), new float[] {0.1f, 0.2f});
+  }
+
+  @Test
   public void testRejectsQueryVectorWithWrongDimension() {
     EmbeddingProvider provider = mock(EmbeddingProvider.class);
     when(provider.embed("query", "text-embedding-3-small", EmbeddingTaskType.QUERY))

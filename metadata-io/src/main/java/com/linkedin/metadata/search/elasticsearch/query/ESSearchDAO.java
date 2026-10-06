@@ -53,7 +53,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -62,9 +61,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -493,13 +493,16 @@ public class ESSearchDAO {
         || !Boolean.TRUE.equals(searchFlags.isFulltext())
         || trimmed.isEmpty()
         || "*".equals(trimmed)
-        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
-        || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
+        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
       return 0;
     }
     final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
     // A fetch above the result limit would be cut short, or rejected in strict mode
-    return fetchSize <= searchServiceConfig.getLimit().getResults().getMax() ? fetchSize : 0;
+    if (fetchSize > searchServiceConfig.getLimit().getResults().getMax()
+        || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
+      return 0;
+    }
+    return fetchSize;
   }
 
   /**
@@ -519,21 +522,20 @@ public class ESSearchDAO {
     final List<SearchEntity> rows = keywordResult.getEntities();
     final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
     List<SearchEntity> ranked = rows;
-    CompletableFuture<List<SearchEntity>> rerank = null;
+    Future<List<SearchEntity>> rerank = null;
     try {
-      final List<SearchEntity> window = new ArrayList<>(rows.subList(0, windowEnd));
+      // The worker gets its own copies: a rerank that finishes after the timeout must not change
+      // the rows served as the keyword fallback
+      final List<SearchEntity> window = new ArrayList<>(windowEnd);
+      for (SearchEntity row : rows.subList(0, windowEnd)) {
+        window.add(row.copy());
+      }
       final Map<String, Object> knnFilter = extractRootFilterForKnn(keywordRequest);
       rerank =
-          CompletableFuture.supplyAsync(
-              () -> {
-                try {
-                  return hybridSearchResultReranker.rerank(
-                      opContext, entityNames, input, window, List.of(URN_FIELD), knnFilter);
-                } catch (IOException e) {
-                  throw new UncheckedIOException(e);
-                }
-              },
-              HYBRID_EXECUTOR);
+          HYBRID_EXECUTOR.submit(
+              () ->
+                  hybridSearchResultReranker.rerank(
+                      opContext, entityNames, input, window, List.of(URN_FIELD), knnFilter));
       ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
       ranked.addAll(rows.subList(windowEnd, rows.size()));
     } catch (TimeoutException e) {
@@ -541,13 +543,16 @@ public class ESSearchDAO {
       countHybridFailure(opContext, "hybridReadTimeout");
       log.warn("Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
     } catch (InterruptedException e) {
+      rerank.cancel(true);
       Thread.currentThread().interrupt();
       countHybridFailure(opContext, "hybridReadFailed");
     } catch (Exception e) {
+      final Throwable cause =
+          e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
       countHybridFailure(opContext, "hybridReadFailed");
       // One line per failed search; the stack trace only at debug, so an outage does not flood logs
-      log.warn("Hybrid read failed; serving the keyword ranking: {}", e.toString());
-      log.debug("Hybrid read failure", e);
+      log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
+      log.debug("Hybrid read failure", cause);
     }
     final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
     final int pageStart = Math.min(from, ranked.size());

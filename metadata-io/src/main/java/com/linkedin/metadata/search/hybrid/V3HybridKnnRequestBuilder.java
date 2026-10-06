@@ -64,8 +64,10 @@ public class V3HybridKnnRequestBuilder {
     if (indices.isEmpty() || urns.isEmpty()) {
       return Optional.empty();
     }
-    // Only the given rows are scored, so the search is exact and repeatable and every row with a
-    // vector gets its score
+    // Only the given rows are scored, so the search is exact and repeatable. k counts nearest
+    // chunks
+    // of the nested vectors rather than documents, so it stays at the cap: the filter, not k,
+    // bounds the hits to these rows and every row with a vector gets its score
     final List<String> urnValues = urns.stream().map(Urn::toString).collect(Collectors.toList());
 
     return Optional.of(
@@ -73,7 +75,7 @@ public class V3HybridKnnRequestBuilder {
             .indexName(String.join(",", indices.values()))
             .vectorField(vectorField(modelEmbeddingKey))
             .queryVector(queryVector)
-            .k(Math.min(urnValues.size(), MAX_K))
+            .k(MAX_K)
             .fieldsToFetch(new ArrayList<>(fieldsToFetch))
             .filter(
                 combineFilters(
