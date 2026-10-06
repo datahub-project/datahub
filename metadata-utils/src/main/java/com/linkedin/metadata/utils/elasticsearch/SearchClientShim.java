@@ -479,6 +479,14 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       boolean itemRequeueEnabled, int itemRequeueMaxAttempts) {}
 
   /**
+   * Optional request attribution for bulk writes, see {@link BulkTelemetryConfig}: a span per
+   * flushed batch and the batch id as {@code X-Opaque-Id}. Off by default. Must be called before
+   * the bulk processors are generated. Default no-op for shims without bulk processors.
+   */
+  @OperationContextExempt(reason = "Bulk processor lifecycle setup, not a per-event call.")
+  default void configureBulkTelemetry(@Nonnull BulkTelemetryConfig config) {}
+
+  /**
    * Flush pending bulks and wait until tracked items reach a terminal outcome. Default flushes
    * only.
    */

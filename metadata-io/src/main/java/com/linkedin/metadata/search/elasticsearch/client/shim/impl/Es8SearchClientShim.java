@@ -1804,7 +1804,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
         processorSupplier,
         () ->
             listenerHolder[0] =
-                new Es8BulkListener(metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport));
+                new Es8BulkListener(
+                    metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport, bulkTelemetry));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }

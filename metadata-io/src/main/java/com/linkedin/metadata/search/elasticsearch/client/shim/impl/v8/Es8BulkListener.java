@@ -6,8 +6,10 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemFailureClassifier;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -16,6 +18,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.core.rest.RestStatus;
 
+/**
+ * Bulk listener for the Elasticsearch 8 {@code BulkIngester}; item bookkeeping mirrors {@link
+ * BulkListener}.
+ *
+ * <p>Bulk-write attribution is partial here, by construction of the ingester: {@link BulkTelemetry}
+ * produces the {@code index bulk} span (batch id, action count, indices, took, failures, links to
+ * the actions' origins) from {@code beforeBulk}/{@code afterBulk}, but the ingester owns the HTTP
+ * call. Its builder exposes no per-request {@code TransportOptions} or header hook, only a client
+ * and fixed global settings, so no {@code X-Opaque-Id} is sent for the batch, and the span is never
+ * made current around the call, so an agent's client span for the bulk request stays a separate
+ * span rather than nesting under the batch span. The OpenSearch client path does both.
+ */
 @Slf4j
 public class Es8BulkListener
     implements co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> {
@@ -27,6 +41,7 @@ public class Es8BulkListener
   private final MetricUtils metricUtils;
   @Nullable private final BulkWriteResultTracker tracker;
   @Nullable private final BulkItemRequeueSupport requeueSupport;
+  private final BulkTelemetry telemetry;
 
   public Es8BulkListener(MetricUtils metricUtils) {
     this(metricUtils, null, null);
@@ -36,16 +51,32 @@ public class Es8BulkListener
       MetricUtils metricUtils,
       @Nullable BulkWriteResultTracker tracker,
       @Nullable BulkItemRequeueSupport requeueSupport) {
+    this(metricUtils, tracker, requeueSupport, null);
+  }
+
+  /** With bulk-write attribution (see {@link BulkTelemetry}): a span per flushed batch. */
+  public Es8BulkListener(
+      MetricUtils metricUtils,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkTelemetry telemetry) {
     this.metricUtils = metricUtils;
     this.tracker = tracker;
     this.requeueSupport = requeueSupport;
+    this.telemetry = telemetry != null ? telemetry : BulkTelemetry.disabled();
   }
 
   @Override
   public void beforeBulk(
       long executionId,
       co.elastic.clients.elasticsearch.core.BulkRequest request,
-      List<Object> objects) {}
+      List<Object> objects) {
+    // The ingester owns the client, so no per-batch X-Opaque-Id here; the span still carries the
+    // batch id and links to the actions' origins. Guarded so the disabled path allocates nothing.
+    if (telemetry.isEnabled()) {
+      telemetry.beforeBulk(request, writeRequests(objects));
+    }
+  }
 
   @Override
   public void afterBulk(
@@ -53,6 +84,10 @@ public class Es8BulkListener
       co.elastic.clients.elasticsearch.core.BulkRequest request,
       List<Object> objects,
       co.elastic.clients.elasticsearch.core.BulkResponse response) {
+    if (telemetry.isEnabled()) {
+      // The failed actions' origins are carried until handleItemFailures requeues or forgets them.
+      telemetry.afterBulk(request, response.took(), failedActions(objects, response));
+    }
     String ingestTook = "";
     Long ingestTookInMillis = response.ingestTook();
     if (ingestTookInMillis != null) {
@@ -93,6 +128,7 @@ public class Es8BulkListener
       co.elastic.clients.elasticsearch.core.BulkRequest request,
       List<Object> objects,
       Throwable failure) {
+    telemetry.afterBulk(request, failure);
 
     if (failure instanceof ElasticsearchException
         && isDocumentMissing((ElasticsearchException) failure)) {
@@ -105,6 +141,7 @@ public class Es8BulkListener
         tracker.recordCompleted(objects != null ? objects.size() : 0);
       }
       clearAttempts(objects);
+      forgetAll(objects);
       return;
     }
 
@@ -129,6 +166,7 @@ public class Es8BulkListener
           if (requeueSupport != null && writeRequest != null) {
             requeueSupport.clearAttempts(writeRequest);
           }
+          telemetry.forget(writeRequest);
         }
       }
     }
@@ -166,6 +204,7 @@ public class Es8BulkListener
         if (requeueSupport != null && writeRequest != null) {
           requeueSupport.clearAttempts(writeRequest);
         }
+        telemetry.forget(writeRequest);
         if (tracker != null) {
           tracker.recordCompleted(1);
         }
@@ -180,18 +219,17 @@ public class Es8BulkListener
         continue;
       }
 
+      // Giving up on the item: drop its carried origin along with its requeue attempts.
+      if (requeueSupport != null && writeRequest != null) {
+        requeueSupport.clearAttempts(writeRequest);
+      }
+      telemetry.forget(writeRequest);
       if (versionConflict) {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordLwwExhausted(1);
         }
         incrementMetric(METRIC_LWW_EXHAUSTED);
       } else {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordUnrecoveredTransferFailure(1);
         }
@@ -216,6 +254,40 @@ public class Es8BulkListener
         requeueSupport.clearAttempts((DocWriteRequest<?>) context);
       }
     }
+  }
+
+  private void forgetAll(@Nullable List<Object> objects) {
+    if (!telemetry.isEnabled() || objects == null) {
+      return;
+    }
+    for (Object context : objects) {
+      telemetry.forget(context);
+    }
+  }
+
+  private static List<DocWriteRequest<?>> writeRequests(@Nullable List<Object> objects) {
+    List<DocWriteRequest<?>> out = new ArrayList<>(objects == null ? 0 : objects.size());
+    if (objects != null) {
+      for (Object context : objects) {
+        if (context instanceof DocWriteRequest) {
+          out.add((DocWriteRequest<?>) context);
+        }
+      }
+    }
+    return out;
+  }
+
+  /** The contexts whose items failed, by position; only computed when telemetry is on. */
+  private static List<Object> failedActions(
+      @Nullable List<Object> objects, co.elastic.clients.elasticsearch.core.BulkResponse response) {
+    List<Object> failed = new ArrayList<>();
+    List<BulkResponseItem> items = response.items();
+    for (int i = 0; i < items.size(); i++) {
+      if (items.get(i).error() != null && objects != null && i < objects.size()) {
+        failed.add(objects.get(i));
+      }
+    }
+    return failed;
   }
 
   @Nullable

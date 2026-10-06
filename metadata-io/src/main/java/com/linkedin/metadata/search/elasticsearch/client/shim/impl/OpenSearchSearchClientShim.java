@@ -1057,11 +1057,12 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
 
   private void executeBulkSync(
       BulkRequest request, org.opensearch.core.action.ActionListener<BulkResponse> listener) {
-    try {
+    // Bulk-write attribution (off by default): batch id header and batch span, see BulkTelemetry.
+    try (io.opentelemetry.context.Scope ignored = bulkTelemetry.makeCurrent(request)) {
       BulkResponse response =
           performAndParse(
               OpenSearchShimBridge.bulk(request),
-              RequestOptions.DEFAULT,
+              bulkTelemetry.requestOptions(request, RequestOptions.DEFAULT),
               BulkResponse::fromXContent);
       listener.onResponse(response);
     } catch (Exception e) {
@@ -1079,28 +1080,30 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       listener.onFailure(e);
       return;
     }
-    lowLevelRequest.setOptions(RequestOptions.DEFAULT);
-    restClient.performRequestAsync(
-        lowLevelRequest,
-        new org.opensearch.client.ResponseListener() {
-          @Override
-          public void onSuccess(Response response) {
-            try {
-              listener.onResponse(parseEntity(response.getEntity(), BulkResponse::fromXContent));
-            } catch (Exception e) {
-              listener.onFailure(e);
+    lowLevelRequest.setOptions(bulkTelemetry.requestOptions(request, RequestOptions.DEFAULT));
+    try (io.opentelemetry.context.Scope ignored = bulkTelemetry.makeCurrent(request)) {
+      restClient.performRequestAsync(
+          lowLevelRequest,
+          new org.opensearch.client.ResponseListener() {
+            @Override
+            public void onSuccess(Response response) {
+              try {
+                listener.onResponse(parseEntity(response.getEntity(), BulkResponse::fromXContent));
+              } catch (Exception e) {
+                listener.onFailure(e);
+              }
             }
-          }
 
-          @Override
-          public void onFailure(Exception exception) {
-            if (exception instanceof ResponseException) {
-              listener.onFailure(translateException((ResponseException) exception));
-            } else {
-              listener.onFailure(exception);
+            @Override
+            public void onFailure(Exception exception) {
+              if (exception instanceof ResponseException) {
+                listener.onFailure(translateException((ResponseException) exception));
+              } else {
+                listener.onFailure(exception);
+              }
             }
-          }
-        });
+          });
+    }
   }
 
   @Override
@@ -1132,7 +1135,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
                     writeRequestRefreshPolicy,
                     metricUtils,
                     bulkWriteResultTracker,
-                    bulkItemRequeueSupport));
+                    bulkItemRequeueSupport,
+                    bulkTelemetry));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1166,7 +1170,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
                     writeRequestRefreshPolicy,
                     metricUtils,
                     bulkWriteResultTracker,
-                    bulkItemRequeueSupport));
+                    bulkItemRequeueSupport,
+                    bulkTelemetry));
 
     log.info("Initialized {} bulk processors for parallel execution", threadCount);
   }
