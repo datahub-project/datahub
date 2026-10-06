@@ -58,6 +58,7 @@ import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.DisMaxQueryBuilder;
+import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -201,6 +202,54 @@ public class SearchQueryBuilder {
   private static final int MAX_FUZZY_EXPANSIONS = 10;
 
   /**
+   * Fields excluded from the light path multi_match. These fields either have very low search
+   * relevance (ldap, flowId, jobId, cluster) or are free text whose broad token overlap causes
+   * false positives and latency on the focused light path (glossary term definitions). The full
+   * query still searches them when the light query finds nothing. Document bodies ({@code text})
+   * stay searched, as DataHub Cloud exempts them.
+   */
+  private static final Set<String> LIGHT_PATH_EXCLUDED_FIELDS =
+      Set.of("ldap", "flowId", "jobId", "cluster", "definition");
+
+  /**
+   * Matches queries that are truly a single word — no spaces, underscores, hyphens, dots, or
+   * slashes. Used to skip wordGram fields for single-word queries since wordGram shingles
+   * (2/3/4-grams) require 2+ tokens to match.
+   */
+  private static final Pattern SINGLE_WORD_PATTERN = Pattern.compile("[^\\s_\\-./:]+");
+
+  private static final Pattern DELIMITER_PATTERN = Pattern.compile("[\\s_\\-./:]+");
+
+  /**
+   * Light path: top-level identity fields whose {@code .delimited} analyzer keeps a hyphenated run
+   * (e.g. {@code load_job-0001}) as one token. Used to recover exact identifier matches that {@link
+   * #escapeSimpleQueryStringOperators} shreds by replacing the hyphen with a space. Exact field
+   * names (not shortName) so nested/reference {@code *.delimited} fields cannot sneak in.
+   */
+  private static final Set<String> DELIMITED_IDENTITY_FIELDS =
+      Set.of(
+          "name.delimited",
+          "title.delimited",
+          "urn.delimited",
+          "qualifiedName.delimited",
+          "id.delimited",
+          "displayName.delimited");
+
+  /**
+   * Light path: max query length before truncation at a word boundary. Long S3 paths and URLs
+   * produce many tokens; truncation preserves recall while reducing evaluation cost.
+   */
+  private static final int MAX_LIGHT_QUERY_CHARS = 80;
+
+  /**
+   * Fields the light path searches for EXACT_NAME and FQN queries: name/title-related subfields
+   * only (~10 fields instead of ~35). The full query searches every field when the light query
+   * finds nothing.
+   */
+  private static final Set<String> EXACT_NAME_FOCUSED_FIELDS =
+      Set.of("name", "title", "qualifiedName", "id", "displayName", "urn");
+
+  /**
    * Stage 1: terms a phrase prefix expands to per field when the query has several terms, whose
    * per-term clauses take most of {@link #CLAUSE_BUDGET}. The whole query is one token on the
    * {@code .delimited} subfields. A single term keeps the default of 50: for a word too short for
@@ -273,6 +322,26 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    return buildQuery(opContext, entitySpecs, query, fulltext, false);
+  }
+
+  /**
+   * Builds the query, optionally the light Stage 1 query.
+   *
+   * @param skipExpensiveClauses on Search V3, build the light query: one multi_match instead of the
+   *     fuzzy simple queries, and no wildcard, synonym-priority or full exact/prefix clauses.
+   *     Callers run the full query (false) when the light query matches nothing. V2 queries ignore
+   *     it.
+   * @return the query, or null for a light query that a custom configuration leaves without any
+   *     clause
+   */
+  @Nullable
+  public QueryBuilder buildQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext,
+      boolean skipExpensiveClauses) {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(query).orElse(null);
 
@@ -300,9 +369,18 @@ public class SearchQueryBuilder {
               ? buildIdentityQuery(
                   opContext, customQueryConfig, entitySpecs, normalizedQuery, strategyQuery)
               : buildInternalQueryV2_5(
-                  opContext, customQueryConfig, entitySpecs, normalizedQuery, fulltext);
+                  opContext,
+                  customQueryConfig,
+                  entitySpecs,
+                  normalizedQuery,
+                  fulltext,
+                  skipExpensiveClauses,
+                  intent);
     } else {
       queryBuilder = buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    }
+    if (queryBuilder == null) {
+      return null;
     }
     return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
@@ -381,6 +459,8 @@ public class SearchQueryBuilder {
    * @param entitySpecs entities being searched
    * @param query search string, already validated and synonym-normalized
    * @param fulltext use fulltext queries
+   * @param skipExpensiveClauses build the light query
+   * @param intent the query understanding intent
    * @return query builder
    */
   private QueryBuilder buildInternalQueryV2_5(
@@ -388,7 +468,9 @@ public class SearchQueryBuilder {
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
-      boolean fulltext) {
+      boolean fulltext,
+      boolean skipExpensiveClauses,
+      @Nonnull QueryIntent intent) {
     final boolean simpleSyntax = fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX);
     final IndexFieldCounts fieldCounts =
         simpleSyntax ? indexFieldCounts(opContext, entitySpecs) : null;
@@ -398,6 +480,12 @@ public class SearchQueryBuilder {
             : query.replaceFirst("^:+", "");
     final String operatorEscaped = escapeSimpleQueryStringOperators(colonStripped);
     final String sanitizedQuery = splitAlphanumericTokens(operatorEscaped);
+
+    // Light path: truncate long queries (S3 paths, URLs) to limit evaluation cost.
+    final String lightSanitizedQuery =
+        skipExpensiveClauses
+            ? truncateQueryAtWordBoundary(sanitizedQuery, MAX_LIGHT_QUERY_CHARS)
+            : sanitizedQuery;
 
     // Use dis_max instead of bool/should to prevent score accumulation
     // Takes MAX field score + (tie_breaker × sum_of_other_scores)
@@ -416,53 +504,114 @@ public class SearchQueryBuilder {
             .orElse(null);
 
     if (simpleSyntax) {
-      getSimpleQueryV2_5(
-              opContext,
-              customQueryConfig,
-              entitySpecs,
-              sanitizedQuery,
-              fuzzyExpansions(sanitizedQuery, operatorEscaped, fieldCounts))
-          .ifPresent(disMaxQuery::add);
-      // Exact/prefix match with term queries, phrase prefixes, synonyms and word grams.
-      getPrefixAndExactMatchQueryV2_5(
-              opContext.getEntityRegistry(),
-              customQueryConfig,
-              entitySpecs,
-              colonStripped,
-              opContext.getAspectRetriever(),
-              termCount(operatorEscaped) > 1
-                  ? MAX_PREFIX_EXPANSIONS
-                  : FuzzyQuery.defaultMaxExpansions)
-          .ifPresent(disMaxQuery::add);
-      // Wildcard contains query for substring matching, except for a quoted query, which asks for
-      // the words as they are
-      if (!FULLY_QUOTED_PATTERN.matcher(colonStripped.trim()).matches()
-          && (customQueryConfig == null
+      // A custom query configuration can turn every text match off
+      final boolean anyTextMatch =
+          customQueryConfig == null
               || customQueryConfig.isSimpleQuery()
               || customQueryConfig.isPrefixMatchQuery()
-              || customQueryConfig.isExactMatchQuery())) {
-        getWildcardContainsQuery(opContext.getEntityRegistry(), entitySpecs, colonStripped)
+              || customQueryConfig.isExactMatchQuery();
+      // A single word split at letter/digit boundaries ("cargo2017") is a light match only where
+      // a name holds it whole (the identity re-query below) or holds all of its parts (the
+      // all-terms bonus). The multi_match would also take a name holding only "cargo": the
+      // .delimited search analyzers split "cargo 2017" inside one token, where an AND operator
+      // does not require every part. A word that also holds "_" or "-" ("fleet_v2") still
+      // matches a name holding one of those parts, as in DataHub Cloud: the analyzers emit them
+      // at one position.
+      final boolean splitWord =
+          skipExpensiveClauses
+              && intent == QueryIntent.EXACT_NAME
+              && splitsLetterDigitRun(operatorEscaped);
+      if (!splitWord) {
+        getSimpleQueryV2_5(
+                opContext,
+                customQueryConfig,
+                entitySpecs,
+                lightSanitizedQuery,
+                colonStripped,
+                skipExpensiveClauses,
+                intent,
+                fuzzyExpansions(sanitizedQuery, operatorEscaped, fieldCounts))
             .ifPresent(disMaxQuery::add);
       }
-      getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
-          .ifPresent(disMaxQuery::add);
-      // splitAlphanumericTokens turned "orders2017" into "orders 2017", but the analyzers index
-      // such a run as one token, so also match the unsplit query, without fuzziness
-      if (splitsLetterDigitRun(operatorEscaped)) {
-        getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, operatorEscaped)
+      // Synonym recall: the light multi_match reads the mapping's search analyzers, so add
+      // queries for the synonyms the analyzers would not expand, such as multi-word ones. A
+      // quoted query names a value and does not expand, and only a synonym that is the same name
+      // gets the exact-name terms.
+      if (skipExpensiveClauses && !FULLY_QUOTED_PATTERN.matcher(colonStripped.trim()).matches()) {
+        Set<String> synonyms = getSynonymMap().get(colonStripped.toLowerCase());
+        if (synonyms != null) {
+          for (String synonym : synonyms) {
+            if (!synonym.equalsIgnoreCase(colonStripped)) {
+              getSimpleQueryV2_5(
+                      opContext,
+                      customQueryConfig,
+                      entitySpecs,
+                      synonym,
+                      isSameName(colonStripped, synonym) ? synonym : null,
+                      skipExpensiveClauses,
+                      intent,
+                      0)
+                  .ifPresent(disMaxQuery::add);
+            }
+          }
+        }
+      }
+      if (skipExpensiveClauses) {
+        // Light path: two constant_score clauses (name.keyword, title.keyword) so exact name
+        // matches still rank first regardless of cross-entity IDF disparities.
+        if (customQueryConfig == null || customQueryConfig.isExactMatchQuery()) {
+          getLightweightExactMatchBoost(colonStripped, getSynonymMap()).ifPresent(disMaxQuery::add);
+        }
+      } else {
+        // Exact/prefix match with term queries, phrase prefixes, synonyms and word grams.
+        getPrefixAndExactMatchQueryV2_5(
+                opContext.getEntityRegistry(),
+                customQueryConfig,
+                entitySpecs,
+                colonStripped,
+                opContext.getAspectRetriever(),
+                termCount(operatorEscaped) > 1
+                    ? MAX_PREFIX_EXPANSIONS
+                    : FuzzyQuery.defaultMaxExpansions)
             .ifPresent(disMaxQuery::add);
+        // Wildcard contains query for substring matching, except for a quoted query, which asks
+        // for the words as they are
+        if (anyTextMatch && !FULLY_QUOTED_PATTERN.matcher(colonStripped.trim()).matches()) {
+          getWildcardContainsQuery(opContext.getEntityRegistry(), entitySpecs, colonStripped)
+              .ifPresent(disMaxQuery::add);
+        }
+        // The light path skips the synonym-priority query: the light multi_match already finds
+        // synonym matches through the search-time synonym filters.
+        getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
+            .ifPresent(disMaxQuery::add);
+        // splitAlphanumericTokens turned "orders2017" into "orders 2017", but the analyzers index
+        // such a run as one token, so also match the unsplit query, without fuzziness
+        if (splitsLetterDigitRun(operatorEscaped)) {
+          getSynonymPriorityQuery(opContext, customQueryConfig, entitySpecs, operatorEscaped)
+              .ifPresent(disMaxQuery::add);
+        }
       }
       // These conditional clauses provide recall and scoring for specific query patterns.
-      // They only fire when the query matches their activation criteria, and not when a custom
-      // query configuration turns every text match off.
-      if (customQueryConfig == null
-          || customQueryConfig.isSimpleQuery()
-          || customQueryConfig.isPrefixMatchQuery()
-          || customQueryConfig.isExactMatchQuery()) {
-        getAllTermsMatchBonus(opContext.getEntityRegistry(), entitySpecs, sanitizedQuery)
+      // They only fire when the query matches their activation criteria.
+      if (anyTextMatch) {
+        getAllTermsMatchBonus(opContext.getEntityRegistry(), entitySpecs, lightSanitizedQuery)
             .ifPresent(disMaxQuery::add);
-        getFqnMatchQuery(colonStripped).ifPresent(disMaxQuery::add);
-        getDescriptionPhraseMatchQuery(sanitizedQuery).ifPresent(disMaxQuery::add);
+        // FQN match on the light path only for 3+ segment FQNs ("db.schema.table"): the common
+        // tokens of short FQNs match thousands of loosely related entities, while long FQNs are
+        // specific enough and need the boost to outrank containers matching the first segment.
+        if (!skipExpensiveClauses || colonStripped.chars().filter(c -> c == '.').count() >= 2) {
+          getFqnMatchQuery(colonStripped).ifPresent(disMaxQuery::add);
+        }
+        getDescriptionPhraseMatchQuery(lightSanitizedQuery).ifPresent(disMaxQuery::add);
+      }
+      // On the light path the raw-query exact/prefix/wildcard clauses are skipped, and the
+      // escaping and letter/digit splitting above shred identifiers such as "load_job-0001" or
+      // "orders2017" that the .delimited analyzer indexes as one token. Re-query the .delimited
+      // identity fields with the pre-escape string, all terms required. Fires only when escaping
+      // or splitting changed the query, so ordinary queries are untouched.
+      if (skipExpensiveClauses && anyTextMatch && !colonStripped.equals(sanitizedQuery)) {
+        getDelimitedIdentityQuery(opContext, entitySpecs, colonStripped)
+            .ifPresent(disMaxQuery::add);
       }
     } else {
       // Structured query path: uses raw query (no splitAlphanumericTokens) because
@@ -488,6 +637,12 @@ public class SearchQueryBuilder {
                 FuzzyQuery.defaultMaxExpansions)
             .ifPresent(disMaxQuery::add);
       }
+    }
+
+    if (skipExpensiveClauses && disMaxQuery.innerQueries().isEmpty()) {
+      // A custom configuration left no light clause, so a light query would match every entity:
+      // there is none, and the caller runs the full query
+      return null;
     }
 
     // Check if dis_max has any queries (it requires at least one sub-query)
@@ -849,6 +1004,52 @@ public class SearchQueryBuilder {
   }
 
   /**
+   * Truncates a query to approximately maxChars characters, cutting at the last word boundary
+   * (whitespace or common delimiter) before the limit. Used by the light path to limit the cost of
+   * long queries (S3 paths, URLs). Returns the original query unchanged if it is already shorter
+   * than maxChars.
+   */
+  @VisibleForTesting
+  static String truncateQueryAtWordBoundary(@Nonnull final String query, int maxChars) {
+    if (query.length() <= maxChars) {
+      return query;
+    }
+    // Find last word boundary (whitespace or common delimiters) at or before maxChars
+    int cutPoint = maxChars;
+    while (cutPoint > 0 && !isQueryDelimiter(query.charAt(cutPoint))) {
+      cutPoint--;
+    }
+    // If no delimiter found in first maxChars chars, cut at the limit
+    if (cutPoint == 0) {
+      cutPoint = maxChars;
+    }
+    return query.substring(0, cutPoint).trim();
+  }
+
+  private static boolean isQueryDelimiter(char c) {
+    return Character.isWhitespace(c) || c == '/' || c == '.' || c == ':' || c == '_';
+  }
+
+  /**
+   * Strips matching surrounding quotes (single or double, bare or escaped) from a query string.
+   * Handles both escaped quotes (e.g., {@code \"term\"}) and bare quotes (e.g., {@code "term"}).
+   * Returns the original string unchanged if it is not quoted.
+   */
+  @VisibleForTesting
+  static String stripSurroundingQuotes(@Nonnull final String query) {
+    if (query.length() > 4
+        && ((query.startsWith("\\\"") && query.endsWith("\\\""))
+            || (query.startsWith("\\'") && query.endsWith("\\'")))) {
+      return query.substring(2, query.length() - 2);
+    } else if (query.length() > 2
+        && ((query.startsWith("\"") && query.endsWith("\""))
+            || (query.startsWith("'") && query.endsWith("'")))) {
+      return query.substring(1, query.length() - 1);
+    }
+    return query;
+  }
+
+  /**
    * Replaces SimpleQueryString operator characters with spaces so user input is treated as literal
    * search terms, not query syntax. Without this, hyphens become NOT operators (e.g.,
    * "user-interaction" excludes "interaction"), tildes override fuzzy edit distance, and other
@@ -1121,17 +1322,20 @@ public class SearchQueryBuilder {
   }
 
   /**
-   * Stage 1: Simple query with fuzzy matching, OR operator, and lenient behavior. One simple query
-   * string per analyzer group under a DisMax, with explicit fuzzy operators (~N): multi_match
+   * Stage 1: Simple query with OR operator and lenient behavior. The full query runs one simple
+   * query string per analyzer group under a DisMax, with explicit fuzzy operators (~N): multi_match
    * fuzziness applies AFTER analysis (stemming), so "notiphication" stems to "notiph" which can't
    * fuzzy-match "notif" (stemmed "notification"). SQS applies ~N to raw tokens before analysis,
-   * preserving fuzzy recall.
+   * preserving fuzzy recall. The light query runs a single multi_match without fuzziness instead.
    */
   private Optional<QueryBuilder> getSimpleQueryV2_5(
       @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery,
+      @Nullable String typedQuery,
+      boolean skipExpensiveClauses,
+      @Nonnull QueryIntent intent,
       int maxExpansions) {
     Optional<QueryBuilder> result = Optional.empty();
     EntityRegistry entityRegistry = operationContext.getEntityRegistry();
@@ -1156,6 +1360,15 @@ public class SearchQueryBuilder {
               customizedQueryHandler.resolveFieldConfiguration(
                   operationContext.getSearchContext().getSearchFlags(),
                   CustomConfiguration::getSearchFieldConfigDefault));
+
+      if (skipExpensiveClauses) {
+        return getLightSimpleQuery(
+            configuredFields,
+            sanitizedQuery,
+            typedQuery,
+            intent,
+            customQueryConfig == null || customQueryConfig.isExactMatchQuery());
+      }
 
       DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
       disMaxQuery.tieBreaker(SIMPLE_QUERY_DISMAX_TIE_BREAKER);
@@ -1214,6 +1427,158 @@ public class SearchQueryBuilder {
     }
 
     return result;
+  }
+
+  /**
+   * Light path: a single multi_match over the {@code .delimited} and {@code .wordGrams} subfields,
+   * which apply their mapping's search analyzers, instead of the per-analyzer simple queries. Exact
+   * matching is handled separately by {@link #getLightweightExactMatchBoost}.
+   */
+  private Optional<QueryBuilder> getLightSimpleQuery(
+      @Nonnull Set<SearchFieldConfig> configuredFields,
+      @Nonnull String sanitizedQuery,
+      @Nullable String typedQuery,
+      @Nonnull QueryIntent intent,
+      boolean exactMatch) {
+    // Quoted queries are not searching for the quote characters
+    String matchQuery =
+        intent == QueryIntent.EXACT_NAME ? stripSurroundingQuotes(sanitizedQuery) : sanitizedQuery;
+
+    MultiMatchQueryBuilder multiMatch =
+        QueryBuilders.multiMatchQuery(matchQuery)
+            .type(MultiMatchQueryBuilder.Type.BEST_FIELDS)
+            .tieBreaker(SIMPLE_QUERY_DISMAX_TIE_BREAKER);
+
+    // AND operator for navigational queries: deep FQNs (2+ dots) and long exact names (5+
+    // delimiter tokens). Narrows the candidate set; the full OR query runs when this finds nothing.
+    boolean isDeepFqn =
+        intent == QueryIntent.FQN && matchQuery.chars().filter(c -> c == '.').count() >= 2;
+    boolean isLongExactName =
+        intent == QueryIntent.EXACT_NAME
+            && Arrays.stream(DELIMITER_PATTERN.split(matchQuery))
+                    .filter(part -> !part.isEmpty())
+                    .count()
+                >= 5;
+    if (isDeepFqn || isLongExactName) {
+      multiMatch.operator(Operator.AND);
+    }
+
+    // EXACT_NAME and FQN queries search the name-related subfields only; KEYWORD queries search
+    // every field for broader recall. Word grams need 2+ tokens, so single words skip them.
+    boolean useNameFocusedFields = intent == QueryIntent.EXACT_NAME || intent == QueryIntent.FQN;
+    boolean isTrueSingleWord = SINGLE_WORD_PATTERN.matcher(matchQuery.trim()).matches();
+    Map<String, Float> fieldBoosts = new LinkedHashMap<>();
+    configuredFields.stream()
+        .filter(SearchFieldConfig::isQueryByDefault)
+        .filter(cfg -> cfg.isDelimitedSubfield() || (cfg.isWordGramSubfield() && !isTrueSingleWord))
+        .filter(cfg -> !LIGHT_PATH_EXCLUDED_FIELDS.contains(cfg.shortName()))
+        .filter(cfg -> !useNameFocusedFields || EXACT_NAME_FOCUSED_FIELDS.contains(cfg.shortName()))
+        .forEach(cfg -> fieldBoosts.merge(cfg.fieldName(), cfg.boost(), Math::max));
+    if (fieldBoosts.isEmpty()) {
+      return Optional.empty();
+    }
+    fieldBoosts.forEach(multiMatch::field);
+
+    // No typed name: a synonym that is a different name gets no exact-name terms
+    if (!useNameFocusedFields || !exactMatch || typedQuery == null) {
+      return Optional.of(multiMatch);
+    }
+    // Exact name hits score above multi_match results. The name is the query as typed: escaping
+    // and splitting would make "load-job" an exact match for a name "Load Job"
+    String exactQuery = stripSurroundingQuotes(typedQuery);
+    DisMaxQueryBuilder nameBoost = QueryBuilders.disMaxQuery().tieBreaker(0.0f);
+    nameBoost.add(
+        QueryBuilders.termQuery("name.keyword", exactQuery)
+            .caseInsensitive(true)
+            .boost(EXACT_NAME_CONSTANT_BOOST));
+    nameBoost.add(
+        QueryBuilders.termQuery("title.keyword", exactQuery)
+            .caseInsensitive(true)
+            .boost(EXACT_NAME_CONSTANT_BOOST));
+    nameBoost.add(multiMatch);
+    return Optional.of(nameBoost);
+  }
+
+  /**
+   * Light path: minimal exact-match boost using only constant_score clauses on name.keyword and
+   * title.keyword. Keeps exact name matches above partial matches without the many clauses of the
+   * full exact/prefix query (term queries, phrase prefixes, synonyms and word grams on every core
+   * field).
+   */
+  @VisibleForTesting
+  static Optional<QueryBuilder> getLightweightExactMatchBoost(
+      @Nonnull final String query, @Nullable Map<String, Set<String>> synonymMap) {
+    if (query.trim().isEmpty()) {
+      return Optional.empty();
+    }
+
+    String unquotedQuery = stripSurroundingQuotes(query);
+    // A quoted query names a value, so it does not expand to its synonyms
+    boolean quoted = FULLY_QUOTED_PATTERN.matcher(query.trim()).matches();
+    DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
+    disMaxQuery.tieBreaker(EXACT_PREFIX_DISMAX_TIE_BREAKER);
+
+    for (String field : List.of("name.keyword", "title.keyword")) {
+      disMaxQuery.add(
+          QueryBuilders.constantScoreQuery(
+                  QueryBuilders.termQuery(field, unquotedQuery).caseInsensitive(true))
+              .boost(EXACT_NAME_CONSTANT_BOOST));
+
+      // Synonym-expanded exact match for the same name written another way: e.g., "staging" also
+      // matches name="stg", but "glue" does not match name="athena"
+      if (synonymMap != null && !quoted) {
+        Set<String> synonyms = synonymMap.get(unquotedQuery.toLowerCase());
+        if (synonyms != null) {
+          for (String synonym : synonyms) {
+            if (!synonym.equalsIgnoreCase(unquotedQuery) && isSameName(unquotedQuery, synonym)) {
+              disMaxQuery.add(
+                  QueryBuilders.constantScoreQuery(
+                          QueryBuilders.termQuery(field, synonym).caseInsensitive(true))
+                      .boost(EXACT_NAME_CONSTANT_BOOST));
+            }
+          }
+        }
+      }
+    }
+
+    return Optional.of(disMaxQuery);
+  }
+
+  /**
+   * Multi-match over the {@code .delimited} identity fields ({@code name}, {@code title}, {@code
+   * urn}, {@code qualifiedName}, {@code id}, {@code displayName}) queried with the pre-escape
+   * string, so an identifier that {@link #escapeSimpleQueryStringOperators} or {@link
+   * #splitAlphanumericTokens} broke up ({@code load_job-0001}, {@code orders2017}) still matches
+   * the whole token the {@code .delimited} analyzer indexes. Every term is required, but that
+   * analyzer also emits the {@code _} and {@code -} separated parts of an identifier at the same
+   * position, so for such an identifier a name holding one part matches as well. Empty when none of
+   * these fields is queried.
+   */
+  private Optional<QueryBuilder> getDelimitedIdentityQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String rawQuery) {
+    Map<String, Float> identityFields = new LinkedHashMap<>();
+    customizedQueryHandler
+        .applySearchFieldConfiguration(
+            getStandardFields(opContext.getEntityRegistry(), entitySpecs),
+            customizedQueryHandler.resolveFieldConfiguration(
+                opContext.getSearchContext().getSearchFlags(),
+                CustomConfiguration::getSearchFieldConfigDefault))
+        .stream()
+        .filter(SearchFieldConfig::isQueryByDefault)
+        .filter(cfg -> DELIMITED_IDENTITY_FIELDS.contains(cfg.fieldName()))
+        .forEach(cfg -> identityFields.merge(cfg.fieldName(), cfg.boost(), Math::max));
+    if (identityFields.isEmpty()) {
+      return Optional.empty();
+    }
+    MultiMatchQueryBuilder multiMatch =
+        QueryBuilders.multiMatchQuery(rawQuery)
+            .type(MultiMatchQueryBuilder.Type.BEST_FIELDS)
+            .operator(Operator.AND)
+            .tieBreaker(SIMPLE_QUERY_DISMAX_TIE_BREAKER);
+    identityFields.forEach(multiMatch::field);
+    return Optional.of(multiMatch);
   }
 
   /**

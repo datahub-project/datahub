@@ -62,6 +62,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.opensearch.index.query.MatchPhraseQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
+import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryStringQueryBuilder;
@@ -1604,6 +1605,19 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       assertEquals(root.mustNot().size(), 1, query);
       assertEquals(root.must().size(), 1, query);
     }
+    // The light query keeps the wrapper too
+    BoolQueryBuilder lightRoot =
+        (BoolQueryBuilder)
+            ((FunctionScoreQueryBuilder)
+                    builder.buildQuery(
+                        opContext,
+                        ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                        "orders",
+                        true,
+                        true))
+                .query();
+    assertEquals(lightRoot.mustNot().size(), 1);
+    assertEquals(lightRoot.must().size(), 1);
   }
 
   @Test
@@ -1621,7 +1635,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 CustomSearchConfiguration.class);
     SearchQueryBuilder builder = new SearchQueryBuilder(testQueryConfig, config, true);
     EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
-    for (String query : List.of("orders", "my_db.sales.orders", "orders placed by each customer")) {
+    for (String query :
+        List.of("orders", "orders2017", "my_db.sales.orders", "orders placed by each customer")) {
       List<QueryBuilder> clauses = new ArrayList<>();
       collectClauses(
           builder.buildQuery(operationContext, List.of(datasetSpec), query, true), clauses);
@@ -1631,8 +1646,12 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                   clause ->
                       clause instanceof WildcardQueryBuilder
                           || clause instanceof MatchQueryBuilder
-                          || clause instanceof SimpleQueryStringBuilder),
+                          || clause instanceof MultiMatchQueryBuilder
+                          || clause instanceof SimpleQueryStringBuilder
+                          || clause instanceof TermQueryBuilder),
           query + ": " + clauses);
+      // No light query either, so the full query serves the search
+      assertNull(builder.buildQuery(operationContext, List.of(datasetSpec), query, true, true));
     }
   }
 
@@ -1851,6 +1870,250 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     // Each underscore or hyphen separated term gets its own distance
     assertEquals(SearchQueryBuilder.makeFuzzyQuery("user_facts"), "user facts~1");
     assertEquals(SearchQueryBuilder.makeFuzzyQuery("active-users"), "active~1 users~1");
+  }
+
+  @Test
+  public void testV3LightQuerySkipsExpensiveClauses() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, true),
+        clauses);
+    assertTrue(clauses.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
+    assertTrue(clauses.stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
+    // A single word searches the name-related delimited subfields only, here the urn
+    MultiMatchQueryBuilder multiMatch =
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .findFirst()
+            .orElseThrow();
+    assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
+    assertEquals(multiMatch.fields().keySet(), Set.of("urn.delimited"));
+    // Exact names still score a constant above every partial match
+    assertTrue(
+        clauses.stream()
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .anyMatch(term -> term.fieldName().equals("name.keyword") && term.boost() == 1000.0f));
+  }
+
+  @Test
+  public void testV3LightQueryForKeywordsSearchesEveryField() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext,
+            ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+            "test query words",
+            true,
+            true),
+        clauses);
+    Set<String> fields =
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
+            .collect(Collectors.toSet());
+    assertTrue(fields.contains("textFieldOverride.delimited"), fields.toString());
+    // Word grams need two or more words
+    assertTrue(fields.contains("wordGramField.wordGrams2"), fields.toString());
+  }
+
+  @Test
+  public void testV3LightQueryForDeepFqnRequiresEveryToken() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext,
+            ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+            "my_db.sales.orders",
+            true,
+            true),
+        clauses);
+    assertTrue(
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .anyMatch(multiMatch -> multiMatch.operator() == Operator.AND),
+        clauses.toString());
+  }
+
+  @Test
+  public void testV3LightQueryExpandsSynonymsOfExactNames() {
+    EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(operationContext, List.of(datasetSpec), "staging", true, true),
+        clauses);
+    assertTrue(
+        clauses.stream()
+            .filter(ConstantScoreQueryBuilder.class::isInstance)
+            .map(cs -> (TermQueryBuilder) ((ConstantScoreQueryBuilder) cs).innerQuery())
+            .anyMatch(
+                term -> term.fieldName().equals("name.keyword") && "stg".equals(term.value())),
+        clauses.toString());
+  }
+
+  @Test
+  public void testV3LightQueryScoresOnlySameNameSynonymsAsExact() {
+    // "athena" is a synonym of "glue" but a different name: no exact-name score, neither the
+    // constant nor the synonym multi_match's exact-name terms
+    List<QueryBuilder> glue = v3LightDatasetClauses("glue");
+    assertEquals(exactNameConstants(glue), Set.of("glue"));
+    assertTrue(
+        glue.stream()
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .noneMatch(term -> "athena".equals(term.value())),
+        glue.toString());
+    // A quoted query names a value, so it does not expand to its synonyms
+    assertEquals(exactNameConstants(v3LightDatasetClauses("\"staging\"")), Set.of("staging"));
+  }
+
+  private List<QueryBuilder> v3LightDatasetClauses(String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext,
+            List.of(operationContext.getEntityRegistry().getEntitySpec("dataset")),
+            query,
+            true,
+            true),
+        clauses);
+    return clauses;
+  }
+
+  @Test
+  public void testV3LightQueryKeepsSplitWordsWhole() {
+    // "cargo2017" splits into "cargo 2017": no multi_match takes a name holding only one part,
+    // and the whole run is re-queried on the identity fields
+    List<MultiMatchQueryBuilder> split = v3LightMultiMatches("cargo2017");
+    assertEquals(split.size(), 1, split.toString());
+    assertEquals(split.get(0).value(), "cargo2017");
+    assertEquals(split.get(0).operator(), Operator.AND);
+    // Escaping alone keeps matching any part, and re-queries the hyphenated identifier whole
+    List<MultiMatchQueryBuilder> escaped = v3LightMultiMatches("load-job");
+    assertTrue(
+        escaped.stream().anyMatch(m -> "load job".equals(m.value()) && m.operator() == Operator.OR),
+        escaped.toString());
+    assertTrue(
+        escaped.stream()
+            .anyMatch(m -> "load-job".equals(m.value()) && m.operator() == Operator.AND),
+        escaped.toString());
+    // An unchanged word adds no re-query
+    assertEquals(v3LightMultiMatches("cargo").size(), 1);
+  }
+
+  @Test
+  public void testV3LightQueryRequeriesEveryNameField() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext,
+            List.of(
+                operationContext.getEntityRegistry().getEntitySpec("dataset"),
+                operationContext.getEntityRegistry().getEntitySpec("corpuser")),
+            "cargo2017",
+            true,
+            true),
+        clauses);
+    Set<String> fields =
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .filter(multiMatch -> multiMatch.operator() == Operator.AND)
+            .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
+            .collect(Collectors.toSet());
+    assertTrue(
+        fields.containsAll(
+            Set.of("name.delimited", "qualifiedName.delimited", "displayName.delimited")),
+        fields.toString());
+  }
+
+  @Test
+  public void testV3LightQueryForLongExactNameRequiresEveryToken() {
+    // Five parts make a long name, every part required; a leading delimiter adds no part
+    assertTrue(
+        v3LightMultiMatches("aa_bb_cc_dd_ee").stream()
+            .anyMatch(multiMatch -> multiMatch.operator() == Operator.AND));
+    assertTrue(
+        v3LightMultiMatches("_aa_bb_cc_dd").stream()
+            .noneMatch(multiMatch -> multiMatch.operator() == Operator.AND));
+  }
+
+  @Test
+  public void testV3LightExactNameIsTheQueryAsTyped() {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "load-job", true, true),
+        clauses);
+    // Not "load job", which would make a name "Load Job" an exact match
+    assertEquals(
+        clauses.stream()
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .filter(term -> term.fieldName().equals("name.keyword"))
+            .map(TermQueryBuilder::value)
+            .collect(Collectors.toSet()),
+        Set.of("load-job"));
+  }
+
+  @Test
+  public void testV3LightQueryCutsLongQueriesAtAWordBoundary() {
+    // The light query matches the first 80 characters of a longer query, cut between words
+    String query =
+        "quarterly revenue forecast by region and product line for the north american sales team";
+    List<MultiMatchQueryBuilder> multiMatches = v3LightMultiMatches(query);
+    assertFalse(multiMatches.isEmpty());
+    for (MultiMatchQueryBuilder multiMatch : multiMatches) {
+      String value = String.valueOf(multiMatch.value());
+      assertTrue(value.length() <= 80 && query.startsWith(value + " "), value);
+    }
+    // A word longer than that is cut at 80 characters
+    assertTrue(
+        v3LightMultiMatches("x".repeat(90)).stream()
+            .allMatch(multiMatch -> String.valueOf(multiMatch.value()).equals("x".repeat(80))));
+  }
+
+  private List<MultiMatchQueryBuilder> v3LightMultiMatches(String query) {
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), query, true, true),
+        clauses);
+    return clauses.stream()
+        .filter(MultiMatchQueryBuilder.class::isInstance)
+        .map(MultiMatchQueryBuilder.class::cast)
+        .collect(Collectors.toList());
+  }
+
+  @Test
+  public void testV3LightQuerySearchesDocumentBodies() {
+    EntitySpec documentSpec = operationContext.getEntityRegistry().getEntitySpec("document");
+    List<QueryBuilder> clauses = new ArrayList<>();
+    collectClauses(
+        TEST_V3_BUILDER.buildQuery(
+            operationContext, List.of(documentSpec), "quarterly revenue", true, true),
+        clauses);
+    assertTrue(
+        clauses.stream()
+            .filter(MultiMatchQueryBuilder.class::isInstance)
+            .map(MultiMatchQueryBuilder.class::cast)
+            .anyMatch(multiMatch -> multiMatch.fields().containsKey("text.delimited")),
+        clauses.toString());
+  }
+
+  @Test
+  public void testV2IgnoresLightQueryFlag() {
+    QueryBuilder full =
+        TEST_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, false);
+    QueryBuilder light =
+        TEST_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, true);
+    assertEquals(light, full);
   }
 
   /** Collects every clause of a built query tree, descending into compound queries. */

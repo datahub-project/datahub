@@ -475,6 +475,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
   }
 
+  /**
+   * Build the query, optionally the light Stage 1 query without its expensive clauses (fuzzy,
+   * wildcard). Null for a light query that a custom configuration leaves without any clause.
+   *
+   * @see SearchQueryBuilder#buildQuery(OperationContext, List, String, boolean, boolean)
+   */
+  @Nullable
+  public QueryBuilder getQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      boolean fulltext,
+      boolean skipExpensiveClauses) {
+    return searchQueryBuilder.buildQuery(
+        opContext, entitySpecs, query, fulltext, skipExpensiveClauses);
+  }
+
   private static void applyFetchSource(
       @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SearchFlags searchFlags) {
     String[] includes =
