@@ -18,6 +18,7 @@ DataHub's BigQuery connector supports two approaches for extracting lineage and 
   - Multi-region support via `region_qualifiers`
   - Table and column-level usage statistics
   - User filtering pushdown for performance (see [User Email Filtering Pushdown](#user-email-filtering-pushdown-performance-optimization) section below)
+  - Optional capture of BigQuery job labels as custom properties on Query entities, enabled with `capture_job_labels_as_query_properties: true`. For example, Airflow's `BigQueryInsertJobOperator` sets `airflow-dag` and `airflow-task` labels, which let you trace a query back to the DAG and task that ran it. When the same SQL runs with different labels, or with none, the most recently observed job's labels are kept. The labels are searchable but not yet shown on the Query card in the UI.
 - **Requirements**:
   - `bigquery.jobs.listAll` permission on target projects
   - No additional Cloud Logging permissions needed

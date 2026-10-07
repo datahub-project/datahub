@@ -258,7 +258,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         """Foreign-key constraints on a table: each entry lists the local
         constrained columns and the referred schema/table/columns. Use to
         understand cross-table relationships. Metadata only — no row data."""
-        return self._insp.get_foreign_keys(table, schema=schema)
+        return [dict(fk) for fk in self._insp.get_foreign_keys(table, schema=schema)]
 
     @probe_method(name="view_definition")
     def view_definition(self, schema: str, view: str) -> Optional[str]:
@@ -270,12 +270,12 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     def primary_key(self, schema: str, table: str) -> Dict[str, object]:
         """The primary-key constraint on a table: the constrained column names
         and the constraint name."""
-        return self._insp.get_pk_constraint(table, schema=schema)
+        return dict(self._insp.get_pk_constraint(table, schema=schema))
 
     @probe_method()
     def indexes(self, schema: str, table: str) -> List[Dict[str, object]]:
         """Indexes on a table: name, indexed column names, and uniqueness."""
-        return self._insp.get_indexes(table, schema=schema)
+        return [dict(ix) for ix in self._insp.get_indexes(table, schema=schema)]
 
     @probe_method()
     def columns(self, schema: str, table: str) -> List[Dict[str, object]]:
@@ -295,4 +295,4 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     @probe_method()
     def table_comment(self, schema: str, table: str) -> Dict[str, object]:
         """The table's stored comment/description, if any."""
-        return self._insp.get_table_comment(table, schema=schema)
+        return dict(self._insp.get_table_comment(table, schema=schema))

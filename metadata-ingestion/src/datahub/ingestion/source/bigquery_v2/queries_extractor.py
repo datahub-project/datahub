@@ -4,22 +4,13 @@ import pathlib
 import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import (
-    Collection,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    TypedDict,
-    Union,
-)
+from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import sqlglot
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt, model_validator
 from sqlglot.tokens import Token, TokenType
+from typing_extensions import NotRequired, TypedDict
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
@@ -36,6 +27,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    CAPTURE_JOB_LABELS_DESCRIPTION,
     DEFAULT_REGION_QUALIFIERS,
     BigQueryBaseConfig,
 )
@@ -90,6 +82,11 @@ class DMLJobStatistics(TypedDict):
     updated_row_count: int
 
 
+class BigQueryJobLabel(TypedDict):
+    key: str
+    value: str
+
+
 class BigQueryJob(TypedDict):
     job_id: str
     project_id: str
@@ -102,6 +99,8 @@ class BigQueryJob(TypedDict):
     statement_type: str
     destination_table: Optional[BigQueryTableReference]
     referenced_tables: List[BigQueryTableReference]
+    # Only selected when capture_job_labels_as_query_properties is enabled.
+    labels: NotRequired[List[BigQueryJobLabel]]
     # NOTE: This does not capture referenced_view unlike GCP Logging Event
 
 
@@ -158,6 +157,10 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_usage_statistics: bool = True
     include_query_usage_statistics: bool = True
     include_operations: bool = True
+    capture_job_labels_as_query_properties: bool = Field(
+        default=False,
+        description=CAPTURE_JOB_LABELS_DESCRIPTION,
+    )
 
     region_qualifiers: List[str] = Field(
         default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
@@ -365,6 +368,8 @@ class BigQueryQueriesExtractor(Closeable):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         # TODO: Add some logic to check if the cached audit log is stale or not.
+        # The cache key should then also cover capture_job_labels_as_query_properties,
+        # since a cache written with the flag off has no labels to replay.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
@@ -405,7 +410,8 @@ class BigQueryQueriesExtractor(Closeable):
             report_timer = ProgressTimer(timedelta(minutes=5))
 
             for i, (_, query_instances) in enumerate(queries_deduped.items()):
-                for query in query_instances.values():
+                # The aggregator expects each query's observations in time order.
+                for _, query in sorted(query_instances.items()):
                     if log_timer.should_report():
                         logger.info(
                             f"Added {i} deduplicated query log entries to SQL aggregator"
@@ -460,7 +466,16 @@ class BigQueryQueriesExtractor(Closeable):
             # If the query already exists for this time bucket, update its attributes
             if observed_query is not query:
                 observed_query.usage_multiplier += 1
-                observed_query.timestamp = query.timestamp
+                # Entries are time-ordered only within one project and region, so keep
+                # the newest job's timestamp, labels and extra_info (job_id etc.) rather
+                # than the last one read. user and session_id stay first-seen.
+                if observed_query.timestamp is None or (
+                    query.timestamp is not None
+                    and query.timestamp >= observed_query.timestamp
+                ):
+                    observed_query.timestamp = query.timestamp
+                    observed_query.custom_properties = query.custom_properties
+                    observed_query.extra_info = query.extra_info
 
         return queries_deduped
 
@@ -523,6 +538,7 @@ class BigQueryQueriesExtractor(Closeable):
             start_time=self.start_time,
             end_time=self.end_time,
             user_filter=user_filter,
+            include_labels=self.config.capture_job_labels_as_query_properties,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")
@@ -575,6 +591,11 @@ class BigQueryQueriesExtractor(Closeable):
                 "destination_table": row["destination_table"],
                 "referenced_tables": row["referenced_tables"],
             },
+            custom_properties=(
+                _job_labels_to_custom_properties(row.get("labels"))
+                if self.config.capture_job_labels_as_query_properties
+                else None
+            ),
         )
 
         return entry
@@ -960,12 +981,23 @@ def _is_temp_function(statement: List[Token]) -> bool:
     return any(head[: len(form)] == form for form in _TEMP_FUNCTION_HEADS)
 
 
+def _job_labels_to_custom_properties(
+    labels: Optional[List[BigQueryJobLabel]],
+) -> Optional[Dict[str, str]]:
+    if not labels:
+        return None
+    # The STRUCT field is nullable in INFORMATION_SCHEMA.JOBS, and a None value would
+    # fail MCP serialization of the whole Query aspect.
+    return {label["key"]: label["value"] or "" for label in labels}
+
+
 def _build_enriched_query_log_query(
     project_id: str,
     region: str,
     start_time: datetime,
     end_time: datetime,
     user_filter: str = "TRUE",
+    include_labels: bool = False,
 ) -> str:
     """
     Build the SQL query to fetch enriched query log from BigQuery INFORMATION_SCHEMA.JOBS.
@@ -978,6 +1010,7 @@ def _build_enriched_query_log_query(
         user_filter: SQL WHERE clause condition for filtering by user_email.
                      Defaults to "TRUE" (no filtering). Use _build_user_filter()
                      to generate this from allow/deny pattern lists.
+        include_labels: Also select the job's `labels` column.
 
     Returns:
         SQL query string to fetch query log
@@ -1014,6 +1047,8 @@ def _build_enriched_query_log_query(
     # total_slot_ms, job_type, total_bytes_billed, dml_statistics(inserted_row_count, etc)
     # that may be fetched as required in future. Refer below link for list of all columns
     # https://cloud.google.com/bigquery/docs/information-schema-jobs#schema
+    labels_column = ",\n            labels" if include_labels else ""
+
     return f"""\
         SELECT
             job_id,
@@ -1025,7 +1060,7 @@ def _build_enriched_query_log_query(
             query_info.query_hashes.normalized_literals as query_hash,
             statement_type,
             destination_table,
-            referenced_tables
+            referenced_tables{labels_column}
         FROM
             `{project_id}`.`{region}`.INFORMATION_SCHEMA.JOBS
         WHERE

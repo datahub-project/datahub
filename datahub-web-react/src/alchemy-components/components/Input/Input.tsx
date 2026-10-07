@@ -70,6 +70,7 @@ export const Input = ({
     inputTestId,
     onClear,
     maxLength,
+    autoFocus,
     ...props
 }: InputProps) => {
     const { t } = useTranslation('alchemy');
@@ -113,6 +114,7 @@ export const Input = ({
                     required={isRequired}
                     id={id}
                     maxLength={maxLength}
+                    autoFocus={autoFocus}
                     style={{ paddingLeft: icon ? '8px' : '', ...inputStyles }}
                     data-testid={inputTestId}
                 />

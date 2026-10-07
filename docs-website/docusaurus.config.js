@@ -417,6 +417,18 @@ module.exports = {
             from: '/docs/managed-datahub/context/activate-context',
             to: '/docs/managed-datahub/build-a-data-agent/activate-context',
           },
+          {
+            // The root README is no longer built into the docs site.
+            from: [
+              '/docs/introduction',
+              '/docs/next/introduction',
+              '/docs/0.13.0/introduction',
+              '/docs/0.12.1/introduction',
+              '/docs/0.11.0/introduction',
+              '/docs/0.10.5/introduction',
+            ],
+            to: '/docs/features',
+          },
         ],
       },
     ],

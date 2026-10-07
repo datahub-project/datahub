@@ -77,11 +77,12 @@ function getTier(
     return getDatasetPopularityTier(queryCountPercentileLast30Days, uniqueUserPercentileLast30Days);
 }
 
-function shouldRender(
-    entityType,
-    queryCountPercentileLast30Days,
-    uniqueUserPercentileLast30Days,
-    viewCountPercentileLast30Days,
+/** Whether the stats summary carries the percentiles the popularity bars are derived from. */
+export function hasPopularityStats(
+    entityType: EntityType | undefined,
+    queryCountPercentileLast30Days?: number | null,
+    uniqueUserPercentileLast30Days?: number | null,
+    viewCountPercentileLast30Days?: number | null,
 ) {
     if (entityType === EntityType.Chart || entityType === EntityType.Dashboard) {
         return isValuePresent(viewCountPercentileLast30Days) || isValuePresent(uniqueUserPercentileLast30Days);
@@ -100,15 +101,16 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
     const { entityData } = useEntityData();
     const dataset = entityData as any;
 
-    // To determine the popularity for the dataset, we need to pull out the stats summary.
-    const statsSummary = dataset?.statsSummary || statsSummaryFromProps;
+    // An explicit summary wins. The hover card passes the hovered entity's stats, and falling
+    // back to the page entity first painted that page's popularity bars on the card.
+    const statsSummary = statsSummaryFromProps || dataset?.statsSummary;
     const viewCountPercentileLast30Days = statsSummary?.viewCountPercentileLast30Days;
     const queryCountPercentileLast30Days = statsSummary?.queryCountPercentileLast30Days;
     const uniqueUserPercentileLast30Days = statsSummary?.uniqueUserPercentileLast30Days;
     const updatePercentileLast30Days = statsSummary?.updatePercentileLast30Days;
 
     if (
-        !shouldRender(
+        !hasPopularityStats(
             entityType || entityData?.type,
             queryCountPercentileLast30Days,
             uniqueUserPercentileLast30Days,
