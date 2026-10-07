@@ -3,9 +3,15 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.DATAHUB_STOP_WORDS_LIST;
 
 import com.linkedin.metadata.search.MatchedField;
-import java.text.Normalizer;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -16,6 +22,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.tartarus.snowball.ext.EnglishStemmer;
 
 /**
@@ -37,12 +44,14 @@ final class V3MatchedFields {
   // decomposed letters, which belong to their word, and underscores, which join an identifier
   private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_]+");
   private static final Pattern UNDERSCORES = Pattern.compile("_+");
-  private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}+");
   // A word the query excludes with a leading minus
   private static final Pattern EXCLUDED_WORD = Pattern.compile("(^|\\s)-\\S+");
   // Longer values are cut to this many characters around the first match, about what the V2
   // highlighter returns
   private static final int MAX_VALUE_LENGTH = 200;
+  // The rules of the stem_override filter, which the stemmed analyzers apply before snowball
+  private static final String STEM_OVERRIDE_RULES = "elasticsearch/stem_override.txt";
+  private static final Map<String, String> STEM_OVERRIDES = stemOverrides();
 
   private final int minWordLength;
   private final EnglishStemmer stemmer = new EnglishStemmer();
@@ -55,11 +64,16 @@ final class V3MatchedFields {
    *     filter drops them
    */
   V3MatchedFields(@Nonnull final String query, final int minWordLength) {
+    this(query, minWordLength, true);
+  }
+
+  private V3MatchedFields(
+      @Nonnull final String query, final int minWordLength, final boolean queryIdentifierParts) {
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
     final Matcher matcher = WORD.matcher(EXCLUDED_WORD.matcher(query).replaceAll(" "));
     while (matcher.find()) {
-      final List<String> forms = forms(matcher.group());
+      final List<String> forms = forms(matcher.group(), queryIdentifierParts);
       if (!forms.isEmpty()) {
         queryWords.add(forms);
       }
@@ -67,6 +81,16 @@ final class V3MatchedFields {
     this.queryStems =
         queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
+  }
+
+  /**
+   * For an autocomplete input, a prefix being typed: no word of it is too short to match, and an
+   * identifier such as {@code order_i} only matches whole, as the autocomplete analyzer keeps it,
+   * since its parts would be prefixes of unrelated words.
+   */
+  @Nonnull
+  static V3MatchedFields forAutocomplete(@Nonnull final String input) {
+    return new V3MatchedFields(input, 0, false);
   }
 
   /** The fields among {@code fields}, in that order, whose value in {@code source} matches. */
@@ -102,7 +126,7 @@ final class V3MatchedFields {
   private int firstMatch(@Nonnull final String text) {
     final Matcher matcher = WORD.matcher(text);
     while (matcher.find()) {
-      for (String form : forms(matcher.group())) {
+      for (String form : forms(matcher.group(), true)) {
         if (lastQueryForms.stream().anyMatch(form::startsWith) || queryStems.contains(stem(form))) {
           return matcher.start();
         }
@@ -112,17 +136,18 @@ final class V3MatchedFields {
   }
 
   /**
-   * The forms the analyzers keep of one word: the word and, for an identifier, the parts around its
-   * underscores, with case and accents folded and stop words and short words dropped.
+   * The forms the analyzers keep of one word: the word and, for an identifier when {@code parts},
+   * the parts around its underscores, with case and accents folded and stop words and short words
+   * dropped.
    */
   @Nonnull
-  private List<String> forms(@Nonnull final String word) {
+  private List<String> forms(@Nonnull final String word, final boolean parts) {
     final String folded = fold(word);
     final List<String> forms = new ArrayList<>();
     if (isKept(folded)) {
       forms.add(folded);
     }
-    if (folded.indexOf('_') >= 0) {
+    if (parts && folded.indexOf('_') >= 0) {
       for (String part : UNDERSCORES.split(folded)) {
         if (isKept(part) && !forms.contains(part)) {
           forms.add(part);
@@ -132,12 +157,21 @@ final class V3MatchedFields {
     return forms;
   }
 
+  /**
+   * Folds a word as the analyzers do: ASCII folding, which keeps combining marks, then lower case
+   * one code point at a time.
+   */
   @Nonnull
   private static String fold(@Nonnull final String word) {
-    return COMBINING_MARKS
-        .matcher(Normalizer.normalize(word, Normalizer.Form.NFD))
-        .replaceAll("")
-        .toLowerCase(Locale.ROOT);
+    final char[] chars = word.toCharArray();
+    // A character folds to at most four
+    final char[] folded = new char[chars.length * 4];
+    final int length = ASCIIFoldingFilter.foldToASCII(chars, 0, folded, 0, chars.length);
+    return new String(folded, 0, length)
+        .codePoints()
+        .map(Character::toLowerCase)
+        .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+        .toString();
   }
 
   private boolean isKept(@Nonnull final String word) {
@@ -148,9 +182,45 @@ final class V3MatchedFields {
 
   @Nonnull
   private String stem(@Nonnull final String word) {
+    final String override = STEM_OVERRIDES.get(word);
+    if (override != null) {
+      return override;
+    }
     stemmer.setCurrent(word);
     stemmer.stem();
     return stemmer.getCurrent();
+  }
+
+  /**
+   * The stem of each word a stem_override rule such as {@code customers, customer => customer}
+   * names.
+   */
+  @Nonnull
+  private static Map<String, String> stemOverrides() {
+    final InputStream rules =
+        V3MatchedFields.class.getClassLoader().getResourceAsStream(STEM_OVERRIDE_RULES);
+    if (rules == null) {
+      return Map.of();
+    }
+    final Map<String, String> overrides = new HashMap<>();
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(rules, StandardCharsets.UTF_8))) {
+      reader
+          .lines()
+          .map(line -> line.trim().toLowerCase(Locale.ROOT))
+          .filter(line -> !line.startsWith("#") && line.contains("=>"))
+          .forEach(
+              line -> {
+                final int arrow = line.indexOf("=>");
+                final String stem = line.substring(arrow + 2).trim();
+                for (String word : line.substring(0, arrow).split(",")) {
+                  overrides.put(word.trim(), stem);
+                }
+              });
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return Map.copyOf(overrides);
   }
 
   @Nonnull

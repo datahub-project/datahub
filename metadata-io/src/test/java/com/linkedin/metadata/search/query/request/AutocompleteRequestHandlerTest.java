@@ -796,6 +796,26 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(result.getEntities().size(), 4);
   }
 
+  /**
+   * An autocomplete input matches whole, as the autocomplete analyzer keeps it: the "i" of order_i
+   * is not a prefix of its own, so the hit is suggested by the id the input starts, not its name.
+   */
+  @Test
+  public void testV3SuggestionMatchesAnIdentifierInputWhole() {
+    SearchHit[] hits = {
+      suggestionHit("a", Map.of("name", "Inventory snapshot", "id", "warehouse.order_items"))
+    };
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(new SearchHits(hits, new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1.0f));
+
+    AutoCompleteResult result =
+        getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
+            .extractResult(nonMockOpContext, response, "order_i");
+
+    assertEquals(result.getSuggestions(), List.of("warehouse.order_items"));
+  }
+
   private static SearchHit suggestionHit(String name, Map<String, Object> fields) {
     Map<String, Object> source = new HashMap<>(fields);
     source.put("urn", "urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");
