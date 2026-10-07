@@ -1,4 +1,4 @@
-import { ColorPicker, Editor, Input, Modal, Text, toast } from '@components';
+import { ColorPicker, Input, Modal, Text, toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import DOMPurify from 'dompurify';
@@ -6,6 +6,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components/macro';
+
+import { Editor } from '@components/components/Editor';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';

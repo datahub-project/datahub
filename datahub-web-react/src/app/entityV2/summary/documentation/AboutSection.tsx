@@ -1,10 +1,12 @@
-import { Button, Editor, Text, Tooltip } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { Editor } from '@components/components/Editor';
 
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';

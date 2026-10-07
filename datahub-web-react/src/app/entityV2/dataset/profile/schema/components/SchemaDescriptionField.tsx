@@ -5,13 +5,15 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { Editor, Tooltip } from '@src/alchemy-components';
+import { Tooltip } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
