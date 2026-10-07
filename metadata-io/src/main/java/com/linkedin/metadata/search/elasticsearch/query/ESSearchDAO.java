@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
@@ -29,6 +30,8 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
@@ -43,12 +46,14 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuild
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryIntent;
 import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryUnderstanding;
+import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -60,6 +65,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -100,6 +113,27 @@ import org.opensearch.search.sort.SortOrder;
 public class ESSearchDAO {
 
   /**
+   * Hybrid search reranks the first this many keyword rows, the search cache's default batch, and
+   * keeps every later row in keyword order, so every page is a slice of the same ranking.
+   */
+  private static final int HYBRID_RERANK_WINDOW = 100;
+
+  /** Time the embedding and kNN calls get before the keyword ranking is served instead. */
+  private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
+
+  // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
+  // calls end by the same deadline, so a worker is free about when its search falls back. The
+  // queue is bounded: when every worker is busy, searches get the keyword ranking right away
+  private static final ExecutorService HYBRID_EXECUTOR =
+      new ThreadPoolExecutor(
+          8,
+          8,
+          0L,
+          TimeUnit.MILLISECONDS,
+          new ArrayBlockingQueue<>(16),
+          new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+
+  /**
    * Queries containing 6+ consecutive digits are ID or hash lookups (e.g. "run_20240101_120000").
    * When the light query matches nothing for these, fuzzy expansion of the digit runs only adds
    * false positives, so the full query is skipped.
@@ -122,6 +156,7 @@ public class ESSearchDAO {
   private final boolean testLoggingEnabled;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
+  @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -154,6 +189,25 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public ESSearchDAO(
+      boolean pointInTimeCreationEnabled,
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean testLoggingEnabled,
+      @Nonnull SearchServiceConfiguration searchServiceConfig,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher) {
+    this(
+        pointInTimeCreationEnabled,
+        searchConfiguration,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        testLoggingEnabled,
+        searchServiceConfig,
+        entityDocumentIdHasher,
+        null);
   }
 
   @Nonnull
@@ -409,13 +463,26 @@ public class ESSearchDAO {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
 
+    // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page
+    final int hybridFetchSize =
+        hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
+    final int requestFrom = hybridFetchSize > 0 ? 0 : from;
+    final Integer requestSize = hybridFetchSize > 0 ? hybridFetchSize : size;
+
     // Step 1: construct the query
     final Triple<SearchRequest, Filter, List<EntitySpec>> searchRequestComponents =
         opContext.withSpan(
             "searchRequest",
             () ->
                 buildSearchRequest(
-                    opContext, entityNames, input, postFilters, sortCriteria, from, size, facets),
+                    opContext,
+                    entityNames,
+                    input,
+                    postFilters,
+                    sortCriteria,
+                    requestFrom,
+                    requestSize,
+                    facets),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(this.getClass(), "searchRequest"));
 
@@ -424,20 +491,163 @@ public class ESSearchDAO {
     }
 
     // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(
-        opContext,
-        searchRequestComponents.getRight(),
-        searchRequestComponents.getLeft(),
-        searchRequestComponents.getMiddle(),
-        from,
-        size,
-        // A search without hits runs the full query, as in DataHub Cloud. The UI's facet counts
-        // reach here through the search cache, which fetches hits, so they follow the light query
-        size != null && size == 0
-            ? null
-            : lightFirstQuery(
-                opContext, searchRequestComponents.getRight(), input, sortCriteria, postFilters),
-        input);
+    final SearchResult result =
+        executeAndExtract(
+            opContext,
+            searchRequestComponents.getRight(),
+            searchRequestComponents.getLeft(),
+            searchRequestComponents.getMiddle(),
+            requestFrom,
+            requestSize,
+            // A search without hits runs the full query, as in DataHub Cloud. The UI's facet counts
+            // reach here through the search cache, which fetches hits, so they follow the light
+            // query
+            size != null && size == 0
+                ? null
+                : lightFirstQuery(
+                    opContext,
+                    searchRequestComponents.getRight(),
+                    input,
+                    sortCriteria,
+                    postFilters),
+            input);
+    return hybridFetchSize > 0
+        ? rerankHybrid(opContext, entityNames, input, result, from, size)
+        : result;
+  }
+
+  /**
+   * The number of keyword rows a hybrid search fetches, or 0 when the search stays keyword-only:
+   * hybrid read is off, the page starts past the rerank window, no rows are requested, results are
+   * not sorted by relevance, the input is not a full-text query, or no requested entity type has
+   * vectors.
+   */
+  private int hybridFetchSize(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    if (hybridSearchResultReranker == null || from >= HYBRID_RERANK_WINDOW) {
+      return 0;
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    final String trimmed = input.trim();
+    if (pageSize == 0
+        || !isRelevanceSort(sortCriteria)
+        || searchFlags == null
+        || !Boolean.TRUE.equals(searchFlags.isFulltext())
+        || trimmed.isEmpty()
+        || "*".equals(trimmed)
+        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
+      return 0;
+    }
+    final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
+    // A fetch above the result limit would be cut short, or rejected in strict mode
+    if (fetchSize > searchServiceConfig.getLimit().getResults().getMax()
+        || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
+      return 0;
+    }
+    return fetchSize;
+  }
+
+  /**
+   * Reranks the first {@link #HYBRID_RERANK_WINDOW} keyword rows with kNN scores and slices the
+   * requested page. Totals and facets stay those of the keyword query. Any failure serves the
+   * keyword ranking.
+   */
+  @Nonnull
+  private SearchResult rerankHybrid(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nonnull SearchResult keywordResult,
+      int from,
+      @Nullable Integer size) {
+    final List<SearchEntity> rows = keywordResult.getEntities();
+    final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
+    List<SearchEntity> ranked = rows;
+    Future<List<SearchEntity>> rerank = null;
+    final Set<String> vectorEntityNames =
+        hybridSearchResultReranker.vectorEntityNames(opContext, entityNames);
+    final boolean windowHasVectorRows =
+        rows.subList(0, windowEnd).stream()
+            .anyMatch(
+                row ->
+                    row.getEntity() != null
+                        && vectorEntityNames.contains(row.getEntity().getEntityType()));
+    // A window without rows that have vectors makes no embedding or kNN call
+    if (windowHasVectorRows) {
+      final long deadlineNanos =
+          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
+      try {
+        // The worker gets its own copies: a rerank that finishes after the timeout must not change
+        // the rows served as the keyword fallback
+        final List<SearchEntity> window = new ArrayList<>(windowEnd);
+        for (SearchEntity row : rows.subList(0, windowEnd)) {
+          window.add(row.copy());
+        }
+        rerank =
+            HYBRID_EXECUTOR.submit(
+                Context.current()
+                    .wrap(
+                        () ->
+                            hybridSearchResultReranker.rerank(
+                                opContext,
+                                entityNames,
+                                input,
+                                window,
+                                List.of(URN_FIELD),
+                                deadlineNanos)));
+        ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
+        ranked.addAll(rows.subList(windowEnd, rows.size()));
+        countHybrid(opContext, "hybridReadApplied");
+      } catch (RejectedExecutionException e) {
+        countHybrid(opContext, "hybridReadRejected");
+      } catch (TimeoutException e) {
+        // The interrupt frees a worker whose provider does not honor the deadline; a queued call
+        // does not start
+        rerank.cancel(true);
+        countHybridTimeout(opContext);
+      } catch (InterruptedException e) {
+        rerank.cancel(true);
+        Thread.currentThread().interrupt();
+        countHybrid(opContext, "hybridReadFailed");
+      } catch (Exception e) {
+        final Throwable cause =
+            e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
+        if (System.nanoTime() - deadlineNanos >= 0) {
+          // The embedding or kNN call gave up at the deadline, just as the search did
+          countHybridTimeout(opContext);
+        } else {
+          countHybrid(opContext, "hybridReadFailed");
+          // One line per failed search; the stack trace only at debug, so an outage does not
+          // flood logs
+          log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
+          log.debug("Hybrid read failure", cause);
+        }
+      }
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final int pageStart = Math.min(from, ranked.size());
+    final int pageEnd = (int) Math.min((long) from + pageSize, ranked.size());
+    return keywordResult
+        .setEntities(new SearchEntityArray(ranked.subList(pageStart, pageEnd)))
+        .setFrom(from)
+        .setPageSize(pageSize);
+  }
+
+  private static void countHybridTimeout(@Nonnull OperationContext opContext) {
+    countHybrid(opContext, "hybridReadTimeout");
+    log.warn("Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
+  }
+
+  private static void countHybrid(@Nonnull OperationContext opContext, @Nonnull String metric) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(metricUtils -> metricUtils.increment(ESSearchDAO.class, metric, 1));
   }
 
   /**
