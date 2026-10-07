@@ -503,6 +503,57 @@ def _extract_table_names(
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
 
+# Functions whose first argument is a dictionary name, from ClickHouse 25.3 and 26.9:
+# SELECT lower(name) FROM system.functions WHERE name ILIKE 'dict%'
+_CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
+    {
+        "dictget",
+        "dictgetall",
+        "dictgetchildren",
+        "dictgetdate",
+        "dictgetdateordefault",
+        "dictgetdatetime",
+        "dictgetdatetimeordefault",
+        "dictgetdescendants",
+        "dictgetfloat32",
+        "dictgetfloat32ordefault",
+        "dictgetfloat64",
+        "dictgetfloat64ordefault",
+        "dictgethierarchy",
+        "dictgetint16",
+        "dictgetint16ordefault",
+        "dictgetint32",
+        "dictgetint32ordefault",
+        "dictgetint64",
+        "dictgetint64ordefault",
+        "dictgetint8",
+        "dictgetint8ordefault",
+        "dictgetipv4",
+        "dictgetipv4ordefault",
+        "dictgetipv6",
+        "dictgetipv6ordefault",
+        "dictgetkeys",
+        "dictgetordefault",
+        "dictgetornull",
+        "dictgetroot",
+        "dictgetstring",
+        "dictgetstringordefault",
+        "dictgetuint16",
+        "dictgetuint16ordefault",
+        "dictgetuint32",
+        "dictgetuint32ordefault",
+        "dictgetuint64",
+        "dictgetuint64ordefault",
+        "dictgetuint8",
+        "dictgetuint8ordefault",
+        "dictgetuuid",
+        "dictgetuuidordefault",
+        "dicthas",
+        "dictisin",
+    }
+)
+
+
 def _clickhouse_table_name_from_arg(
     arg: sqlglot.exp.Expression, function_name: str
 ) -> Optional[_TableName]:
@@ -535,7 +586,7 @@ def _clickhouse_extract_dictionary_tables(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    """Extract dictionaries referenced by ClickHouse dict* functions.
+    """Extract dictionaries referenced by ClickHouse dictionary functions.
 
     Function arguments are Column or Literal nodes rather than Table nodes.
 
@@ -549,7 +600,10 @@ def _clickhouse_extract_dictionary_tables(
     result: OrderedSet[_TableName] = OrderedSet()
     for func in statement.find_all(sqlglot.exp.Anonymous):
         function_name = func.this.lower() if isinstance(func.this, str) else ""
-        if not function_name.startswith("dict") or not func.expressions:
+        if (
+            function_name not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+            or not func.expressions
+        ):
             continue
 
         table_name = _clickhouse_table_name_from_arg(func.expressions[0], function_name)

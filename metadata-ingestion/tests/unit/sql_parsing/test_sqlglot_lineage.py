@@ -2175,13 +2175,26 @@ def test_clickhouse_typed_dictget_lineage() -> None:
     assert_sql_result(
         """\
 SELECT
-    dictGetString('db.string_dict', 'value', id),
-    dictGetUInt64OrDefault('db.default_dict', 'value', id, 0)
+    dictGetString('db.string_dict', 'value', id) AS string_value,
+    dictGetUInt64OrDefault('db.default_dict', 'value', id, 0) AS default_value
 FROM db.src
 """,
         dialect="clickhouse",
         default_schema="db",
         expected_file=RESOURCE_DIR / "test_clickhouse_typed_dictget.json",
+    )
+
+
+def test_clickhouse_dict_prefixed_function_is_not_a_dictionary() -> None:
+    assert_sql_result(
+        """\
+SELECT dictLookup(t.payload, 'k') AS v
+FROM db.src t
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_dict_prefixed_non_dictionary.json",
     )
 
 
