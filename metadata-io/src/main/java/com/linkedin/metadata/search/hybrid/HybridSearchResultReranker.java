@@ -54,6 +54,11 @@ public class HybridSearchResultReranker {
     return knnRequestBuilder.vectorEntityNames(opContext, entityNames);
   }
 
+  /** Whether a rerank of the query would reuse a recent embedding rather than call the provider. */
+  public boolean isEmbeddingCached(@Nonnull final String query) {
+    return queryEmbeddingService.isCached(query);
+  }
+
   /**
    * Returns {@code lexicalRows} with the rows of entity types that have vectors reordered by
    * combined lexical and vector score, each moved into a position such a row held before. Empty

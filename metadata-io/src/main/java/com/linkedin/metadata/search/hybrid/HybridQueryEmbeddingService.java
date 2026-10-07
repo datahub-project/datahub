@@ -43,6 +43,11 @@ public class HybridQueryEmbeddingService {
     this.expectedDimension = expectedDimension;
   }
 
+  /** Whether a recent embedding of the query is cached, so embedding it calls no provider. */
+  public boolean isCached(@Nonnull final String query) {
+    return recentEmbeddings.getIfPresent(query) != null;
+  }
+
   /**
    * Embeds the query, or reuses a recent embedding of it.
    *

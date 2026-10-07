@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -379,6 +380,8 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testSearchesFailingTogetherCountOnce() throws Exception {
+    // None of the three times out while waiting for the others, however slow the runner
+    dao.setHybridTimeoutMillis(60_000);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -488,10 +491,11 @@ public class ESSearchDAOHybridTest {
     }
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
 
-    // Three timeouts in a row pause hybrid read, so the fourth search makes no rerank call
+    // Three timeouts in a row pause hybrid read, so the fourth search makes no rerank call; a
+    // timed-out rerank may not have started at all
     verify(metrics, times(3)).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
     verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
-    verify(reranker, times(3))
+    verify(reranker, atMost(3))
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
 
@@ -539,6 +543,8 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testInterruptedSearchesDoNotPauseHybridRead() throws Exception {
+    // The interrupt, not the timeout, ends each held search, however slow the runner
+    dao.setHybridTimeoutMillis(60_000);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -597,6 +603,27 @@ public class ESSearchDAOHybridTest {
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadApplied", 1);
+  }
+
+  @Test
+  public void testRerankOnACachedEmbeddingDoesNotEndTheFailureStreak() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // A provider outage: new queries fail, while a query embedded before it still reranks
+    when(reranker.isEmbeddingCached("paged")).thenReturn(true);
+    when(reranker.rerank(
+            any(OperationContext.class), any(), eq("revenue"), anyList(), any(), anyLong()))
+        .thenThrow(new IOException("provider unavailable"));
+
+    for (String query : List.of("revenue", "paged", "revenue", "paged", "revenue", "revenue")) {
+      dao.search(opContext, ENTITY_NAMES, query, null, null, 0, 10, List.of());
+    }
+
+    // The cached reranks said nothing about the provider, so three failures in a row paused
+    // hybrid read for the last search
+    verify(metrics, times(2)).increment(ESSearchDAO.class, "hybridReadApplied", 1);
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
   }
 
   @Test

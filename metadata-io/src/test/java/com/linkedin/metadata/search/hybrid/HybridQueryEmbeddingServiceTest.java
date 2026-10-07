@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -85,6 +86,23 @@ public class HybridQueryEmbeddingServiceTest {
 
     verify(provider, times(1))
         .embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class));
+  }
+
+  @Test
+  public void testIsCachedOnceTheQueryIsEmbedded() {
+    EmbeddingProvider provider = mock(EmbeddingProvider.class);
+    when(provider.embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class)))
+        .thenThrow(new IllegalStateException("provider down"))
+        .thenReturn(new float[] {0.1f, 0.2f});
+    HybridQueryEmbeddingService service =
+        new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
+
+    assertFalse(service.isCached("revenue"));
+    assertThrows(IllegalStateException.class, () -> service.embed("revenue", inSeconds(60)));
+    // A failed embedding is not cached
+    assertFalse(service.isCached("revenue"));
+    service.embed("revenue", inSeconds(60));
+    assertTrue(service.isCached("revenue"));
   }
 
   @Test
