@@ -397,7 +397,12 @@ public class DeleteEntityService {
                     aspectSpecs.get(envelopedAspect.getName()),
                     _conditionalReferenceWrites
                         ? ConditionalWriteValidator.resolveAspectVersion(envelopedAspect)
-                        : null));
+                        : null,
+                    _conditionalReferenceWrites && hasStoredVersion(envelopedAspect)));
+  }
+
+  private static boolean hasStoredVersion(final EnvelopedAspect aspect) {
+    return aspect.hasSystemMetadata() && aspect.getSystemMetadata().hasVersion();
   }
 
   /**
@@ -439,6 +444,7 @@ public class DeleteEntityService {
                       aspectSpec,
                       aspect,
                       enrichedAspect.getVersion(),
+                      enrichedAspect.isVersionStored(),
                       updatedAspect.get(),
                       cascade);
                 } else if (updatedAspect.get() == null) {
@@ -512,6 +518,9 @@ public class DeleteEntityService {
    *
    * @param readAspect the aspect as read
    * @param readVersion its version, as {@link ConditionalWriteValidator#resolveAspectVersion}
+   * @param readVersionStored whether the aspect as read has a version in its system metadata; a
+   *     legacy aspect without one is deleted unbounded, as an unconditional write would, since its
+   *     older rows would not match a bound on the resolved version and would be restored
    * @param updatedAspect {@code readAspect} with the reference removed; null to delete the aspect
    */
   private void writeIfUnchanged(
@@ -523,16 +532,25 @@ public class DeleteEntityService {
       final AspectSpec aspectSpec,
       final Aspect readAspect,
       final long readVersion,
+      final boolean readVersionStored,
       @Nullable final Aspect updatedAspect,
       @Nonnull final CascadeOperationContext cascade) {
     Aspect current = readAspect;
     long version = readVersion;
+    boolean versionStored = readVersionStored;
     Aspect updated = updatedAspect;
     for (int writes = 1; ; writes++) {
       boolean settled;
       RuntimeException rejection = null;
       if (updated == null) {
-        settled = deleteAspect(opContext, relatedUrn, aspectName, current, version, cascade);
+        settled =
+            deleteAspect(
+                opContext,
+                relatedUrn,
+                aspectName,
+                current,
+                versionStored ? version : null,
+                cascade);
       } else {
         try {
           settled =
@@ -566,7 +584,7 @@ public class DeleteEntityService {
       if (!versionMoved || writes >= _conditionalWriteLimit) {
         if (updated == null) {
           reportDeleteFailed(relatedUrn, aspectName, current, cascade);
-        } else if (versionMoved) {
+        } else {
           reportUpdateFailed(
               current,
               updated,
@@ -577,6 +595,7 @@ public class DeleteEntityService {
       }
       current = latest.getValue();
       version = latestVersion;
+      versionStored = hasStoredVersion(latest);
       updated = latestUpdated.get();
     }
   }
@@ -1229,5 +1248,8 @@ public class DeleteEntityService {
 
     /** The version as read; set only when reference removals are written conditionally. */
     @Nullable Long version;
+
+    /** Whether the aspect as read has a version in its system metadata. */
+    boolean versionStored;
   }
 }

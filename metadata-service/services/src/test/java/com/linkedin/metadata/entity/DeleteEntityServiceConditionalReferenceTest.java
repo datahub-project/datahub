@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -83,6 +84,7 @@ public class DeleteEntityServiceConditionalReferenceTest {
   private String storedAspectName;
   private RecordTemplate storedAspect;
   private long storedVersion;
+  private boolean versionInSystemMetadata;
   private int pendingConcurrentEdits;
   private List<MetadataChangeProposal> writes;
 
@@ -92,6 +94,7 @@ public class DeleteEntityServiceConditionalReferenceTest {
     graphService = mock(GraphService.class);
     searchService = mock(EntitySearchService.class);
     storedVersion = VERSION_READ;
+    versionInSystemMetadata = true;
     pendingConcurrentEdits = 0;
     writes = new ArrayList<>();
 
@@ -158,24 +161,44 @@ public class DeleteEntityServiceConditionalReferenceTest {
     storeTags(DELETED_TAG, KEPT_TAG);
     pendingConcurrentEdits = Integer.MAX_VALUE;
 
-    final Logger logger = (Logger) LoggerFactory.getLogger(DeleteEntityService.class);
-    final ListAppender<ILoggingEvent> logs = new ListAppender<>();
-    logs.start();
-    logger.addAppender(logs);
-    try {
-      deleteReferencesTo(DELETED_TAG, "TaggedWith", true);
-    } finally {
-      logger.detachAppender(logs);
-    }
+    final List<ILoggingEvent> logs =
+        logsOf(() -> deleteReferencesTo(DELETED_TAG, "TaggedWith", true));
 
     assertEquals(writes.size(), WRITE_LIMIT);
     assertTrue(storedTags().contains(DELETED_TAG));
-    assertTrue(
-        logs.list.stream()
-            .anyMatch(
-                event ->
-                    event.getLevel() == Level.WARN
-                        && event.getFormattedMessage().contains("MCP_PROCESSOR_FAILED")));
+    assertTrue(reportsFailedUpdate(logs));
+  }
+
+  @DataProvider
+  public Object[][] uncommittedUpdates() {
+    return new Object[][] {
+      {null}, {IngestResult.builder().urn(DATASET).sqlCommitted(false).build()}
+    };
+  }
+
+  /** The write is not committed while the aspect stays at the version read: reported, once. */
+  @Test(dataProvider = "uncommittedUpdates")
+  public void anUncommittedUpdateAtTheVersionReadIsReportedAsAFailedWrite(
+      final IngestResult result) {
+    storeTags(DELETED_TAG, KEPT_TAG);
+    doAnswer(
+            invocation -> {
+              writes.add(invocation.getArgument(1));
+              return result;
+            })
+        .when(entityService)
+        .ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            eq(false));
+
+    final List<ILoggingEvent> logs =
+        logsOf(() -> deleteReferencesTo(DELETED_TAG, "TaggedWith", true));
+
+    assertEquals(writes.size(), 1);
+    assertTrue(storedTags().contains(DELETED_TAG));
+    assertTrue(reportsFailedUpdate(logs));
   }
 
   @Test
@@ -210,6 +233,26 @@ public class DeleteEntityServiceConditionalReferenceTest {
             eq(DATASET.toString()),
             eq(Constants.CONTAINER_ASPECT_NAME),
             eq(Map.of(EntityService.DELETE_CONDITION_MAX_VERSION, String.valueOf(VERSION_READ))),
+            eq(true));
+  }
+
+  /**
+   * A legacy aspect has no version in its system metadata, so a bound on the resolved version would
+   * miss its older rows and restore them; it is deleted unbounded, as with the flag off.
+   */
+  @Test
+  public void aRequiredReferenceOnALegacyAspectIsDeletedUnbounded() {
+    storeContainer();
+    versionInSystemMetadata = false;
+
+    deleteReferencesTo(CONTAINER, "IsPartOf", true);
+
+    verify(entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(DATASET.toString()),
+            eq(Constants.CONTAINER_ASPECT_NAME),
+            eq(Map.of()),
             eq(true));
   }
 
@@ -284,6 +327,27 @@ public class DeleteEntityServiceConditionalReferenceTest {
         .deleteReferencesTo(opContext, deleted, false);
   }
 
+  private static List<ILoggingEvent> logsOf(final Runnable action) {
+    final Logger logger = (Logger) LoggerFactory.getLogger(DeleteEntityService.class);
+    final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    logs.start();
+    logger.addAppender(logs);
+    try {
+      action.run();
+    } finally {
+      logger.detachAppender(logs);
+    }
+    return logs.list;
+  }
+
+  private static boolean reportsFailedUpdate(final List<ILoggingEvent> logs) {
+    return logs.stream()
+        .anyMatch(
+            event ->
+                event.getLevel() == Level.WARN
+                    && event.getFormattedMessage().contains("MCP_PROCESSOR_FAILED"));
+  }
+
   private void storeTags(final TagUrn... tags) {
     storedAspectName = Constants.GLOBAL_TAGS_ASPECT_NAME;
     final TagAssociationArray associations = new TagAssociationArray();
@@ -336,7 +400,10 @@ public class DeleteEntityServiceConditionalReferenceTest {
             .setName(storedAspectName)
             .setValue(new Aspect(storedAspect.data()))
             .setVersion(0L)
-            .setSystemMetadata(new SystemMetadata().setVersion(String.valueOf(storedVersion)));
+            .setSystemMetadata(
+                versionInSystemMetadata
+                    ? new SystemMetadata().setVersion(String.valueOf(storedVersion))
+                    : new SystemMetadata());
     final EntityResponse response = new EntityResponse();
     response.setUrn(DATASET);
     response.setEntityName(DATASET.getEntityType());

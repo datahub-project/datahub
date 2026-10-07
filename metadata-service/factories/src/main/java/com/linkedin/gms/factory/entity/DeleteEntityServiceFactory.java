@@ -11,6 +11,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -43,6 +44,9 @@ public class DeleteEntityServiceFactory {
   @Qualifier("configurationProvider")
   private ConfigurationProvider _configurationProvider;
 
+  @Value("${entityService.deleteReferenceWriteLimit:3}")
+  private int _deleteReferenceWriteLimit;
+
   @Bean(name = "deleteEntityService")
   @Nonnull
   protected DeleteEntityService createDeleteEntityService() {
@@ -53,6 +57,6 @@ public class DeleteEntityServiceFactory {
         _objectStorageClient,
         _metricUtils,
         _configurationProvider.getFeatureFlags().isReliableHardDelete(),
-        _configurationProvider.getEntityService().getDeleteReferenceWriteLimit());
+        _deleteReferenceWriteLimit);
   }
 }

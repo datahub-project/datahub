@@ -13,10 +13,6 @@ public class EntityServiceConfiguration {
   private boolean enableBrowseV2 = false;
   private boolean postCommitRetentionEnabled = false;
 
-  // Writes of one reference removal during a hard delete, the first included, before a failure
-  // caused by concurrent edits is reported. Applies when featureFlags.reliableHardDelete is on.
-  private int deleteReferenceWriteLimit = 3;
-
   // Stamp emitModeMarker=sync (the marker the Python REST emitter's
   // respect_mcp_sync_marker reads, see Constants.EMIT_MODE_MARKER_KEY) onto
   // externally-originated sync writes (RESTLI/OPENAPI/GRAPHQL) so downstream

@@ -109,7 +109,7 @@ public class FeatureFlags {
   private boolean graphQLAspectOptimizationEnabled = true;
   // Kill switch for the reliable hard delete. When true, whole-entity hard deletes (Rest.li delete,
   // the OpenAPI entity delete, the type-specific GraphQL deletes) delete only what existed when the
-  // request arrived. Default ON; false restores the previous delete behavior.
+  // request arrived. Default OFF; false restores the previous delete behavior.
   private boolean reliableHardDelete = true;
 
   /** Per-operation read: the operation's resolved value, else the bound one. */
