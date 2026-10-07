@@ -236,3 +236,16 @@ def test_unfiltered_kinds_must_be_a_collection_of_names() -> None:
     assert declared_unfiltered_kinds(_ListUnfiltered) == {"Table"}
     with pytest.raises(ProbeInternalError):
         declared_unfiltered_kinds(_StringUnfiltered)
+
+
+class _RulesUnjudgedStringUnfiltered(_RulesUnjudged):
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        return "Table"  # type: ignore[return-value]
+
+
+def test_a_defective_unfiltered_hook_is_listed_with_the_other_problems() -> None:
+    problems = marker_problems(_RulesUnjudgedStringUnfiltered)
+    assert len(problems) == 2, problems
+    assert any("probe_unfiltered_kinds" in p for p in problems), problems
+    assert any("probe_verdict_override" in p for p in problems), problems

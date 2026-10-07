@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 # Dialects whose default driver links libpq, which hands `-c setting` options
 # to the server.
 _LIBPQ_DIALECTS = frozenset({"postgresql", "postgres", "cockroachdb"})
+# The drivers for those dialects that link libpq ("" is the default,
+# psycopg2). The others (pg8000, asyncpg) are pure Python and refuse libpq's
+# keywords, so a URL naming one gets no settings: no label, and no ceiling.
+_LIBPQ_DRIVERS = frozenset({"", "psycopg2", "psycopg", "psycopg2cffi"})
 # The one connect_arg libpq packs every `-c setting` into.
 _LIBPQ_OPTIONS = "options"
 # libpq waits as long as the OS does for a TCP handshake when no
@@ -139,6 +143,8 @@ def probe_settings_for_url(
     """
     dialect, driver = url_dialect_and_driver(probe_url(config))
     if dialect in _LIBPQ_DIALECTS:
+        if driver not in _LIBPQ_DRIVERS:
+            return ProbeEngineSettings()
         return _libpq_settings(config, budget)
     if dialect == _REDSHIFT_DIALECT:
         return _redshift_settings(config, budget)

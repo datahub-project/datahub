@@ -670,6 +670,9 @@ class _ThreadWatchingProvider(_LeakyProvider):
     a library caller's own worker would."""
 
     other_thread_records: List[logging.LogRecord] = []
+    # Read by the test, not asserted here: an AssertionError raised inside a
+    # provider call is policed into a source failure that hides it.
+    worker_finished = False
 
     @probe_method()
     def tables(self) -> list:
@@ -694,6 +697,7 @@ class _ThreadWatchingProvider(_LeakyProvider):
         thread = threading.Thread(target=worker)
         thread.start()
         thread.join(5)
+        type(self).worker_finished = not thread.is_alive()
         return [{"name": "t"}]
 
 
@@ -704,9 +708,11 @@ def test_a_library_callers_other_threads_keep_their_tracebacks_unless_guarded(
     monkeypatch.setattr(pm, "_provider_class", lambda st: _ThreadWatchingProvider)
     monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
     _ThreadWatchingProvider.other_thread_records = []
+    _ThreadWatchingProvider.worker_finished = False
     before = _logging_state()
     res = pm.run_probe_method("x", {}, "tables", {}, guard_logs=guard_logs)
     assert res.result == [{"name": "t"}]
+    assert _ThreadWatchingProvider.worker_finished, "the worker did not finish"
     (record,) = _ThreadWatchingProvider.other_thread_records
     # Opted out, the embedding process's own records are as it logged them.
     assert (record.exc_info is not None) is not guard_logs
