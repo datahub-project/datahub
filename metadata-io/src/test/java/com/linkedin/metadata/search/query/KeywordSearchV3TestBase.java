@@ -184,6 +184,20 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final Urn TITLE_MATCH = UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_title)");
   private static final Urn DESCRIPTION_MATCH =
       UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_description)");
+  // Titled with a synonym of "staging" in the default synonym file, next to a title holding the
+  // word itself
+  private static final Urn STG_DASHBOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,stg)");
+  private static final Urn STAGING_DASHBOARD =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,staging_notes)");
+  // A one-word title that a query only matches as a substring
+  private static final Urn LIFETIME_DASHBOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,ltv)");
+  // Letter and digit runs in titles, next to a title sharing their letters
+  private static final Urn CARGO_REPORT = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_one)");
+  private static final Urn CARGO_OVERVIEW = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_two)");
+  private static final Urn MANIFEST = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_three)");
+  private static final Urn FREIGHT_BOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_four)");
+  private static final Urn FLEET_OVERVIEW = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_five)");
+  private static final Urn FLEET_NOTES = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_six)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -335,7 +349,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             null)
         .processBatch(
             opContext,
-            Map.of(
+            seedEvents(
                 ORDERS,
                 events(
                     ORDERS,
@@ -397,6 +411,69 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DashboardInfo()
                         .setTitle("Revenue totals")
                         .setDescription("Quarterly revenue archive")
+                        .setLastModified(new ChangeAuditStamps())),
+                STG_DASHBOARD,
+                events(
+                    STG_DASHBOARD,
+                    new DashboardInfo()
+                        .setTitle("stg")
+                        .setDescription("Load checks for batch2017")
+                        .setLastModified(new ChangeAuditStamps())),
+                STAGING_DASHBOARD,
+                events(
+                    STAGING_DASHBOARD,
+                    new DashboardInfo()
+                        .setTitle("Staging notes")
+                        .setDescription("Load checks")
+                        .setLastModified(new ChangeAuditStamps())),
+                LIFETIME_DASHBOARD,
+                events(
+                    LIFETIME_DASHBOARD,
+                    new DashboardInfo()
+                        .setTitle("customerlifetimevalue")
+                        .setDescription("Load checks")
+                        .setLastModified(new ChangeAuditStamps())),
+                CARGO_REPORT,
+                events(
+                    CARGO_REPORT,
+                    new DashboardInfo()
+                        .setTitle("Cargo2017 Report")
+                        .setDescription("Harbor figures")
+                        .setLastModified(new ChangeAuditStamps())),
+                CARGO_OVERVIEW,
+                events(
+                    CARGO_OVERVIEW,
+                    new DashboardInfo()
+                        .setTitle("Cargo Overview")
+                        .setDescription("Harbor figures")
+                        .setLastModified(new ChangeAuditStamps())),
+                MANIFEST,
+                events(
+                    MANIFEST,
+                    new DashboardInfo()
+                        .setTitle("Manifest20240101")
+                        .setDescription("Harbor figures")
+                        .setLastModified(new ChangeAuditStamps())),
+                FREIGHT_BOARD,
+                events(
+                    FREIGHT_BOARD,
+                    new DashboardInfo()
+                        .setTitle("Freight Board")
+                        .setDescription("Berth plan for cargo2018 vessels")
+                        .setLastModified(new ChangeAuditStamps())),
+                FLEET_OVERVIEW,
+                events(
+                    FLEET_OVERVIEW,
+                    new DashboardInfo()
+                        .setTitle("Fleet Overview")
+                        .setDescription("Harbor figures")
+                        .setLastModified(new ChangeAuditStamps())),
+                FLEET_NOTES,
+                events(
+                    FLEET_NOTES,
+                    new DashboardInfo()
+                        .setTitle("Engineering notes")
+                        .setDescription("Built on fleet_v2")
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
@@ -771,10 +848,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           type.getValue());
     }
 
-    // A quoted query runs no simple query, so only the phrase prefix reaches the description
+    // A quoted query runs no simple query, so only the exact and prefix matches on the identity
+    // fields (name, title, qualified name, id and urn) remain
     assertUrns(
         searchService
-            .search(fulltext, ENTITY_TYPES, "\"monthly orders\"", null, null, 0, 10)
+            .search(fulltext, ENTITY_TYPES, "\"orders by region\"", null, null, 0, 10)
             .getEntities(),
         ORDERS_CHART);
 
@@ -824,6 +902,132 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .map(MatchedField::getName)
             .collect(Collectors.toList());
     assertTrue(matchedFields.contains("name"), matchedFields.toString());
+  }
+
+  /**
+   * Long queries over indices rich in similar words stay under OpenSearch's default limit of 1024
+   * clauses: a query keeps the words whose clauses fit, and its fuzzy terms share what is left.
+   */
+  @Test
+  public void testLongQueryStaysUnderClauseLimit() throws Exception {
+    String[] words = {
+      "zorbel", "quintax", "valdrin", "morphex", "brintel", "caldris", "fenwold", "glarvon",
+      "hestrin", "jorvald", "kelstor", "lumbrix", "nervant", "orzelle", "pyxtral", "quorvex",
+      "rendalt", "sylvorn", "tarquel", "umbrisk", "vintrel", "wexmore", "yarlund", "zephrin",
+      "brockan", "cindral", "dravish", "elstorm", "fyndell"
+    };
+    // Close neighbours of every word give each fuzzy term its full expansions
+    StringBuilder vocabulary = new StringBuilder();
+    for (String word : words) {
+      vocabulary.append(word).append(' ');
+      for (char last : "bcdfghjkmnp".toCharArray()) {
+        vocabulary.append(word, 0, word.length() - 1).append(last).append(' ');
+      }
+    }
+    String text = vocabulary.toString().trim();
+    Urn vocabularyDataset =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,vocabulary,PROD)");
+    Urn vocabularyDashboard = UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
+    UpdateIndicesV3Strategy indexer =
+        new UpdateIndicesV3Strategy(
+            config.getEntityIndex().getV3(),
+            searchService,
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
+            mock(TimeseriesAspectService.class),
+            null);
+
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    List<String> queries =
+        List.of(
+            String.join(" ", Arrays.copyOf(words, 3)),
+            String.join(" ", Arrays.copyOf(words, 20)),
+            Arrays.stream(words)
+                .limit(12)
+                .map(word -> word + "2017")
+                .collect(Collectors.joining(" ")),
+            Arrays.stream(words)
+                .limit(8)
+                .map(word -> word + "-" + word + "-v2")
+                .collect(Collectors.joining(" ")),
+            words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)),
+            words[0] + "2017 " + String.join(" ", Arrays.copyOfRange(words, 1, 20)),
+            Arrays.stream(words)
+                .limit(12)
+                .map(word -> "db." + word)
+                .collect(Collectors.joining(" ")),
+            Arrays.stream(words)
+                .limit(8)
+                .map(word -> "prod." + word + "." + word)
+                .collect(Collectors.joining(" ")),
+            // One word holding every term
+            String.join(".", words),
+            Arrays.stream(words)
+                .limit(15)
+                .map(word -> word + "2017")
+                .collect(Collectors.joining()));
+    try {
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              vocabularyDataset,
+              events(
+                  vocabularyDataset,
+                  new DatasetProperties()
+                      .setName(text)
+                      .setDescription(text)
+                      .setQualifiedName(text)),
+              vocabularyDashboard,
+              events(
+                  vocabularyDashboard,
+                  new DashboardInfo()
+                      .setTitle(text)
+                      .setDescription(text)
+                      .setLastModified(new ChangeAuditStamps()))),
+          false);
+      syncAfterWrite(getBulkProcessor());
+      // A failed shard only drops that index's results, so each scope checks its own entity
+      for (Map.Entry<List<String>, Urn> scope :
+          Map.of(
+                  List.of(DATASET_ENTITY_NAME),
+                  vocabularyDataset,
+                  List.of(DASHBOARD_ENTITY_NAME),
+                  vocabularyDashboard,
+                  ENTITY_TYPES,
+                  vocabularyDataset)
+              .entrySet()) {
+        List<String> entityTypes = scope.getKey();
+        for (String query : queries) {
+          // Fails with too_many_nested_clauses past the limit
+          assertTrue(
+              searchService
+                  .search(fulltext, entityTypes, query, null, null, 0, 10)
+                  .getEntities()
+                  .stream()
+                  .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
+              entityTypes + ": " + query);
+          // The light query serves most of these searches; a scroll always runs the full query
+          assertTrue(
+              searchService
+                  .fullTextScroll(
+                      fulltext, entityTypes, query, null, null, null, null, 100, List.of())
+                  .getEntities()
+                  .stream()
+                  .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
+              "scroll " + entityTypes + ": " + query);
+        }
+      }
+    } finally {
+      // Other tests count the datasets and dashboards
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              vocabularyDataset,
+              keyDeletion(vocabularyDataset),
+              vocabularyDashboard,
+              keyDeletion(vocabularyDashboard)),
+          false);
+      syncAfterWrite(getBulkProcessor());
+    }
   }
 
   /** Every field queried by default is searched, with or without a searchTier annotation. */
@@ -923,9 +1127,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         ORDERS);
   }
 
-  /** The exact-match term reaches values longer than the removed tier keywords' 100 characters. */
+  /**
+   * A quoted phrase of four or more words matches a description holding all of them, here one
+   * longer than the 100 characters the removed tier keywords indexed.
+   */
   @Test
-  public void testExactMatchOnLongValue() {
+  public void testQuotedDescriptionPhrase() {
     ExplainResponse explain =
         searchService.explain(
             opContext.withSearchFlags(flags -> flags.setFulltext(true)),
@@ -940,19 +1147,20 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             List.of());
     assertTrue(explain.isMatch());
     assertTrue(
-        explain.getExplanation().toString().contains("description.keyword"),
+        explain.getExplanation().toString().contains("description.delimited"),
         explain.getExplanation().toString());
   }
 
   /** A match in a field with a higher @Searchable boostScore ranks first, as on V2. */
   @Test
   public void testSearchableBoostsRankResults() {
+    // Multi-word, so the light query searches every field, not only the names
     assertEquals(
         searchService
             .search(
                 opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                 List.of(DASHBOARD_ENTITY_NAME),
-                "archive",
+                "quarterly archive",
                 null,
                 null,
                 0,
@@ -962,6 +1170,254 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .map(SearchEntity::getEntity)
             .collect(Collectors.toList()),
         List.of(TITLE_MATCH, DESCRIPTION_MATCH));
+  }
+
+  /**
+   * The Stage 1 query puts the intended entity first for each kind of query it adds recall or
+   * ranking for. V2's all-terms query finds none of the typo, synonym or substring entities.
+   */
+  @Test
+  public void testStage1TopHits() {
+    // Exact name: the dataset named "orders" outranks the chart whose title starts with it
+    assertTopHit(ENTITY_TYPES, "orders", ORDERS);
+    // Fully qualified name, here the dataset key id
+    assertTopHit(ENTITY_TYPES, "sales.orders", ORDERS);
+    assertTopHit(ENTITY_TYPES, ORDERS.toString(), ORDERS);
+    // A URN that differs in case or is cut short still matches, as on V2
+    assertTopHit(ENTITY_TYPES, ORDERS.toString().replace("sales.orders", "SALES.ORDERS"), ORDERS);
+    assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
+    // An entity that references the URN, here through its tags
+    assertTopHit(ENTITY_TYPES, "urn:li:tag:Confidential", ORDERS_CHART);
+    // Search operators are plain text: "-archive" does not exclude the title holding it
+    assertTrue(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DASHBOARD_ENTITY_NAME),
+                "revenue -archive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .anyMatch(entity -> entity.getEntity().equals(TITLE_MATCH)));
+    // A letter and digit run held only in a description, indexed as one token
+    assertTopHit(List.of(DASHBOARD_ENTITY_NAME), "batch2017", STG_DASHBOARD);
+    // A long description pasted as the query
+    assertTopHit(List.of(DATASET_ENTITY_NAME), CUSTOMERS_DESCRIPTION, CUSTOMERS);
+    // One edit away from "customers"
+    assertTopHit(List.of(DATASET_ENTITY_NAME), "custmers", CUSTOMERS);
+    // "staging" expands to its synonym "stg", an exact title, ahead of the title holding "staging"
+    assertTopHit(List.of(DASHBOARD_ENTITY_NAME), "staging", STG_DASHBOARD);
+    assertTopHit(List.of(DASHBOARD_ENTITY_NAME), "lifetime", LIFETIME_DASHBOARD);
+  }
+
+  private void assertTopHit(List<String> entityTypes, String query, Urn expected) {
+    SearchEntityArray hits =
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                entityTypes,
+                query,
+                null,
+                null,
+                0,
+                10)
+            .getEntities();
+    assertFalse(hits.isEmpty(), query);
+    assertEquals(hits.get(0).getEntity(), expected, query + ": " + hits);
+  }
+
+  /**
+   * The light query runs first and the full query only when it matches nothing. A single word
+   * searches the names first, so a word that a dashboard title holds hides the dashboard holding it
+   * only in its description, in the hits, the total and explain alike.
+   */
+  @Test
+  public void testLightFirstRelaxation() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    BiFunction<String, String, SearchResult> search =
+        (entityType, query) ->
+            searchService.search(fulltext, List.of(entityType), query, null, null, 0, 10);
+
+    SearchResult nameMatch = search.apply(DASHBOARD_ENTITY_NAME, "archive");
+    assertUrns(nameMatch.getEntities(), TITLE_MATCH);
+    assertEquals(nameMatch.getNumEntities().intValue(), 1);
+    assertTrue(explain("archive", TITLE_MATCH).isMatch());
+    assertFalse(explain("archive", DESCRIPTION_MATCH).isMatch());
+    // The explain API's default sort by score is relevance too
+    assertFalse(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING)),
+                null,
+                null,
+                10,
+                List.of())
+            .isMatch());
+    // A search that reaches the DAO without hits runs the full query, as in DataHub Cloud, and so
+    // does its explain
+    assertTrue(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                null,
+                null,
+                null,
+                0,
+                List.of())
+            .isMatch());
+    assertEquals(
+        searchService
+            .search(fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 0, 0)
+            .getNumEntities()
+            .intValue(),
+        2);
+    // A filter that leaves the light query nothing falls through to the full query
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                QueryUtils.newFilter("urn", DESCRIPTION_MATCH.toString()),
+                null,
+                0,
+                10)
+            .getEntities(),
+        DESCRIPTION_MATCH);
+    // The total decides, so a later page of a light result stays on the light query
+    SearchResult secondPage =
+        searchService.search(
+            fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 1, 10);
+    assertEquals(secondPage.getNumEntities().intValue(), 1);
+    assertTrue(secondPage.getEntities().isEmpty());
+    // Another sort order, including an ascending score, and scroll run the full query, and so
+    // does the explain of a scroll
+    assertTrue(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                null,
+                null,
+                "5m",
+                10,
+                List.of())
+            .isMatch());
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                List.of(new SortCriterion().setField("_score").setOrder(SortOrder.ASCENDING)),
+                0,
+                10)
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING)),
+                0,
+                10)
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+    assertUrns(
+        searchService
+            .fullTextScroll(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                null,
+                null,
+                10,
+                List.of())
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+
+    // A typo matches nothing on the light query, so the full fuzzy query runs. Fuzzy matching
+    // reaches the stemmed token ("archiv"); 7 characters allow two edits
+    assertUrns(
+        search.apply(DASHBOARD_ENTITY_NAME, "archiev").getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+    assertTrue(explain("archiev", DESCRIPTION_MATCH).isMatch());
+
+    // The full query would fuzzy-match "orders", but an ID lookup or a long name the light query
+    // does not find has no partial matches worth showing
+    assertEquals(
+        search.apply(DATASET_ENTITY_NAME, "orderz_20240101").getNumEntities().intValue(), 0);
+    assertEquals(
+        search.apply(DATASET_ENTITY_NAME, "orderz_aa_bb_cc").getNumEntities().intValue(), 0);
+    assertFalse(explain("orderz_20240101", ORDERS).isMatch());
+    assertUrns(search.apply(DATASET_ENTITY_NAME, "orderz_aa").getEntities(), ORDERS);
+
+    // A letter and digit run matches whole or by all its parts on the light query. "Cargo
+    // Overview" holds only "cargo", so it neither hides "Cargo2017 Report" nor keeps the full query
+    // from finding "cargo2018" in a description. A 6-digit run held in a title is found, not
+    // stopped
+    assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "cargo2017").getEntities(), CARGO_REPORT);
+    SearchEntityArray splitRun = search.apply(DASHBOARD_ENTITY_NAME, "cargo2018").getEntities();
+    assertTrue(
+        splitRun.stream().anyMatch(entity -> entity.getEntity().equals(FREIGHT_BOARD)),
+        splitRun.toString());
+    assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "manifest20240101").getEntities(), MANIFEST);
+    // A word that also holds "_" matches a name holding one of its parts, as in DataHub Cloud: the
+    // analyzers emit those parts at one position, so "Fleet Overview" hides the description holder
+    assertUrns(search.apply(DASHBOARD_ENTITY_NAME, "fleet_v2").getEntities(), FLEET_OVERVIEW);
+    // A search with includeExplain explains the light query that served it
+    SearchEntityArray explained =
+        searchService
+            .search(
+                fulltext.withSearchFlags(flags -> flags.setIncludeExplain(true)),
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities();
+    assertUrns(explained, TITLE_MATCH);
+    assertTrue(explained.get(0).getExtraFields().containsKey("_explain"));
+  }
+
+  private ExplainResponse explain(String query, Urn urn) {
+    return searchService.explain(
+        opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+        query,
+        urn.toString(),
+        urn.getEntityType(),
+        null,
+        null,
+        null,
+        null,
+        10,
+        List.of());
   }
 
   /** The function scores of the custom search configuration rank an explore-all query. */
@@ -1240,6 +1696,21 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // No browsePaths aspect
     assertEquals(
         searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
+  }
+
+  /** Map.of takes at most 10 entries; the fixture seeds more. */
+  @SuppressWarnings("unchecked")
+  private static Map<Urn, List<MCLItem>> seedEvents(Object... urnsAndEvents) {
+    Map<Urn, List<MCLItem>> seeded = new java.util.LinkedHashMap<>();
+    for (int i = 0; i < urnsAndEvents.length; i += 2) {
+      seeded.put((Urn) urnsAndEvents[i], (List<MCLItem>) urnsAndEvents[i + 1]);
+    }
+    return seeded;
+  }
+
+  private List<MCLItem> keyDeletion(Urn urn) {
+    return List.of(
+        ((TestMCL) events(urn).get(0)).toBuilder().changeType(ChangeType.DELETE).build());
   }
 
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {

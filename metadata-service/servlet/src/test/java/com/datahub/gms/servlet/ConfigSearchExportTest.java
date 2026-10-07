@@ -3,6 +3,7 @@ package com.datahub.gms.servlet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -73,9 +74,15 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
     new ConfigSearchExport().doGet(request, response);
 
     verify(response).setStatus(HttpServletResponse.SC_OK);
-    // V3 runs the V2 per-field query, so the export lists the V2 subfields and analyzers
-    assertTrue(body.toString().contains(".delimited"), body.toString());
-    assertTrue(body.toString().contains("query_word_delimited"), body.toString());
-    assertTrue(body.toString().contains("phrase_match"), body.toString());
+    String csv = body.toString();
+    // V3 runs the Stage 1 query over the per-field subfields and analyzers
+    assertTrue(csv.contains(".delimited"), csv);
+    assertTrue(csv.contains("query_word_delimited"), csv);
+    assertTrue(csv.contains("prefix_match"), csv);
+    // Stage 1 clauses under the dis_max root: constant-score exact names, word gram matches
+    assertTrue(csv.contains("exact_match,ConstantScoreQueryBuilder,name.keyword"), csv);
+    assertTrue(csv.contains("match,MatchQueryBuilder"), csv);
+    // V2's word gram phrase clauses are gone
+    assertFalse(csv.contains("phrase_match"), csv);
   }
 }

@@ -19,6 +19,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -81,6 +82,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       "estest_datasetindex_v2"; // Use v2 as default for backward compatibility
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
   protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
+  private static final String OBJECT_ROUNDTRIP_INDEX = "estest_objectroundtripindex_v2";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -118,6 +120,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .numReplicas(0)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     testDefaultBuilder =
@@ -133,6 +136,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .numReplicas(REPLICASTEST)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     testReplicasBuilder =
@@ -200,9 +204,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
 
     // Clean up all test indices
-    String[] testIndices = {
-      TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, TEST_V2_INDEX_NAME + "_object_roundtrip"
-    };
+    String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX};
 
     for (String indexName : testIndices) {
       try {
@@ -424,6 +426,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(1)
                         .numRetries(1)
                         .refreshIntervalSeconds(1)
+                        .refreshIntervals(RefreshIntervals.allServices(1))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -459,6 +462,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(2)
                         .numRetries(2)
                         .refreshIntervalSeconds(2)
+                        .refreshIntervals(RefreshIntervals.allServices(2))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -503,6 +507,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(0)
                         .numRetries(0)
                         .refreshIntervalSeconds(0)
+                        .refreshIntervals(RefreshIntervals.allServices(0))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -671,8 +676,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 noReindexConfig.toBuilder()
                     .index(
                         noReindexConfig.getIndex().toBuilder()
-                            .refreshIntervalSeconds(
-                                10) // testDefaultBuilder.getRefreshIntervalSeconds() + 10
+                            .refreshIntervalSeconds(10)
+                            .refreshIntervals(RefreshIntervals.allServices(10))
                             .build())
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
@@ -743,6 +748,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(0)
                         .numRetries(0)
                         .refreshIntervalSeconds(0)
+                        .refreshIntervals(RefreshIntervals.allServices(0))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -981,7 +987,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       throw new SkipException("ES8 mapping round-trip reindex loop test");
     }
 
-    String indexName = TEST_V2_INDEX_NAME + "_object_roundtrip";
+    String indexName = OBJECT_ROUNDTRIP_INDEX;
     Map<String, Object> implicitObjectMappings =
         ImmutableMap.of(
             "properties",
