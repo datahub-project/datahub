@@ -1,6 +1,8 @@
-import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -139,14 +141,14 @@ export class ApplicationEntity implements Entity<Application> {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : ApplicationSummaryTab,
-                icon: ReadOutlined,
+                icon: BookOpen,
             },
             ...(!showSummaryTab
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
@@ -156,12 +158,12 @@ export class ApplicationEntity implements Entity<Application> {
                     return !loading ? entityData?.children?.total : undefined;
                 },
                 component: ApplicationEntitiesTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };

@@ -15,8 +15,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
@@ -36,14 +38,17 @@ import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -75,6 +80,11 @@ public class EntitiesController {
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
   @Nullable private final MetricUtils metricUtils;
+
+  // Optional: absent in applications that do not build the reliable hard delete.
+  @Autowired(required = false)
+  @Nullable
+  protected ReliableHardDelete reliableHardDelete;
 
   public EntitiesController(
       OperationContext systemOperationContext,
@@ -331,9 +341,22 @@ public class EntitiesController {
       }
 
       if (!soft) {
+        final boolean reliable = reliableHardDelete != null && reliableHardDelete.isEnabled();
+        // Every bound is captured before the first delete, so a write to a later entity while
+        // earlier ones are deleted is kept.
+        final Map<Urn, Optional<DeleteCeiling>> ceilings = new LinkedHashMap<>();
+        if (reliable) {
+          entityUrns.forEach(urn -> ceilings.put(urn, reliableHardDelete.capture(opContext, urn)));
+        }
         return ResponseEntity.ok(
             entityUrns.stream()
-                .map(urn -> _entityService.deleteUrn(opContext, urn))
+                .map(
+                    urn ->
+                        reliable
+                            ? reliableHardDelete
+                                .delete(opContext, urn, ceilings.get(urn))
+                                .rollbackRunResult()
+                            : _entityService.deleteUrn(opContext, urn))
                 .map(
                     rollbackRunResult ->
                         MappingUtil.mapRollbackRunResult(rollbackRunResult, _objectMapper))

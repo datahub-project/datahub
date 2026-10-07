@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader, Modal } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -10,7 +10,6 @@ import {
     DiscardUnsavedChangesConfirmationProvider,
     useDiscardUnsavedChangesConfirmationContext,
 } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
-import { Modal } from '@src/alchemy-components';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { EntityType, PageTemplateSurfaceType } from '@types';
@@ -165,7 +164,7 @@ const DocumentModalContent: React.FC<DocumentViewModalProps> = ({
             <ModalContent>
                 {loading || !document ? (
                     <LoadingWrapper>
-                        <LoadingOutlined style={{ fontSize: 36 }} />
+                        <Loader size="lg" />
                     </LoadingWrapper>
                 ) : (
                     <EntityContext.Provider
