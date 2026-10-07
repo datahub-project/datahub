@@ -601,7 +601,7 @@ Some APIs authorize against **related** entities rather than only the URN in the
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------- |
 | Create a document       | **Edit Entity** or **Create Entity** on documents, or **Manage Documents** | Admins and Editors              |
 | Edit or move a document | **Edit Entity** on the document, or **Manage Documents**                   | Admins, Editors, and its owners |
-| Delete a document       | **Delete Entity** on the document, or **Manage Documents**                 | Admins and its owners           |
+| Delete a document       | **Delete** on the document, or **Manage Documents**                        | Admins and its owners           |
 | Manage any document     | **Manage Documents**                                                       | Admins                          |
 
 Editors can create and edit documents but cannot delete documents they don't own. Document owners
