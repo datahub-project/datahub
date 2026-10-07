@@ -503,8 +503,10 @@ def _extract_table_names(
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
 
-# Functions whose first argument is a dictionary name, from ClickHouse 25.3 and 26.9:
-# SELECT lower(name) FROM system.functions WHERE name ILIKE 'dict%'
+# Built-in functions whose first argument is a dictionary name
+# (https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions).
+# Union of ClickHouse 25.3 and 26.9:
+# SELECT lower(name) FROM system.functions WHERE name ILIKE 'dict%' AND origin = 'System'
 _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
     {
         "dictget",
