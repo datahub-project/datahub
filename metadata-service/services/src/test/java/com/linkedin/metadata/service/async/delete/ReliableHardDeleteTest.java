@@ -112,6 +112,7 @@ public class ReliableHardDeleteTest {
 
     expectThrows(IllegalArgumentException.class, () -> reliableHardDelete.delete(opContext, URN));
     verifyNoInteractions(deleteEntityService);
+    verify(entityService, never()).captureDeleteCeiling(any(), any());
   }
 
   private static RollbackResult deleted(final String aspectName, final boolean keyAspect) {

@@ -820,7 +820,11 @@ public class DeleteEntityService {
       @Nullable final CascadeOperationContext cascade,
       final boolean failIfNotRemoved) {
     if (shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn)) {
-      _entityService.deleteUrn(opContext, assetUrn);
+      if (failIfNotRemoved) {
+        deleteAssetUpToCapturedVersions(opContext, assetUrn);
+      } else {
+        _entityService.deleteUrn(opContext, assetUrn);
+      }
     }
 
     List<MetadataChangeProposal> mcps = new ArrayList<>();
@@ -880,6 +884,26 @@ public class DeleteEntityService {
    * <p>TODO: extend this to support other types of deletes and be more dynamic depending on aspects
    * that the asset has
    */
+  /**
+   * Deletes {@code assetUrn} bounded by the versions it has now: if it is written to meanwhile it
+   * is kept, and the cleanup fails so the referenced entity is not deleted.
+   */
+  private void deleteAssetUpToCapturedVersions(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assetUrn) {
+    final Optional<DeleteCeiling> ceiling =
+        _entityService.captureDeleteCeiling(opContext, assetUrn);
+    if (ceiling.isEmpty()) {
+      return;
+    }
+    final boolean keyDeleted =
+        _entityService.deleteUrn(opContext, assetUrn, ceiling.get()).getRollbackResults().stream()
+            .map(RollbackResult::getKeyAffected)
+            .anyMatch(Boolean.TRUE::equals);
+    if (!keyDeleted) {
+      throw notRemoved(assetUrn, opContext.getKeyAspectName(assetUrn), null);
+    }
+  }
+
   private boolean shouldDeleteAssetReferencingUrn(
       @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
     if (assetUrn.getEntityType().equals("test") && deletedUrn.getEntityType().equals("form")) {

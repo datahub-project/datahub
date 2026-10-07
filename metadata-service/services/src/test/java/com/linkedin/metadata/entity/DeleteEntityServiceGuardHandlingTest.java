@@ -33,6 +33,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -360,5 +361,53 @@ public class DeleteEntityServiceGuardHandlingTest {
             eq(Constants.CONTAINER_ASPECT_NAME),
             eq(Map.of(EntityService.DELETE_CONDITION_MAX_VERSION, "2")),
             eq(true));
+  }
+
+  /**
+   * Deleting a form deletes the tests that reference it. In the failing cleanup that delete is
+   * bounded by the test's versions; a test written to meanwhile is kept and the cleanup throws.
+   */
+  @Test
+  public void failingCleanupDeletesAReferencingAssetOnlyUpToItsCapturedVersions() {
+    final Urn form = UrnUtils.getUrn("urn:li:form:bounded-asset-delete");
+    final Urn test = UrnUtils.getUrn("urn:li:test:bounded-asset-delete");
+    final ScrollResult noFiles = new ScrollResult();
+    noFiles.setEntities(new SearchEntityArray());
+    noFiles.setNumEntities(0);
+    when(_searchService.structuredScroll(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            isNull(),
+            nullable(String.class),
+            anyString(),
+            anyInt()))
+        .thenReturn(noFiles);
+    final ScrollResult referencingTest = new ScrollResult();
+    referencingTest.setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(test))));
+    referencingTest.setNumEntities(1);
+    when(_searchService.structuredScroll(
+            any(OperationContext.class),
+            eq(DeleteEntityUtils.getEntityNamesForFormDeletion()),
+            anyString(),
+            any(Filter.class),
+            isNull(),
+            nullable(String.class),
+            anyString(),
+            anyInt()))
+        .thenReturn(referencingTest);
+    final DeleteCeiling ceiling = new DeleteCeiling(Map.of("testKey", 1L));
+    when(_entityService.captureDeleteCeiling(any(OperationContext.class), eq(test)))
+        .thenReturn(Optional.of(ceiling));
+    when(_entityService.deleteUrn(any(OperationContext.class), eq(test), eq(ceiling)))
+        .thenReturn(new RollbackRunResult(List.of(), 0, List.of()));
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> _deleteEntityService.deleteReferencesToOrFail(opContext, form));
+
+    verify(_entityService).deleteUrn(any(OperationContext.class), eq(test), eq(ceiling));
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), eq(test));
   }
 }

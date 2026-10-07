@@ -20,7 +20,10 @@ import javax.annotation.Nonnull;
  * <p>It only orders today's code: it captures every aspect's version, runs today's reference
  * cleanup with each referrer write conditional on the version read, then today's {@code deleteUrn}
  * bounded by the captured versions. Data written after the capture survives. Repeating a failed
- * request is safe.
+ * request is safe; a repeated request captures the versions again, so it also deletes what was
+ * written before it.
+ *
+ * <p>On Cassandra the latest rows are not locked, so the bound is best-effort there.
  */
 public class ReliableHardDelete {
   private final EntityService<?> entityService;
@@ -47,12 +50,12 @@ public class ReliableHardDelete {
    */
   @Nonnull
   public DeleteEntityReport delete(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    // References go first, so the checks the entity delete would fail on run before them.
+    entityService.validateHardDelete(opContext, urn);
     final Optional<DeleteCeiling> ceiling = entityService.captureDeleteCeiling(opContext, urn);
     if (ceiling.isEmpty()) {
       return DeleteEntityReport.alreadyDeleted(urn);
     }
-    // References go first, so the checks the entity delete would fail on run before them.
-    entityService.validateHardDelete(opContext, urn);
     final Integer referencesRemoved =
         deleteEntityService.deleteReferencesToOrFail(opContext, urn).getTotal();
 
