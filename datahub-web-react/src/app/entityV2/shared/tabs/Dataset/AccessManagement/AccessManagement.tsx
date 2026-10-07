@@ -37,7 +37,7 @@ const StyledTable = styled(Table)`
 /**
  * AccessManagement component displays a table of roles with access request functionality.
  * Shows "Granted" (disabled) buttons for roles the user already has access to,
- * "Not Granted" (disabled) buttons for roles the user has no access to and cannot request access to (no URL)
+ * "Not Granted" (disabled) buttons for roles the user has no access to and cannot request access to (no request link)
  * and "Request" (enabled) buttons for roles they can request access to.
  */
 export default function AccessManagement() {
