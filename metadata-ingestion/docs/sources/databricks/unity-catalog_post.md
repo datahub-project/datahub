@@ -1,3 +1,28 @@
+### Genie diagnostics
+
+Set `log_genie_spaces: true` in your Databricks source config to log the raw Genie
+space listing and each space's exported definition at INFO level. This is disabled
+by default and does not emit Genie entities. Normal Unity Catalog ingestion still runs.
+
+The logs include descriptions, instructions, dataset identifiers, and other fields
+returned by Databricks. Treat the output as workspace metadata when sharing logs.
+Large responses use numbered chunks; concatenate the `payload=` values in order
+to reconstruct the original JSON response.
+
+The diagnostic requests `include_serialized_space=true`, which requires `CAN EDIT`
+on each space. Permission and other API failures are logged and included as report
+warnings; a failed space does not prevent checking the others. The final summary
+distinguishes a completed empty listing from a failed or incomplete scan. An empty
+listing means no spaces are visible to the authenticated principal, not necessarily
+that none exist in the workspace.
+
+To inspect Genie without ingesting catalog tables, use a separate recipe with
+`catalog_pattern: {deny: [".*"]}`, `include_tags: false`,
+`include_hive_metastore: false`, `include_usage_statistics: false`,
+`include_ownership: false`, `include_notebooks: false`, `include_ml_models: false`,
+and `stateful_ingestion: {enabled: false}`. Use a local file sink to avoid publishing
+metadata during diagnostics.
+
 ### Capabilities
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
