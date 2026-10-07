@@ -174,11 +174,17 @@ class TestExploreUpstreamViewFieldFormFieldName:
     def test_variant_removal_causing_empty_name(self, caplog):
         """Test that variant removal resulting in empty name returns None."""
         explore = LookmlModelExplore(name="test_explore")
+        # In Looker, dimension groups create fields with variants like "created_date_month", "created_date_year"
+        # This test simulates a pathological case where:
+        # - field name is "test_view.month" (after splitting by ".", field_name becomes "month")
+        # - field_group_variant is "month"
+        # - When remove_variant=True, it removes "_month" from "month", resulting in empty string
+        # - This should be handled gracefully by returning None and logging a warning
         field = LookmlModelExploreField(
             name="test_view.month",
             type="string",
             original_view=None,
-            field_group_variant="month",
+            field_group_variant="month",  # When removed with underscore ("_month"), leaves empty field name
         )
         upstream_field = ExploreUpstreamViewField(field=field, explore=explore)
 
