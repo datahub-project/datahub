@@ -4,10 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import {
-    RoleAccessData,
-    renderAccessButton,
-} from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessButtonHelpers';
+import { renderAccessButton } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessButtonHelpers';
 import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
@@ -37,15 +34,10 @@ const StyledTable = styled(Table)`
     }
 ` as typeof Table;
 
-const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
-    const roleData = { hasAccess, url: record.url, name: record.name };
-    const button = renderAccessButton(roleData);
-    return button;
-};
-
 /**
  * AccessManagement component displays a table of roles with access request functionality.
  * Shows "Granted" (disabled) buttons for roles the user already has access to,
+ * "Not Granted" (disabled) buttons for roles the user has no access to and cannot request access to (no URL)
  * and "Request" (enabled) buttons for roles they can request access to.
  */
 export default function AccessManagement() {
@@ -81,7 +73,7 @@ export default function AccessManagement() {
             title: t('accessManagement.columnAccess'),
             dataIndex: 'hasAccess',
             key: 'hasAccess',
-            render: renderAccessCell,
+            render: (hasAccess, record) => renderAccessButton({ hasAccess, url: record.url, name: record.name }),
         },
     ];
 

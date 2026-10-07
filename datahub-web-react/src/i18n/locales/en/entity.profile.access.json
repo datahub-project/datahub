@@ -2,7 +2,7 @@
     "accessManagement.accessAlreadyGranted": "Access already granted",
     "accessManagement.accessGrantedTooltip": "You already have access to this role",
     "accessManagement.accessNotGranted": "Access not granted",
-    "accessManagement.accessNotGrantedTooltip": "You do not have access to this role",
+    "accessManagement.accessNotGrantedTooltip": "No request link is configured for this role",
     "accessManagement.columnAccess": "Access",
     "accessManagement.columnAccessType": "Access Type",
     "accessManagement.columnRoleName": "Role Name",

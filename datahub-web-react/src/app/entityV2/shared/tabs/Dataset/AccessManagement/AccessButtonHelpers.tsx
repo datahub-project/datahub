@@ -86,7 +86,7 @@ const getAccessButtonAriaLabel = (hasAccess: boolean, url?: string): string => {
  * Shows "Granted" (disabled) if user has access, "Request" (enabled) if they don't and a request URL
  * is configured, and "Not granted" (disabled) if they don't and there is no request URL.
  */
-export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement | null => {
+export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement => {
     const { hasAccess, url } = roleData;
 
     const button = (
