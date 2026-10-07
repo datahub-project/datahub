@@ -59,9 +59,18 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.sdk.common.CompletableResultCode;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -4168,5 +4177,156 @@ public class GraphQueryPITDAOTest {
             any(OperationContext.class),
             argThat(req -> req.getPitIds().contains("test-pit-id")),
             any(RequestOptions.class));
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchRecordsTookAndOutsideTook() throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.DOWNSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // Each search blocks before returning, standing in for time spent waiting on a connection.
+    SearchClientShim<?> responses = mock(SearchClientShim.class);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(SEARCH_DELAY_MS);
+              return responses.search(
+                  invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2));
+            });
+
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(
+            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, metricUtils);
+    createdDAOs.add(dao);
+
+    SearchHit[] hits =
+        createFakeLineageHits(
+            3,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+            "dest",
+            "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 3);
+    when(searchResponse.getTook()).thenReturn(TimeValue.timeValueMillis(7));
+    SearchResponse emptyResponse = createEmptySearchResponse(3);
+    when(emptyResponse.getTook()).thenReturn(TimeValue.timeValueMillis(1));
+    mockSliceBasedSearch(responses, List.of(searchResponse), List.of(emptyResponse));
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    io.micrometer.core.instrument.Timer took =
+        registry.get(GraphQueryPITDAO.SEARCH_TOOK_METRIC).tag("operation", "graphQueryPit").timer();
+    Assert.assertTrue(took.count() > 0, "took should be recorded per slice search");
+    Assert.assertTrue(took.max(TimeUnit.MILLISECONDS) >= 7.0);
+    io.micrometer.core.instrument.Timer outsideTook =
+        registry
+            .get(GraphQueryPITDAO.SEARCH_OUTSIDE_TOOK_METRIC)
+            .tag("operation", "graphQueryPit")
+            .timer();
+    Assert.assertEquals(outsideTook.count(), took.count());
+    // Each search spends SEARCH_DELAY_MS outside ES minus at most 7ms of reported took.
+    Assert.assertTrue(
+        outsideTook.totalTime(TimeUnit.MILLISECONDS)
+            >= outsideTook.count() * (SEARCH_DELAY_MS - 7.0));
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchTagsEsQuerySpanWithUrnsHitsAndTook() throws Exception {
+    CollectingSpanExporter exporter = new CollectingSpanExporter();
+    SdkTracerProvider tracerProvider =
+        SdkTracerProvider.builder().addSpanProcessor(SimpleSpanProcessor.create(exporter)).build();
+    OperationContext tracedContext =
+        TestOperationContexts.systemContextTraceNoSearchAuthorization(
+            null,
+            () ->
+                io.datahubproject.metadata.context.SystemTelemetryContext.builder()
+                    .tracer(tracerProvider.get("test-tracer"))
+                    .build());
+
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            tracedContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.DOWNSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    createdDAOs.add(dao);
+
+    SearchHit[] hits =
+        createFakeLineageHits(
+            3,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+            "dest",
+            "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 3);
+    when(searchResponse.getTook()).thenReturn(TimeValue.timeValueMillis(7));
+    SearchResponse emptyResponse = createEmptySearchResponse(3);
+    when(emptyResponse.getTook()).thenReturn(TimeValue.timeValueMillis(1));
+    mockSliceBasedSearch(mockClient, List.of(searchResponse), List.of(emptyResponse));
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    dao.getImpactLineage(tracedContext, sourceUrn, filters, 1);
+
+    AttributeKey<Long> urns = AttributeKey.longKey(GraphQueryPITDAO.SEARCH_URNS_ATTR);
+    AttributeKey<Long> hitCount = AttributeKey.longKey(GraphQueryPITDAO.SEARCH_HITS_ATTR);
+    AttributeKey<Long> tookMs = AttributeKey.longKey(GraphQueryPITDAO.SEARCH_TOOK_MS_ATTR);
+    List<SpanData> esQuerySpans =
+        exporter.spans.stream().filter(span -> "esQuery".equals(span.getName())).toList();
+
+    Assert.assertFalse(esQuerySpans.isEmpty(), "slice searches should produce esQuery spans");
+    esQuerySpans.forEach(span -> Assert.assertEquals(span.getAttributes().get(urns), 1L));
+    Assert.assertTrue(
+        esQuerySpans.stream()
+            .anyMatch(
+                span ->
+                    Long.valueOf(3L).equals(span.getAttributes().get(hitCount))
+                        && Long.valueOf(7L).equals(span.getAttributes().get(tookMs))),
+        "the page with results should record its hit count and took");
+  }
+
+  private static final long SEARCH_DELAY_MS = 50;
+
+  private static final class CollectingSpanExporter implements SpanExporter {
+    private final List<SpanData> spans = Collections.synchronizedList(new ArrayList<>());
+
+    @Override
+    public CompletableResultCode export(Collection<SpanData> collection) {
+      spans.addAll(collection);
+      return CompletableResultCode.ofSuccess();
+    }
+
+    @Override
+    public CompletableResultCode flush() {
+      return CompletableResultCode.ofSuccess();
+    }
+
+    @Override
+    public CompletableResultCode shutdown() {
+      return CompletableResultCode.ofSuccess();
+    }
   }
 }
