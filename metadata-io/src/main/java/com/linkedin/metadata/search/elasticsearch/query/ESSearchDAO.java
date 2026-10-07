@@ -242,7 +242,8 @@ public class ESSearchDAO {
                         searchResponse,
                         filter,
                         from,
-                        ConfigUtils.applyLimit(searchServiceConfig, size)));
+                        ConfigUtils.applyLimit(searchServiceConfig, size),
+                        input));
           } catch (Exception e) {
             log.error("Search query failed", e);
             log.error("Response to the failed search query: {}", searchResponse);
@@ -346,7 +347,8 @@ public class ESSearchDAO {
       @Nonnull SearchRequest searchRequest,
       @Nullable Filter filter,
       @Nullable String keepAlive,
-      @Nullable Integer size) {
+      @Nullable Integer size,
+      @Nullable String input) {
     return opContext.withSpan(
         "executeAndExtract_scroll",
         () -> {
@@ -371,7 +373,8 @@ public class ESSearchDAO {
                         filter,
                         keepAlive,
                         ConfigUtils.applyLimit(searchServiceConfig, size),
-                        pointInTimeCreationEnabled));
+                        pointInTimeCreationEnabled,
+                        input));
           } catch (Exception e) {
             log.error("Search query failed: {}", searchRequest, e);
             throw new ESQueryException("Search query failed:", e);
@@ -1054,7 +1057,8 @@ public class ESSearchDAO {
         searchRequestAndSpecs.getLeft(),
         searchRequestAndSpecs.getMiddle(),
         keepAlive,
-        size);
+        size,
+        input);
   }
 
   @VisibleForTesting

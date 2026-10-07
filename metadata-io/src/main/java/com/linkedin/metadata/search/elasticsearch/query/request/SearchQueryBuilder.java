@@ -620,12 +620,7 @@ public class SearchQueryBuilder {
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
-      getStructuredQueryV2_5(
-              opContext.getEntityRegistry(),
-              customQueryConfig,
-              entitySpecs,
-              withoutQueryPrefix,
-              opContext.getSearchContext().getSearchFlags())
+      getStructuredQueryV2_5(opContext, customQueryConfig, entitySpecs, withoutQueryPrefix)
           .ifPresent(disMaxQuery::add);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQueryV2_5(
@@ -809,8 +804,9 @@ public class SearchQueryBuilder {
     for (List<EntitySpec> indexSpecs :
         entitySpecs.stream().collect(Collectors.groupingBy(V3IndexKeys::resolve)).values()) {
       Map<Boolean, Set<List<String>>> analyzedFields =
-          customizedQueryHandler
-              .applySearchFieldConfiguration(
+          applySearchFieldConfiguration(
+                  opContext,
+                  indexSpecs,
                   getStandardFields(opContext.getEntityRegistry(), indexSpecs),
                   customizedQueryHandler.resolveFieldConfiguration(
                       opContext.getSearchContext().getSearchFlags(),
@@ -1222,7 +1218,8 @@ public class SearchQueryBuilder {
             .build());
   }
 
-  private Set<SearchFieldConfig> getStandardFields(
+  /** The fields one entity searches, with the urn. */
+  protected Set<SearchFieldConfig> getStandardFields(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
@@ -1243,6 +1240,34 @@ public class SearchQueryBuilder {
     fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
 
     return fields;
+  }
+
+  /**
+   * The fields of these entities that the field configuration {@code label} keeps, or {@code
+   * fields} when it names none.
+   */
+  protected Set<SearchFieldConfig> applySearchFieldConfiguration(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull Set<SearchFieldConfig> fields,
+      @Nullable String label) {
+    return customizedQueryHandler.applySearchFieldConfiguration(fields, label);
+  }
+
+  /** Stage 1: the fields the FQN match reads. */
+  protected List<String> fqnMatchFields() {
+    // Many entities (e.g., dbt datasets) store the FQN in the id field rather than qualifiedName
+    return List.of("qualifiedName.delimited", "id.delimited");
+  }
+
+  /** Stage 1: the field the description phrase match reads. */
+  protected String descriptionPhraseField() {
+    return "description.delimited";
+  }
+
+  /** Light path: whether the identity re-query reads this field. */
+  protected boolean isDelimitedIdentityField(@Nonnull SearchFieldConfig cfg) {
+    return DELIMITED_IDENTITY_FIELDS.contains(cfg.fieldName());
   }
 
   private Optional<QueryBuilder> getSimpleQuery(
@@ -1271,7 +1296,9 @@ public class SearchQueryBuilder {
               .collect(Collectors.toSet());
 
       Set<SearchFieldConfig> configuredFields =
-          customizedQueryHandler.applySearchFieldConfiguration(
+          applySearchFieldConfiguration(
+              operationContext,
+              entitySpecs,
               baseFields,
               customizedQueryHandler.resolveFieldConfiguration(
                   operationContext.getSearchContext().getSearchFlags(),
@@ -1355,7 +1382,9 @@ public class SearchQueryBuilder {
               .collect(Collectors.toSet());
 
       Set<SearchFieldConfig> configuredFields =
-          customizedQueryHandler.applySearchFieldConfiguration(
+          applySearchFieldConfiguration(
+              operationContext,
+              entitySpecs,
               baseFields,
               customizedQueryHandler.resolveFieldConfiguration(
                   operationContext.getSearchContext().getSearchFlags(),
@@ -1559,15 +1588,16 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String rawQuery) {
     Map<String, Float> identityFields = new LinkedHashMap<>();
-    customizedQueryHandler
-        .applySearchFieldConfiguration(
+    applySearchFieldConfiguration(
+            opContext,
+            entitySpecs,
             getStandardFields(opContext.getEntityRegistry(), entitySpecs),
             customizedQueryHandler.resolveFieldConfiguration(
                 opContext.getSearchContext().getSearchFlags(),
                 CustomConfiguration::getSearchFieldConfigDefault))
         .stream()
         .filter(SearchFieldConfig::isQueryByDefault)
-        .filter(cfg -> DELIMITED_IDENTITY_FIELDS.contains(cfg.fieldName()))
+        .filter(this::isDelimitedIdentityField)
         .forEach(cfg -> identityFields.merge(cfg.fieldName(), cfg.boost(), Math::max));
     if (identityFields.isEmpty()) {
       return Optional.empty();
@@ -1627,7 +1657,9 @@ public class SearchQueryBuilder {
             .collect(Collectors.toSet());
 
     Set<SearchFieldConfig> configuredFields =
-        customizedQueryHandler.applySearchFieldConfiguration(
+        applySearchFieldConfiguration(
+            operationContext,
+            entitySpecs,
             baseFields,
             customizedQueryHandler.resolveFieldConfiguration(
                 operationContext.getSearchContext().getSearchFlags(),
@@ -1691,25 +1723,19 @@ public class SearchQueryBuilder {
    * spurious high scores on loosely matching entities.
    */
   @VisibleForTesting
-  static Optional<QueryBuilder> getFqnMatchQuery(@Nonnull final String query) {
+  Optional<QueryBuilder> getFqnMatchQuery(@Nonnull final String query) {
     // Only applies to queries containing dots (FQN-like)
     if (!query.contains(".") || query.trim().isEmpty()) {
       return Optional.empty();
     }
-    // Search both qualifiedName.delimited and id.delimited — many entities (e.g., dbt datasets)
-    // store the FQN in the id field rather than qualifiedName. Using .delimited subfield with
-    // AND operator: the word_delimited analyzer splits on dots/underscores/hyphens, so all FQN
-    // segments become independent tokens that must all match. BM25 scoring ensures rare tokens
-    // contribute more to the score than common ones.
+    // AND operator: the analyzer splits on dots/underscores/hyphens, so all FQN segments become
+    // independent tokens that must all match. BM25 scoring ensures rare tokens contribute more to
+    // the score than common ones.
     BoolQueryBuilder fqnBool = QueryBuilders.boolQuery();
-    fqnBool.should(
-        QueryBuilders.matchQuery("qualifiedName.delimited", query)
-            .operator(Operator.AND)
-            .boost(FQN_MATCH_BOOST));
-    fqnBool.should(
-        QueryBuilders.matchQuery("id.delimited", query)
-            .operator(Operator.AND)
-            .boost(FQN_MATCH_BOOST));
+    for (String field : fqnMatchFields()) {
+      fqnBool.should(
+          QueryBuilders.matchQuery(field, query).operator(Operator.AND).boost(FQN_MATCH_BOOST));
+    }
     fqnBool.minimumShouldMatch(1);
     return Optional.of(fqnBool);
   }
@@ -1749,9 +1775,8 @@ public class SearchQueryBuilder {
             .filter(SearchFieldConfig::isQueryByDefault)
             .filter(
                 f ->
-                    ALL_TERMS_BONUS_FIELDS.contains(f.fieldName())
-                        || ALL_TERMS_BONUS_FIELDS.stream()
-                            .anyMatch(base -> f.fieldName().equals(base + ".delimited")))
+                    ALL_TERMS_BONUS_FIELDS.contains(f.shortName())
+                        && (f.fieldName().equals(f.shortName()) || f.isDelimitedSubfield()))
             .collect(Collectors.toSet());
 
     if (allFields.isEmpty()) {
@@ -1789,7 +1814,7 @@ public class SearchQueryBuilder {
     }
 
     return Optional.of(
-        QueryBuilders.matchQuery("description.delimited", sanitizedQuery)
+        QueryBuilders.matchQuery(descriptionPhraseField(), sanitizedQuery)
             .operator(Operator.AND)
             .boost(DESCRIPTION_PHRASE_MATCH_BOOST));
   }
@@ -2199,11 +2224,10 @@ public class SearchQueryBuilder {
    * their historical field set.
    */
   private Optional<QueryBuilder> getStructuredQueryV2_5(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
-      String sanitizedQuery,
-      @Nullable SearchFlags searchFlags) {
+      String sanitizedQuery) {
     Optional<QueryBuilder> result = Optional.empty();
 
     final boolean executeStructuredQuery;
@@ -2216,10 +2240,11 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      Set<SearchFieldConfig> fields = getStandardFields(entityRegistry, entitySpecs);
+      Set<SearchFieldConfig> fields = getStandardFields(opContext.getEntityRegistry(), entitySpecs);
+      SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
       String requestedConfig = searchFlags != null ? searchFlags.getFieldConfiguration() : null;
       if (requestedConfig != null) {
-        fields = customizedQueryHandler.applySearchFieldConfiguration(fields, requestedConfig);
+        fields = applySearchFieldConfiguration(opContext, entitySpecs, fields, requestedConfig);
       }
       fields.forEach(field -> queryBuilder.field(field.fieldName(), field.boost()));
       result = Optional.of(queryBuilder);

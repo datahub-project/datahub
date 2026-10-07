@@ -447,27 +447,105 @@ public class ESIndexBuilderTest {
     }
   }
 
+  /**
+   * A V3 index from before the shared search fields has none of the text subfields V3 full-text
+   * search reads, which only a rebuild adds.
+   */
+  @Test
+  void testApplyMappings_ReportsV3IndexWithoutSharedFullTextFields() throws IOException {
+    Map<String, Object> perField =
+        searchMappings(
+            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))),
+            Map.of("type", "keyword"));
+    Map<String, Object> shared =
+        searchMappings(
+            Map.of("type", "keyword"),
+            Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
+    assertEquals(mappingRebuildErrors("datasetindex_v3", perField, shared), 1);
+    assertEquals(mappingRebuildErrors("datasetindex_v2", perField, shared), 0);
+    // Autocomplete reads the ngram subfield of its shared field
+    Map<String, Object> withAutocomplete =
+        Map.of(
+            "properties",
+            Map.of(
+                "_search",
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "autocomplete",
+                        Map.of(
+                            "type",
+                            "keyword",
+                            "fields",
+                            Map.of("ngram", Map.of("type", "search_as_you_type")))))));
+    assertEquals(
+        mappingRebuildErrors(
+            "datasetindex_v3", Map.of("properties", Map.of("urn", Map.of())), withAutocomplete),
+        1);
+    // Once the index has them, other unapplied changes only warn
+    Map<String, Object> sharedWithOldRoot =
+        searchMappings(
+            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))),
+            Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
+    assertEquals(mappingRebuildErrors("datasetindex_v3", sharedWithOldRoot, shared), 0);
+
+    when(elasticSearchConfiguration.getEntityIndex())
+        .thenReturn(
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                .v3(
+                    EntityIndexVersionConfiguration.builder()
+                        .enabled(true)
+                        .keywordReadEnabled(true)
+                        .build())
+                .build());
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            indexBuilder.buildIndex(
+                opContext, staleMappingIndexState("datasetindex_v3", perField, shared)));
+  }
+
+  private static Map<String, Object> searchMappings(
+      Map<String, Object> name, Map<String, Object> searchEntityName) {
+    return Map.of(
+        "properties",
+        Map.of(
+            "name", name, "_search", Map.of("properties", Map.of("entityName", searchEntityName))));
+  }
+
   private static ReindexConfig staleIndexState(String index, Object currentName) {
+    return staleMappingIndexState(
+        index,
+        Map.of("properties", Map.of("name", currentName)),
+        Map.of("properties", Map.of("name", Map.of("type", "keyword"))));
+  }
+
+  private static ReindexConfig staleMappingIndexState(
+      String index, Map<String, Object> current, Map<String, Object> target) {
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.name()).thenReturn(index);
     when(indexState.exists()).thenReturn(true);
     when(indexState.requiresApplyMappings()).thenReturn(true);
-    when(indexState.currentMappings())
-        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
-    when(indexState.targetMappings())
-        .thenReturn(
-            Map.<String, Object>of("properties", Map.of("name", Map.of("type", "keyword"))));
+    when(indexState.currentMappings()).thenReturn(current);
+    when(indexState.targetMappings()).thenReturn(target);
     return indexState;
   }
 
   private long rebuildErrors(String index, Object currentName, Object targetName)
       throws IOException {
+    return mappingRebuildErrors(
+        index,
+        Map.of("properties", Map.of("name", currentName)),
+        Map.of("properties", Map.of("name", targetName)));
+  }
+
+  private long mappingRebuildErrors(
+      String index, Map<String, Object> current, Map<String, Object> target) throws IOException {
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.name()).thenReturn(index);
-    when(indexState.currentMappings())
-        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
-    when(indexState.targetMappings())
-        .thenReturn(Map.<String, Object>of("properties", Map.of("name", targetName)));
+    when(indexState.currentMappings()).thenReturn(current);
+    when(indexState.targetMappings()).thenReturn(target);
     ch.qos.logback.classic.Logger builderLogger =
         (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ESIndexBuilder.class);
     ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =

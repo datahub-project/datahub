@@ -14,6 +14,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
@@ -878,9 +879,11 @@ public class ESIndexBuilder {
           indexState.enableIndexMappingsReindex());
       if (v3IndexNeedsRebuild(opContext, indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
-        // engine rejects writes to an alias, so this index stops taking V3 writes. Other unapplied
-        // changes keep only the warning above: Elasticsearch 8 can report spurious mapping drift on
-        // every upgrade, so an error for each of them would also fire on healthy indices.
+        // engine rejects writes to an alias, so this index stops taking V3 writes; an older V3
+        // mapping without the shared full-text fields leaves V3 search matching nothing. Other
+        // unapplied changes keep only the warning above: Elasticsearch 8 can report spurious
+        // mapping drift on every upgrade, so an error for each of them would also fire on healthy
+        // indices.
         log.error(
             "Search V3 index {} keeps its previous mapping, so V3 writes to it can be rejected and"
                 + " V3 reads can miss fields. Rebuild it: run system-update with"
@@ -916,7 +919,8 @@ public class ESIndexBuilder {
 
   /**
    * Whether applyMappings leaves a Search V3 index declaring as aliases root fields that are real
-   * fields now, which only a rebuild fixes.
+   * fields now, or without the shared full-text fields V3 search reads. Only a rebuild fixes
+   * either.
    */
   private static boolean v3IndexNeedsRebuild(
       @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
@@ -924,7 +928,9 @@ public class ESIndexBuilder {
         && !indexState.isPureStructuredPropertyAddition()
         && !indexState.isInPlaceMappingParameterUpdate()
         && opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
-        && replacesRootAlias(indexState);
+        && (replacesRootAlias(indexState)
+            || V3SearchFields.lacksSharedSearchFields(
+                indexState.currentMappings(), indexState.targetMappings()));
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {

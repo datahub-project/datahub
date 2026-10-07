@@ -179,8 +179,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final String CUSTOMERS_DESCRIPTION =
       "Customer master data joined from the billing, support and marketing systems, refreshed"
           + " nightly and kept for seven years";
-  // Dashboards holding the same words, one in its title (boostScore 10) and one in its
-  // description (boostScore 1). The urn tie-break alone would put the description match first
+  // Dashboards holding the same words, one in its title (shared entityName field, weight 10) and
+  // one in its description (shared description field, weight 1). The urn tie-break alone would put
+  // the description match first
   private static final Urn TITLE_MATCH = UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_title)");
   private static final Urn DESCRIPTION_MATCH =
       UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_description)");
@@ -198,6 +199,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final Urn FREIGHT_BOARD = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_four)");
   private static final Urn FLEET_OVERVIEW = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_five)");
   private static final Urn FLEET_NOTES = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_six)");
+  // Words of Indic and Thai scripts hold combining marks (vowel signs), which must not split them
+  private static final Urn NON_LATIN = UrnUtils.getUrn("urn:li:dashboard:(looker,non_latin)");
+  // A description holding snake_case identifiers, some with only short parts, and one holding a
+  // part alone, whose urn comes first on a tie
+  private static final Urn IDENTIFIERS =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,keyed_pipeline)");
+  private static final Urn IDENTIFIER_PART =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,crawler_overview)");
+  // A name only a stemmed match finds; its urn holds none of its words
+  private static final Urn STEMMED_NAME = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_4711)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -474,6 +485,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DashboardInfo()
                         .setTitle("Engineering notes")
                         .setDescription("Built on fleet_v2")
+                        .setLastModified(new ChangeAuditStamps())),
+                NON_LATIN,
+                events(
+                    NON_LATIN,
+                    new DashboardInfo()
+                        .setTitle("ग्राहक तालिका")
+                        .setDescription("ข้อมูล ลูกค้า")
+                        .setLastModified(new ChangeAuditStamps())),
+                IDENTIFIERS,
+                events(
+                    IDENTIFIERS,
+                    new DashboardInfo()
+                        .setTitle("Pipeline keys")
+                        .setDescription("Keyed by glue_id, db_id, pk_fk, dt_ts and s3_id")
+                        .setLastModified(new ChangeAuditStamps())),
+                IDENTIFIER_PART,
+                events(
+                    IDENTIFIER_PART,
+                    new DashboardInfo()
+                        .setTitle("Crawler overview")
+                        .setDescription("Glue crawlers by account")
+                        .setLastModified(new ChangeAuditStamps())),
+                STEMMED_NAME,
+                events(
+                    STEMMED_NAME,
+                    new DashboardInfo()
+                        .setTitle("Marketing Overview")
+                        .setDescription("Campaign spend")
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
@@ -1129,7 +1168,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   /**
    * A quoted phrase of four or more words matches a description holding all of them, here one
-   * longer than the 100 characters the removed tier keywords indexed.
+   * longer than the 100 characters the removed tier keywords indexed. On V3 the Stage 1 description
+   * match, which needs every word in any order, reads the shared description text field, and a
+   * description has no exact-match keyword.
    */
   @Test
   public void testQuotedDescriptionPhrase() {
@@ -1146,12 +1187,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             10,
             List.of());
     assertTrue(explain.isMatch());
-    assertTrue(
-        explain.getExplanation().toString().contains("description.delimited"),
-        explain.getExplanation().toString());
+    String explanation = explain.getExplanation().toString();
+    assertTrue(explanation.contains("_search.description.text:customer"), explanation);
+    assertFalse(explanation.contains("description.keyword"), explanation);
   }
 
-  /** A match in a field with a higher @Searchable boostScore ranks first, as on V2. */
+  /**
+   * A match in the entity name ranks above the same words in the description. V3 does not apply
+   * the @Searchable boostScore; the shared fields' weights rank the match instead.
+   */
   @Test
   public void testSearchableBoostsRankResults() {
     // Multi-word, so the light query searches every field, not only the names
@@ -1420,6 +1464,64 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         List.of());
   }
 
+  /** One word of an Indic or Thai name or description finds it: combining marks stay in words. */
+  @Test
+  public void testWordsWithCombiningMarksAreSearchable() {
+    for (String query : List.of("तालिका", "ग्राहक", "ลูกค้า")) {
+      assertEquals(
+          searchService
+              .search(
+                  opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                  List.of(DASHBOARD_ENTITY_NAME),
+                  query,
+                  null,
+                  null,
+                  0,
+                  10)
+              .getEntities()
+              .stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList()),
+          List.of(NON_LATIN),
+          query);
+    }
+  }
+
+  /**
+   * A snake_case identifier is indexed whole as well as by its parts: a query for it ranks the
+   * document holding it above one holding only a part, and finds it when every part is too short to
+   * index.
+   */
+  @Test
+  public void testSnakeCaseIdentifiersAreSearchableWhole() {
+    assertEquals(searchDashboards("glue_id"), List.of(IDENTIFIERS, IDENTIFIER_PART));
+    for (String query : List.of("db_id", "pk_fk", "dt_ts", "s3_id")) {
+      assertEquals(searchDashboards(query), List.of(IDENTIFIERS), query);
+    }
+  }
+
+  /** Another form of a word in an entity's name finds it, as V2's stemmed name subfield does. */
+  @Test
+  public void testEntityNamesAreStemmed() {
+    assertEquals(searchDashboards("markets"), List.of(STEMMED_NAME));
+  }
+
+  private List<Urn> searchDashboards(String query) {
+    return searchService
+        .search(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            List.of(DASHBOARD_ENTITY_NAME),
+            query,
+            null,
+            null,
+            0,
+            10)
+        .getEntities()
+        .stream()
+        .map(SearchEntity::getEntity)
+        .collect(Collectors.toList());
+  }
+
   /** The function scores of the custom search configuration rank an explore-all query. */
   @Test
   public void testCustomSearchConfigRanksResults() {
@@ -1442,7 +1544,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         List.of(CUSTOMERS, ORDERS));
   }
 
-  /** The fieldConfiguration search flag picks the fields a custom search configuration queries. */
+  /**
+   * The fieldConfiguration search flag picks the fields a custom search configuration queries. On
+   * V3 a configured field stands for the shared field it feeds: name selects the whole entityName
+   * field.
+   */
   @Test
   public void testFieldConfigurationSelectsSearchedFields() throws IOException {
     // Only the simple query runs, so the field configuration decides which fields can match
@@ -1483,6 +1589,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertUrns(search.apply(fulltext, "billing"), CUSTOMERS);
     assertUrns(search.apply(nameOnly, "billing"));
     assertUrns(search.apply(nameOnly, "orders"), ORDERS);
+    // The edited name is searched by default, but it is not the name, as on V2
+    assertUrns(search.apply(fulltext, "ledger"), CUSTOMERS);
+    assertUrns(search.apply(nameOnly, "ledger"));
   }
 
   @Test
@@ -1520,6 +1629,54 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(
         urns(searchService.autoComplete(opContext, EMPTY_ENTITY_TYPE, "ord", null, null, 10)),
         List.of());
+  }
+
+  /**
+   * Root fields are normalized keywords for filters, facets and sorts, without V2's analyzed
+   * subfields. Full text lives in the shared _search fields: a word and a stemmed subfield on every
+   * one, and ngrams only on autocomplete.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testOnlySharedSearchFieldsAreAnalyzed() throws IOException {
+    Map<String, Object> properties = getMappedProperties(DATASET_ENTITY_NAME);
+    for (String root : List.of("name", "description")) {
+      Map<String, Object> mapping = (Map<String, Object>) properties.get(root);
+      assertEquals(mapping.get("type"), "keyword", root);
+      assertEquals(((Map<String, Object>) mapping.get("fields")).keySet(), Set.of("keyword"), root);
+    }
+    properties.forEach(
+        (root, mapping) -> {
+          Object fields = ((Map<String, Object>) mapping).get("fields");
+          if (fields instanceof Map<?, ?> subfields) {
+            assertTrue(
+                subfields.keySet().stream()
+                    .map(String::valueOf)
+                    .noneMatch(
+                        subfield ->
+                            subfield.equals("delimited")
+                                || subfield.equals("ngram")
+                                || subfield.startsWith("wordGrams")),
+                root + " " + subfields.keySet());
+          }
+        });
+
+    Map<String, Object> searchFields =
+        (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
+    Map<String, Object> description =
+        (Map<String, Object>) ((Map<String, Object>) searchFields.get("description")).get("fields");
+    assertEquals(description.keySet(), Set.of("text", "stemmed"));
+    assertEquals(((Map<String, Object>) description.get("text")).get("analyzer"), "v3_text");
+    Map<String, Object> entityName =
+        (Map<String, Object>) ((Map<String, Object>) searchFields.get("entityName")).get("fields");
+    assertEquals(entityName.keySet(), Set.of("text", "stemmed", "keyword"));
+    // The name keeps its stored casing for case-sensitive exact match
+    assertFalse(((Map<String, Object>) entityName.get("keyword")).containsKey("normalizer"));
+    assertEquals(
+        ((Map<String, Object>)
+                ((Map<String, Object>) searchFields.get("autocomplete")).get("fields"))
+            .keySet(),
+        Set.of("ngram"));
   }
 
   @Test
@@ -1596,7 +1753,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testAutoComplete() {
-    // As on V2, the suggestion is the first highlighted default field: here the name or the key id
+    // The suggestion is the first fetched autocomplete field that matches: here the name or the key
+    // id
     AutoCompleteResult name =
         searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10);
     assertEquals(urns(name), List.of(ORDERS));
@@ -1614,14 +1772,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
     assertEqualsNoOrder(
         keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
-    // A urn request matches the default fields; as on V2, it highlights the urn, whose ngram
-    // subfield returns a fragment for every hit
+    // As on V2, a urn request matches the default fields
     assertEqualsNoOrder(
         urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", "urn", null, 10))
             .toArray(),
         new Urn[] {ORDERS, CUSTOMERS});
 
-    // Mixed-case input: the ngram and delimited subfields lowercase it
+    // Mixed-case input: the autocomplete field's analyzer lowercases it
     AutoCompleteResult upperName =
         searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ORD", null, null, 10);
     assertEquals(urns(upperName), List.of(ORDERS));
@@ -1642,7 +1799,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(
         urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "tool", null, 10)),
         List.of());
-    // A requested date field has no text subfields, so it matches nothing
+    // A requested field matches a prefix of its whole value, not of a later word
+    AutoCompleteResult title =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "title", null, 10);
+    assertEquals(urns(title), List.of(ORDERS_CHART));
+    assertEquals(title.getSuggestions(), List.of("Orders by region"));
+    assertEquals(
+        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10)),
+        List.of());
+    // A requested field that holds no strings matches nothing
     assertEquals(
         urns(
             searchService.autoComplete(
