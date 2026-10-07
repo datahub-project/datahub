@@ -37,6 +37,11 @@ from tests.test_helpers.probe_parity import (
     pipeline_ingestion,
 )
 
+# The parity harness masks its reports against the process-global registry, as
+# the CLI does; a secret an earlier test in the batch registered would otherwise
+# redact any of this fixture's identifiers that contain it.
+pytestmark = pytest.mark.usefixtures("_isolate_secret_registry")
+
 _PROC = "Stored Procedure"
 _STORED_PROCEDURES = ".stored_procedures"
 
