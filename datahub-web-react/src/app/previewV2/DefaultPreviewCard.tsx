@@ -161,8 +161,6 @@ interface Props {
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types
-    qualifier?: string | null;
-    // eslint-disable-next-line react/no-unused-prop-types
     externalUrl?: string | null;
     tier?: PopularityTier;
     isOutputPort?: boolean;
