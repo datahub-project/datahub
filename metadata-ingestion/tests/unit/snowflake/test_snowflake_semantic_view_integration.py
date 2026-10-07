@@ -273,7 +273,6 @@ class TestSemanticViewEndToEndFlow:
         sv = result["PUBLIC"][0]
         assert sv.name == "SALES_ANALYTICS"
 
-        # Verify base tables populated
         assert len(sv.base_tables) == 2
         # Check using SnowflakeTableIdentifier objects
         orders_id = SnowflakeTableIdentifier(
@@ -285,7 +284,6 @@ class TestSemanticViewEndToEndFlow:
         assert orders_id in sv.base_tables
         assert customers_id in sv.base_tables
 
-        # Verify logical to physical mapping
         # Keyed by the spelling SEMANTIC_TABLES reported, not an uppercased form:
         # the rest of this fixture names the same tables in the same casing, which
         # is what Snowflake does across its metadata views.
@@ -300,7 +298,6 @@ class TestSemanticViewEndToEndFlow:
         assert "TOTAL_REVENUE" in column_names
         assert "AVG_ORDER_VALUE" in column_names
 
-        # Verify column subtypes include merged types
         # ORDER_ID should be both DIMENSION and FACT
         assert "order_id" in sv.column_subtypes
         subtypes = sv.column_subtypes["order_id"]
@@ -326,7 +323,6 @@ class TestSemanticViewEndToEndFlow:
         assert result is not None
         sv = result["PUBLIC"][0]
 
-        # Find ORDER_ID column
         order_id_col = next(c for c in sv.columns if c.name.upper() == "ORDER_ID")
 
         # Should have merged comment from multiple occurrences
@@ -359,7 +355,6 @@ class TestSemanticViewEndToEndFlow:
         assert "SUM" in revenue_col.expression
         assert "ORDER_TOTAL" in revenue_col.expression
 
-        # Find avg_order_value (chained metric)
         avg_col = next(c for c in sv.columns if c.name.upper() == "AVG_ORDER_VALUE")
         assert avg_col.expression is not None
         assert "total_revenue" in avg_col.expression or "ORDER_ID" in avg_col.expression
@@ -412,7 +407,6 @@ class TestSemanticViewLineageGeneration:
             snowsight_url_builder=None,
         )
 
-        # Create semantic view with columns
         semantic_view = SnowflakeSemanticView(
             name="SALES_ANALYTICS",
             created=datetime.datetime.now(),
@@ -654,7 +648,7 @@ class TestSemanticViewOrchestrationFlow:
         # Execute - should not raise
         list(gen._process_semantic_views([semantic_view], schema, "TEST_DB", "PUBLIC"))
 
-        # Should have empty upstream URNs
+        # No physical base tables → nothing to resolve into upstream URNs.
         assert semantic_view.resolved_upstream_urns == []
 
     def test_process_semantic_views_include_technical_schema_false(
@@ -700,7 +694,6 @@ class TestSemanticViewOrchestrationFlow:
         schema = MagicMock()
         schema.name = "PUBLIC"
 
-        # Mock get_columns_for_table
         mock_columns = [
             SnowflakeColumn(
                 name="FETCHED_COL",
@@ -753,7 +746,7 @@ class TestSemanticViewOrchestrationFlow:
 
         list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
 
-        # Should NOT have called lineage generation
+        # column_lineage=false must skip lineage work entirely.
         gen._generate_column_lineage_for_semantic_view.assert_not_called()
 
     def test_process_semantic_view_no_upstream_urns_skips_lineage_emission(
@@ -866,12 +859,8 @@ class TestSemanticViewOrchestrationFlow:
         workunits = list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
         aspects = [wu.metadata.aspect for wu in workunits]
 
-        # The logical-dataset path is genuinely exercised: a semanticModel entity
-        # and a logical dataset (SchemaMetadata) are emitted.
         assert any(isinstance(a, SemanticModelInfoClass) for a in aspects)
         assert any(isinstance(a, SchemaMetadata) for a in aspects)
-        # The semantic view is not double-emitted as a legacy "Semantic View"
-        # dataset: no legacy DatasetProperties/ViewProperties aspects.
         assert not any(
             isinstance(a, (DatasetProperties, ViewProperties)) for a in aspects
         )
