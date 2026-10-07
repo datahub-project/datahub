@@ -791,8 +791,11 @@ public class SearchQueryBuilder {
     return fuzzyQuery.toString();
   }
 
-  /** The fields one index queries by default, outside and inside the word gram analyzers. */
-  private record IndexFieldCounts(int fields, int wordGramFields) {}
+  /**
+   * The fields one index queries by default, outside and inside the word gram analyzers, and how
+   * many of those outside them the full query fuzzy-matches.
+   */
+  private record IndexFieldCounts(int fields, int wordGramFields, int fuzzyFields) {}
 
   /**
    * The most fields one index queries by default. Lucene counts clauses per index, and a field an
@@ -802,6 +805,7 @@ public class SearchQueryBuilder {
       @Nonnull OperationContext opContext, @Nonnull List<EntitySpec> entitySpecs) {
     int fields = 0;
     int wordGramFields = 0;
+    int fuzzyFields = 0;
     for (List<EntitySpec> indexSpecs :
         entitySpecs.stream().collect(Collectors.groupingBy(V3IndexKeys::resolve)).values()) {
       Map<Boolean, Set<List<String>>> analyzedFields =
@@ -821,8 +825,15 @@ public class SearchQueryBuilder {
                           cfg -> List.of(cfg.analyzer(), cfg.fieldName()), Collectors.toSet())));
       fields = Math.max(fields, analyzedFields.get(false).size());
       wordGramFields = Math.max(wordGramFields, analyzedFields.get(true).size());
+      fuzzyFields =
+          Math.max(
+              fuzzyFields,
+              (int)
+                  analyzedFields.get(false).stream()
+                      .filter(field -> isFuzzyAnalyzer(field.get(0)))
+                      .count());
     }
-    return new IndexFieldCounts(fields, wordGramFields);
+    return new IndexFieldCounts(fields, wordGramFields, fuzzyFields);
   }
 
   /** The letter and digit runs of {@code text}, the terms the search analyzers produce. */
@@ -940,19 +951,19 @@ public class SearchQueryBuilder {
       @Nonnull IndexFieldCounts counts) {
     // Each ~ operator is a term the fuzzy simple query sends as fuzzy
     long fuzzyTerms = makeFuzzyQuery(sanitizedQuery).chars().filter(c -> c == '~').count();
-    if (isQuoted(sanitizedQuery) || fuzzyTerms == 0 || counts.fields() == 0) {
+    if (isQuoted(sanitizedQuery) || fuzzyTerms == 0 || counts.fuzzyFields() == 0) {
       return 0;
     }
-    // The fuzzy simple query adds a clause per term and field, and every expansion past the first
-    // one more per fuzzy term and field
+    // The fuzzy simple query adds a clause per term and field it reads, and every expansion past
+    // the first one more per fuzzy term and field
     long room =
         CLAUSE_BUDGET
             - termClauses(operatorEscaped, counts)
-            - (long) termCount(operatorEscaped) * counts.fields();
+            - (long) termCount(operatorEscaped) * counts.fuzzyFields();
     if (room < 0) {
       return 0;
     }
-    return (int) Math.min(MAX_FUZZY_EXPANSIONS, 1 + room / (fuzzyTerms * counts.fields()));
+    return (int) Math.min(MAX_FUZZY_EXPANSIONS, 1 + room / (fuzzyTerms * counts.fuzzyFields()));
   }
 
   /** Whether {@link #splitAlphanumericTokens} splits a letter/digit run of {@code query}. */
