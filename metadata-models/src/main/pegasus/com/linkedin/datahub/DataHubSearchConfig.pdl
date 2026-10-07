@@ -34,11 +34,12 @@ record DataHubSearchConfig {
     queryByDefault: boolean = false
 
     /**
-    * Whether to exclude this field's values from the aggregated full-text search field.
-    * Only consulted when full-text indexing of structured property values is enabled
-    * globally. Unset means not excluded. Takes effect for newly mapped properties; on a
-    * property that is already indexed it applies only once the index is rebuilt, which
-    * some reindex configurations will carry out as a full reindex of that index.
+    * Whether to exclude this field's values from Search V3 full-text search.
+    * Applies to string, rich_text, and urn properties when their mapping is built.
+    * There is no separate global switch. Unset means not excluded. Takes effect
+    * for newly mapped properties. On a property that is already indexed it applies
+    * only once the V3 indices are rebuilt from the property definitions; a
+    * reindex that keeps the live structured-property mapping does not apply it.
     **/
     excludeFromFullTextSearch: optional boolean
 

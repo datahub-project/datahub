@@ -105,10 +105,11 @@ public class StructuredPropertyMappingBuilder {
   }
 
   /**
-   * Per-property opt-out from the full-text field. Read only when the property's mapping is built:
-   * system-update leaves the structuredProperties subtree out of its mapping diff, and copy_to
-   * applies at index time, so changing it on a property already in an index needs that index
-   * recreated. Two properties whose names collide on one field (rejected by
+   * Per-property opt-out from the full-text field. Read only when the property's mapping is built,
+   * and copy_to applies at index time, so changing it on a property already in an index takes
+   * effect once that index is rebuilt from the property definitions: system-update reindexes an
+   * index whose structured property copy_to differs when structured property system update and
+   * mappings reindex are both on. Two properties whose names collide on one field (rejected by
    * PropertyDefinitionValidator) and disagree on it get different mappings, so the collision
    * resolver omits the field, as for any other divergent mapping.
    */
