@@ -544,27 +544,38 @@ class SQLAlchemyQueryCombiner:
                 self._execute_cte_combine(pending_queue)
 
     def _execute_cte_combine(self, pending_queue: Dict[str, _QueryFuture]) -> None:
-        # One CTE per query, cross-joined. Unchanged from before the flatten
-        # path; also the fallback for queries flattening cannot handle.
+        # Two or more queries are combined by putting each into its own CTE and
+        # cross-joining them, then extracting each one's columns back out of the
+        # single result row. A lone query is issued as written -- there is
+        # nothing to cross-join, and the wrapper would only make the server
+        # materialize a one-row result. This is also the fallback path for
+        # queries that flattening cannot handle.
         queue_item = next(iter(pending_queue.values()))
 
-        # Actually combine these queries together. We do this by (1) putting
-        # each query into its own CTE, (2) selecting all the columns we need
-        # and (3) extracting the results once the query finishes.
+        # Columns to read each query's results back from, by queue key. Taken
+        # from a CTE or subquery rather than the original query because on SA
+        # 2.0 the original may hold unlabeled BindParameters with no .name;
+        # wrapping always yields stable string names, in the same order.
+        if len(pending_queue) == 1:
+            # Nothing to cross-join, and a one-member CTE only makes the server
+            # materialize the query. Issue it as written.
+            key = next(iter(pending_queue))
+            combined_query = queue_item.query
+            cols_by_key = {key: list(get_query_columns(queue_item.query.subquery()))}
+        else:
+            ctes = {
+                k: query_future.query.cte(k)
+                for k, query_future in pending_queue.items()
+            }
+            cols_by_key = {k: list(get_query_columns(cte)) for k, cte in ctes.items()}
 
-        ctes = {
-            k: query_future.query.cte(k) for k, query_future in pending_queue.items()
-        }
-
-        combined_cols = list(
-            itertools.chain.from_iterable(
-                get_query_columns(cte) for cte in ctes.values()
+            combined_cols = list(
+                itertools.chain.from_iterable(cols_by_key[k] for k in ctes)
             )
-        )
-        # SA 2.0 removed the list form of select() and Select.append_from().
-        combined_query = sqlalchemy.select(*combined_cols)
-        for cte in ctes.values():
-            combined_query = combined_query.select_from(cte)
+            # SA 2.0 removed the list form of select() and Select.append_from().
+            combined_query = sqlalchemy.select(*combined_cols)
+            for cte in ctes.values():
+                combined_query = combined_query.select_from(cte)
 
         query_id = SQLAlchemyQueryCombiner._generate_query_id()
         self.report.combined_queries_issued += 1
@@ -584,15 +595,11 @@ class SQLAlchemyQueryCombiner:
         assert len(results) == 1
         row = results[0]
 
-        # Extract the results into a result for each query. Use the CTE's
-        # columns (not the original query's) because the combined select was
-        # built from them, and on SA 2.0 the original query may contain
-        # unlabeled BindParameters without a .name. CTE columns always have
-        # stable string names.
+        # Extract the results into a result for each query.
         index = 0
         for k, query_future in pending_queue.items():
             data = {}
-            for col in get_query_columns(ctes[k]):
+            for col in cols_by_key[k]:
                 data[col.name] = row[index]
                 index += 1
 
