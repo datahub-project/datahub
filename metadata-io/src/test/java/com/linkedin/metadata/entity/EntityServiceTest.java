@@ -114,6 +114,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.Assert;
@@ -3360,6 +3361,64 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(
         DataTemplateUtil.areEqual(
             recreated, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+  }
+
+  /**
+   * The entity is deleted and recreated between two of the aspect-by-aspect deletes that follow a
+   * kept entity: its versions restart at 1, within the captured ones, so only the key row tells the
+   * entities apart. Nothing of the recreated entity is deleted.
+   */
+  @Test
+  public void testBoundedDeleteUrnLeavesAnEntityRecreatedDuringTheAspectDeletes() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteRecreatedMidway");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("old@test.com"), CorpUserInfo.class);
+    ingestOne(entityUrn, new CorpUserEditableInfo().setAboutMe("old"), CorpUserEditableInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    // Written since the capture: the entity is kept and its aspects deleted one by one.
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("newer@test.com"), CorpUserInfo.class);
+
+    CorpUserInfo recreatedInfo = AspectGenerationUtils.createCorpUserInfo("new@test.com");
+    CorpUserEditableInfo recreatedEditable = new CorpUserEditableInfo().setAboutMe("new");
+    EntityServiceImpl entityService = spy(_entityServiceImpl);
+    AtomicBoolean recreated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              Object deleted = invocation.callRealMethod();
+              if (recreated.compareAndSet(false, true)) {
+                _entityServiceImpl.deleteUrn(opContext, entityUrn);
+                _entityServiceImpl.ingestAspects(
+                    opContext,
+                    entityUrn,
+                    List.of(
+                        new Pair<String, RecordTemplate>(infoName, recreatedInfo),
+                        new Pair<String, RecordTemplate>(editableName, recreatedEditable)),
+                    new AuditStamp()
+                        .setActor(TEST_AUDIT_STAMP.getActor())
+                        .setTime(TEST_AUDIT_STAMP.getTime() + 1000),
+                    AspectGenerationUtils.createSystemMetadata());
+              }
+              return deleted;
+            })
+        .when(entityService)
+        .deleteAspect(any(), anyString(), anyString(), anyMap(), anyBoolean(), anyBoolean());
+
+    RollbackRunResult result = entityService.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(recreated.get());
+    assertTrue(
+        result.getRollbackResults().stream()
+            .noneMatch(r -> Boolean.TRUE.equals(r.getKeyAffected())));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            recreatedInfo, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            recreatedEditable,
+            _entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName)));
   }
 
   @Test

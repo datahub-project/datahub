@@ -34,10 +34,13 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.ConditionalDeleteOutcome;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.service.async.delete.DeleteEntityReport;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.query.QueryLanguage;
 import com.linkedin.query.QueryProperties;
@@ -48,6 +51,7 @@ import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -55,6 +59,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.Mock;
@@ -542,6 +547,53 @@ public class EntitiesControllerTest {
       opContext.verify(
           () -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()), never());
     }
+  }
+
+  @Test
+  public void testHardDeleteGoesThroughTheReliableHardDeleteWhenEnabled() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
+    when(reliableHardDelete.isEnabled()).thenReturn(true);
+    when(reliableHardDelete.delete(any(), eq(urn)))
+        .thenReturn(
+            new DeleteEntityReport(
+                urn.toString(),
+                ConditionalDeleteOutcome.DELETED,
+                3L,
+                new RollbackRunResult(List.of(), 3, List.of())));
+    controller.reliableHardDelete = reliableHardDelete;
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authUtil.when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), any())).thenReturn(true);
+
+      ResponseEntity<List<RollbackRunResultDto>> response =
+          controller.deleteEntities(
+              mock(OperationContext.class), ACTOR_URN.toString(), Set.of(urn), false, false);
+
+      assertEquals(
+          response.getBody().get(0).getRowsDeletedFromEntityDeletion(), Integer.valueOf(3));
+    }
+    verify(reliableHardDelete).delete(any(), eq(urn));
+    verify(entityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testHardDeleteCallsDeleteUrnWhenTheReliableHardDeleteIsOff() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
+    when(reliableHardDelete.isEnabled()).thenReturn(false);
+    controller.reliableHardDelete = reliableHardDelete;
+    when(entityService.deleteUrn(any(), eq(urn)))
+        .thenReturn(new RollbackRunResult(List.of(), 1, List.of()));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authUtil.when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), any())).thenReturn(true);
+
+      controller.deleteEntities(
+          mock(OperationContext.class), ACTOR_URN.toString(), Set.of(urn), false, false);
+    }
+    verify(entityService).deleteUrn(any(), eq(urn));
+    verify(reliableHardDelete, never()).delete(any(), any());
   }
 
   @Test

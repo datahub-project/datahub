@@ -17,6 +17,7 @@ import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -75,6 +77,11 @@ public class EntitiesController {
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
   @Nullable private final MetricUtils metricUtils;
+
+  // Optional: absent in applications that do not build the reliable hard delete.
+  @Autowired(required = false)
+  @Nullable
+  protected ReliableHardDelete reliableHardDelete;
 
   public EntitiesController(
       OperationContext systemOperationContext,
@@ -333,7 +340,11 @@ public class EntitiesController {
       if (!soft) {
         return ResponseEntity.ok(
             entityUrns.stream()
-                .map(urn -> _entityService.deleteUrn(opContext, urn))
+                .map(
+                    urn ->
+                        reliableHardDelete != null && reliableHardDelete.isEnabled()
+                            ? reliableHardDelete.delete(opContext, urn).rollbackRunResult()
+                            : _entityService.deleteUrn(opContext, urn))
                 .map(
                     rollbackRunResult ->
                         MappingUtil.mapRollbackRunResult(rollbackRunResult, _objectMapper))

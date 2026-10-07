@@ -553,6 +553,21 @@ public interface AspectDao {
       @Nonnull final String urn);
 
   /**
+   * {@link #deleteUrn}, leaving the rows of {@code keptAspectNames} in place; with none kept it is
+   * {@link #deleteUrn}. Same transaction requirement.
+   */
+  default int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
+    if (keptAspectNames.isEmpty()) {
+      return deleteUrn(opContext, txContext, urn);
+    }
+    throw new UnsupportedOperationException("deleteUrnExcept with kept aspects");
+  }
+
+  /**
    * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row
    * locks are acquired. Default is a no-op; the Ebean/Postgres implementation may take a
    * transaction-scoped advisory lock per {@code (urn, aspect)} when enabled.

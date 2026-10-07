@@ -3578,9 +3578,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           throw new RuntimeException(e);
         }
       }
-    } else if (ceiling != null && sameEntityAsCaptured(opContext, urn, ceiling)) {
+    } else if (ceiling != null) {
       // Written to since the capture, so the entity stays: delete what was captured, aspect by
-      // aspect. Rows newer than the ceiling survive.
+      // aspect. Rows newer than the ceiling survive, and nothing is deleted from an entity
+      // recreated since the capture.
       ceiling
           .aspectVersions()
           .forEach(
@@ -3590,7 +3591,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           opContext,
                           urn.toString(),
                           aspectName,
-                          Map.of(DELETE_CONDITION_MAX_VERSION, String.valueOf(version)),
+                          Map.of(
+                              DELETE_CONDITION_MAX_VERSION,
+                              String.valueOf(version),
+                              DELETE_CONDITION_KEY_CREATED_ON,
+                              String.valueOf(ceiling.keyCreatedOnMillis())),
                           true)
                       .ifPresent(removedAspectResults::add);
                 }
@@ -3875,16 +3880,33 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // 1. Fetch the latest existing version of the aspect.
                     SystemAspect latest = null;
                     try {
-                      // Bounded by version: lock the row so a write cannot land between the
-                      // version check and the delete.
-                      latest =
-                          conditions.containsKey(DELETE_CONDITION_MAX_VERSION)
-                              ? aspectDao
-                                  .getLatestAspectsLocked(
-                                      opContext, Map.of(urn, Set.of(aspectName)))
-                                  .getOrDefault(urn, Map.of())
-                                  .get(aspectName)
-                              : aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      final String keyCreatedOn = conditions.get(DELETE_CONDITION_KEY_CREATED_ON);
+                      if (conditions.containsKey(DELETE_CONDITION_MAX_VERSION)
+                          || keyCreatedOn != null) {
+                        // Bounded by version or by entity: lock the rows (the key row with the
+                        // aspect, in one ordered read) so a write cannot land between the check
+                        // and the delete.
+                        final String keyAspectName = opContext.getKeyAspectName(entityUrn);
+                        final Set<String> lockedAspectNames = new HashSet<>();
+                        lockedAspectNames.add(aspectName);
+                        if (keyCreatedOn != null) {
+                          lockedAspectNames.add(keyAspectName);
+                        }
+                        final Map<String, SystemAspect> locked =
+                            aspectDao
+                                .getLatestAspectsLocked(opContext, Map.of(urn, lockedAspectNames))
+                                .getOrDefault(urn, Map.of());
+                        // 1.0 A different key row: the entity was deleted, or recreated, since.
+                        if (keyCreatedOn != null
+                            && (locked.get(keyAspectName) == null
+                                || createdOnMillis(locked.get(keyAspectName))
+                                    != Long.parseLong(keyCreatedOn))) {
+                          return TransactionResult.rollback();
+                        }
+                        latest = locked.get(aspectName);
+                      } else {
+                        latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      }
                     } catch (EntityNotFoundException e) {
                       log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
                       opContext
@@ -4075,7 +4097,26 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   urn);
                             }
                           }
-                          additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
+                          if (ceiling == null) {
+                            additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
+                          } else {
+                            // Only what was captured, locked by withinCeiling: an aspect created
+                            // since (its first row was not there to lock) is left in place, and
+                            // then so is the entity.
+                            final Set<String> notCaptured =
+                                opContext.getEntityAspectNames(entityUrn).stream()
+                                    .filter(a -> !ceiling.aspectVersions().containsKey(a))
+                                    .collect(Collectors.toSet());
+                            additionalRowsDeleted =
+                                aspectDao.deleteUrnExcept(opContext, txContext, urn, notCaptured);
+                            if (!notCaptured.isEmpty()
+                                && !aspectDao
+                                    .getLatestAspectsLocked(opContext, Map.of(urn, notCaptured))
+                                    .getOrDefault(urn, Map.of())
+                                    .isEmpty()) {
+                              return TransactionResult.rollback();
+                            }
+                          }
                         } else if (deleteItem
                             .getEntitySpec()
                             .hasAspect(Constants.STATUS_ASPECT_NAME)) {
@@ -4276,22 +4317,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return bound != null
                   && ConditionalWriteValidator.resolveAspectVersion(row.getValue()) <= bound;
             });
-  }
-
-  /** Whether the entity's key row is still the one captured: it was not deleted and recreated. */
-  private boolean sameEntityAsCaptured(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
-    try {
-      final SystemAspect key =
-          aspectDao.getLatestAspect(
-              opContext.withReadPreference(ReadPreference.PRIMARY),
-              urn.toString(),
-              opContext.getKeyAspectName(urn),
-              false);
-      return key != null && createdOnMillis(key) == ceiling.keyCreatedOnMillis();
-    } catch (EntityNotFoundException e) {
-      return false;
-    }
   }
 
   private static long createdOnMillis(@Nonnull SystemAspect row) {

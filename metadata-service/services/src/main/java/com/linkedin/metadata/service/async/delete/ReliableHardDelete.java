@@ -72,6 +72,6 @@ public class ReliableHardDelete {
               urn));
     }
     return new DeleteEntityReport(
-        urn.toString(), outcome, (keyRows == null ? 0 : keyRows) + otherRows);
+        urn.toString(), outcome, (keyRows == null ? 0 : keyRows) + otherRows, deleted);
   }
 }

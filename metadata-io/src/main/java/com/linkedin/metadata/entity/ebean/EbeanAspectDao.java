@@ -1000,6 +1000,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
+    return deleteUrnExcept(opContext, txContext, urn, Set.of());
+  }
+
+  @Override
+  public int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -1059,11 +1068,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             // matched
             // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
             // locks.
-            server
-                .find(EbeanAspectV2.class)
-                .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
-                .where()
-                .eq(EbeanAspectV2.URN_COLUMN, urn)
+            exceptAspects(
+                    server
+                        .find(EbeanAspectV2.class)
+                        .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
+                        .where()
+                        .eq(EbeanAspectV2.URN_COLUMN, urn),
+                    keptAspectNames)
                 .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
                 .forUpdate()
                 .findList();
@@ -1071,24 +1082,36 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
           // First, delete all non-key aspects
           int nonKeyCount =
-              server
-                  .createQuery(EbeanAspectV2.class)
-                  .where()
-                  .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+              exceptAspects(
+                      server
+                          .createQuery(EbeanAspectV2.class)
+                          .where()
+                          .eq(EbeanAspectV2.URN_COLUMN, urn)
+                          .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName),
+                      keptAspectNames)
                   .delete();
 
           // Then, delete the key aspect
           int keyCount =
-              server
-                  .createQuery(EbeanAspectV2.class)
-                  .where()
-                  .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+              exceptAspects(
+                      server
+                          .createQuery(EbeanAspectV2.class)
+                          .where()
+                          .eq(EbeanAspectV2.URN_COLUMN, urn)
+                          .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName),
+                      keptAspectNames)
                   .delete();
 
           return nonKeyCount + keyCount;
         });
+  }
+
+  @Nonnull
+  private static ExpressionList<EbeanAspectV2> exceptAspects(
+      @Nonnull ExpressionList<EbeanAspectV2> where, @Nonnull Set<String> keptAspectNames) {
+    return keptAspectNames.isEmpty()
+        ? where
+        : where.notIn(EbeanAspectV2.ASPECT_COLUMN, keptAspectNames);
   }
 
   @Override

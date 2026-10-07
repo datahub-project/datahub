@@ -556,6 +556,14 @@ public interface EntityService<U extends ChangeMCP> {
   String DELETE_CONDITION_MAX_VERSION = "maxVersion";
 
   /**
+   * A {@link #deleteAspect} condition bounding a delete to one entity: the {@link
+   * DeleteCeiling#keyCreatedOnMillis()} its key row must still have, read under lock with the
+   * aspect. When the key row is missing or differs (the entity was deleted, or recreated), nothing
+   * is deleted.
+   */
+  String DELETE_CONDITION_KEY_CREATED_ON = "keyCreatedOn";
+
+  /**
    * Every aspect {@code urn} has in primary storage now, key included, mapped to the version a
    * delete bounded by it may remove up to. Empty when the key aspect is absent. Reads only.
    */
@@ -567,9 +575,11 @@ public interface EntityService<U extends ChangeMCP> {
    * {@link #deleteUrn(OperationContext, Urn)}, bounded by {@code ceiling} when it is not null (null
    * is exactly {@link #deleteUrn(OperationContext, Urn)}). Within the delete transaction every
    * latest row of {@code urn} is read for update; the entity is deleted as today only when each is
-   * at or below its ceiling and none is new since the capture. Otherwise the key stays and each
-   * captured aspect is deleted up to its ceiling ({@link #DELETE_CONDITION_MAX_VERSION}); the
-   * result then holds no key-aspect row.
+   * at or below its ceiling and none is new since the capture; an aspect that was not captured is
+   * not deleted, and if one is found once the rest is, nothing is deleted. Otherwise the key stays
+   * and each captured aspect is deleted up to its ceiling ({@link #DELETE_CONDITION_MAX_VERSION})
+   * while the key row is the captured one ({@link #DELETE_CONDITION_KEY_CREATED_ON}); the result
+   * then holds no key-aspect row.
    */
   RollbackRunResult deleteUrn(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling);
