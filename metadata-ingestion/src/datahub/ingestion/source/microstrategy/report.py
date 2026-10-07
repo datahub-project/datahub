@@ -68,6 +68,13 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     report_model_instance_failure_samples: LossyList[str] = field(
         default_factory=LossyList
     )
+    # Dashboard instances (executions) shared by more than one consumer, and
+    # the execution-timeout limit: timeouts seen, executions skipped once the
+    # limit tripped, and the projects it tripped in.
+    dashboard_instances_reused: int = 0
+    execution_timeouts: int = 0
+    executions_skipped_after_timeouts: int = 0
+    execution_timeout_limit_projects: LossyList[str] = field(default_factory=LossyList)
     # What the Modeling document definition yielded: document-level derived
     # metrics found, and how many of them carried a formula.
     document_model_definition_failures: int = 0
@@ -221,6 +228,18 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_report_model_instance_created(self) -> None:
         self.report_model_instances_created += 1
+
+    def report_dashboard_instance_reused(self) -> None:
+        self.dashboard_instances_reused += 1
+
+    def report_execution_timeout(self) -> None:
+        self.execution_timeouts += 1
+
+    def report_execution_skipped_after_timeouts(self) -> None:
+        self.executions_skipped_after_timeouts += 1
+
+    def report_execution_timeout_limit_reached(self, project_id: str) -> None:
+        self.execution_timeout_limit_projects.append(project_id)
 
     def report_report_model_instance_failure(self, context: str) -> None:
         self.report_model_instance_failures += 1

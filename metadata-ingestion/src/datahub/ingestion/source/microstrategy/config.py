@@ -314,6 +314,30 @@ class MicroStrategyConfig(
             "resolve a dashboard instance."
         ),
     )
+    dashboard_instance_resolve_only: bool = Field(
+        default=False,
+        description=(
+            "Whether to create dossier and document instances with "
+            "`resolveOnly: true`, which Strategy documents as resolving the "
+            "dashboard without executing it. Instances back visualization "
+            "runtime details and SQL-view warehouse lineage; executing them runs "
+            "the dashboard's queries against the warehouse and can take minutes "
+            "per dashboard. Off by default until verified to return the same "
+            "runtime grid and SQL view as an executed instance."
+        ),
+    )
+    max_consecutive_execution_timeouts: int = Field(
+        default=3,
+        ge=0,
+        description=(
+            "Stop executing dashboards and reports in a project after this many "
+            "consecutive instance creations time out "
+            "(`warehouse_lineage_sql_timeout_seconds`). The remaining content in "
+            "that project is still ingested, without visualization runtime "
+            "details or SQL-view lineage. Bounds a run against a project of "
+            "heavy content that never finishes executing. 0 disables the limit."
+        ),
+    )
     emit_dashboard_dataset_edges: bool = Field(
         default=False,
         description=(

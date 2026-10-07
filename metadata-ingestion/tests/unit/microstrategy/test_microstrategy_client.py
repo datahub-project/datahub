@@ -1003,3 +1003,25 @@ def test_model_report_instance_uses_the_modeling_service_endpoints(
     assert calls[0]["headers"]["X-MSTR-ProjectID"] == "project-1"
     assert calls[1]["headers"]["X-MSTR-MS-Instance"] == "ms-inst-1"
     assert report.api_errors == 0
+
+
+@pytest.mark.parametrize(
+    "method_name", ["create_dossier_instance", "create_document_instance"]
+)
+@pytest.mark.parametrize("resolve_only", [False, True])
+def test_dashboard_instance_body_follows_resolve_only(
+    monkeypatch: MonkeyPatch,
+    method_name: str,
+    resolve_only: bool,
+) -> None:
+    client, _report = _make_client({"dashboard_instance_resolve_only": resolve_only})
+    bodies: list[Any] = []
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        bodies.append(kwargs.get("json"))
+        return StatusResponse(200, payload={"mid": "inst-1"})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    assert getattr(client, method_name)("project-1", "dash-1") == "inst-1"
+    assert bodies == [{"resolveOnly": True} if resolve_only else {}]

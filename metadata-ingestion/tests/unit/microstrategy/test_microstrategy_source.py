@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 
 import pytest
+import requests
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
@@ -2572,3 +2573,138 @@ def test_model_document_failure_is_counted_and_skipped() -> None:
     assert client.dashboard_created == []
     assert source.report.document_model_definition_failures == 1
     assert _derived_field(workunits, "Forecast") is None
+
+
+class _ExecutionClient:
+    """Dossier instance lifecycle for the shared-instance and timeout-limit
+    tests: creation can time out (a requests.Timeout cause, as the client
+    raises it), fail fast, or succeed."""
+
+    def __init__(self, outcomes: Optional[List[str]] = None) -> None:
+        # One entry per creation: "ok", "timeout" or "error".
+        self.outcomes = list(outcomes or [])
+        self.created: List[str] = []
+        self.deleted: List[str] = []
+        self.sql_view_instances: List[str] = []
+
+    def create_dossier_instance(self, project_id: str, dossier_id: str) -> str:
+        outcome = self.outcomes.pop(0) if self.outcomes else "ok"
+        self.created.append(dossier_id)
+        if outcome == "timeout":
+            error = MicroStrategyAPIError("Read timed out (180s)")
+            error.__cause__ = requests.ReadTimeout()
+            raise error
+        if outcome == "error":
+            raise MicroStrategyAPIError("500 Server Error", status_code=500)
+        return f"inst-{dossier_id}"
+
+    def delete_dossier_instance(
+        self, project_id: str, dossier_id: str, instance_id: str
+    ) -> bool:
+        self.deleted.append(instance_id)
+        return True
+
+    def get_dossier_datasets_sql(
+        self, project_id: str, dossier_id: str, instance_id: str
+    ) -> List[Dict[str, object]]:
+        self.sql_view_instances.append(instance_id)
+        return []
+
+
+def _dossier_object(dossier_id: str) -> MicroStrategyObject:
+    return MicroStrategyObject.model_validate({"id": dossier_id, "name": dossier_id})
+
+
+def test_dashboard_instance_is_shared_and_released_once() -> None:
+    # Creating an instance executes the dashboard, so visualization details
+    # and SQL-view lineage share one rather than executing it twice.
+    source = _source()
+    client = _ExecutionClient()
+    source.client = client  # type: ignore[assignment]
+    dossier = _dossier_object("dash-1")
+
+    first = source._dashboard_instance("project-1", dossier)
+    source._enrich_warehouse_lineage("project-1", dossier, _dashboard(), None)
+
+    assert first == "inst-dash-1"
+    assert client.created == ["dash-1"]
+    assert client.sql_view_instances == ["inst-dash-1"]
+    assert client.deleted == []
+    assert source.report.dashboard_instances_reused == 1
+
+    source._release_dashboard_instance("project-1", dossier)
+    source._release_dashboard_instance("project-1", dossier)
+    assert client.deleted == ["inst-dash-1"]
+
+
+def test_timed_out_dashboard_is_not_executed_twice() -> None:
+    source = _source()
+    client = _ExecutionClient(["timeout"])
+    source.client = client  # type: ignore[assignment]
+    dossier = _dossier_object("dash-1")
+
+    with pytest.raises(MicroStrategyAPIError):
+        source._dashboard_instance("project-1", dossier)
+    # The second consumer gets the remembered failure without a second wait.
+    source._enrich_warehouse_lineage("project-1", dossier, _dashboard(), None)
+
+    assert client.created == ["dash-1"]
+    assert client.sql_view_instances == []
+    assert source.report.execution_timeouts == 1
+    source._release_dashboard_instance("project-1", dossier)
+    assert client.deleted == []
+
+
+def test_consecutive_timeouts_stop_executions_in_the_project() -> None:
+    source = _source({"max_consecutive_execution_timeouts": 2})
+    client = _ExecutionClient(["timeout", "timeout"])
+    source.client = client  # type: ignore[assignment]
+
+    for dossier_id in ("dash-1", "dash-2", "dash-3"):
+        dossier = _dossier_object(dossier_id)
+        source._enrich_warehouse_lineage("project-1", dossier, _dashboard(), None)
+        source._release_dashboard_instance("project-1", dossier)
+    # Another project is unaffected.
+    other = _dossier_object("dash-9")
+    source._enrich_warehouse_lineage("project-2", other, _dashboard(), None)
+
+    assert client.created == ["dash-1", "dash-2", "dash-9"]
+    assert source.report.execution_timeouts == 2
+    assert source.report.executions_skipped_after_timeouts == 1
+    assert list(source.report.execution_timeout_limit_projects) == ["project-1"]
+    assert any(
+        warning.title == "Stopped executing content after repeated timeouts"
+        for warning in source.report.warnings
+    )
+
+
+def test_fast_failures_and_successes_do_not_trip_the_timeout_limit() -> None:
+    # Only a timeout costs a wait. A fast error neither counts nor resets;
+    # a success resets the run of timeouts.
+    source = _source({"max_consecutive_execution_timeouts": 2})
+    client = _ExecutionClient(["timeout", "error", "ok", "timeout", "error"])
+    source.client = client  # type: ignore[assignment]
+
+    for index in range(5):
+        dossier = _dossier_object(f"dash-{index}")
+        source._enrich_warehouse_lineage("project-1", dossier, _dashboard(), None)
+        source._release_dashboard_instance("project-1", dossier)
+
+    assert len(client.created) == 5
+    assert source.report.execution_timeouts == 2
+    assert source.report.executions_skipped_after_timeouts == 0
+    assert list(source.report.execution_timeout_limit_projects) == []
+
+
+def test_timeout_limit_zero_disables_it() -> None:
+    source = _source({"max_consecutive_execution_timeouts": 0})
+    client = _ExecutionClient(["timeout"] * 4)
+    source.client = client  # type: ignore[assignment]
+
+    for index in range(4):
+        dossier = _dossier_object(f"dash-{index}")
+        source._enrich_warehouse_lineage("project-1", dossier, _dashboard(), None)
+        source._release_dashboard_instance("project-1", dossier)
+
+    assert len(client.created) == 4
+    assert source.report.executions_skipped_after_timeouts == 0

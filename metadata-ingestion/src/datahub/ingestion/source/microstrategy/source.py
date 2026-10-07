@@ -1,6 +1,17 @@
 import logging
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
+import requests
 from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError
@@ -170,6 +181,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # endpoint failing (one structured warning per project, not per
         # report), and projects whose v2 payload shape was already logged.
         self._model_definition_warned_projects: Set[str] = set()
+        # Dashboard id -> its one instance (an execution), shared by the
+        # visualization-detail and SQL-view consumers, or the error that
+        # creating it raised so a timed-out execution is never repeated.
+        self._dashboard_instances: Dict[str, Union[str, MicroStrategyAPIError]] = {}
+        # Project id -> consecutive instance-creation timeouts, and projects
+        # where max_consecutive_execution_timeouts tripped.
+        self._consecutive_execution_timeouts: Dict[str, int] = {}
+        self._execution_limited_projects: Set[str] = set()
         self._v2_definition_logged_projects: Set[str] = set()
         self._model_empty_logged_projects: Set[str] = set()
         if self.config.extract_derived_metrics and not (
@@ -732,23 +751,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         parent_key = self.mapper.folder_container_for_dashboard(
             project_id, dashboard_object, predefined_folders
         )
-        dashboard = self._get_dashboard_definition(project_id, dashboard_object)
-        if dashboard is None:
-            return
         model_lineage_index = lineage_context.model_lineage_index
-        needs_sql_view_context = (
-            self.config.extract_warehouse_lineage or model_lineage_index is not None
-        )
-        has_warehouse_context = lineage_context.warehouse_context or any(
-            dataset.source_warehouse for dataset in dashboard.datasets
-        )
-        if needs_sql_view_context and has_warehouse_context:
-            self._enrich_warehouse_lineage(
-                project_id=project_id,
-                dashboard_object=dashboard_object,
-                dashboard=dashboard,
-                context=lineage_context.warehouse_context,
+        try:
+            dashboard = self._get_dashboard_definition(project_id, dashboard_object)
+            if dashboard is None:
+                return
+            needs_sql_view_context = (
+                self.config.extract_warehouse_lineage or model_lineage_index is not None
             )
+            has_warehouse_context = lineage_context.warehouse_context or any(
+                dataset.source_warehouse for dataset in dashboard.datasets
+            )
+            if needs_sql_view_context and has_warehouse_context:
+                self._enrich_warehouse_lineage(
+                    project_id=project_id,
+                    dashboard_object=dashboard_object,
+                    dashboard=dashboard,
+                    context=lineage_context.warehouse_context,
+                )
+        finally:
+            # Last consumer of the shared instance is done.
+            self._release_dashboard_instance(project_id, dashboard_object)
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
         if self.config.extract_derived_metrics:
@@ -1705,12 +1728,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if not dashboard.visualizations:
             return
+        if self._execution_limit_reached(project_id):
+            return
         try:
-            instance_id = self._create_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-            )
+            instance_id = self._dashboard_instance(project_id, dashboard_object)
         except MicroStrategyAPIError as error:
             self.report.warning(
                 title="Failed to Create Dashboard Instance",
@@ -1723,72 +1744,63 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        try:
-            enriched = []
-            for visualization in dashboard.visualizations:
-                if not visualization.chapter_key:
-                    enriched.append(visualization)
-                    continue
-                try:
-                    detail = self.client.get_dossier_visualization(
-                        project_id=project_id,
-                        dossier_id=dashboard.id,
-                        instance_id=instance_id,
-                        chapter_key=visualization.chapter_key,
-                        visualization_key=visualization.key,
-                    )
-                except MicroStrategyAPIError as error:
-                    self.report.warning(
-                        title="Failed to Fetch Visualization Definition",
-                        message=(
-                            "Keeping visualization without runtime lineage enrichment."
-                        ),
-                        context=(
-                            f"project_id={project_id}, dashboard_id={dashboard.id}, "
-                            f"visualization_key={visualization.key}"
-                        ),
-                        exc=error,
-                    )
-                    enriched.append(visualization)
-                    continue
+        enriched = []
+        for visualization in dashboard.visualizations:
+            if not visualization.chapter_key:
+                enriched.append(visualization)
+                continue
+            try:
+                detail = self.client.get_dossier_visualization(
+                    project_id=project_id,
+                    dossier_id=dashboard.id,
+                    instance_id=instance_id,
+                    chapter_key=visualization.chapter_key,
+                    visualization_key=visualization.key,
+                )
+            except MicroStrategyAPIError as error:
+                self.report.warning(
+                    title="Failed to Fetch Visualization Definition",
+                    message=(
+                        "Keeping visualization without runtime lineage enrichment."
+                    ),
+                    context=(
+                        f"project_id={project_id}, dashboard_id={dashboard.id}, "
+                        f"visualization_key={visualization.key}"
+                    ),
+                    exc=error,
+                )
+                enriched.append(visualization)
+                continue
 
-                try:
-                    enriched.append(
-                        Visualization.model_validate(
-                            {
-                                **visualization.raw,
-                                "chapterKey": visualization.chapter_key,
-                                "pageKey": visualization.page_key,
-                                "pageName": visualization.page_name,
-                                "runtimeDefinition": detail,
-                            }
-                        )
+            try:
+                enriched.append(
+                    Visualization.model_validate(
+                        {
+                            **visualization.raw,
+                            "chapterKey": visualization.chapter_key,
+                            "pageKey": visualization.page_key,
+                            "pageName": visualization.page_name,
+                            "runtimeDefinition": detail,
+                        }
                     )
-                except ValidationError as error:
-                    self.report.report_malformed_object(
-                        f"visualization runtime detail key={visualization.key}"
-                    )
-                    self.report.warning(
-                        title="Skipped malformed visualization runtime detail",
-                        message=(
-                            "Keeping the visualization without runtime lineage "
-                            "enrichment."
-                        ),
-                        context=(
-                            f"project_id={project_id}, dashboard_id={dashboard.id}, "
-                            f"visualization_key={visualization.key}"
-                        ),
-                        exc=error,
-                    )
-                    enriched.append(visualization)
-            dashboard.visualizations = enriched
-        finally:
-            self._delete_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-                instance_id,
-            )
+                )
+            except ValidationError as error:
+                self.report.report_malformed_object(
+                    f"visualization runtime detail key={visualization.key}"
+                )
+                self.report.warning(
+                    title="Skipped malformed visualization runtime detail",
+                    message=(
+                        "Keeping the visualization without runtime lineage enrichment."
+                    ),
+                    context=(
+                        f"project_id={project_id}, dashboard_id={dashboard.id}, "
+                        f"visualization_key={visualization.key}"
+                    ),
+                    exc=error,
+                )
+                enriched.append(visualization)
+        dashboard.visualizations = enriched
 
     def _enrich_warehouse_lineage(
         self,
@@ -1799,12 +1811,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if not dashboard.datasets:
             return
+        if self._execution_limit_reached(project_id):
+            return
         try:
-            instance_id = self._create_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-            )
+            instance_id = self._dashboard_instance(project_id, dashboard_object)
         except MicroStrategyAPIError as error:
             self.report.report_warehouse_lineage_api_failure()
             self.report.warning(
@@ -1830,13 +1840,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
             return
-        finally:
-            self._delete_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-                instance_id,
-            )
 
         self.report.report_warehouse_lineage_sql_views_scanned(len(sql_view_rows))
         self._attach_dataset_warehouse_upstreams(sql_view_rows, dashboard, context)
@@ -1917,12 +1920,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset: DatasetObject,
         context: WarehouseLineageContext,
     ) -> None:
+        if self._execution_limit_reached(project_id):
+            return
         try:
             instance_id = self.client.create_report_instance(
                 project_id,
                 report_object.id,
             )
         except MicroStrategyAPIError as error:
+            self._record_execution(project_id, error)
             self.report.report_report_sql_view_api_failure()
             self.report.warning(
                 title="Failed to Create Report Instance for Warehouse Lineage",
@@ -1931,6 +1937,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
             return
+
+        self._record_execution(project_id, None)
 
         try:
             sql_view = self.client.get_report_sql_view(
@@ -1957,6 +1965,87 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
         self.report.report_warehouse_lineage_sql_views_scanned(1)
         self._attach_sql_view_lineage(sql_statement, dataset, context)
+
+    def _dashboard_instance(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+    ) -> str:
+        """The dashboard's one instance, created on first use. Visualization
+        details and SQL-view lineage both read from an instance, and creating
+        one executes the dashboard, so they share it; a failed creation is
+        remembered and re-raised rather than retried, so a dashboard that
+        timed out once is not executed (and waited on) a second time."""
+        cached = self._dashboard_instances.get(dashboard_object.id)
+        if isinstance(cached, MicroStrategyAPIError):
+            raise cached
+        if cached is not None:
+            self.report.report_dashboard_instance_reused()
+            return cached
+        try:
+            instance_id = self._create_dashboard_instance(
+                project_id, dashboard_object, dashboard_object.id
+            )
+        except MicroStrategyAPIError as error:
+            self._record_execution(project_id, error)
+            self._dashboard_instances[dashboard_object.id] = error
+            raise
+        self._record_execution(project_id, None)
+        self._dashboard_instances[dashboard_object.id] = instance_id
+        return instance_id
+
+    def _release_dashboard_instance(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+    ) -> None:
+        cached = self._dashboard_instances.pop(dashboard_object.id, None)
+        if isinstance(cached, str):
+            self._delete_dashboard_instance(
+                project_id, dashboard_object, dashboard_object.id, cached
+            )
+
+    def _execution_limit_reached(self, project_id: str) -> bool:
+        """True once max_consecutive_execution_timeouts tripped for the
+        project; the caller then skips its execution and counts the skip."""
+        if project_id not in self._execution_limited_projects:
+            return False
+        self.report.report_execution_skipped_after_timeouts()
+        return True
+
+    def _record_execution(
+        self,
+        project_id: str,
+        error: Optional[MicroStrategyAPIError],
+    ) -> None:
+        """Track consecutive execution timeouts per project. A success resets
+        the run; any other failure (a fast 4xx/5xx) costs no wait and neither
+        counts nor resets."""
+        if error is None:
+            self._consecutive_execution_timeouts[project_id] = 0
+            return
+        if not isinstance(error.__cause__, requests.Timeout):
+            return
+        self.report.report_execution_timeout()
+        count = self._consecutive_execution_timeouts.get(project_id, 0) + 1
+        self._consecutive_execution_timeouts[project_id] = count
+        limit = self.config.max_consecutive_execution_timeouts
+        if not limit or count < limit:
+            return
+        if project_id in self._execution_limited_projects:
+            return
+        self._execution_limited_projects.add(project_id)
+        self.report.report_execution_timeout_limit_reached(project_id)
+        self.report.warning(
+            title="Stopped executing content after repeated timeouts",
+            message=(
+                "Instance creation timed out max_consecutive_execution_timeouts "
+                "times in a row, so the rest of this project's dashboards and "
+                "reports are ingested without visualization runtime details or "
+                "SQL-view warehouse lineage."
+            ),
+            context=f"project_id={project_id}, consecutive_timeouts={count}",
+        )
 
     def _create_dashboard_instance(
         self,

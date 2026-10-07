@@ -477,7 +477,7 @@ class MicroStrategyClient:
             f"/api/dossiers/{dossier_id}/instances",
             project_id=project_id,
             method="POST",
-            json={},
+            json=self._dashboard_instance_body(),
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
             # Instance execution and SQL-view calls are expensive (the server
             # runs the dashboard/report); retrying a 180s timeout multiplies
@@ -497,7 +497,7 @@ class MicroStrategyClient:
             f"/api/documents/{document_id}/instances",
             project_id=project_id,
             method="POST",
-            json={},
+            json=self._dashboard_instance_body(),
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
             # Instance execution and SQL-view calls are expensive (the server
             # runs the dashboard/report); retrying a 180s timeout multiplies
@@ -511,6 +511,13 @@ class MicroStrategyClient:
                 f"an instance id for {document_id}"
             )
         return instance_id
+
+    def _dashboard_instance_body(self) -> Dict[str, Any]:
+        """resolveOnly is documented for both dossier and document instances
+        as resolving without executing; see dashboard_instance_resolve_only."""
+        if self.config.dashboard_instance_resolve_only:
+            return {"resolveOnly": True}
+        return {}
 
     def create_report_instance(self, project_id: str, report_id: str) -> str:
         response = self._get_json(
