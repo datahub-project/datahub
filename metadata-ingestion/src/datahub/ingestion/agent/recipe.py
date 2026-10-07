@@ -246,14 +246,15 @@ def _nested_secret_warnings(
 
 def _dotted_reference_warnings(config: Dict[str, object]) -> List[str]:
     """A `${a.b}` (or a leading `$a.b`) reads as a dotted path, ~/.datahubenv
-    style, but ingestion looks up `a` and substitutes an empty string unless
-    it is set. Named by path only: the value may hold more than the
-    reference."""
+    style, but ingestion looks up `a`: braced, it substitutes an empty string
+    unless `a` is set; unbraced, it expands `$a` and keeps the literal `.b`.
+    Named by path only: the value may hold more than the reference."""
     return [
         f"'{path}' holds a variable reference whose name contains a dot. "
         f"`datahub ingest` reads `${{a.b}}` as `${{a}}` followed by a modifier, "
-        f"which is an empty string unless `a` itself is set, and the probe "
-        f"does the same. For the DataHub server and token use "
+        f"which is an empty string unless `a` itself is set, and `$a.b` as "
+        f"`$a` followed by the literal text `.b`; the probe does the same. "
+        f"For the DataHub server and token use "
         f"${{DATAHUB_GMS_URL}} and ${{DATAHUB_GMS_TOKEN}}"
         for path, value in _string_values(config)
         if names_a_dotted_path(value)

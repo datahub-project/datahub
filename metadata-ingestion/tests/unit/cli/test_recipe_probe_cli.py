@@ -1955,6 +1955,37 @@ def test_a_run_file_that_is_not_a_regular_file_is_a_bad_argument(
     assert res.exit_code == 2, res.output
 
 
+def test_a_named_pipe_run_file_is_refused_without_waiting_for_a_writer(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Opening a FIFO for reading blocks until something writes to it, so
+    the regular-file check must come without that wait."""
+    import os
+    import threading
+
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("no named pipes here")
+    fifo = tmp_path / "run.json"
+    os.mkfifo(fifo)
+    outcome: List[BaseException] = []
+
+    def read() -> None:
+        try:
+            rc._read_run_file(str(fifo))
+        except BaseException as exc:
+            outcome.append(exc)
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    reader.join(10)
+    if reader.is_alive():
+        # Opening the write end releases the blocked reader.
+        os.close(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK))
+        reader.join(5)
+        pytest.fail("reading a named pipe waited for a writer")
+    assert len(outcome) == 1 and isinstance(outcome[0], ValueError), outcome
+
+
 def test_a_redacted_listing_parent_is_refused_unless_parent_is_given(
     monkeypatch, tmp_path
 ):
@@ -2896,7 +2927,12 @@ class _PatternReadingOverrideConfig(ConfigModel):
     )
 
     def probe_verdict_override(self, ctx: object) -> None:
-        # Compiles the (possibly hypothetical) pattern lazily, inside the hook.
+        # Only --try-allow reaches here (a malformed --try-deny is refused
+        # before any hook runs), and the hook must see that hypothetical, not
+        # the recipe's allow-all; otherwise exit 1 fails the test.
+        if list(self.table_pattern.allow) != ["^ord"]:
+            raise AssertionError("the --try-allow pattern did not reach the hook")
+        # Compiles the hypothetical pattern lazily, inside the hook.
         self.table_pattern.allowed("orders")
 
 

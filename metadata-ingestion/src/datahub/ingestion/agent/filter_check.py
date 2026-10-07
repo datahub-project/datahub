@@ -9,7 +9,7 @@ kind switch (the field marked Enables), ask the connector
 
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple, cast
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from pydantic import BaseModel, ValidationError
 
@@ -142,11 +142,17 @@ def _parent_exclusion(
     if not parent_path:
         return None
     ancestors_for = config_hook(config, "probe_ancestor_kinds")
-    ancestors = (
-        cast(Optional[Sequence[str]], ancestors_for(kind=kind))
-        if ancestors_for
-        else None
-    )
+    ancestors = ancestors_for(kind=kind) if ancestors_for else None
+    # A bare str is a sequence too, and would read as one kind per character.
+    if ancestors is not None and (
+        not isinstance(ancestors, (list, tuple))
+        or not all(isinstance(ancestor, str) for ancestor in ancestors)
+    ):
+        raise ProbeInternalError(
+            f"the connector is defective: {type(config).__name__}."
+            f"probe_ancestor_kinds returned {type(ancestors).__name__}, not a "
+            f"sequence of kind names"
+        )
     if ancestors is None:
         warn(
             f"this source does not declare what contains a '{kind}', so the "
