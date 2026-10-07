@@ -580,6 +580,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return cls(ctx=ctx, config=config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.log_genie_spaces:
+            from datahub.ingestion.source.unity.genie_diagnostics import (
+                log_genie_spaces,
+            )
+
+            with self.report.new_stage("Genie diagnostics"):
+                log_genie_spaces(
+                    api_client=self.unity_catalog_api_proxy.genie_diagnostics_client,
+                    report=self.report,
+                )
+
         with self.report.new_stage("Ingestion Setup"):
             wait_on_warehouse = None
             if self.config.include_hive_metastore:

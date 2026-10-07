@@ -311,6 +311,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = workspace_client
+        self.genie_diagnostics_client = workspace_client.api_client
         self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
