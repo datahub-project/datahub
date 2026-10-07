@@ -25,6 +25,7 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     QueryLogQueryBuilder,
     SnowflakeQueriesExtractor,
     SnowflakeQueriesExtractorConfig,
+    detect_snowflake_edition,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import (
     _PLAIN_LITERAL_PATTERN_RE,
@@ -4287,6 +4288,37 @@ class TestQueryHistoryFallback:
         assert extractor.report.query_log_fetch_mode == (
             "access_history" if expected else "query_history"
         )
+
+    @pytest.mark.parametrize(
+        "errno,sqlstate",
+        [
+            pytest.param(2, None, id="errno_only"),
+            pytest.param(None, "0A000", id="sqlstate_only"),
+            pytest.param(2, "0A000", id="errno_and_sqlstate"),
+        ],
+    )
+    def test_detect_edition_uses_error_code(self, errno, sqlstate):
+        """The probe must recognize the stable unsupported-feature error
+        (errno 2 / SQLSTATE 0A000) without relying on message text."""
+        connection = Mock()
+        err = Exception("some opaque message that does not mention the feature")
+        if errno is not None:
+            err.errno = errno  # type: ignore[attr-defined]
+        if sqlstate is not None:
+            err.sqlstate = sqlstate  # type: ignore[attr-defined]
+        connection.query.side_effect = err
+
+        assert detect_snowflake_edition(connection) == SnowflakeEdition.STANDARD
+
+    def test_detect_edition_reraises_unrelated_error_codes(self):
+        connection = Mock()
+        err = Exception("unexpected failure")
+        err.errno = 100071  # type: ignore[attr-defined]
+        err.sqlstate = "22000"  # type: ignore[attr-defined]
+        connection.query.side_effect = err
+
+        with pytest.raises(Exception, match="unexpected failure"):
+            detect_snowflake_edition(connection)
 
     def test_explicit_flag_skips_edition_probe(self):
         connection = Mock()

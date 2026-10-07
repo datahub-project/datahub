@@ -122,6 +122,13 @@ _NON_TABLE_QUERY_TYPES = frozenset(
 )
 
 
+# Snowflake reports unsupported features (e.g. TAG on Standard edition) as
+# error 000002 with SQLSTATE 0A000 (SQL standard "feature_not_supported").
+# These are stable fields on the connector's exceptions, unlike message text.
+_UNSUPPORTED_FEATURE_ERRNO = 2
+_UNSUPPORTED_FEATURE_SQLSTATE = "0A000"
+
+
 def detect_snowflake_edition(connection: SnowflakeConnection) -> SnowflakeEdition:
     """Probe the account edition via SHOW TAGS, which fails on Standard edition.
 
@@ -129,16 +136,20 @@ def detect_snowflake_edition(connection: SnowflakeConnection) -> SnowflakeEditio
     not an error), so edition detection is the only reliable signal that the
     view can feed the query log join.
 
-    The match is intentionally broad ("Unsupported feature" without the specific
-    'TAG' qualifier) to survive minor wording changes in Snowflake's error
-    messages. For environments where the probe is unreliable, set
+    The match prefers the connector's stable errno/sqlstate fields and falls
+    back to message text only for wrapped exceptions that don't propagate
+    them. For environments where the probe is unreliable, set
     ``known_snowflake_edition: STANDARD`` to skip it entirely.
     """
     try:
         connection.query(SnowflakeQuery.show_tags())
         return SnowflakeEdition.ENTERPRISE
     except Exception as e:
-        if "Unsupported feature" in str(e):
+        if (
+            getattr(e, "errno", None) == _UNSUPPORTED_FEATURE_ERRNO
+            or getattr(e, "sqlstate", None) == _UNSUPPORTED_FEATURE_SQLSTATE
+            or "Unsupported feature" in str(e)
+        ):
             return SnowflakeEdition.STANDARD
         raise
 
