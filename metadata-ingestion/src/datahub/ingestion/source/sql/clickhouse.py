@@ -1380,14 +1380,7 @@ ORDER BY event_time ASC
             return
 
         if self.config.include_table_lineage and self._all_tables_set is None:
-            try:
-                self._all_tables_set = self._get_all_tables()
-            except Exception as e:
-                self.report.warning(
-                    title="Config-file dictionary lineage skipped",
-                    message="Failed to list tables, so dictionaries are emitted without upstream lineage",
-                    exc=e,
-                )
+            self._all_tables_set = self._get_all_tables()
 
         for dictionary in dictionaries:
             dataset_name = dictionary.dataset_name
