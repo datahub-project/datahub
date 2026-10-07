@@ -125,14 +125,14 @@ public class ESSearchDAO {
   /** Time the embedding and kNN calls get before the keyword ranking is served instead. */
   private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
 
-  /** Hybrid failures in a row (timeouts, errors, rejections) after which hybrid read pauses. */
+  /** Hybrid failures in a row (timeouts and errors) after which hybrid read pauses. */
   private static final int HYBRID_FAILURES_BEFORE_PAUSE = 3;
 
   /**
    * How long hybrid read pauses after repeated failures, in this GMS process: while a slow provider
    * recovers, searches neither call it nor hold their request thread for the timeout. When the
-   * pause ends, searches try hybrid read again until three fail in a row, so in a lasting outage
-   * searches wait out the timeout about once per pause.
+   * pause ends, searches try hybrid read again until three fail in a row, so in a lasting outage at
+   * least three searches, more when they run at once, wait out the timeout between pauses.
    */
   private static final long HYBRID_PAUSE_MILLIS = 30_000;
 
@@ -636,11 +636,12 @@ public class ESSearchDAO {
           countHybrid(opContext, "hybridReadApplied");
         }
       } catch (RejectedExecutionException e) {
+        // A rejected search waited for nothing and says nothing about the provider, so a burst of
+        // searches does not pause hybrid read; searches that do wait and fail count instead
         countHybrid(opContext, "hybridReadRejected");
-        recordHybridFailure();
       } catch (TimeoutException e) {
-        // The interrupt frees a worker whose provider does not honor the deadline; a queued call
-        // does not start
+        // The interrupt ends a call blocked in an interruptible wait, and a queued call does not
+        // start
         rerank.cancel(true);
         countHybridTimeout(opContext);
         recordHybridFailure();

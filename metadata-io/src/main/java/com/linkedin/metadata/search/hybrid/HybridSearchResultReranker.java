@@ -128,8 +128,8 @@ public class HybridSearchResultReranker {
         SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3)
             .searchKnn(opContext, knnRequest.get());
     if (knnResponse.partial()) {
-      // Hits may be missing, and a row without one would be taken for a row without vectors. A
-      // slow kNN cluster answers this way at its timeout, so the search counts it as a failure
+      // Timed-out or failed shards may omit hits, and a row without one would be taken for a row
+      // without vectors, so the search counts the response as a failure
       count(opContext, "hybridReadPartial");
       throw new IOException("The kNN response reported a timed-out or failed shard");
     }

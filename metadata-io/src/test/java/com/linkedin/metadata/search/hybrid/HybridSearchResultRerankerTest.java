@@ -2,8 +2,10 @@ package com.linkedin.metadata.search.hybrid;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -202,17 +205,20 @@ public class HybridSearchResultRerankerTest {
 
   @Test
   public void testPartialKnnResponseFailsTheRerank() throws Exception {
-    // A timed-out or failed shard may have dropped DOC_A's hit. A slow kNN cluster answers this way
-    // at its timeout, so the rerank fails and the search counts it toward the pause
+    // A timed-out or failed shard may have dropped DOC_A's hit, so the rerank fails and the search
+    // counts it toward the pause
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(new KnnSearchResponse(knnHits(Map.of(DOC_B, 0.9d)).hits(), true));
+    OperationContext metered = spy(opContext);
+    MetricUtils metrics = mock(MetricUtils.class);
+    doReturn(Optional.of(metrics)).when(metered).getMetricUtils();
     List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
 
     assertThrows(
         IOException.class,
         () ->
-            reranker.rerank(
-                opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)));
+            reranker.rerank(metered, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)));
+    verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadPartial", 1);
   }
 
   @Test

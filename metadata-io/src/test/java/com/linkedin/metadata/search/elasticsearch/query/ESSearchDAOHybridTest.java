@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -404,7 +403,7 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
-  public void testRejectedSearchesPauseHybridRead() throws Exception {
+  public void testRejectedSearchesDoNotPauseHybridRead() throws Exception {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -429,20 +428,18 @@ public class ESSearchDAOHybridTest {
       }
       verify(metrics, timeout(1_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
-      // The executor stays full, so each of these is rejected until three rejections in a row
-      // pause hybrid read; the last one is skipped at the latest
-      for (int i = 0; i < 4; i++) {
-        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
-      }
-      verify(metrics, atLeastOnce()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     } finally {
+      // Well before the held searches' timeout
       release.countDown();
       for (Future<SearchResult> search : held) {
         search.get();
       }
       searches.shutdown();
     }
-    // Released well before their timeout: only the rejections can have paused hybrid read
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+
+    // A rejected search waited for nothing, so the rejections did not pause hybrid read
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
   }
 
