@@ -68,6 +68,17 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     report_model_instance_failure_samples: LossyList[str] = field(
         default_factory=LossyList
     )
+    # Dashboards executed so their Modeling document definition could be read
+    # against a live instance, and what that definition yielded: document-level
+    # derived metrics found, and how many of them carried a formula.
+    document_model_instances_created: int = 0
+    document_model_instance_failures: int = 0
+    document_model_instance_failure_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    document_model_definition_failures: int = 0
+    document_derived_metric_definitions: int = 0
+    document_derived_metric_expressions: int = 0
     metric_formula_lineage_edges: int = 0
     metric_formula_refs_unresolved: int = 0
     metric_formula_unresolved_ref_samples: LossyList[str] = field(
@@ -220,6 +231,22 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_report_model_instance_failure(self, context: str) -> None:
         self.report_model_instance_failures += 1
         self.report_model_instance_failure_samples.append(context)
+
+    def report_document_model_instance_created(self) -> None:
+        self.document_model_instances_created += 1
+
+    def report_document_model_instance_failure(self, context: str) -> None:
+        self.document_model_instance_failures += 1
+        self.document_model_instance_failure_samples.append(context)
+
+    def report_document_model_definition_failure(self) -> None:
+        self.document_model_definition_failures += 1
+
+    def report_document_derived_metric_definitions(
+        self, found: int, with_expression: int
+    ) -> None:
+        self.document_derived_metric_definitions += found
+        self.document_derived_metric_expressions += with_expression
 
     def report_metric_formula_lineage_edges(self, count: int) -> None:
         self.metric_formula_lineage_edges += count

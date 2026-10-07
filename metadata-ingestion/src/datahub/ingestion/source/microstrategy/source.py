@@ -78,6 +78,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ReportDefinition,
     ReportDerivedMetric,
     Visualization,
+    extract_document_derived_metric_definitions,
     extract_embedded_metric_definitions,
     extract_folder_parts,
     first_derived_node_skeleton,
@@ -753,6 +754,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_derived_metrics:
             self.mapper.attach_derived_metrics(dashboard)
             self._enrich_report_derived_metrics(project_id, dashboard)
+            self._enrich_document_derived_metrics(
+                project_id, dashboard_object, dashboard
+            )
         if linked_report_ids is not None:
             linked_report_ids.update(
                 dependency.id.upper()
@@ -836,6 +840,94 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             definitions = self._report_derived_metric_definitions(
                 project_id, dataset.id
             )
+            if definitions:
+                self.mapper.attach_report_derived_metrics(dataset, definitions)
+
+    def _enrich_document_derived_metrics(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        """Document/dossier-level derived metrics - defined in the dashboard on
+        top of a dataset rather than in the dataset's report - live only in the
+        Modeling document definition, which the report path never reads. Read
+        it against an executed instance, on the premise that expressions the
+        static definition omits resolve once the dashboard has run, and attach
+        each definition to the dataset that defines it. Opt-in with resolve_report_metrics_via_instance:
+        it costs a dashboard execution and the endpoint is undocumented. A
+        failed execution degrades to the static read rather than skipping the
+        definition, and the instance is always released."""
+        if not self.config.resolve_report_metrics_via_instance:
+            return
+        if not dashboard.datasets:
+            return
+        instance_id: Optional[str] = None
+        try:
+            instance_id = self._create_dashboard_instance(
+                project_id, dashboard_object, dashboard.id
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_document_model_instance_failure(
+                f"{dashboard.id}: {_error_summary(error)}"
+            )
+        else:
+            self.report.report_document_model_instance_created()
+
+        model_document: Optional[Dict[str, object]] = None
+        try:
+            model_document = self.client.get_model_document(
+                project_id, dashboard.id, instance_id=instance_id
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_document_model_definition_failure()
+            self.report.warning(
+                title="Modeling document definition unavailable",
+                message=(
+                    "GET /api/model/documents/{id} failed, so document-level "
+                    "derived metrics were not read for this dashboard."
+                ),
+                context=f"project_id={project_id}, dashboard_id={dashboard.id}",
+                exc=error,
+            )
+        finally:
+            if instance_id:
+                self._delete_dashboard_instance(
+                    project_id, dashboard_object, dashboard.id, instance_id
+                )
+        if model_document is None:
+            return
+
+        by_dataset = extract_document_derived_metric_definitions(model_document)
+        found = sum(len(definitions) for definitions in by_dataset.values())
+        with_expression = sum(
+            1
+            for definitions in by_dataset.values()
+            for definition in definitions
+            if definition.has_expression
+        )
+        self.report.report_document_derived_metric_definitions(found, with_expression)
+        if logger.isEnabledFor(logging.DEBUG):
+            # The endpoint is undocumented; the payload shape is what tells a
+            # negative result (no expression) from a key the walker missed.
+            logger.debug(
+                "%s Modeling document definition project_id=%s dashboard_id=%s "
+                "instance=%s derived_metrics=%d with_expression=%d; payload "
+                "skeleton: %s",
+                MSTR_DERIVED_DEBUG_LOG_PREFIX,
+                project_id,
+                dashboard.id,
+                "yes" if instance_id else "no",
+                found,
+                with_expression,
+                payload_key_skeleton(model_document),
+            )
+        for dataset in dashboard.datasets:
+            definitions = by_dataset.get(normalize_object_id(dataset.id))
             if definitions:
                 self.mapper.attach_report_derived_metrics(dataset, definitions)
 

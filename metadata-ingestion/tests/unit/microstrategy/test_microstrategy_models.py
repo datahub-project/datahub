@@ -8,6 +8,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceConnection,
     PersonalFolderResolution,
     ReportDefinition,
+    extract_document_derived_metric_definitions,
     first_derived_node_skeleton,
     is_personal_folder_object,
     payload_key_skeleton,
@@ -718,3 +719,52 @@ def test_extract_embedded_metric_definitions_follow_data_template_order() -> Non
     definitions = extract_embedded_metric_definitions(payload)
 
     assert [definition.id for definition in definitions] == ["D-A", "D-B"]
+
+
+def test_document_derived_metrics_keyed_by_defining_dataset() -> None:
+    by_dataset = extract_document_derived_metric_definitions(
+        {
+            "datasets": [
+                {
+                    "information": {"objectId": "ds-a"},
+                    "derivedMetrics": [
+                        {
+                            "information": {"objectId": "1" * 32, "name": "Forecast"},
+                            "expression": {"text": "[A]*[B]"},
+                        },
+                        # Neither an expression nor a derived flag: not a
+                        # definition the walker can attribute, so skipped.
+                        {"information": {"objectId": "2" * 32, "name": "Spare"}},
+                    ],
+                    # Attribute-form expressions must never become metrics.
+                    "derivedAttributes": [
+                        {
+                            "information": {"objectId": "3" * 32, "name": "Band"},
+                            "forms": [
+                                {
+                                    "id": "4" * 32,
+                                    "expressions": [{"expression": {"text": "x"}}],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {"information": {"objectId": "ds-b"}, "derivedMetrics": []},
+                {"derivedMetrics": [{"information": {"objectId": "5" * 32}}]},
+            ]
+        }
+    )
+
+    # Keyed by normalized dataset id; empty and id-less datasets drop out.
+    assert list(by_dataset) == ["DS-A"]
+    names = {d.name: d for d in by_dataset["DS-A"]}
+    assert set(names) == {"Forecast"}
+    assert names["Forecast"].expression_text == "[A]*[B]"
+    assert names["Forecast"].source == "document"
+    assert names["Forecast"].endpoint == "model_document"
+    assert "Band" not in names
+
+
+def test_document_derived_metrics_tolerate_missing_datasets() -> None:
+    assert extract_document_derived_metric_definitions({}) == {}
+    assert extract_document_derived_metric_definitions({"datasets": "x"}) == {}

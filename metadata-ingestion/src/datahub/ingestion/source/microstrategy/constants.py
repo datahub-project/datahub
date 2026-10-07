@@ -79,6 +79,8 @@ MSTR_OBJECT_TYPE_CONSOLIDATION = 47
 # say which endpoint answered.
 MSTR_DEFINITION_ENDPOINT_MODEL = "model"
 MSTR_DEFINITION_ENDPOINT_V2 = "v2"
+# Document/dossier-level derived metrics read from GET /api/model/documents/{id}.
+MSTR_DEFINITION_ENDPOINT_MODEL_DOCUMENT = "model_document"
 # The formula came from GET /api/model/metrics/{id} for a metric the report
 # definition only named (an embedded, report-level derived metric).
 MSTR_DEFINITION_ENDPOINT_METRIC_MODEL = "metric_model"

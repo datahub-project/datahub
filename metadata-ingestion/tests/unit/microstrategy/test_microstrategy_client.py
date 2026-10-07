@@ -933,3 +933,38 @@ def test_model_report_sends_instance_header_only_when_given(
         "/api/model/reports/report-1",
         "/api/model/reports/report-1",
     ]
+
+
+def test_model_document_sends_instance_header_only_when_given(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    calls: list[Dict[str, Any]] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        method: str = "GET",
+        json: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        calls.append({"path": path, "headers": headers})
+        return {}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_model_document("project-1", "doc-1")
+    client.get_model_document("project-1", "doc-1", instance_id="dinst-7")
+
+    assert calls[0]["headers"] is None
+    assert calls[1]["headers"] == {"X-MSTR-MS-Instance": "dinst-7"}
+    assert [call["path"] for call in calls] == [
+        "/api/model/documents/doc-1",
+        "/api/model/documents/doc-1",
+    ]

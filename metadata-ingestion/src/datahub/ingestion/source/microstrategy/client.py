@@ -407,13 +407,23 @@ class MicroStrategyClient:
         )
 
     def get_model_document(
-        self, project_id: str, document_id: str
+        self,
+        project_id: str,
+        document_id: str,
+        instance_id: Optional[str] = None,
     ) -> Dict[str, object]:
         """Raw modeling JSON for a document/dossier; its per-dataset derived objects let
-        the lineage helpers resolve which dataset a visualization reads."""
+        the lineage helpers resolve which dataset a visualization reads, and its
+        per-dataset derivedMetrics carry document-level derived metrics.
+
+        The endpoint is not in Strategy's published OpenAPI specification, so
+        how it treats X-MSTR-MS-Instance is undocumented. The header is sent
+        only when an instance is supplied, mirroring get_model_report, so the
+        long-standing static read is unchanged by default."""
         return self._get_json(
             f"/api/model/documents/{document_id}",
             project_id=project_id,
+            headers=({MSTR_MS_INSTANCE_HEADER: instance_id} if instance_id else None),
         )
 
     def list_model_tables(

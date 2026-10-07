@@ -22,6 +22,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DATABASE_PARAM_RE,
     MSTR_DATASET_CONTAINER_KEYS,
     MSTR_DATASET_KEY_RE,
+    MSTR_DEFINITION_ENDPOINT_MODEL_DOCUMENT,
     MSTR_GRID_ATTRIBUTE_TYPE,
     MSTR_GRID_AXES,
     MSTR_GRID_COLUMN_SETS_KEY,
@@ -1159,6 +1160,7 @@ def _definition_identity(
 def extract_embedded_metric_definitions(
     payload: MicroStrategyDict,
     endpoint: Optional[str] = None,
+    source: str = "report",
 ) -> List[ReportDerivedMetric]:
     """Metric definitions embedded in a report or document definition payload:
     any metric-typed node carrying an `expression`, plus metric nodes flagged
@@ -1168,7 +1170,8 @@ def extract_embedded_metric_definitions(
     attributes are excluded by type so their expression text is never
     mistaken for a metric formula. Keyed by normalized id; the first
     expression-bearing occurrence wins. `endpoint` is stamped on every
-    definition (see MSTR_DEFINITION_ENDPOINT_*)."""
+    definition (see MSTR_DEFINITION_ENDPOINT_*), and `source` records where
+    the metric is defined ("report", or "document" for a dossier/document)."""
     found: Dict[str, ReportDerivedMetric] = {}
 
     def record(
@@ -1234,7 +1237,7 @@ def extract_embedded_metric_definitions(
                 if identity is not None and _is_metric_definition_node(
                     value, identity, parent_key
                 ):
-                    record(value, identity, "report")
+                    record(value, identity, source)
             for child_key, child in value.items():
                 visit(child, str(child_key), value)
         elif isinstance(value, list):
@@ -1254,6 +1257,39 @@ def extract_embedded_metric_definitions(
         visit(template, "dataTemplate", template_parent)
     visit(payload, "", None)
     return list(found.values())
+
+
+def extract_document_derived_metric_definitions(
+    model_document: MicroStrategyDict,
+) -> Dict[str, List[ReportDerivedMetric]]:
+    """Document/dossier-level derived metrics from GET /api/model/documents/{id},
+    keyed by the normalized id of the dataset that defines them. Only each
+    dataset's `derivedMetrics` list is walked: `derivedAttributes` carry
+    attribute-form expressions that must never be read as metric formulas."""
+    by_dataset: Dict[str, List[ReportDerivedMetric]] = {}
+    datasets = model_document.get("datasets")
+    if not isinstance(datasets, list):
+        return by_dataset
+    for dataset in datasets:
+        if not isinstance(dataset, dict):
+            continue
+        information = dataset.get("information")
+        dataset_id = (
+            _first_str(information, MSTR_KEYS_ID)
+            if isinstance(information, dict)
+            else None
+        )
+        derived_metrics = dataset.get("derivedMetrics")
+        if not dataset_id or not isinstance(derived_metrics, list):
+            continue
+        definitions = extract_embedded_metric_definitions(
+            {"derivedMetrics": derived_metrics},
+            endpoint=MSTR_DEFINITION_ENDPOINT_MODEL_DOCUMENT,
+            source="document",
+        )
+        if definitions:
+            by_dataset[normalize_object_id(dataset_id)] = definitions
+    return by_dataset
 
 
 PAYLOAD_SKELETON_MAX_DEPTH = 6
