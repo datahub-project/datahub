@@ -1077,6 +1077,23 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void testStructuredPropertyFullTextFieldIsMappedWithoutProperties() {
+    Map<String, Object> properties =
+        getProperties(
+            mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
+
+    // The copy_to target of structured property values, mapped before any property exists and
+    // searched only through its analyzed subfields
+    Map<String, Object> searchFields =
+        (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
+    Map<String, Object> fullText = (Map<String, Object>) searchFields.get("structuredProperties");
+    assertEquals(fullText.get("index"), false, fullText.toString());
+    assertEquals(
+        ((Map<String, Object>) fullText.get("fields")).keySet(), Set.of("text", "stemmed"));
+  }
+
+  @Test
   public void testConflictedProjectedRootFieldDoesNotUseAspectCopyTo() {
     EntitySpec entitySpec1 =
         createMockEntitySpecWithSearchMetadata(

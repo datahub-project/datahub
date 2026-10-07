@@ -74,6 +74,7 @@ public class V3SearchQueryBuilderTest {
                 "_search.entityName.text",
                 "_search.description.text",
                 "_search.columns.text",
+                "_search.structuredProperties.text",
                 "_search.other.text")),
         text.toString());
     assertTrue(text.stream().allMatch(field -> field.endsWith(".text")), text.toString());
@@ -133,6 +134,13 @@ public class V3SearchQueryBuilderTest {
         weights.toString());
     assertTrue(
         weights.get("_search.description.text") > weights.get("_search.other.text"),
+        weights.toString());
+    // Structured property values weigh what DataHub Cloud's query gives them, between the two
+    assertTrue(
+        weights.get("_search.description.text") > weights.get("_search.structuredProperties.text"),
+        weights.toString());
+    assertTrue(
+        weights.get("_search.structuredProperties.text") > weights.get("_search.other.text"),
         weights.toString());
   }
 
@@ -207,7 +215,8 @@ public class V3SearchQueryBuilderTest {
   public void testLightQueryReadsSharedFields() {
     V3SearchQueryBuilder builder = builder(null);
 
-    // A single name searches the shared fields that name the entity
+    // A single name searches the shared fields that name the entity and, as DataHub Cloud's light
+    // query does, the structured property values
     Set<String> name =
         only(find(
                 builder.buildQuery(OP_CONTEXT, DATASET, "orders", true, true),
@@ -220,7 +229,9 @@ public class V3SearchQueryBuilderTest {
             "_search.entityName.text",
             "_search.entityName.stemmed",
             "_search.qualifiedName.text",
-            "_search.qualifiedName.stemmed"));
+            "_search.qualifiedName.stemmed",
+            "_search.structuredProperties.text",
+            "_search.structuredProperties.stemmed"));
 
     // Several words search every shared field
     Set<String> words =
@@ -358,6 +369,7 @@ public class V3SearchQueryBuilderTest {
                                         V3SearchFields.QUALIFIED_NAME,
                                         V3SearchFields.DESCRIPTION,
                                         V3SearchFields.COLUMNS,
+                                        V3SearchFields.STRUCTURED_PROPERTIES,
                                         V3SearchFields.OTHER))
                                 .build())))
                 .build());

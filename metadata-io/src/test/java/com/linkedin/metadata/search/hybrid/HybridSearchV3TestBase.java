@@ -266,7 +266,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
         NEAR_DOCUMENT,
         document(
             NEAR_DOCUMENT,
-            "Quarterly notes",
+            "Notes on quarterly revenue",
             "How we report quarterly revenue",
             new float[] {1f, 0f, 0f, 0f}));
     batch.put(DATASET, events(DATASET, new DatasetProperties().setName("revenue")));
@@ -284,14 +284,17 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
         FORECAST_SEMANTIC_MATCH,
         document(
             FORECAST_SEMANTIC_MATCH,
-            "Planning notes",
+            "Yearly forecast planning",
             "How we plan the yearly forecast",
             new float[] {1f, 0f, 0f, 0f}));
     float[][] crowdChunks = new float[CROWD_CHUNKS][];
     Arrays.fill(crowdChunks, new float[] {0.8f, 0.6f, 0f, 0f});
     for (int i = 0; i < CROWD_DOCUMENTS; i++) {
       Urn crowd = UrnUtils.getUrn("urn:li:document:forecast-crowd-" + i);
-      batch.put(crowd, document(crowd, "Outlook " + i, "Mentions the forecast once", crowdChunks));
+      batch.put(
+          crowd,
+          document(
+              crowd, "Monthly forecast outlook " + i, "Mentions the forecast once", crowdChunks));
     }
     // With the semantic configuration the writer lifts document vectors to the root embeddings
     new UpdateIndicesV3Strategy(

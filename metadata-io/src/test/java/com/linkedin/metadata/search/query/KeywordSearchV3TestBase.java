@@ -48,6 +48,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
@@ -172,6 +173,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final String BROWSE_DELIMITER = "␟";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
+  private static final Urn STEWARD_NOTE = UrnUtils.getUrn("urn:li:structuredProperty:stewardNote");
+  // Its definition keeps its values out of full-text search
+  private static final Urn INTERNAL_CODE =
+      UrnUtils.getUrn("urn:li:structuredProperty:internalCode");
   // The ORDERS name and key id
   private static final Set<String> ORDERS_VALUES = Set.of("orders", "sales.orders");
   private static final Urn CUSTOMERS_OWNER = UrnUtils.getUrn("urn:li:corpuser:zelda");
@@ -258,8 +263,23 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .setQualifiedName(RETENTION_POLICY.getId())
             .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
             .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    StructuredPropertyDefinition stewardNote =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(STEWARD_NOTE.getId())
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "rich_text"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    StructuredPropertyDefinition internalCode =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(INTERNAL_CODE.getId())
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setSearchConfiguration(new DataHubSearchConfig().setExcludeFromFullTextSearch(true));
     MockAspectRetriever aspectRetriever =
-        new MockAspectRetriever(RETENTION_POLICY, retentionPolicy, new Status().setRemoved(false));
+        new MockAspectRetriever(
+            Map.of(
+                RETENTION_POLICY, List.of(retentionPolicy, new Status().setRemoved(false)),
+                STEWARD_NOTE, List.of(stewardNote, new Status().setRemoved(false)),
+                INTERNAL_CODE, List.of(internalCode, new Status().setRemoved(false))));
     aspectRetriever.setEntityRegistry(entityRegistry);
     RetrieverContext retrieverContext =
         RetrieverContext.builder()
@@ -319,7 +339,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // entity type
     Map<String, Map<String, Object>> mappings =
         mappingsBuilder
-            .getIndexMappings(opContext, List.of(Pair.of(RETENTION_POLICY, retentionPolicy)))
+            .getIndexMappings(
+                opContext,
+                List.of(
+                    Pair.of(RETENTION_POLICY, retentionPolicy),
+                    Pair.of(STEWARD_NOTE, stewardNote),
+                    Pair.of(INTERNAL_CODE, internalCode)))
             .stream()
             .collect(
                 Collectors.toMap(
@@ -393,7 +418,21 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                     .setOwner(CUSTOMERS_OWNER)
                                     .setType(OwnershipType.DATAOWNER))),
                     browsePaths("prod", "marketing"),
-                    legacyBrowsePaths("/prod/marketing", "/shared/crm")),
+                    legacyBrowsePaths("/prod/marketing", "/shared/crm"),
+                    new StructuredProperties()
+                        .setProperties(
+                            new StructuredPropertyValueAssignmentArray(
+                                new StructuredPropertyValueAssignment()
+                                    .setPropertyUrn(STEWARD_NOTE)
+                                    .setValues(
+                                        new PrimitivePropertyValueArray(
+                                            PrimitivePropertyValue.create(
+                                                "Approved by the finance stewards"))),
+                                new StructuredPropertyValueAssignment()
+                                    .setPropertyUrn(INTERNAL_CODE)
+                                    .setValues(
+                                        new PrimitivePropertyValueArray(
+                                            PrimitivePropertyValue.create("kestrel")))))),
                 ORDERS_CHART,
                 events(
                     ORDERS_CHART,
@@ -704,6 +743,41 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(
         searchService.aggregateByValue(opContext, List.of(DATASET_ENTITY_NAME), field, null, 10),
         Map.of("90d", 1L));
+  }
+
+  /**
+   * Full-text search matches structured property values, whole or by word, except those of a
+   * property whose definition opts out.
+   */
+  @Test
+  public void testSearchMatchesStructuredPropertyValues() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "90d", null, null, 0, 10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "stewards", null, null, 0, 10)
+            .getEntities(),
+        CUSTOMERS);
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "kestrel", null, null, 0, 10)
+            .getEntities());
+    // The opted-out value is indexed all the same, for filters
+    assertUrns(
+        searchService
+            .filter(
+                opContext,
+                DATASET_ENTITY_NAME,
+                QueryUtils.newFilter("structuredProperties." + INTERNAL_CODE.getId(), "kestrel"),
+                null,
+                0,
+                10)
+            .getEntities(),
+        CUSTOMERS);
   }
 
   @Test

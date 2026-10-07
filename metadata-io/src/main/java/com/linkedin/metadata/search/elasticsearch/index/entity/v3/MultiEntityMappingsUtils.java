@@ -402,6 +402,12 @@ public class MultiEntityMappingsUtils {
     for (String destination : rootCopyToSearchFields(mappings)) {
       searchFieldTypes.computeIfAbsent(destination, k -> new HashSet<>(Set.of("keyword")));
     }
+    // Structured property fields copy into their shared field from under structuredProperties, and
+    // a property can be added to any entity, so every entity index maps it
+    if (!entitySpecs.isEmpty()) {
+      searchFieldTypes.computeIfAbsent(
+          V3SearchFields.STRUCTURED_PROPERTIES, k -> new HashSet<>(Set.of("keyword")));
+    }
 
     Set<String> fullTextFields = V3SearchFields.fullTextFields(entitySpecs).keySet();
     // Create field mappings for each destination field, resolving type conflicts

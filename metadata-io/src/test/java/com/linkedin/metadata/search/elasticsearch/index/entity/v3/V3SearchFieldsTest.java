@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3Searc
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.OTHER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.QUALIFIED_NAME;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.STRUCTURED_PROPERTIES;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -48,7 +49,11 @@ public class V3SearchFieldsTest {
   public void testDatasetFullTextFieldsAndTheirSources() {
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(dataset()));
 
-    assertEquals(fields.keySet(), Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, COLUMNS, OTHER));
+    assertEquals(
+        fields.keySet(),
+        Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, COLUMNS, STRUCTURED_PROPERTIES, OTHER));
+    // Structured property values copy in from the properties' own fields, not from root fields
+    assertEquals(fields.get(STRUCTURED_PROPERTIES), List.of());
     // Matched fields follow this order, so the catch-all comes last
     assertEquals(List.copyOf(fields.keySet()).get(fields.size() - 1), OTHER);
     assertTrue(fields.get(ENTITY_NAME).contains("name"), fields.toString());

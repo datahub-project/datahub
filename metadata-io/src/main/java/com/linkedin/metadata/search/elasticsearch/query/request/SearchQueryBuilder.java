@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.Constants.SKIP_REFERENCE_ASPECT;
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.CUSTOM_FULL_TEXT_SEARCH_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.isQuoted;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
@@ -1492,8 +1493,9 @@ public class SearchQueryBuilder {
       multiMatch.operator(Operator.AND);
     }
 
-    // EXACT_NAME and FQN queries search the name-related subfields only; KEYWORD queries search
-    // every field for broader recall. Word grams need 2+ tokens, so single words skip them.
+    // EXACT_NAME and FQN queries search the name-related subfields and, as in DataHub Cloud, the
+    // structured property values; KEYWORD queries search every field for broader recall. Word
+    // grams need 2+ tokens, so single words skip them.
     boolean useNameFocusedFields = intent == QueryIntent.EXACT_NAME || intent == QueryIntent.FQN;
     boolean isTrueSingleWord = SINGLE_WORD_PATTERN.matcher(matchQuery.trim()).matches();
     Map<String, Float> fieldBoosts = new LinkedHashMap<>();
@@ -1501,7 +1503,11 @@ public class SearchQueryBuilder {
         .filter(SearchFieldConfig::isQueryByDefault)
         .filter(cfg -> cfg.isDelimitedSubfield() || (cfg.isWordGramSubfield() && !isTrueSingleWord))
         .filter(cfg -> !LIGHT_PATH_EXCLUDED_FIELDS.contains(cfg.shortName()))
-        .filter(cfg -> !useNameFocusedFields || EXACT_NAME_FOCUSED_FIELDS.contains(cfg.shortName()))
+        .filter(
+            cfg ->
+                !useNameFocusedFields
+                    || EXACT_NAME_FOCUSED_FIELDS.contains(cfg.shortName())
+                    || CUSTOM_FULL_TEXT_SEARCH_FIELDS.equals(cfg.shortName()))
         .forEach(cfg -> fieldBoosts.merge(cfg.fieldName(), cfg.boost(), Math::max));
     if (fieldBoosts.isEmpty()) {
       return Optional.empty();
