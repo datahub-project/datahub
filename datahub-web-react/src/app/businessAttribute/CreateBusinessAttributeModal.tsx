@@ -1,4 +1,5 @@
 import { Text } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
@@ -14,7 +15,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
 import { CreateBusinessAttributeInput, EntityType } from '@types';
-import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 
 type Props = {
     open: boolean;
@@ -217,7 +217,7 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         }
                     >
                         <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
-                            <PencilSimple  />
+                            <PencilSimple />
                             {documentation
                                 ? t('businessAttribute.editDocumentation')
                                 : t('businessAttribute.addDocumentation')}

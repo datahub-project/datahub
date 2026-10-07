@@ -1,5 +1,6 @@
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { FileMagnifyingGlass } from '@phosphor-icons/react/dist/csr/FileMagnifyingGlass';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
 import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext } from 'react';
@@ -20,7 +21,6 @@ import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext
 import MatchesContext, { PreviewSection } from '@app/shared/MatchesContext';
 
 import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '@types';
-import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
 
 const PillsContainer = styled.div`
     gap: 5px;
@@ -112,7 +112,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
                 selectedColumn && (
                     <SearchPill
                         data-testid="show-column-path-button"
-                        icon={<Layout  />}
+                        icon={<Layout />}
                         count={paths.length || 0}
                         enabled={!!paths.length}
                         active={expandedSection === PreviewSection.COLUMN_PATHS}

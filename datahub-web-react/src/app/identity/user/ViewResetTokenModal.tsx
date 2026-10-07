@@ -1,3 +1,4 @@
+import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -8,7 +9,6 @@ import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useCreateNativeUserResetTokenMutation } from '@graphql/user.generated';
-import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 
 const ModalSection = styled.div`
     display: flex;
@@ -127,7 +127,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                     type="text"
                     data-testid="refreshButton"
                 >
-                    <ArrowClockwise style={{}}  />
+                    <ArrowClockwise style={{}} />
                 </CreateResetTokenButton>
             </ModalSection>
         </Modal>

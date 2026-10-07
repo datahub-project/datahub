@@ -1,4 +1,5 @@
 import { Input, Text } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
@@ -15,8 +16,6 @@ import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
 import { EntityType } from '@types';
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
-
 
 const spin = keyframes`
     from { transform: rotate(0deg); }

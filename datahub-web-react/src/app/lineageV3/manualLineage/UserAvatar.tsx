@@ -1,4 +1,5 @@
 import { Avatar, Popover } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React from 'react';
 import { Trans } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -9,7 +10,6 @@ import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
-import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 
 const LineageIcon = styled(TreeStructure)`
     font-size: 16px;

@@ -1,5 +1,7 @@
 import { Loader } from '@components';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -11,8 +13,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
 
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 
 const ItemWrapper = styled.div`
     display: flex;

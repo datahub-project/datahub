@@ -1,9 +1,9 @@
-
-import { getRoleNameFromUrn, mapRoleIcon, shouldShowGlossary } from '@app/identity/user/UserUtils';
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { User } from '@phosphor-icons/react/dist/csr/User';
+
+import { getRoleNameFromUrn, mapRoleIcon, shouldShowGlossary } from '@app/identity/user/UserUtils';
 
 describe('UserUtils', () => {
     describe('getRoleNameFromUrn', () => {

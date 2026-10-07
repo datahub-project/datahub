@@ -1,4 +1,5 @@
 import { Pagination } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
@@ -12,7 +13,6 @@ import ColumnSearch from '@app/lineageV3/LineageEntityNode/ColumnSearch';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LineageNodesContext, TRANSITION_DURATION_MS, onClickPreventSelect } from '@app/lineageV3/common';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
-import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;

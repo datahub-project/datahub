@@ -1,8 +1,8 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 const EmptyDomainContainer = styled.div`
     display: flex;
@@ -60,7 +60,7 @@ function EmptyDomainsSection(props: Props) {
                 }
             >
                 <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                    <Plus  /> {t('empty.createButton')}
+                    <Plus /> {t('empty.createButton')}
                 </StyledButton>
             </StyledEmpty>
         </EmptyDomainContainer>

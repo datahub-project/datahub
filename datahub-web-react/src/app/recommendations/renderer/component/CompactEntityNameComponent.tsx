@@ -1,4 +1,5 @@
 import { TooltipPlacement } from '@components';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -11,7 +12,6 @@ import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, SchemaFieldEntity } from '@types';
-import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 
 const NameWrapper = styled.span<{ addMargin: boolean }>`
     display: inline-flex;

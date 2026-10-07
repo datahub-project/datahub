@@ -1,4 +1,6 @@
 import { Tooltip } from '@components';
+import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,8 +13,6 @@ import { useGetUnseenAnnouncements } from '@app/homeV2/action/announcement/useGe
 import AnnouncementsSkeleton from '@app/homeV2/content/tabs/announcements/AnnouncementsSkeleton';
 import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const Card = styled.div`
     border: 1px solid ${(props) => props.theme.colors.border};

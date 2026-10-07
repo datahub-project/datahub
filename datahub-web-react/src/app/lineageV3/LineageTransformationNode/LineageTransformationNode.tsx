@@ -1,4 +1,5 @@
 import { Icon, Popover } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
@@ -29,8 +30,6 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { EntityType, LineageDirection } from '@types';
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
-
 
 const spin = keyframes`
     from { transform: rotate(0deg); }

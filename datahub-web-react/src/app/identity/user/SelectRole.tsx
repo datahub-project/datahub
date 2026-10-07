@@ -1,4 +1,5 @@
 import { useApolloClient } from '@apollo/client';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import { Select, Spin, Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +10,6 @@ import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 
 import { CorpUser, DataHubRole } from '@types';
-import { User } from '@phosphor-icons/react/dist/csr/User';
 
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
 
@@ -134,7 +134,7 @@ export default function SelectRole({
             <RoleSelect
                 placeholder={
                     <>
-                        <User style={{ marginRight: 6, fontSize: 12 }}  />
+                        <User style={{ marginRight: 6, fontSize: 12 }} />
                         {noRoleText}
                     </>
                 }
