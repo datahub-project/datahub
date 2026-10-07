@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -33,6 +34,7 @@ public class EntityPrivilegesResolverTest {
   final String dataJobUrn =
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
   final String businessAttributeUrn = "urn:li:businessAttribute:testBusinessAttribute";
+  final String documentUrn = "urn:li:document:test-document";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
@@ -239,6 +241,23 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanEditLineage());
+  }
+
+  @Test
+  public void testGetDocumentPrivileges() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    EntityPrivileges result =
+        new EntityPrivilegesResolver(mockClient).get(setUpTestWithPermissions(document)).get();
+    assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanDeleteEntity());
+
+    result =
+        new EntityPrivilegesResolver(mockClient).get(setUpTestWithoutPermissions(document)).get();
+    assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
   }
 
   @Test

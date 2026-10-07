@@ -56,6 +56,9 @@ For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.
 
 ## Create Document
 
+Creating a document requires `CREATE_ENTITY` or `EDIT_ENTITY` for documents, or
+`MANAGE_DOCUMENTS`.
+
 ### Native Document
 
 Native documents are stored directly in DataHub with full content indexing.
@@ -455,7 +458,8 @@ mutation unpublishDocument {
 
 ## Delete Document
 
-Remove a document from DataHub.
+Remove a document from DataHub. This requires `DELETE_ENTITY` on the document or
+`MANAGE_DOCUMENTS`.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL">
