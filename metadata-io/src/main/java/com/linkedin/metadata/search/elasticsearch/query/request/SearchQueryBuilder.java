@@ -1266,6 +1266,14 @@ public class SearchQueryBuilder {
     return "description.delimited";
   }
 
+  /**
+   * Stage 1: whether the full query fuzzy-matches the fields of this analyzer. A fuzzy term is only
+   * normalized, never run through the analyzer's other filters.
+   */
+  protected boolean isFuzzyAnalyzer(@Nonnull String analyzer) {
+    return true;
+  }
+
   /** Light path: whether the identity re-query reads this field. */
   protected boolean isDelimitedIdentityField(@Nonnull SearchFieldConfig cfg) {
     return DELIMITED_IDENTITY_FIELDS.contains(cfg.fieldName());
@@ -1417,7 +1425,7 @@ public class SearchQueryBuilder {
               analyzer -> {
                 List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
                 boolean isWordGram = analyzer.contains("word_gram");
-                if (!isWordGram && !fuzzy) {
+                if (!isWordGram && (!fuzzy || !isFuzzyAnalyzer(analyzer))) {
                   // Without fuzziness this group would repeat the synonym-priority query, which
                   // matches the same words on the same fields at a higher boost, and only add
                   // clauses

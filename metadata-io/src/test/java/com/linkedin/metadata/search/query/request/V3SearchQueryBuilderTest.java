@@ -78,8 +78,13 @@ public class V3SearchQueryBuilderTest {
                 "_search.other.text")),
         text.toString());
     assertTrue(text.stream().allMatch(field -> field.endsWith(".text")), text.toString());
-    Set<String> stemmed = fuzzy.get(V3SearchFields.STEMMED_SEARCH_ANALYZER);
-    assertNotNull(stemmed, fuzzy.toString());
+    // A fuzzy term is not stemmed, so the stemmed subfields are only matched without fuzziness
+    assertFalse(fuzzy.containsKey(V3SearchFields.STEMMED_SEARCH_ANALYZER), fuzzy.toString());
+    Set<String> stemmed =
+        find(query, SimpleQueryStringBuilder.class).stream()
+            .filter(sqs -> V3SearchFields.STEMMED_SEARCH_ANALYZER.equals(sqs.analyzer()))
+            .flatMap(sqs -> sqs.fields().keySet().stream())
+            .collect(Collectors.toSet());
     assertTrue(stemmed.contains("_search.entityName.stemmed"), stemmed.toString());
     assertTrue(stemmed.stream().allMatch(field -> field.endsWith(".stemmed")), stemmed.toString());
   }
