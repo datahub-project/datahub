@@ -6,6 +6,8 @@ import EntityContext from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import CreatedProperty from '@app/entityV2/summary/properties/property/properties/CreatedProperty';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { EntityRegistryContext } from '@src/entityRegistryContext';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { DocumentSourceType, EntityType, SummaryElementType } from '@types';
 
@@ -32,9 +34,11 @@ const makeContext = (entityData: object, entityType: EntityType) => ({
 const renderProp = (entityData: object, entityType: EntityType = EntityType.Document) =>
     render(
         <CustomThemeProvider>
-            <EntityContext.Provider value={makeContext(entityData, entityType)}>
-                <CreatedProperty property={PROP} position={0} />
-            </EntityContext.Provider>
+            <EntityRegistryContext.Provider value={getTestEntityRegistry()}>
+                <EntityContext.Provider value={makeContext(entityData, entityType)}>
+                    <CreatedProperty property={PROP} position={0} />
+                </EntityContext.Provider>
+            </EntityRegistryContext.Provider>
         </CustomThemeProvider>,
     );
 

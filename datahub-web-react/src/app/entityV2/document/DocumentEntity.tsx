@@ -12,7 +12,7 @@ import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
-import { Document, EntityType, SearchResult } from '@types';
+import { Document, DocumentSourceType, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.COPY_URL,
@@ -121,6 +121,17 @@ export class DocumentEntity implements Entity<Document> {
 
     displayName = (data: Document) => {
         return data?.info?.title || data?.urn;
+    };
+
+    createdTime = (data: Document) => {
+        const created = data?.info?.created?.time;
+        const lastModified = data?.info?.lastModified?.time;
+        // External connectors often default created to ingestion time, so only trust it if it predates lastModified.
+        const isExternal = data?.info?.source?.sourceType === DocumentSourceType.External;
+        if (!isExternal || (created && lastModified && created < lastModified)) {
+            return created;
+        }
+        return undefined;
     };
 
     getOverridePropertiesFromEntity = (data: Document) => {

@@ -276,6 +276,10 @@ export class ContainerEntity implements Entity<Container> {
         return data?.properties?.name || data?.properties?.qualifiedName || data?.urn;
     };
 
+    createdTime = (data: Container) => {
+        return data?.properties?.created?.time;
+    };
+
     getOverridePropertiesFromEntity = (data: Container) => {
         return {
             name: this.displayName(data),
