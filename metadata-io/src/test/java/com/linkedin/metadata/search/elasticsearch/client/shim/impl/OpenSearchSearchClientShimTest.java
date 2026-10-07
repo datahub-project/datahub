@@ -19,12 +19,14 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.RequestLine;
 import org.apache.http.StatusLine;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicStatusLine;
@@ -370,6 +372,45 @@ public class OpenSearchSearchClientShimTest {
     assertEquals(response.hits().get(1).id(), "urn:li:dataset:xyz");
     assertEquals(response.hits().get(1).score(), 0.0, 0.0001);
     assertTrue(response.hits().get(1).source().isEmpty());
+  }
+
+  @Test
+  public void searchKnnBoundsTheCallByTheRequestTimeout() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, "{\"hits\":{\"hits\":[]}}");
+    when(restClient.performRequest(any(Request.class))).thenReturn(ok);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("document_v3")
+            .vectorField("embeddings.model.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f})
+            .k(5)
+            .timeout(Duration.ofMillis(1_500))
+            .build();
+
+    shimWith(restClient).searchKnn(OP, request);
+
+    ArgumentCaptor<Request> sent = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient).performRequest(sent.capture());
+    assertEquals(sent.getValue().getParameters().get("timeout"), "1500ms");
+    RequestConfig config = sent.getValue().getOptions().getRequestConfig();
+    assertEquals(config.getConnectTimeout(), 1_500);
+    assertEquals(config.getConnectionRequestTimeout(), 1_500);
+    assertEquals(config.getSocketTimeout(), 1_500);
+  }
+
+  @Test
+  public void parseSearchKnnResponseFlagsTimedOutAndFailedShards() throws Exception {
+    String hits = "\"hits\":{\"hits\":[]}";
+
+    assertFalse(
+        parseKnn("{\"timed_out\":false,\"_shards\":{\"failed\":0}," + hits + "}").partial());
+    assertTrue(parseKnn("{\"timed_out\":true," + hits + "}").partial());
+    assertTrue(parseKnn("{\"_shards\":{\"total\":2,\"failed\":1}," + hits + "}").partial());
+  }
+
+  private static KnnSearchResponse parseKnn(String json) throws IOException {
+    return OpenSearchSearchClientShim.parseSearchKnnResponse(MAPPER.readTree(json), MAPPER);
   }
 
   @Test
