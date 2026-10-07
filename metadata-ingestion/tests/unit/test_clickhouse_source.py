@@ -1,3 +1,4 @@
+import dataclasses
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
@@ -21,6 +22,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
+    EnumTypeClass,
     NumberTypeClass,
     OperationClass,
     QueryPropertiesClass,
@@ -1430,23 +1432,42 @@ def test_emit_xml_dictionary_with_database_tag_joins_database_container(monkeypa
     assert any(wu.get_aspect_of_type(ContainerClass) for wu in workunits)
 
 
-def test_emit_xml_dictionary_adds_clickhouse_source_as_upstream(monkeypatch):
+@pytest.mark.parametrize(
+    "dictionary_source, upstream",
+    [
+        ("ClickHouse: db.src_table, where: id > 1", "db.src_table"),
+        ("ClickHouse: .src_table", "default.src_table"),
+    ],
+)
+def test_emit_xml_dictionary_adds_clickhouse_source_as_upstream(
+    monkeypatch, dictionary_source, upstream
+):
     source = _clickhouse_source(platform_instance="ch1", include_table_lineage=True)
-    source._all_tables_set = {"db.src_table"}
+    source._all_tables_set = {upstream}
     monkeypatch.setattr(
         source,
         "_fetch_xml_dictionaries",
-        lambda: [
-            _sample_xml_dictionary(source="ClickHouse: db.src_table, where: id > 1")
-        ],
+        lambda: [_sample_xml_dictionary(source=dictionary_source)],
     )
 
     workunits = list(source._emit_xml_dictionaries())
 
     [lineage] = _aspects_of(workunits, UpstreamLineageClass)
     assert [u.dataset for u in lineage.upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.db.src_table,PROD)"
+        f"urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.{upstream},PROD)"
     ]
+
+
+def test_emit_xml_dictionary_maps_enum_attribute_type(monkeypatch):
+    source = _clickhouse_source()
+    dictionary = dataclasses.replace(
+        _sample_xml_dictionary(), attribute_types=["Enum8('a' = 1, 'b' = 2)"]
+    )
+    monkeypatch.setattr(source, "_fetch_xml_dictionaries", lambda: [dictionary])
+
+    [schema] = _aspects_of(list(source._emit_xml_dictionaries()), SchemaMetadataClass)
+
+    assert isinstance(schema.fields[1].type.type, EnumTypeClass)
 
 
 def test_emit_xml_dictionaries_reports_fetch_error_as_failure(monkeypatch):

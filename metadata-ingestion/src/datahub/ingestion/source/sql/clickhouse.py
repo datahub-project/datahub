@@ -33,7 +33,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import RowMapping, reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
+from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER, TypeEngine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import HiddenFromDocs, LaxStr
@@ -132,8 +132,9 @@ _NON_USER_TABLE_PREFIXES = (
 
 # ClickHouseDictionarySource::toString() emits "ClickHouse: db.table", plus
 # ", where: <condition>" when the source has a WHERE clause. Names are unquoted.
+# db is empty when the source omits <db>, which ClickHouse resolves to default.
 _CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
-    r"^ClickHouse:\s*([^\s.,]+)\.([^\s,]+)",
+    r"^ClickHouse:\s*([^\s.,]*)\.([^\s,]+)",
     re.IGNORECASE,
 )
 
@@ -355,7 +356,7 @@ def _dictionary_source_table(source: str) -> Optional[str]:
     match = _CLICKHOUSE_DICT_SOURCE_TABLE_RE.match(source.strip())
     if not match:
         return None
-    return f"{match.group(1)}.{match.group(2)}"
+    return f"{match.group(1) or 'default'}.{match.group(2)}"
 
 
 def _xml_dictionary_from_row(row: RowMapping) -> _XmlDictionary:
@@ -404,7 +405,7 @@ class ClickHouseConfig(
     include_config_file_dictionaries: bool = Field(
         default=False,
         description="Whether to ingest dictionaries defined in server config files (XML or YAML) "
-        "as datasets. Requires SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.*.",
+        "as datasets. Requires include_tables, SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.*.",
     )
 
     # Query log extraction options
@@ -1360,9 +1361,10 @@ ORDER BY event_time ASC
                 strict=False,
             )
         ]
-        # Simple types come back as classes; Inspector.get_columns instantiates them too.
+        # Simple types come back as classes and enums as factories; Inspector.get_columns
+        # instantiates them too.
         for column in columns:
-            if isinstance(column["type"], type):
+            if not isinstance(column["type"], TypeEngine):
                 column["type"] = column["type"]()
         return columns
 
@@ -1372,7 +1374,7 @@ ORDER BY event_time ASC
         except Exception as e:
             self.report.failure(
                 title="Config-file dictionary fetch failed",
-                message="Failed to fetch config-file dictionaries. The DataHub user needs SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.*",
+                message="Failed to fetch config-file dictionaries. If access was denied, grant SELECT ON system.dictionaries to the DataHub user",
                 exc=e,
             )
             return
@@ -1491,12 +1493,7 @@ ORDER BY event_time ASC
                     dataset.set_upstreams(
                         [
                             UpstreamClass(
-                                dataset=builder.make_dataset_urn_with_platform_instance(
-                                    self.platform,
-                                    source_path,
-                                    self.config.platform_instance,
-                                    self.config.env,
-                                ),
+                                dataset=self._dataset_urn(source_path),
                                 type=DatasetLineageTypeClass.COPY,
                             )
                         ]
