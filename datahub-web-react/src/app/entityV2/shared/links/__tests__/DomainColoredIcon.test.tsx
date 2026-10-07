@@ -11,7 +11,7 @@ vi.mock('@app/sharedV2/colors/colorUtils', () => ({
     useGenerateDomainColorFromPalette: () => () => '#abcdef',
 }));
 
-const getLazyIconMock = vi.fn((name: string) => <div data-testid={`lazy-${name}`} />);
+const getLazyIconMock = vi.fn((name: string, _props?: unknown) => <div data-testid={`lazy-${name}`} />);
 
 vi.mock('@app/mfeframework/lazyIconRegistry', () => ({
     getLazyIcon: (name: string, props?: unknown) => getLazyIconMock(name, props),

@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { Label } from '@components/components/TextArea/components';
+
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
 import { resolveDisplayIconName } from '@app/sharedV2/icons/resolveDisplayIcon';
@@ -26,13 +28,6 @@ type IconColorPickerProps = {
     showIcon?: boolean;
 };
 
-const SectionLabel = styled.div`
-    font-size: 14px;
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.text};
-    margin-bottom: 8px;
-`;
-
 const Section = styled.div`
     margin-bottom: 24px;
 
@@ -40,6 +35,12 @@ const Section = styled.div`
         margin-bottom: 0;
     }
 `;
+
+// Match Alchemy Modal `centered` + tall content: cap body so header/footer stay visible.
+const MODAL_BODY_STYLE: React.CSSProperties = {
+    maxHeight: 'calc(90vh - 140px)',
+    overflowY: 'auto',
+};
 
 const DEFAULT_PHOSPHOR_PICK = 'UserCircle';
 
@@ -135,6 +136,8 @@ function IconColorPicker({
             open={open}
             title={title}
             onCancel={() => onClose()}
+            bodyStyle={MODAL_BODY_STYLE}
+            width={640}
             buttons={[
                 {
                     text: tc('cancel'),
@@ -149,12 +152,12 @@ function IconColorPicker({
             ]}
         >
             <Section>
-                {showIcon && <SectionLabel>{tcl('color')}</SectionLabel>}
+                <Label>{tcl('color')}</Label>
                 <ColorPicker initialColor={initialColor} onChange={setStagedColor} />
             </Section>
             {showIcon && (
                 <Section>
-                    <SectionLabel>{tcl('icon')}</SectionLabel>
+                    <Label>{tcl('icon')}</Label>
                     <ChatIconPicker
                         color={stagedColor}
                         selectedIcon={stagedIcon}

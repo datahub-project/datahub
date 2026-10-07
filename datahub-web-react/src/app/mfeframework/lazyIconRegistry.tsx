@@ -1,4 +1,3 @@
-import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import React, { Suspense } from 'react';
 
 // Resolves Phosphor icons by name for admin-configured features (e.g. MFE nav, custom pages).
@@ -31,10 +30,24 @@ type LazyIconProps = React.ComponentPropsWithoutRef<'svg'> & {
     color?: string;
 };
 
+function IconFallback({ size }: { size?: string | number }): JSX.Element {
+    const dimension = typeof size === 'number' ? size : 16;
+    return (
+        <span
+            aria-hidden
+            style={{
+                display: 'inline-block',
+                width: dimension,
+                height: dimension,
+            }}
+        />
+    );
+}
+
 export function getLazyIcon(name: string, props?: LazyIconProps): JSX.Element {
     const LazyIcon = getCachedLazyIcon(name);
     return (
-        <Suspense fallback={<AppWindow {...props} />}>
+        <Suspense fallback={<IconFallback size={props?.size} />}>
             <LazyIcon {...props} />
         </Suspense>
     );

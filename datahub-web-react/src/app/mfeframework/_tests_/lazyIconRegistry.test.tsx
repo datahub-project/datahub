@@ -45,11 +45,11 @@ describe('getLazyIcon', () => {
         expect(screen.getByTestId('mock-icon')).toBeInTheDocument();
     });
 
-    it('renders the AppWindow fallback for an unknown icon without throwing', async () => {
+    it('renders an unknown icon without throwing', async () => {
         await act(async () => {
             render(getLazyIcon('NoSuchIcon'));
         });
-        // No crash; the element resolves (AppWindow is a valid component).
+        // No crash; loadIcon may resolve to AppWindow for unknown names.
         expect(React.isValidElement(getLazyIcon('NoSuchIcon'))).toBe(true);
     });
 
