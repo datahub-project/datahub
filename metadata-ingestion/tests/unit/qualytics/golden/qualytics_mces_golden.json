@@ -1,0 +1,1622 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788847200000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 125000,
+            "columnCount": 3,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "order_id",
+                    "uniqueCount": 125000,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "125000"
+                },
+                {
+                    "fieldPath": "amount",
+                    "uniqueCount": 98211,
+                    "uniqueProportion": 0.785688,
+                    "nullCount": 2100,
+                    "nullProportion": 0.016800000000000037,
+                    "min": "0.01",
+                    "max": "9999.99",
+                    "mean": "148.27",
+                    "median": "89.5",
+                    "stdev": "212.44",
+                    "quantiles": [
+                        {
+                            "quantile": "0.25",
+                            "value": "24.99"
+                        },
+                        {
+                            "quantile": "0.5",
+                            "value": "89.5"
+                        },
+                        {
+                            "quantile": "0.75",
+                            "value": "175"
+                        }
+                    ]
+                },
+                {
+                    "fieldPath": "country",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 2.4e-05,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "US",
+                            "frequency": 90000
+                        },
+                        {
+                            "value": "CA",
+                            "frequency": 25000
+                        },
+                        {
+                            "value": "GB",
+                            "frequency": 10000
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "100",
+                "rule_type": "notNull",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "8.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/10/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD),amount)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD),amount)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "notNull"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "Every order must have an amount"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854400000,
+            "runId": "qualytics-check-100",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "qualytics_check_id": "100",
+                    "active_anomaly_count": "1"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3a792f2566e47b555a7db64e6085bc6a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "101",
+                "rule_type": "expectedValues",
+                "inferred": "True",
+                "coverage": "1.0",
+                "weight": "5.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/10/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD),country)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD),country)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "IN",
+                "parameters": {
+                    "value": {
+                        "value": "US,CA,GB",
+                        "type": "LIST"
+                    }
+                },
+                "nativeType": "expectedValues",
+                "nativeParameters": {
+                    "list": "['US', 'CA', 'GB']"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "expectedValues on COUNTRY"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3a792f2566e47b555a7db64e6085bc6a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3a792f2566e47b555a7db64e6085bc6a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854400000,
+            "runId": "qualytics-check-101",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "101"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:3a792f2566e47b555a7db64e6085bc6a",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c3a53a909ae3ad59c946426b4a1661f6",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "102",
+                "rule_type": "volumetric",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "6.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/10/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "200000",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "100000",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "volumetric",
+                "nativeParameters": {
+                    "min": "100000",
+                    "max": "200000"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "volumetric"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c3a53a909ae3ad59c946426b4a1661f6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c3a53a909ae3ad59c946426b4a1661f6",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854400000,
+            "runId": "qualytics-check-102",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "102"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:c3a53a909ae3ad59c946426b4a1661f6",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2d2069b3c9266ebbd3dcdaaff8e7d3d1",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "103",
+                "rule_type": "between",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "4.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/10/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD),amount)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD),amount)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "10000",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "0.01",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "between",
+                "nativeParameters": {
+                    "min": "0.01",
+                    "max": "10000",
+                    "inclusive": "True"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "Order amounts sit within the expected band"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2d2069b3c9266ebbd3dcdaaff8e7d3d1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2d2069b3c9266ebbd3dcdaaff8e7d3d1",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854400000,
+            "runId": "qualytics-check-103",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "103"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:2d2069b3c9266ebbd3dcdaaff8e7d3d1",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305764,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "104",
+                "rule_type": "satisfiesExpression",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "7.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/10/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "satisfiesExpression",
+                "nativeParameters": {
+                    "expression": "status <> 'SHIPPED' OR ship_date IS NOT NULL"
+                },
+                "logic": "status <> 'SHIPPED' OR ship_date IS NOT NULL"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "Shipped orders must have a ship date"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305765,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305765,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854400000,
+            "runId": "qualytics-check-104",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "qualytics_check_id": "104",
+                    "active_anomaly_count": "1"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305765,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854400000,
+            "runId": "qualytics-anomaly-900-100",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "unexpectedCount": 2103,
+                "nativeResults": {
+                    "qualytics_anomaly_id": "900",
+                    "qualytics_anomaly_uuid": "3f2b1c88-0000-4000-8000-000000000001",
+                    "anomaly_type": "record",
+                    "status": "Active",
+                    "message": "2103 rows failed notNull on AMOUNT"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305765,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788854700000,
+            "runId": "qualytics-anomaly-901-104",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "unexpectedCount": 3,
+                "nativeResults": {
+                    "qualytics_anomaly_id": "901",
+                    "qualytics_anomaly_uuid": "3f2b1c88-0000-4000-8000-000000000003",
+                    "anomaly_type": "shape",
+                    "status": "Acknowledged",
+                    "message": "3 rows failed satisfiesExpression"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305766,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788848100000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 125000,
+            "columnCount": 2,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "order_key",
+                    "uniqueCount": 125000,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
+                },
+                {
+                    "fieldPath": "email",
+                    "uniqueCount": 119400,
+                    "uniqueProportion": 0.9552,
+                    "nullCount": 425,
+                    "nullProportion": 0.0033999999999999586
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305766,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2798e857ffac6e0597d610d319e2c7b3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "110",
+                "rule_type": "unique",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "9.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/11/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD),order_key)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD),order_key)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "UNIQUE_PROPORTION",
+                "operator": "EQUAL_TO",
+                "nativeType": "unique"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "unique on ORDER_KEY"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305766,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2798e857ffac6e0597d610d319e2c7b3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305766,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2798e857ffac6e0597d610d319e2c7b3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788855300000,
+            "runId": "qualytics-check-110",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "110"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:2798e857ffac6e0597d610d319e2c7b3",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305766,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "111",
+                "rule_type": "matchesPattern",
+                "inferred": "False",
+                "coverage": "0.99",
+                "weight": "6.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/1/containers/11/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD),email)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD),email)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "REGEX_MATCH",
+                "parameters": {
+                    "value": {
+                        "value": "^[^@]+@[^@]+$",
+                        "type": "STRING"
+                    }
+                },
+                "nativeType": "matchesPattern",
+                "nativeParameters": {
+                    "pattern": "^[^@]+@[^@]+$"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "matchesPattern on EMAIL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305767,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305767,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788855300000,
+            "runId": "qualytics-check-111",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "qualytics_check_id": "111",
+                    "active_anomaly_count": "1"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305767,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788855300000,
+            "runId": "qualytics-anomaly-910-111",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-sf.sales.public.orders_enriched,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "unexpectedCount": 42,
+                "nativeResults": {
+                    "qualytics_anomaly_id": "910",
+                    "qualytics_anomaly_uuid": "3f2b1c88-0000-4000-8000-000000000002",
+                    "anomaly_type": "record",
+                    "status": "Active",
+                    "message": "42 rows failed matchesPattern on EMAIL",
+                    "suggested_value": "^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305767,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,acme-events/warehouse/clickstream/daily,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788849000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 8400000,
+            "columnCount": 1,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "event_ts",
+                    "nullCount": 0,
+                    "nullProportion": 0.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305768,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca2c1054e8314fcfb360ef8efd07bb9b",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "200",
+                "rule_type": "freshness",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "9.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/2/containers/20/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:s3,acme-events/warehouse/clickstream/daily,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "_NATIVE_",
+                "operator": "LESS_THAN_OR_EQUAL_TO",
+                "parameters": {
+                    "maxValue": {
+                        "value": "86400",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "freshness",
+                "nativeParameters": {
+                    "max_time": "86400"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "freshness"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305768,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca2c1054e8314fcfb360ef8efd07bb9b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305768,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca2c1054e8314fcfb360ef8efd07bb9b",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788858000000,
+            "runId": "qualytics-check-200",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,acme-events/warehouse/clickstream/daily,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "200"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:ca2c1054e8314fcfb360ef8efd07bb9b",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305768,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:007dfb954da99bd6b7c29b91b7cb4774",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "201",
+                "rule_type": "volumetric",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "5.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/2/containers/20/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:s3,acme-events/warehouse/clickstream/daily,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "20000000",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "1000000",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "volumetric",
+                "nativeParameters": {
+                    "min": "1000000",
+                    "max": "20000000"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "volumetric"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305769,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:007dfb954da99bd6b7c29b91b7cb4774",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305769,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:007dfb954da99bd6b7c29b91b7cb4774",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788858000000,
+            "runId": "qualytics-check-201",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,acme-events/warehouse/clickstream/daily,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "201"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:007dfb954da99bd6b7c29b91b7cb4774",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305769,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting.public.daily_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788850800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 365,
+            "columnCount": 1,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "report_date",
+                    "uniqueCount": 365,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305769,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1aaeabdce02049922d93d824f4b73f29",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "300",
+                "rule_type": "quantumEntanglement",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "3.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/3/containers/30/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting.public.daily_summary,PROD)",
+                "scope": "UNKNOWN",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "quantumEntanglement",
+                "nativeParameters": {
+                    "threshold": "0.5",
+                    "mode": "strict"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "A rule type this build of the connector has never seen"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305770,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1aaeabdce02049922d93d824f4b73f29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305770,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1aaeabdce02049922d93d824f4b73f29",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788859800000,
+            "runId": "qualytics-check-300",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting.public.daily_summary,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "300"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:1aaeabdce02049922d93d824f4b73f29",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305770,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788852600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 51230,
+            "columnCount": 1,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "customer_id",
+                    "uniqueCount": 51230,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc4a1fdf7b95288260124b0ab21acdd5",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "400",
+                "rule_type": "unique",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "9.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/4/containers/40/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD),customer_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD),customer_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "UNIQUE_PROPORTION",
+                "operator": "EQUAL_TO",
+                "nativeType": "unique"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "customer_id is the grain of the dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc4a1fdf7b95288260124b0ab21acdd5",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc4a1fdf7b95288260124b0ab21acdd5",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788860700000,
+            "runId": "qualytics-check-400",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "400"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:bc4a1fdf7b95288260124b0ab21acdd5",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:467ae4e72cc64b9ff4c921b1d29c75c4",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qualytics_check_id": "401",
+                "rule_type": "expectedSchema",
+                "inferred": "False",
+                "coverage": "1.0",
+                "weight": "4.0",
+                "status": "Active"
+            },
+            "externalUrl": "https://acme.qualytics.io/datastores/4/containers/40/overview",
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "qualytics",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "aggregation": "COLUMNS",
+                "operator": "EQUAL_TO",
+                "nativeType": "expectedSchema"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            },
+            "description": "Schema drift guard -- exercises DATASET_SCHEMA scope"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:467ae4e72cc64b9ff4c921b1d29c75c4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:qualytics",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qualytics,acme)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:467ae4e72cc64b9ff4c921b1d29c75c4",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1788860700000,
+            "runId": "qualytics-check-401",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.dim_customer,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "qualytics_check_id": "401"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:467ae4e72cc64b9ff4c921b1d29c75c4",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:007dfb954da99bd6b7c29b91b7cb4774",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1aaeabdce02049922d93d824f4b73f29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305771,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2798e857ffac6e0597d610d319e2c7b3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2d2069b3c9266ebbd3dcdaaff8e7d3d1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3a792f2566e47b555a7db64e6085bc6a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:467ae4e72cc64b9ff4c921b1d29c75c4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:71a7d20f9f36360d0d5c1dc2f00f40a3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4bbed068be1637844fc27b518395ce1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc4a1fdf7b95288260124b0ab21acdd5",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c3a53a909ae3ad59c946426b4a1661f6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca2c1054e8314fcfb360ef8efd07bb9b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d75c5f978f386c69e7572278df93577a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1791319305772,
+        "runId": "golden",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

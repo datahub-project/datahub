@@ -9,6 +9,15 @@
         "category": "Observability"
     },
     {
+        "urn": "urn:li:dataPlatform:qualytics",
+        "name": "qualytics",
+        "displayName": "Qualytics",
+        "description": "Import quality checks, check results and anomalies, and profiles from Qualytics as DataHub assertions and dataset profiles.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/qualytics",
+        "recipe": "source:\n  type: qualytics\n  config:\n    base_url: https://<your-deployment>.qualytics.io/api\n    token: ${QUALYTICS_TOKEN}\n    # Names this Qualytics deployment. Set it whenever more than one\n    # Qualytics deployment feeds this DataHub; changing it re-keys assertions.\n    platform_instance: <qualytics-deployment>\n\n    # Map each Qualytics datastore (name or numeric id) to the platform,\n    # instance and env its warehouse source used, so assertions and profiles\n    # attach to the datasets that source already ingested.\n    datastore_to_platform_map:\n      \"<datastore-name-or-id>\":\n        platform: snowflake\n        # platform_instance: prod\n        env: PROD\n\n    emit_assertions: true\n    emit_assertion_results: true\n    emit_profiles: true\n\n    # Soft-deletes assertions whose Qualytics checks were removed. A run that\n    # could not read everything skips deletion automatically.\n    stateful_ingestion:\n      enabled: true",
+        "category": "Observability"
+    },
+    {
         "urn": "urn:li:dataPlatform:aerospike",
         "name": "aerospike",
         "displayName": "Aerospike",

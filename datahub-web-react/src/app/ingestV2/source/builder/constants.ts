@@ -58,6 +58,7 @@ import powerbiLogo from '@images/powerbilogo.svg';
 import presetLogo from '@images/presetlogo.svg';
 import prestoLogo from '@images/prestologo.png';
 import qlikLogo from '@images/qliklogo.png';
+import qualyticsLogo from '@images/qualyticslogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
@@ -240,6 +241,8 @@ const INFORMATICA = 'informatica';
 const INFORMATICA_URN = `urn:li:dataPlatform:${INFORMATICA}`;
 const MONTECARLO = 'montecarlo';
 const MONTECARLO_URN = `urn:li:dataPlatform:${MONTECARLO}`;
+const QUALYTICS = 'qualytics';
+const QUALYTICS_URN = `urn:li:dataPlatform:${QUALYTICS}`;
 const SNAPLOGIC = 'snaplogic';
 const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 const DLT = 'dlt';
@@ -331,6 +334,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTEXAI_URN]: vertexAI,
     [INFORMATICA_URN]: informaticaLogo,
     [MONTECARLO_URN]: montecarloLogo,
+    [QUALYTICS_URN]: qualyticsLogo,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [FABRIC_URN]: fabricLogo,
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
