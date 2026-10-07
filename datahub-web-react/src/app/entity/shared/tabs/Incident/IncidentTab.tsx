@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Empty, List, Select, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -80,7 +80,11 @@ export const IncidentTab = () => {
         <>
             <Header>
                 <TabToolbar>
-                    <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
+                    <Button
+                        icon={<Plus className="anticon" />}
+                        onClick={() => setIsRaiseIncidentModalVisible(true)}
+                        type="text"
+                    >
                         {t('modal.title')}
                     </Button>
                     <AddIncidentModal
