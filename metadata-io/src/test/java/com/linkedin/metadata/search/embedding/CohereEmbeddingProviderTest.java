@@ -8,6 +8,10 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.time.Duration;
+import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -312,5 +316,21 @@ public class CohereEmbeddingProviderTest {
     assertEquals(embedding2[0], 0.3f, 0.001);
     verify(mockHttpClient, times(2))
         .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+  }
+
+  @Test
+  public void testEmbedWithTimeoutMakesOneAttemptBoundedByIt() throws Exception {
+    ArgumentCaptor<HttpRequest> request = ArgumentCaptor.forClass(HttpRequest.class);
+    when(mockHttpClient.send(request.capture(), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(new HttpTimeoutException("request timed out"));
+
+    assertThrows(
+        RuntimeException.class,
+        () -> provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofMillis(1_500)));
+
+    // A retry would outlive the caller, so the timed-out attempt is the only one
+    verify(mockHttpClient, times(1))
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    assertEquals(request.getValue().timeout(), Optional.of(Duration.ofMillis(1_500)));
   }
 }
