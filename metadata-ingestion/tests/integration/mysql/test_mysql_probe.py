@@ -40,7 +40,13 @@ from tests.test_helpers.probe_parity import (
     pipeline_ingestion,
 )
 
-pytestmark = pytest.mark.integration
+# The parity harness masks its reports against the process-global registry, as
+# the CLI does; an earlier test's registered secret would otherwise redact this
+# fixture's identifiers (e.g. "test" inside "test_cases").
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.usefixtures("_isolate_secret_registry"),
+]
 
 _SOURCE_TYPE = "mysql"
 _CONTAINER = "testmysql"
