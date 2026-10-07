@@ -468,7 +468,7 @@ It takes the following parameters:
 
 - **eagerGlobalOrdinals**: boolean (optional) - Whether to set `eager_global_ordinals` to true for this field. This improves aggregation performance for frequently aggregated keyword fields by pre-building ordinals at index time. **Note**: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types. Defaults to false.
 
-**⚠️ Note on deprecated parameters:** `boostScore` applies on Search V2 only: Search V3 full-text search reads the shared `_search` fields, and each shared field has one weight, shared by all the fields that feed it. `weightsPerFieldValue` applies on both. Both will be replaced by newer features in future versions. `searchLabel` is not a replacement for either: it does not weight matches.
+**⚠️ Note on deprecated parameters:** On Search V3, `boostScore` only weighs a match of a field's whole value, such as an exact name: full-text search matches words in the shared `_search` fields, and each shared field has one weight, shared by all the fields that feed it. `weightsPerFieldValue` applies on Search V2 and V3. Both will be replaced by newer features in future versions. `searchLabel` is not a replacement for either: it does not weight matches.
 
 ##### Example
 

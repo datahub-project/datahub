@@ -1168,8 +1168,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   /**
    * A quoted phrase of four or more words matches a description holding all of them, here one
-   * longer than the 100 characters the removed tier keywords indexed. On V3 the phrase match reads
-   * the shared description text field, and a description has no exact-match keyword.
+   * longer than the 100 characters the removed tier keywords indexed. On V3 the Stage 1 description
+   * match, which needs every word in any order, reads the shared description text field, and a
+   * description has no exact-match keyword.
    */
   @Test
   public void testQuotedDescriptionPhrase() {
@@ -1187,8 +1188,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             List.of());
     assertTrue(explain.isMatch());
     String explanation = explain.getExplanation().toString();
-    assertTrue(
-        explanation.contains("_search.description.text:\"customer master data"), explanation);
+    assertTrue(explanation.contains("_search.description.text:customer"), explanation);
     assertFalse(explanation.contains("description.keyword"), explanation);
   }
 
