@@ -163,8 +163,12 @@ export const IngestionSourceList = ({
 
     const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
     const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
-    const previousSearchInput = usePrevious(searchInput);
     const searchInputRef = useRef<React.ElementRef<typeof SearchBar>>(null);
+    // Last search string we actually queried for. The debounce used to depend on
+    // usePrevious(searchInput). That value catches up on the next render, which resets
+    // the timer, so the callback that finally ran saw "no change" and skipped the fetch.
+    // Any re-render during the debounce window was enough to trigger that skip.
+    const appliedSearchRef = useRef(searchInput);
 
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
@@ -217,14 +221,16 @@ export const IngestionSourceList = ({
     // Debounce the search query
     useDebounce(
         () => {
-            if (previousSearchInput !== undefined && previousSearchInput !== searchInput) {
-                setPage(1);
-                setQuery(searchInput);
-                setSearchQueryFromUrl(searchInput);
+            if (appliedSearchRef.current === searchInput) {
+                return;
             }
+            appliedSearchRef.current = searchInput;
+            setPage(1);
+            setQuery(searchInput);
+            setSearchQueryFromUrl(searchInput);
         },
         300,
-        [searchInput, previousSearchInput],
+        [searchInput],
     );
 
     // When source filter changes, reset page to 1
