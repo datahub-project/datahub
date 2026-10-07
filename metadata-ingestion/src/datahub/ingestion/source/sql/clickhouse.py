@@ -337,6 +337,7 @@ class _XmlDictionary:
     comment: str
     status: str
     dict_type: str
+    shares_table_name: bool
 
     @property
     def dataset_name(self) -> str:
@@ -370,6 +371,7 @@ def _xml_dictionary_from_row(row: RowMapping) -> _XmlDictionary:
         comment=str(row["comment"] or ""),
         status=str(row["status"] or ""),
         dict_type=str(row["type"] or ""),
+        shares_table_name=bool(int(row["shares_table_name"])),
     )
 
 
@@ -1307,12 +1309,8 @@ ORDER BY event_time ASC
             yield from self._extract_query_log()
 
     def _fetch_xml_dictionaries(self) -> List[_XmlDictionary]:
-        # Config-file dictionaries are absent from system.tables, <database> tag
-        # or not; DDL dictionaries are ingested from there. Matching on the dataset
-        # name also skips a global dictionary named like an existing table (e.g.
-        # "db.t"), which would otherwise share its URN. NOT IN rather than
-        # LEFT JOIN ... IS NULL: unmatched columns are defaults unless
-        # join_use_nulls=1. toJSONString: the HTTP driver returns arrays as text.
+        # Skips DDL dictionaries, whose origin is their UUID or "db.name" rather than
+        # a file path. toJSONString: the HTTP driver returns arrays as text.
         query = textwrap.dedent(
             """\
             SELECT database
@@ -1326,9 +1324,12 @@ ORDER BY event_time ASC
                  , comment
                  , toString(status) AS status
                  , type
+                 , if(database = '', name, concat(database, '.', name))
+                   IN (SELECT concat(database, '.', name) FROM system.tables)
+                   AS shares_table_name
               FROM system.dictionaries
-             WHERE if(database = '', name, concat(database, '.', name))
-                   NOT IN (SELECT concat(database, '.', name) FROM system.tables)"""
+             WHERE origin != toString(uuid)
+               AND origin != concat(database, '.', name)"""
         )
 
         url = self.config.get_sql_alchemy_url()
@@ -1403,6 +1404,13 @@ ORDER BY event_time ASC
                 or not self.config.table_pattern.allowed(dataset_name)
             ):
                 self.report.report_dropped(dataset_name)
+                continue
+            if dictionary.shares_table_name:
+                self.report.warning(
+                    title="Config-file dictionary shares a table's name",
+                    message="Skipped, so dictGet lineage to it points at the table",
+                    context=dataset_name,
+                )
                 continue
 
             try:

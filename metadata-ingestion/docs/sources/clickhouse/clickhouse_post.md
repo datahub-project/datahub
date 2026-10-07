@@ -38,7 +38,9 @@ filtered only by `table_pattern`. When `database` is set, only dictionaries decl
 database are ingested. With `include_table_lineage`, a dictionary whose source is an existing
 ClickHouse table gets that table as its upstream. ClickHouse reports the source only after the
 dictionary is loaded, and loads dictionaries lazily by default, so a dictionary that has not been
-used since the server started has no upstream.
+used since the server started has no upstream. A config-file dictionary with the same name as a
+table or DDL dictionary (for example `<database>db</database>` and `<name>x</name>` next to table
+`db.x`) is skipped with a warning, so `dictGet` lineage to it points at the table.
 
 ### Limitations
 

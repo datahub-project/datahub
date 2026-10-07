@@ -1280,6 +1280,7 @@ def _sample_xml_dictionary(
     name: str = "db.My_Dict",
     database: Optional[str] = None,
     source: str = "ClickHouse: db.src_table",
+    shares_table_name: bool = False,
 ) -> _XmlDictionary:
     return _XmlDictionary(
         database=database,
@@ -1293,6 +1294,7 @@ def _sample_xml_dictionary(
         comment="",
         status="LOADED",
         dict_type="ComplexKeyCache",
+        shares_table_name=shares_table_name,
     )
 
 
@@ -1313,6 +1315,7 @@ def test_fetch_xml_dictionaries_parses_row(monkeypatch):
                 "comment": "",
                 "status": "LOADED",
                 "type": "ComplexKeyCache",
+                "shares_table_name": 0,
             }
         )
     ]
@@ -1354,6 +1357,25 @@ def test_emit_xml_dictionaries_filters_by_declared_database(monkeypatch):
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.kept,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,Bare_Dict,PROD)",
     }
+
+
+def test_emit_xml_dictionaries_skips_and_reports_table_name_collisions(monkeypatch):
+    source = _clickhouse_source()
+    monkeypatch.setattr(
+        source,
+        "_fetch_xml_dictionaries",
+        lambda: [
+            _sample_xml_dictionary("x", database="db", shares_table_name=True),
+            _sample_xml_dictionary("db.y", shares_table_name=True),
+            _sample_xml_dictionary("kept", database="db"),
+        ],
+    )
+
+    emitted = _emitted_dataset_urns(list(source._emit_xml_dictionaries()))
+
+    assert emitted == {"urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.kept,PROD)"}
+    [warning] = source.report.warnings
+    assert list(warning.context) == ["db.x", "db.y"]
 
 
 def test_emit_xml_dictionaries_emits_exact_case_schema(monkeypatch):
