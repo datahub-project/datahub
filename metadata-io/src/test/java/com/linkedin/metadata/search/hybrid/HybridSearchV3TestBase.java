@@ -252,14 +252,14 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                 getBulkProcessor(),
                 SearchWriteAccess.fixed(getBulkProcessor())));
     // No document title equals the query: an exact title match scores in a keyword tier of its own,
-    // which the vector score does not lift a document over. The documents match in their text, so
-    // their keyword scores are close and the vectors decide
+    // which the vector score does not lift a document over. Each keyword match leads through a
+    // title that holds the query word; that lead is small next to the vectors, which decide
     Map<Urn, List<MCLItem>> batch = new LinkedHashMap<>();
     batch.put(
         FAR_DOCUMENT,
         document(
             FAR_DOCUMENT,
-            "Regional figures",
+            "Revenue by region",
             "Revenue by region and revenue by quarter",
             new float[] {0f, 1f, 0f, 0f}));
     batch.put(
@@ -274,7 +274,12 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     batch.put(
         FORECAST_KEYWORD_MATCH,
         document(
-            FORECAST_KEYWORD_MATCH, "Yearly summary", "Forecast forecast forecast", far, far, far));
+            FORECAST_KEYWORD_MATCH,
+            "Forecast summary",
+            "Forecast forecast forecast",
+            far,
+            far,
+            far));
     batch.put(
         FORECAST_SEMANTIC_MATCH,
         document(
