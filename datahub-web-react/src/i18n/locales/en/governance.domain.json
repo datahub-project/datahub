@@ -41,5 +41,6 @@
     "page.subtitle": "View your DataHub Domains. Take administrative actions.",
     "page.subtitleNested": "Group data assets using hierarchical collections",
     "page.title": "Domains",
+    "search.ownedBy": "Owned by {{name}}",
     "sidebar.createTooltip": "Create new Domain"
 }

@@ -1,6 +1,7 @@
 // Create a new component called SearchResultItem.js
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -16,6 +17,8 @@ type Props = {
     entity: Entity;
     entityRegistry: EntityRegistry;
     query: string;
+    /** Display name of the owner the query matched, when the domain was found via its owner. */
+    matchedOwnerName?: string;
     onResultClick: () => void;
 };
 
@@ -44,7 +47,13 @@ const ContentWrapper = styled.div`
 
 const IconWrapper = styled.span``;
 
-function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }: Props) {
+const MatchReason = styled.div`
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+function DomainSearchResultItem({ entity, entityRegistry, query, matchedOwnerName, onResultClick }: Props) {
+    const { t } = useTranslation('governance.domain');
     const highlightMatchStyle = {
         fontWeight: 'bold',
         background: 'none',
@@ -64,6 +73,13 @@ function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </Highlight>
                 <ParentEntities hideIcon parentEntities={getParentDomains(entity, entityRegistry)} />
+                {matchedOwnerName && (
+                    <MatchReason>
+                        <Highlight matchStyle={highlightMatchStyle} search={query}>
+                            {t('search.ownedBy', { name: matchedOwnerName })}
+                        </Highlight>
+                    </MatchReason>
+                )}
             </ContentWrapper>
         </SearchResult>
     );

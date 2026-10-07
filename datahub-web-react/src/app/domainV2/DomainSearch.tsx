@@ -6,15 +6,13 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import DomainSearchResultItem from '@app/domainV2/DomainSearchResultItem';
+import useDomainSearchResults from '@app/domainV2/useDomainSearchResults';
 import ClickOutside from '@app/shared/ClickOutside';
 import {
     SearchIconButton,
     SearchResultsDropdown,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetAutoCompleteResultsQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
 
 const DomainSearchWrapper = styled.div`
     position: relative;
@@ -40,17 +38,7 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
     const entityRegistry = useEntityRegistry();
 
     useDebounce(() => setQuery(searchInput), 200, [searchInput]);
-    const { data, loading } = useGetAutoCompleteResultsQuery({
-        variables: {
-            input: {
-                type: EntityType.Domain,
-                query,
-            },
-        },
-        skip: !query,
-    });
-
-    const entities = data?.autoComplete?.entities || [];
+    const { results, loading } = useDomainSearchResults(query);
 
     return (
         <DomainSearchWrapper>
@@ -76,14 +64,17 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
                             <Loader size="md" />
                         </LoadingWrapper>
                     )}
-                    {!loading && isSearchBarFocused && !!entities?.length && (
+                    {!loading && isSearchBarFocused && !!results.length && (
                         <SearchResultsDropdown data-testid="search-results">
-                            {entities?.map((entity) => (
+                            {results.map(({ entity, matchedOwner }) => (
                                 <DomainSearchResultItem
                                     key={entity.urn}
                                     entity={entity}
                                     entityRegistry={entityRegistry}
                                     query={query}
+                                    matchedOwnerName={
+                                        matchedOwner && entityRegistry.getDisplayName(matchedOwner.type, matchedOwner)
+                                    }
                                     onResultClick={() => setIsSearchBarFocused(false)}
                                 />
                             ))}
