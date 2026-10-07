@@ -57,6 +57,19 @@ def _report_threads_alive_at_exit() -> None:
             print(f"[atexit]   {thread.name} daemon={thread.daemon}", flush=True)
 
 
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    # The Power BI M-Query tests leave the process-wide MiniRacer open. Finalized
+    # during interpreter shutdown, it joins its event-loop thread, which can no
+    # longer run, and the process hangs after every test passed. Close it while
+    # threads still run.
+    try:
+        from datahub.ingestion.source.powerbi.m_query._bridge import _clear_bridge
+
+        _clear_bridge()
+    except ImportError:
+        pass
+
+
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
 from datahub.sql_parsing.sqlglot_lineage import (  # noqa: E402
