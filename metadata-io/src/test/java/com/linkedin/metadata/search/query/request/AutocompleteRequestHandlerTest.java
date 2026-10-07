@@ -816,6 +816,26 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(result.getSuggestions(), List.of("warehouse.order_items"));
   }
 
+  /**
+   * The autocomplete analyzer keeps stop words, so an input such as "the" still picks the value it
+   * starts.
+   */
+  @Test
+  public void testV3SuggestionKeepsAStopWordInput() {
+    SearchHit[] hits = {
+      suggestionHit("a", Map.of("name", "Inventory snapshot", "id", "theater.ticket_sales"))
+    };
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(new SearchHits(hits, new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1.0f));
+
+    AutoCompleteResult result =
+        getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
+            .extractResult(nonMockOpContext, response, "the");
+
+    assertEquals(result.getSuggestions(), List.of("theater.ticket_sales"));
+  }
+
   private static SearchHit suggestionHit(String name, Map<String, Object> fields) {
     Map<String, Object> source = new HashMap<>(fields);
     source.put("urn", "urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");

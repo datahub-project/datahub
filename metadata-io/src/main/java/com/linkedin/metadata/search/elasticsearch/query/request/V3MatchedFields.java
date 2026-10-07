@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,6 +53,8 @@ final class V3MatchedFields {
   private static final Map<String, String> STEM_OVERRIDES = stemOverrides();
 
   private final int minWordLength;
+  // The autocomplete analyzer drops no stop words
+  private final boolean keepStopWords;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
   // The forms of the query's last word, which match as a prefix
@@ -62,16 +65,17 @@ final class V3MatchedFields {
    *     filter drops them
    */
   V3MatchedFields(@Nonnull final String query, final int minWordLength) {
-    this(query, minWordLength, true);
+    this(query, minWordLength, false);
   }
 
   private V3MatchedFields(
-      @Nonnull final String query, final int minWordLength, final boolean queryIdentifierParts) {
+      @Nonnull final String query, final int minWordLength, final boolean autocomplete) {
     this.minWordLength = minWordLength;
+    this.keepStopWords = autocomplete;
     final List<List<String>> queryWords = new ArrayList<>();
     final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
-      final List<String> forms = forms(matcher.group(), queryIdentifierParts);
+      final List<String> forms = forms(matcher.group(), !autocomplete);
       if (!forms.isEmpty()) {
         queryWords.add(forms);
       }
@@ -82,13 +86,13 @@ final class V3MatchedFields {
   }
 
   /**
-   * For an autocomplete input, a prefix being typed: no word of it is too short to match, and an
-   * identifier such as {@code order_i} only matches whole, as the autocomplete analyzer keeps it,
-   * since its parts would be prefixes of unrelated words.
+   * For an autocomplete input, a prefix being typed, read as the autocomplete analyzer keeps it: no
+   * word of it is too short to match, stop words stay, and an identifier such as {@code order_i}
+   * only matches whole, since its parts would be prefixes of unrelated words.
    */
   @Nonnull
   static V3MatchedFields forAutocomplete(@Nonnull final String input) {
-    return new V3MatchedFields(input, 0, false);
+    return new V3MatchedFields(input, 0, true);
   }
 
   /** The fields among {@code fields}, in that order, whose value in {@code source} matches. */
@@ -135,8 +139,8 @@ final class V3MatchedFields {
 
   /**
    * The forms the analyzers keep of one word: the word and, for an identifier when {@code parts},
-   * the parts around its underscores, with case and accents folded and stop words and short words
-   * dropped.
+   * the parts around its underscores, with case and accents folded and short words and, unless
+   * {@link #keepStopWords}, stop words dropped.
    */
   @Nonnull
   private List<String> forms(@Nonnull final String word, final boolean parts) {
@@ -174,8 +178,9 @@ final class V3MatchedFields {
 
   private boolean isKept(@Nonnull final String word) {
     return word.length() >= Math.max(1, minWordLength)
-        && !DATAHUB_STOP_WORDS_LIST.contains(word)
-        && !EnglishAnalyzer.ENGLISH_STOP_WORDS_SET.contains(word);
+        && (keepStopWords
+            || (!DATAHUB_STOP_WORDS_LIST.contains(word)
+                && !EnglishAnalyzer.ENGLISH_STOP_WORDS_SET.contains(word)));
   }
 
   @Nonnull
@@ -195,11 +200,11 @@ final class V3MatchedFields {
    */
   @Nonnull
   private static Map<String, String> stemOverrides() {
+    // Shipped with this class; the index analyzers cannot be built without it either
     final InputStream rules =
-        V3MatchedFields.class.getClassLoader().getResourceAsStream(STEM_OVERRIDE_RULES);
-    if (rules == null) {
-      return Map.of();
-    }
+        Objects.requireNonNull(
+            V3MatchedFields.class.getClassLoader().getResourceAsStream(STEM_OVERRIDE_RULES),
+            STEM_OVERRIDE_RULES);
     final Map<String, String> overrides = new HashMap<>();
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(rules, StandardCharsets.UTF_8))) {
