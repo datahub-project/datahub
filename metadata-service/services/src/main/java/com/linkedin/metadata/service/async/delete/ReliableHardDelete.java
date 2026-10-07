@@ -39,6 +39,17 @@ public class ReliableHardDelete {
   }
 
   /**
+   * The aspect versions {@code urn} has now, which {@link #delete(OperationContext, Urn, Optional)}
+   * bounds the delete by; empty when the entity does not exist. A request deleting several entities
+   * captures all of them before deleting any, so each bound is the state at arrival.
+   */
+  @Nonnull
+  public Optional<DeleteCeiling> capture(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    return entityService.captureDeleteCeiling(opContext, urn);
+  }
+
+  /**
    * Hard-deletes {@code urn}; the caller has already authorized it.
    *
    * @throws IllegalStateException when the entity was written to while being deleted and so still
@@ -46,7 +57,18 @@ public class ReliableHardDelete {
    */
   @Nonnull
   public DeleteEntityReport delete(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
-    final Optional<DeleteCeiling> ceiling = entityService.captureDeleteCeiling(opContext, urn);
+    return delete(opContext, urn, capture(opContext, urn));
+  }
+
+  /**
+   * {@link #delete(OperationContext, Urn)} bounded by a {@code ceiling} the caller already took
+   * with {@link #capture}; an empty one means the entity did not exist.
+   */
+  @Nonnull
+  public DeleteEntityReport delete(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final Optional<DeleteCeiling> ceiling) {
     if (ceiling.isEmpty()) {
       return DeleteEntityReport.alreadyDeleted(urn);
     }

@@ -15,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
@@ -37,9 +38,11 @@ import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -338,12 +341,21 @@ public class EntitiesController {
       }
 
       if (!soft) {
+        final boolean reliable = reliableHardDelete != null && reliableHardDelete.isEnabled();
+        // Every bound is captured before the first delete, so a write to a later entity while
+        // earlier ones are deleted is kept.
+        final Map<Urn, Optional<DeleteCeiling>> ceilings = new LinkedHashMap<>();
+        if (reliable) {
+          entityUrns.forEach(urn -> ceilings.put(urn, reliableHardDelete.capture(opContext, urn)));
+        }
         return ResponseEntity.ok(
             entityUrns.stream()
                 .map(
                     urn ->
-                        reliableHardDelete != null && reliableHardDelete.isEnabled()
-                            ? reliableHardDelete.delete(opContext, urn).rollbackRunResult()
+                        reliable
+                            ? reliableHardDelete
+                                .delete(opContext, urn, ceilings.get(urn))
+                                .rollbackRunResult()
                             : _entityService.deleteUrn(opContext, urn))
                 .map(
                     rollbackRunResult ->

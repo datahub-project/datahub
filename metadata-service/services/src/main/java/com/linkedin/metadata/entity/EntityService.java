@@ -578,8 +578,9 @@ public interface EntityService<U extends ChangeMCP> {
    * at or below its ceiling and none is new since the capture; an aspect that was not captured is
    * not deleted, and if one is found once the rest is, nothing is deleted. Otherwise the key stays
    * and each captured aspect is deleted up to its ceiling ({@link #DELETE_CONDITION_MAX_VERSION})
-   * while the key row is the captured one ({@link #DELETE_CONDITION_KEY_CREATED_ON}); the result
-   * then holds no key-aspect row.
+   * while the key row is the captured one ({@link #DELETE_CONDITION_KEY_CREATED_ON}); the
+   * key-aspect row itself stays (only a full entity delete removes it), so the result does not
+   * report the key as deleted.
    */
   RollbackRunResult deleteUrn(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling);

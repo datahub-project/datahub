@@ -66,6 +66,21 @@ public class ReliableHardDeleteTest {
     assertEquals(report.rowsDeleted(), 7L);
   }
 
+  /** A caller deleting several entities captures first; the given bound is used as it is. */
+  @Test
+  public void aGivenCeilingIsUsedWithoutCapturingAgain() {
+    final Optional<DeleteCeiling> given =
+        Optional.of(new DeleteCeiling(Map.of("tagKey", 1L, "tagProperties", 2L), 1L));
+    when(entityService.deleteUrn(any(), eq(URN), eq(given.get())))
+        .thenReturn(new RollbackRunResult(List.of(), 4, List.of(deleted("tagKey", true))));
+
+    final DeleteEntityReport report = reliableHardDelete.delete(opContext, URN, given);
+
+    verify(entityService).deleteUrn(any(), eq(URN), eq(given.get()));
+    verify(entityService, never()).captureDeleteCeiling(any(), any());
+    assertEquals(report.outcome(), ConditionalDeleteOutcome.DELETED);
+  }
+
   /**
    * Data written since the capture keeps the key: only captured aspects were deleted, and the
    * request fails so the caller does not remove references to an entity that still exists.
