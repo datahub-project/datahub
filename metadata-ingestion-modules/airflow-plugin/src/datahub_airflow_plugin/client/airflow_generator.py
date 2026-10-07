@@ -1,5 +1,5 @@
 import json
-from contextlib import suppress
+import logging
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
@@ -18,6 +18,8 @@ from datahub_airflow_plugin._airflow_version_specific import (
     get_task_instance_attributes,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from airflow import DAG
@@ -151,10 +153,16 @@ class AirflowGenerator:
             return None
         summary = getattr(timetable, "summary", None)
         if summary is None:
-            with suppress(Exception):
+            try:
                 from airflow.serialization.encoders import coerce_to_core_timetable
 
                 summary = coerce_to_core_timetable(timetable).summary
+            except Exception as e:
+                logger.debug(
+                    "Could not derive schedule from timetable %r: %s",
+                    type(timetable).__name__,
+                    e,
+                )
         # NullTimetable.summary is the string "None" (unscheduled DAG).
         return summary if isinstance(summary, str) else None
 
