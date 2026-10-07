@@ -39,7 +39,13 @@ from tests.test_helpers.probe_parity import (
     pipeline_ingestion,
 )
 
-pytestmark = pytest.mark.integration
+# The parity harness masks its reports against the process-global registry, as
+# the CLI does; a secret an earlier test in the batch registered would otherwise
+# redact any of this fixture's identifiers that contain it.
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.usefixtures("_isolate_secret_registry"),
+]
 
 _SOURCE_TYPE = "postgres"
 _CONTAINER = "testpostgres"
@@ -51,6 +57,9 @@ _PASSWORD = str(
         "services"
     ][_CONTAINER]["environment"]["POSTGRES_PASSWORD"]
 )
+# Each docker call's ceiling: a wedged daemon fails the fixture, not the
+# whole batch at the process backstop.
+_DOCKER_TIMEOUT_SECONDS = 120
 # CLI exit codes (recipe_cli): 2 is the caller's input, 3 the source.
 _EXIT_USER = 2
 _EXIT_CONNECTION = 3
@@ -63,7 +72,10 @@ def test_resources_dir(pytestconfig: pytest.Config) -> Path:
 
 def _is_postgres_up() -> bool:
     logs = subprocess.run(
-        ["docker", "logs", _CONTAINER], capture_output=True, text=True
+        ["docker", "logs", _CONTAINER],
+        capture_output=True,
+        text=True,
+        timeout=_DOCKER_TIMEOUT_SECONDS,
     )
     return "PostgreSQL init process complete; ready for start up." in (
         logs.stdout + logs.stderr
@@ -98,6 +110,7 @@ def postgres_port(
                 "/setup/probe_setup.sql",
             ],
             check=True,
+            timeout=_DOCKER_TIMEOUT_SECONDS,
         )
         yield docker_services.port_for(_CONTAINER, _POSTGRES_PORT)
 
@@ -252,6 +265,8 @@ def test_an_unanswered_connect_gives_up_within_the_budget(
     """libpq has no connect timeout of its own, so without the probe's an
     unanswered SYN held the probe for the OS's TCP timeout (75s on macOS)."""
     _budget(monkeypatch, 2)
+    # Set, it is the connect timeout the probe defers to, not the budget's.
+    monkeypatch.delenv("PGCONNECT_TIMEOUT", raising=False)
     recipe = {**_recipe(_POSTGRES_PORT), "host_port": _BLACKHOLE_HOST_PORT}
     started = time.monotonic()
     result = _probe_cli(tmp_path, recipe, "containers")
