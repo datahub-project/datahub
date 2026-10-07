@@ -661,8 +661,9 @@ public class JavaEntityClient implements EntityClient {
   }
 
   /**
-   * Hard delete an entity with a particular urn. With the reliable hard delete on, its references
-   * are removed first, so a following {@link #deleteEntityReferences} finds nothing to do.
+   * Hard delete an entity with a particular urn. With the reliable hard delete on, the references
+   * found when it runs are removed first; one added concurrently can still need a following {@link
+   * #deleteEntityReferences}.
    */
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)

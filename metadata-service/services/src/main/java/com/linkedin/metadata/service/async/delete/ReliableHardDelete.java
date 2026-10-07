@@ -64,6 +64,10 @@ public class ReliableHardDelete {
         deleted.getRollbackResults().stream()
             .map(RollbackResult::getKeyAffected)
             .anyMatch(Boolean.TRUE::equals);
+    // Kept, unless a concurrent request deleted it in the meantime.
+    if (!keyDeleted && entityService.captureDeleteCeiling(opContext, urn).isEmpty()) {
+      return DeleteEntityReport.alreadyDeleted(urn);
+    }
     final long otherRows = keyDeleted ? 0 : deleted.getRollbackResults().size();
     final Integer keyRows = deleted.getRowsDeletedFromEntityDeletion();
     return new DeleteEntityReport(

@@ -35,7 +35,7 @@ import org.testng.annotations.Test;
 public class ReliableHardDeleteTest {
   private static final Urn URN = UrnUtils.getUrn("urn:li:tag:reliable");
   private static final DeleteCeiling CEILING =
-      new DeleteCeiling(Map.of("tagKey", 1L, "tagProperties", 3L));
+      new DeleteCeiling(Map.of("tagKey", 1L, "tagProperties", 3L), 1L);
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();

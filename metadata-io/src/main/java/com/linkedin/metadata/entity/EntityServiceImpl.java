@@ -3578,7 +3578,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           throw new RuntimeException(e);
         }
       }
-    } else if (ceiling != null) {
+    } else if (ceiling != null && sameEntityAsCaptured(opContext, urn, ceiling)) {
       // Written to since the capture, so the entity stays: delete what was captured, aspect by
       // aspect. Rows newer than the ceiling survive.
       ceiling
@@ -3638,7 +3638,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   .orElse(0L)));
           versions.put(aspectName, version);
         });
-    return Optional.of(new DeleteCeiling(versions));
+    return Optional.of(
+        new DeleteCeiling(versions, createdOnMillis(latest.get(opContext.getKeyAspectName(urn)))));
   }
 
   @Override
@@ -3918,11 +3919,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // Bounded by version: lock the row so a write cannot land between the
                       // version check and the delete.
                       latest =
-                          aspectDao.getLatestAspect(
-                              opContext,
-                              urn,
-                              aspectName,
-                              conditions.containsKey(DELETE_CONDITION_MAX_VERSION));
+                          conditions.containsKey(DELETE_CONDITION_MAX_VERSION)
+                              ? aspectDao
+                                  .getLatestAspectsLocked(
+                                      opContext, Map.of(urn, Set.of(aspectName)))
+                                  .getOrDefault(urn, Map.of())
+                                  .get(aspectName)
+                              : aspectDao.getLatestAspect(opContext, urn, aspectName, false);
                     } catch (EntityNotFoundException e) {
                       log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
                       opContext
@@ -4297,18 +4300,43 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private boolean withinCeiling(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
-    return aspectDao
-        .getLatestAspects(
-            opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)), true)
-        .getOrDefault(urn.toString(), Map.of())
-        .entrySet()
-        .stream()
+    final Map<String, SystemAspect> latest =
+        aspectDao
+            .getLatestAspectsLocked(
+                opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
+            .getOrDefault(urn.toString(), Map.of());
+    // Versions restart at 1 when an entity is deleted and recreated; its key row then differs.
+    final SystemAspect key = latest.get(opContext.getKeyAspectName(urn));
+    if (key == null || createdOnMillis(key) != ceiling.keyCreatedOnMillis()) {
+      return false;
+    }
+    return latest.entrySet().stream()
         .allMatch(
             row -> {
               final Long bound = ceiling.aspectVersions().get(row.getKey());
               return bound != null
                   && ConditionalWriteValidator.resolveAspectVersion(row.getValue()) <= bound;
             });
+  }
+
+  /** Whether the entity's key row is still the one captured: it was not deleted and recreated. */
+  private boolean sameEntityAsCaptured(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
+    try {
+      final SystemAspect key =
+          aspectDao.getLatestAspect(
+              opContext.withReadPreference(ReadPreference.PRIMARY),
+              urn.toString(),
+              opContext.getKeyAspectName(urn),
+              false);
+      return key != null && createdOnMillis(key) == ceiling.keyCreatedOnMillis();
+    } catch (EntityNotFoundException e) {
+      return false;
+    }
+  }
+
+  private static long createdOnMillis(@Nonnull SystemAspect row) {
+    return row.getCreatedOn() == null ? 0L : row.getCreatedOn().getTime();
   }
 
   protected AuditStamp createSystemAuditStamp() {

@@ -550,7 +550,8 @@ public class DeleteEntityService {
     final IngestResult ingestProposalResult =
         _entityService.ingestProposal(opContext, proposal, auditStamp, false);
 
-    if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
+    if ((ingestProposalResult == null && failIfNotRemoved)
+        || (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted())) {
       log.error(
           "Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
               + " logs for more information",
@@ -838,7 +839,11 @@ public class DeleteEntityService {
             MetadataChangeProposal mcp =
                 updateAspectForSearchReference(opContext, assetUrn, deletedUrn, aspectName);
             if (mcp != null) {
-              if (readVersion != null) {
+              if (failIfNotRemoved) {
+                // Absent when read but present now: written in between, so no version to hold.
+                if (readVersion == null) {
+                  throw notRemoved(assetUrn, aspectName, null);
+                }
                 mcp.setHeaders(ifVersionMatch(readVersion));
               }
               mcps.add(mcp);

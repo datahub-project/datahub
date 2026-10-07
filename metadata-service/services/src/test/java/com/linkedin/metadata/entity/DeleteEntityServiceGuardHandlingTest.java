@@ -397,7 +397,7 @@ public class DeleteEntityServiceGuardHandlingTest {
             anyString(),
             anyInt()))
         .thenReturn(referencingTest);
-    final DeleteCeiling ceiling = new DeleteCeiling(Map.of("testKey", 1L));
+    final DeleteCeiling ceiling = new DeleteCeiling(Map.of("testKey", 1L), 1L);
     when(_entityService.captureDeleteCeiling(any(OperationContext.class), eq(test)))
         .thenReturn(Optional.of(ceiling));
     when(_entityService.deleteUrn(any(OperationContext.class), eq(test), eq(ceiling)))

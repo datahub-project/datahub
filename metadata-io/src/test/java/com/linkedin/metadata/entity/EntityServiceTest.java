@@ -3335,6 +3335,34 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   }
 
   @Test
+  public void testBoundedDeleteUrnKeepsAnEntityDeletedAndRecreatedSinceTheCapture()
+      throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteRecreated");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("old@test.com"), CorpUserInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    _entityServiceImpl.deleteUrn(opContext, entityUrn);
+    // Recreated later: versions restart at 1, at or below the captured ones.
+    CorpUserInfo recreated = AspectGenerationUtils.createCorpUserInfo("new@test.com");
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn,
+        List.of(new Pair<String, RecordTemplate>(infoName, recreated)),
+        new AuditStamp()
+            .setActor(TEST_AUDIT_STAMP.getActor())
+            .setTime(TEST_AUDIT_STAMP.getTime() + 1000),
+        AspectGenerationUtils.createSystemMetadata());
+
+    RollbackRunResult result = _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(result.getRollbackResults().isEmpty());
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            recreated, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+  }
+
+  @Test
   public void testFailedAspectValidation() throws Exception {
     final OperationContext testContext =
         TestOperationContexts.Builder.builder()

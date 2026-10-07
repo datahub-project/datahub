@@ -100,6 +100,16 @@ public interface AspectDao {
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   /**
+   * {@link #getLatestAspects} with {@code forUpdate}, locking the rows even where locking reads are
+   * otherwise skipped (optimistic locking): for a check that must hold until the transaction ends.
+   */
+  @Nonnull
+  default Map<String, Map<String, SystemAspect>> getLatestAspectsLocked(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    return getLatestAspects(opContext, urnAspects, true);
+  }
+
+  /**
    * Updates the system aspect
    *
    * @param operationContext
