@@ -96,9 +96,9 @@ final class V3MatchedFields {
    * words: none is too short and no stop word is dropped, nothing is stemmed, and an identifier
    * such as {@code order_i} or {@code order-i} stays whole, in the input and in the values, since
    * its parts would be prefixes of unrelated words. This is best effort too: unlike the analyzer,
-   * it splits a possessive {@code 's} off its word and splits at a character that only folds to a
-   * hyphen or an underscore, such as an en dash, and it keeps a hyphenated word whole even when a
-   * main tokenizer is configured.
+   * it reads the {@code s} of a possessive {@code 's} as a word of its own, which the analyzer
+   * drops, it splits at a character that only folds to a hyphen or an underscore, such as an en
+   * dash, and it keeps a hyphenated word whole even when a main tokenizer is configured.
    */
   @Nonnull
   static V3MatchedFields forAutocomplete(@Nonnull final String input) {
