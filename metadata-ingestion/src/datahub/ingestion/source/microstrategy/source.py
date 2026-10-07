@@ -852,35 +852,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         """Document/dossier-level derived metrics - defined in the dashboard on
         top of a dataset rather than in the dataset's report - live only in the
         Modeling document definition, which the report path never reads. Read
-        it against an executed instance, on the premise that expressions the
-        static definition omits resolve once the dashboard has run, and attach
-        each definition to the dataset that defines it. Opt-in with resolve_report_metrics_via_instance:
-        it costs a dashboard execution and the endpoint is undocumented. A
-        failed execution degrades to the static read rather than skipping the
-        definition, and the instance is always released."""
+        it and attach each definition to the dataset that defines it. Opt-in
+        with resolve_report_metrics_via_instance, alongside the report-level
+        instance read: the endpoint is undocumented. It is read statically -
+        the Modeling service has no document instance endpoint, and it rejects
+        a dashboard execution instance with 400."""
         if not self.config.resolve_report_metrics_via_instance:
             return
         if not dashboard.datasets:
             return
-        instance_id: Optional[str] = None
         try:
-            instance_id = self._create_dashboard_instance(
-                project_id, dashboard_object, dashboard.id
-            )
-        except MicroStrategyAuthError:
-            raise
-        except Exception as error:
-            self.report.report_document_model_instance_failure(
-                f"{dashboard.id}: {_error_summary(error)}"
-            )
-        else:
-            self.report.report_document_model_instance_created()
-
-        model_document: Optional[Dict[str, object]] = None
-        try:
-            model_document = self.client.get_model_document(
-                project_id, dashboard.id, instance_id=instance_id
-            )
+            model_document = self.client.get_model_document(project_id, dashboard.id)
         except MicroStrategyAuthError:
             raise
         except Exception as error:
@@ -894,12 +876,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"project_id={project_id}, dashboard_id={dashboard.id}",
                 exc=error,
             )
-        finally:
-            if instance_id:
-                self._delete_dashboard_instance(
-                    project_id, dashboard_object, dashboard.id, instance_id
-                )
-        if model_document is None:
             return
 
         by_dataset = extract_document_derived_metric_definitions(model_document)
@@ -916,12 +892,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # negative result (no expression) from a key the walker missed.
             logger.debug(
                 "%s Modeling document definition project_id=%s dashboard_id=%s "
-                "instance=%s derived_metrics=%d with_expression=%d; payload "
-                "skeleton: %s",
+                "derived_metrics=%d with_expression=%d; payload skeleton: %s",
                 MSTR_DERIVED_DEBUG_LOG_PREFIX,
                 project_id,
                 dashboard.id,
-                "yes" if instance_id else "no",
                 found,
                 with_expression,
                 payload_key_skeleton(model_document),
@@ -986,7 +960,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     self._debug_v2_definition_payload(project_id, report_id, v2_payload)
 
         if instance_id:
-            self._delete_report_instance(project_id, report_id, instance_id)
+            self._delete_model_report_instance(project_id, report_id, instance_id)
 
         if definitions and self.config.extract_metric_expressions:
             self._resolve_embedded_metric_formulas(project_id, definitions)
@@ -1042,15 +1016,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         report_id: str,
     ) -> Optional[str]:
-        """Execute the report so the Modeling definition can be read against a
-        live instance, per Strategy support's guidance that metric expressions
-        resolve only that way. Returns None when the option is off or the
-        instance could not be created - the caller then reads the definition
-        statically, which is the long-standing behaviour."""
+        """Open a Modeling-service report instance so the Modeling definition
+        can be read against it, per Strategy support's guidance that metric
+        expressions resolve only that way. Returns None when the option is off
+        or the instance could not be created - the caller then reads the
+        definition statically, which is the long-standing behaviour."""
         if not self.config.resolve_report_metrics_via_instance:
             return None
         try:
-            instance_id = self.client.create_report_instance(project_id, report_id)
+            instance_id = self.client.create_model_report_instance(
+                project_id, report_id
+            )
         except MicroStrategyAuthError:
             raise
         except Exception as error:
@@ -2025,6 +2001,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except MicroStrategyAPIError:
             logger.debug(
                 "MicroStrategy report instance cleanup failed",
+                exc_info=True,
+            )
+
+    def _delete_model_report_instance(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> None:
+        try:
+            self.client.delete_model_report_instance(project_id, report_id, instance_id)
+        except MicroStrategyAPIError:
+            logger.debug(
+                "MicroStrategy Modeling report instance cleanup failed",
                 exc_info=True,
             )
 

@@ -394,11 +394,12 @@ class MicroStrategyClient:
         with expressions; parsed by models.extract_embedded_metric_definitions.
 
         The spec documents this endpoint's X-MSTR-MS-Instance header as the
-        report instance id. Without it the definition is read statically, and
-        on at least one Strategy Cloud tenant that returns metric elements
-        carrying no expression. Passing an executed instance is the vendor's
-        suggested route to resolved expressions; it is opt-in because creating
-        the instance makes the server run the report."""
+        report instance id, created by create_model_report_instance. Without
+        it the definition is read statically, and on at least one Strategy
+        Cloud tenant that returns metric elements carrying no expression.
+        Reading through an instance is the vendor's suggested route to
+        resolved expressions; it is opt-in because it adds two calls per
+        report."""
         return self._get_json(
             f"/api/model/reports/{report_id}",
             project_id=project_id,
@@ -416,10 +417,11 @@ class MicroStrategyClient:
         the lineage helpers resolve which dataset a visualization reads, and its
         per-dataset derivedMetrics carry document-level derived metrics.
 
-        The endpoint is not in Strategy's published OpenAPI specification, so
-        how it treats X-MSTR-MS-Instance is undocumented. The header is sent
-        only when an instance is supplied, mirroring get_model_report, so the
-        long-standing static read is unchanged by default."""
+        The endpoint is not in Strategy's published OpenAPI specification, and
+        the Modeling service has no document instance endpoint; a dossier or
+        document execution instance in X-MSTR-MS-Instance is rejected with
+        400. The source therefore reads it statically. The header parameter
+        is kept for a future documented instance route."""
         return self._get_json(
             f"/api/model/documents/{document_id}",
             project_id=project_id,
@@ -530,6 +532,45 @@ class MicroStrategyClient:
                 f"an instance id for {report_id}"
             )
         return instance_id
+
+    def create_model_report_instance(self, project_id: str, report_id: str) -> str:
+        """POST /api/model/reports/{id}/instances (ms-createReportInstance):
+        a Modeling-service report instance, the only kind GET
+        /api/model/reports/{id} accepts in X-MSTR-MS-Instance - an execution
+        instance from /api/v2/reports/{id}/instances is rejected with 400.
+        executionStage is left at its default, no_action, so the report's
+        definition is loaded without running it against the warehouse."""
+        response = self._get_json(
+            f"/api/model/reports/{report_id}/instances",
+            project_id=project_id,
+            method="POST",
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            max_attempts=1,
+        )
+        instance_id = self._extract_instance_id(response)
+        if not instance_id:
+            raise MicroStrategyAPIError(
+                "MicroStrategy Modeling report instance response did not include "
+                f"an instance id for {report_id}"
+            )
+        return instance_id
+
+    def delete_model_report_instance(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> bool:
+        """DELETE /api/model/reports/{id}/instances (ms-deleteReportInstance);
+        the instance is named by X-MSTR-MS-Instance, not by the path."""
+        response = self._request(
+            "DELETE",
+            f"/api/model/reports/{report_id}/instances",
+            project_id=project_id,
+            expected_statuses={200, 202, 204, 404, 405},
+            headers={MSTR_MS_INSTANCE_HEADER: instance_id},
+        )
+        return response.status_code not in {404, 405}
 
     def get_dossier_datasets_sql(
         self,

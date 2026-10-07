@@ -2346,9 +2346,10 @@ def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
 
 class _InstanceModelClient(_ModelEmbeddedClient):
     """Records the instance lifecycle around the Modeling definition reads:
-    report instances for GET /api/model/reports/{id}, and dashboard instances
-    for GET /api/model/documents/{id}. Every method the instance option calls
-    is defined, so a missing one cannot be swallowed by a broad except."""
+    Modeling report instances for GET /api/model/reports/{id}, and any
+    dashboard execution around GET /api/model/documents/{id} (there must be
+    none). Every method the instance option calls is defined, so a missing
+    one cannot be swallowed by a broad except."""
 
     def __init__(
         self,
@@ -2392,17 +2393,20 @@ class _InstanceModelClient(_ModelEmbeddedClient):
             raise MicroStrategyAPIError("404 Not Found")
         return self.model_document
 
-    def create_report_instance(self, project_id: str, report_id: str) -> str:
+    def create_model_report_instance(self, project_id: str, report_id: str) -> str:
         if self.instance_fails:
-            raise MicroStrategyAPIError("500 report execution failed")
+            raise MicroStrategyAPIError("500 report instance failed")
         self.created.append(report_id)
         return f"inst-{report_id}"
 
-    def delete_report_instance(
+    def delete_model_report_instance(
         self, project_id: str, report_id: str, instance_id: str
     ) -> bool:
         self.deleted.append(instance_id)
         return True
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        raise AssertionError("an execution instance is never used for a model read")
 
     def get_model_report(
         self,
@@ -2516,14 +2520,13 @@ def test_document_derived_metrics_are_not_read_unless_instance_option_is_on() ->
         )
     )
 
-    # Default output is unchanged: no dashboard executed, no model document read.
+    # Default output is unchanged: no model document read for derived metrics.
     assert client.dashboard_created == []
     assert client.document_instance_ids_seen == []
     assert _derived_field(workunits, "Forecast") is None
-    assert source.report.document_model_instances_created == 0
 
 
-def test_document_derived_metric_formula_read_through_a_dashboard_instance() -> None:
+def test_document_derived_metric_formula_read_from_static_model_document() -> None:
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
     client = _InstanceModelClient(model_document=_forecast_model_document())
@@ -2535,11 +2538,10 @@ def test_document_derived_metric_formula_read_through_a_dashboard_instance() -> 
         )
     )
 
-    # Executed once, handed to the model document read, released afterwards.
-    assert client.dashboard_created == ["dash-1"]
-    assert client.document_instance_ids_seen == ["dinst-dash-1"]
-    assert client.dashboard_deleted == ["dinst-dash-1"]
-    assert source.report.document_model_instances_created == 1
+    # Read without an instance: the Modeling service rejects a dashboard
+    # execution instance, so the dashboard is never executed for this read.
+    assert client.dashboard_created == []
+    assert client.document_instance_ids_seen == [None]
     assert source.report.document_derived_metric_definitions == 1
     assert source.report.document_derived_metric_expressions == 1
 
@@ -2554,30 +2556,7 @@ def test_document_derived_metric_formula_read_through_a_dashboard_instance() -> 
     assert _derived_field(workunits, "Band") is None
 
 
-def test_dashboard_instance_failure_falls_back_to_static_model_document() -> None:
-    source = _embedded_metric_source()
-    source.config.resolve_report_metrics_via_instance = True
-    client = _InstanceModelClient(
-        model_document=_forecast_model_document(), dashboard_instance_fails=True
-    )
-    source.client = client  # type: ignore[assignment]
-
-    workunits = list(
-        source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
-        )
-    )
-
-    # Executing a dashboard can time out; the definition is still read
-    # statically, nothing is released, and the failure is counted.
-    assert client.document_instance_ids_seen == [None]
-    assert client.dashboard_deleted == []
-    assert source.report.document_model_instance_failures == 1
-    assert source.report.document_model_instances_created == 0
-    assert _derived_field(workunits, "Forecast") is not None
-
-
-def test_model_document_failure_still_releases_the_instance() -> None:
+def test_model_document_failure_is_counted_and_skipped() -> None:
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
     client = _InstanceModelClient(model_document_fails=True)
@@ -2589,7 +2568,7 @@ def test_model_document_failure_still_releases_the_instance() -> None:
         )
     )
 
-    assert client.document_instance_ids_seen == ["dinst-dash-1"]
-    assert client.dashboard_deleted == ["dinst-dash-1"]
+    assert client.document_instance_ids_seen == [None]
+    assert client.dashboard_created == []
     assert source.report.document_model_definition_failures == 1
     assert _derived_field(workunits, "Forecast") is None

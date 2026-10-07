@@ -884,6 +884,7 @@ def test_search_dashboards_skips_malformed_objects(monkeypatch: MonkeyPatch) -> 
         "create_dossier_instance",
         "create_document_instance",
         "create_report_instance",
+        "create_model_report_instance",
     ],
 )
 def test_instance_creation_without_instance_id_raises(
@@ -968,3 +969,37 @@ def test_model_document_sends_instance_header_only_when_given(
         "/api/model/documents/doc-1",
         "/api/model/documents/doc-1",
     ]
+
+
+def test_model_report_instance_uses_the_modeling_service_endpoints(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # GET /api/model/reports/{id} rejects an /api/v2 execution instance with
+    # 400; only an instance from ms-createReportInstance is accepted, and it is
+    # released with ms-deleteReportInstance, which names it by header.
+    client, report = _make_client()
+    calls: list[Dict[str, Any]] = []
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        calls.append(kwargs)
+        if kwargs["method"] == "POST":
+            return StatusResponse(201, payload={"id": "ms-inst-1"})
+        return StatusResponse(204)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    instance_id = client.create_model_report_instance("project-1", "report-1")
+    deleted = client.delete_model_report_instance("project-1", "report-1", instance_id)
+
+    assert instance_id == "ms-inst-1"
+    assert deleted is True
+    assert [
+        (c["method"], c["url"].split("/MicroStrategyLibrary")[-1]) for c in calls
+    ] == [
+        ("POST", "/api/model/reports/report-1/instances"),
+        ("DELETE", "/api/model/reports/report-1/instances"),
+    ]
+    assert "params" not in calls[0] or not calls[0]["params"]
+    assert calls[0]["headers"]["X-MSTR-ProjectID"] == "project-1"
+    assert calls[1]["headers"]["X-MSTR-MS-Instance"] == "ms-inst-1"
+    assert report.api_errors == 0

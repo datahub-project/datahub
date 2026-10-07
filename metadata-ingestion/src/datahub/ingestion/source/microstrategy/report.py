@@ -61,21 +61,15 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Report-level derived metrics whose formula the report definition did not
     # carry but GET /api/model/metrics/{id} did.
     report_derived_metric_models_resolved: int = 0
-    # Reports executed so their Modeling definition could be read against a
-    # live instance (resolve_report_metrics_via_instance).
+    # Modeling-service report instances opened so the Modeling definition
+    # could be read against them (resolve_report_metrics_via_instance).
     report_model_instances_created: int = 0
     report_model_instance_failures: int = 0
     report_model_instance_failure_samples: LossyList[str] = field(
         default_factory=LossyList
     )
-    # Dashboards executed so their Modeling document definition could be read
-    # against a live instance, and what that definition yielded: document-level
-    # derived metrics found, and how many of them carried a formula.
-    document_model_instances_created: int = 0
-    document_model_instance_failures: int = 0
-    document_model_instance_failure_samples: LossyList[str] = field(
-        default_factory=LossyList
-    )
+    # What the Modeling document definition yielded: document-level derived
+    # metrics found, and how many of them carried a formula.
     document_model_definition_failures: int = 0
     document_derived_metric_definitions: int = 0
     document_derived_metric_expressions: int = 0
@@ -231,13 +225,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_report_model_instance_failure(self, context: str) -> None:
         self.report_model_instance_failures += 1
         self.report_model_instance_failure_samples.append(context)
-
-    def report_document_model_instance_created(self) -> None:
-        self.document_model_instances_created += 1
-
-    def report_document_model_instance_failure(self, context: str) -> None:
-        self.document_model_instance_failures += 1
-        self.document_model_instance_failure_samples.append(context)
 
     def report_document_model_definition_failure(self) -> None:
         self.document_model_definition_failures += 1

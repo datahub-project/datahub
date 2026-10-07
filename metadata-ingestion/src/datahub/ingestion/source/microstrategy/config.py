@@ -291,18 +291,18 @@ class MicroStrategyConfig(
     resolve_report_metrics_via_instance: bool = Field(
         default=False,
         description=(
-            "Whether to execute reports and dashboards before reading their "
-            "Modeling definitions, so derived metrics can be resolved against a "
-            "live instance. For a report, the Modeling endpoint's "
-            "`X-MSTR-MS-Instance` header is documented as a report instance id; "
+            "Whether to read report Modeling definitions through a "
+            "Modeling-service report instance (`POST "
+            "/api/model/reports/{id}/instances`, passed in the "
+            "`X-MSTR-MS-Instance` header), so derived metrics can be resolved; "
             "without it the definition is read statically and on some tenants "
-            "carries no metric expressions. For a dossier or document it also "
-            "enables reading document-level derived metrics (defined in the "
-            "dashboard on top of a dataset) from the Modeling document "
-            "definition, which is otherwise never consulted for them; that "
-            "endpoint is not in Strategy's published API specification. Off by "
-            "default because creating an instance makes MicroStrategy run the "
-            "report or dashboard, which is slow and loads the warehouse."
+            "carries no metric expressions. It also enables reading "
+            "document-level derived metrics (defined in a dossier or document "
+            "on top of a dataset) from the Modeling document definition, which "
+            "is otherwise never consulted for them; that endpoint is not in "
+            "Strategy's published API specification and has no instance "
+            "route, so it is read statically. Off by default because it adds "
+            "instance create and delete calls for every report-backed dataset."
         ),
     )
     warehouse_lineage_sql_timeout_seconds: int = Field(
