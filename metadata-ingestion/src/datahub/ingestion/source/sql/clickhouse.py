@@ -401,6 +401,11 @@ class ClickHouseConfig(
         default=True, description="Whether table lineage should be ingested."
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
+    include_config_file_dictionaries: bool = Field(
+        default=False,
+        description="Whether to ingest dictionaries defined in server config files (XML or YAML) "
+        "as datasets. Requires SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.*.",
+    )
 
     # Query log extraction options
     include_query_log_lineage: bool = Field(
@@ -1281,7 +1286,10 @@ ORDER BY event_time ASC
         # gen_metadata() parses view and materialized view SQL at the end of the
         # base scan.
         xml_dictionary_workunits = (
-            self._emit_xml_dictionaries() if self.config.include_tables else []
+            self._emit_xml_dictionaries()
+            if self.config.include_tables
+            and self.config.include_config_file_dictionaries
+            else []
         )
         # Emit schema and definition-based lineage workunits
         for wu in itertools.chain(
@@ -1362,19 +1370,9 @@ ORDER BY event_time ASC
         try:
             dictionaries = self._fetch_xml_dictionaries()
         except Exception as e:
-            if "ACCESS_DENIED" in str(e):
-                # A warning keeps upgrades without the new grant from failing. If
-                # access is revoked after a successful run, the dictionaries are
-                # soft-deleted, as tables are when SHOW TABLES is revoked.
-                self.report.warning(
-                    title="Config-file dictionaries not ingested",
-                    message="Grant SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.* to ingest config-file dictionaries",
-                    exc=e,
-                )
-                return
             self.report.failure(
                 title="Config-file dictionary fetch failed",
-                message="Failed to fetch config-file dictionaries",
+                message="Failed to fetch config-file dictionaries. The DataHub user needs SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.*",
                 exc=e,
             )
             return

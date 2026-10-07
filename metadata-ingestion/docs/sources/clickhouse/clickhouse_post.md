@@ -29,9 +29,10 @@ columns that contribute to the written output — a column read solely in an `IN
 
 #### Config-File Dictionaries
 
-Dictionaries defined in server config files (XML or YAML) are not listed in `system.tables`, so
-when `include_tables` is enabled they are read from `system.dictionaries`. A dictionary that
-declares `<database>` is ingested as `<database>.<name>` under that database's container, and
+Dictionaries defined in server config files (XML or YAML) are not listed in `system.tables`. Set
+`include_config_file_dictionaries: true` to read them from `system.dictionaries`; it is off by
+default because it needs the extra grants listed in the prerequisites, and a failed read fails the
+run. A dictionary that declares `<database>` is ingested as `<database>.<name>` under that database's container, and
 `database_pattern` applies to that database. Otherwise it belongs to the server and is ingested
 under its full name without a container. A global name, even a dotted one such as `db.my_dict`, is
 filtered only by `table_pattern`. When `database` is set, only dictionaries declared in that

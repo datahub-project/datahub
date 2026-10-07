@@ -1449,27 +1449,16 @@ def test_emit_xml_dictionary_adds_clickhouse_source_as_upstream(monkeypatch):
     ]
 
 
-@pytest.mark.parametrize(
-    "error, warning_titles, failure_titles",
-    [
-        (
-            "Code: 497. DB::Exception: ACCESS_DENIED",
-            ["Config-file dictionaries not ingested"],
-            [],
-        ),
-        ("Timeout exceeded", [], ["Config-file dictionary fetch failed"]),
-    ],
-)
-def test_emit_xml_dictionaries_reports_fetch_errors(
-    monkeypatch, error, warning_titles, failure_titles
-):
+def test_emit_xml_dictionaries_reports_fetch_error_as_failure(monkeypatch):
     source = _clickhouse_source()
 
     def fail():
-        raise RuntimeError(error)
+        raise RuntimeError("Code: 497. DB::Exception: ACCESS_DENIED")
 
     monkeypatch.setattr(source, "_fetch_xml_dictionaries", fail)
 
     assert list(source._emit_xml_dictionaries()) == []
-    assert [w.title for w in source.report.warnings] == warning_titles
-    assert [f.title for f in source.report.failures] == failure_titles
+    assert source.report.warnings == []
+    assert [f.title for f in source.report.failures] == [
+        "Config-file dictionary fetch failed"
+    ]
