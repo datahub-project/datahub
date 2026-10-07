@@ -299,6 +299,22 @@ class TestGenericAdapter:
         """Create generic adapter for testing."""
         return GenericAdapter(config, report, mock_generic_engine)
 
+    @pytest.mark.parametrize(
+        "non_null_count,expected",
+        [(1, None), (5, 0.0), (0, None), (None, None)],
+    )
+    def test_resolve_stdev_null(self, adapter, non_null_count, expected):
+        """A NULL stddev means undefined at one value, zero variance above that."""
+        assert adapter.resolve_stdev_null(non_null_count) == expected
+
+    def test_stdev_issues_a_single_query(self, adapter, mock_table):
+        """A NULL stddev must not trigger a second count; it is resolved later."""
+        mock_conn = MagicMock()
+        mock_conn.execute_aggregate.return_value.scalar.return_value = None
+
+        assert adapter.get_column_stdev(mock_table, "value_col", mock_conn) is None
+        assert mock_conn.execute_aggregate.call_count == 1
+
     def test_setup_profiling_creates_sql_table(self, adapter, mock_generic_engine):
         """Test setup creates SQLAlchemy table object."""
         context = ProfilingContext(
@@ -491,53 +507,6 @@ class TestMSSQLAdapter:
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
         assert "stddev_samp" not in sql.lower()
 
-    def test_stdev_single_row_returns_none(self, adapter, real_table):
-        """
-        STDEV() returns NULL on a single-value column. Stddev of one value is
-        mathematically undefined, so we return None (not 0.0).
-        """
-        mock_conn = MagicMock()
-        # First execute: STDEV(...) returns NULL.
-        # Second execute: COUNT(value_col) for the non-null disambiguation returns 1.
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 1
-        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result is None
-
-    def test_stdev_multiple_equal_rows_returns_zero(self, adapter, real_table):
-        """
-        STDEV() returns NULL when all values are equal (zero variance). With
-        multiple non-null rows, the well-defined answer is 0.0.
-        """
-        mock_conn = MagicMock()
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 5
-        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result == 0.0
-
-    def test_stdev_all_null_returns_default(self, adapter, real_table):
-        """
-        STDEV() on an all-null column falls through to the
-        `get_stdev_null_value` hook. MSSQL inherits the base default (None).
-        """
-        mock_conn = MagicMock()
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result is None
-
     def test_quantiles_use_percentile_disc_with_over_window(
         self, adapter, real_table, mock_mssql_engine
     ):
@@ -675,6 +644,13 @@ class TestRedshiftAdapter:
     def test_supports_row_count_estimation(self, adapter):
         """Test Redshift supports fast row count estimation."""
         assert adapter.supports_row_count_estimation() is True
+
+    def test_all_null_stdev_is_zero_not_none(self, adapter):
+        """Redshift's STDDEV returns 0.0 on an all-null column, unlike the rest."""
+        assert adapter.resolve_stdev_null(0) == 0.0
+        # The other two branches are shared with the base adapter.
+        assert adapter.resolve_stdev_null(1) is None
+        assert adapter.resolve_stdev_null(5) == 0.0
 
 
 class TestSnowflakeAdapter:
@@ -1748,46 +1724,6 @@ class TestClickHouseAdapter:
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
 
-    def test_get_column_stdev_null_with_single_row_returns_none(
-        self, adapter, mock_table
-    ):
-        """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.return_value.scalar.side_effect = [
-            None,  # stddevSamp result
-            1,  # non-null count
-        ]
-
-        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
-
-        assert result is None
-
-    def test_get_column_stdev_null_with_multiple_rows_returns_zero(
-        self, adapter, mock_table
-    ):
-        """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.return_value.scalar.side_effect = [None, 10]
-
-        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
-
-        assert result == 0.0
-
-    def test_get_column_stdev_query_failure_reports_warning(
-        self, adapter, report, mock_table
-    ):
-        """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.side_effect = sa.exc.SQLAlchemyError(
-            "permission denied"
-        )
-
-        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
-
-        assert result is None
-        # Distinguish from the non_null_count-disambiguation path.
-        assert any("compute stdev" in w.title.lower() for w in report.warnings)
-
     def test_supports_row_count_estimation_is_false(self, adapter):
         assert adapter.supports_row_count_estimation() is False
 
@@ -1979,19 +1915,6 @@ class TestClickHouseAdapter:
 
         assert result == [5.0]
         assert any("non-numeric" in w.title.lower() for w in report.warnings)
-
-    def test_get_column_stdev_non_null_count_failure_reports_warning(
-        self, adapter, report, mock_table
-    ):
-        """If the inner non_null_count query fails, the failure is still reported."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.side_effect = [
-            MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
-            sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
-        ]
-        assert adapter.get_column_stdev(mock_table, "score", mock_conn) is None
-        # Discriminate from the stddevSamp-query failure path.
-        assert any("disambiguate" in w.title.lower() for w in report.warnings)
 
     def test_get_column_stdev_happy_path_emits_no_warnings(
         self, adapter, report, real_table
