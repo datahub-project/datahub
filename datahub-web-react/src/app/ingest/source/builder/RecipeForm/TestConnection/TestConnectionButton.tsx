@@ -1,4 +1,4 @@
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
@@ -114,7 +114,7 @@ function TestConnectionButton(props: Props) {
     return (
         <>
             <Button variant="outline" type="button" onClick={testConnection}>
-                <CheckCircleOutlined />
+                <CheckCircle />
                 Test Connection
             </Button>
             {isModalVisible && (

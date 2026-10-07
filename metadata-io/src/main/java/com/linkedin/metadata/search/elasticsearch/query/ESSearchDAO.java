@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
@@ -20,6 +21,8 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -27,6 +30,8 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
@@ -37,16 +42,22 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryIntent;
+import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryUnderstanding;
+import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -54,7 +65,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +83,7 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.explain.ExplainRequest;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
@@ -72,7 +94,9 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -88,6 +112,43 @@ import org.opensearch.search.sort.SortOrder;
 @Accessors(chain = true)
 public class ESSearchDAO {
 
+  /**
+   * Hybrid search reranks the first this many keyword rows, the search cache's default batch, and
+   * keeps every later row in keyword order, so every page is a slice of the same ranking.
+   */
+  private static final int HYBRID_RERANK_WINDOW = 100;
+
+  /** Time the embedding and kNN calls get before the keyword ranking is served instead. */
+  private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
+
+  // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
+  // calls end by the same deadline, so a worker is free about when its search falls back. The
+  // queue is bounded: when every worker is busy, searches get the keyword ranking right away
+  private static final ExecutorService HYBRID_EXECUTOR =
+      new ThreadPoolExecutor(
+          8,
+          8,
+          0L,
+          TimeUnit.MILLISECONDS,
+          new ArrayBlockingQueue<>(16),
+          new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+
+  /**
+   * Queries containing 6+ consecutive digits are ID or hash lookups (e.g. "run_20240101_120000").
+   * When the light query matches nothing for these, fuzzy expansion of the digit runs only adds
+   * false positives, so the full query is skipped.
+   */
+  private static final Pattern HASH_ID_QUERY_PATTERN = Pattern.compile(".*\\d{6,}.*");
+
+  private static final Pattern DELIMITER_PATTERN = Pattern.compile("[_\\-./:]+");
+
+  /**
+   * No-space queries of at least this many delimiter-separated tokens (long entity names, deep
+   * FQNs) skip the full query when the light query matches nothing: the name does not exist, and
+   * fuzzy expansion only finds noisy partial matches.
+   */
+  private static final int LONG_EXACT_NAME_TOKEN_THRESHOLD = 4;
+
   private final boolean pointInTimeCreationEnabled;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
@@ -95,6 +156,7 @@ public class ESSearchDAO {
   private final boolean testLoggingEnabled;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
+  @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -127,6 +189,25 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public ESSearchDAO(
+      boolean pointInTimeCreationEnabled,
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean testLoggingEnabled,
+      @Nonnull SearchServiceConfiguration searchServiceConfig,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher) {
+    this(
+        pointInTimeCreationEnabled,
+        searchConfiguration,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        testLoggingEnabled,
+        searchServiceConfig,
+        entityDocumentIdHasher,
+        null);
   }
 
   @Nonnull
@@ -183,7 +264,9 @@ public class ESSearchDAO {
       @Nonnull SearchRequest searchRequest,
       @Nullable Filter filter,
       int from,
-      @Nullable Integer size) {
+      @Nullable Integer size,
+      @Nullable QueryBuilder lightQuery,
+      @Nonnull String input) {
     long id = System.currentTimeMillis();
 
     return opContext.withSpan(
@@ -193,8 +276,10 @@ public class ESSearchDAO {
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
             searchResponse =
-                searchClient(opContext, searchRequest)
-                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
+                lightQuery == null
+                    ? searchClient(opContext, searchRequest)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT)
+                    : searchLightFirst(opContext, searchRequest, lightQuery, input);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext,
@@ -211,7 +296,8 @@ public class ESSearchDAO {
                         searchResponse,
                         filter,
                         from,
-                        ConfigUtils.applyLimit(searchServiceConfig, size)));
+                        ConfigUtils.applyLimit(searchServiceConfig, size),
+                        input));
           } catch (Exception e) {
             log.error("Search query failed", e);
             log.error("Response to the failed search query: {}", searchResponse);
@@ -315,7 +401,8 @@ public class ESSearchDAO {
       @Nonnull SearchRequest searchRequest,
       @Nullable Filter filter,
       @Nullable String keepAlive,
-      @Nullable Integer size) {
+      @Nullable Integer size,
+      @Nullable String input) {
     return opContext.withSpan(
         "executeAndExtract_scroll",
         () -> {
@@ -340,7 +427,8 @@ public class ESSearchDAO {
                         filter,
                         keepAlive,
                         ConfigUtils.applyLimit(searchServiceConfig, size),
-                        pointInTimeCreationEnabled));
+                        pointInTimeCreationEnabled,
+                        input));
           } catch (Exception e) {
             log.error("Search query failed: {}", searchRequest, e);
             throw new ESQueryException("Search query failed:", e);
@@ -375,13 +463,26 @@ public class ESSearchDAO {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
 
+    // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page
+    final int hybridFetchSize =
+        hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
+    final int requestFrom = hybridFetchSize > 0 ? 0 : from;
+    final Integer requestSize = hybridFetchSize > 0 ? hybridFetchSize : size;
+
     // Step 1: construct the query
     final Triple<SearchRequest, Filter, List<EntitySpec>> searchRequestComponents =
         opContext.withSpan(
             "searchRequest",
             () ->
                 buildSearchRequest(
-                    opContext, entityNames, input, postFilters, sortCriteria, from, size, facets),
+                    opContext,
+                    entityNames,
+                    input,
+                    postFilters,
+                    sortCriteria,
+                    requestFrom,
+                    requestSize,
+                    facets),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(this.getClass(), "searchRequest"));
 
@@ -390,13 +491,388 @@ public class ESSearchDAO {
     }
 
     // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(
-        opContext,
-        searchRequestComponents.getRight(),
-        searchRequestComponents.getLeft(),
-        searchRequestComponents.getMiddle(),
-        from,
-        size);
+    final SearchResult result =
+        executeAndExtract(
+            opContext,
+            searchRequestComponents.getRight(),
+            searchRequestComponents.getLeft(),
+            searchRequestComponents.getMiddle(),
+            requestFrom,
+            requestSize,
+            // A search without hits runs the full query, as in DataHub Cloud. The UI's facet counts
+            // reach here through the search cache, which fetches hits, so they follow the light
+            // query
+            size != null && size == 0
+                ? null
+                : lightFirstQuery(
+                    opContext,
+                    searchRequestComponents.getRight(),
+                    input,
+                    sortCriteria,
+                    postFilters),
+            input);
+    return hybridFetchSize > 0
+        ? rerankHybrid(opContext, entityNames, input, result, from, size)
+        : result;
+  }
+
+  /**
+   * The number of keyword rows a hybrid search fetches, or 0 when the search stays keyword-only:
+   * hybrid read is off, the page starts past the rerank window, no rows are requested, results are
+   * not sorted by relevance, the input is not a full-text query, or no requested entity type has
+   * vectors.
+   */
+  private int hybridFetchSize(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    if (hybridSearchResultReranker == null || from >= HYBRID_RERANK_WINDOW) {
+      return 0;
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    final String trimmed = input.trim();
+    if (pageSize == 0
+        || !isRelevanceSort(sortCriteria)
+        || searchFlags == null
+        || !Boolean.TRUE.equals(searchFlags.isFulltext())
+        || trimmed.isEmpty()
+        || "*".equals(trimmed)
+        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
+      return 0;
+    }
+    final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
+    // A fetch above the result limit would be cut short, or rejected in strict mode
+    if (fetchSize > searchServiceConfig.getLimit().getResults().getMax()
+        || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
+      return 0;
+    }
+    return fetchSize;
+  }
+
+  /**
+   * Reranks the first {@link #HYBRID_RERANK_WINDOW} keyword rows with kNN scores and slices the
+   * requested page. Totals and facets stay those of the keyword query. Any failure serves the
+   * keyword ranking.
+   */
+  @Nonnull
+  private SearchResult rerankHybrid(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nonnull SearchResult keywordResult,
+      int from,
+      @Nullable Integer size) {
+    final List<SearchEntity> rows = keywordResult.getEntities();
+    final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
+    List<SearchEntity> ranked = rows;
+    Future<List<SearchEntity>> rerank = null;
+    final Set<String> vectorEntityNames =
+        hybridSearchResultReranker.vectorEntityNames(opContext, entityNames);
+    final boolean windowHasVectorRows =
+        rows.subList(0, windowEnd).stream()
+            .anyMatch(
+                row ->
+                    row.getEntity() != null
+                        && vectorEntityNames.contains(row.getEntity().getEntityType()));
+    // A window without rows that have vectors makes no embedding or kNN call
+    if (windowHasVectorRows) {
+      final long deadlineNanos =
+          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
+      try {
+        // The worker gets its own copies: a rerank that finishes after the timeout must not change
+        // the rows served as the keyword fallback
+        final List<SearchEntity> window = new ArrayList<>(windowEnd);
+        for (SearchEntity row : rows.subList(0, windowEnd)) {
+          window.add(row.copy());
+        }
+        rerank =
+            HYBRID_EXECUTOR.submit(
+                Context.current()
+                    .wrap(
+                        () ->
+                            hybridSearchResultReranker.rerank(
+                                opContext,
+                                entityNames,
+                                input,
+                                window,
+                                List.of(URN_FIELD),
+                                deadlineNanos)));
+        ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
+        ranked.addAll(rows.subList(windowEnd, rows.size()));
+        countHybrid(opContext, "hybridReadApplied");
+      } catch (RejectedExecutionException e) {
+        countHybrid(opContext, "hybridReadRejected");
+      } catch (TimeoutException e) {
+        // The interrupt frees a worker whose provider does not honor the deadline; a queued call
+        // does not start
+        rerank.cancel(true);
+        countHybridTimeout(opContext);
+      } catch (InterruptedException e) {
+        rerank.cancel(true);
+        Thread.currentThread().interrupt();
+        countHybrid(opContext, "hybridReadFailed");
+      } catch (Exception e) {
+        final Throwable cause =
+            e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
+        if (System.nanoTime() - deadlineNanos >= 0) {
+          // The embedding or kNN call gave up at the deadline, just as the search did
+          countHybridTimeout(opContext);
+        } else {
+          countHybrid(opContext, "hybridReadFailed");
+          // One line per failed search; the stack trace only at debug, so an outage does not
+          // flood logs
+          log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
+          log.debug("Hybrid read failure", cause);
+        }
+      }
+    }
+    final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+    final int pageStart = Math.min(from, ranked.size());
+    final int pageEnd = (int) Math.min((long) from + pageSize, ranked.size());
+    return keywordResult
+        .setEntities(new SearchEntityArray(ranked.subList(pageStart, pageEnd)))
+        .setFrom(from)
+        .setPageSize(pageSize);
+  }
+
+  private static void countHybridTimeout(@Nonnull OperationContext opContext) {
+    countHybrid(opContext, "hybridReadTimeout");
+    log.warn("Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
+  }
+
+  private static void countHybrid(@Nonnull OperationContext opContext, @Nonnull String metric) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(metricUtils -> metricUtils.increment(ESSearchDAO.class, metric, 1));
+  }
+
+  /**
+   * The light Stage 1 query that Search V3 keyword reads run before the full query, or null when
+   * the full query runs directly: on V2, with a sort order other than relevance, under a Column
+   * Name filter, for searches that are not full-text, for structured queries, and for empty,
+   * match-all, quoted and URN or path queries, whose light and full queries are the same or whose
+   * quotes ask for exact matches only.
+   */
+  @VisibleForTesting
+  @Nullable
+  QueryBuilder lightFirstQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nullable Filter filter) {
+    String trimmed = input.trim();
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    if (!EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
+        || !isRelevanceSort(sortCriteria)
+        // The name-focused light query would hide every dataset that only holds the column
+        || hasColumnNameFilter(filter)
+        || searchFlags == null
+        || !Boolean.TRUE.equals(searchFlags.isFulltext())
+        || trimmed.isEmpty()
+        || "*".equals(trimmed)
+        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
+        || isQuotedPhrase(trimmed)
+        || QueryUnderstanding.understand(trimmed) == QueryIntent.IDENTITY) {
+      return null;
+    }
+    return SearchRequestHandler.getBuilder(
+            opContext,
+            entitySpecs,
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfig)
+        .getQuery(opContext, input, true, true);
+  }
+
+  /**
+   * Light-first relaxation: runs the light Stage 1 query (no fuzzy, wildcard or synonym-priority
+   * clauses) and runs the full query only when the light query matches nothing. The response comes
+   * from a single query, so its hits, total and facets all describe the query that was served.
+   */
+  @VisibleForTesting
+  SearchResponse searchLightFirst(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull QueryBuilder lightQuery,
+      @Nonnull String input)
+      throws IOException {
+    QueryBuilder fullQuery = searchRequest.source().query();
+    QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
+    if (lightSourceQuery == null) {
+      countLightFirst(opContext, "direct");
+      return searchClient(opContext, searchRequest)
+          .search(opContext, searchRequest, RequestOptions.DEFAULT);
+    }
+    SearchResponse lightResponse;
+    searchRequest.source().query(lightSourceQuery);
+    try {
+      lightResponse =
+          searchClient(opContext, searchRequest)
+              .search(opContext, searchRequest, RequestOptions.DEFAULT);
+    } finally {
+      searchRequest.source().query(fullQuery);
+    }
+    if (lightResponse.getFailedShards() > 0) {
+      countLightFirst(opContext, "shardFailure");
+      log.warn(
+          "Light query failed on {} of {} shards: {}",
+          lightResponse.getFailedShards(),
+          lightResponse.getTotalShards(),
+          lightResponse.getShardFailures().length > 0
+              ? lightResponse.getShardFailures()[0].reason()
+              : "");
+    }
+    if (hasHits(lightResponse)) {
+      countLightFirst(opContext, "light");
+      return lightResponse;
+    }
+    if (stopsOnEmpty(lightResponse, input)) {
+      countLightFirst(opContext, "stopped");
+      return lightResponse;
+    }
+    countLightFirst(opContext, "full");
+    log.debug("Light query matched nothing, running the full query for \"{}\"", input);
+    return searchClient(opContext, searchRequest)
+        .search(opContext, searchRequest, RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Whether the light query's empty result stands: fuzzy expansion only adds noise for ID or hash
+   * lookups and for long names that the light query did not find.
+   */
+  @VisibleForTesting
+  static boolean skipsFullQuery(@Nonnull String input) {
+    String trimmed = input.trim();
+    if (trimmed.chars().anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+      return false;
+    }
+    return HASH_ID_QUERY_PATTERN.matcher(trimmed).matches()
+        || Arrays.stream(DELIMITER_PATTERN.split(trimmed)).filter(part -> !part.isEmpty()).count()
+            >= LONG_EXACT_NAME_TOKEN_THRESHOLD;
+  }
+
+  /** Whether an empty light result stands: an ID or long-name input, and every shard in time. */
+  private static boolean stopsOnEmpty(@Nonnull SearchResponse response, @Nonnull String input) {
+    return skipsFullQuery(input) && response.getFailedShards() == 0 && !response.isTimedOut();
+  }
+
+  /** Total hits decide, not the page's hits: a later page of a light result can be empty. */
+  private static boolean hasHits(@Nonnull SearchResponse response) {
+    TotalHits totalHits = response.getHits().getTotalHits();
+    return totalHits != null
+        ? totalHits.value > 0
+        : response.getHits().getHits() != null && response.getHits().getHits().length > 0;
+  }
+
+  /**
+   * The search request's query with the light query in place of the full one: the filters of the
+   * bool root are kept, and so is a function_score wrapper around it, the request shape of DataHub
+   * Cloud (OSS requests have a bool root).
+   */
+  @VisibleForTesting
+  @Nullable
+  static QueryBuilder buildLightSourceQuery(
+      @Nonnull final QueryBuilder originalQuery, @Nonnull final QueryBuilder lightQuery) {
+    FunctionScoreQueryBuilder originalFunctionScoreQuery = null;
+    QueryBuilder boolCarrier = originalQuery;
+    if (originalQuery instanceof FunctionScoreQueryBuilder) {
+      originalFunctionScoreQuery = (FunctionScoreQueryBuilder) originalQuery;
+      boolCarrier = originalFunctionScoreQuery.query();
+    }
+
+    // Only the one must clause is replaced and the filters copied. Any other shape fails closed:
+    // the caller runs the full query
+    if (!(boolCarrier instanceof BoolQueryBuilder)
+        || ((BoolQueryBuilder) boolCarrier).must().size() != 1
+        || !((BoolQueryBuilder) boolCarrier).should().isEmpty()) {
+      return null;
+    }
+
+    BoolQueryBuilder lightBool = QueryBuilders.boolQuery().must(lightQuery);
+    for (QueryBuilder filter : ((BoolQueryBuilder) boolCarrier).filter()) {
+      lightBool.filter(filter);
+    }
+    for (QueryBuilder mustNot : ((BoolQueryBuilder) boolCarrier).mustNot()) {
+      lightBool.mustNot(mustNot);
+    }
+
+    if (originalFunctionScoreQuery == null) {
+      return lightBool;
+    }
+
+    FunctionScoreQueryBuilder lightFunctionScoreQuery =
+        QueryBuilders.functionScoreQuery(
+            lightBool, originalFunctionScoreQuery.filterFunctionBuilders());
+    lightFunctionScoreQuery
+        .scoreMode(originalFunctionScoreQuery.scoreMode())
+        .boostMode(originalFunctionScoreQuery.boostMode())
+        .maxBoost(originalFunctionScoreQuery.maxBoost())
+        .boost(originalFunctionScoreQuery.boost());
+    if (originalFunctionScoreQuery.getMinScore() != null) {
+      lightFunctionScoreQuery.setMinScore(originalFunctionScoreQuery.getMinScore());
+    }
+    if (originalFunctionScoreQuery.queryName() != null) {
+      lightFunctionScoreQuery.queryName(originalFunctionScoreQuery.queryName());
+    }
+    return lightFunctionScoreQuery;
+  }
+
+  /**
+   * Counts which query served a search that built a light query: light, full (fell through),
+   * stopped, or direct (a request shape the light query cannot replace), and light queries with
+   * failed shards. A search the light query does not apply to, including one whose custom
+   * configuration leaves the light query no clause, runs the full query uncounted.
+   */
+  private static void countLightFirst(@Nonnull OperationContext opContext, @Nonnull String served) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> metricUtils.increment(ESSearchDAO.class, "lightFirst_" + served, 1));
+  }
+
+  /** No sort, or only by descending score (the explain API's default), orders by relevance. */
+  private static boolean isRelevanceSort(@Nullable List<SortCriterion> sortCriteria) {
+    return sortCriteria == null
+        || sortCriteria.stream()
+            .allMatch(
+                criterion ->
+                    "_score".equals(criterion.getField())
+                        && criterion.getOrder()
+                            != com.linkedin.metadata.query.filter.SortOrder.ASCENDING);
+  }
+
+  /**
+   * Whether the filter requires a column name: a positive criterion on fieldPaths, which is what
+   * the UI's Column Name filter sends. Covers both the or-of-and form and legacy criteria.
+   */
+  @VisibleForTesting
+  static boolean hasColumnNameFilter(@Nullable final Filter filter) {
+    if (filter == null) {
+      return false;
+    }
+    final Stream<Criterion> criteria =
+        Stream.concat(
+            filter.hasOr()
+                ? filter.getOr().stream().flatMap(conjunction -> conjunction.getAnd().stream())
+                : Stream.empty(),
+            filter.hasCriteria() ? filter.getCriteria().stream() : Stream.empty());
+    return criteria.anyMatch(
+        criterion ->
+            !Boolean.TRUE.equals(criterion.isNegated())
+                && ("fieldPaths".equals(criterion.getField())
+                    || criterion.getField().startsWith("fieldPaths.")));
+  }
+
+  /** Returns true if the query is wrapped in double or single quotes. */
+  private static boolean isQuotedPhrase(@Nonnull final String trimmedQuery) {
+    return (trimmedQuery.startsWith("\"") && trimmedQuery.endsWith("\""))
+        || (trimmedQuery.startsWith("'") && trimmedQuery.endsWith("'"));
   }
 
   @VisibleForTesting
@@ -469,7 +945,7 @@ public class ESSearchDAO {
 
     searchRequest.indices(entityIndexName(opContext, entityName));
     return executeAndExtract(
-        opContext, List.of(entitySpec), searchRequest, transformedFilters, from, size);
+        opContext, List.of(entitySpec), searchRequest, transformedFilters, from, size, null, "");
   }
 
   /**
@@ -607,11 +1083,9 @@ public class ESSearchDAO {
     // an empty indices array makes Elasticsearch search ALL indices, letting aggregates span
     // prefixes. Mirror the null handling of the entitySpec branch above.
     if (entityNames == null || entityNames.isEmpty()) {
-      List<String> indexPatterns =
-          EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-              ? indexConvention.getV3EntityIndexPatterns(opContext)
-              : indexConvention.getAllEntityIndicesPatterns(opContext);
-      searchRequest.indices(indexPatterns.toArray(new String[0]));
+      searchRequest.indices(
+          EntitySearchIndexResolver.allEntityIndexPattern(
+              opContext, searchConfiguration.getEntityIndex()));
     } else {
       searchRequest.indices(entityIndexNames(opContext, entityNames));
     }
@@ -619,7 +1093,6 @@ public class ESSearchDAO {
   }
 
   static final String INCIDENT_ENTITIES_FIELD = "entities.keyword";
-  static final String INCIDENT_ENTITIES_ROOT_FIELD = "entities";
   static final String INCIDENT_STATE_FIELD = "state";
   static final String INCIDENT_LAST_UPDATED_FIELD = "lastUpdated";
   static final String INCIDENT_ACTIVE_STATE = "ACTIVE";
@@ -672,16 +1145,11 @@ public class ESSearchDAO {
   public SearchRequest buildActiveIncidentStatsRequest(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
     final String[] urnStrings = entityUrns.stream().map(Urn::toString).toArray(String[]::new);
-    // Search V3 entity indices keep entities at the root, without a .keyword subfield
-    final String entitiesField =
-        EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-            ? INCIDENT_ENTITIES_ROOT_FIELD
-            : INCIDENT_ENTITIES_FIELD;
 
     final BoolQueryBuilder query =
         QueryBuilders.boolQuery()
             .filter(QueryBuilders.termQuery(INCIDENT_STATE_FIELD, INCIDENT_ACTIVE_STATE))
-            .filter(QueryBuilders.termsQuery(entitiesField, urnStrings));
+            .filter(QueryBuilders.termsQuery(INCIDENT_ENTITIES_FIELD, urnStrings));
 
     // This aggregation bypasses SearchRequestHandler, so apply the same soft-delete / hidden-stage
     // defaults the unbatched entityClient.filter path gets, keeping the two paths in agreement.
@@ -696,7 +1164,7 @@ public class ESSearchDAO {
 
     final TermsAggregationBuilder byEntity =
         AggregationBuilders.terms(BY_ENTITY_AGG)
-            .field(entitiesField)
+            .field(INCIDENT_ENTITIES_FIELD)
             .includeExclude(new IncludeExclude(urnStrings, null))
             .size(entityUrns.size())
             .subAggregation(
@@ -799,7 +1267,8 @@ public class ESSearchDAO {
         searchRequestAndSpecs.getLeft(),
         searchRequestAndSpecs.getMiddle(),
         keepAlive,
-        size);
+        size,
+        input);
   }
 
   @VisibleForTesting
@@ -963,16 +1432,56 @@ public class ESSearchDAO {
 
     ExplainRequest explainRequest = new ExplainRequest();
     explainRequest
-        .query(searchRequest.getLeft().source().query())
         .id(documentIdForExplain(opContext, documentId))
         .index(entityIndexName(opContext, entityName));
     try {
+      explainRequest.query(
+          servedQuery(
+              opContext,
+              explainRequest.index(),
+              searchRequest.getLeft().source().query(),
+              // Scroll (a scroll id or a keep-alive) and searches without hits never run the light
+              // query
+              scrollId != null || keepAlive != null || (size != null && size == 0)
+                  ? null
+                  : lightFirstQuery(
+                      opContext, searchRequest.getRight(), query, sortCriteria, postFilters),
+              query));
       return searchClient(opContext, explainRequest.index())
           .explain(opContext, explainRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);
     }
+  }
+
+  /**
+   * The query a search for the same input would serve: the light query when it matches anything
+   * (counted without fetching hits), else the full query, as {@link #searchLightFirst} decides.
+   */
+  private QueryBuilder servedQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull String index,
+      @Nonnull QueryBuilder fullQuery,
+      @Nullable QueryBuilder lightQuery,
+      @Nonnull String input)
+      throws IOException {
+    if (lightQuery == null) {
+      return fullQuery;
+    }
+    QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
+    if (lightSourceQuery == null) {
+      return fullQuery;
+    }
+    SearchRequest countRequest =
+        new SearchRequest(index)
+            .source(
+                new SearchSourceBuilder().query(lightSourceQuery).size(0).trackTotalHitsUpTo(1));
+    SearchResponse count =
+        searchClient(opContext, countRequest)
+            .search(opContext, countRequest, RequestOptions.DEFAULT);
+    // The decision searchLightFirst makes
+    return hasHits(count) || stopsOnEmpty(count, input) ? lightSourceQuery : fullQuery;
   }
 
   /**
