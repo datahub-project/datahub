@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.embedding;
 
+import java.time.Duration;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -45,6 +46,23 @@ public interface EmbeddingProvider extends AutoCloseable {
   default float[] embed(
       @Nonnull String text, @Nullable String model, @Nonnull EmbeddingTaskType taskType) {
     return embed(text, model);
+  }
+
+  /**
+   * Returns an embedding vector like {@link #embed(String, String, EmbeddingTaskType)}, giving up
+   * once {@code timeout} has passed. Providers that call a remote service override this with one
+   * attempt bounded by the timeout, since a retry would outlive the caller. The default ignores the
+   * timeout.
+   *
+   * @param timeout positive time the caller waits for the vector
+   */
+  @Nonnull
+  default float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      @Nonnull EmbeddingTaskType taskType,
+      @Nonnull Duration timeout) {
+    return embed(text, model, taskType);
   }
 
   @Override

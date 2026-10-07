@@ -305,6 +305,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         exists
@@ -349,6 +352,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModel {
@@ -405,6 +411,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLFeatureTable {

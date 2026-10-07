@@ -12,7 +12,7 @@ export const SIDEBAR_WIDTH_STORAGE_KEY = 'hierarchicalBrowseSidebarWidth';
 export const HIERARCHICAL_BROWSE_GAP_PX = 8;
 
 /** Outer inset of the sidebar + page layout from the nav shell. */
-export const HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX = 5;
+export const HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX = 8;
 
 /**
  * Leading entity glyph size for tree rows (expanded + collapsed).
