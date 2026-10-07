@@ -16,7 +16,9 @@ import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.api.trace.Span;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -46,7 +48,20 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
   @Getter private final SearchClientShim<?> client;
 
+  static final String SEARCH_TOOK_METRIC = "datahub.elasticsearch.search.took";
+  static final String SEARCH_OUTSIDE_TOOK_METRIC = "datahub.elasticsearch.search.outside_took";
+  private static final String PIT_EXECUTOR_METRIC_NAME = "graph-query-pit";
+  private static final String OPERATION_TAG = "operation";
+  private static final String OPERATION_GRAPH_QUERY_PIT = "graphQueryPit";
+  // Exact per-query values go on the esQuery span; as metric tags they would be unbounded.
+  static final String SEARCH_URNS_ATTR = "search.urns";
+  static final String SEARCH_HITS_ATTR = "search.hits";
+  static final String SEARCH_TOOK_MS_ATTR = "search.took_ms";
+
   final ExecutorService pitExecutor;
+
+  /** {@link #pitExecutor} wrapped with executor metrics; slices are submitted through this. */
+  private final ExecutorService pitTaskExecutor;
 
   public GraphQueryPITDAO(
       SearchClientShim<?> client,
@@ -72,6 +87,19 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
             },
             new ThreadPoolExecutor.CallerRunsPolicy() // backpressure: caller runs when queue full
             );
+
+    this.pitTaskExecutor =
+        metricUtils == null
+            ? pitExecutor
+            : MicrometerMetricsRegistry.monitorExecutor(
+                PIT_EXECUTOR_METRIC_NAME, pitExecutor, metricUtils.getRegistry());
+    if (metricUtils != null && pitTaskExecutor == pitExecutor) {
+      // Executor metric names are registered once per JVM, so only the first DAO is monitored.
+      log.warn(
+          "Executor metrics for '{}' are already registered by another instance; this PIT pool is"
+              + " not monitored",
+          PIT_EXECUTOR_METRIC_NAME);
+    }
 
     log.info("Initialized PIT thread pool with {} threads and bounded queue", maxThreads);
   }
@@ -171,7 +199,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       keepAlive,
                       sliceTimedOut);
                 },
-                pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
+                pitTaskExecutor); // Dedicated pool with CallerRunsPolicy for backpressure
         sliceFutures.add(sliceFuture);
       }
 
@@ -289,8 +317,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return graphClient(opContext)
-                        .search(opContext, searchRequest, RequestOptions.DEFAULT);
+                    return timedSearch(opContext, searchRequest, entityUrns.size());
                   } catch (Exception e) {
                     log.error("Search query failed", e);
                     throw new ESQueryException("Search query failed:", e);
@@ -372,5 +399,41 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     }
 
     return sliceRelationships;
+  }
+
+  /**
+   * Runs the slice search and records ES {@code took} and the wall time spent outside it. Also tags
+   * the current esQuery span with the query's URN count, page hit count and took.
+   */
+  private SearchResponse timedSearch(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest, int urnCount)
+      throws Exception {
+    long start = System.nanoTime();
+    SearchResponse response =
+        graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
+    long wallNanos = System.nanoTime() - start;
+    Span span = Span.current();
+    span.setAttribute(SEARCH_URNS_ATTR, urnCount);
+    if (response != null) {
+      if (response.getHits() != null) {
+        span.setAttribute(SEARCH_HITS_ATTR, response.getHits().getHits().length);
+      }
+      if (response.getTook() != null) {
+        span.setAttribute(SEARCH_TOOK_MS_ATTR, response.getTook().millis());
+      }
+    }
+    if (metricUtils != null && response != null && response.getTook() != null) {
+      // recordTimer caches timers JVM-wide by name and tags, not by registry. That is fine with
+      // GMS's single registry, but a test reading these from its own registry must record first.
+      long tookNanos = response.getTook().nanos();
+      metricUtils.recordTimer(
+          SEARCH_TOOK_METRIC, tookNanos, OPERATION_TAG, OPERATION_GRAPH_QUERY_PIT);
+      metricUtils.recordTimer(
+          SEARCH_OUTSIDE_TOOK_METRIC,
+          Math.max(0L, wallNanos - tookNanos),
+          OPERATION_TAG,
+          OPERATION_GRAPH_QUERY_PIT);
+    }
+    return response;
   }
 }

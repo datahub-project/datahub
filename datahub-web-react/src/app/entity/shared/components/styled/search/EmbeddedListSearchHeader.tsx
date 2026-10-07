@@ -1,4 +1,4 @@
-import { FilterOutlined } from '@ant-design/icons';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -72,7 +72,7 @@ export default function EmbeddedListSearchHeader({
             <TabToolbar>
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
-                        <FilterOutlined />
+                        <Funnel className="anticon" />
                         <Typography.Text>{t('embeddedListSearch.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>

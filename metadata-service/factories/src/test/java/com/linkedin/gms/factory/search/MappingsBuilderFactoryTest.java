@@ -21,7 +21,10 @@ import org.testng.annotations.Test;
 
 public class MappingsBuilderFactoryTest {
 
-  /** Search V3 mappings take the ngram settings of the engine that hosts the V3 indices. */
+  /**
+   * Search V3 mappings take the ngram settings of the engine that hosts the V3 indices, on the
+   * shared autocomplete field, the only ngram field of a V3 index.
+   */
   @Test
   @SuppressWarnings("unchecked")
   public void testV3MappingsUseTheV3EngineNgramConfig() {
@@ -53,11 +56,13 @@ public class MappingsBuilderFactoryTest {
             .filter(mapping -> mapping.getIndexName().endsWith("datasetindex_v3"))
             .findFirst()
             .orElseThrow();
-    Map<String, Object> name =
+    Map<String, Object> search =
         (Map<String, Object>)
-            ((Map<String, Object>) datasets.getMappings().get("properties")).get("name");
+            ((Map<String, Object>) datasets.getMappings().get("properties")).get("_search");
+    Map<String, Object> autocomplete =
+        (Map<String, Object>) ((Map<String, Object>) search.get("properties")).get("autocomplete");
     Map<String, Object> ngram =
-        (Map<String, Object>) ((Map<String, Object>) name.get("fields")).get("ngram");
+        (Map<String, Object>) ((Map<String, Object>) autocomplete.get("fields")).get("ngram");
     assertEquals(ngram.get("max_shingle_size"), "3");
   }
 }

@@ -6,7 +6,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.OpenSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
+import com.linkedin.metadata.search.elasticsearch.client.shim.WaitTrackingConnectionManager;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
@@ -18,7 +20,9 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -30,6 +34,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import lombok.Getter;
@@ -41,12 +46,12 @@ import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.util.PublicSuffixMatcherLoader;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
@@ -175,6 +180,10 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
   private final NamedXContentRegistry xContentRegistry;
+
+  /** Set while the client is built; kept so pool stats can be exported as gauges. */
+  @Nullable private WaitTrackingConnectionManager connectionManager;
+
   protected SearchEngineType engineType;
 
   public OpenSearchSearchClientShim(@Nonnull ShimConfiguration config) throws IOException {
@@ -315,8 +324,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
         };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
-    PoolingNHttpClientConnectionManager connectionManager =
-        new PoolingNHttpClientConnectionManager(
+    WaitTrackingConnectionManager connectionManager =
+        new WaitTrackingConnectionManager(
             ioReactor,
             org.apache.http.config.RegistryBuilder.<SchemeIOSessionStrategy>create()
                 .register("http", NoopIOSessionStrategy.INSTANCE)
@@ -325,6 +334,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
 
     int maxConnectionsPerRoute = Math.max(2, shimConfiguration.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+    this.connectionManager = connectionManager;
 
     log.info(
         "Configured connection pool: maxPerRoute={} (threadCount={})",
@@ -1198,6 +1208,15 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     // Always allow zero-index resolution, matching the ES8 shim; semantic search on partial
     // rollouts may target indices that do not yet exist on every node.
     lowLevelReq.addParameter("allow_no_indices", "true");
+    request
+        .timeout()
+        .ifPresent(
+            timeout -> {
+              // Bounds the shards' search and the client's wait, so the call ends by the deadline
+              final int millis = timeoutMillis(timeout);
+              lowLevelReq.addParameter("timeout", millis + "ms");
+              lowLevelReq.setOptions(timeoutOptions(millis));
+            });
 
     Response response = restClient.performRequest(lowLevelReq);
     String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
@@ -1235,7 +1254,27 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
               : Map.of();
       hits.add(new KnnSearchResponse.Hit(id, score, source));
     }
-    return new KnnSearchResponse(hits);
+    final boolean partial =
+        responseJson.path("timed_out").asBoolean(false)
+            || responseJson.path("_shards").path("failed").asInt(0) > 0;
+    return new KnnSearchResponse(hits, partial);
+  }
+
+  private static int timeoutMillis(@Nonnull Duration timeout) {
+    return (int) Math.max(1, Math.min(Integer.MAX_VALUE, timeout.toMillis()));
+  }
+
+  /** Replaces the client's connect, connection-pool and socket timeouts for one request. */
+  @Nonnull
+  private static RequestOptions timeoutOptions(int millis) {
+    return RequestOptions.DEFAULT.toBuilder()
+        .setRequestConfig(
+            RequestConfig.custom()
+                .setConnectTimeout(millis)
+                .setConnectionRequestTimeout(millis)
+                .setSocketTimeout(millis)
+                .build())
+        .build();
   }
 
   /** Recursively search for a "text" string field in a JSON node. */
@@ -1328,6 +1367,14 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
   @Override
   public RestClient getNativeClient() {
     return restClient;
+  }
+
+  @Override
+  public void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {
+    if (connectionManager != null) {
+      SearchConnectionPoolMetrics.register(registry, clusterName, connectionManager);
+    }
   }
 
   @Override

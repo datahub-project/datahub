@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Typography } from 'antd';
 import React, { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +59,7 @@ export const ViewSelectFooter = ({ hasViews, onClickCreateView, onClickManageVie
                 bordered={hasViews}
                 onClick={onClickCreateView}
             >
-                <PlusOutlined />
+                <Plus className="anticon" />
                 <Typography.Text>{t('viewSelect.createNewView')}</Typography.Text>
             </CreateViewButton>
             <ManageViewsButton type="text" ref={manageViewsButtonRef} onClick={onHandleClickManageViews}>
