@@ -176,7 +176,9 @@ sqlglot_lib = {
     # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
     # to force pure-Python sqlglot at runtime (see
     # datahub/_force_pure_python_sqlglot.py).
-    "sqlglot[c]==30.12.0",
+    # 30.21.0 rewrote pushdown_projections to raise on unexpanded stars; see
+    # datahub/sql_parsing/_legacy_pushdown_projections.py for the fallback.
+    "sqlglot[c]==30.21.0",
 }
 
 dbt_common = {
@@ -839,7 +841,7 @@ plugins: Dict[str, Set[str]] = {
     "snowplow": snowplow,
     # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
     # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
-    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # because DataHub pins sqlglot[c]==30.21.0 and no released sqlmesh accepts that
     # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
     # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
     "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
@@ -951,7 +953,7 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
-    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.21.0. Until
     # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
     "sqlmesh",
     # Debug recording is an optional debugging tool.

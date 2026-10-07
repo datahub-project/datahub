@@ -257,7 +257,7 @@ def _is_single_statement(query: str, platform: str) -> bool:
 
 def _is_string_literal(node: Optional[exp.Expression]) -> bool:
     # BigQuery raw strings (r'...') for the EXTERNAL_QUERY args parse as exp.RawString.
-    # In the pinned sqlglot (30.12.0) RawString is NOT a subclass of exp.Literal
+    # In the pinned sqlglot (still true as of 30.21.0) RawString is NOT an exp.Literal
     #   >>> exp.RawString.__mro__  # (RawString, Expression, Condition, Expr, object)
     #   >>> node.is_string         # False for a RawString
     # so a plain `isinstance(node, exp.Literal) and node.is_string` check rejects raw-string

@@ -1442,12 +1442,12 @@ sqlalchemy-redshift==1.0.0 ; python_full_version >= '3.11' and python_full_versi
     # via acryl-datahub
 sqlalchemy-vertica-python==0.6.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-sqlglot==30.12.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+sqlglot==30.21.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   dlt
     #   sqlglotc
-sqlglotc==30.12.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+sqlglotc==30.21.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via sqlglot
 sqlparse==0.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
