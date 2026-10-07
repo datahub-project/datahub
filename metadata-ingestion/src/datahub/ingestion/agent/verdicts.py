@@ -1,52 +1,57 @@
-from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Collection, Iterator, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
+
+from datahub.ingestion.agent.pattern_path import require_pattern_at, unset_block_on
 
 
 @dataclass(frozen=True)
 class Verdict:
-    """A connector's verdict for one node: would it be ingested given the
-    recipe's filters plus the source's built-in exclusions?
-
-    excluded_by names the reason a node would be dropped (a *_pattern field,
-    "default_schema", "system_object"), or None when included. The filtering
-    logic itself lives in the connector (reusing its own ingestion filters);
-    the framework only carries it.
+    """Would one node be ingested, given the recipe's filters and the source's
+    own exclusions? excluded_by names the field or rule that drops it
+    ("default_schema"), or None when included.
     """
 
     included: bool
     excluded_by: Optional[str] = None
-    # The string the connector matched, when it is not the node's own name.
-    # Redshift matches "database.schema" once match_fully_qualified_names is on, and
-    # reporting the bare name there tells a caller the opposite of what decided:
-    # they see target='analytics' excluded by a pattern of '^analytics$' and conclude
-    # the probe is broken. `target` is the one field probe filter exists to get right.
+    # The string the connector matched, when it is not the name the pattern was
+    # given (a qualified schema): reported as the target, since it decided.
     matched_target: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # Checked here, where every verdict is built, so neither a connector's
+        # probe_verdict_override nor a selection module can return one that
+        # contradicts itself.
+        if not self.included and not (
+            isinstance(self.excluded_by, str) and self.excluded_by.strip()
+        ):
+            raise ValueError("an excluded verdict must name what excluded it")
+        if self.included and self.excluded_by is not None:
+            raise ValueError("an included verdict names nothing that excluded it")
 
     @classmethod
     def include(cls) -> "Verdict":
         return cls(True, None)
 
-
-@dataclass(frozen=True)
-class SchemaMatch:
-    """A connector's own verdict for a container node, and the string it matched.
-
-    Returned by probe_schema_verdict_override. Both facts travel together because
-    only the override knows them: it runs the connector's own predicate (Redshift's
-    is_schema_allowed over "database.schema"), so nothing else can say what decided.
-    """
-
-    included: bool
-    target: str
+    @classmethod
+    def exclude(
+        cls, excluded_by: str, matched_target: Optional[str] = None
+    ) -> "Verdict":
+        """An exclusion, naming the field or rule that decided it."""
+        return cls(False, excluded_by, matched_target)
 
 
 _INCLUDED = Verdict.include()
 
-# A level the source offers no filter for (e.g. Mode's datasets and queries).
-# Distinct from pattern_field=None, which means "resolve the conventional
-# <kind>_pattern field". Nodes at an UNFILTERED level report pattern_field=None
-# and are always included.
+# A level the source declares it does not filter. Its nodes report
+# pattern_field=None and are always included.
 UNFILTERED: str = "__unfiltered__"
 
 
@@ -58,122 +63,105 @@ class ClassifyContext:
     name: str
     fqn: str
     pattern_field: Optional[str]
-    # The container names already descended, top-first — the parent of this node.
+    # The containers above this node, outermost first (--parent).
     parent_path: Tuple[str, ...]
-    # Report that this node's classification degraded rather than raised (e.g.
-    # a connector couldn't resolve its exact ingestion identifier and matched
-    # on a less-precise stand-in instead). Feeds the same ProbeMethodResult.warnings
-    # list ProbeSoftError does, deduplicated by check_filters so a single
-    # connector-wide reason isn't appended once per node it's classified for.
+    # Report a degraded judgement (a less precise target). Deduplicated by
+    # message, so a connector-wide reason is reported once.
+    warn: Callable[[str], None]
+    # The kind being judged, canonicalised by check_filters.
+    kind: str = ""
+
+
+_NO_PARENT_WARNING = (
+    "no parent given, so these were judged on their bare names; this "
+    "source filters on a qualified identifier, so pass the containing "
+    "schema/database to get the verdict ingestion actually makes"
+)
+
+
+def parent_required(ctx: ClassifyContext) -> bool:
+    """True, after warning, when ctx has no parent to qualify its name with.
+
+    For a probe_match_target that needs the container: without one it would
+    build an identifier ingestion never builds (".orders"), so it returns None
+    and the bare name is judged. The warning names no object, so it shows once.
+    """
+    if ctx.parent_path:
+        return False
+    ctx.warn(_NO_PARENT_WARNING)
+    return True
+
+
+@dataclass(frozen=True)
+class VerdictContext:
+    """What probe_verdict_override is told about one name. A context object, so
+    a new field breaks no implementer; read only what you need."""
+
+    kind: str
+    name: str
+    # The match target (probe_match_target's), so an override re-checking a
+    # second pattern matches the same string.
+    target: str
+    parent_path: Tuple[str, ...]
+    # The field filtering this kind, possibly dotted; None when there is none.
+    pattern_field: Optional[str]
+    # A kind switch's exclusion (an Enables field set False), to keep or
+    # overrule.
+    structural: Optional[Verdict]
+    # Per-name facts from `probe filter --from-run` (an id a pattern matches).
+    # Empty for bare names: an override needing one degrades with a warning.
+    attributes: Mapping[str, str]
     warn: Callable[[str], None]
 
 
 def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> Verdict:
-    """The standard allow/deny check: the config's *_pattern field against `target`.
-
-    Exported so a custom level classifier can defer to it after its own
-    structural exclusions.
-    """
+    """The config's pattern field (a dotted path; an unset Optional block
+    filters nothing) against `target`, for an override that defers to it."""
     if pattern_field is None or pattern_field == UNFILTERED:
-        # UNFILTERED is a sentinel, not a field name: looking it up would ask
-        # the config for an attribute called "__unfiltered__". Its meaning is
-        # "no filter at this level", which is the same include that None gets.
-        # filter_check guards this before calling, but the sentinel and this
-        # function are exported from the same module and read as composable.
         return _INCLUDED
-    pattern = getattr(config, pattern_field)
-    return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)
+    if unset_block_on(config, pattern_field) is not None:
+        # An Optional block the recipe leaves out filters nothing.
+        return _INCLUDED
+    pattern = require_pattern_at(config, pattern_field)
+    return _INCLUDED if pattern.allowed(target) else Verdict.exclude(pattern_field)
 
 
 class ProbeSoftError(ValueError):
-    """A connector raises this when one endpoint could not be read cleanly -- a
-    404 on a resource deleted between listing and fetch, or a 403 on something
-    this token cannot read -- and the connector wants to report that as an
-    empty contribution rather than failing the whole command.
+    """One sub-read could not be done cleanly (a 404 on something deleted
+    between listing and fetch, a 403 the token cannot read), reported as an
+    empty contribution rather than a failed command.
 
-    **The connector that raises it must also catch it and record the reason.**
-    run_probe_method catches only NotImplementedError; there is no
-    framework-level catch for this. mode_probe's _listing is the worked example.
-    Uncaught, it reaches the CLI and exits 2.
+    The provider that raises it also catches it and records a warning
+    (provider_helpers.soft_listing does both); the framework does not. A name
+    the caller gave that does not exist is a ProbeArgumentError. A ValueError,
+    so one that escapes exits 2.
+    """
 
-    An earlier version of this docstring described a mechanism that no longer
-    exists -- ClientProbe.list_children catching per level, ProbeLevel.sources,
-    LevelSource -- all from the declared hierarchy deleted within this branch.
-    It also claimed run_probe_method records str(exc) on
-    ProbeMethodResult.warnings and continues, which it does not. Recording the
-    reason is the connector's job, and the two connectors that raise this
-    disagreed about it: Mode caught it, Hex did not.
 
-    Prefer a plain ValueError for "the caller named something that is not
-    there" -- a nonexistent space or report is a bad argument, not a degraded
-    read, and routing it through the soft path reports exit 0 with an empty
-    result for what is really exit 2.
+class ProbeArgumentError(ValueError):
+    """The caller's argument is wrong or names nothing: exit 2, message shown.
 
-    Subclasses ValueError deliberately. When one does reach the CLI uncaught,
-    what it reports is that the caller named something that isn't there ("no
-    report named 'x'"), which is a bad argument, not an unreachable source --
-    so it must exit 2, not 3, or the agent retries the connection instead of
-    fixing the name. recipe_cli now classifies exceptions in one place
-    (_USER_ERRORS), so that mapping no longer depends on remembering to add a
-    clause to each of seven ladders.
+    Text is shown by type only (agent.error_policy), so a plain ValueError
+    keeps exit 2 but loses its message. After recorded read failures the call
+    reports ProbeReadFailed (exit 3) instead.
     """
 
 
 class ProbeReadFailed(Exception):
-    """A command failed and the connector had already recorded why.
-
-    Deliberately NOT a ValueError. A getter can call report.failure() and then
-    raise something from the ValueError family -- Hex's _project_id_or_raise
-    raises ProbeSoftError("no project titled 'x'") after its /projects fetch
-    already failed and was recorded. Mapped to exit 2, that tells an agent its
-    argument was wrong for what was an auth or transport error, and sends it to
-    fix a title that was never the problem. This carries the recorded reason and
-    maps to exit 3.
-    """
+    """A command failed after the connector recorded why: exit 3, with the
+    recorded reason. Not a ValueError: a "no such name" raised after a failed
+    fetch reports the fetch, not a bad argument."""
 
 
 class ProbeConnectionError(Exception):
     """The source could not be reached, or refused the session, while the probe
-    was opening it.
-
-    Not a ValueError, for the reason ProbeReadFailed is not: connectors wrap
-    connect failures in exceptions the CLI otherwise reads as bad input --
-    Snowflake raises ConfigurationError for DNS, network and auth failures
-    alike -- and exit 2 sends an agent to edit a recipe that was never the
-    problem. Maps to exit 3.
-    """
+    opened it: exit 3. Not a ValueError: connectors wrap connect failures in
+    types the CLI would otherwise read as bad input."""
 
 
 class ProbeInternalError(Exception):
-    """A getter failed with a programming error (TypeError, KeyError, ...)
-    after its arguments had already been checked.
-
-    Those exception types mean "your input was wrong" only before the call:
-    once run_probe_method has coerced the arguments, a KeyError is the getter
-    misreading a response, not the caller's mistake. Maps to exit 1.
-    """
-
-
-@contextmanager
-def soft_on_status(*codes: int, context: str) -> Iterator[None]:
-    """Treat the given HTTP statuses as expected absence, not failure.
-
-    A probe must distinguish "nothing here" from "could not look" (see
-    ProbeSoftError): the listed codes become a ProbeSoftError, anything else
-    propagates. Duck-types on `.response.status_code` -- matches
-    requests.HTTPError and similar shapes -- so the framework takes no
-    HTTP-library dependency; any HTTP-based connector can reuse this instead
-    of writing its own status-code split.
-    """
-    try:
-        yield
-    except Exception as exc:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-        if status in codes:
-            raise ProbeSoftError(
-                f"{context} returned HTTP {status}; treating it as empty."
-            ) from exc
-        raise
+    """A defect in the probe or a provider: exit 1. Once the arguments are
+    checked, a KeyError is the getter misreading a response, not the caller."""
 
 
 def ancestors_in(
@@ -181,10 +169,8 @@ def ancestors_in(
 ) -> Optional[Tuple[str, ...]]:
     """The container kinds above `kind`, outermost first.
 
-    `chain` is the source's containers outermost first. A container's
-    ancestors are the ones before it; a leaf sits under the whole chain. None
-    for a kind the chain does not describe, which `probe filter` reports rather
-    than guessing at.
+    `chain` is the source's containers, outermost first; a leaf sits under the
+    whole chain. None for a kind the chain does not describe.
     """
     if kind in chain:
         return tuple(chain[: list(chain).index(kind)])
