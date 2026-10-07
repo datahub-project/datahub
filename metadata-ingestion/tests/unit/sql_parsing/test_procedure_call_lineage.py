@@ -593,16 +593,10 @@ def test_staging_a_call_through_a_temp_table_keeps_the_real_output(
     ]
 
 
-def test_return_code_call_yields_no_lineage():
-    """Known gap, pinned rather than fixed here: `EXEC @rc = proc` loses its edge.
+def test_return_code_call_yields_an_edge():
+    """`EXEC @rc = proc` is a real call to `child` and yields its edge.
 
-    Assigning the return code is a real call to `child`, and the splitter does break
-    it out as its own statement, but sqlglot 30.12 raises on the form. Recovering the
-    edge needs the detector to accept `@var =` before the name, which belongs with the
-    other detector gaps rather than in a splitter change.
-
-    Change this assertion when it learns to. The pattern is common in exactly the
-    dispatcher procedures this PR is about, so the gap is not academic.
+    It also has to open its own statement, so the DML in front of it keeps its lineage.
     """
     schema_resolver = SchemaResolver(platform="mssql", env="STG")
 
@@ -614,31 +608,40 @@ def test_return_code_call_yields_no_lineage():
             "CREATE PROCEDURE dbo.runner AS\n"
             "    BEGIN\n"
             "        DECLARE @rc INT\n"
+            "        INSERT INTO my_db.dbo.target SELECT c FROM my_db.dbo.source\n"
             "        EXEC @rc = dbo.child @a\n"
             "    END"
         ),
         is_temp_table=lambda _: False,
     )
 
-    assert result is None or not result.inputDatajobs
+    assert result is not None
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.source,STG)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.target,STG)"
+    ]
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG),child)"
+    ]
 
 
 @pytest.mark.parametrize(
     "trailing_call",
     [
         "EXEC(@sql)",
-        "EXEC @rc = dbo.child @a",
         "EXECUTE AS USER = 'etl'",
     ],
 )
 def test_a_call_with_no_resolvable_callee_does_not_cost_the_statement_before_it(
     trailing_call,
 ):
-    """None of these three names a callee, so none of them yields an edge.
+    """Neither of these names a callee, so neither yields an edge.
 
-    They still have to open a statement. While they did not, `EXEC @rc =` and
-    `EXECUTE AS` absorbed the DML in front of them into a fragment sqlglot cannot
-    parse, costing that statement its lineage too. `EXEC(@sql)` is asserted alongside
+    They still have to open a statement. While they did not, `EXECUTE AS` absorbed
+    the DML in front of it into a fragment sqlglot cannot parse, costing that
+    statement its lineage too. `EXEC(@sql)` is asserted alongside
     them because sqlglot happens to tolerate it at the end of a blob today, which is
     incidental -- the split is what the behaviour should rest on.
     """
