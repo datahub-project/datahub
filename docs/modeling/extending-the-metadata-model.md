@@ -589,14 +589,19 @@ and booleans for filters, facets and sorts. Each searchable string field copies 
   (`@SearchableRef`) only ever copy into `_search.other`;
 - and, with `enableAutocomplete`, also `_search.autocomplete`.
 
+Structured property values of type `string`, `rich_text` and `urn` copy into `_search.structuredProperties`, which
+every V3 entity index maps, unless the property's definition sets `excludeFromFullTextSearch` in its
+`searchConfiguration`.
+
 A shared field fed by several fields holds all of their values, so an ingested and an edited description are both
 searchable. An edited display name (`editedName`) lands in `_search.other`, so the name entities sort by stays the
 ingested one, as on V2. A shared field that a field queried by default feeds is analyzed (`text` and `stemmed`, with
 an identifier such as `customer_id` indexed whole and by its parts, short parts such as `id` dropped like any short word), and `_search.autocomplete` has a
 search-as-you-type `ngram` subfield; the other
 shared fields stay keywords, dates or numbers. A label a model names keeps its indexed keyword for sorts and filters
-even when it is analyzed, except `description`, `columns` and `other`, which hold only their analyzed subfields. Matches in `_search.entityName` and
-`_search.qualifiedName` weigh 10, in `_search.other` 0.5, and in every other shared field 1. A search field
+even when it is analyzed, except `description`, `columns`, `structuredProperties` and `other`, which hold only their analyzed subfields. Matches in `_search.entityName` and
+`_search.qualifiedName` weigh 10, in `_search.structuredProperties` 0.8, in `_search.other` 0.5, and in every other
+shared field 1. A search field
 configuration (`fieldConfigurations` in the search configuration) names a shared field either directly or by any field
 that feeds it, except `_search.other`, which only its own name selects. Matched fields ("Matched on") come from the urn,
 the fields that feed each searched shared field, except `_search.columns`, and of `_search.other` only the fields that
