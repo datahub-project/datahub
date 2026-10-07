@@ -1,16 +1,19 @@
 import { Input } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FixedSizeGrid as Grid } from 'react-window';
 import styled from 'styled-components';
 
-import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
+import { PHOSPHOR_ICONS } from '@components/components/Icon/constants';
+
+import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
 
 const columnCount = 5; // Number of columns in the grid
 
 type Props = {
     onIconPick: (icon: string) => void;
     color?: string | null;
+    selectedIcon?: string | null;
 };
 
 const CellContainer = styled.div<{ color?: string; selected?: boolean }>`
@@ -30,23 +33,26 @@ const Cell = ({
 }: {
     columnIndex: number;
     rowIndex: number;
-    style: any;
-    data: any;
+    style: React.CSSProperties;
+    data: {
+        iconNames: string[];
+        onIconPick: (icon: string) => void;
+        selectedIcon: string;
+        setSelectedIcon: (icon: string) => void;
+        color?: string | null;
+    };
 }) => {
-    const { icons, iconNames, onIconPick, selectedIcon, setSelectedIcon, color } = data;
+    const { iconNames, onIconPick, selectedIcon, setSelectedIcon, color } = data;
     const index = rowIndex * columnCount + columnIndex;
     const iconName = iconNames[index];
-    const Icon = icons?.[iconName];
 
-    if (!Icon) return <div style={style} />;
+    if (!iconName) return <div style={style} />;
 
     return (
         <CellContainer
-            color={color}
+            color={color || undefined}
             selected={selectedIcon === iconName}
-            style={{
-                ...style,
-            }}
+            style={style}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -60,7 +66,7 @@ const Cell = ({
                 setSelectedIcon(iconName);
             }}
         >
-            <Icon />
+            {getLazyIcon(iconName, { size: 28 })}
         </CellContainer>
     );
 };
@@ -72,29 +78,37 @@ const GridContainer = styled.div`
     border: 1px solid lightgray;
 `;
 
-export const ChatIconPicker = ({ onIconPick, color }: Props) => {
+export const ChatIconPicker = ({ onIconPick, color, selectedIcon: selectedIconProp }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
-    const icons = useMuiIcons();
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedIcon, setSelectedIcon] = useState<string>('');
-    const [filteredIcons, setFilteredIcons] = useState<string[]>([]);
+    const [selectedIcon, setSelectedIcon] = useState<string>(selectedIconProp || '');
+    const [filteredIcons, setFilteredIcons] = useState<string[]>(PHOSPHOR_ICONS);
 
     useEffect(() => {
-        if (!icons) return;
-        const filtered = Object.keys(icons).filter((iconName) =>
-            iconName.toLowerCase().includes(searchTerm.toLowerCase()),
-        );
-        setFilteredIcons(filtered);
-    }, [searchTerm, icons]);
+        if (selectedIconProp) {
+            setSelectedIcon(selectedIconProp);
+        }
+    }, [selectedIconProp]);
 
-    const cellData = {
-        icons,
-        iconNames: filteredIcons,
-        onIconPick,
-        selectedIcon,
-        setSelectedIcon,
-        color,
-    };
+    useEffect(() => {
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) {
+            setFilteredIcons(PHOSPHOR_ICONS);
+            return;
+        }
+        setFilteredIcons(PHOSPHOR_ICONS.filter((iconName) => iconName.toLowerCase().includes(term)));
+    }, [searchTerm]);
+
+    const cellData = useMemo(
+        () => ({
+            iconNames: filteredIcons,
+            onIconPick,
+            selectedIcon,
+            setSelectedIcon,
+            color,
+        }),
+        [filteredIcons, onIconPick, selectedIcon, color],
+    );
 
     return (
         <div>
@@ -107,10 +121,10 @@ export const ChatIconPicker = ({ onIconPick, color }: Props) => {
             <GridContainer>
                 <Grid
                     columnCount={columnCount}
-                    columnWidth={91} // Adjust the width as needed
+                    columnWidth={91}
                     height={400}
                     rowCount={Math.ceil(filteredIcons.length / columnCount)}
-                    rowHeight={70} // Adjust the height as needed
+                    rowHeight={70}
                     itemData={cellData}
                     width={470}
                 >

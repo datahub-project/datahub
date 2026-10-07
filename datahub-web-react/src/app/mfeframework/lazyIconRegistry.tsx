@@ -25,11 +25,17 @@ function getCachedLazyIcon(name: string): React.LazyExoticComponent<AnyComponent
     return iconCache.get(name)!;
 }
 
-export function getLazyIcon(name: string): JSX.Element {
+type LazyIconProps = React.ComponentPropsWithoutRef<'svg'> & {
+    weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
+    size?: string | number;
+    color?: string;
+};
+
+export function getLazyIcon(name: string, props?: LazyIconProps): JSX.Element {
     const LazyIcon = getCachedLazyIcon(name);
     return (
-        <Suspense fallback={<AppWindow />}>
-            <LazyIcon />
+        <Suspense fallback={<AppWindow {...props} />}>
+            <LazyIcon {...props} />
         </Suspense>
     );
 }

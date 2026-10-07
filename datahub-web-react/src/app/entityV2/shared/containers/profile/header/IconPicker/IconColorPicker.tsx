@@ -5,6 +5,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
+import { resolveDisplayIconName } from '@app/sharedV2/icons/resolveDisplayIcon';
 
 import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
 import { EntityType, IconLibrary } from '@types';
@@ -15,6 +16,7 @@ type IconColorPickerProps = {
     onClose: () => void;
     color?: string | null;
     icon?: string | null;
+    iconLibrary?: IconLibrary | null;
     onChangeColor?: (color: string) => void;
     onChangeIcon?: (icon: string) => void;
     /**
@@ -39,17 +41,7 @@ const Section = styled.div`
     }
 `;
 
-function capitalize(string: string) {
-    if (string.length === 0) return '';
-
-    return string[0].toUpperCase() + string.slice(1);
-}
-
-function snakeToCamel(string: string) {
-    const [start, ...rest] = string.split('_');
-
-    return start + rest.map(capitalize).join('');
-}
+const DEFAULT_PHOSPHOR_PICK = 'UserCircle';
 
 function IconColorPicker({
     name,
@@ -57,6 +49,7 @@ function IconColorPicker({
     onClose,
     color,
     icon,
+    iconLibrary,
     onChangeColor,
     onChangeIcon,
     showIcon = true,
@@ -70,8 +63,10 @@ function IconColorPicker({
     const theme = useTheme();
 
     const initialColor = color || theme.colors.colorPickerDefault;
+    // Map legacy Material names to Phosphor for the staged pick; Phosphor names pass through.
+    const initialIcon = resolveDisplayIconName(icon, iconLibrary) || DEFAULT_PHOSPHOR_PICK;
     const [stagedColor, setStagedColor] = useState<string>(initialColor);
-    const [stagedIcon, setStagedIcon] = useState<string>(icon || 'account_circle');
+    const [stagedIcon, setStagedIcon] = useState<string>(initialIcon);
 
     const resolvedName = name || t('iconPicker.defaultDomainName');
     const title = t(showIcon ? 'iconPicker.chooseIconForTitle' : 'iconPicker.chooseColorForTitle', {
@@ -84,9 +79,9 @@ function IconColorPicker({
         };
         if (showIcon) {
             input.icon = {
-                iconLibrary: IconLibrary.Material,
-                name: capitalize(snakeToCamel(stagedIcon)),
-                style: 'Outlined',
+                iconLibrary: IconLibrary.Phosphor,
+                name: stagedIcon,
+                style: 'regular',
             };
         }
         // Pick just the relevant refetch query so Apollo doesn't warn about queries that aren't
@@ -160,7 +155,11 @@ function IconColorPicker({
             {showIcon && (
                 <Section>
                     <SectionLabel>{tcl('icon')}</SectionLabel>
-                    <ChatIconPicker color={stagedColor} onIconPick={(i) => setStagedIcon(i)} />
+                    <ChatIconPicker
+                        color={stagedColor}
+                        selectedIcon={stagedIcon}
+                        onIconPick={(i) => setStagedIcon(i)}
+                    />
                 </Section>
             )}
         </Modal>
