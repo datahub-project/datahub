@@ -23,6 +23,33 @@ class _DriverError(Exception):
         self.sqlstate = sqlstate
 
 
+class _MySqlProtocolError(Exception):
+    """A MySQL-protocol driver error: an errno, and no SQLSTATE to read."""
+
+    def __init__(self, number: int) -> None:
+        super().__init__(number, "server said something")
+        self.errno = number
+
+
+class _GatewayError(Exception):
+    """A wrapper whose own code (an HTTP status) is not the SQL failure's."""
+
+    status_code = 400
+
+
+def _failure(mode: str) -> Exception:
+    if mode.startswith("errno:"):
+        return _MySqlProtocolError(int(mode.split(":", 1)[1]))
+    if mode.startswith("wrapped:"):
+        try:
+            raise _DriverError(mode.split(":", 1)[1])
+        except _DriverError as cause:
+            wrapper = _GatewayError("gateway")
+            wrapper.__cause__ = cause
+            return wrapper
+    return _DriverError(mode)
+
+
 class _Provider:
     sql_dialect = "postgres"
 
@@ -46,7 +73,7 @@ class _Provider:
     @probe_method(name="sql", scoped_sql_param="query", shapes_own_result=True)
     def sql(self, query: str) -> Dict[str, object]:
         """Run a catalog query."""
-        raise _DriverError(self.mode)
+        raise _failure(self.mode)
 
     @probe_method(name="things")
     def things(self) -> List[str]:
@@ -62,6 +89,9 @@ class _Config(ConfigModel):
         return _Provider
 
 
+_REAL_CONFIG_CLASS_FOR = probe_methods.config_class_for
+
+
 @pytest.fixture(autouse=True)
 def _fake_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
@@ -75,9 +105,29 @@ def test_the_callers_own_sql_failing_with_sqlstate_class_42_is_theirs() -> None:
         run_probe_method("fake", {"mode": "42703"}, "sql", dict(_QUERY))
 
 
-def test_the_callers_sql_failing_with_another_sqlstate_is_the_sources() -> None:
+@pytest.mark.parametrize(
+    "mode",
+    [
+        # Unknown column, missing table, syntax error: SQLSTATE 42S22, 42S02
+        # and 42000, which a MySQL-protocol driver reports as errno only.
+        "errno:1054",
+        "errno:1146",
+        "errno:1064",
+        # A class-42 SQLSTATE under a wrapper whose own code is not one.
+        "wrapped:42703",
+    ],
+)
+def test_the_callers_sql_failing_with_a_class_42_error_anywhere_is_theirs(
+    mode: str,
+) -> None:
+    with pytest.raises(ProbeArgumentError):
+        run_probe_method("fake", {"mode": mode}, "sql", dict(_QUERY))
+
+
+@pytest.mark.parametrize("mode", ["08006", "errno:2013", "wrapped:08006"])
+def test_the_callers_sql_failing_with_another_code_is_the_sources(mode: str) -> None:
     with pytest.raises(ProbeConnectionError):
-        run_probe_method("fake", {"mode": "08006"}, "sql", dict(_QUERY))
+        run_probe_method("fake", {"mode": mode}, "sql", dict(_QUERY))
 
 
 def test_sqlstate_42_from_a_listing_the_connector_wrote_is_still_the_sources() -> None:
@@ -102,7 +152,9 @@ def test_a_refused_connection_stays_the_sources() -> None:
 def test_a_url_sqlalchemy_cannot_use_is_the_callers(
     monkeypatch: pytest.MonkeyPatch, uri: str
 ) -> None:
-    monkeypatch.undo()
+    # The real registry, restored alone: undo() would also revert every other
+    # fixture's patches on this monkeypatch.
+    monkeypatch.setattr(probe_methods, "config_class_for", _REAL_CONFIG_CLASS_FOR)
     with pytest.raises(ProbeArgumentError) as info:
         run_probe_method(
             "sqlalchemy", {"connect_uri": uri, "platform": "x"}, "containers", {}

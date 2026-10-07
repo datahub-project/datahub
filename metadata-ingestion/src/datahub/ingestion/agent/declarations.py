@@ -90,6 +90,9 @@ def _label(marker: Union[Filters, Enables, FiltersByRule, Qualifier]) -> str:
     return f"{type(marker).__name__}({str(marker.kind)!r})"
 
 
+_DEFECTIVE = "the connector is defective: "
+
+
 def declared_unfiltered_kinds(config: object) -> Set[str]:
     """Kinds this source says it deliberately does not filter
     (probe_unfiltered_kinds), read by name on any config."""
@@ -103,7 +106,7 @@ def declared_unfiltered_kinds(config: object) -> Set[str]:
     ):
         owner = config if isinstance(config, type) else type(config)
         raise ProbeInternalError(
-            f"the connector is defective: {owner.__name__}.probe_unfiltered_kinds "
+            f"{_DEFECTIVE}{owner.__name__}.probe_unfiltered_kinds "
             f"returned {type(declared).__name__}, not a set of kind names"
         )
     return {str(kind) for kind in declared}
@@ -192,7 +195,12 @@ def _rule_kind_problems(config_cls: type) -> Iterator[str]:
             f"probe_verdict_override to judge those kinds"
         )
     pattern_fields = _kind_fields(config_cls, Filters)
-    unfiltered = declared_unfiltered_kinds(config_cls)
+    try:
+        unfiltered = declared_unfiltered_kinds(config_cls)
+    except ProbeInternalError as exc:
+        # Listed with the class's other problems, not in place of them.
+        yield str(exc).removeprefix(_DEFECTIVE)
+        unfiltered = set()
     for kind in rule_kinds:
         if kind in pattern_fields:
             yield (
@@ -249,7 +257,7 @@ def _declarations(config_cls: type) -> _Declarations:
     are read; a misdeclared class is the connector's defect."""
     problems = marker_problems(config_cls)
     if problems:
-        raise ProbeInternalError("the connector is defective: " + "; ".join(problems))
+        raise ProbeInternalError(_DEFECTIVE + "; ".join(problems))
     qualifiers = _marked_fields(config_cls, Qualifier)
     return _Declarations(
         filters=_kind_fields(config_cls, Filters),
