@@ -75,6 +75,17 @@ describe('useGroupMemberCount', () => {
         expect(fetch).not.toHaveBeenCalled();
     });
 
+    it('fetches the count rather than trust a plain relationships total, which may count one kind of membership', async () => {
+        const { mock } = memberCountMock(GROUP_URN, 7);
+        const { result, waitFor } = renderUseGroupMemberCount(
+            { urn: GROUP_URN, type: EntityType.CorpGroup, relationships: { total: 3 } } as unknown as CorpGroup,
+            [mock],
+        );
+
+        expect(result.current).toBeUndefined();
+        await waitFor(() => expect(result.current).toBe(7));
+    });
+
     it('returns nothing for entities other than groups, without fetching', async () => {
         const { mock, result: fetch } = memberCountMock(USER_URN, 7);
         const { result } = renderUseGroupMemberCount({ urn: USER_URN, type: EntityType.CorpUser } as CorpUser, [mock]);

@@ -1,11 +1,15 @@
 import { useGetGroupMemberCountQuery } from '@graphql/group.generated';
 import { CorpGroup, Entity, EntityType } from '@types';
 
-/** Member total, only when a query actually selected it. A missing field is not "0 members". */
+/**
+ * Member total, only when a query actually selected it. A missing field is not "0 members". Only the
+ * `memberCount` alias counts: a plain `relationships` total depends on whatever types and direction
+ * that query asked for, and some group queries select only one kind of membership.
+ */
 function getSelectedGroupMemberCount(entity: Entity): number | undefined {
     if (entity.type !== EntityType.CorpGroup) return undefined;
     const group = entity as CorpGroup & { memberCount?: { total?: number | null } | null };
-    const total = group.memberCount?.total ?? group.relationships?.total;
+    const total = group.memberCount?.total;
     return total == null ? undefined : total;
 }
 
