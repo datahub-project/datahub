@@ -5377,3 +5377,56 @@ def test_simple_dataset_terms_dedup_keeps_the_configured_entry():
     assert isinstance(terms_aspect, models.GlossaryTermsClass)
     assert len(terms_aspect.terms) == 1
     assert terms_aspect.terms[0].context == "from-config"
+
+
+def test_ownership_patching_distinguishes_attribution_source(mock_time):
+    """The server merge keys on the same identity as the transformer's own dedup
+    and HasOwnershipPatch, so entries differing only in attribution survive."""
+    owner = builder.make_user_urn("jdoe")
+    server_owner = models.OwnerClass(
+        owner=owner,
+        type=models.OwnershipTypeClass.TECHNICAL_OWNER,
+        attribution=models.MetadataAttributionClass(
+            time=0,
+            actor="urn:li:corpuser:datahub",
+            source="urn:li:dataHubAction:propagation",
+        ),
+    )
+    mce_owner = models.OwnerClass(
+        owner=owner, type=models.OwnershipTypeClass.TECHNICAL_OWNER
+    )
+
+    mock_graph = mock.MagicMock()
+    mock_graph.get_ownership.return_value = models.OwnershipClass(owners=[server_owner])
+
+    merged = AddDatasetOwnership._merge_with_server_ownership(
+        mock_graph,
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+        models.OwnershipClass(owners=[mce_owner]),
+    )
+
+    assert merged is not None
+    assert len(merged.owners) == 2
+
+
+def test_extract_dataset_tags_dedupes_against_existing_tags():
+    """ExtractDatasetTags shares the tag dedup via get_result_semantics, so a tag
+    already on the entity is not re-added when the urn also yields it."""
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ExtractDatasetTags,
+        aspect=models.GlobalTagsClass(
+            tags=[
+                models.TagAssociationClass(
+                    tag=builder.make_tag_urn("example"), context="from-stream"
+                )
+            ]
+        ),
+        config={"extract_tags_from": "urn", "extract_tags_regex": ".*(example).*"},
+    )
+
+    tags_aspect = output[0].record.aspect
+    assert isinstance(tags_aspect, models.GlobalTagsClass)
+    assert len(tags_aspect.tags) == 1
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("example")
+    # The extracted tag is appended last, so it is the one that survives.
+    assert tags_aspect.tags[0].context is None

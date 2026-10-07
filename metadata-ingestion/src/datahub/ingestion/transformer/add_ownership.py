@@ -20,10 +20,7 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import (
-    OwnershipTransformer,
-    dedupe_preserving_order,
-)
+from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     MetadataChangeProposalClass,
@@ -32,6 +29,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.specific.dashboard import DashboardPatchBuilder
+from datahub.utilities.dedup_list import deduplicate_list
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +112,16 @@ class AddOwnership(OwnershipTransformer):
 
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
+            # Same identity as _dedupe_owners and HasOwnershipPatch.add_owner, so
+            # a server owner and an incoming one collapse here exactly when the
+            # transformer would have collapsed them itself.
             owners = {
-                (owner.owner, owner.type, owner.typeUrn): owner
+                AddOwnership._owner_identity(owner): owner
                 for owner in server_ownership.owners
             }
             owners.update(
                 {
-                    (owner.owner, owner.type, owner.typeUrn): owner
+                    AddOwnership._owner_identity(owner): owner
                     for owner in mce_ownership.owners
                 }
             )
@@ -194,7 +195,7 @@ class AddOwnership(OwnershipTransformer):
         # Container rollup concatenates owners from every child. Without
         # dedup, large folders emit one identical add_owner op per child
         # and can exceed GMS's payload limit.
-        return dedupe_preserving_order(owners, key=AddOwnership._owner_identity)
+        return deduplicate_list(owners, key=AddOwnership._owner_identity, keep="last")
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
@@ -219,10 +220,9 @@ class AddOwnership(OwnershipTransformer):
         # The incoming aspect may already carry owners we are about to add, for
         # example when a source merges current server state into the stream
         # before transformers run. Appending unconditionally would then store a
-        # second identical entry: the aspect is written as an UPSERT and the
-        # collection is persisted verbatim, so nothing downstream collapses it
-        # and the duplicate recurs on every run. The PATCH branch below already
-        # dedupes; match it here.
+        # second identical entry: the aspect is written as an UPSERT and GMS
+        # persists the collection verbatim - there is no mutation hook for
+        # ownership - so the duplicate sticks and recurs on every run.
         out_ownership_aspect.owners = self._dedupe_owners(out_ownership_aspect.owners)
 
         if self.config.semantics == TransformerSemantics.PATCH:

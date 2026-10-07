@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta
-from typing import Callable, Dict, Hashable, List, Optional, TypeVar, cast
+from typing import List, Optional, cast
 
 from datahub.configuration.common import (
     TransformerSemantics,
@@ -13,31 +13,9 @@ from datahub.ingestion.transformer.base_transformer import (
     SingleAspectTransformer,
 )
 from datahub.metadata.schema_classes import GlobalTagsClass
+from datahub.utilities.dedup_list import deduplicate_list
 
 log = logging.getLogger(__name__)
-
-_T = TypeVar("_T")
-
-
-def dedupe_preserving_order(items: List[_T], key: Callable[[_T], Hashable]) -> List[_T]:
-    """Collapse entries sharing a key, keeping the last value at the first
-    position.
-
-    Transformers append their configured entries onto whatever the stream
-    already holds. When the two overlap the aspect would otherwise carry the
-    same entry twice, and since it is written as an UPSERT the collection is
-    persisted verbatim, so the duplicate sticks and recurs on every run.
-
-    Later entries win because the configured ones are appended last and should
-    take precedence over what arrived in the stream - the same rule the
-    server-merge helpers apply via ``{**server, **aspect}``. Keeping the last
-    value is what makes this a no-op on the PATCH path, which merges that way
-    immediately afterwards.
-    """
-    deduped: Dict[Hashable, _T] = {}
-    for item in items:
-        deduped[key(item)] = item
-    return list(deduped.values())
 
 
 class DatasetTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
@@ -139,8 +117,8 @@ class DatasetTagsTransformer(DatasetTransformer, metaclass=ABCMeta):
         out_global_tags_aspect: Optional[GlobalTagsClass],
     ) -> Optional[Aspect]:
         if out_global_tags_aspect is not None:
-            out_global_tags_aspect.tags = dedupe_preserving_order(
-                out_global_tags_aspect.tags, key=lambda tag: tag.tag
+            out_global_tags_aspect.tags = deduplicate_list(
+                out_global_tags_aspect.tags, key=lambda tag: tag.tag, keep="last"
             )
 
         if config.semantics == TransformerSemantics.PATCH:

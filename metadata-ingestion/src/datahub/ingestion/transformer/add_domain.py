@@ -21,15 +21,13 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import (
-    DatasetDomainTransformer,
-    dedupe_preserving_order,
-)
+from datahub.ingestion.transformer.dataset_transformer import DatasetDomainTransformer
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DomainsClass,
     MetadataChangeProposalClass,
 )
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -213,9 +211,13 @@ class AddDomain(DatasetDomainTransformer):
         domain_to_add = self.config.get_domains_to_add(entity_urn)
         domain_aspect.domains.extend(domain_to_add.domains)
 
-        domain_aspect.domains = dedupe_preserving_order(
-            domain_aspect.domains, key=lambda domain: domain
-        )
+        # Unlike ownership, tags and terms, GMS does collapse duplicate domains
+        # on its own: DomainsSyncMutationHook runs for UPSERT on every entity and
+        # rebuilds the array through a LinkedHashSet. This dedup is here so that
+        # every transformer honours the same contract - it does not emit an entry
+        # the aspect already has - rather than relying on a server-side hook that
+        # only exists for this one aspect.
+        domain_aspect.domains = deduplicate_list(domain_aspect.domains, keep="last")
 
         result: Optional[DomainsClass]
         if self.config.semantics == TransformerSemantics.PATCH:
