@@ -593,7 +593,7 @@ public class ESSearchDAO {
     final List<SearchEntity> rows = keywordResult.getEntities();
     final int windowEnd = Math.min(HYBRID_RERANK_WINDOW, rows.size());
     List<SearchEntity> ranked = rows;
-    Future<List<SearchEntity>> rerank = null;
+    Future<Optional<List<SearchEntity>>> rerank = null;
     final Set<String> vectorEntityNames =
         hybridSearchResultReranker.vectorEntityNames(opContext, entityNames);
     final long windowVectorRows =
@@ -625,10 +625,15 @@ public class ESSearchDAO {
                                 window,
                                 List.of(URN_FIELD),
                                 deadlineNanos)));
-        ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
-        ranked.addAll(rows.subList(windowEnd, rows.size()));
-        countHybrid(opContext, "hybridReadApplied");
+        final Optional<List<SearchEntity>> reranked =
+            rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        // A rerank that completed ends the failure streak, also one that found no vectors
         hybridFailures.set(0);
+        if (reranked.isPresent()) {
+          ranked = new ArrayList<>(reranked.get());
+          ranked.addAll(rows.subList(windowEnd, rows.size()));
+          countHybrid(opContext, "hybridReadApplied");
+        }
       } catch (RejectedExecutionException e) {
         countHybrid(opContext, "hybridReadRejected");
         recordHybridFailure();

@@ -56,12 +56,13 @@ public class HybridSearchResultReranker {
 
   /**
    * Returns {@code lexicalRows} with the rows of entity types that have vectors reordered by
-   * combined lexical and vector score, each moved into a position such a row held before.
+   * combined lexical and vector score, each moved into a position such a row held before. Empty
+   * when no row got a vector score, so the rows keep the keyword ranking.
    *
    * @param deadlineNanos {@link System#nanoTime()} by which the embedding and kNN calls end
    */
   @Nonnull
-  public List<SearchEntity> rerank(
+  public Optional<List<SearchEntity>> rerank(
       @Nonnull final OperationContext opContext,
       @Nonnull final Collection<String> entityNames,
       @Nonnull final String query,
@@ -69,18 +70,18 @@ public class HybridSearchResultReranker {
       @Nonnull final Collection<String> fieldsToFetch,
       final long deadlineNanos)
       throws IOException {
-    return reorder(
-        lexicalRows,
-        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, deadlineNanos));
+    final List<HybridCandidate> candidates =
+        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, deadlineNanos);
+    return candidates.isEmpty() ? Optional.empty() : Optional.of(reorder(lexicalRows, candidates));
   }
 
   /**
    * Scores the rows that have vectors, highest combined score first. The kNN query scores only
    * these rows. Empty when the query is a wildcard or fewer than two rows have an entity type with
-   * vectors, in which case no embedding or kNN request is made, and when the kNN response may be
-   * missing hits.
+   * vectors, in which case no embedding or kNN request is made, and when no row has a vector.
    *
    * @throws UncheckedTimeoutException when the deadline passes before the kNN call
+   * @throws IOException when the kNN call fails or its response may be missing hits
    */
   @Nonnull
   public List<HybridCandidate> candidates(
@@ -126,9 +127,10 @@ public class HybridSearchResultReranker {
         SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3)
             .searchKnn(opContext, knnRequest.get());
     if (knnResponse.partial()) {
-      // Hits may be missing, and a row without one would be taken for a row without vectors
+      // Hits may be missing, and a row without one would be taken for a row without vectors. A
+      // slow kNN cluster answers this way at its timeout, so the search counts it as a failure
       count(opContext, "hybridReadPartial");
-      return List.of();
+      throw new IOException("The kNN response reported a timed-out or failed shard");
     }
     final Map<Urn, Double> vectorScores = scoreMapBuilder.vectorScores(knnResponse);
     if (vectorScores.isEmpty()) {

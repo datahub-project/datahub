@@ -84,7 +84,7 @@ public class ESSearchDAOHybridTest {
             invocation -> {
               List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
               Collections.reverse(rows);
-              return rows;
+              return Optional.of(rows);
             });
     when(reranker.vectorEntityNames(any(OperationContext.class), any()))
         .thenReturn(Set.of("document"));
@@ -127,6 +127,7 @@ public class ESSearchDAOHybridTest {
             eq(List.of("urn")),
             anyLong());
     assertEquals(rows.getValue().size(), 100);
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadApplied", 1);
   }
 
   @Test
@@ -183,17 +184,6 @@ public class ESSearchDAOHybridTest {
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 50, 1000, List.of());
     dao.search(opContext, ENTITY_NAMES, "*", null, null, 0, 10, List.of());
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 0, List.of());
-    // Exact lookups: a quoted phrase and a URN
-    dao.search(opContext, ENTITY_NAMES, "\"revenue\"", null, null, 0, 10, List.of());
-    dao.search(
-        opContext,
-        ENTITY_NAMES,
-        "urn:li:dataset:(urn:li:dataPlatform:hive,revenue,PROD)",
-        null,
-        null,
-        0,
-        10,
-        List.of());
     dao.search(
         opContext.withSearchFlags(flags -> flags.setFulltext(false)),
         ENTITY_NAMES,
@@ -205,6 +195,30 @@ public class ESSearchDAOHybridTest {
         List.of());
 
     verifyNoInteractions(reranker);
+  }
+
+  @Test
+  public void testExactLookupsStayKeywordOnly() throws IOException {
+    SearchResponse keywordResponse = response(10);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+
+    for (String lookup :
+        List.of(
+            "\"revenue report\"",
+            "'revenue report'",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,revenue,PROD)",
+            "s3://my-bucket/revenue/2024")) {
+      dao.search(opContext, ENTITY_NAMES, lookup, null, null, 0, 10, List.of());
+    }
+
+    // Each lookup fetched only its page, not the rerank window, and nothing was reranked
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client, times(4))
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    requests.getAllValues().forEach(request -> assertEquals(request.source().size(), 10));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
 
   @Test
@@ -249,7 +263,7 @@ public class ESSearchDAOHybridTest {
               List<SearchEntity> rows = invocation.getArgument(3);
               rows.forEach(row -> row.setScore(-1d));
               Thread.sleep(5_000);
-              return rows;
+              return Optional.of(rows);
             });
 
     SearchResult result =
@@ -279,7 +293,7 @@ public class ESSearchDAOHybridTest {
                 throw new IOException("embedding call timed out");
               }
               Collections.reverse(rows);
-              return rows;
+              return Optional.of(rows);
             });
 
     // Enough searches at once to occupy every worker and fill the queue
@@ -345,6 +359,31 @@ public class ESSearchDAOHybridTest {
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
     verify(reranker, times(4))
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+  }
+
+  @Test
+  public void testRerankWithoutVectorsEndsTheFailureStreakButIsNotApplied() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // Two failures, a rerank that completes but finds no vectors, then two more failures
+    IOException rateLimited = new IOException("provider rate limited");
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenThrow(rateLimited, rateLimited)
+        .thenReturn(Optional.empty())
+        .thenThrow(rateLimited, rateLimited);
+
+    for (int i = 0; i < 5; i++) {
+      assertEquals(
+          rowIds(dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())),
+          range(0, 10));
+    }
+
+    // No three failures in a row, so no search was skipped, and no search used vector scores
+    verify(reranker, times(5))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadApplied", 1);
   }
 
   @Test

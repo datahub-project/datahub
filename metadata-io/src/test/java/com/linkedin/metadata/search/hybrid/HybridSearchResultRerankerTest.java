@@ -24,9 +24,11 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
@@ -81,14 +83,20 @@ public class HybridSearchResultRerankerTest {
         .thenReturn(knnHits(Map.of(DOC_A, 0.1d, DOC_B, 0.9d, DOC_C, 0.95d)));
 
     List<SearchEntity> reranked =
-        reranker.rerank(
-            opContext,
-            ENTITY_NAMES,
-            "revenue",
-            List.of(
-                row(DOC_A, 80), row(DATASET, 70), row(DOC_B, 60), row(CHART, 50), row(DOC_C, 40)),
-            List.of("urn"),
-            inSeconds(60));
+        reranker
+            .rerank(
+                opContext,
+                ENTITY_NAMES,
+                "revenue",
+                List.of(
+                    row(DOC_A, 80),
+                    row(DATASET, 70),
+                    row(DOC_B, 60),
+                    row(CHART, 50),
+                    row(DOC_C, 40)),
+                List.of("urn"),
+                inSeconds(60))
+            .orElseThrow();
 
     // The vector scores reorder the documents; the dataset and the chart keep their positions
     assertEquals(urns(reranked), List.of(DOC_B, DATASET, DOC_C, CHART, DOC_A));
@@ -123,13 +131,15 @@ public class HybridSearchResultRerankerTest {
         .thenReturn(knnHits(Map.of(DOC_B, 0.4d)));
 
     List<SearchEntity> reranked =
-        reranker.rerank(
-            opContext,
-            ENTITY_NAMES,
-            "revenue",
-            List.of(row(DOC_A, 50), row(DOC_B, 50)),
-            List.of("urn"),
-            inSeconds(60));
+        reranker
+            .rerank(
+                opContext,
+                ENTITY_NAMES,
+                "revenue",
+                List.of(row(DOC_A, 50), row(DOC_B, 50)),
+                List.of("urn"),
+                inSeconds(60))
+            .orElseThrow();
 
     // DOC_A has no vector, e.g. not embedded yet, so it stays first
     assertEquals(urns(reranked), List.of(DOC_A, DOC_B));
@@ -141,7 +151,7 @@ public class HybridSearchResultRerankerTest {
 
     assertEquals(
         reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
-        rows);
+        Optional.empty());
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
@@ -152,7 +162,7 @@ public class HybridSearchResultRerankerTest {
 
     assertEquals(
         reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
-        rows);
+        Optional.empty());
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
@@ -161,20 +171,36 @@ public class HybridSearchResultRerankerTest {
     List<SearchEntity> rows = List.of(row(DOC_A, 1));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn"), inSeconds(60)), rows);
+        reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn"), inSeconds(60)),
+        Optional.empty());
     verifyNoInteractions(embeddingProvider, v3Client);
   }
 
   @Test
-  public void testPartialKnnResponseKeepsTheKeywordRanking() throws Exception {
-    // A timed-out or failed shard may have dropped DOC_A's hit, so nothing is reordered
+  public void testRowsWithoutVectorHitsAreNotReranked() throws Exception {
+    // e.g. none of the documents is embedded yet
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
-        .thenReturn(new KnnSearchResponse(knnHits(Map.of(DOC_B, 0.9d)).hits(), true));
+        .thenReturn(knnHits(Map.of()));
     List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
 
     assertEquals(
         reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
-        rows);
+        Optional.empty());
+  }
+
+  @Test
+  public void testPartialKnnResponseFailsTheRerank() throws Exception {
+    // A timed-out or failed shard may have dropped DOC_A's hit. A slow kNN cluster answers this way
+    // at its timeout, so the rerank fails and the search counts it toward the pause
+    when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(knnHits(Map.of(DOC_B, 0.9d)).hits(), true));
+    List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
+
+    assertThrows(
+        IOException.class,
+        () ->
+            reranker.rerank(
+                opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)));
   }
 
   @Test
