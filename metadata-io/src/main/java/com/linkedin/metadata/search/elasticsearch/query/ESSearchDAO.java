@@ -610,7 +610,10 @@ public class ESSearchDAO {
             .count();
     // Fewer than two rows of an entity type with vectors cannot trade positions, so no embedding or
     // kNN call
-    if (windowVectorRows >= 2) {
+    if (windowVectorRows >= 2 && isHybridPaused()) {
+      // Hybrid read paused after this search fetched its window: it keeps the keyword ranking
+      countHybrid(opContext, "hybridReadSkipped");
+    } else if (windowVectorRows >= 2) {
       final long startNanos = System.nanoTime();
       final long deadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
       try {
@@ -635,9 +638,12 @@ public class ESSearchDAO {
         final Optional<List<SearchEntity>> reranked =
             rerank.get(hybridTimeoutMillis, TimeUnit.MILLISECONDS);
         // A completed rerank ends the failure streak, also one that found no vectors, but only if
-        // the provider answered since it started: one on a cached embedding says nothing about it,
-        // while its kNN failures still count
-        if (hybridSearchResultReranker.providerSucceededSince(startNanos)) {
+        // the provider answered in time since both the rerank started and the last counted
+        // failure: one on a cached embedding says nothing about the provider, while its kNN
+        // failures still count
+        final long lastFailureNanos = hybridLastFailureNanos.get();
+        if (hybridSearchResultReranker.providerSucceededSince(
+            lastFailureNanos - startNanos > 0 ? lastFailureNanos : startNanos)) {
           hybridFailures.set(0);
         }
         if (reranked.isPresent()) {

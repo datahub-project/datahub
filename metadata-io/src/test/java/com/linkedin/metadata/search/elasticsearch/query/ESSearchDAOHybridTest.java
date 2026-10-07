@@ -46,6 +46,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.lucene.search.TotalHits;
@@ -457,18 +458,20 @@ public class ESSearchDAOHybridTest {
       for (int i = 0; i < 3; i++) {
         dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
       }
+      // It fails only after the pause is over, so only its start before the last counted failure
+      // keeps it from counting
+      Thread.sleep(300);
       release.countDown();
       inFlight.get();
     } finally {
       searches.shutdown();
     }
-    Thread.sleep(300);
     for (int i = 0; i < 3; i++) {
       dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
     }
 
-    // The late failure did not count toward the next pause: after the pause, two failures left
-    // hybrid read on for the third search
+    // The late failure did not count toward the next pause: two failures left hybrid read on for
+    // the third search
     verify(reranker, times(7))
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
@@ -610,6 +613,95 @@ public class ESSearchDAOHybridTest {
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadApplied", 1);
+  }
+
+  @Test
+  public void testSearchFetchingItsWindowWhenThePauseBeginsKeepsTheKeywordRanking()
+      throws Exception {
+    dao.setHybridTimeoutMillis(60_000);
+    SearchResponse keywordResponse = response(100);
+    CountDownLatch fetching = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean first = new AtomicBoolean(true);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              if (first.getAndSet(false)) {
+                fetching.countDown();
+                release.await();
+              }
+              return keywordResponse;
+            });
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenThrow(new IOException("provider unavailable"));
+
+    // One search fetches its window while three others fail and pause hybrid read
+    ExecutorService searches = Executors.newSingleThreadExecutor();
+    try {
+      Future<SearchResult> fetched =
+          searches.submit(
+              () -> dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of()));
+      fetching.await();
+      for (int i = 0; i < 3; i++) {
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+      }
+      release.countDown();
+      // It calls no provider and serves the keyword ranking of its window
+      assertEquals(rowIds(fetched.get()), range(0, 10));
+    } finally {
+      searches.shutdown();
+    }
+    verify(reranker, times(3))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+  }
+
+  @Test
+  public void testProviderAnswerBeforeTheLastFailureDoesNotEndTheStreak() throws Exception {
+    dao.setHybridTimeoutMillis(60_000);
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    AtomicLong providerAnswered = new AtomicLong(System.nanoTime() - TimeUnit.HOURS.toNanos(1));
+    when(reranker.providerSucceededSince(anyLong()))
+        .thenAnswer(invocation -> providerAnswered.get() - (long) invocation.getArgument(0) >= 0);
+    Semaphore started = new Semaphore(0);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean first = new AtomicBoolean(true);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              if (first.getAndSet(false)) {
+                // A rerank on a cached embedding that runs while the provider answers, then fails
+                started.release();
+                release.await();
+                return Optional.empty();
+              }
+              throw new IOException("provider unavailable");
+            });
+
+    ExecutorService searches = Executors.newSingleThreadExecutor();
+    try {
+      Future<SearchResult> cached =
+          searches.submit(
+              () -> dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of()));
+      started.acquire();
+      providerAnswered.set(System.nanoTime());
+      for (int i = 0; i < 2; i++) {
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+      }
+      release.countDown();
+      cached.get();
+    } finally {
+      searches.shutdown();
+    }
+    for (int i = 0; i < 2; i++) {
+      dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    }
+
+    // The answer came before the last counted failure, so the cached rerank did not end the
+    // streak: the third failure paused hybrid read for the last search
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
   }
 
   @Test

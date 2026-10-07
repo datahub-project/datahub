@@ -46,7 +46,10 @@ public class HybridQueryEmbeddingService {
     this.expectedDimension = expectedDimension;
   }
 
-  /** Whether the provider returned a query embedding at or after {@code nanos}, a nanoTime. */
+  /**
+   * Whether the provider returned a query embedding in time, before the deadline of the search that
+   * asked for it, at or after {@code nanos}, a nanoTime.
+   */
   public boolean providerSucceededSince(final long nanos) {
     return lastProviderSuccessNanos.get() - nanos >= 0;
   }
@@ -80,7 +83,13 @@ public class HybridQueryEmbeddingService {
         checkDimension(
             embeddingProvider.embed(
                 query, modelId, EmbeddingTaskType.QUERY, Duration.ofNanos(remainingNanos)));
-    lastProviderSuccessNanos.set(System.nanoTime());
+    final long answeredNanos = System.nanoTime();
+    // An answer after the deadline is cached for repeat queries, but it says the provider is too
+    // slow, not that it is healthy
+    if (deadlineNanos - answeredNanos > 0) {
+      lastProviderSuccessNanos.accumulateAndGet(
+          answeredNanos, (last, answered) -> answered - last > 0 ? answered : last);
+    }
     return vector;
   }
 

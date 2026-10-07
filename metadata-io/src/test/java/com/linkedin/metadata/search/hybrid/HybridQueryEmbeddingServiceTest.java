@@ -111,6 +111,29 @@ public class HybridQueryEmbeddingServiceTest {
   }
 
   @Test
+  public void testAnswerAfterTheDeadlineIsCachedButNotRecorded() {
+    EmbeddingProvider provider = mock(EmbeddingProvider.class);
+    when(provider.embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class)))
+        .thenAnswer(
+            invocation -> {
+              // Answers after the time it was given, as an in-process provider can
+              Thread.sleep(((Duration) invocation.getArgument(3)).toMillis() + 50);
+              return new float[] {0.1f, 0.2f};
+            });
+    HybridQueryEmbeddingService service =
+        new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
+    long before = System.nanoTime();
+
+    service.embed("revenue", System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(50));
+    service.embed("revenue", inSeconds(60));
+
+    // Too slow to say the provider is healthy, but kept for the repeat query
+    assertFalse(service.providerSucceededSince(before));
+    verify(provider, times(1))
+        .embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class));
+  }
+
+  @Test
   public void testFailedEmbeddingIsRetriedNotCached() {
     EmbeddingProvider provider = mock(EmbeddingProvider.class);
     when(provider.embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class)))

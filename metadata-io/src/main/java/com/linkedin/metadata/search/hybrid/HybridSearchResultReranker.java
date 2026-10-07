@@ -54,7 +54,7 @@ public class HybridSearchResultReranker {
     return knnRequestBuilder.vectorEntityNames(opContext, entityNames);
   }
 
-  /** Whether the embedding provider answered at or after {@code nanos}, a nanoTime. */
+  /** Whether the embedding provider answered in time at or after {@code nanos}, a nanoTime. */
   public boolean providerSucceededSince(final long nanos) {
     return queryEmbeddingService.providerSucceededSince(nanos);
   }

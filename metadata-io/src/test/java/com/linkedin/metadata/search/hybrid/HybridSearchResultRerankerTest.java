@@ -153,11 +153,14 @@ public class HybridSearchResultRerankerTest {
     // DOC_A is not embedded yet, so DOC_B has no other position to move into
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(knnHits(Map.of(DOC_B, 0.4d)));
+    MetricUtils metrics = mock(MetricUtils.class);
     List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 50));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        reranker.rerank(
+            metered(metrics), ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
         Optional.empty());
+    verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadNoVectors", 1);
   }
 
   @Test
@@ -196,11 +199,14 @@ public class HybridSearchResultRerankerTest {
     // e.g. none of the documents is embedded yet
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(knnHits(Map.of()));
+    MetricUtils metrics = mock(MetricUtils.class);
     List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        reranker.rerank(
+            metered(metrics), ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
         Optional.empty());
+    verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadNoVectors", 1);
   }
 
   @Test
@@ -209,15 +215,14 @@ public class HybridSearchResultRerankerTest {
     // counts it toward the pause
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(new KnnSearchResponse(knnHits(Map.of(DOC_B, 0.9d)).hits(), true));
-    OperationContext metered = spy(opContext);
     MetricUtils metrics = mock(MetricUtils.class);
-    doReturn(Optional.of(metrics)).when(metered).getMetricUtils();
     List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 40));
 
     assertThrows(
         IOException.class,
         () ->
-            reranker.rerank(metered, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)));
+            reranker.rerank(
+                metered(metrics), ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)));
     verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadPartial", 1);
   }
 
@@ -270,6 +275,12 @@ public class HybridSearchResultRerankerTest {
                     new KnnSearchResponse.Hit(
                         "hashed-id", entry.getValue(), Map.of("urn", entry.getKey().toString())))
             .collect(Collectors.toList()));
+  }
+
+  private OperationContext metered(MetricUtils metrics) {
+    OperationContext metered = spy(opContext);
+    doReturn(Optional.of(metrics)).when(metered).getMetricUtils();
+    return metered;
   }
 
   private static long inSeconds(long seconds) {
