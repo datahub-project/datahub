@@ -20,12 +20,13 @@ import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
 import HoverCardLinks, { HoverCardLink } from '@app/sharedV2/hoverCard/HoverCardLinks';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import HoverCardStatusBadges from '@app/sharedV2/hoverCard/HoverCardStatusBadges';
+import useGroupMemberCount from '@app/sharedV2/hoverCard/useGroupMemberCount';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
+import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@src/utils/runtimeBasePath';
 
 /** Keeps long documentation from turning the card into a wall of text. */
@@ -81,14 +82,6 @@ type Props = {
     ownershipRole?: HoverCardOwnershipRole;
 };
 
-/** Member total, only when a query actually selected it. A missing field is not "0 members". */
-function getGroupMemberCount(entity: Entity): number | undefined {
-    if (entity.type !== EntityType.CorpGroup) return undefined;
-    const group = entity as CorpGroup & { memberCount?: { total?: number | null } | null };
-    const total = group.memberCount?.total ?? group.relationships?.total;
-    return total == null ? undefined : total;
-}
-
 export default function EntityHoverCard({ entity, propagationDetails, ownershipRole }: Props) {
     const { t } = useTranslation('common.labels');
     const { t: tTypes } = useTranslation('entity.types');
@@ -118,7 +111,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
               undefined
             : undefined;
 
-    const memberCount = getGroupMemberCount(entity);
+    const memberCount = useGroupMemberCount(entity);
     const subtitle =
         jobTitle || (memberCount != null ? tTypes('shared.membersCount', { count: memberCount }) : undefined);
 

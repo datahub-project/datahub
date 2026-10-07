@@ -1015,6 +1015,25 @@ query getLineageCounts(
     }
 }
 
+# Counts only, for the URNs already on screen. Search results render from a query that skips
+# lineage; this runs afterward so the page is not blocked on a lookup per card. `count: 100`
+# matches the search fragment so ghost entities are filtered the same way.
+query getSearchResultLineageCounts($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        ... on EntityWithRelationships {
+            upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
+            }
+            downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
+            }
+        }
+    }
+}
+
 # How many columns a column is directly related to, counted the way the lineage graph draws them.
 # `orFilters` carries the degree filter plus the exclusions that keep this comparable to the drawn
 # graph -- see `buildRelatedColumnFilters`.

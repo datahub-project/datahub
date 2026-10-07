@@ -5,7 +5,11 @@ from datahub.ingestion.agent.sql_gate import (
     SqlScopeError,
     check_query_scope,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_probe import BigQueryMetadataProbe
+from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres.source import PostgresConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
 
 CATALOG_QUERY = (
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
@@ -36,6 +40,11 @@ def test_pg_catalog_is_permitted_only_because_postgres_declares_it():
 
 
 @pytest.mark.parametrize(
+    "config_cls",
+    [MySQLConfig, SQLAlchemyGenericConfig, SQLCommonConfig],
+    ids=["mysql", "sqlalchemy", "sql-family-default"],
+)
+@pytest.mark.parametrize(
     "query",
     [
         "SELECT info FROM information_schema.processlist",
@@ -44,11 +53,19 @@ def test_pg_catalog_is_permitted_only_because_postgres_declares_it():
         "JOIN information_schema.processlist p ON p.db = t.table_schema",
     ],
 )
-def test_rejects_views_holding_other_sessions_sql(query: str) -> None:
+def test_rejects_views_holding_other_sessions_sql(
+    query: str, config_cls: type[SQLCommonConfig]
+) -> None:
     """Admitted whole, information_schema would hand out the running SQL of
-    every session a PROCESS-privileged credential can see."""
+    every session a PROCESS-privileged credential can see.
+
+    The SQL family's default scope excludes them, not the framework's: the
+    generic source reaches a MySQL-protocol server through any URL naming
+    one, so every config inheriting the default must refuse them."""
     with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
-        check_query_scope(query, platform="mysql")
+        check_query_scope(
+            query, platform="mysql", scope=config_cls.probe_catalog_scope()
+        )
 
 
 def test_rejects_a_user_table():
@@ -247,10 +264,12 @@ def test_permits_bigquery_dataset_qualified_information_schema():
     # dialect leaves the last two parts in one identifier slot -- so the schema
     # marker is not in the `db` slot and the slot has to be split to find it.
     # That is a parser behaviour, not a naming rule: a BigQuery table name
-    # cannot itself contain a dot (see _slot_pieces).
+    # cannot itself contain a dot, so its scope declares the split
+    # (CatalogScope.split_dotted_identifiers).
     check_query_scope(
         "SELECT table_name FROM mydataset.INFORMATION_SCHEMA.TABLES",
         platform="bigquery",
+        scope=BigQueryMetadataProbe.catalog_scope,
     )
 
 
@@ -258,6 +277,7 @@ def test_permits_bigquery_project_qualified_information_schema():
     check_query_scope(
         "SELECT table_name FROM myproject.mydataset.INFORMATION_SCHEMA.TABLES",
         platform="bigquery",
+        scope=BigQueryMetadataProbe.catalog_scope,
     )
 
 
@@ -277,17 +297,55 @@ def test_a_dotted_name_is_a_name_everywhere_but_bigquery(platform, sql):
     the read would be waved through -- the same substitution shape as the
     lookalike-catalog bug, one level lower.
 
-    What stops it is `_DOT_IN_SLOT_DIALECTS` holding bigquery alone, and
-    nothing tested that. Adding a dialect to that set to fix some future
-    parsing complaint is a one-word change that opens the bypass, so this is
-    the test that fails when someone makes it.
+    What stops it is that a slot is split only where the scope declares
+    `split_dotted_identifiers`, which defaults to False; which sources declare
+    it is pinned in test_catalog_scopes. Declaring it for a dialect whose
+    quoted identifiers may contain a dot is a one-word change that opens the
+    bypass, so this is the test that fails when someone makes it.
     """
     with pytest.raises(SqlScopeError, match="not schema-qualified"):
         check_query_scope(sql, platform=platform)
 
 
+def test_the_scope_not_the_dialect_decides_whether_a_dotted_slot_splits():
+    """Some parsers leave a path's dots inside one identifier slot. Splitting
+    it is the scope's declaration, so the gate names no dialect; undeclared,
+    the slot stays whole and the reference is refused, never misread."""
+    sql = "SELECT table_name FROM myds.INFORMATION_SCHEMA.TABLES"
+    check_query_scope(
+        sql, platform="bigquery", scope=CatalogScope(split_dotted_identifiers=True)
+    )
+    with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
+        check_query_scope(sql, platform="bigquery", scope=CatalogScope())
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT query FROM myds.INFORMATION_SCHEMA.JOBS",
+        # Region-qualified, the spelling BigQuery documents for JOBS, bare
+        # and backticked.
+        "SELECT query FROM region-us.INFORMATION_SCHEMA.JOBS",
+        "SELECT query FROM `region-us`.INFORMATION_SCHEMA.JOBS",
+        "SELECT query FROM `myproj.region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT`",
+    ],
+)
+def test_a_bigquery_url_on_the_sql_family_default_cannot_read_job_text(
+    sql: str,
+) -> None:
+    """The generic source on a bigquery:// URL parses as bigquery but carries
+    the SQL family's information_schema-wide default. While the split keyed
+    on the dialect, that pairing admitted INFORMATION_SCHEMA.JOBS, the SQL
+    text of every job in the project. Now only a scope that declares the
+    split (BigQuery's own provider's, a named-relation allowlist) splits."""
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            sql, platform="bigquery", scope=SQLCommonConfig.probe_catalog_scope()
+        )
+
+
 def test_bigquery_splits_the_slot_even_though_the_parser_calls_it_quoted():
-    """The split cannot key on `Identifier.quoted`, which is why it keys on the dialect.
+    """The split cannot key on `Identifier.quoted`, which is why the scope declares it.
 
     sqlglot reports quoted=True for the name slot of an UNQUOTED BigQuery
     `myds.INFORMATION_SCHEMA.TABLES`, so gating the split on `quoted is False`
@@ -295,7 +353,9 @@ def test_bigquery_splits_the_slot_even_though_the_parser_calls_it_quoted():
     that is the obvious-looking fix for the case above.
     """
     check_query_scope(
-        "SELECT table_name FROM myds.INFORMATION_SCHEMA.TABLES", platform="bigquery"
+        "SELECT table_name FROM myds.INFORMATION_SCHEMA.TABLES",
+        platform="bigquery",
+        scope=BigQueryMetadataProbe.catalog_scope,
     )
 
 
@@ -330,10 +390,10 @@ def test_a_write_statement_is_named_by_its_sql_keyword(sql, expected):
 
 
 def test_an_unmodelled_statement_does_not_leak_a_parser_node_name():
-    # FLUSH PRIVILEGES parses to an Alias node, so the message used to read
-    # "got ALIAS" -- a sqlglot internal that tells a caller nothing and reads
-    # like a bug in their own query. The refusal is the agent's only signal for
-    # how to rewrite, so it has to be in SQL terms.
+    # FLUSH PRIVILEGES parses to an Alias node; "got ALIAS" would be a sqlglot
+    # internal that tells a caller nothing and reads like a bug in their own
+    # query. The refusal is the agent's only signal for how to rewrite, so it
+    # has to be in SQL terms.
     with pytest.raises(SqlScopeError) as exc:
         check_query_scope("FLUSH PRIVILEGES", platform="mysql")
     message = str(exc.value)
@@ -606,11 +666,11 @@ def test_rejects_a_query_that_reads_no_catalog_relation(sql):
     class, including built-in functions sqlglot models as first-class nodes
     (not Anonymous) that the function check cannot see.
 
-    `SELECT VERSION()` used to be the headline case here and has moved to
-    test_server_state_cannot_ride_in_on_a_real_table: it is refused by name
-    now, which this rule could never do once the query also names a table.
-    CURRENT_DATE stays, because it is refused ONLY by this rule -- it
-    discloses nothing, so it is allowed alongside a real relation."""
+    `SELECT VERSION()` is in test_server_state_cannot_ride_in_on_a_real_table:
+    it is refused by name, which this rule cannot do once the query also
+    names a table. CURRENT_DATE is here because it is refused ONLY by this
+    rule -- it discloses nothing, so it is allowed alongside a real
+    relation."""
     with pytest.raises(SqlScopeError, match="catalog relation"):
         check_query_scope(sql, platform="mysql")
 
@@ -786,4 +846,38 @@ def test_an_explicit_join_is_still_allowed():
         "JOIN snowflake.account_usage.users b ON a.query_id = b.name",
         platform="snowflake",
         scope=_IDENTITY_SCOPE,
+    )
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "/*! UNION SELECT authentication_string FROM mysql.user */",
+        "/*!50000 UNION SELECT authentication_string FROM mysql.user */",
+        "--1 UNION SELECT authentication_string FROM mysql.user",
+        "# trailing note",
+    ],
+    ids=["executable-comment", "versioned-comment", "dash-dash-digit", "hash"],
+)
+def test_rejects_a_comment_the_engine_may_run(tail):
+    # MySQL executes /*! ... */ and reads --1 as - -1, but the gate checks
+    # sqlglot's tree, where each of these is only a comment.
+    with pytest.raises(SqlScopeError):
+        check_query_scope(f"{CATALOG_QUERY} {tail}", platform="mysql")
+
+
+def test_rejects_an_optimizer_hint():
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            "SELECT /*+ MAX_EXECUTION_TIME(1) */ table_name "
+            "FROM information_schema.tables",
+            platform="mysql",
+        )
+
+
+def test_comment_characters_inside_a_string_literal_are_allowed():
+    check_query_scope(
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_name = 'a /* b */ c'",
+        platform="mysql",
     )

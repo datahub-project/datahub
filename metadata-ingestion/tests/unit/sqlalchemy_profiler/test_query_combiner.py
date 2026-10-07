@@ -191,6 +191,23 @@ class TestBatchingAndPartitioning:
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == n
 
+    def test_lone_query_is_not_cte_wrapped(self, engine, test_table):
+        # A one-member CTE buys nothing and makes the server materialize it.
+        statements = []
+        sa.event.listen(
+            engine,
+            "before_cursor_execute",
+            lambda conn, cursor, statement, *_: statements.append(statement),
+        )
+        query = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, query)
+            qc.flush()
+
+        assert cap.result.scalar() == 3
+        assert not any("WITH" in s.upper() for s in statements)
+
     def test_untagged_query_goes_uncombined(self, engine, test_table):
         # The single-row tag partitions the queue: an untagged query is NOT
         # batched — it goes out via uncombined and runs normally. This is the
@@ -348,12 +365,12 @@ class TestResultExtraction:
     def test_duplicate_labels_fallback_then_ambiguous_at_consumption(
         self, engine, test_table
     ):
-        # Two columns labeled 'v' in one query make the combined CTE fail to
-        # compile (SQLAlchemy raises while populating the CTE's column
-        # collection, before combined_queries_issued is incremented), so the
-        # combiner falls back to serial execution. Serial execution succeeds
-        # at the DB level and stores a real CursorResult; the ambiguity then
-        # surfaces at consumption (row['v']), not at flush().
+        # Two columns labeled 'v' in one query make the wrapper fail to compile
+        # (SQLAlchemy raises while populating the subquery's column collection,
+        # before combined_queries_issued is incremented), so the combiner falls
+        # back to serial execution. Serial execution succeeds at the DB level
+        # and stores a real CursorResult; the ambiguity then surfaces at
+        # consumption (row['v']), not at flush().
         query = sa.select(
             sa.func.min(test_table.c.value).label("v"),
             sa.func.max(test_table.c.value).label("v"),

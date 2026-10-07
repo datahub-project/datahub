@@ -74,6 +74,29 @@ class TestUnityCatalogProxy:
         assert len(result) == 0
         mock_execute.assert_called_once()
 
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "get_catalog_table_lineage_via_system_tables",
+            "get_catalog_column_lineage_via_system_tables",
+        ],
+    )
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_lineage_queries_use_native_param_markers(
+        self, mock_execute, mock_proxy, method
+    ):
+        # databricks-sql-connector >= 3 binds parameters natively and rejects
+        # pyformat `%s` markers server-side with PARSE_SYNTAX_ERROR.
+        mock_execute.return_value = []
+
+        getattr(mock_proxy, method)("test_catalog")
+
+        query, params = mock_execute.call_args[0]
+        assert "%s" not in query
+        assert query.count("?") == len(params)
+
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
     )

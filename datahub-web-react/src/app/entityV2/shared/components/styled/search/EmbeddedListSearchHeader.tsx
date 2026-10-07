@@ -1,4 +1,5 @@
-import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
@@ -101,7 +102,7 @@ export default function EmbeddedListSearchHeader({
             <TabToolbar>
                 <HeaderContainer>
                     <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
-                        <FilterOutlined />
+                        <Funnel />
                         <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                     </AntButton>
                     <SearchAndDownloadContainer>
@@ -159,7 +160,7 @@ export default function EmbeddedListSearchHeader({
             )}
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     {t('embeddedSearch.impactWarning')}
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}

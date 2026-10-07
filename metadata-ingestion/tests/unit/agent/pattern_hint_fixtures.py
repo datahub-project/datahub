@@ -60,8 +60,8 @@ def config_with_hints(
     # `cast` to reach the real .model_fields pydantic built.
     assert issubclass(real, ConfigModel)
 
-    # A fresh, permissive class per call: `_hinted_pattern_field`/
-    # `pattern_field_for_config_class` are memoized on (class, kind), so two
+    # A fresh, permissive class per call: a class's declarations and
+    # `_pattern_field_for_config_class` are memoized per class, so two
     # fixtures declaring different hints for the same kind must not share a
     # type or one call's cached result would leak onto the other's. Plain
     # (not ConfigModel) so tests can still set arbitrary attributes — a real
