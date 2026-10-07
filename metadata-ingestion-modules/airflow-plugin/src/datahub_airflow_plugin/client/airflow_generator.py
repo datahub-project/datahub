@@ -147,6 +147,14 @@ class AirflowGenerator:
         timetables expose `summary`; Task SDK timetables (split out in Airflow
         3.2) don't, and are converted to core first. Mirrors the OpenLineage
         provider's `DagInfo.timetable_summary`.
+
+        For an unscheduled DAG this intentionally returns the *literal string*
+        `"None"` (Airflow's `NullTimetable.summary`), not Python `None`, so the
+        emitted `schedule` property matches what the Airflow UI displays. Do not
+        "normalize" `"None"` to `None` -- that would drop the property for
+        unscheduled DAGs and diverge from the UI. Python `None` is returned only
+        when no summary could be determined at all (no timetable, or coercion
+        failed).
         """
         timetable = getattr(dag, "timetable", None)
         if timetable is None:
