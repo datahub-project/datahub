@@ -2028,6 +2028,8 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     assert "^MAIN$" not in query_sql
     assert len(captured["params"]) == 8
     assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
+    assert "%s" not in query_sql
+    assert query_sql.count("?") == len(captured["params"])
 
 
 def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
