@@ -35,7 +35,8 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
  * its parts, as the analyzers index them. This is best effort: synonyms are not applied, words are
  * split on what is not a letter, a digit or an underscore even when a main tokenizer is configured,
- * and as on V2 only the first matching value of a field is reported.
+ * and as on V2 only the first matching value of a field is reported. {@link #forAutocomplete} reads
+ * words as the autocomplete analyzer does instead.
  *
  * <p>One instance serves one query, for the hits of one response, from one thread.
  */
@@ -44,7 +45,8 @@ final class V3MatchedFields {
   // Letters and digits in any script, as the shared fields' tokenizer splits them, the accents of
   // decomposed letters, which belong to their word, and underscores, which join an identifier
   private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_]+");
-  // The words of the autocomplete analyzer, whose word delimiter keeps hyphens inside a word too
+  // The words of the autocomplete analyzer (V2's partial analyzer), whose word delimiter keeps
+  // hyphens inside a word too (V2LegacySettingsBuilder.WORD_DELIMITER_TYPE_TABLE)
   private static final Pattern AUTOCOMPLETE_WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_-]+");
   private static final Pattern UNDERSCORES = Pattern.compile("_+");
   // Longer values are cut to this many characters around the first match, about what the V2
@@ -93,7 +95,10 @@ final class V3MatchedFields {
    * For an autocomplete input, a prefix being typed, matched as the autocomplete analyzer reads
    * words: none is too short and no stop word is dropped, nothing is stemmed, and an identifier
    * such as {@code order_i} or {@code order-i} stays whole, in the input and in the values, since
-   * its parts would be prefixes of unrelated words.
+   * its parts would be prefixes of unrelated words. This is best effort too: unlike the analyzer,
+   * it splits a possessive {@code 's} off its word and splits at a character that only folds to a
+   * hyphen or an underscore, such as an en dash, and it keeps a hyphenated word whole even when a
+   * main tokenizer is configured.
    */
   @Nonnull
   static V3MatchedFields forAutocomplete(@Nonnull final String input) {
