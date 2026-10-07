@@ -337,7 +337,6 @@ public class ESSearchDAOHybridTest {
         .thenReturn(keywordResponse);
     when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
         .thenThrow(new IOException("provider rate limited"));
-    dao.setHybridPauseMillis(1_000);
 
     for (int i = 0; i < 4; i++) {
       // Keyword order every time; the mocked client returns every hit whatever the page size
@@ -356,16 +355,121 @@ public class ESSearchDAOHybridTest {
     verify(client, times(4))
         .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
     assertEquals(requests.getAllValues().get(3).source().size(), 10);
+  }
+
+  @Test
+  public void testHybridReadResumesAfterThePause() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenThrow(new IOException("provider rate limited"));
+    dao.setHybridPauseMillis(100);
+
+    for (int i = 0; i < 3; i++) {
+      dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    }
+    Thread.sleep(300);
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
 
     // After the pause, hybrid read tries again
-    Thread.sleep(1_100);
-    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
     verify(reranker, times(4))
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
 
   @Test
+  public void testSearchesFailingTogetherCountOnce() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // Three searches for one query, like a results page and its facets, share one failed
+    // embedding call: none of them fails before all three have started
+    CountDownLatch together = new CountDownLatch(3);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              together.countDown();
+              together.await();
+              throw new IOException("provider unavailable");
+            });
+
+    ExecutorService searches = Executors.newFixedThreadPool(3);
+    try {
+      List<Future<SearchResult>> concurrent = new ArrayList<>();
+      for (int i = 0; i < 3; i++) {
+        concurrent.add(
+            searches.submit(
+                () ->
+                    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())));
+      }
+      for (Future<SearchResult> search : concurrent) {
+        search.get();
+      }
+    } finally {
+      searches.shutdown();
+    }
+    for (int i = 0; i < 2; i++) {
+      dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    }
+
+    // The three counted as one failure: neither later search was skipped, and the second one
+    // made three in a row
+    verify(reranker, times(5))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+  }
+
+  @Test
+  public void testSearchInFlightWhenThePauseBeginsDoesNotCount() throws Exception {
+    dao.setHybridPauseMillis(100);
+    dao.setHybridTimeoutMillis(60_000);
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    Semaphore started = new Semaphore(0);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean first = new AtomicBoolean(true);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              if (first.getAndSet(false)) {
+                started.release();
+                release.await();
+              }
+              throw new IOException("provider unavailable");
+            });
+
+    // One search is still running while three others fail and pause hybrid read
+    ExecutorService searches = Executors.newSingleThreadExecutor();
+    try {
+      Future<SearchResult> inFlight =
+          searches.submit(
+              () -> dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of()));
+      started.acquire();
+      for (int i = 0; i < 3; i++) {
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+      }
+      release.countDown();
+      inFlight.get();
+    } finally {
+      searches.shutdown();
+    }
+    Thread.sleep(300);
+    for (int i = 0; i < 3; i++) {
+      dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    }
+
+    // The late failure did not count toward the next pause: after the pause, two failures left
+    // hybrid read on for the third search
+    verify(reranker, times(7))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+  }
+
+  @Test
   public void testTimedOutSearchesPauseHybridRead() throws Exception {
+    dao.setHybridTimeoutMillis(200);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -377,21 +481,10 @@ public class ESSearchDAOHybridTest {
               return Optional.empty();
             });
 
-    // Three at once, so the test waits out one timeout rather than three
-    ExecutorService searches = Executors.newFixedThreadPool(3);
-    try {
-      List<Future<SearchResult>> slow = new ArrayList<>();
-      for (int i = 0; i < 3; i++) {
-        slow.add(
-            searches.submit(
-                () ->
-                    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())));
-      }
-      for (Future<SearchResult> search : slow) {
-        assertEquals(rowIds(search.get()), range(0, 10));
-      }
-    } finally {
-      searches.shutdownNow();
+    for (int i = 0; i < 3; i++) {
+      assertEquals(
+          rowIds(dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())),
+          range(0, 10));
     }
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
 

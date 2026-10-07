@@ -136,15 +136,14 @@ public class ESSearchDAO {
    * How long hybrid read pauses after repeated failures, in this GMS process: while a slow provider
    * recovers, searches neither call it nor hold their request thread for the timeout. When the
    * pause ends, searches try hybrid read again until three fail in a row, so in a lasting outage
-   * searches still wait out the timeout between pauses. Searches in flight when a pause begins can
-   * add their failures toward the next one.
+   * searches still wait out the timeout between pauses.
    */
   private static final long HYBRID_PAUSE_MILLIS = 30_000;
 
   // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
   // remote calls end by the same deadline, so a worker is free about when its search falls back;
   // the in-process providers ignore it and keep their worker until they finish. The queue is
-  // bounded: when every worker is busy, searches get the keyword ranking right away
+  // bounded: when the workers and the queue are full, searches get the keyword ranking right away
   private static final ExecutorService HYBRID_EXECUTOR =
       new ThreadPoolExecutor(
           8,
@@ -180,6 +179,7 @@ public class ESSearchDAO {
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
+  private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
   private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
 
@@ -576,7 +576,7 @@ public class ESSearchDAO {
         || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
       return 0;
     }
-    if (System.nanoTime() - hybridPausedUntilNanos.get() < 0) {
+    if (isHybridPaused()) {
       countHybrid(opContext, "hybridReadSkipped");
       return 0;
     }
@@ -611,8 +611,8 @@ public class ESSearchDAO {
     // Fewer than two rows of an entity type with vectors cannot trade positions, so no embedding or
     // kNN call
     if (windowVectorRows >= 2) {
-      final long deadlineNanos =
-          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
+      final long startNanos = System.nanoTime();
+      final long deadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
       try {
         // The worker gets its own copies: a rerank that finishes after the timeout must not change
         // the rows served as the keyword fallback
@@ -650,7 +650,7 @@ public class ESSearchDAO {
         // start
         rerank.cancel(true);
         countHybridTimeout(opContext);
-        recordHybridFailure();
+        recordHybridFailure(startNanos);
       } catch (InterruptedException e) {
         // The search itself was interrupted, which says nothing about the provider, so it does not
         // count toward the pause
@@ -660,7 +660,7 @@ public class ESSearchDAO {
       } catch (Exception e) {
         final Throwable cause =
             e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
-        recordHybridFailure();
+        recordHybridFailure(startNanos);
         if (System.nanoTime() - deadlineNanos >= 0) {
           // The embedding or kNN call gave up at the deadline, just as the search did
           countHybridTimeout(opContext);
@@ -682,8 +682,20 @@ public class ESSearchDAO {
         .setPageSize(pageSize);
   }
 
-  /** Pauses hybrid read once it has failed {@link #HYBRID_FAILURES_BEFORE_PAUSE} times in a row. */
-  private void recordHybridFailure() {
+  /**
+   * Counts a failed search toward the pause, and pauses hybrid read once {@link
+   * #HYBRID_FAILURES_BEFORE_PAUSE} have failed in a row. Only a search that started after the last
+   * counted failure counts: searches that run at the same time often share one failed call, such as
+   * a results page and its facets embedding the same query once, and a search still in flight when
+   * a pause begins says nothing new.
+   */
+  private void recordHybridFailure(final long searchStartNanos) {
+    final long lastFailureNanos = hybridLastFailureNanos.get();
+    if (isHybridPaused()
+        || searchStartNanos - lastFailureNanos <= 0
+        || !hybridLastFailureNanos.compareAndSet(lastFailureNanos, System.nanoTime())) {
+      return;
+    }
     if (hybridFailures.incrementAndGet() >= HYBRID_FAILURES_BEFORE_PAUSE) {
       hybridFailures.set(0);
       hybridPausedUntilNanos.set(System.nanoTime() + hybridPauseNanos);
@@ -692,6 +704,10 @@ public class ESSearchDAO {
           HYBRID_FAILURES_BEFORE_PAUSE,
           TimeUnit.NANOSECONDS.toMillis(hybridPauseNanos));
     }
+  }
+
+  private boolean isHybridPaused() {
+    return System.nanoTime() - hybridPausedUntilNanos.get() < 0;
   }
 
   @VisibleForTesting
