@@ -62,6 +62,11 @@ class SnowflakeAdapter(PlatformAdapter):
             f"(table: {context.pretty_name})"
         )
 
+        # limit/offset bounds the row set already, so it suppresses sampling —
+        # and it needs no row count, so it short-circuits the metadata lookup.
+        if self.config.limit or self.config.offset:
+            return self._create_limited_temp_table(context, conn)
+
         # Prefer the row count already on the context (from the schema crawl)
         # to avoid a redundant INFORMATION_SCHEMA round-trip per table.
         row_count = (
@@ -69,7 +74,7 @@ class SnowflakeAdapter(PlatformAdapter):
             if context.row_count is not None
             else self._get_row_count_from_metadata(context, conn)
         )
-        if not self.config.limit and self.config.use_sampling:
+        if self.config.use_sampling:
             if row_count is not None and row_count <= self.config.sample_size:
                 # Table is small enough — profile directly without sampling
                 context.sql_table = self._create_sqlalchemy_table(
@@ -89,6 +94,9 @@ class SnowflakeAdapter(PlatformAdapter):
             )
 
         return context
+
+    def supports_limit_offset(self) -> bool:
+        return True
 
     def _get_row_count_from_metadata(
         self, context: ProfilingContext, conn: Connection
@@ -219,8 +227,8 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
-        return self._reflect_sample_into_context(
-            context, conn, temp_name, sample_percentage=bernoulli_pc
+        return self._reflect_temp_table_into_context(
+            context, conn, temp_name, is_sampled=True, sample_percentage=bernoulli_pc
         )
 
     def _create_fixed_size_sampled_temp_table(
@@ -273,15 +281,70 @@ class SnowflakeAdapter(PlatformAdapter):
         conn.execute(sa.text(create_sql))
 
         # A fixed row count out of an unknown total is an unknown fraction.
-        return self._reflect_sample_into_context(
-            context, conn, temp_name, sample_percentage=None
+        return self._reflect_temp_table_into_context(
+            context, conn, temp_name, is_sampled=True, sample_percentage=None
         )
 
-    def _reflect_sample_into_context(
+    def _create_limited_temp_table(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """
+        Materialize `LIMIT`/`OFFSET` rows into a session-scoped temp table.
+
+        Unlike TABLESAMPLE this is not a sample: it is whatever rows Snowflake
+        returns first, so `is_sampled` stays False and the profile is labelled a
+        bounded query rather than a sample.
+        """
+        assert context.schema is not None, (
+            f"schema is required for limiting {context.pretty_name}"
+        )
+        # quote=True matches the quoted identifiers the sampling paths build, so
+        # both paths treat context.schema/table as the exact stored case.
+        table_obj = sa.Table(
+            context.table,
+            sa.MetaData(),
+            schema=context.schema,
+            quote=True,
+            quote_schema=True,
+        )
+        query = sa.select(sa.text("*")).select_from(table_obj)
+        if self.config.limit:
+            query = query.limit(self.config.limit)
+        elif self.config.offset:
+            # Snowflake accepts OFFSET only as part of a LIMIT clause; LIMIT NULL
+            # means no limit. https://docs.snowflake.com/en/sql-reference/constructs/limit
+            query = query.limit(sa.null())
+        if self.config.offset:
+            query = query.offset(self.config.offset)
+
+        select_sql = str(
+            query.compile(
+                dialect=self.base_engine.dialect,
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+        # Temp table name is unquoted so Snowflake stores it as uppercase,
+        # matching SQLAlchemy's unquoted references in generated SQL.
+        temp_name = f"dh_limit_{uuid.uuid4().hex[:8]}"
+        create_sql = f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {select_sql}"
+
+        logger.info(
+            f"Creating limited temp table for {context.pretty_name} "
+            f"(limit: {self.config.limit}, offset: {self.config.offset})"
+        )
+        logger.debug(f"SQL: {create_sql}")
+        conn.execute(sa.text(create_sql))
+
+        return self._reflect_temp_table_into_context(
+            context, conn, temp_name, is_sampled=False, sample_percentage=None
+        )
+
+    def _reflect_temp_table_into_context(
         self,
         context: ProfilingContext,
         conn: Connection,
         temp_name: str,
+        is_sampled: bool,
         sample_percentage: Optional[float],
     ) -> ProfilingContext:
         # Reflect the temp table as a real sa.Table. CTAS carries case-only
@@ -291,7 +354,7 @@ class SnowflakeAdapter(PlatformAdapter):
         context.sql_table = self._use_stored_column_names(
             sa.Table(temp_name, metadata, autoload_with=conn), conn
         )
-        context.is_sampled = True
+        context.is_sampled = is_sampled
         context.sample_percentage = sample_percentage
         context.temp_table = temp_name
 

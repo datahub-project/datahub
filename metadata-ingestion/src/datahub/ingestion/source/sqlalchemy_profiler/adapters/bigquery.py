@@ -79,6 +79,9 @@ class BigQueryAdapter(PlatformAdapter):
 
         return context
 
+    def supports_limit_offset(self) -> bool:
+        return True
+
     def cleanup(self, context: ProfilingContext) -> None:
         """
         Cleanup BigQuery temp resources.

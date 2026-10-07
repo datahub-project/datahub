@@ -98,9 +98,15 @@ For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowf
 
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
 
+#### `limit` is not a sample
+
+`profiling.limit` (with `profiling.offset`) bounds the profile to the first N rows the platform hands back — storage order, not a random draw — so the statistics describe whatever rows those happen to be. `use_sampling` draws randomly and is the option to reach for when the aim is a representative estimate of the whole table. Setting `limit` turns sampling off.
+
+Only BigQuery, Dremio and Snowflake apply it. Elsewhere the profiler warns and profiles the full table, and the profile stays labelled `FULL_TABLE` rather than claiming a bound that was never applied.
+
 #### `rowCount` and the column statistics are measured over different things
 
-A profile whose `partitionSpec.type` is not `FULL_TABLE` — which covers both a sampled profile and a partitioned one — carries two kinds of number that do **not** come from the same set of rows:
+A profile whose `partitionSpec.type` is not `FULL_TABLE` — a sampled, limited or partitioned profile — carries two kinds of number that do **not** come from the same set of rows:
 
 | field                                                                              | measured over                                   |
 | ---------------------------------------------------------------------------------- | ----------------------------------------------- |

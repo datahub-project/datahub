@@ -25,18 +25,12 @@ class ClickHouseAdapter(PlatformAdapter):
     ) -> ProfilingContext:
         # ClickHouse session-scoped temp tables are incompatible with connection-pool
         # cross-connection reads, so this adapter never creates temp tables.
-        unsupported = []
+        # limit/offset are reported centrally via supports_limit_offset().
         if context.custom_sql:
-            unsupported.append("custom_sql")
-        if self.config.limit:
-            unsupported.append("limit")
-        if self.config.offset:
-            unsupported.append("offset")
-        if unsupported:
             self.report.warning(
                 title="Profiling: ClickHouse SQLAlchemy profiler options ignored",
-                message="custom_sql, limit, and offset are not supported on the SQLAlchemy profiler path; full-table profiling will be used instead",
-                context=f"{context.pretty_name}: ignored options: {unsupported}",
+                message="custom_sql is not supported on the SQLAlchemy profiler path; full-table profiling will be used instead",
+                context=context.pretty_name,
             )
         return super().setup_profiling(context, conn)
 
