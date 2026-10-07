@@ -134,8 +134,10 @@ every procedure excluded when `include_stored_procedures` is off. `sql` takes no
 runs on the recipe's own connection, so on a multi-database recipe an unqualified name such as
 `sys.tables` reads the login's default database (usually `master`), not one ingestion walks.
 Qualify it instead: `sql` admits three-part catalog names (`OtherDb.sys.tables`) for any database
-the login can read, including ones `database_pattern` excludes and system databases; it still
-reads catalog metadata only, never table rows.
+the login can read, including ones `database_pattern` excludes and system databases. The probe
+refuses any `sql` statement that reaches outside the catalog views. That check parses the SQL, so
+treat it as defense in depth, not an authorization boundary: run the probe under a read-only login
+whose grants cover catalog metadata only.
 
 ### Limitations
 

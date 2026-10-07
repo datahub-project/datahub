@@ -418,7 +418,7 @@ class RedshiftDataDictionary:
 
         # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
-        enriched_tables = self.enrich_tables(conn) if enrich else {}
+        enriched_tables = self.enrich_tables(conn) if enrich else None
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
@@ -488,7 +488,11 @@ class RedshiftDataDictionary:
                 )
 
                 materialized = False
-                if schema in enriched_tables and table_name in enriched_tables[schema]:
+                if (
+                    enriched_tables is not None
+                    and schema in enriched_tables
+                    and table_name in enriched_tables[schema]
+                ):
                     if enriched_tables[schema][table_name].is_materialized:
                         materialized = True
 
@@ -528,7 +532,11 @@ class RedshiftDataDictionary:
         last_altered: Optional[datetime] = None
         size_in_bytes: Optional[int] = None
         rows_count: Optional[int] = None
-        if schema in enriched_tables and table_name in enriched_tables[schema]:
+        if enriched_tables is None:
+            # Enrichment was skipped (enrich=False), so a missing entry says
+            # nothing about the table being empty: leave the stats unset.
+            pass
+        elif schema in enriched_tables and table_name in enriched_tables[schema]:
             if (
                 last_accessed := enriched_tables[schema][table_name].last_accessed
             ) is not None:

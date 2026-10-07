@@ -726,6 +726,26 @@ def test_sql_reaches_the_driver_with_no_parameter_set() -> None:
     assert closed == [True]
 
 
+def test_sql_closes_the_cursor_when_the_query_fails() -> None:
+    closed: List[bool] = []
+
+    class _Cursor:
+        description = None
+
+        def execute(self, *args: object) -> None:
+            raise RuntimeError("server refused the query")
+
+        def fetchmany(self, n: int) -> List[Tuple[str]]:
+            raise AssertionError("fetched after a failed execute")
+
+        def close(self) -> None:
+            closed.append(True)
+
+    with pytest.raises(RuntimeError):
+        execute_on_cursor(_Cursor(), "SELECT name FROM sys.tables", limit=5)
+    assert closed == [True]
+
+
 def test_a_schema_resolved_to_another_spelling_says_so(tmp_path: Path) -> None:
     """parent_path carries the caller's `MAIN`; a case-sensitive pattern
     judges ingestion's `main`, so the caller has to be told which to pass."""

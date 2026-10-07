@@ -392,7 +392,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
     _is_odbc: bool = PrivateAttr(default=False)
-    _pinned_database: Optional[str] = PrivateAttr(default=None)
     is_aws_rds: Optional[bool] = Field(
         default=None,
         description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
@@ -501,12 +500,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         "" when the connection names no database, so the login's default one
         is read and its name is not knowable without connecting.
         """
-        # Cached: several hooks ask per verdict, and the URL never changes.
-        if self._pinned_database is None:
-            self._pinned_database = database_name_from_url(
-                make_url(self.database_url())
-            )
-        return self._pinned_database
+        # Not cached: validate_assignment can change the fields it reads, and
+        # parsing the URL is cheap next to the verdicts that ask for it.
+        return database_name_from_url(make_url(self.database_url()))
 
     def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
         return (
@@ -824,12 +820,13 @@ class SQLServerSource(SQLAlchemySource):
         ctx: PipelineContext,
         is_odbc: Optional[bool] = None,
     ):
+        if is_odbc is not None and is_odbc != config.uses_odbc():
+            # For a config validated without the source type's context. A
+            # copy, so the caller's config keeps its own flag.
+            config = config.model_copy()
+            config._is_odbc = is_odbc
         super().__init__(config, ctx, "mssql")
         self.config: SQLServerConfig = config
-        if is_odbc is not None:
-            # For a config validated without the source type's context.
-            config._is_odbc = is_odbc
-        self._is_odbc = config.uses_odbc()
         self.current_database: Optional[str] = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
@@ -868,7 +865,7 @@ class SQLServerSource(SQLAlchemySource):
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
                 with inspector.engine.connect() as conn:
-                    if self._is_odbc:
+                    if self.config.uses_odbc():
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)

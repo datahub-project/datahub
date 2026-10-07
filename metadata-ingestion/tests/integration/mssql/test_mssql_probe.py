@@ -7,12 +7,10 @@ that `probe filter` says "included" for exactly the objects ingestion emits.
 """
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set
 
 import pytest
-import yaml
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import run_probe_method
@@ -27,6 +25,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.metadata.urns import DataJobUrn, DatasetUrn
+from tests.integration.mssql.common import run_sqlcmd, sa_password
 from tests.test_helpers.probe_parity import (
     EmittedIndex,
     FanOut,
@@ -46,18 +45,11 @@ _PROC = "Stored Procedure"
 _STORED_PROCEDURES = ".stored_procedures"
 
 
-def _fixture_password() -> str:
-    # The throwaway container's own SA password, read from its compose file so
-    # it lives in one place.
-    compose = yaml.safe_load((Path(__file__).parent / "docker-compose.yml").read_text())
-    return str(compose["services"]["testsqlserver"]["environment"]["SA_PASSWORD"])
-
-
 def _config(**extra: object) -> Dict[str, object]:
     return {
         "host_port": f"localhost:{os.environ['MSSQL_PORT']}",
         "username": "sa",
-        "password": _fixture_password(),
+        "password": sa_password(),
         **extra,
     }
 
@@ -123,28 +115,8 @@ def _included(
 
 
 def _sqlcmd(*statements: str) -> None:
-    """Run statements in the fixture container, as its setup.sql is run."""
-    subprocess.run(
-        [
-            "docker",
-            "exec",
-            "testsqlserver",
-            "/opt/mssql-tools18/bin/sqlcmd",
-            "-C",
-            "-S",
-            "localhost",
-            "-U",
-            "sa",
-            "-P",
-            _fixture_password(),
-            "-b",
-            "-Q",
-            "; ".join(statements),
-        ],
-        check=True,
-        capture_output=True,
-        timeout=120,
-    )
+    ret = run_sqlcmd("-Q", "; ".join(statements))
+    assert ret.returncode == 0, ret.stdout + ret.stderr
 
 
 @pytest.fixture(scope="module")
@@ -169,6 +141,13 @@ def odd_databases(mssql_runner: object) -> Iterator[None]:
         "EXEC('CREATE TABLE FOO.t_upper (id int)')",
     )
     yield
+    # Dropped here rather than left to the container's teardown, so a reused
+    # container never shows them to the all-database golden recipes.
+    for database in ("[Odd]]Db]", "CsData"):
+        _sqlcmd(
+            f"ALTER DATABASE {database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE",
+            f"DROP DATABASE {database}",
+        )
 
 
 def _database_of(index: EmittedIndex, urn: str) -> Optional[str]:

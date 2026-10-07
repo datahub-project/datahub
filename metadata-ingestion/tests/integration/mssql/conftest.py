@@ -1,8 +1,8 @@
-import subprocess
 import time
 
 import pytest
 
+from tests.integration.mssql.common import CONTAINER, run_sqlcmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 
@@ -15,7 +15,7 @@ def mssql_runner(docker_compose_runner, pytestconfig, request):
         # Ephemeral host port: a leaked container from a prior CI run can
         # never hold onto it. Recipe ymls in source_files/ pick it up via
         # ${MSSQL_PORT}.
-        mssql_port = docker_services.port_for("testsqlserver", 1433)
+        mssql_port = docker_services.port_for(CONTAINER, 1433)
         mp = pytest.MonkeyPatch()
         mp.setenv("MSSQL_PORT", str(mssql_port))
         request.addfinalizer(mp.undo)
@@ -23,14 +23,11 @@ def mssql_runner(docker_compose_runner, pytestconfig, request):
         # Wait for SQL Server to be ready. We wait an extra couple seconds, as the port being available
         # does not mean the server is accepting connections.
         # TODO: find a better way to check for liveness.
-        wait_for_port(docker_services, "testsqlserver", 1433)
+        wait_for_port(docker_services, CONTAINER, 1433)
         time.sleep(5)
 
         # Run the setup.sql file to populate the database; -b and -V 1, to fail on error
-        command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql -b -V 1"
-        print("\nExecuting SQL setup command:", command)
-        ret = subprocess.run(command, shell=True, capture_output=True, text=True)
-
+        ret = run_sqlcmd("-d", "master", "-i", "/setup/setup.sql", "-V", "1")
         if ret.returncode != 0:
             print(f"sqlcmd return code: {ret.returncode}")
             print(f"sqlcmd stdout:\n{ret.stdout}")

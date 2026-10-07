@@ -141,9 +141,9 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         )
         if name != database:
             self._warn(
-                f"'{database}' is spelled '{name}' on the server, which is the "
-                f"name ingestion qualifies with; pass '{name}' as the --parent "
-                f"to `probe filter`"
+                f"{echoed(database)} is spelled {echoed(name)} on the server, "
+                f"which is the name ingestion qualifies with; pass {echoed(name)} "
+                f"as the --parent to `probe filter`"
             )
         opened = self._databases.get(name)
         if opened is None:
@@ -177,7 +177,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
     def _schema_arg(self, schema: str) -> Union[str, quoted_name]:
         if not self._config.quote_schemas and "." in schema:
             self._warn(
-                f"schema '{schema}' contains a dot and quote_schemas is off, so "
+                f"schema {echoed(schema)} contains a dot and quote_schemas is off, so "
                 f"ingestion (and this command) reads it as database.owner; set "
                 f"quote_schemas: true to read it as one schema"
             )
@@ -188,16 +188,16 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         name = _server_spelling(
             schema,
             list(inspector.get_schema_names()),
-            f"schema in database '{db_name}'" if db_name else "schema",
+            f"schema in database {echoed(db_name)}" if db_name else "schema",
             "`containers` lists them",
         )
         if name != schema:
             # The caller's spelling is what travels in parent_path, and a
             # case-sensitive pattern judges the server's.
             self._warn(
-                f"schema '{schema}' is spelled '{name}' on the server, which is "
-                f"the name ingestion matches patterns against; pass '{name}' as "
-                f"the --parent to `probe filter`"
+                f"schema {echoed(schema)} is spelled {echoed(name)} on the server, "
+                f"which is the name ingestion matches patterns against; pass "
+                f"{echoed(name)} as the --parent to `probe filter`"
             )
         return _Located(inspector, engine, db_name, name, self._schema_arg(name))
 
@@ -213,7 +213,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         relation = _server_spelling(
             name,
             known,
-            f"{'view' if views_only else 'table or view'} in '{located.schema}'",
+            f"{'view' if views_only else 'table or view'} in {echoed(located.schema)}",
             f"`{'views' if views_only else 'tables'}` lists them",
         )
         return located, relation
