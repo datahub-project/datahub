@@ -53,14 +53,6 @@ const Wrapper = styled.div`
     }
 `;
 
-const StyledNavigateBeforeOutlinedIcon = styled(CaretLeft).attrs<{ buttonSize: number }>(({ buttonSize }) => ({
-    size: buttonSize,
-}))<{ buttonSize: number }>``;
-
-const StyledNavigateNextOutlinedIcon = styled(CaretRight).attrs<{ buttonSize: number }>(({ buttonSize }) => ({
-    size: buttonSize,
-}))<{ buttonSize: number }>``;
-
 type Props = {
     children: React.ReactNode;
     scrollDistance?: number;
@@ -137,7 +129,7 @@ const HorizontalScroller: React.FC<Props> = ({
                     offset={scrollButtonOffset}
                     left
                 >
-                    <StyledNavigateBeforeOutlinedIcon buttonSize={scrollButtonSize} />
+                    <CaretLeft size={scrollButtonSize} />
                 </ScrollButton>
             )}
             <ScrollContainerWrapper ref={contentRef} className={className}>
@@ -151,7 +143,7 @@ const HorizontalScroller: React.FC<Props> = ({
                     offset={scrollButtonOffset}
                     right
                 >
-                    <StyledNavigateNextOutlinedIcon buttonSize={scrollButtonSize} />
+                    <CaretRight size={scrollButtonSize} />
                 </ScrollButton>
             )}
         </Wrapper>

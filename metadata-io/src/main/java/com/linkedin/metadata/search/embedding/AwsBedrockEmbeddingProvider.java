@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -112,6 +113,25 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
   @Override
   @Nonnull
   public float[] embed(@Nonnull String text, @Nullable String model) {
+    return embedWithTimeout(text, model, null);
+  }
+
+  @Override
+  @Nonnull
+  public float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      @Nonnull EmbeddingTaskType taskType,
+      @Nonnull Duration timeout) {
+    return embedWithTimeout(text, model, timeout);
+  }
+
+  /**
+   * @param timeout bounds the whole call, SDK retries included; null keeps the client's settings
+   */
+  @Nonnull
+  private float[] embedWithTimeout(
+      @Nonnull String text, @Nullable String model, @Nullable Duration timeout) {
     Objects.requireNonNull(text, "text cannot be null");
 
     String modelToUse = model != null ? model : defaultModel;
@@ -144,15 +164,17 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
       log.debug("Bedrock request for model {}: {}", modelToUse, requestJson);
 
       // Invoke Bedrock model
-      InvokeModelRequest invokeRequest =
+      InvokeModelRequest.Builder invokeRequest =
           InvokeModelRequest.builder()
               .modelId(modelToUse)
               .body(SdkBytes.fromString(requestJson, StandardCharsets.UTF_8))
               .contentType("application/json")
-              .accept("application/json")
-              .build();
+              .accept("application/json");
+      if (timeout != null) {
+        invokeRequest.overrideConfiguration(override -> override.apiCallTimeout(timeout));
+      }
 
-      InvokeModelResponse response = bedrockClient.invokeModel(invokeRequest);
+      InvokeModelResponse response = bedrockClient.invokeModel(invokeRequest.build());
 
       // Parse response
       // Format: {"embeddings": [[0.123, 0.456, ...]], "id": "...", "response_type":

@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +17,6 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { SchemaField } from '@types';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const FIELD_PATH_SEPARATOR = '.';
 
@@ -139,7 +139,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     <MenuColumn field={expandedField} />
                 </MenuWrapper>
                 <CloseIcon onClick={() => setExpandedDrawerFieldPath(null)}>
-                    <X  />
+                    <X />
                 </CloseIcon>
             </RightGroup>
         </FieldHeaderWrapper>

@@ -13,8 +13,9 @@ const NoDataContainer = styled.div`
     align-items: center;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: transparent;
 `;
@@ -24,7 +25,7 @@ export default function NoStats() {
 
     return (
         <NoDataContainer>
-            <StyledIcon component={NoStatsAvailble} />
+            <NoStatsIcon />
             <Text size="sm">{t('statsV2.noColumnStatsFound')}</Text>
         </NoDataContainer>
     );

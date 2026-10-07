@@ -1,10 +1,10 @@
 import { Modal, Text } from '@components';
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
-import { Input, Spin, notification } from 'antd';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Input, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { keyframes, useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -16,19 +16,9 @@ import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabC
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const SpinIcon = styled(CircleNotch)`
-    animation: ${spin} 1s linear infinite;
-    font-size: 24px;
-`;
 
 const ImpactAnalysisWarning = styled.div`
     gap: 8px;
@@ -110,7 +100,7 @@ export default function DownloadAsCsvModal({
             description,
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<SpinIcon />} />,
+            icon: <StyledSpinner $height={24} />,
         });
     };
 
@@ -232,7 +222,7 @@ export default function DownloadAsCsvModal({
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }}  />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
                             {t('download.resultsMayVaryTitle')}

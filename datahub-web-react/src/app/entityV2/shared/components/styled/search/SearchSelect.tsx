@@ -1,3 +1,4 @@
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Button, Typography, message } from 'antd';
 import debounce from 'lodash/debounce';
 import React, { useState } from 'react';
@@ -21,7 +22,6 @@ import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
-import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 
 const Container = styled.span`
     display: flex;
@@ -170,7 +170,7 @@ export const SearchSelect = ({
             {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
                 <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
-                    <Funnel  />
+                    <Funnel />
                     <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                 </Button>
                 <SearchBar

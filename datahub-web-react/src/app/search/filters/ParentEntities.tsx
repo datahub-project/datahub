@@ -1,6 +1,6 @@
-import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';

@@ -182,8 +182,8 @@ def escape_unity_name(value: str) -> str:
     catalog_pattern and schema_pattern are matched against.
 
     Shared by UnityCatalogApiProxy, which builds those ids, and by the recipe
-    probe's UnityCatalogSourceConfig.probe_container_match_target, so both
-    sides filter on the same string.
+    probe's UnityCatalogSourceConfig.probe_match_target, so both sides filter
+    on the same string.
     """
     return value.replace(" ", "_")
 

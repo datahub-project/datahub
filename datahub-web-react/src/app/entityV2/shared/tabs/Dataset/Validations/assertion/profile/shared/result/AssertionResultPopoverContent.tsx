@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Divider, Typography } from 'antd';
 import React from 'react';
@@ -21,7 +22,6 @@ import { sortNativeResults } from '@app/entityV2/shared/tabs/Dataset/Validations
 import { safeUrl } from '@app/shared/urlUtils';
 
 import { Assertion, AssertionResult, AssertionResultErrorType, AssertionResultType, AssertionRunEvent } from '@types';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 
 const EXPAND_SYMBOL = 'more';
 const UNKNOWN_PLATFORM_NAME = 'unknown';

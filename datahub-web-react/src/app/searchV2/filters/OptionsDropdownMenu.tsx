@@ -1,3 +1,4 @@
+import { Loader } from '@components';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +7,6 @@ import styled, { useTheme } from 'styled-components/macro';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Loader } from '@components';
 
 const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 

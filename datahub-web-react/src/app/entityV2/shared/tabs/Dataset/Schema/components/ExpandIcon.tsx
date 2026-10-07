@@ -24,39 +24,28 @@ const Padding = styled.span<{ padding: number }>`
     margin-left: ${(props) => props.padding}px;
 `;
 
-const Down = styled(CaretDown)<{ $isCompact?: boolean }>`
+const Down = styled(CaretDown).attrs<{ $isCompact?: boolean }>(({ $isCompact }) => ({
+    size: $isCompact ? 8 : 14,
+    weight: 'bold' as const,
+}))<{ $isCompact?: boolean }>`
     :hover {
         color: ${(props) => props.theme.colors.textHover};
-        stroke: ${(props) => props.theme.colors.textHover};
-        stroke-width: 140px;
     }
     color: ${(props) => props.theme.colors.textSecondary};
-    stroke: ${(props) => props.theme.colors.textSecondary};
-    stroke-width: 100px;
     padding-right: 5px;
-    ${(props) =>
-        props.$isCompact &&
-        `
-        font-size: 8px;
-        
-    `}
+    cursor: pointer;
 `;
 
-const Right = styled(CaretRight)<{ isCompact?: boolean }>`
+const Right = styled(CaretRight).attrs<{ isCompact?: boolean }>(({ isCompact }) => ({
+    size: isCompact ? 8 : 14,
+    weight: 'bold' as const,
+}))<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${(props) => props.theme.colors.textHover};
         color: ${(props) => props.theme.colors.textHover};
-        stroke-width: 140px;
     }
     color: ${(props) => props.theme.colors.textSecondary};
-    stroke: ${(props) => props.theme.colors.textSecondary};
-    stroke-width: 100px;
     padding-right: 5px;
-    ${(props) =>
-        props.isCompact &&
-        `
-        font-size: 8px;
-    `}
+    cursor: pointer;
 `;
 
 const RowIconContainer = styled.div`
@@ -109,7 +98,7 @@ export default function ExpandIcon(props: Props) {
     const { t } = useTranslation('entity.profile.schema');
     const { expanded, onExpand, expandable, record, isCompact = false } = props;
 
-    function toggleExpand(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+    function toggleExpand(e: React.MouseEvent) {
         e.stopPropagation();
         onExpand(record, e);
     }
@@ -142,9 +131,9 @@ export default function ExpandIcon(props: Props) {
                 {expandable &&
                     record.children !== undefined &&
                     (expanded ? (
-                        <Down onClick={toggleExpand} $isCompact={isCompact} />
+                        <Down onClick={toggleExpand} $isCompact={isCompact} data-testid="schema-expand-icon-down" />
                     ) : (
-                        <Right onClick={toggleExpand} isCompact={isCompact} />
+                        <Right onClick={toggleExpand} isCompact={isCompact} data-testid="schema-expand-icon-right" />
                     ))}
             </IconContainer>
         </>

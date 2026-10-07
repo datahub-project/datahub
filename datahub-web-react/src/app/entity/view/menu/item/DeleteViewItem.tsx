@@ -1,9 +1,9 @@
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 
 type Props = {
     key: string;
@@ -18,7 +18,7 @@ export const DeleteViewItem = ({ key, onClick }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     return (
         <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-delete">
-            <IconItemTitle tip={t('menu.deleteTooltip')} title={tc('delete')} icon={<Trash  />} />
+            <IconItemTitle tip={t('menu.deleteTooltip')} title={tc('delete')} icon={<Trash />} />
         </MenuItemStyle>
     );
 };

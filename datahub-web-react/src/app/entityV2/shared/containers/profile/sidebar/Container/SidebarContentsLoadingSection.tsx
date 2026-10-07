@@ -1,19 +1,8 @@
-import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
-import { Spin } from 'antd';
+import { Loader } from '@components';
 import React from 'react';
-import styled, { keyframes } from 'styled-components';
-
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const SpinIcon = styled(CircleNotch)`
-    animation: ${spin} 1s linear infinite;
-`;
 
 const SidebarContentsLoadingSection = () => {
-    return <Spin indicator={<SpinIcon />} />;
+    return <Loader size="sm" />;
 };
 
 export default SidebarContentsLoadingSection;

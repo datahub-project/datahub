@@ -1,7 +1,7 @@
+import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 
 const Container = styled.div`
     display: flex;

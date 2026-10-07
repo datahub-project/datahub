@@ -1,4 +1,6 @@
 import { Button, Tooltip } from '@components';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,8 +21,6 @@ import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { DataHubPageModuleType, EntityType } from '@types';
-import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 export enum EntityActionItem {
     /**
@@ -278,7 +278,7 @@ function EntityActions(props: Props) {
                             data-testid="glossary-batch-add"
                             size="sm"
                         >
-                            <LinkIcon  /> {t('addToAssets')}
+                            <LinkIcon /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
@@ -290,7 +290,7 @@ function EntityActions(props: Props) {
                             data-testid="domain-batch-add"
                             size="sm"
                         >
-                            <LinkIcon  /> {t('addToAssets')}
+                            <LinkIcon /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
@@ -307,7 +307,7 @@ function EntityActions(props: Props) {
                             size="sm"
                             data-testid="data-product-batch-add"
                         >
-                            <LinkIcon  />
+                            <LinkIcon />
                             {t('addAssets')}
                         </Button>
                     </Tooltip>
@@ -333,7 +333,7 @@ function EntityActions(props: Props) {
                 {actionItems.has(EntityActionItem.BATCH_ADD_APPLICATION) && (
                     <Tooltip title={t('addApplicationTooltip')} showArrow={false} placement="bottom">
                         <Button variant="outline" onClick={() => setIsBatchSetApplicationModalVisible(true)}>
-                            <LinkIcon  /> {t('addToAssets')}
+                            <LinkIcon /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}

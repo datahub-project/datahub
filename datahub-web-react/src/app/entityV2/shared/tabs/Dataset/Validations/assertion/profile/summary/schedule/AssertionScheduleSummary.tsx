@@ -1,3 +1,4 @@
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -8,7 +9,6 @@ import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 
 import { Assertion } from '@types';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 
 const Container = styled.div`
     margin-top: 20px;

@@ -1,9 +1,9 @@
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
-import { Code } from '@phosphor-icons/react/dist/csr/Code';
-import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';

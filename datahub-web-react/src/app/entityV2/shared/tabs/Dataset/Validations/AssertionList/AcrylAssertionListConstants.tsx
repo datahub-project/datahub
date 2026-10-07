@@ -1,3 +1,7 @@
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
@@ -5,10 +9,6 @@ import styled from 'styled-components';
 import { NO_RUNNING_STATE } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import ColorTheme from '@conf/theme/colorThemes/types';
 import { AssertionResultType, AssertionType } from '@src/types.generated';
-import { Check } from '@phosphor-icons/react/dist/csr/Check';
-import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
-import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -51,11 +51,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textInformation,
         backgroundColor: colors.bgSurfaceInfo,
         resultType: AssertionResultType.Init,
-        icon: <Clock  />,
+        icon: <Clock />,
         text: i18next.t('entity.profile.validations:status.initializing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceInfo} color={colors.textInformation}>
-                <Clock  /> {i18next.t('entity.profile.validations:status.initializing')}
+                <Clock /> {i18next.t('entity.profile.validations:status.initializing')}
             </StyledCardTitle>
         ),
     },
@@ -63,11 +63,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textSuccess,
         backgroundColor: colors.bgSurfaceSuccess,
         resultType: AssertionResultType.Success,
-        icon: <Check  />,
+        icon: <Check />,
         text: i18next.t('entity.profile.validations:status.passing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceSuccess} color={colors.textSuccess}>
-                <Check  /> {i18next.t('entity.profile.validations:status.passing')}
+                <Check /> {i18next.t('entity.profile.validations:status.passing')}
             </StyledCardTitle>
         ),
     },
@@ -75,11 +75,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textError,
         backgroundColor: colors.bgSurfaceError,
         resultType: AssertionResultType.Failure,
-        icon: <X  />,
+        icon: <X />,
         text: i18next.t('entity.profile.validations:status.failing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceError} color={colors.textError}>
-                <X  /> {i18next.t('entity.profile.validations:status.failing')}
+                <X /> {i18next.t('entity.profile.validations:status.failing')}
             </StyledCardTitle>
         ),
     },
@@ -87,11 +87,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textWarning,
         backgroundColor: colors.bgSurfaceWarning,
         resultType: AssertionResultType.Error,
-        icon: <Info  />,
+        icon: <Info />,
         text: i18next.t('entity.profile.validations:status.errors'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceWarning} color={colors.textWarning}>
-                <Info  /> {i18next.t('entity.profile.validations:status.error')}
+                <Info /> {i18next.t('entity.profile.validations:status.error')}
             </StyledCardTitle>
         ),
     },
@@ -99,11 +99,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textTertiary,
         backgroundColor: colors.bgSurface,
         resultType: null,
-        icon: <Info  />,
+        icon: <Info />,
         text: i18next.t('entity.profile.validations:status.zeroRunning'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurface} color={colors.textTertiary}>
-                <Info  /> {i18next.t('entity.profile.validations:status.noRuns')}
+                <Info /> {i18next.t('entity.profile.validations:status.noRuns')}
             </StyledCardTitle>
         ),
     },
