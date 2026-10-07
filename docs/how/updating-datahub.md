@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(Ingestion / Executor)** A recipe's `extra_env_vars` can no longer set `DATAHUB_DISABLE_SECRET_MASKING` or `DATAHUB_ENABLE_SECRET_MASKING`. The executor ignores these keys in a recipe and logs a warning, so secret masking stays on for UI-triggered ingestion and test-connection runs. To change secret masking for debugging, set the variable in the executor's own environment instead.
+- #20264: **(Ingestion / Executor)** A recipe's `extra_env_vars` can no longer set `DATAHUB_DISABLE_SECRET_MASKING` or `DATAHUB_ENABLE_SECRET_MASKING`. The executor ignores these keys in a recipe and logs a warning, so secret masking stays on for UI-triggered ingestion and test-connection runs. To change secret masking for debugging, set the variable in the executor's own environment instead.
 
 - [#20111](https://github.com/datahub-project/datahub/pull/20111) **(Ingestion / CLI)** The `datahub recipe` commands (`probe`, `test-connection`, `validate`), first shipped in 1.7.0.14, now report more failures on the exit code that says who has to act: **2** your input, **3** the source, **1** DataHub, the connector or a missing package. Scripts and agents that branch on these codes will see these changes:
 
