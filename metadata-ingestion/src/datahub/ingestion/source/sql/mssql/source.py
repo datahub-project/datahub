@@ -551,10 +551,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         )
 
 
-def _is_user_object(name: str) -> bool:
-    return not is_mssql_system_object(name)
-
-
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.GA)
@@ -660,9 +656,32 @@ class SQLServerSource(SQLAlchemySource):
                 generate_query_usage_statistics=self.config.include_query_usage_statistics,
                 usage_config=self.config,
                 eager_graph_load=False,
-                is_allowed_table=_is_user_object,
+                is_allowed_table=self._is_allowed_query_history_table,
             )
         return super()._create_aggregator()
+
+    def _is_allowed_query_history_table(self, name: str) -> bool:
+        """Whether query history may reference this `db.schema.object`.
+
+        Applies the same database/schema/table/view patterns as table
+        ingestion, so queries that only touch out-of-scope tables don't become
+        Query entities, lineage or usage, plus the system-object filter.
+        Upstreams of an allowed table are not filtered, so lineage from an
+        in-scope view to its sources is unchanged.
+        """
+        if is_mssql_system_object(name):
+            return False
+        parts = name.split(".")
+        if len(parts) < MSSQL_QUALIFIED_NAME_PARTS:
+            return True
+        return (
+            self.config.database_pattern.allowed(parts[-3])
+            and self.config.schema_pattern.allowed(parts[-2])
+            # Query history doesn't say whether a name is a table or a view,
+            # so it must pass both patterns (both allow everything by default).
+            and self.config.table_pattern.allowed(name)
+            and self.config.view_pattern.allowed(name)
+        )
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
