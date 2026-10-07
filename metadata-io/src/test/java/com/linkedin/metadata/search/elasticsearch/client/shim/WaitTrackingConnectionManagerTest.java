@@ -2,8 +2,11 @@ package com.linkedin.metadata.search.elasticsearch.client.shim;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.concurrent.ExecutionException;
@@ -29,6 +32,12 @@ public class WaitTrackingConnectionManagerTest {
         RegistryBuilder.<SchemeIOSessionStrategy>create()
             .register("http", NoopIOSessionStrategy.INSTANCE)
             .build());
+  }
+
+  private static Timer attachTimer(WaitTrackingConnectionManager manager) {
+    Timer timer = Timer.builder("lease.wait").register(new SimpleMeterRegistry());
+    manager.setLeaseWaitTimer(timer);
+    return timer;
   }
 
   private static HttpRoute loopbackRoute(int port) {
@@ -73,6 +82,7 @@ public class WaitTrackingConnectionManagerTest {
   public void stopsCountingOnceALeaseIsGranted() throws Exception {
     WaitTrackingConnectionManager manager = newManager();
     manager.setDefaultMaxPerRoute(1);
+    Timer leaseWait = attachTimer(manager);
     try (ServerSocket server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
         CloseableHttpAsyncClient client =
             HttpAsyncClients.custom().setConnectionManager(manager).build()) {
@@ -90,9 +100,14 @@ public class WaitTrackingConnectionManagerTest {
           manager.requestConnection(route, null, 5000, 0, TimeUnit.MILLISECONDS, null);
       assertEquals(manager.getWaiting(), 1);
 
+      Thread.sleep(50);
       manager.releaseConnection(conn, null, 1, TimeUnit.MINUTES);
       assertNotNull(second.get(5, TimeUnit.SECONDS));
       awaitWaiting(manager, 0);
+
+      // Both leases are timed, and the second one includes the wait for the release.
+      assertEquals(leaseWait.count(), 2);
+      assertTrue(leaseWait.max(TimeUnit.MILLISECONDS) >= 50);
     }
   }
 
@@ -103,6 +118,7 @@ public class WaitTrackingConnectionManagerTest {
       closedPort = probe.getLocalPort();
     }
     WaitTrackingConnectionManager manager = newManager();
+    Timer leaseWait = attachTimer(manager);
     try (CloseableHttpAsyncClient client =
         HttpAsyncClients.custom().setConnectionManager(manager).build()) {
       client.start();
@@ -111,6 +127,7 @@ public class WaitTrackingConnectionManagerTest {
               loopbackRoute(closedPort), null, 5000, 0, TimeUnit.MILLISECONDS, null);
       expectThrows(ExecutionException.class, () -> lease.get(5, TimeUnit.SECONDS));
       awaitWaiting(manager, 0);
+      assertEquals(leaseWait.count(), 1);
     }
   }
 }

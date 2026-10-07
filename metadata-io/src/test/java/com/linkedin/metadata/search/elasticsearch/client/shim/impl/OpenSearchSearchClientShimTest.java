@@ -720,6 +720,13 @@ public class OpenSearchSearchClientShimTest {
             0.0,
             state);
       }
+      assertEquals(
+          registry
+              .get(SearchConnectionPoolMetrics.LEASE_WAIT_METRIC)
+              .tags("cluster", "primary")
+              .timer()
+              .count(),
+          0L);
     }
   }
 }
