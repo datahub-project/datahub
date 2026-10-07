@@ -548,6 +548,43 @@ public interface EntityService<U extends ChangeMCP> {
 
   RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn);
 
+  /**
+   * A {@link #deleteAspect} condition bounding a hard delete by version: only rows at or below it
+   * are deleted, the latest row judged by its {@code systemMetadata.version} and a history row by
+   * its row version. A newer latest row matches nothing, so that aspect is left as it is.
+   */
+  String DELETE_CONDITION_MAX_VERSION = "maxVersion";
+
+  /**
+   * A {@link #deleteAspect} condition bounding a delete to one entity: the {@link
+   * DeleteCeiling#keyCreatedOnMillis()} its key row must still have, read under lock with the
+   * aspect. When the key row is missing or differs (the entity was deleted, or recreated), nothing
+   * is deleted.
+   */
+  String DELETE_CONDITION_KEY_CREATED_ON = "keyCreatedOn";
+
+  /**
+   * Every aspect {@code urn} has in primary storage now, key included, mapped to the version a
+   * delete bounded by it may remove up to. Empty when the key aspect is absent. Reads only.
+   */
+  @Nonnull
+  Optional<DeleteCeiling> captureDeleteCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn);
+
+  /**
+   * {@link #deleteUrn(OperationContext, Urn)}, bounded by {@code ceiling} when it is not null (null
+   * is exactly {@link #deleteUrn(OperationContext, Urn)}). Within the delete transaction every
+   * latest row of {@code urn} is read for update; the entity is deleted as today only when each is
+   * at or below its ceiling and none is new since the capture; an aspect that was not captured is
+   * not deleted, and if one is found once the rest is, nothing is deleted. Otherwise the key stays
+   * and each captured aspect is deleted up to its ceiling ({@link #DELETE_CONDITION_MAX_VERSION})
+   * while the key row is the captured one ({@link #DELETE_CONDITION_KEY_CREATED_ON}); the
+   * key-aspect row itself stays (only a full entity delete removes it), so the result does not
+   * report the key as deleted.
+   */
+  RollbackRunResult deleteUrn(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling);
+
   RollbackRunResult rollbackRun(
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,

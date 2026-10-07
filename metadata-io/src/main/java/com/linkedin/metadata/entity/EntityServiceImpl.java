@@ -53,6 +53,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
@@ -3502,6 +3503,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @Override
   public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
+    return deleteUrn(opContext, urn, null);
+  }
+
+  @Override
+  public RollbackRunResult deleteUrn(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling) {
     // No write gate is taken here. It is acquired inside deleteAspectWithoutMCL (the shared
     // DB-delete primitive), which scopes the lock to just the DB transaction and keeps the async
     // MCL
@@ -3523,7 +3530,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             keyAspectName,
             Collections.emptyMap(),
             true,
-            DeletePurpose.ORDINARY);
+            DeletePurpose.ORDINARY,
+            ceiling);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -3570,10 +3578,73 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           throw new RuntimeException(e);
         }
       }
+    } else if (ceiling != null) {
+      // Written to since the capture, so the entity stays: delete what was captured, aspect by
+      // aspect. Rows newer than the ceiling survive, and nothing is deleted from an entity
+      // recreated since the capture.
+      ceiling
+          .aspectVersions()
+          .forEach(
+              (aspectName, version) -> {
+                if (!aspectName.equals(keyAspectName)) {
+                  deleteAspect(
+                          opContext,
+                          urn.toString(),
+                          aspectName,
+                          Map.of(
+                              DELETE_CONDITION_MAX_VERSION,
+                              String.valueOf(version),
+                              DELETE_CONDITION_KEY_CREATED_ON,
+                              String.valueOf(ceiling.keyCreatedOnMillis())),
+                          true)
+                      .ifPresent(removedAspectResults::add);
+                }
+              });
     }
 
     return new RollbackRunResult(
         removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
+  }
+
+  @Override
+  @Nonnull
+  public Optional<DeleteCeiling> captureDeleteCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final OperationContext primary = opContext.withReadPreference(ReadPreference.PRIMARY);
+    final Map<String, SystemAspect> latest;
+    try {
+      latest =
+          aspectDao
+              .getLatestAspects(
+                  primary, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)), false)
+              .getOrDefault(urn.toString(), Map.of());
+    } catch (EntityNotFoundException e) {
+      return Optional.empty();
+    }
+    if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
+      return Optional.empty();
+    }
+    final Map<String, Long> versions = new HashMap<>();
+    latest.forEach(
+        (aspectName, row) -> {
+          // A legacy latest row has no systemMetadata.version (it counts as 1) while its history
+          // rows may be numbered higher: bound it by its highest row version instead, or those
+          // older rows would survive a bounded aspect delete and be restored as the latest.
+          final long version =
+              row.getSystemMetadataVersion()
+                  .orElseGet(
+                      () ->
+                          Math.max(
+                              1L,
+                              Optional.ofNullable(
+                                      aspectDao
+                                          .getVersionRange(primary, urn.toString(), aspectName)
+                                          .getSecond())
+                                  .orElse(0L)));
+          versions.put(aspectName, version);
+        });
+    return Optional.of(
+        new DeleteCeiling(versions, createdOnMillis(latest.get(opContext.getKeyAspectName(urn)))));
   }
 
   @Override
@@ -3680,6 +3751,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull Map<String, String> conditions,
       boolean hardDelete,
       DeletePurpose deletePurpose) {
+    return deleteAspectWithoutMCL(
+        opContext, urn, aspectName, conditions, hardDelete, deletePurpose, null);
+  }
+
+  /**
+   * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
+   *     read under lock in the delete transaction, is at or below its captured version and none is
+   *     new since the capture; otherwise nothing is deleted
+   */
+  @Nullable
+  private RollbackResult deleteAspectWithoutMCL(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose,
+      @Nullable DeleteCeiling ceiling) {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
@@ -3791,7 +3880,33 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // 1. Fetch the latest existing version of the aspect.
                     SystemAspect latest = null;
                     try {
-                      latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      final String keyCreatedOn = conditions.get(DELETE_CONDITION_KEY_CREATED_ON);
+                      if (conditions.containsKey(DELETE_CONDITION_MAX_VERSION)
+                          || keyCreatedOn != null) {
+                        // Bounded by version or by entity: lock the rows (the key row with the
+                        // aspect, in one ordered read) so a write cannot land between the check
+                        // and the delete.
+                        final String keyAspectName = opContext.getKeyAspectName(entityUrn);
+                        final Set<String> lockedAspectNames = new HashSet<>();
+                        lockedAspectNames.add(aspectName);
+                        if (keyCreatedOn != null) {
+                          lockedAspectNames.add(keyAspectName);
+                        }
+                        final Map<String, SystemAspect> locked =
+                            aspectDao
+                                .getLatestAspectsLocked(opContext, Map.of(urn, lockedAspectNames))
+                                .getOrDefault(urn, Map.of());
+                        // 1.0 A different key row: the entity was deleted, or recreated, since.
+                        if (keyCreatedOn != null
+                            && (locked.get(keyAspectName) == null
+                                || createdOnMillis(locked.get(keyAspectName))
+                                    != Long.parseLong(keyCreatedOn))) {
+                          return TransactionResult.rollback();
+                        }
+                        latest = locked.get(aspectName);
+                      } else {
+                        latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      }
                     } catch (EntityNotFoundException e) {
                       log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
                       opContext
@@ -3809,12 +3924,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // 2. Compare the match conditions, if they don't match, ignore.
                     SystemMetadata latestSystemMetadata = latest.getSystemMetadata();
-                    if (!filterMatch(latestSystemMetadata, conditions)) {
+                    if (!filterMatch(
+                        latestSystemMetadata,
+                        ConditionalWriteValidator.resolveAspectVersion(latest),
+                        conditions)) {
                       return TransactionResult.rollback();
                     }
 
                     // 3. Check if this is a key aspect
                     Boolean isKeyAspect = opContext.getKeyAspectName(entityUrn).equals(aspectName);
+
+                    // 3.1 A bounded entity delete: anything written since the capture keeps it.
+                    if (isKeyAspect
+                        && hardDelete
+                        && ceiling != null
+                        && !withinCeiling(opContext, entityUrn, ceiling)) {
+                      return TransactionResult.rollback();
+                    }
 
                     // 4. Fetch all preceding aspects, that match
                     List<SystemAspect> aspectsToDelete = new ArrayList<>();
@@ -3849,7 +3975,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           candidateAspect != null ? candidateAspect.getSystemMetadata() : null;
                       filterMatch =
                           previousSysMetadata != null
-                              && filterMatch(previousSysMetadata, conditions);
+                              && filterMatch(previousSysMetadata, maxVersion, conditions);
                       if (filterMatch) {
                         aspectsToDelete.add(candidateAspect);
                       } else if (candidateAspect == null) {
@@ -3971,7 +4097,26 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   urn);
                             }
                           }
-                          additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
+                          if (ceiling == null) {
+                            additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
+                          } else {
+                            // Only what was captured, locked by withinCeiling: an aspect created
+                            // since (its first row was not there to lock) is left in place, and
+                            // then so is the entity.
+                            final Set<String> notCaptured =
+                                opContext.getEntityAspectNames(entityUrn).stream()
+                                    .filter(a -> !ceiling.aspectVersions().containsKey(a))
+                                    .collect(Collectors.toSet());
+                            additionalRowsDeleted =
+                                aspectDao.deleteUrnExcept(opContext, txContext, urn, notCaptured);
+                            if (!notCaptured.isEmpty()
+                                && !aspectDao
+                                    .getLatestAspectsLocked(opContext, Map.of(urn, notCaptured))
+                                    .getOrDefault(urn, Map.of())
+                                    .isEmpty()) {
+                              return TransactionResult.rollback();
+                            }
+                          }
                         } else if (deleteItem
                             .getEntitySpec()
                             .hasAspect(Constants.STATUS_ASPECT_NAME)) {
@@ -4116,8 +4261,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result;
   }
 
+  /**
+   * @param version the row's version: the latest row's {@code systemMetadata.version}, a history
+   *     row's row version
+   */
   protected boolean filterMatch(
-      @Nonnull SystemMetadata systemMetadata, Map<String, String> conditions) {
+      @Nonnull SystemMetadata systemMetadata, long version, Map<String, String> conditions) {
     String runIdCondition = conditions.getOrDefault("runId", null);
     if (runIdCondition != null) {
       if (!runIdCondition.equals(systemMetadata.getRunId())) {
@@ -4136,7 +4285,42 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         return false;
       }
     }
+    String maxVersionCondition = conditions.getOrDefault(DELETE_CONDITION_MAX_VERSION, null);
+    if (maxVersionCondition != null) {
+      if (version > Long.parseLong(maxVersionCondition)) {
+        return false;
+      }
+    }
     return true;
+  }
+
+  /**
+   * Whether every latest row of {@code urn}, read with {@code forUpdate}, is at or below its
+   * captured version: none was written, or created, since the capture.
+   */
+  private boolean withinCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
+    final Map<String, SystemAspect> latest =
+        aspectDao
+            .getLatestAspectsLocked(
+                opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
+            .getOrDefault(urn.toString(), Map.of());
+    // Versions restart at 1 when an entity is deleted and recreated; its key row then differs.
+    final SystemAspect key = latest.get(opContext.getKeyAspectName(urn));
+    if (key == null || createdOnMillis(key) != ceiling.keyCreatedOnMillis()) {
+      return false;
+    }
+    return latest.entrySet().stream()
+        .allMatch(
+            row -> {
+              final Long bound = ceiling.aspectVersions().get(row.getKey());
+              return bound != null
+                  && ConditionalWriteValidator.resolveAspectVersion(row.getValue()) <= bound;
+            });
+  }
+
+  private static long createdOnMillis(@Nonnull SystemAspect row) {
+    return row.getCreatedOn() == null ? 0L : row.getCreatedOn().getTime();
   }
 
   protected AuditStamp createSystemAuditStamp() {
