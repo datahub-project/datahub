@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.RefreshIntervalResolver;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -480,6 +481,20 @@ public class UsageEventIndexUtils {
       int numReplicas,
       String prefix)
       throws IOException {
+    createIndexTemplate(
+        opContext, esComponents, templateName, policyName, numShards, numReplicas, prefix, "1s");
+  }
+
+  public static void createIndexTemplate(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String templateName,
+      String policyName,
+      int numShards,
+      int numReplicas,
+      String prefix,
+      String refreshInterval)
+      throws IOException {
     try {
       String templateJson =
           IndexUtils.loadResourceAsString("/index/usage-event/elasticsearch_template.json");
@@ -487,6 +502,7 @@ public class UsageEventIndexUtils {
       templateJson = templateJson.replace("PREFIX", prefix);
       templateJson = templateJson.replace("DUE_SHARDS", String.valueOf(numShards));
       templateJson = templateJson.replace("DUE_REPLICAS", String.valueOf(numReplicas));
+      templateJson = templateJson.replace("DUE_REFRESH_INTERVAL", refreshInterval);
 
       // Use the low-level client for index templates
       String endpoint = "/_index_template/" + templateName;
@@ -549,6 +565,19 @@ public class UsageEventIndexUtils {
       int numReplicas,
       String prefix)
       throws IOException {
+    createOpenSearchIndexTemplate(
+        opContext, esComponents, templateName, numShards, numReplicas, prefix, "1s");
+  }
+
+  public static void createOpenSearchIndexTemplate(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String templateName,
+      int numShards,
+      int numReplicas,
+      String prefix,
+      String refreshInterval)
+      throws IOException {
     try {
       String templateJson;
       String endpoint;
@@ -562,6 +591,7 @@ public class UsageEventIndexUtils {
       templateJson = templateJson.replace("PREFIX", prefix);
       templateJson = templateJson.replace("DUE_SHARDS", String.valueOf(numShards));
       templateJson = templateJson.replace("DUE_REPLICAS", String.valueOf(numReplicas));
+      templateJson = templateJson.replace("DUE_REFRESH_INTERVAL", refreshInterval);
 
       // Use the low-level client to make the PUT request
       RawResponse response =
@@ -588,6 +618,85 @@ public class UsageEventIndexUtils {
         throw e;
       }
     }
+  }
+
+  /**
+   * Sets {@code index.refresh_interval} on a live usage data stream or alias. A template change
+   * does not update backing indices that already exist. Skips the write when every backing index
+   * already has the same duration.
+   */
+  public static void applyRefreshInterval(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName,
+      int refreshIntervalSeconds)
+      throws IOException {
+    String desired = RefreshIntervalResolver.toSetting(refreshIntervalSeconds);
+    String endpoint = "/" + indexName + "/_settings";
+    JsonNode settings;
+    try {
+      RawResponse response = IndexUtils.performGetRequest(opContext, esComponents, endpoint);
+      if (response.getEntity() == null) {
+        settings = null;
+      } else {
+        settings = opContext.getObjectMapper().readTree(response.getEntity().getContent());
+      }
+    } catch (ResponseException e) {
+      if (e.getResponse().getStatusLine().getStatusCode() == 404) {
+        log.info(
+            "Usage index {} does not exist yet; refresh_interval {} will apply when it is created",
+            indexName,
+            desired);
+        return;
+      }
+      throw e;
+    }
+    if (settings != null && refreshAlreadyApplied(settings, desired)) {
+      log.info("Usage index {} refresh_interval already {}", indexName, desired);
+      return;
+    }
+    String current = firstRefreshInterval(settings);
+    log.info("Usage index {} refresh_interval desired={} current={}", indexName, desired, current);
+    String body = "{\"index\":{\"refresh_interval\":\"" + desired + "\"}}";
+    RawResponse update = IndexUtils.performPutRequest(opContext, esComponents, endpoint, body);
+    int status = update.getStatusLine().getStatusCode();
+    if (status != 200 && status != 201) {
+      throw new IOException(
+          "Failed to set refresh_interval on " + indexName + ": status " + status);
+    }
+    log.info("Updated usage index {} refresh_interval to {}", indexName, desired);
+  }
+
+  private static boolean refreshAlreadyApplied(JsonNode settings, String desired) {
+    if (settings == null || !settings.fieldNames().hasNext()) {
+      return false;
+    }
+    boolean sawIndex = false;
+    Iterator<JsonNode> indices = settings.elements();
+    while (indices.hasNext()) {
+      JsonNode refresh = indices.next().path("settings").path("index").path("refresh_interval");
+      if (refresh.isMissingNode() || refresh.isNull()) {
+        return false;
+      }
+      sawIndex = true;
+      if (!RefreshIntervalResolver.sameDuration(desired, refresh.asText())) {
+        return false;
+      }
+    }
+    return sawIndex;
+  }
+
+  @Nullable
+  private static String firstRefreshInterval(@Nullable JsonNode settings) {
+    if (settings == null) {
+      return null;
+    }
+    Iterator<JsonNode> indices = settings.elements();
+    if (!indices.hasNext()) {
+      return null;
+    }
+    JsonNode refresh = indices.next().path("settings").path("index").path("refresh_interval");
+    return refresh.isMissingNode() || refresh.isNull() ? null : refresh.asText();
   }
 
   /**

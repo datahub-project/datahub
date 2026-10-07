@@ -1,8 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Button, Input, Modal, Spin, notification } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
+import styled, { keyframes } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -15,6 +16,16 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput } from '@types';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinIcon = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    font-size: 24px;
+`;
 
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
@@ -56,7 +67,7 @@ export default function DownloadAsCsvModal({
                 : t('downloadCsv.creating'),
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
+            icon: <Spin indicator={<SpinIcon />} />,
         });
     };
 

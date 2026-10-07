@@ -7,10 +7,24 @@ import javax.annotation.Nonnull;
 /** Outcome of a graph expand request. */
 public sealed interface GraphReadResult {
 
-  record Hit(@Nonnull Set<String> vertices) implements GraphReadResult {}
+  /**
+   * @param scopeTruncated true when a definition-depth partial read stopped at {@code
+   *     scope.maxDepth} with nodes still queued. The vertices are the prefix. Callers that need the
+   *     full closure use {@link #missIfScopeTruncated()}.
+   */
+  record Hit(@Nonnull Set<String> vertices, boolean scopeTruncated) implements GraphReadResult {
+    public Hit(@Nonnull Set<String> vertices) {
+      this(vertices, false);
+    }
+  }
 
   /** Valid expand with no related vertices beyond seeds (e.g. leaf domain with no descendants). */
-  record EmptyHit(@Nonnull Set<String> vertices) implements GraphReadResult {}
+  record EmptyHit(@Nonnull Set<String> vertices, boolean scopeTruncated)
+      implements GraphReadResult {
+    public EmptyHit(@Nonnull Set<String> vertices) {
+      this(vertices, false);
+    }
+  }
 
   record Miss(@Nonnull ReadMissReason reason) implements GraphReadResult {}
 
@@ -21,10 +35,18 @@ public sealed interface GraphReadResult {
 
   @Nonnull
   static GraphReadResult fromVertices(@Nonnull Set<String> vertices) {
+    return fromVertices(vertices, false);
+  }
+
+  /**
+   * @param scopeTruncated see {@link Hit#scopeTruncated()}
+   */
+  @Nonnull
+  static GraphReadResult fromVertices(@Nonnull Set<String> vertices, boolean scopeTruncated) {
     if (vertices.isEmpty()) {
-      return new EmptyHit(Collections.emptySet());
+      return new EmptyHit(Collections.emptySet(), scopeTruncated);
     }
-    return new Hit(vertices);
+    return new Hit(vertices, scopeTruncated);
   }
 
   /**
@@ -47,5 +69,28 @@ public sealed interface GraphReadResult {
 
   default boolean isMiss() {
     return this instanceof Miss;
+  }
+
+  /** True when this hit is only the prefix inside a partial graph's configured depth. */
+  default boolean isScopeTruncated() {
+    if (this instanceof Hit hit) {
+      return hit.scopeTruncated();
+    }
+    if (this instanceof EmptyHit emptyHit) {
+      return emptyHit.scopeTruncated();
+    }
+    return false;
+  }
+
+  /**
+   * Turns a scope-truncated prefix into {@link ReadMissReason#TRUNCATED}. A hit that walked the
+   * requested closure is unchanged. Per-call limit truncation is already a miss.
+   */
+  @Nonnull
+  default GraphReadResult missIfScopeTruncated() {
+    if (isScopeTruncated()) {
+      return miss(ReadMissReason.TRUNCATED);
+    }
+    return this;
   }
 }
