@@ -105,6 +105,39 @@ public interface EntityGraphCache {
       int maxDepth,
       @Nonnull ReadMode mode);
 
+  /**
+   * Expand, optionally requiring a trusted full walk in {@code direction}. When {@code
+   * requireFullPath} is false this is the same as {@link #expand(String, GraphSnapshotSource,
+   * TraversalDirection, java.util.Collection, int, int, ReadMode)}. When true, a hit is returned
+   * only for a fresh partial component a full-walk write-back stamped, and the read is not clamped
+   * to {@code scope.maxDepth}. A miss does not start a snapshot rebuild.
+   */
+  @Nonnull
+  default GraphReadResult expand(
+      @Nonnull String graphId,
+      @Nonnull GraphSnapshotSource source,
+      @Nonnull TraversalDirection direction,
+      @Nonnull java.util.Collection<String> roots,
+      int limit,
+      int maxDepth,
+      @Nonnull ReadMode mode,
+      boolean requireFullPath) {
+    if (requireFullPath) {
+      return GraphReadResult.miss(ReadMissReason.DISABLED);
+    }
+    return expand(graphId, source, direction, roots, limit, maxDepth, mode);
+  }
+
+  /**
+   * Publish a walk the caller already performed into a partial component. Does not start a
+   * different walk. {@link FullWalkPublishResult#PUBLISHED} means a later full-path expand of the
+   * same seeds and direction hits.
+   */
+  @Nonnull
+  default FullWalkPublishResult publishFullWalk(@Nonnull FullWalkWriteBack writeBack) {
+    return FullWalkPublishResult.REJECTED_DISABLED;
+  }
+
   /** Resolves a {@link KnownEntityGraph} to {@code { graphId, source }} from loaded config. */
   @Nonnull
   Optional<EntityGraphBinding> bindingForKnownGraph(@Nonnull KnownEntityGraph graph);

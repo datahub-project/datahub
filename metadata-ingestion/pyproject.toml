@@ -1997,7 +1997,7 @@ environments = [
 # Security constraints applied during resolution (see each comment).
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
-    "pypdf>=6.10.2",  # GHSA-4pxv-j86v-mhcw (incremental trailer /Size DoS)
+    "pypdf>=6.19.0,<7.0.0",  # GHSA-4pxv-j86v-mhcw; CVE-2026-103000 / GHSA-w23x-9jrw-r45c (page-label DoS). Cap major until reviewed.
     "authlib>=1.6.11,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF)
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
