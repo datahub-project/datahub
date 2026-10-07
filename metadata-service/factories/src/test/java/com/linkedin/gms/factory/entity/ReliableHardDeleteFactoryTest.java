@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.async;
+package com.linkedin.gms.factory.entity;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -15,7 +15,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-public class DeleteEntityOperationFactoryTest {
+public class ReliableHardDeleteFactoryTest {
 
   @DataProvider(name = "flag")
   public Object[][] flag() {
@@ -41,7 +41,7 @@ public class DeleteEntityOperationFactoryTest {
       context.registerBean("graphService", GraphService.class, () -> mock(GraphService.class));
       context.registerBean(
           "configurationProvider", ConfigurationProvider.class, () -> configurationProvider);
-      context.register(DeleteEntityOperationFactory.class);
+      context.register(ReliableHardDeleteFactory.class);
       context.refresh();
 
       assertEquals(context.getBean(ReliableHardDelete.class).isEnabled(), enabled);

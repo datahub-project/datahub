@@ -687,25 +687,4 @@ public class EbeanCeilingDeleteTest {
     verify(aspectDao, never()).getLatestAspectsForDecision(any(), any());
     assertEquals(maxDepth.get(), 1);
   }
-
-  @Test
-  public void reemitProducesTheKeyDeleteOnlyWhenTheKeyIsGone() {
-    final Urn urn = UrnUtils.getUrn("urn:li:corpuser:ceiling-reemit");
-    h.upsert(urn, STATUS_ASPECT_NAME, new Status().setRemoved(true), 1_000L);
-    clearInvocations(producer);
-    assertThrows(
-        IllegalStateException.class, () -> entityService.reemitKeyDeleteMcl(opContext, urn));
-    verify(producer, never()).produceMetadataChangeLog(any(), any(), any(), any());
-
-    entityService.deleteUrn(opContext, urn, capture(urn, 1_500L));
-    clearInvocations(producer);
-    entityService.reemitKeyDeleteMcl(opContext, urn);
-
-    verify(producer, times(1))
-        .produceMetadataChangeLog(
-            any(),
-            eq(urn),
-            any(),
-            argThat(mcl -> h.isKeyDelete(mcl, urn) && mcl.hasPreviousAspectValue()));
-  }
 }

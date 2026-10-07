@@ -135,6 +135,9 @@ public interface AspectDao {
    * Deletes the rows of one aspect with {@code fromVersion <= version <= toVersion} (version 0 is
    * the latest row; history rows are numbered by the version they had as latest) and returns how
    * many were deleted. Joins the caller's transaction. The default deletes row by row.
+   *
+   * <p>The default serves Cassandra: best-effort, one read and one delete per version, not meant
+   * for deep history. Ebean overrides it with one statement.
    */
   default int deleteAspectVersionRange(
       @Nonnull OperationContext opContext,

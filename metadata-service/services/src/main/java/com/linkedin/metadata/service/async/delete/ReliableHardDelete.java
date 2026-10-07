@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,7 +33,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ol>
  *   <li>Captures the ceiling: every aspect's version and the key's creation time, now. An absent
- *       entity is reported {@code ALREADY_DELETED} and nothing else happens.
+ *       entity is reported {@code ALREADY_DELETED} after its graph node and timeseries documents
+ *       are removed: an earlier request may have deleted the entity and then failed before those.
  *   <li>Removes every reference to the entity; the first one that cannot be removed fails the
  *       request.
  *   <li>Deletes the entity up to the ceiling; then its graph node (only when the whole entity went)
@@ -73,23 +75,42 @@ public class ReliableHardDelete {
 
   /**
    * Hard-deletes {@code urn}. The caller has already authorized the delete. An absent entity is
-   * reported {@code ALREADY_DELETED}. A delete that today's validators reject throws before
-   * anything changes.
+   * reported {@code ALREADY_DELETED}, once its leftovers are removed. A delete that today's
+   * validators reject throws before anything changes.
    *
    * @throws IllegalStateException when the delete fails. Part of it may be done; repeating the
    *     request is safe and finishes it.
    */
   @Nonnull
   public DeleteEntityReport delete(@Nonnull OperationContext actorContext, @Nonnull final Urn urn) {
+    final long nowMillis = clock.millis();
     final Optional<DeleteCeiling> ceiling =
-        entityService.captureDeleteCeiling(actorContext, urn, clock.millis());
+        entityService.captureDeleteCeiling(actorContext, urn, nowMillis);
     if (ceiling.isEmpty()) {
-      return DeleteEntityReport.alreadyDeleted(urn);
+      // A retry of a request that failed after the key went: finish its cleanup. Idempotent, so an
+      // entity that never existed costs only the no-op calls.
+      return failingWithCause(
+          urn,
+          () ->
+              new DeleteEntityReport(
+                  urn.toString(),
+                  ConditionalDeleteOutcome.ALREADY_DELETED,
+                  0L,
+                  removeNodeAndTimeseries(actorContext, urn, nowMillis),
+                  0));
     }
+    // Before the reference removal, so a rejected delete strips no references; deleteUrn validates
+    // again because it is a public entry point of its own.
     entityService.validateHardDelete(actorContext, urn);
 
+    return failingWithCause(urn, () -> deleteUpTo(actorContext, urn, ceiling.get()));
+  }
+
+  @Nonnull
+  private static DeleteEntityReport failingWithCause(
+      @Nonnull final Urn urn, @Nonnull final Supplier<DeleteEntityReport> step) {
     try {
-      return deleteUpTo(actorContext, urn, ceiling.get());
+      return step.get();
     } catch (RuntimeException e) {
       log.warn("Hard delete of {} failed", urn, e);
       throw new IllegalStateException(
@@ -115,16 +136,22 @@ public class ReliableHardDelete {
             : deleted.getRowsDeletedFromEntityDeletion();
     final long timeseriesRows =
         switch (outcome) {
-          case DELETED -> {
-            graphService.removeNodeReportingFailures(opContext, urn, true);
-            yield deleteTimeseriesUpTo(opContext, urn, ceiling.capturedAtMillis());
-          }
+          case DELETED -> removeNodeAndTimeseries(opContext, urn, ceiling.capturedAtMillis());
           case PARTIAL -> deleteTimeseriesUpTo(opContext, urn, ceiling.capturedAtMillis());
           // Deleted by someone else since the capture, or recreated: that delete (or the newer
           // entity) owns the rest.
           case ALREADY_DELETED -> 0L;
         };
     return new DeleteEntityReport(urn.toString(), outcome, rows, timeseriesRows, referencesRemoved);
+  }
+
+  /**
+   * @return how many timeseries documents were deleted
+   */
+  private long removeNodeAndTimeseries(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn, final long upToMillis) {
+    graphService.removeNodeReportingFailures(opContext, urn, true);
+    return deleteTimeseriesUpTo(opContext, urn, upToMillis);
   }
 
   /**

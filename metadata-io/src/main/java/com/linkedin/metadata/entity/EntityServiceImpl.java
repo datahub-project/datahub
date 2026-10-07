@@ -3692,7 +3692,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return emitCeilingDelete(opContext, urn, result);
   }
 
-  /** Post-commit work of a ceiling delete: today's side effects, cache invalidation and MCLs. */
+  /**
+   * Post-commit work of a ceiling delete: today's side effects, cache invalidation and MCLs.
+   *
+   * <p>{@code PARTIAL}: the key stays, rows written after the ceiling survive and no key MCL is
+   * produced; only the removed latest rows get DELETE MCLs. The caller reads the outcome from the
+   * returned {@link RollbackRunResult}.
+   */
   @Nonnull
   private RollbackRunResult emitCeilingDelete(
       @Nonnull OperationContext opContext,
@@ -3726,8 +3732,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /**
    * Post-commit work of a key-aspect hard delete, as {@code deleteAspectWithoutMCL} does it today:
    * side effects fed by the pre-images, entity-wide graph-cache invalidation, then the key DELETE
-   * MCL. Shared by {@link #deleteUrn(OperationContext, Urn, DeleteCeiling)} and {@link
-   * #reemitKeyDeleteMcl}.
+   * MCL.
    */
   private void emitKeyDelete(
       @Nonnull OperationContext opContext,
@@ -3895,51 +3900,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
     emitCeilingDelete(opContext, urn, result);
     return result.outcome();
-  }
-
-  @Override
-  public void reemitKeyDeleteMcl(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    final String keyAspectName = opContext.getKeyAspectName(urn);
-    if (readLatestAspectOrNull(
-            opContext.withReadPreference(ReadPreference.PRIMARY),
-            urn.toString(),
-            keyAspectName,
-            false)
-        != null) {
-      throw new IllegalStateException(
-          String.format("Refusing to re-emit a key DELETE for %s: its key aspect exists", urn));
-    }
-    final RollbackResult keyDelete =
-        new RollbackResult(
-            urn,
-            urn.getEntityType(),
-            keyAspectName,
-            EntityKeyUtils.convertUrnToEntityKey(
-                urn,
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec(urn.getEntityType())
-                    .getKeyAspectSpec()),
-            null,
-            SystemMetadataUtils.createDefaultSystemMetadata(),
-            null,
-            ChangeType.DELETE,
-            true,
-            0);
-    emitKeyDelete(opContext, urn, Map.of(), keyDelete, true);
-  }
-
-  @Nullable
-  SystemAspect readLatestAspectOrNull(
-      @Nonnull OperationContext opContext,
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      boolean forUpdate) {
-    try {
-      return aspectDao.getLatestAspect(opContext, urn, aspectName, forUpdate);
-    } catch (EntityNotFoundException e) {
-      return null;
-    }
   }
 
   @Override

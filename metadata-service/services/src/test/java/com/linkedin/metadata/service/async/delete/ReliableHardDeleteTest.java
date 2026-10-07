@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -99,14 +100,58 @@ public class ReliableHardDeleteTest {
                 .count();
   }
 
+  /** An absent entity still gets its graph node and timeseries removed: idempotent leftovers. */
   @Test
-  public void absentEntityReportsAlreadyDeletedAndChangesNothing() {
+  public void absentEntityRemovesLeftoversAndReportsAlreadyDeleted() {
     when(entityService.captureDeleteCeiling(any(), eq(URN), eq(NOW))).thenReturn(Optional.empty());
 
     assertEquals(
-        reliableHardDelete.delete(actorContext, URN), DeleteEntityReport.alreadyDeleted(URN));
-    verifyNoInteractions(deleteEntityService, graphService, timeseriesAspectService);
+        reliableHardDelete.delete(actorContext, URN),
+        new DeleteEntityReport(
+            URN.toString(), ConditionalDeleteOutcome.ALREADY_DELETED, 0L, timeseriesDocs, 0));
+    verify(graphService).removeNodeReportingFailures(any(), eq(URN), eq(true));
+    verifyNoInteractions(deleteEntityService);
+    verify(entityService, never()).validateHardDelete(any(), any());
     verify(entityService, never()).deleteUrn(any(), any(), any(DeleteCeiling.class));
+  }
+
+  /**
+   * The first request deletes the rows but fails removing the graph node; the retry finds the key
+   * gone and finishes the cleanup.
+   */
+  @Test
+  public void aRetryAfterAFailedCleanupFinishesIt() {
+    doThrow(new IllegalStateException("1 version conflict"))
+        .doNothing()
+        .when(graphService)
+        .removeNodeReportingFailures(any(), eq(URN), anyBoolean());
+
+    expectThrows(IllegalStateException.class, () -> reliableHardDelete.delete(actorContext, URN));
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CEILING));
+    verifyNoInteractions(timeseriesAspectService);
+
+    when(entityService.captureDeleteCeiling(any(), eq(URN), eq(NOW))).thenReturn(Optional.empty());
+    final DeleteEntityReport retry = reliableHardDelete.delete(actorContext, URN);
+
+    assertEquals(retry.outcome(), ConditionalDeleteOutcome.ALREADY_DELETED);
+    assertEquals(retry.timeseriesRowsDeleted(), timeseriesDocs);
+    verify(graphService, times(2)).removeNodeReportingFailures(any(), eq(URN), eq(true));
+    verify(entityService, times(1)).deleteUrn(any(), any(), any(DeleteCeiling.class));
+  }
+
+  @Test
+  public void aFailedLeftoverCleanupFailsTheRequestWithItsCause() {
+    when(entityService.captureDeleteCeiling(any(), eq(URN), eq(NOW))).thenReturn(Optional.empty());
+    final RuntimeException searchDown = new RuntimeException("search unavailable");
+    doThrow(searchDown)
+        .when(graphService)
+        .removeNodeReportingFailures(any(), eq(URN), anyBoolean());
+
+    final IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> reliableHardDelete.delete(actorContext, URN));
+
+    assertSame(thrown.getCause(), searchDown);
   }
 
   @Test
@@ -152,6 +197,7 @@ public class ReliableHardDeleteTest {
     verify(graphService, never()).removeNodeReportingFailures(any(), any(), anyBoolean());
   }
 
+  /** Present at capture, recreated (or deleted by someone else) before the delete: no cleanup. */
   @Test
   public void aConcurrentDeleteLeavesTheRestToIt() {
     when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))

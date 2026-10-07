@@ -605,18 +605,6 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull String aspectName,
       long ceilingVersion);
 
-  /**
-   * Re-emits the key-aspect DELETE MCL of an entity whose key aspect is already gone, as recovery
-   * when the MCL of an earlier hard delete may have been lost. Runs the same post-commit side
-   * effects (without pre-images: the rows are gone), the same graph-cache invalidation and the same
-   * producer as a hard delete, and always produces, also in CDC mode. Consumers must tolerate
-   * duplicate key DELETE MCLs.
-   *
-   * @throws IllegalStateException if the key aspect exists (a DELETE MCL would wipe a live entity's
-   *     indices)
-   */
-  void reemitKeyDeleteMcl(@Nonnull OperationContext opContext, @Nonnull Urn urn);
-
   RollbackRunResult rollbackRun(
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,

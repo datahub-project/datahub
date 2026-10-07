@@ -473,12 +473,28 @@ public class DeleteEntityServiceResumableTest {
     assertEquals(removed, 1);
   }
 
+  /**
+   * The observed phases, without any a subclass adds after the shared three, so the order
+   * assertions hold for every {@link DeleteEntityService}.
+   */
+  private List<String> sharedPhases() {
+    final Set<String> shared =
+        Set.of(
+            DeleteCascadeCheckpoint.PHASE_GRAPH,
+            DeleteCascadeCheckpoint.PHASE_SEARCH_REFERENCES,
+            DeleteCascadeCheckpoint.PHASE_FILES);
+    return checkpoints.stream()
+        .map(DeleteCascadeCheckpoint::phase)
+        .filter(shared::contains)
+        .toList();
+  }
+
   /** The listener sees each page's phase in order; a form has a search-reference phase too. */
   @Test
   public void phasesRunInOrderAndAResumeSkipsTheCompletedOnes() {
     service.removeReferencesResumable(opContext, FORM, null, recordingListener());
     assertEquals(
-        checkpoints.stream().map(DeleteCascadeCheckpoint::phase).toList(),
+        sharedPhases(),
         List.of(
             DeleteCascadeCheckpoint.PHASE_GRAPH,
             DeleteCascadeCheckpoint.PHASE_SEARCH_REFERENCES,
@@ -493,7 +509,7 @@ public class DeleteEntityServiceResumableTest {
 
     verifyNoInteractions(graphService);
     assertEquals(
-        checkpoints.stream().map(DeleteCascadeCheckpoint::phase).toList(),
+        sharedPhases(),
         List.of(
             DeleteCascadeCheckpoint.PHASE_SEARCH_REFERENCES, DeleteCascadeCheckpoint.PHASE_FILES));
     // The resumed phase starts over from its first page.

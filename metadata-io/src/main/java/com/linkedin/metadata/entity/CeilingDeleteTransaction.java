@@ -30,7 +30,11 @@ import javax.annotation.Nullable;
  */
 final class CeilingDeleteTransaction {
 
-  /** Per entity type, the aspect whose pre-delete value the key-delete side effects consume. */
+  /**
+   * Per entity type, the aspect whose pre-delete value the key-delete side effects consume. Keep in
+   * sync with the pre-images {@code EntityServiceImpl#deleteAspectWithoutMCL} captures before a key
+   * delete (structured property definition, data product properties).
+   */
   static final Map<String, String> KEY_DELETE_SIDE_EFFECT_ASPECTS =
       Map.of(
           STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
@@ -39,7 +43,8 @@ final class CeilingDeleteTransaction {
   /**
    * What one transaction did. {@code deletedKey} is set only when the whole entity went ({@code
    * DELETED} by {@link #deleteEntity}); {@code deletedLatest} lists the aspects whose latest row
-   * was removed one by one.
+   * was removed one by one. {@code rowsDeleted} counts every primary-storage row removed, history
+   * rows included, as today's {@code deleteUrn} does.
    */
   record Result(
       @Nonnull ConditionalDeleteOutcome outcome,
