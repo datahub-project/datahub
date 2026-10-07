@@ -109,6 +109,28 @@ public class ESGraphWriteDAO {
         .orElse(null);
   }
 
+  /**
+   * Like {@link #deleteByQuery(OperationContext, GraphFilters, String)}, but proceeds past version
+   * conflicts and throws when a matching edge may remain instead of swallowing failures.
+   * Soft-deleted edges are included when {@code opContext}'s search flags set {@code
+   * includeSoftDeleted}.
+   */
+  public void deleteByQueryProceedOnConflict(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final GraphFilters graphFilters,
+      @Nullable final String lifecycleOwner) {
+    if (!canWrite) {
+      throw new IllegalStateException(READ_ONLY_LOG);
+    }
+    final BoolQueryBuilder finalQuery =
+        buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
+    bulkProcessor.deleteByQueryProceedOnConflict(
+        opContext,
+        finalQuery,
+        true,
+        indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
+  }
+
   @Nullable
   public BulkByScrollResponse updateByQuery(
       @Nonnull OperationContext opContext,

@@ -548,6 +548,75 @@ public interface EntityService<U extends ChangeMCP> {
 
   RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn);
 
+  /**
+   * The {@link DeleteCeiling} of {@code urn} as primary storage holds it now: every non-key,
+   * non-timeseries aspect's latest version and the key's creation time. Empty when the key aspect
+   * is absent. Reads only. {@code capturedAtMillis} must be read (from the caller's clock) before
+   * this call; it bounds the timeseries delete.
+   */
+  @Nonnull
+  Optional<DeleteCeiling> captureDeleteCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, long capturedAtMillis);
+
+  /**
+   * Throws if today's key-aspect hard delete of {@code urn} would be rejected for {@code
+   * opContext}: a DELETE proposal validator ({@code ValidationException}) or the
+   * structured-property soft-delete-first rule ({@code IllegalArgumentException}). Reads only. Lets
+   * a caller reject a delete synchronously before it hands the work elsewhere.
+   */
+  void validateHardDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn);
+
+  /**
+   * Hard-deletes what {@code ceiling} covers, in one primary-storage transaction that first locks
+   * the key row and then every latest row of {@code urn} (row locks in both locking modes on
+   * Ebean). Per listed aspect, rows at or below its version are deleted; a newer latest survives;
+   * aspects not listed are untouched. The key goes only when nothing survives.
+   *
+   * <p>{@link RollbackRunResult#getConditionalDeleteOutcome()} is never null: {@code DELETED} (the
+   * entity is gone; the key DELETE MCL was produced unless in CDC mode), {@code PARTIAL} (newer
+   * data survives; one DELETE MCL per aspect whose latest was removed), {@code ALREADY_DELETED} (no
+   * key, or the urn was recreated after the capture: nothing written, no MCL).
+   *
+   * <p>Concurrency: a writer of a locked row either committed before the read (its newer version
+   * survives) or waits and lands after the commit (as today, it recreates the entity). On Cassandra
+   * there are no transactions or row locks: best-effort.
+   *
+   * @throws IllegalArgumentException if {@code ceiling} lists the key aspect, or {@link
+   *     #validateHardDelete} rejects the delete
+   */
+  RollbackRunResult deleteUrn(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling);
+
+  /**
+   * Hard-deletes one non-key, non-timeseries aspect up to {@code ceilingVersion}, in one
+   * transaction that row-locks only that aspect's latest row (both locking modes on Ebean). Latest
+   * at or below the ceiling: every version goes ({@code DELETED}; the aspect DELETE MCL is produced
+   * unless in CDC mode). Latest above it: history rows {@code 1..ceilingVersion} go and the latest
+   * stays ({@code PARTIAL}; no MCL, the latest is unchanged). Absent: {@code ALREADY_DELETED}. The
+   * same validators and structured-property rule as today's aspect delete apply.
+   *
+   * @throws IllegalArgumentException for the key aspect (use {@link #deleteUrn(OperationContext,
+   *     Urn, DeleteCeiling)}), a timeseries or unknown aspect, or {@code ceilingVersion < 1}
+   */
+  @Nonnull
+  ConditionalDeleteOutcome deleteAspectUpToVersion(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      long ceilingVersion);
+
+  /**
+   * Re-emits the key-aspect DELETE MCL of an entity whose key aspect is already gone, as recovery
+   * when the MCL of an earlier hard delete may have been lost. Runs the same post-commit side
+   * effects (without pre-images: the rows are gone), the same graph-cache invalidation and the same
+   * producer as a hard delete, and always produces, also in CDC mode. Consumers must tolerate
+   * duplicate key DELETE MCLs.
+   *
+   * @throws IllegalStateException if the key aspect exists (a DELETE MCL would wipe a live entity's
+   *     indices)
+   */
+  void reemitKeyDeleteMcl(@Nonnull OperationContext opContext, @Nonnull Urn urn);
+
   RollbackRunResult rollbackRun(
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,

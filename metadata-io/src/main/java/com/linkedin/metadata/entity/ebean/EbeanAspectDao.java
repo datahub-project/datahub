@@ -900,6 +900,92 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         });
   }
 
+  /**
+   * Takes {@code FOR UPDATE} even under optimistic locking, which skips it for every other read
+   * (see {@link AspectDao#getLatestAspectForDecision}). Read-only: no lock.
+   */
+  @Override
+  @Nullable
+  public SystemAspect getLatestAspectForDecision(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    validateConnection();
+    if (!canWrite) {
+      return getLatestAspect(opContext, urn, aspectName, false);
+    }
+    return lockLatestRows(opContext, urn, List.of(aspectName)).getOrDefault(aspectName, null);
+  }
+
+  /** One locking statement over every registered aspect's version-0 key, in key order. */
+  @Override
+  @Nonnull
+  public Map<String, SystemAspect> getLatestAspectsForDecision(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    validateConnection();
+    final List<String> aspectNames = opContext.getEntityAspectNames(urn).stream().sorted().toList();
+    if (!canWrite) {
+      return getLatestAspects(opContext, Map.of(urn.toString(), Set.copyOf(aspectNames)), false)
+          .getOrDefault(urn.toString(), Map.of());
+    }
+    return lockLatestRows(opContext, urn.toString(), aspectNames);
+  }
+
+  /**
+   * PRIMARY ({@code server}) and row-locked through the Ebean API ({@code forUpdate()}, no
+   * hand-written locking SQL), the same construction {@link #getNextVersions} uses for its lock
+   * query. Ordered by primary key on every database, so rows are locked in key order.
+   */
+  @Nonnull
+  private Map<String, SystemAspect> lockLatestRows(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final List<String> sortedAspectNames) {
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          final List<EbeanAspectV2.PrimaryKey> keys =
+              sortedAspectNames.stream()
+                  .map(
+                      aspectName ->
+                          new EbeanAspectV2.PrimaryKey(urn, aspectName, ASPECT_LATEST_VERSION))
+                  .toList();
+          final Query<EbeanAspectV2> lockQuery =
+              server.find(EbeanAspectV2.class).where().idIn(keys).query();
+          lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
+          final List<EbeanAspectV2> rows = lockQuery.forUpdate().findList();
+          syncKeyScalarsFromEmbeddedId(rows);
+          return toUrnAspectMap(opContext.getEntityRegistry(), rows, opContext)
+              .getOrDefault(urn, Map.of());
+        });
+  }
+
+  /** One statement, built like {@link #deleteAspect} (same table routing). */
+  @Override
+  public int deleteAspectVersionRange(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      final long fromVersion,
+      final long toVersion) {
+    validateConnection();
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return 0;
+    }
+    return txnFactory.runInScope(
+        opContext,
+        () ->
+            server
+                .createQuery(EbeanAspectV2.class)
+                .where()
+                .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+                .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+                .ge(EbeanAspectV2.VERSION_COLUMN, fromVersion)
+                .le(EbeanAspectV2.VERSION_COLUMN, toVersion)
+                .delete());
+  }
+
   @Override
   public long countEntities(@Nonnull OperationContext opContext) {
     validateConnection();

@@ -219,6 +219,61 @@ public class ESBulkProcessor implements Closeable {
     return Optional.empty();
   }
 
+  /**
+   * Delete-by-query that continues past version conflicts ({@code conflicts=proceed}), so every
+   * other match is deleted, then fails. Unlike {@link #deleteByQuery}, nothing is swallowed: a
+   * transport or server error, a version conflict (that document was NOT deleted), a per-document
+   * or search failure, or a timeout throws. Repeating the call is safe.
+   *
+   * @throws IllegalStateException when a matching document may remain
+   */
+  public void deleteByQueryProceedOnConflict(
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryBuilder queryBuilder,
+      boolean refresh,
+      @Nonnull String... indices) {
+    final DeleteByQueryRequest deleteByQueryRequest =
+        new DeleteByQueryRequest()
+            .setQuery(queryBuilder)
+            .setBatchSize(bulkRequestsLimit)
+            .setMaxRetries(numRetries)
+            .setRetryBackoffInitialTime(TimeValue.timeValueSeconds(retryInterval))
+            .setTimeout(defaultTimeout)
+            .setRefresh(refresh);
+    deleteByQueryRequest.setConflicts("proceed");
+    deleteByQueryRequest.indices(indices);
+    final BulkByScrollResponse response;
+    try {
+      if (!batchDelete) {
+        searchClient.flushBulkProcessor();
+      }
+      response = searchClient.deleteByQuery(opContext, deleteByQueryRequest, byQueryRequestOptions);
+      if (metricUtils != null) {
+        metricUtils.increment(this.getClass(), ES_WRITES_METRIC, response.getTotal());
+      }
+    } catch (IOException | RuntimeException e) {
+      if (metricUtils != null) {
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
+      }
+      throw new IllegalStateException(
+          "Delete-by-query failed on indices " + String.join(",", indices), e);
+    }
+    if (response.getVersionConflicts() > 0
+        || !response.getBulkFailures().isEmpty()
+        || !response.getSearchFailures().isEmpty()
+        || response.isTimedOut()) {
+      throw new IllegalStateException(
+          String.format(
+              "Delete-by-query on indices %s left matches: %d version conflicts, %d bulk failures,"
+                  + " %d search failures, timed out: %s",
+              String.join(",", indices),
+              response.getVersionConflicts(),
+              response.getBulkFailures().size(),
+              response.getSearchFailures().size(),
+              response.isTimedOut()));
+    }
+  }
+
   public Optional<String> deleteByQueryAsync(
       @Nonnull OperationContext opContext,
       QueryBuilder queryBuilder,

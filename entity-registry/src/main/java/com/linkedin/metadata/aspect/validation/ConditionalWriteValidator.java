@@ -125,6 +125,15 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
+  /**
+   * The version an {@code If-Version-Match} precondition is compared against: {@code
+   * systemMetadata.version} when present, otherwise {@code max(1, row version)}. Delete ceilings
+   * use this same rule, so a version read through one path always matches the other.
+   */
+  public static long resolveAspectVersion(@Nonnull SystemAspect aspect) {
+    return aspect.getSystemMetadataVersion().orElseGet(() -> Math.max(1L, aspect.getVersion()));
+  }
+
   private static Optional<AspectValidationException> validateVersionPrecondition(
       ChangeMCP item,
       Pair<String, String> header,
@@ -138,14 +147,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
       default:
         actualAspectVersion =
             resolvePreviousSystemAspect(item, resolvedData)
-                .map(
-                    prevSystemAspect -> {
-                      if (prevSystemAspect.getSystemMetadataVersion().isPresent()) {
-                        return String.valueOf(prevSystemAspect.getSystemMetadataVersion().get());
-                      } else {
-                        return String.valueOf(Math.max(1, prevSystemAspect.getVersion()));
-                      }
-                    })
+                .map(prevSystemAspect -> String.valueOf(resolveAspectVersion(prevSystemAspect)))
                 .orElse(UNVERSIONED_ASPECT_VERSION);
         break;
     }

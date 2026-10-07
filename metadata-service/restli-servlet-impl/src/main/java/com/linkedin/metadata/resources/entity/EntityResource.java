@@ -84,6 +84,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.SystemMetadata;
@@ -185,6 +186,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private DeleteEntityService deleteEntityService;
 
   @Inject
+  @Named("reliableHardDelete")
+  private ReliableHardDelete reliableHardDelete;
+
+  @Inject
   @Named("timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
 
@@ -216,6 +221,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @VisibleForTesting
   void setAuthorizer(Authorizer authorizer) {
     this.authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setDeleteEntityService(DeleteEntityService deleteEntityService) {
+    this.deleteEntityService = deleteEntityService;
+  }
+
+  @VisibleForTesting
+  void setReliableHardDelete(ReliableHardDelete reliableHardDelete) {
+    this.reliableHardDelete = reliableHardDelete;
   }
 
   @VisibleForTesting
@@ -1120,6 +1135,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
     }
 
+    if (ReliableDeleteActions.appliesToDelete(reliableHardDelete, aspectName, startTimeMills, endTimeMillis)) {
+      return RestliUtils.toTask(opContext,
+          () -> ReliableDeleteActions.deleteEntity(reliableHardDelete, opContext, urn, urnStr),
+          MetricRegistry.name(this.getClass(), "delete"));
+    }
+
     return RestliUtils.toTask(opContext,
         () -> {
           // Find the timeseries aspects to delete. If aspectName is null, delete all.
@@ -1243,6 +1264,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urnStr);
+    }
+
+    if (!dryRun && ReliableDeleteActions.isEnabled(reliableHardDelete)) {
+      return RestliUtils.toTask(opContext,
+          () -> ReliableDeleteActions.removeReferences(deleteEntityService, opContext, urn),
+          MetricRegistry.name(this.getClass(), "deleteReferences"));
     }
 
     return RestliUtils.toTask(opContext,

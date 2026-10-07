@@ -189,6 +189,21 @@ public interface GraphService {
   void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn);
 
   /**
+   * Removes the node's outgoing, incoming and lifecycle-owned edges like {@link #removeNode}, but
+   * throws when an edge may remain instead of swallowing the failure. {@code
+   * includeSoftDeleted=true} also removes edges whose endpoints are soft-deleted (required when the
+   * graph status filter is on). The default suits implementations whose deletes are transactional
+   * and throw on failure (Neo4j).
+   */
+  default void removeNodeReportingFailures(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      final boolean includeSoftDeleted) {
+    removeNode(
+        opContext.withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDeleted)), urn);
+  }
+
+  /**
    * Removes edges of the given relationship types from the given node after applying the
    * relationship filter.
    *

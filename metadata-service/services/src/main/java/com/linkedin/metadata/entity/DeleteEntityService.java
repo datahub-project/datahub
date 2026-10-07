@@ -75,6 +75,79 @@ public class DeleteEntityService {
   private static final String SCROLL_KEEP_ALIVE = "5m";
 
   /**
+   * Removes every reference to {@code urn} while its graph edges still exist, phase by phase. The
+   * first referrer that cannot be cleaned (for example one written since it was read) throws. Every
+   * step is idempotent and conditional, so running it again, with or without a checkpoint,
+   * finishes the work. Exceptions the listener throws reach the caller unwrapped. {@link
+   * #deleteReferencesTo} is unchanged.
+   *
+   * @param resumeFrom the phase an earlier call reached, or null to start from the first phase
+   * @param listener called before each page; may stop the cascade by throwing
+   * @return how many referrers had a reference removed
+   */
+  public int removeReferencesResumable(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nullable final DeleteCascadeCheckpoint resumeFrom,
+      @Nonnull final DeleteCascadeListener listener) {
+    return cascadeEngine().removeReferencesResumable(opContext, urn, resumeFrom, listener);
+  }
+
+  @Nonnull
+  private DeleteCascadeEngine cascadeEngine() {
+    return new DeleteCascadeEngine(
+        _entityService, _graphService, _searchService, _metricUtils, new CascadeHost());
+  }
+
+  /** Hands the cascade engine the helpers whose bodies differ between OSS and the fork. */
+  private class CascadeHost implements DeleteCascadeEngine.Host {
+    @Nonnull
+    @Override
+    public Map<String, AspectSpec> aspectSpecsReferringTo(
+        @Nonnull final String relatedEntityType,
+        @Nonnull final String relationshipType,
+        @Nonnull final EntitySpec entitySpec) {
+      return getAspectSpecsReferringTo(relatedEntityType, relationshipType, entitySpec);
+    }
+
+    @Override
+    public boolean shouldDeleteAssetReferencingUrn(
+        @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+      return DeleteEntityService.this.shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn);
+    }
+
+    @Nonnull
+    @Override
+    public List<String> aspectsToUpdate(
+        @Nonnull final Urn deletedUrn, @Nonnull final Urn assetUrn) {
+      return getAspectsToUpdate(deletedUrn, assetUrn);
+    }
+
+    @Nullable
+    @Override
+    public MetadataChangeProposal updateAspectForSearchReference(
+        @Nonnull OperationContext ctx,
+        @Nonnull final Urn assetUrn,
+        @Nonnull final Urn deletedUrn,
+        @Nonnull final String aspectName) {
+      return DeleteEntityService.this.updateAspectForSearchReference(
+          ctx, assetUrn, deletedUrn, aspectName);
+    }
+
+    @Nonnull
+    @Override
+    public AuditStamp createAuditStamp() {
+      return DeleteEntityService.this.createAuditStamp();
+    }
+
+    @Override
+    public void deleteStorageObject(
+        @Nonnull final Urn fileUrn, @Nonnull final DataHubFileInfo fileInfo) {
+      DeleteEntityService.this.deleteStorageObject(fileUrn, fileInfo);
+    }
+  }
+
+  /**
    * Public endpoint that deletes references to a given urn across DataHub's metadata graph. This is
    * the entrypoint for addressing dangling pointers whenever a user deletes some entity.
    *
@@ -943,33 +1016,7 @@ public class DeleteEntityService {
 
       DataHubFileInfo fileInfo = new DataHubFileInfo(record.data());
 
-      // Delete from object storage when client is available and file has storage location
-      if (_objectStorageClient != null
-          && _objectStorageClient.isConfigured()
-          && fileInfo.hasBucketStorageLocation()) {
-        BucketStorageLocation location = fileInfo.getBucketStorageLocation();
-        String bucket = location.getStorageBucket();
-        String key = location.getStorageKey();
-
-        try {
-          _objectStorageClient.deleteObject(new ObjectStorageReference(bucket, key));
-          log.info(
-              "Successfully deleted file from object storage: bucket={}, key={}, urn={}",
-              bucket,
-              key,
-              fileUrn);
-        } catch (Exception e) {
-          log.error(
-              "Failed to delete file from object storage for urn: {}. Will continue with soft-delete to avoid "
-                  + "leaving entity in inconsistent state. Manual cleanup may be required.",
-              fileUrn,
-              e);
-        }
-      } else {
-        log.warn(
-            "Object storage not configured or file has no storage location, skipping object deletion for file: {}",
-            fileUrn);
-      }
+      deleteStorageObject(fileUrn, fileInfo);
 
       // Soft delete the file entity
       MetadataChangeProposal softDeleteMcp = DeleteEntityUtils.buildSoftDeleteProposal(fileUrn);
@@ -979,6 +1026,38 @@ public class DeleteEntityService {
     } catch (Exception e) {
       log.error("Failed to process file deletion for urn: {}", fileUrn, e);
       throw new RuntimeException("Failed to delete file: " + fileUrn, e);
+    }
+  }
+
+  /** Deletes the file's object when storage is configured; failures are logged, not thrown. */
+  private void deleteStorageObject(
+      @Nonnull final Urn fileUrn, @Nonnull final DataHubFileInfo fileInfo) {
+    // Delete from object storage when client is available and file has storage location
+    if (_objectStorageClient != null
+        && _objectStorageClient.isConfigured()
+        && fileInfo.hasBucketStorageLocation()) {
+      BucketStorageLocation location = fileInfo.getBucketStorageLocation();
+      String bucket = location.getStorageBucket();
+      String key = location.getStorageKey();
+
+      try {
+        _objectStorageClient.deleteObject(new ObjectStorageReference(bucket, key));
+        log.info(
+            "Successfully deleted file from object storage: bucket={}, key={}, urn={}",
+            bucket,
+            key,
+            fileUrn);
+      } catch (Exception e) {
+        log.error(
+            "Failed to delete file from object storage for urn: {}. Will continue with soft-delete to avoid "
+                + "leaving entity in inconsistent state. Manual cleanup may be required.",
+            fileUrn,
+            e);
+      }
+    } else {
+      log.warn(
+          "Object storage not configured or file has no storage location, skipping object deletion for file: {}",
+          fileUrn);
     }
   }
 

@@ -100,6 +100,64 @@ public interface AspectDao {
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   /**
+   * The latest (version 0) row of one aspect, read inside the caller's open transaction to decide
+   * whether to delete it. On stores with row locks it is read from PRIMARY and locked until that
+   * transaction ends, in BOTH locking modes: optimistic locking otherwise skips {@code FOR UPDATE},
+   * and its version CAS guards only updates (deletes remove rows by key). A concurrent writer of
+   * the row either committed before this read or waits until the transaction ends. A row that does
+   * not exist cannot be locked.
+   *
+   * <p>The default is the unlocked {@link #getLatestAspect} read: on stores without row locks
+   * (Cassandra) a decision made on it is best-effort.
+   */
+  @Nullable
+  default SystemAspect getLatestAspectForDecision(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    return getLatestAspect(opContext, urn, aspectName, false);
+  }
+
+  /**
+   * Every latest (version 0) row of {@code urn}'s registered aspects, keyed by aspect name, read
+   * and locked like {@link #getLatestAspectForDecision} in one statement, in primary-key order.
+   * History rows are never returned. Default: unlocked (Cassandra: best-effort).
+   */
+  @Nonnull
+  default Map<String, SystemAspect> getLatestAspectsForDecision(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    return getLatestAspects(
+            opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)), false)
+        .getOrDefault(urn.toString(), Map.of());
+  }
+
+  /**
+   * Deletes the rows of one aspect with {@code fromVersion <= version <= toVersion} (version 0 is
+   * the latest row; history rows are numbered by the version they had as latest) and returns how
+   * many were deleted. Joins the caller's transaction. The default deletes row by row.
+   */
+  default int deleteAspectVersionRange(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      final long fromVersion,
+      final long toVersion) {
+    final Pair<Long, Long> range = getVersionRange(opContext, urn.toString(), aspectName);
+    if (range.getFirst() == null || range.getFirst() < 0) {
+      return 0;
+    }
+    final long last = Math.min(toVersion, range.getSecond());
+    int deleted = 0;
+    for (long version = Math.max(fromVersion, range.getFirst()); version <= last; version++) {
+      if (getAspect(opContext, urn.toString(), aspectName, version) != null) {
+        deleteAspect(opContext, urn, aspectName, version);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
+  /**
    * Updates the system aspect
    *
    * @param operationContext
