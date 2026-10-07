@@ -35,13 +35,18 @@ _UNSTRUCTURED_EXTRAS = frozenset(
 # entirely, so ssl.PROTOCOL_TLSv1 / OpenSSL.SSL.TLSv1_METHOD do not exist.
 # snowflake-connector-python's vendored urllib3 references both unconditionally
 # at import time. Nothing actually negotiates TLSv1 - the names are only used
-# as dict keys - so aliasing them to the generic TLS protocol/method is safe.
+# as dict keys in vendored urllib3's _openssl_versions map. We use a unique
+# sentinel value (99) rather than aliasing to ssl.PROTOCOL_TLS, because the
+# latter would collide with the existing PROTOCOL_TLS key in that dict and
+# silently overwrite its mapping to SSLv23_METHOD with TLSv1_METHOD, forcing
+# TLSv1-only negotiation for all connections.
+_TLSV1_COMPAT_SENTINEL = 99
 _TLSV1_COMPAT_MODULE_NAME = "openssl4_tlsv1_compat"
-_TLSV1_COMPAT_MODULE = '''\
+_TLSV1_COMPAT_MODULE = f'''\
 import ssl
 
 if not hasattr(ssl, "PROTOCOL_TLSv1"):
-    ssl.PROTOCOL_TLSv1 = ssl.PROTOCOL_TLS
+    ssl.PROTOCOL_TLSv1 = {_TLSV1_COMPAT_SENTINEL}
 
 try:
     import OpenSSL.SSL

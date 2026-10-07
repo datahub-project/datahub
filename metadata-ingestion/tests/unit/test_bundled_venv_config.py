@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -8,6 +9,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SNIPPETS = _REPO_ROOT / "docker" / "snippets" / "ingestion"
 sys.path.insert(0, str(_SNIPPETS))
 
+from build_bundled_venvs_unified import (  # noqa: E402
+    _TLSV1_COMPAT_MODULE,
+    _TLSV1_COMPAT_MODULE_NAME,
+    _TLSV1_COMPAT_SENTINEL,
+    _install_tlsv1_compat_shim,
+)
 from bundled_venv_config import (  # noqa: E402
     BundledVenvGroupPlan,
     alias_cluster,
@@ -233,3 +240,62 @@ def test_explicit_extras_override() -> None:
     plugins = ["s3", "file"]
     plans = build_group_plans(plugins, cfg, slim_mode=False)
     assert set(plans[0].extras) == {"datahub-rest", "datahub-kafka", "file", "s3"}
+
+
+# ---------------------------------------------------------------------------
+# TLSv1 compat shim tests
+# ---------------------------------------------------------------------------
+
+
+def test_tlsv1_compat_module_uses_unique_sentinel() -> None:
+    """The shim must not alias PROTOCOL_TLSv1 to PROTOCOL_TLS, which would
+    collide with the existing key in vendored urllib3's _openssl_versions dict
+    and silently force TLSv1-only negotiation for all connections."""
+    assert _TLSV1_COMPAT_SENTINEL != 2  # ssl.PROTOCOL_TLS is 2
+    assert f"ssl.PROTOCOL_TLSv1 = {_TLSV1_COMPAT_SENTINEL}" in _TLSV1_COMPAT_MODULE
+    # The module must not reference ssl.PROTOCOL_TLS as the assigned value
+    assert "ssl.PROTOCOL_TLSv1 = ssl.PROTOCOL_TLS" not in _TLSV1_COMPAT_MODULE
+
+
+def test_tlsv1_compat_module_guards_openssl_import() -> None:
+    """The shim must not crash if pyOpenSSL is absent from the venv."""
+    assert "except ImportError" in _TLSV1_COMPAT_MODULE
+    assert "TLSv1_METHOD" in _TLSV1_COMPAT_MODULE
+
+
+def test_tlsv1_compat_shim_noop_when_protocol_tlsv1_exists(tmp_path: Path) -> None:
+    """When the venv's interpreter already has PROTOCOL_TLSv1 (OpenSSL 3.x),
+    no shim files should be written."""
+    venv_path = tmp_path / "venv"
+    venv_path.mkdir()
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = (
+            f"{venv_path}/lib/python3.11/site-packages\nTrue\n"
+        )
+        mock_run.return_value.returncode = 0
+        _install_tlsv1_compat_shim(str(venv_path))
+
+    site_packages = venv_path / "lib" / "python3.11" / "site-packages"
+    assert not (site_packages / f"{_TLSV1_COMPAT_MODULE_NAME}.py").exists()
+    assert not (site_packages / f"{_TLSV1_COMPAT_MODULE_NAME}.pth").exists()
+
+
+def test_tlsv1_compat_shim_writes_files_when_protocol_missing(tmp_path: Path) -> None:
+    """When the venv's interpreter lacks PROTOCOL_TLSv1 (OpenSSL 4.0), the
+    shim module and .pth file must be written to site-packages."""
+    venv_path = tmp_path / "venv"
+    site_packages = venv_path / "lib" / "python3.11" / "site-packages"
+    site_packages.mkdir(parents=True)
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = f"{site_packages}\nFalse\n"
+        mock_run.return_value.returncode = 0
+        _install_tlsv1_compat_shim(str(venv_path))
+
+    module_file = site_packages / f"{_TLSV1_COMPAT_MODULE_NAME}.py"
+    pth_file = site_packages / f"{_TLSV1_COMPAT_MODULE_NAME}.pth"
+    assert module_file.exists()
+    assert pth_file.exists()
+    assert module_file.read_text() == _TLSV1_COMPAT_MODULE
+    assert pth_file.read_text() == f"import {_TLSV1_COMPAT_MODULE_NAME}\n"

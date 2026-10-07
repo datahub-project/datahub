@@ -4249,6 +4249,13 @@ class TestQueryHistoryFallback:
                 False,
                 id="probe_standard",
             ),
+            pytest.param(
+                None,
+                None,
+                "Unsupported feature 'something_else'",
+                False,
+                id="probe_standard_broad_match",
+            ),
             pytest.param(None, None, None, True, id="probe_enterprise"),
             pytest.param(
                 None,

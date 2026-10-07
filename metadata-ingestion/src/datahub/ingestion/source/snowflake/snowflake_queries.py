@@ -128,12 +128,17 @@ def detect_snowflake_edition(connection: SnowflakeConnection) -> SnowflakeEditio
     ACCESS_HISTORY exists but is never populated on Standard (an empty result,
     not an error), so edition detection is the only reliable signal that the
     view can feed the query log join.
+
+    The match is intentionally broad ("Unsupported feature" without the specific
+    'TAG' qualifier) to survive minor wording changes in Snowflake's error
+    messages. For environments where the probe is unreliable, set
+    ``known_snowflake_edition: STANDARD`` to skip it entirely.
     """
     try:
         connection.query(SnowflakeQuery.show_tags())
         return SnowflakeEdition.ENTERPRISE
     except Exception as e:
-        if "Unsupported feature 'TAG'" in str(e):
+        if "Unsupported feature" in str(e):
             return SnowflakeEdition.STANDARD
         raise
 
@@ -868,21 +873,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             else:
                 return
 
-        user = CorpUserUrn(
-            self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
-        )
-        extra_info = {
-            "snowflake_query_id": res["query_id"],
-            "snowflake_root_query_id": res["root_query_id"],
-            "snowflake_query_type": res["query_type"],
-            "snowflake_role_name": res["role_name"],
-            "query_duration": res["query_duration"],
-            "rows_inserted": res["rows_inserted"],
-            "rows_updated": res["rows_updated"],
-            "rows_deleted": res["rows_deleted"],
-        }
+        user, extra_info = self._resolve_user_and_extra_info(res, users)
 
         direct_cls = self._classify_audit_log_objects(direct_objects_accessed)
         modified_cls = self._classify_audit_log_objects(objects_modified)
@@ -1116,6 +1107,31 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 extra_info=extra_info,
             )
 
+    def _resolve_user_and_extra_info(
+        self, res: Dict[str, Any], users: UsersMapping
+    ) -> tuple[CorpUserUrn, Dict[str, Any]]:
+        """Build the user URN and extra_info dict shared by both extraction paths.
+
+        Centralizing this prevents the audit-log and query-history parsers from
+        drifting as fields are added or renamed.
+        """
+        user = CorpUserUrn(
+            self.identifiers.get_user_identifier(
+                res["user_name"], users.get(res["user_name"])
+            )
+        )
+        extra_info = {
+            "snowflake_query_id": res["query_id"],
+            "snowflake_root_query_id": res["root_query_id"],
+            "snowflake_query_type": res["query_type"],
+            "snowflake_role_name": res["role_name"],
+            "query_duration": res["query_duration"],
+            "rows_inserted": res["rows_inserted"],
+            "rows_updated": res["rows_updated"],
+            "rows_deleted": res["rows_deleted"],
+        }
+        return user, extra_info
+
     def _parse_query_history_row(
         self, row: Dict[str, Any], users: UsersMapping
     ) -> Iterable[ObservedQuery]:
@@ -1137,21 +1153,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         query_text: str = res["query_text"]
 
-        user = CorpUserUrn(
-            self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
-        )
-        extra_info = {
-            "snowflake_query_id": res["query_id"],
-            "snowflake_root_query_id": res["root_query_id"],
-            "snowflake_query_type": res["query_type"],
-            "snowflake_role_name": res["role_name"],
-            "query_duration": res["query_duration"],
-            "rows_inserted": res["rows_inserted"],
-            "rows_updated": res["rows_updated"],
-            "rows_deleted": res["rows_deleted"],
-        }
+        user, extra_info = self._resolve_user_and_extra_info(res, users)
 
         yield ObservedQuery(
             query=query_text,
