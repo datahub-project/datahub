@@ -216,8 +216,10 @@ class ProfilingConfig(ProfilingBaseConfig):
     catch_exceptions: bool = Field(default=True, description="")
 
     # Isolation level applied to the profiling connection. None (the default)
-    # sets nothing, so the connection keeps the driver default and the whole
-    # table profile runs under one transaction. AUTOCOMMIT makes each profiling
+    # sets nothing, so the connection keeps the engine's level: the driver
+    # default (one transaction per table profile) on most sources, AUTOCOMMIT on
+    # the Postgres-family sources, whose engines default to it (see
+    # PostgresSource._get_engine_options). AUTOCOMMIT makes each profiling
     # SELECT self-contained, at the cost of cross-statement snapshot consistency.
     profiling_isolation_level: Annotated[
         Optional[ProfilingIsolationLevel], SupportedSources(["mysql", "postgres"])
@@ -225,9 +227,11 @@ class ProfilingConfig(ProfilingBaseConfig):
         default=None,
         description=(
             "Isolation level for the profiling connection. Defaults to unset, so "
-            "the connection keeps the driver default and one transaction spans the "
-            "whole table profile. Set AUTOCOMMIT if profiling is holding Postgres "
-            "idle-in-transaction (blocking VACUUM) or pinning an InnoDB read view "
+            "the connection keeps the source's engine default: on MySQL that is the "
+            "driver default, so one transaction spans the whole table profile; the "
+            "Postgres-family sources (postgres, timescaledb, cockroachdb) already "
+            "connect with AUTOCOMMIT unless `options.isolation_level` says "
+            "otherwise. Set AUTOCOMMIT if profiling is pinning an InnoDB read view "
             "and growing the undo log on MySQL; each profiling SELECT then runs on "
             "its own. Under AUTOCOMMIT or READ_COMMITTED, metrics come from "
             "different snapshots, so a profile can be internally inconsistent on a "

@@ -75,7 +75,7 @@ public class FileEmitter implements Emitter {
       throw new RuntimeException("Error while creating file", e);
     }
     this.wroteSomething = false;
-    log.debug("Emitter created successfully for " + this.config.getFileName());
+    log.debug("Emitter created successfully for {}", this.config.getFileName());
 
     this.cachedSuccessFuture =
         new Future<MetadataWriteResponse>() {

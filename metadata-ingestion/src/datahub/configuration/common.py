@@ -454,6 +454,20 @@ class AllowDenyPattern(ConfigModel):
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
 
+    def is_allow_all(self) -> bool:
+        """Whether this pattern lets every string through.
+
+        Use this instead of `== AllowDenyPattern.allow_all()`. `__eq__`
+        compares `__dict__`, which also holds the compiled-regex caches once
+        `allowed()` has run, so a used default pattern stops equalling a
+        fresh one. `ignoreCase` does not matter: `.*` matches regardless.
+
+        Only a literal `".*"` allow entry with an empty deny list counts.
+        Equivalent regexes (`^.*$`, `.+`) return False, so treat False as
+        "unknown", not "restricted".
+        """
+        return not self.deny and ".*" in self.allow
+
     def allowed(self, string: str) -> bool:
         if self.denied(string):
             return False
@@ -484,6 +498,130 @@ class AllowDenyPattern(ConfigModel):
 
     def __eq__(self, other):  # type: ignore
         return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+
+@dataclasses.dataclass(frozen=True)
+class Filters:
+    """Declares which probe level an AllowDenyPattern config field filters.
+
+    Attach with Annotated, at the field itself — the one place that already
+    knows this:
+
+        collection_pattern: Annotated[
+            AllowDenyPattern, Filters(DatasetSubTypes.TABLE)
+        ] = Field(default=AllowDenyPattern.allow_all(), description="...")
+
+    Needed where the field's name cannot be derived from the level's DataHub
+    subtype, which is the normal case whenever config naming follows the source
+    system's own vocabulary (Mongo collections, Aerospike sets) as it should.
+    The connector's ingestion path already applies this pattern to that level;
+    declaring it here means the probe reads the same fact rather than guessing
+    from the name, so the two cannot drift apart.
+
+    A field that filters more than one kind (e.g. Salesforce's object_pattern,
+    reused for both standard and custom objects) stacks one Filters per kind
+    in the Annotated metadata — resolution checks every Filters instance
+    present, not just the first:
+
+        object_pattern: Annotated[
+            AllowDenyPattern,
+            Filters(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT),
+            Filters(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT),
+        ] = Field(default=AllowDenyPattern.allow_all(), description="...")
+
+    `kind` is a DataHub subtype constant — a StrEnum member, hence a str. It is
+    typed str so this module stays free of any ingestion imports.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Enables:
+    """Declares that this bool field enables a probe level: True, ingestion
+    emits that kind; False, it emits none of it, whatever its pattern says.
+
+    Sibling of Filters, attached the same way, at the field:
+
+        include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
+            default=True, description="Whether views should be ingested."
+        )
+
+    The polarity is fixed: True enables. A field whose True means skip
+    (`skip_views`) must not carry it, since the probe would then report the
+    kind excluded exactly when ingestion emits it. Only False switches the
+    kind off, so an Optional[bool] left unset reads as enabled.
+
+    Declare it only where False stops the kind being emitted at all; a flag
+    deciding what is emitted about an object (lineage, profiling) is not one.
+    A field enabling more than one kind stacks one Enables per kind, as
+    Filters does:
+
+        include_views: Annotated[
+            bool,
+            Enables(DatasetSubTypes.VIEW),
+            Enables(DatasetSubTypes.SEMANTIC_MODEL),
+        ] = Field(default=True, description="...")
+
+    `kind` is a DataHub subtype constant, typed str as Filters' is.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
+class FiltersByRule:
+    """Declares that this field's rules, not an AllowDenyPattern, decide which
+    objects of a probe level are ingested.
+
+    Sibling of Filters, for a level no pattern states: a list of path rules,
+    or a bool under which the level follows from what else is ingested. The
+    field can be of any type, which is why this is not Enables: a bool can be
+    either. The probe reports the kind filtered by rule, naming this field,
+    and asks the config's probe_verdict_override to judge every name of it.
+
+        path_specs: Annotated[
+            List[PathSpec],
+            FiltersByRule(DatasetContainerSubTypes.FOLDER),
+            FiltersByRule(DatasetSubTypes.TABLE),
+        ] = Field(description="...")
+
+    One per kind, stacked as Filters stacks. A kind it marks has no pattern
+    field, so it carries no Filters.
+
+    `kind` is a DataHub subtype constant, typed str as Filters' is.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Qualifier:
+    """Declares that this field names the container a probe qualifies with.
+
+    Sibling of Filters above, and for the same reason: the field already
+    knows this, so the framework reads it rather than each connector
+    declaring a method that restates the field's own name.
+
+        project_ids: Annotated[List[str], Qualifier()] = Field(...)
+
+    A qualified schema or table name is `<container>.<schema>[.<entity>]`,
+    and the container normally comes from the caller -- a recipe may span
+    several databases or projects and only the caller knows which one it is
+    asking about. This marks the field to fall back to when the caller names
+    none, which keeps `probe filter` answerable without a --parent for the
+    common single-container recipe.
+
+    `authoritative` inverts that: the config wins over the caller. Redshift
+    connects to exactly one database, so honouring a different --parent
+    would answer about a database the recipe does not read.
+
+    A list field qualifies only when it pins exactly one value; several have
+    no single answer to give without guessing, and guessing produces a
+    confident verdict about a different object.
+    """
+
+    authoritative: bool = False
 
 
 class KeyValuePattern(ConfigModel):

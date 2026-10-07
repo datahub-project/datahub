@@ -293,8 +293,8 @@ To improve write performance during restoration:
 
 ##### Refresh Interval Adjustment:
 
-Temporarily increase the refresh_interval setting from the default (typically 1s) to something like 30s or 60s.
-Run the system update job with the following environment variable `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`
+Temporarily increase the refresh interval. `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS` is the fallback for entity search, graph, and system metadata. `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITY_SECONDS`, `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_GRAPH_SECONDS`, `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_SYSTEM_METADATA_SECONDS`, and a per-entity `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITIES` value replace that fallback. Timeseries and usage use `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS` and `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS` (default 60). A per-aspect `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ASPECTS` value replaces the timeseries default.
+Run the system update job with those variables set, for example `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`.
 
 :::caution
 Remember to reset this after restoration completes!

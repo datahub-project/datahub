@@ -1216,7 +1216,7 @@
     name: abs
     displayName: ABS Data Lake
     type: FILE_SYSTEM
-    logoUrl: "assets/platforms/adlslogo.png"
+    logoUrl: "assets/platforms/azureblobstoragelogo.svg"
 - entityUrn: urn:li:dataPlatform:azure-ad
   entityType: dataPlatform
   aspectName: dataPlatformInfo

@@ -32,6 +32,13 @@ public class IndexConfiguration {
   private int numReplicas;
   private int numRetries;
   private int refreshIntervalSeconds;
+
+  /**
+   * Per-service refresh intervals. Not a Java default: {@code application.yaml} binds the seconds.
+   * {@link #refreshIntervalSeconds} is no longer read when writing {@code index.refresh_interval}.
+   */
+  private RefreshIntervals refreshIntervals;
+
   private int maxReindexHours;
   private String mainTokenizer;
 

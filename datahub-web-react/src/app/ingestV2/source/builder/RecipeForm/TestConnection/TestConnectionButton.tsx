@@ -1,4 +1,4 @@
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { message } from 'antd';
 import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
@@ -13,6 +13,7 @@ import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/Te
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
 import { Button, Text } from '@src/alchemy-components';
+import { pollingContext } from '@src/apolloPolling';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -94,9 +95,11 @@ function TestConnectionButton({
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
                 () =>
-                    getIngestionExecutionRequest({
-                        variables: { urn: requestData.createTestConnectionRequest as string },
-                    }),
+                    getIngestionExecutionRequest(
+                        pollingContext({
+                            variables: { urn: requestData.createTestConnectionRequest as string },
+                        }),
+                    ),
                 2000,
             );
             setIsLoading(true);
@@ -210,7 +213,7 @@ function TestConnectionButton({
     return (
         <>
             <Button variant="outline" type="button" size={size} onClick={testConnection}>
-                {!hideIcon && <CheckCircleOutlined />}
+                {!hideIcon && <CheckCircle />}
                 <Text weight={textWeight} lineHeight="none">
                     {t('testConnection.button')}
                 </Text>

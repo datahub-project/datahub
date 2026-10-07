@@ -37,8 +37,9 @@ import play.mvc.Security;
  * upstream response so failures can be surfaced: 2xx -> 202; transient failures (429/502/503/504,
  * network, timeout) are retried briefly then reported as retryable so the browser exporter can
  * retry; permanent failures (4xx) are reported as errors so the exporter drops them. Best-effort
- * telemetry — a bounded in-flight limit protects Play threads from a telemetry storm when the
- * collector is slow.
+ * telemetry — a separate in-flight limit sheds a collector storm before it can take the rest of the
+ * Play connection budget. Forwards that do run still hold a {@link ProxyAdmission} permit, so they
+ * count toward readiness with GMS, auth, and SSO.
  *
  * <p>Emits metadata-only metrics ({@code otel_proxy_*}); it never logs OTLP bodies, URLs, or query
  * strings.
@@ -67,26 +68,31 @@ public class OtelProxyController extends Controller {
   // Matches the frontend Dockerfile's OTEL max payload size (4 MiB). Last line of defense — the
   // parser/ingress should cap oversized bodies before they reach here.
   private static final int MAX_BODY_BYTES = 4 * 1024 * 1024;
-  private static final int MAX_IN_FLIGHT = 100;
+  static final int MAX_IN_FLIGHT = 100;
   private static final int MAX_ATTEMPTS = 3;
   private static final Duration FORWARD_TIMEOUT = Duration.ofSeconds(10);
 
   private final HttpClient httpClient;
   private final MeterRegistry registry;
-  // Full target URI (endpoint + /v1/traces), parsed once at construction so a malformed endpoint
-  // fails here — never inside exportTraces after a semaphore permit is acquired (which would leak
-  // the permit and eventually wedge the proxy at 503). null when unconfigured/unparseable.
-  private final URI targetUri;
+  private final ProxyAdmission proxyAdmission;
   private final Semaphore inFlight;
+  // Full target URI (endpoint + /v1/traces), parsed once at construction so a malformed endpoint
+  // fails here — never inside exportTraces after a permit is acquired (which would leak the permit
+  // and eventually wedge the proxy at 503). null when unconfigured/unparseable.
+  private final URI targetUri;
 
   @Inject
   public OtelProxyController(
-      HttpClient httpClient, @Nonnull Config config, @Nonnull MetricUtils metricUtils) {
+      HttpClient httpClient,
+      @Nonnull Config config,
+      @Nonnull MetricUtils metricUtils,
+      @Nonnull ProxyAdmission proxyAdmission) {
     this.httpClient = httpClient;
     this.registry = metricUtils.getRegistry();
+    this.proxyAdmission = proxyAdmission;
+    this.inFlight = new Semaphore(MAX_IN_FLIGHT);
     final String endpoint = config.hasPath(ENDPOINT_KEY) ? config.getString(ENDPOINT_KEY) : null;
     this.targetUri = parseTargetUri(endpoint);
-    this.inFlight = new Semaphore(MAX_IN_FLIGHT);
     if (registry != null) {
       Gauge.builder(METRIC_INFLIGHT, inFlight, s -> (double) (MAX_IN_FLIGHT - s.availablePermits()))
           .register(registry);
@@ -127,11 +133,16 @@ public class OtelProxyController extends Controller {
       return completed(status(UNSUPPORTED_MEDIA_TYPE, "Unsupported OTLP content type."));
     }
 
-    // Bulkhead: shed load rather than pile up async forwards when the collector is slow/down.
+    // Tighter than the shared Play budget so a collector storm cannot fill the connection table.
     if (!inFlight.tryAcquire()) {
       count(METRIC_REJECTED, "reason", "overloaded");
       return completed(
           status(SERVICE_UNAVAILABLE, "OTEL proxy overloaded.").withHeader("Retry-After", "1"));
+    }
+    if (!proxyAdmission.tryAcquire()) {
+      inFlight.release();
+      count(METRIC_REJECTED, "reason", "overloaded");
+      return completed(proxyAdmission.overloadedResult());
     }
 
     final HttpRequest.Builder builder =
@@ -157,7 +168,11 @@ public class OtelProxyController extends Controller {
               return status(SERVICE_UNAVAILABLE, "Failed forwarding traces.")
                   .withHeader("Retry-After", "1");
             })
-        .whenComplete((result, throwable) -> inFlight.release());
+        .whenComplete(
+            (result, throwable) -> {
+              proxyAdmission.release();
+              inFlight.release();
+            });
   }
 
   /** Maps the upstream OTLP response to a status the browser exporter understands. */

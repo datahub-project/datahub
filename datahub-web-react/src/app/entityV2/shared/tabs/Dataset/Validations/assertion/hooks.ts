@@ -13,6 +13,10 @@ import {
     useDeleteAssertionMutation,
 } from '@graphql/assertion.generated';
 
+/**
+ * @description A custom hook for deleting an assertion with cache eviction.
+ * Use this instead of the default useDeleteAssertionMutation hook.
+ */
 export const useDeleteAssertionMutationWithCache = (
     baseOptions?: MutationHookOptions<DeleteAssertionMutation, DeleteAssertionMutationVariables>,
 ) => {
@@ -20,7 +24,7 @@ export const useDeleteAssertionMutationWithCache = (
         ...baseOptions,
         update(cache, response, options) {
             baseOptions?.update?.(cache, response, options);
-            const assertionUrn = options.variables?.urn;
+            const assertionUrn = options.variables?.urn ?? baseOptions?.variables?.urn;
             if (response.data?.deleteAssertion && assertionUrn) {
                 cache.evict({
                     id: cache.identify({
@@ -34,6 +38,12 @@ export const useDeleteAssertionMutationWithCache = (
     });
 
     return [deleteAssertion, result] as const;
+};
+
+export const getAssertionUrl = (urn: string, baseUrl: string) => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('assertion_urn', urn);
+    return `${baseUrl}?${queryParams.toString()}`;
 };
 
 export const copyTextToClipboard = async (text: string): Promise<void> => {
@@ -64,16 +74,7 @@ export const useAssertionURNCopyLink = (urn: string) => {
     const { t } = useTranslation('entity.profile.validations');
 
     const onCopyLink = async () => {
-        const assertionUrn = urn;
-
-        // Create a URL with the assertion_urn query parameter
-        const currentUrl = new URL(window.location.href);
-
-        // Add or update the assertion_urn query parameter
-        currentUrl.searchParams.set('assertion_urn', encodeURIComponent(assertionUrn));
-
-        // The updated URL with the new or modified query parameter
-        const assertionUrl = currentUrl.href;
+        const assertionUrl = getAssertionUrl(urn, window.location.origin + window.location.pathname);
 
         try {
             await copyTextToClipboard(assertionUrl);

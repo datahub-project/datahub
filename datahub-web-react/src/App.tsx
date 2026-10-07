@@ -20,6 +20,7 @@ import { ErrorCodes } from '@app/shared/constants';
 import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { installApolloPollingContextPatch } from '@src/apolloPolling';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
@@ -108,6 +109,10 @@ const client = new ApolloClient({
         },
     },
 });
+
+// Forward NetworkStatus.poll onto operation.context so GraphQL tracing links can skip
+// timer-driven poll ticks without an op-name denylist. Must run after `new ApolloClient`.
+installApolloPollingContextPatch(client);
 
 export const InnerApp: React.VFC = () => {
     const isDarkMode = loadIsDarkMode();

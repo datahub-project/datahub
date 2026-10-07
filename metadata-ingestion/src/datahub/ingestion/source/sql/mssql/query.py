@@ -1,11 +1,58 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 from sqlalchemy.sql.elements import TextClause
+
+# Databases MSSQL always excludes from enumeration, independent of
+# database_pattern -- SQL Server's own system databases plus the reporting
+# services pair. Single source of truth for MSSQLQuery.list_databases()
+# below and the agent probe (SQLServerConfig.default_databases()).
+MSSQL_SYSTEM_DATABASES = (
+    "master",
+    "model",
+    "msdb",
+    "tempdb",
+    "Resource",
+    "distribution",
+    "reportserver",
+    "reportservertempdb",
+)
+_SYSTEM_DATABASE_EXCLUSION = ", ".join(f"'{name}'" for name in MSSQL_SYSTEM_DATABASES)
 
 
 class MSSQLQuery:
     """SQL queries for extracting query history from MS SQL Server."""
+
+    # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
+    # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
+    TABLE_DESCRIPTIONS = """
+            SELECT
+              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
+              T.NAME AS table_name,
+              EP.VALUE AS table_description
+            FROM sys.tables AS T
+            INNER JOIN sys.extended_properties AS EP
+              ON EP.MAJOR_ID = T.[OBJECT_ID]
+              AND EP.MINOR_ID = 0
+              AND EP.NAME = 'MS_Description'
+              AND EP.CLASS = 1
+            """
+
+    @staticmethod
+    def table_description(conn: Connection, schema: str, table: str) -> Optional[str]:
+        """One table's MS_Description, in the database `conn` is on.
+
+        Bound parameters, not interpolation: the names come from a caller.
+        """
+        row = conn.execute(
+            text(
+                f"SELECT d.table_description FROM ({MSSQLQuery.TABLE_DESCRIPTIONS}) AS d "
+                "WHERE d.schema_name = :schema AND d.table_name = :table"
+            ),
+            {"schema": schema, "table": table},
+        ).fetchone()
+        return None if row is None or row[0] is None else str(row[0])
 
     @staticmethod
     def _build_exclude_clause(
@@ -171,7 +218,26 @@ class MSSQLQuery:
     def get_mssql_version() -> TextClause:
         """Get SQL Server version number."""
         return text("""
-            SELECT 
+            SELECT
                 CAST(SERVERPROPERTY('ProductVersion') AS VARCHAR) AS version,
                 CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) AS major_version
         """)
+
+    @staticmethod
+    def list_databases(conn: Connection) -> List[str]:
+        """List databases visible on this connection, minus MSSQL system
+        databases (see MSSQL_SYSTEM_DATABASES). Does not apply
+        database_pattern -- callers (SQLServerSource.get_inspectors() and the
+        agent probe) apply that themselves, so both filter on the exact same
+        raw listing rather than each re-deriving it.
+        """
+        rows = (
+            conn.execute(
+                text(
+                    f"SELECT name FROM master.sys.databases WHERE name NOT IN ({_SYSTEM_DATABASE_EXCLUSION})"
+                )
+            )
+            .mappings()
+            .fetchall()
+        )
+        return [str(row["name"]) for row in rows]

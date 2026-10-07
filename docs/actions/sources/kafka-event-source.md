@@ -33,6 +33,12 @@ fail to be processed will simply be logged to a `failed_events.log` file for fur
 
 If you've configured your Action pipeline `failure_mode` to be `THROW`, then events which fail to be processed result in an Action Pipeline error. This in turn terminates the pipeline before committing offsets back to Kafka. Thus the message will not be marked as "processed" by the Action consumer.
 
+### Connection Failures
+
+When a pipeline starts, the Kafka Event Source waits until the cluster answers a metadata request before it subscribes, and logs `Kafka event source for pipeline '<name>' connected to Kafka at <bootstrap>.` once it has. If the cluster cannot be reached or the client cannot authenticate (for example a client configured for `PLAINTEXT` against a `SASL_SSL` listener, or wrong SASL credentials), the source keeps retrying for 60 seconds, logging the client error at ERROR, and then fails the pipeline. When no pipeline in the process is running any more and at least one of them failed, the `datahub-actions` process exits with code 1, so a container runtime restarts it instead of leaving it up without consuming anything. If every pipeline finished cleanly, it exits with code 0.
+
+After a pipeline has connected, Kafka client errors are logged (at ERROR for authentication failures and all brokers being down, otherwise at WARNING) and the client keeps reconnecting on its own.
+
 ## Supported Events
 
 The Kafka Event Source produces
@@ -84,6 +90,21 @@ action:
   | `commit_retry_count` | ❌ | `5` | Number of retries on synchronous commit failure (only used when `async_commit_enabled` is `false`) |
   | `commit_retry_backoff` | ❌ | `10.0` | Seconds between synchronous commit retries (only used when `async_commit_enabled` is `false`) |
 </details>
+
+### Consumer Properties from Environment Variables
+
+The Kafka Event Source also reads Kafka client properties from `KAFKA_PROPERTIES_*` environment variables, which is how
+the DataHub Helm chart passes Kafka settings to the actions pod. The part of the name after the prefix is lowercased and
+its underscores become dots, so `KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN` sets `sasl.mechanism: PLAIN`.
+`KAFKA_PROPERTIES_OAUTH_CB` sets `oauth_cb` (for example `datahub_actions.utils.kafka_msk_iam:oauth_cb` for AWS MSK IAM),
+which is resolved to a function the same way as `oauth_cb` in `consumer_config`. Empty values are ignored.
+
+- Values in `connection.consumer_config` take precedence over environment variables.
+- Properties that librdkafka does not accept are skipped: Java-only settings (`sasl.jaas.config`, `ssl.truststore.*`,
+  `ssl.keystore.*`, `ssl.protocol`, `ssl.enabled.protocols`, the `sasl.*.class` settings, `kafkastore.*`), schema registry
+  settings (`basic.auth.*`, `schema.registry.*`) and `partition.assignment.strategy`. `group.id` is skipped too, because
+  each pipeline consumes under its own name. Set any of these in `consumer_config` if you need them.
+- Set `DATAHUB_ACTIONS_KAFKA_ENV_PROPERTIES_ENABLED=false` to turn this off and use only `consumer_config`.
 
 ## Schema Registry Configuration
 

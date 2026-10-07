@@ -1,11 +1,10 @@
-import { Tooltip, zIndices } from '@components';
+import { Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
@@ -48,13 +47,6 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     height: 100%;
 `;
 
-const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> }>`
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: ${(props) => (props.$previewType === PreviewType.HOVER_CARD ? `100px` : '250px')};
-`;
-
 const DegreeText = styled.div`
     border-radius: 18px;
     background: ${(props) => props.theme.colors.bgSurface};
@@ -68,7 +60,6 @@ const DegreeText = styled.div`
 interface EntityHeaderProps {
     name: string;
     onClick?: () => void;
-    previewType?: Maybe<PreviewType>;
     titleSizePx?: number;
     url: string;
     urn: string;
@@ -83,7 +74,6 @@ interface EntityHeaderProps {
 const EntityHeader: React.FC<EntityHeaderProps> = ({
     name,
     onClick,
-    previewType,
     titleSizePx,
     url,
     urn,
@@ -100,17 +90,9 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     return (
         <EntityTitleContainer>
             <StyledLink to={`${url}/`} {...linkProps} onClick={() => onClick?.()}>
-                {previewType === PreviewType.HOVER_CARD ? (
-                    <Tooltip title={name} zIndex={zIndices.tooltip}>
-                        <CardEntityTitle $titleSizePx={titleSizePx} data-testid="entity-title">
-                            {name || urn}
-                        </CardEntityTitle>
-                    </Tooltip>
-                ) : (
-                    <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
-                        <SearchTextHighlighter field="name" text={name || urn} />
-                    </EntityTitle>
-                )}
+                <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <SearchTextHighlighter field="name" text={name || urn} />
+                </EntityTitle>
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip

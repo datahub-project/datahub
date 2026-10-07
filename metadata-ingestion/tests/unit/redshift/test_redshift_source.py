@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +13,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE,
     RedshiftSchema,
     RedshiftTable,
+    RedshiftView,
     _add_redshift_query_tag,
 )
 from datahub.metadata.schema_classes import (
@@ -394,3 +395,36 @@ def test_no_query_usage_warning_when_properly_configured() -> None:
         lineage_generate_queries=True,
     )
     assert "Config option has no effect" not in _warnings_for(config)
+
+
+@pytest.mark.parametrize(
+    "patterns, kept",
+    [
+        ({}, True),
+        ({"view_pattern": {"deny": ["dev.public.v1"]}}, False),
+        ({"table_pattern": {"deny": ["dev.public.v1"]}}, False),
+    ],
+    ids=["allowed_by_both", "refused_by_view_pattern", "refused_by_table_pattern"],
+)
+def test_process_view_applies_view_and_table_pattern(
+    patterns: Dict[str, Dict[str, List[str]]], kept: bool
+) -> None:
+    config = RedshiftConfig(host_port="localhost:5439", database="dev", **patterns)
+    source = RedshiftSource(config, ctx=PipelineContext(run_id="test"))
+    view = RedshiftView(
+        name="v1",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    schema = RedshiftSchema(name="public", database="dev", type="local")
+    emitted = MagicMock()
+    with patch.object(
+        source, "gen_view_dataset_workunits", return_value=iter([emitted])
+    ):
+        workunits = list(source._process_view(view, "dev", schema))
+
+    assert workunits == ([emitted] if kept else [])
+    assert ("dev.public.v1" in source.report.filtered) is not kept
