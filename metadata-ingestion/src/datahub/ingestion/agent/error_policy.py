@@ -326,15 +326,50 @@ def network_reason(exc: BaseException) -> Optional[str]:
 # caller wrote was wrong (a misspelled column, a missing relation, a grant it
 # lacks), not the source.
 _CALLER_SQLSTATE_CLASS = "SQLSTATE 42"
+# The same failures from a MySQL-protocol server, whose drivers report the
+# server's error number and no SQLSTATE: each is class 42 in MySQL's error
+# reference. Server numbers start at 1000, above any OS errno. Errors a
+# recipe's own connection settings can cause (1044, 1049: the database it
+# names) are left out: those are not the query's.
+_CALLER_MYSQL_ERRNOS = frozenset(
+    {
+        1054,  # ER_BAD_FIELD_ERROR, 42S22: unknown column
+        1055,  # ER_WRONG_FIELD_WITH_GROUP, 42000
+        1064,  # ER_PARSE_ERROR, 42000
+        1066,  # ER_NONUNIQ_TABLE, 42000: not unique table/alias
+        1142,  # ER_TABLEACCESS_DENIED_ERROR, 42000
+        1143,  # ER_COLUMNACCESS_DENIED_ERROR, 42000
+        1146,  # ER_NO_SUCH_TABLE, 42S02
+        1149,  # ER_SYNTAX_ERROR, 42000
+        1305,  # ER_SP_DOES_NOT_EXIST, 42000: unknown function
+    }
+)
+_CALLER_CODES = frozenset(f"errno {number}" for number in _CALLER_MYSQL_ERRNOS)
+
+
+def _is_callers_code(code: Optional[str]) -> bool:
+    return code is not None and (
+        code.startswith(_CALLER_SQLSTATE_CLASS) or code in _CALLER_CODES
+    )
 
 
 def is_callers_sql_error(
     exc: BaseException, provider_cls: Optional[type] = None
 ) -> bool:
     """Whether a failure running the caller's own SQL carries SQLSTATE class
-    42. Never raises."""
-    code = foreign_code(exc, provider_cls)
-    return code is not None and code.startswith(_CALLER_SQLSTATE_CLASS)
+    42, or a MySQL-protocol error number of that class, on any link of its
+    cause chain: a wrapper's own code (an HTTP status) does not hide the SQL
+    failure it was raised from. Never raises."""
+    try:
+        return any(
+            _is_callers_code(_provider_code(link, provider_cls))
+            or _is_callers_code(generic_error_code(link))
+            for link in _cause_links(exc)
+        )
+    except PASS_THROUGH:
+        raise
+    except BaseException:
+        return False
 
 
 # A Python module name, dotted: what ImportError.name holds when an import
