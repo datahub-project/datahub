@@ -2335,6 +2335,34 @@ FROM src
     )
 
 
+def test_clickhouse_bare_dictget_does_not_replace_same_named_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target (v, w)
+SELECT dictGet('My_Dict', 'v', id) AS v, w
+FROM db.My_Dict
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "w": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+                "w": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_same_named_table.json",
+    )
+
+
 def test_clickhouse_bare_dictget_falls_back_to_current_database() -> None:
     assert_sql_result(
         """\

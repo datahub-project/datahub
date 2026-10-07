@@ -632,17 +632,17 @@ def _clickhouse_bare_dictget_tables(
 def _resolve_table_for_lineage(
     schema_resolver: SchemaResolverInterface,
     table: _TableName,
-    qualified_table: _TableName,
+    qualified_urn: str,
+    qualified_schema_info: Optional[SchemaInfo],
     bare_dictget_tables: Set[_TableName],
 ) -> Tuple[str, Optional[SchemaInfo]]:
-    urn, schema_info = schema_resolver.resolve_table(qualified_table)
     # ClickHouse looks up a bare dictGet name as a global (XML) dictionary
     # before trying the current database.
     if table in bare_dictget_tables:
         global_urn, global_schema_info = schema_resolver.resolve_table(table)
         if global_schema_info is not None:
             return global_urn, global_schema_info
-    return urn, schema_info
+    return qualified_urn, qualified_schema_info
 
 
 def _clickhouse_extract_to_tables(
@@ -2277,6 +2277,7 @@ def _sqlglot_lineage_inner(
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
     bare_dictget_tables = _clickhouse_bare_dictget_tables(statement, dialect)
+    resolved_tables_count = 0
 
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
@@ -2285,22 +2286,30 @@ def _sqlglot_lineage_inner(
             default_db=default_db, default_schema=default_schema
         )
 
-        urn, schema_info = _resolve_table_for_lineage(
+        qualified_urn, qualified_schema_info = schema_resolver.resolve_table(
+            qualified_table
+        )
+        lineage_urn, lineage_schema_info = _resolve_table_for_lineage(
             schema_resolver,
             table=table,
-            qualified_table=qualified_table,
+            qualified_urn=qualified_urn,
+            qualified_schema_info=qualified_schema_info,
             bare_dictget_tables=bare_dictget_tables,
         )
 
-        table_name_urn_mapping[qualified_table] = urn
-        if schema_info:
-            table_name_schema_mapping[qualified_table] = schema_info
+        # A bare dictionary and a qualified table can share the same qualified
+        # name, so the qualified mapping must always retain the table resolution.
+        table_name_urn_mapping[qualified_table] = qualified_urn
+        if qualified_schema_info is not None:
+            table_name_schema_mapping[qualified_table] = qualified_schema_info
 
         # Also include the original, non-qualified table name in the urn mapping.
-        table_name_urn_mapping[table] = urn
+        table_name_urn_mapping[table] = lineage_urn
+        if lineage_schema_info is not None:
+            resolved_tables_count += 1
 
     total_tables_discovered = len(tables | modified)
-    total_schemas_resolved = len(table_name_schema_mapping)
+    total_schemas_resolved = resolved_tables_count
     debug_info = SqlParsingDebugInfo(
         confidence=(
             0.9
