@@ -2171,6 +2171,20 @@ FROM db1.events
     )
 
 
+def test_clickhouse_typed_dictget_lineage() -> None:
+    assert_sql_result(
+        """\
+SELECT
+    dictGetString('db.string_dict', 'value', id),
+    dictGetUInt64OrDefault('db.default_dict', 'value', id, 0)
+FROM db.src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        expected_file=RESOURCE_DIR / "test_clickhouse_typed_dictget.json",
+    )
+
+
 def test_clickhouse_table_function_is_not_a_table() -> None:
     assert_sql_result(
         """\

@@ -502,32 +502,42 @@ def _extract_table_names(
 # 2. Materialized views with TO clause - output goes to target table, not the view
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
-# Dictionary functions that take a dictionary name as first argument.
-# See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
-_CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
-    {
-        "dictget",
-        "dictgetordefault",
-        "dictgetornull",
-        "dicthas",
-        "dictgethierarchy",
-        "dictisin",
-        "dictgetchildren",
-        "dictgetdescendant",
-        "dictgetdescendants",
-        "dictgetall",
-    }
-)
+
+def _clickhouse_table_name_from_arg(
+    arg: sqlglot.exp.Expression, function_name: str
+) -> Optional[_TableName]:
+    if isinstance(arg, sqlglot.exp.Column):
+        return _TableName(
+            database=None,
+            db_schema=arg.table if arg.table else None,
+            table=arg.name,
+        )
+
+    if isinstance(arg, sqlglot.exp.Literal) and arg.is_string:
+        name = arg.this
+    else:
+        logger.debug(f"Unexpected {function_name} first argument type: {type(arg)}")
+        return None
+
+    parts = [part for part in name.split(".") if part]
+    if len(parts) == 2:
+        return _TableName(database=None, db_schema=parts[0], table=parts[1])
+    if len(parts) == 1:
+        return _TableName(database=None, db_schema=None, table=parts[0])
+
+    logger.warning(
+        f"Unexpected {function_name} table name with {len(parts)} parts: {name}"
+    )
+    return None
 
 
-def _clickhouse_extract_dictget_tables(
+def _clickhouse_extract_dictionary_tables(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    """Extract dictionary references from ClickHouse dictGet() function calls.
+    """Extract dictionaries referenced by ClickHouse dict* functions.
 
-    sqlglot parses dictGet(dict_name, ...) first arg as a Column node, not a
-    Table node. This extracts those references as _TableName for upstream lineage.
+    Function arguments are Column or Literal nodes rather than Table nodes.
 
     TODO: CLL currently points to dict_name as a column; should point to
     dict_name.attr_name. Needs post-processor to extract attr_name from second
@@ -538,43 +548,16 @@ def _clickhouse_extract_dictget_tables(
 
     result: OrderedSet[_TableName] = OrderedSet()
     for func in statement.find_all(sqlglot.exp.Anonymous):
-        if (
-            not isinstance(func.this, str)
-            or func.this.lower() not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
-            or not func.expressions
-        ):
+        function_name = func.this.lower() if isinstance(func.this, str) else ""
+        if not function_name.startswith("dict") or not func.expressions:
             continue
 
-        first_arg = func.expressions[0]
-        if isinstance(first_arg, sqlglot.exp.Column):
-            # dictGet(dict_name, ...) → Column(name='dict_name')
-            # dictGet(db.dict_name, ...) → Column(table='db', name='dict_name')
-            result.add(
-                _TableName(
-                    database=None,
-                    db_schema=first_arg.table if first_arg.table else None,
-                    table=first_arg.name,
-                )
-            )
-        elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
-            # dictGet('db.dict_name', ...) → Literal('db.dict_name')
-            parts = first_arg.this.split(".")
-            parts = [p for p in parts if p]
-            if len(parts) == 2:
-                result.add(
-                    _TableName(database=None, db_schema=parts[0], table=parts[1])
-                )
-            elif len(parts) == 1:
-                result.add(_TableName(database=None, db_schema=None, table=parts[0]))
-            else:
-                logger.warning(
-                    f"Unexpected dictGet literal with {len(parts)} parts: {first_arg.this}"
-                )
-        else:
-            logger.debug(f"Unexpected dictGet first argument type: {type(first_arg)}")
+        table_name = _clickhouse_table_name_from_arg(func.expressions[0], function_name)
+        if table_name:
+            result.add(table_name)
 
     if result:
-        logger.debug(f"Extracted dictGet table references: {result}")
+        logger.debug(f"Extracted ClickHouse dictionary references: {result}")
     return result
 
 
@@ -857,7 +840,7 @@ def _table_level_lineage(
                 ),
                 dialect,
             )
-            | _clickhouse_extract_dictget_tables(statement, dialect)
+            | _clickhouse_extract_dictionary_tables(statement, dialect)
         )
         # ignore references created in this query
         - modified

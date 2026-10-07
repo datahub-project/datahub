@@ -1,0 +1,54 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "aa29e89d2eec57d96e72fc719e7223644554c688e47d194bb32d955ddb5d4149",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.default_dict,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.string_dict,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "dictGetString('db.string_dict', 'value', \"src\".\"id\")",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "dictGetString('db.string_dict', 'value', \"src\".\"id\") AS \"_col_0\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "dictGetUInt64OrDefault('db.default_dict', 'value', \"src\".\"id\", 0)",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "dictGetUInt64OrDefault('db.default_dict', 'value', \"src\".\"id\", 0) AS \"_col_1\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT dictGetString({?: }, {?: }, id), dictGetUInt64OrDefault({?: }, {?: }, id, {?: }) FROM db.src"
+    }
+}
