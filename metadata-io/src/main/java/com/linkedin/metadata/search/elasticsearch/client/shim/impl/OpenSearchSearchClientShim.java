@@ -19,6 +19,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -41,6 +42,7 @@ import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.util.PublicSuffixMatcherLoader;
@@ -1198,6 +1200,15 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     // Always allow zero-index resolution, matching the ES8 shim; semantic search on partial
     // rollouts may target indices that do not yet exist on every node.
     lowLevelReq.addParameter("allow_no_indices", "true");
+    request
+        .timeout()
+        .ifPresent(
+            timeout -> {
+              // Bounds the shards' search and the client's wait, so the call ends by the deadline
+              final int millis = timeoutMillis(timeout);
+              lowLevelReq.addParameter("timeout", millis + "ms");
+              lowLevelReq.setOptions(timeoutOptions(millis));
+            });
 
     Response response = restClient.performRequest(lowLevelReq);
     String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
@@ -1235,7 +1246,27 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
               : Map.of();
       hits.add(new KnnSearchResponse.Hit(id, score, source));
     }
-    return new KnnSearchResponse(hits);
+    final boolean partial =
+        responseJson.path("timed_out").asBoolean(false)
+            || responseJson.path("_shards").path("failed").asInt(0) > 0;
+    return new KnnSearchResponse(hits, partial);
+  }
+
+  private static int timeoutMillis(@Nonnull Duration timeout) {
+    return (int) Math.max(1, Math.min(Integer.MAX_VALUE, timeout.toMillis()));
+  }
+
+  /** Replaces the client's connect, connection-pool and socket timeouts for one request. */
+  @Nonnull
+  private static RequestOptions timeoutOptions(int millis) {
+    return RequestOptions.DEFAULT.toBuilder()
+        .setRequestConfig(
+            RequestConfig.custom()
+                .setConnectTimeout(millis)
+                .setConnectionRequestTimeout(millis)
+                .setSocketTimeout(millis)
+                .build())
+        .build();
   }
 
   /** Recursively search for a "text" string field in a JSON node. */

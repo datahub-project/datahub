@@ -8,13 +8,11 @@ import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/side
 import {
     CTAWrapper,
     FlexWrapper,
-    StyledIcon,
+    GrayWarningCircle,
+    PurpleSealCheck,
     StyledReadFilled,
     Title,
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
-
-import PurpleVerificationLogo from '@images/verificationPurple.svg?react';
-import GrayVerificationIcon from '@images/verificationWarningGray.svg?react';
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -45,15 +43,9 @@ export default function IncompleteView({
         <CTAWrapper shouldDisplayBackground={isUserAssigned}>
             <FlexWrapper>
                 {isUserAssigned && (
-                    <>
-                        {showVerificationStyles ? (
-                            <StyledIcon component={PurpleVerificationLogo} />
-                        ) : (
-                            <StyledReadFilled addLineHeight />
-                        )}
-                    </>
+                    <>{showVerificationStyles ? <PurpleSealCheck /> : <StyledReadFilled addLineHeight />}</>
                 )}
-                {!isUserAssigned && <StyledIcon component={GrayVerificationIcon} />}
+                {!isUserAssigned && <GrayWarningCircle />}
                 <div>
                     <Title>
                         {showVerificationStyles

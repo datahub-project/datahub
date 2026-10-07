@@ -106,7 +106,7 @@ export default function EmbeddedListSearchHeader({
                     </AntButton>
                     <SearchAndDownloadContainer>
                         <SearchBar
-                            data-testid="embedded-search-bar"
+                            dataTestId="embedded-search-bar"
                             initialQuery=""
                             placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                             suggestions={[]}

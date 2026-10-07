@@ -23,36 +23,26 @@ import org.testng.annotations.Test;
 public class FieldTypeMapperTest {
 
   @Test
-  public void testTextFieldUsesIgnoreAbove() {
-    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT);
-    assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
-    Map<String, Object> fields = getFields(mapping);
-    assertTrue(fields.containsKey("delimited"));
-    assertKeywordSubfieldPresent(mapping);
-  }
-
-  @Test
-  public void testTextPartialFieldUsesIgnoreAbove() {
-    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT_PARTIAL);
-    assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
-    Map<String, Object> fields = getFields(mapping);
-    assertTrue(fields.containsKey("delimited"));
-    assertKeywordSubfieldPresent(mapping);
-    assertEquals(((Map<String, Object>) fields.get("ngram")).get("analyzer"), "partial");
-  }
-
-  @Test
-  public void testWordGramFieldUsesV2CompatibleSubfields() {
-    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.WORD_GRAM);
-    Map<String, Object> fields = getFields(mapping);
-
-    assertTrue(fields.containsKey("delimited"));
-    assertTrue(fields.containsKey("ngram"));
-    assertEquals(((Map<String, Object>) fields.get("wordGrams2")).get("analyzer"), "word_gram_2");
-    assertEquals(((Map<String, Object>) fields.get("wordGrams3")).get("analyzer"), "word_gram_3");
-    assertEquals(((Map<String, Object>) fields.get("wordGrams4")).get("analyzer"), "word_gram_4");
+  public void testStringFieldsMapToNormalizedKeywords() {
+    // Root fields are not analyzed: full text lives in the shared _search fields
+    for (FieldType fieldType :
+        List.of(
+            FieldType.TEXT,
+            FieldType.TEXT_PARTIAL,
+            FieldType.WORD_GRAM,
+            FieldType.URN,
+            FieldType.URN_PARTIAL)) {
+      Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(fieldType);
+      assertEquals(mapping.get("type"), "keyword", fieldType.name());
+      assertEquals(mapping.get("normalizer"), "keyword_normalizer", fieldType.name());
+      assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH, fieldType.name());
+      assertEquals(getFields(mapping).keySet(), Set.of("keyword"), fieldType.name());
+      assertKeywordSubfieldPresent(mapping);
+      // .keyword keeps the stored casing for case-sensitive exact match and facets
+      assertFalse(
+          ((Map<String, Object>) getFields(mapping).get("keyword")).containsKey("normalizer"),
+          fieldType.name());
+    }
   }
 
   @Test
@@ -146,26 +136,6 @@ public class FieldTypeMapperTest {
   }
 
   @Test
-  public void testSearchableUrnFieldUsesV2UrnMapping() {
-    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.URN);
-    // As on V2: the shared query builder runs analyzed URN search on the field itself
-    assertEquals(mapping.get("type"), "text");
-    assertEquals(mapping.get("analyzer"), "urn_component");
-    assertEquals(mapping.get("search_analyzer"), "query_urn_component");
-    assertEquals(getFields(mapping).keySet(), Set.of("keyword"));
-  }
-
-  @Test
-  public void testSearchableUrnPartialFieldUsesNgramSubfield() {
-    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.URN_PARTIAL);
-    Map<String, Object> fields = getFields(mapping);
-
-    assertTrue(fields.containsKey("keyword"));
-    assertEquals(
-        ((Map<String, Object>) fields.get("ngram")).get("analyzer"), "partial_urn_component");
-  }
-
-  @Test
   public void testStringLogicalValueTypeUsesIgnoreAbove() {
     Map<String, Object> mapping =
         FieldTypeMapper.getMappingsForLogicalValueType(
@@ -234,14 +204,14 @@ public class FieldTypeMapperTest {
 
     for (List<SearchableFieldSpec> order :
         List.of(List.of(urnSpec, keywordSpec), List.of(keywordSpec, urnSpec))) {
-      Map<String, Object> mapping = FieldTypeMapper.getRichestCompatibleMapping(order, Map.of());
+      Map<String, Object> mapping = FieldTypeMapper.getRichestCompatibleMapping(order);
       assertEquals(
           mapping.get("type"),
           "keyword",
           "URN+KEYWORD collision must emit an exact-match-safe base regardless of spec order");
+      // Filters, facets and sorts append .keyword to root fields
       assertEquals(
-          ((Map<String, Object>) getFields(mapping).get("delimited")).get("analyzer"),
-          "urn_component");
+          ((Map<String, Object>) getFields(mapping).get("keyword")).get("type"), "keyword");
     }
   }
 
@@ -252,9 +222,9 @@ public class FieldTypeMapperTest {
     SearchableFieldSpec urnSpec = fieldSpec(FieldType.URN, "aspectB/field");
 
     Map<String, Object> forward =
-        FieldTypeMapper.getRichestCompatibleMapping(List.of(textSpec, urnSpec), Map.of());
+        FieldTypeMapper.getRichestCompatibleMapping(List.of(textSpec, urnSpec));
     Map<String, Object> reversed =
-        FieldTypeMapper.getRichestCompatibleMapping(List.of(urnSpec, textSpec), Map.of());
+        FieldTypeMapper.getRichestCompatibleMapping(List.of(urnSpec, textSpec));
     assertEquals(forward, reversed);
   }
 
