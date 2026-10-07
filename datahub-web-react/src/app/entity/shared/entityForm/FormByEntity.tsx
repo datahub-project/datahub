@@ -31,7 +31,7 @@ interface Props {
 
 export default function FormByEntity({ formUrn }: Props) {
     const { selectedEntity, entityData: selectedEntityData, refetch, loading } = useEntityFormContext();
-    const { entityType } = useEntityContext();
+    const { entityType, refetchForms } = useEntityContext();
     const entityRegistry = useEntityRegistry();
     const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
 
@@ -53,6 +53,7 @@ export default function FormByEntity({ formUrn }: Props) {
                 dataNotCombinedWithSiblings: selectedEntityData,
                 routeToTab: () => {},
                 refetch,
+                refetchForms,
                 lineage: undefined,
             }}
         >

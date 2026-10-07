@@ -58,28 +58,10 @@ class MSSQLAdapter(PlatformAdapter):
     # Query Execution Methods (overrides)
     # =========================================================================
 
-    def get_column_stdev(
-        self, table: sa.Table, column: str, conn: ProfilingConnection
-    ) -> Optional[Any]:
-        """
-        Get sample standard deviation using MSSQL's `STDEV()` function.
-
-        MSSQL doesn't have `stddev_samp` — its sample-stddev function is named
-        `STDEV` (population variant is `STDEVP`). NULL disambiguation mirrors
-        the base adapter: single value → None, multiple-equal rows → 0.0,
-        all-null → adapter-specific `get_stdev_null_value()` hook.
-        """
-        result = conn.execute_aggregate(
-            table, sa.func.stdev(sa.column(column))
-        ).scalar()
-        if result is None:
-            non_null_count = self.get_column_non_null_count(table, column, conn)
-            if non_null_count == 1:
-                return None
-            if non_null_count > 1:
-                return 0.0
-            return self.get_stdev_null_value()
-        return result
+    def get_stdev_expr(self, column: str) -> ColumnElement[Any]:
+        # MSSQL has no `stddev_samp`; its sample variant is `STDEV` (population
+        # is `STDEVP`).
+        return sa.func.stdev(sa.column(column))
 
     def get_column_quantiles(
         self,
