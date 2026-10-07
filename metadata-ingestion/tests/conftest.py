@@ -72,6 +72,9 @@ from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
     docker_compose_command,
     docker_compose_runner,
 )
+from tests.test_helpers.masking_state_helpers import (  # noqa: F401,E402
+    _isolate_secret_registry,
+)
 from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph,
     mock_datahub_graph_instance,

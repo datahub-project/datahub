@@ -2,6 +2,7 @@ import logging
 import re
 import urllib.parse
 from typing import (
+    Annotated,
     Any,
     Callable,
     Dict,
@@ -14,6 +15,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    cast,
 )
 
 import sqlalchemy.dialects.mssql
@@ -33,7 +35,7 @@ from sqlalchemy.exc import (
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
@@ -62,7 +64,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
@@ -240,7 +245,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
     )
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -338,6 +345,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             )
         return v
 
+    @classmethod
+    def probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]:
+        # SQLServerSource.create validates through this too: the registered
+        # name is the only thing that tells an ODBC recipe from a pytds one,
+        # and validate_uri_args reads it from the context.
+        return {"is_odbc": source_type == "mssql-odbc"}
+
     @field_validator("max_queries_to_extract")
     @classmethod
     def validate_max_queries_to_extract(cls, value: int) -> int:
@@ -431,6 +445,32 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     @property
     def db(self):
         return self.database
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        # get_identifier qualifies with current_database, which ingestion sets
+        # to each database as it walks them; the node's Database ancestor is
+        # that database. It reads nothing off the inspector.
+        if database is None and not self.database and not self.sqlalchemy_uri:
+            # Without it get_identifier builds `schema.table`, which
+            # ingestion, walking every database, never matches.
+            warn(
+                "this recipe sets no `database`, so ingestion qualifies each "
+                "table with the database it was found in; pass that database "
+                "as the first --parent, or the name is judged on 'schema.table', "
+                "which ingestion never matches"
+            )
+        source = SQLServerSource.__new__(SQLServerSource)
+        source.config = self
+        source.current_database = database
+        return source.get_identifier(
+            schema=schema, entity=entity, inspector=cast(Inspector, None)
+        )
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
@@ -650,11 +690,15 @@ class SQLServerSource(SQLAlchemySource):
         source_type = getattr(
             getattr(ctx.pipeline_config, "source", None), "type", None
         )
-        is_odbc = source_type == "mssql-odbc"
-
-        config = SQLServerConfig.model_validate(
-            config_dict, context={"is_odbc": is_odbc}
+        # The same hook `probe filter` validates with, so the two cannot
+        # disagree about which recipes are ODBC ones.
+        context = (
+            SQLServerConfig.probe_validation_context(source_type=source_type or "")
+            or {}
         )
+        is_odbc = bool(context.get("is_odbc", False))
+
+        config = SQLServerConfig.model_validate(config_dict, context=context)
         return cls(config, ctx, is_odbc=is_odbc)
 
     def get_table_properties(
