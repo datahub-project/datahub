@@ -42,6 +42,13 @@ def test_unresolved_ref_raises():
         resolve_config({"password": "${NOPE_MISSING}"}, [EnvVarResolver()])
 
 
+def test_an_unresolved_ref_named_like_an_expandvars_setting_is_still_named():
+    """expandvars reads EXPANDVARS_RECOVER_NULL after a miss; a recipe's own
+    EXPANDVARS_* reference is not that setting."""
+    with pytest.raises(ValueError, match="EXPANDVARS_TOKEN"):
+        resolve_config({"password": "${EXPANDVARS_TOKEN}"}, [MappingResolver({})])
+
+
 def test_collecting_records_nested_ref(monkeypatch):
     monkeypatch.setenv("NESTED_PW", "nestedsecret")
     out = resolve_config_collecting(
