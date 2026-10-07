@@ -622,6 +622,30 @@ def test_a_recipes_own_connect_timeout_wins(
     assert probe["connect_timeout"] == ingestion["connect_timeout"]
 
 
+@pytest.mark.parametrize(
+    "url", ["postgresql+pg8000://h/db", "cockroachdb+asyncpg://h/db"]
+)
+def test_a_postgres_driver_without_libpq_gets_no_libpq_keyword(url: str) -> None:
+    """connect_timeout and the `-c` options string are libpq's: pg8000 and
+    asyncpg refuse a keyword they do not know, so the probe could not
+    connect at all."""
+    settings = _settings(url)
+    assert "connect_timeout" not in settings.connect_args
+    assert "options" not in settings.connect_args
+    assert settings.timeout_applies is False
+
+
+@pytest.mark.parametrize("url", ["postgresql://h/db", "postgresql+psycopg://h/db"])
+def test_a_libpq_driver_gets_the_libpq_keywords(
+    url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("PGCONNECT_TIMEOUT", raising=False)
+    settings = _settings(url)
+    assert "connect_timeout" in settings.connect_args
+    assert "statement_timeout" in settings.connect_args["options"]
+    assert settings.timeout_applies is True
+
+
 def test_an_operators_pgconnect_timeout_wins(monkeypatch: pytest.MonkeyPatch) -> None:
     # libpq reads PGCONNECT_TIMEOUT only when no connect_timeout is passed.
     monkeypatch.setenv("PGCONNECT_TIMEOUT", "42")
