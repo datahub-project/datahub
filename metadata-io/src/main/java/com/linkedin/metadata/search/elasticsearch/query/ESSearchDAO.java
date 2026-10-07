@@ -73,6 +73,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -114,12 +116,23 @@ public class ESSearchDAO {
 
   /**
    * Hybrid search reranks the first this many keyword rows, the search cache's default batch, and
-   * keeps every later row in keyword order, so every page is a slice of the same ranking.
+   * keeps every later row in keyword order, so every page is a slice of the same ranking. A page
+   * served the keyword ranking instead (its rerank failed, or hybrid read is paused) is a slice of
+   * that ranking, so across pages served differently a document can show twice or not at all.
    */
   private static final int HYBRID_RERANK_WINDOW = 100;
 
   /** Time the embedding and kNN calls get before the keyword ranking is served instead. */
   private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
+
+  /** Hybrid failures in a row (timeouts, errors, rejections) after which hybrid read pauses. */
+  private static final int HYBRID_FAILURES_BEFORE_PAUSE = 3;
+
+  /**
+   * How long hybrid read pauses after repeated failures: while a slow or rate-limited provider
+   * recovers, searches neither call it nor hold their request thread for the timeout.
+   */
+  private static final long HYBRID_PAUSE_MILLIS = 30_000;
 
   // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
   // calls end by the same deadline, so a worker is free about when its search falls back. The
@@ -157,6 +170,9 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
+  private final AtomicInteger hybridFailures = new AtomicInteger();
+  private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
+  private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -541,13 +557,21 @@ public class ESSearchDAO {
         || !Boolean.TRUE.equals(searchFlags.isFulltext())
         || trimmed.isEmpty()
         || "*".equals(trimmed)
-        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
+        || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
+        // Exact lookups, as for the light query: a quoted phrase or a URN or path has no meaning
+        // for the vectors to add
+        || isQuotedPhrase(trimmed)
+        || QueryUnderstanding.understand(trimmed) == QueryIntent.IDENTITY) {
       return 0;
     }
     final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
     // A fetch above the result limit would be cut short, or rejected in strict mode
     if (fetchSize > searchServiceConfig.getLimit().getResults().getMax()
         || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
+      return 0;
+    }
+    if (System.nanoTime() - hybridPausedUntilNanos.get() < 0) {
+      countHybrid(opContext, "hybridReadSkipped");
       return 0;
     }
     return fetchSize;
@@ -572,14 +596,14 @@ public class ESSearchDAO {
     Future<List<SearchEntity>> rerank = null;
     final Set<String> vectorEntityNames =
         hybridSearchResultReranker.vectorEntityNames(opContext, entityNames);
-    final boolean windowHasVectorRows =
+    final long windowVectorRows =
         rows.subList(0, windowEnd).stream()
-            .anyMatch(
-                row ->
-                    row.getEntity() != null
-                        && vectorEntityNames.contains(row.getEntity().getEntityType()));
-    // A window without rows that have vectors makes no embedding or kNN call
-    if (windowHasVectorRows) {
+            .map(SearchEntity::getEntity)
+            .filter(urn -> urn != null && vectorEntityNames.contains(urn.getEntityType()))
+            .distinct()
+            .count();
+    // Fewer than two rows that have vectors cannot trade positions, so no embedding or kNN call
+    if (windowVectorRows >= 2) {
       final long deadlineNanos =
           System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
       try {
@@ -604,13 +628,16 @@ public class ESSearchDAO {
         ranked = new ArrayList<>(rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
         ranked.addAll(rows.subList(windowEnd, rows.size()));
         countHybrid(opContext, "hybridReadApplied");
+        hybridFailures.set(0);
       } catch (RejectedExecutionException e) {
         countHybrid(opContext, "hybridReadRejected");
+        recordHybridFailure();
       } catch (TimeoutException e) {
         // The interrupt frees a worker whose provider does not honor the deadline; a queued call
         // does not start
         rerank.cancel(true);
         countHybridTimeout(opContext);
+        recordHybridFailure();
       } catch (InterruptedException e) {
         rerank.cancel(true);
         Thread.currentThread().interrupt();
@@ -618,6 +645,7 @@ public class ESSearchDAO {
       } catch (Exception e) {
         final Throwable cause =
             e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
+        recordHybridFailure();
         if (System.nanoTime() - deadlineNanos >= 0) {
           // The embedding or kNN call gave up at the deadline, just as the search did
           countHybridTimeout(opContext);
@@ -637,6 +665,23 @@ public class ESSearchDAO {
         .setEntities(new SearchEntityArray(ranked.subList(pageStart, pageEnd)))
         .setFrom(from)
         .setPageSize(pageSize);
+  }
+
+  /** Pauses hybrid read once it has failed {@link #HYBRID_FAILURES_BEFORE_PAUSE} times in a row. */
+  private void recordHybridFailure() {
+    if (hybridFailures.incrementAndGet() >= HYBRID_FAILURES_BEFORE_PAUSE) {
+      hybridFailures.set(0);
+      hybridPausedUntilNanos.set(System.nanoTime() + hybridPauseNanos);
+      log.warn(
+          "Hybrid read failed {} times in a row; serving the keyword ranking for {} ms.",
+          HYBRID_FAILURES_BEFORE_PAUSE,
+          TimeUnit.NANOSECONDS.toMillis(hybridPauseNanos));
+    }
+  }
+
+  @VisibleForTesting
+  void setHybridPauseMillis(long millis) {
+    hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(millis);
   }
 
   private static void countHybridTimeout(@Nonnull OperationContext opContext) {

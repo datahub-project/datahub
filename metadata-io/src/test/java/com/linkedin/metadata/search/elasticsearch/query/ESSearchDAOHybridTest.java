@@ -10,6 +10,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -182,6 +183,17 @@ public class ESSearchDAOHybridTest {
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 50, 1000, List.of());
     dao.search(opContext, ENTITY_NAMES, "*", null, null, 0, 10, List.of());
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 0, List.of());
+    // Exact lookups: a quoted phrase and a URN
+    dao.search(opContext, ENTITY_NAMES, "\"revenue\"", null, null, 0, 10, List.of());
+    dao.search(
+        opContext,
+        ENTITY_NAMES,
+        "urn:li:dataset:(urn:li:dataPlatform:hive,revenue,PROD)",
+        null,
+        null,
+        0,
+        10,
+        List.of());
     dao.search(
         opContext.withSearchFlags(flags -> flags.setFulltext(false)),
         ENTITY_NAMES,
@@ -249,6 +261,8 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testHungProviderFreesItsWorkerAtTheDeadline() throws Exception {
+    // Without the pause after repeated failures, so the search right after them uses the workers
+    dao.setHybridPauseMillis(0);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -297,6 +311,55 @@ public class ESSearchDAOHybridTest {
       }
     }
     assertEquals(served, range(99, 89));
+  }
+
+  @Test
+  public void testRepeatedFailuresPauseHybridRead() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenThrow(new IOException("provider rate limited"));
+    dao.setHybridPauseMillis(1_000);
+
+    for (int i = 0; i < 4; i++) {
+      // Keyword order every time; the mocked client returns every hit whatever the page size
+      assertEquals(
+          rowIds(dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of()))
+              .subList(0, 10),
+          range(0, 10));
+    }
+
+    // Three failures in a row pause hybrid read: the fourth search calls neither the reranker nor
+    // fetches the rerank window
+    verify(reranker, times(3))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client, times(4))
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    assertEquals(requests.getAllValues().get(3).source().size(), 10);
+
+    // After the pause, hybrid read tries again
+    Thread.sleep(1_100);
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    verify(reranker, times(4))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+  }
+
+  @Test
+  public void testWindowWithOneDocumentMakesNoRerankCall() throws IOException {
+    SearchResponse keywordResponse = response(1);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+
+    SearchResult result =
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+
+    // A single document has no other position to move into
+    assertEquals(rowIds(result), List.of(0));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
 
   @Test

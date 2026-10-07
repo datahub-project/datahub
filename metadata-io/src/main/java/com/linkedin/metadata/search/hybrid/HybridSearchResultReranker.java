@@ -76,8 +76,9 @@ public class HybridSearchResultReranker {
 
   /**
    * Scores the rows that have vectors, highest combined score first. The kNN query scores only
-   * these rows. Empty when the query is a wildcard or no row has an entity type with vectors, in
-   * which case no embedding or kNN request is made, and when the kNN response may be missing hits.
+   * these rows. Empty when the query is a wildcard or fewer than two rows have an entity type with
+   * vectors, in which case no embedding or kNN request is made, and when the kNN response may be
+   * missing hits.
    *
    * @throws UncheckedTimeoutException when the deadline passes before the kNN call
    */
@@ -97,7 +98,8 @@ public class HybridSearchResultReranker {
         knnRequestBuilder.vectorEntityNames(opContext, entityNames);
     final Map<Urn, Double> lexicalScores = scoreMapBuilder.lexicalScores(lexicalRows);
     lexicalScores.keySet().removeIf(urn -> !vectorEntityNames.contains(urn.getEntityType()));
-    if (lexicalScores.isEmpty()) {
+    // A single row has no other position to move into
+    if (lexicalScores.size() < 2) {
       return List.of();
     }
 

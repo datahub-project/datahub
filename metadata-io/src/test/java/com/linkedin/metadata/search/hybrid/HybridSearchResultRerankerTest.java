@@ -146,6 +146,17 @@ public class HybridSearchResultRerankerTest {
   }
 
   @Test
+  public void testSingleRowWithVectorsSkipsEmbeddingAndKnn() throws Exception {
+    // The one document has no other document position to move into
+    List<SearchEntity> rows = List.of(row(DOC_A, 70), row(DATASET, 50));
+
+    assertEquals(
+        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        rows);
+    verifyNoInteractions(embeddingProvider, v3Client);
+  }
+
+  @Test
   public void testWildcardQuerySkipsEmbeddingAndKnn() throws Exception {
     List<SearchEntity> rows = List.of(row(DOC_A, 1));
 
