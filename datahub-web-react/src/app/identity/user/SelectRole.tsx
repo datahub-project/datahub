@@ -1,5 +1,5 @@
-import { UserOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import { Select, Spin, Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -134,7 +134,7 @@ export default function SelectRole({
             <RoleSelect
                 placeholder={
                     <>
-                        <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                        <User style={{ marginRight: 6, fontSize: 12 }} />
                         {noRoleText}
                     </>
                 }
