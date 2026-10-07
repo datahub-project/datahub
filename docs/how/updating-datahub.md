@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(Ingestion / Executor)** A recipe's `extra_env_vars` can no longer set `DATAHUB_DISABLE_SECRET_MASKING` or `DATAHUB_ENABLE_SECRET_MASKING`. The executor ignores these keys in a recipe and logs a warning, so secret masking stays on for UI-triggered ingestion and test-connection runs. To change secret masking for debugging, set the variable in the executor's own environment instead.
+
 - [#20111](https://github.com/datahub-project/datahub/pull/20111) **(Ingestion / CLI)** The `datahub recipe` commands (`probe`, `test-connection`, `validate`), first shipped in 1.7.0.14, now report more failures on the exit code that says who has to act: **2** your input, **3** the source, **1** DataHub, the connector or a missing package. Scripts and agents that branch on these codes will see these changes:
 
   - **Now exit 2 (fix your input):** a name the source does not list, such as a table name in the wrong case or a Mode space that does not exist (these could come back as an empty result with exit 0); a `probe filter` `--name` or `--parent` that is masked as `***` because it equals a secret (it used to be judged); a recipe connection URL whose scheme names no installed SQLAlchemy dialect, or is not a URL (was 3); a `probe sql` query the database rejects as wrong, such as a misspelled column (SQLSTATE class 42, was 3); and a `probe sql` query holding a comment or an optimizer hint, which is now refused before it runs.
