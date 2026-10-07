@@ -61,18 +61,31 @@ public class MicrometerMetricsRegistry {
       @Nonnull String executorName,
       @Nonnull ExecutorService executorService,
       @Nullable MeterRegistry meterRegistry) {
+    return monitorExecutor(executorName, executorService, meterRegistry) != executorService;
+  }
+
+  /**
+   * Like {@link #registerExecutorMetrics} but returns the monitored wrapper. Tasks submitted
+   * through the wrapper also record the {@code executor} (run time) and {@code executor.idle}
+   * (queue wait) timers; the pool gauges are registered either way. Returns {@code executorService}
+   * unchanged when the registry is null, the name is already registered, or registration fails.
+   */
+  @Nonnull
+  public static synchronized ExecutorService monitorExecutor(
+      @Nonnull String executorName,
+      @Nonnull ExecutorService executorService,
+      @Nullable MeterRegistry meterRegistry) {
 
     if (executorName == null || executorService == null || meterRegistry == null) {
-      return false;
+      return executorService;
     }
 
     if (!GLOBALLY_REGISTERED_EXECUTOR_SERVICE.add(executorName)) {
-      return false;
+      return executorService;
     }
 
     try {
-      ExecutorServiceMetrics.monitor(meterRegistry, executorService, executorName);
-      return true;
+      return ExecutorServiceMetrics.monitor(meterRegistry, executorService, executorName);
     } catch (Exception e) {
       // Remove from set if registration failed
       GLOBALLY_REGISTERED_EXECUTOR_SERVICE.remove(executorName);
@@ -81,7 +94,7 @@ public class MicrometerMetricsRegistry {
           executorName,
           e.getMessage(),
           e);
-      return false;
+      return executorService;
     }
   }
 }

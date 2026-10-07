@@ -48,7 +48,7 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
                 title={titleText}
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                onCancel={() => onCancel?.()}
+                onCancel={() => setShowConfirmationModal(true)}
             >
                 <DataContractBuilder
                     entityUrn={entityUrn}
