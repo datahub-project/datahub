@@ -131,9 +131,9 @@ export default function ExpandIcon(props: Props) {
                 {expandable &&
                     record.children !== undefined &&
                     (expanded ? (
-                        <Down onClick={toggleExpand} $isCompact={isCompact} />
+                        <Down onClick={toggleExpand} $isCompact={isCompact} aria-label="down" />
                     ) : (
-                        <Right onClick={toggleExpand} isCompact={isCompact} />
+                        <Right onClick={toggleExpand} isCompact={isCompact} aria-label="right" />
                     ))}
             </IconContainer>
         </>
