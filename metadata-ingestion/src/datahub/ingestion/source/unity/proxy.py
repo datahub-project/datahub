@@ -200,8 +200,9 @@ def _build_catalog_column_filter(
 
     def transform(pattern: str) -> str:
         # Upper-casing the pattern text would flip escape classes (\d -> \D),
-        # so case-insensitivity goes through the regex flag instead.
-        return f"(?i){pattern}" if catalog_pattern.ignoreCase else pattern
+        # so case-insensitivity goes through regex flags instead. Java's (?i)
+        # folds ASCII only; (?u) adds Unicode folding like Python's re.IGNORECASE.
+        return f"(?iu){pattern}" if catalog_pattern.ignoreCase else pattern
 
     allow_patterns = catalog_pattern.allow
     if allow_patterns and allow_patterns != [".*"]:

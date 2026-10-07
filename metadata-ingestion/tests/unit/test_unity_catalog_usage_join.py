@@ -2028,7 +2028,7 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     assert "tl2.target_table_catalog RLIKE ?" in query_sql
     assert "^main$" not in query_sql
     assert len(captured["params"]) == 8
-    assert captured["params"][6:] == ("(?i)^main$", "(?i)^main$")
+    assert captured["params"][6:] == ("(?iu)^main$", "(?iu)^main$")
     assert "%s" not in query_sql
     assert query_sql.count("?") == len(captured["params"])
 
@@ -2062,7 +2062,7 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
     query_sql = captured["query"]
     assert "NOT RLIKE ?" in query_sql
     assert "^system$" not in query_sql
-    assert captured["params"][6:] == ("(?i)^system$", "(?i)^system$")
+    assert captured["params"][6:] == ("(?iu)^system$", "(?iu)^system$")
 
 
 def test_fetch_queries_passes_catalog_pattern_when_pushdown_enabled(
@@ -2515,7 +2515,7 @@ def test_get_query_history_catalog_pushdown_binds_pattern_params() -> None:
 
     assert malicious_pattern not in captured["query"]
     assert "RLIKE ?" in captured["query"]
-    assert f"(?i){malicious_pattern}" in captured["params"]
+    assert f"(?iu){malicious_pattern}" in captured["params"]
 
 
 def test_usage_statement_types_select_only_when_ops_disabled() -> None:
@@ -2792,6 +2792,22 @@ def test_build_catalog_column_filter_ignore_case_preserves_regex_escapes() -> No
     assert re.search(bound_pattern, "prod_2024")
 
 
+def test_build_catalog_column_filter_ignore_case_folds_unicode() -> None:
+    """Java's (?i) folds ASCII only; (?u) is needed to match Python's re.IGNORECASE.
+
+    Python's re already folds Unicode under (?i), so it cannot reproduce the
+    Databricks-side difference. Assert the flag instead.
+    """
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
+
+    _, params = _build_catalog_column_filter(
+        "tl2.source_table_catalog",
+        AllowDenyPattern(allow=["^über$"], deny=[], ignoreCase=True),
+    )
+    assert params == ["(?iu)^über$"]
+
+
 def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
     from datahub.configuration.common import AllowDenyPattern
 
@@ -2819,7 +2835,7 @@ def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
     query_sql = captured["query"]
     assert "tl2.source_table_catalog RLIKE ?" in query_sql
     assert "tl2.target_table_catalog RLIKE ?" in query_sql
-    assert captured["params"][6:] == ("(?i)^main$", "(?i)^main$")
+    assert captured["params"][6:] == ("(?iu)^main$", "(?iu)^main$")
 
 
 def test_aggregate_parse_failure_warning() -> None:
