@@ -890,37 +890,82 @@ public class GraphQueryPITDAOTest {
   }
 
   @Test
-  public void testGetImpactLineageKeepsPagingShortPageWithFailedShards() throws Exception {
+  public void testGetImpactLineageShardFailureWithHitsMarksHopPartial() throws Exception {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    LineageResponse response = runImpactLineageWithShardFailure(mockClient, 2, true);
+
+    // The page's hits are kept, but the slice stops: later pages cannot return what the failed
+    // shard missed
+    Assert.assertEquals(response.getTotal(), 2);
+    Assert.assertTrue(response.isPartial());
+    verify(mockClient, times(2))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testGetImpactLineageEmptyPageWithFailedShardsMarksHopPartial() throws Exception {
+    LineageResponse response =
+        runImpactLineageWithShardFailure(mock(SearchClientShim.class), 0, true);
+
+    Assert.assertEquals(response.getTotal(), 0);
+    Assert.assertTrue(response.isPartial());
+  }
+
+  @Test
+  public void testGetImpactLineageShardFailureThrowsInStrictMode() {
+    expectThrows(
+        RuntimeException.class,
+        () -> runImpactLineageWithShardFailure(mock(SearchClientShim.class), 0, false));
+  }
+
+  /**
+   * Runs a one-hop impact walk where slice 0's first page has {@code hitsOnFailedPage} hits and one
+   * failed shard, and every other page is empty. Slices run concurrently, so pages are answered by
+   * slice rather than by call order.
+   */
+  private LineageResponse runImpactLineageWithShardFailure(
+      SearchClientShim<?> mockClient, int hitsOnFailedPage, boolean partialResults)
+      throws Exception {
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
-
     LineageGraphFilters filters =
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
     when(mockClient.createPit(
             any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
-    GraphQueryPITDAO dao =
-        createTrackedDAO(mockClient, graphConfigWithPageSize(5), TEST_OS_SEARCH_CONFIG);
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .partialResults(partialResults)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, graphConfigWithPageSize(5), testConfig);
 
-    // Slice 0's first page is short but had a failed shard, so it may be missing hits and must
-    // not end the slice. Every other page is empty. Slices run concurrently, so answer by slice.
-    SearchResponse partialPage =
-        createFakeSearchResponse(
-            createFakeLineageHits(
-                2,
-                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
-                "dest",
-                "DownstreamOf"),
-            2);
-    when(partialPage.getFailedShards()).thenReturn(1);
+    SearchResponse failedPage =
+        hitsOnFailedPage > 0
+            ? createFakeSearchResponse(
+                createFakeLineageHits(
+                    hitsOnFailedPage,
+                    "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                    "dest",
+                    "DownstreamOf"),
+                hitsOnFailedPage)
+            : createEmptySearchResponse(0);
+    when(failedPage.getFailedShards()).thenReturn(1);
+    when(failedPage.getTotalShards()).thenReturn(3);
 
     when(mockClient.search(
             any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
@@ -929,16 +974,11 @@ public class GraphQueryPITDAOTest {
               SearchSourceBuilder source = invocation.<SearchRequest>getArgument(1).source();
               boolean firstPage = source.searchAfter() == null;
               return source.slice().getId() == 0 && firstPage
-                  ? partialPage
+                  ? failedPage
                   : createEmptySearchResponse(0);
             });
 
-    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-
-    Assert.assertEquals(response.getTotal(), 2);
-    // Slice 0 asks for a second page after its partial page; slice 1 stops on its empty page
-    verify(mockClient, times(3))
-        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    return dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
   }
 
   @Test(timeOut = 10000) // Add timeout to prevent hanging in test suites

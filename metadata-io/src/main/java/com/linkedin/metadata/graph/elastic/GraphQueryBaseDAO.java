@@ -1754,15 +1754,15 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   /**
-   * Mark a hop partial when any slice stopped on a timeout in partial mode (see {@link
-   * #stopSliceOnTimeout}). The slice keeps and returns what it collected but cannot flag itself
-   * partial through {@link #processSliceFutures}, which infers partial only from an exception or an
-   * exhausted wait budget; the shared flag closes that gap so truncated lineage is never reported
-   * with {@code isPartial=false}.
+   * Mark a hop partial when any slice stopped on a timeout or a shard failure in partial mode (see
+   * {@link #stopSliceOnTimeout} and {@link #stopSliceOnShardFailure}). The slice keeps and returns
+   * what it collected but cannot flag itself partial through {@link #processSliceFutures}, which
+   * infers partial only from an exception or an exhausted wait budget; the shared flag closes that
+   * gap so truncated lineage is never reported with {@code isPartial=false}.
    */
-  static LineageSliceFetchResult markPartialIfSliceTimedOut(
-      LineageSliceFetchResult fetch, AtomicBoolean sliceTimedOut, boolean allowPartialResults) {
-    if (!allowPartialResults || fetch.isPartial() || !sliceTimedOut.get()) {
+  static LineageSliceFetchResult markPartialIfSliceIncomplete(
+      LineageSliceFetchResult fetch, AtomicBoolean sliceIncomplete, boolean allowPartialResults) {
+    if (!allowPartialResults || fetch.isPartial() || !sliceIncomplete.get()) {
       return fetch;
     }
     return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
@@ -1929,15 +1929,36 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * stop paginating immediately after this returns.
    */
   protected void stopSliceOnTimeout(
-      int sliceId, String reason, boolean allowPartialResults, AtomicBoolean sliceTimedOut) {
+      int sliceId, String reason, boolean allowPartialResults, AtomicBoolean sliceIncomplete) {
     if (!allowPartialResults) {
       throw new LineageTimeoutException("Slice " + sliceId + " timed out (" + reason + ")");
     }
-    sliceTimedOut.set(true);
+    sliceIncomplete.set(true);
     log.warn(
         "Slice {} timed out ({}); keeping collected relationships and stopping pagination",
         sliceId,
         reason);
+  }
+
+  /**
+   * A page came back with failed shards. Their hits for this page are missing and, with
+   * search_after, later pages cannot return them, so the slice is incomplete. Same policy as {@link
+   * #stopSliceOnTimeout}: strict mode fails the query; partial mode flags the hop partial and logs.
+   * Callers stop paginating immediately after this returns.
+   */
+  protected void stopSliceOnShardFailure(
+      int sliceId,
+      int failedShards,
+      int totalShards,
+      boolean allowPartialResults,
+      AtomicBoolean sliceIncomplete) {
+    String reason =
+        String.format("Slice %d: %d of %d shards failed", sliceId, failedShards, totalShards);
+    if (!allowPartialResults) {
+      throw new ESQueryException(reason);
+    }
+    sliceIncomplete.set(true);
+    log.warn("{}; keeping collected relationships and stopping pagination", reason);
   }
 
   @Override
