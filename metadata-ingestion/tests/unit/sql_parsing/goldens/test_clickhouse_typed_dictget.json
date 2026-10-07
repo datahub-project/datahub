@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "aa29e89d2eec57d96e72fc719e7223644554c688e47d194bb32d955ddb5d4149",
+    "query_fingerprint": "9d432efe3fbe007ae24f0566aad408e21b7e05545d512d9b9ef1312640be4b26",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.default_dict,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
@@ -12,7 +12,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "dictGetString('db.string_dict', 'value', \"src\".\"id\")",
+                "column": "string_value",
                 "column_type": null,
                 "native_column_type": null
             },
@@ -24,13 +24,13 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "dictGetString('db.string_dict', 'value', \"src\".\"id\") AS \"_col_0\""
+                "column_logic": "dictGetString('db.string_dict', 'value', \"src\".\"id\") AS \"string_value\""
             }
         },
         {
             "downstream": {
                 "table": null,
-                "column": "dictGetUInt64OrDefault('db.default_dict', 'value', \"src\".\"id\", 0)",
+                "column": "default_value",
                 "column_type": null,
                 "native_column_type": null
             },
@@ -42,13 +42,13 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "dictGetUInt64OrDefault('db.default_dict', 'value', \"src\".\"id\", 0) AS \"_col_1\""
+                "column_logic": "dictGetUInt64OrDefault('db.default_dict', 'value', \"src\".\"id\", 0) AS \"default_value\""
             }
         }
     ],
     "joins": [],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "SELECT dictGetString({?: }, {?: }, id), dictGetUInt64OrDefault({?: }, {?: }, id, {?: }) FROM db.src"
+        "generalized_statement": "SELECT dictGetString({?: }, {?: }, id) AS string_value, dictGetUInt64OrDefault({?: }, {?: }, id, {?: }) AS default_value FROM db.src"
     }
 }
