@@ -125,14 +125,19 @@ public class ESSearchDAO {
   /** Time the embedding and kNN calls get before the keyword ranking is served instead. */
   private static final long HYBRID_TIMEOUT_MILLIS = 2_000;
 
-  /** Hybrid failures in a row (timeouts and errors) after which hybrid read pauses. */
+  /**
+   * Hybrid failures in a row (timeouts and errors) after which hybrid read pauses. Failures in a
+   * row catch an outage; a provider that only sometimes fails rarely fails three times in a row, so
+   * its searches keep the timeout as their bound rather than pausing hybrid read for everyone.
+   */
   private static final int HYBRID_FAILURES_BEFORE_PAUSE = 3;
 
   /**
    * How long hybrid read pauses after repeated failures, in this GMS process: while a slow provider
    * recovers, searches neither call it nor hold their request thread for the timeout. When the
-   * pause ends, searches try hybrid read again until three fail in a row, so in a lasting outage at
-   * least three searches, more when they run at once, wait out the timeout between pauses.
+   * pause ends, searches try hybrid read again until three fail in a row, so in a lasting outage
+   * searches still wait out the timeout between pauses. Searches in flight when a pause begins can
+   * add their failures toward the next one.
    */
   private static final long HYBRID_PAUSE_MILLIS = 30_000;
 
@@ -176,6 +181,7 @@ public class ESSearchDAO {
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
+  private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -606,7 +612,7 @@ public class ESSearchDAO {
     // kNN call
     if (windowVectorRows >= 2) {
       final long deadlineNanos =
-          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
+          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
       try {
         // The worker gets its own copies: a rerank that finishes after the timeout must not change
         // the rows served as the keyword fallback
@@ -627,7 +633,7 @@ public class ESSearchDAO {
                                 List.of(URN_FIELD),
                                 deadlineNanos)));
         final Optional<List<SearchEntity>> reranked =
-            rerank.get(HYBRID_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            rerank.get(hybridTimeoutMillis, TimeUnit.MILLISECONDS);
         // A rerank that completed ends the failure streak, also one that found no vectors
         hybridFailures.set(0);
         if (reranked.isPresent()) {
@@ -663,8 +669,8 @@ public class ESSearchDAO {
           // One line per failed search; the stack trace only at debug, so an outage does not
           // flood logs
           log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
-          log.debug("Hybrid read failure", cause);
         }
+        log.debug("Hybrid read failure", cause);
       }
     }
     final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);
@@ -693,9 +699,14 @@ public class ESSearchDAO {
     hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(millis);
   }
 
-  private static void countHybridTimeout(@Nonnull OperationContext opContext) {
+  @VisibleForTesting
+  void setHybridTimeoutMillis(long millis) {
+    hybridTimeoutMillis = millis;
+  }
+
+  private void countHybridTimeout(@Nonnull OperationContext opContext) {
     countHybrid(opContext, "hybridReadTimeout");
-    log.warn("Hybrid read took over {} ms; serving the keyword ranking.", HYBRID_TIMEOUT_MILLIS);
+    log.warn("Hybrid read took over {} ms; serving the keyword ranking.", hybridTimeoutMillis);
   }
 
   private static void countHybrid(@Nonnull OperationContext opContext, @Nonnull String metric) {

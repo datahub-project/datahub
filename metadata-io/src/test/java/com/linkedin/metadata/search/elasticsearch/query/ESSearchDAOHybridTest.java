@@ -404,6 +404,8 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testRejectedSearchesDoNotPauseHybridRead() throws Exception {
+    // No held search times out before the test releases it, however slow the runner
+    dao.setHybridTimeoutMillis(60_000);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -426,10 +428,9 @@ public class ESSearchDAOHybridTest {
                 () ->
                     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())));
       }
-      verify(metrics, timeout(1_000).atLeast(3))
+      verify(metrics, timeout(30_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
     } finally {
-      // Well before the held searches' timeout
       release.countDown();
       for (Future<SearchResult> search : held) {
         search.get();
