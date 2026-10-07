@@ -44,8 +44,6 @@ final class V3MatchedFields {
   // decomposed letters, which belong to their word, and underscores, which join an identifier
   private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_]+");
   private static final Pattern UNDERSCORES = Pattern.compile("_+");
-  // A word the query excludes with a leading minus
-  private static final Pattern EXCLUDED_WORD = Pattern.compile("(^|\\s)-\\S+");
   // Longer values are cut to this many characters around the first match, about what the V2
   // highlighter returns
   private static final int MAX_VALUE_LENGTH = 200;
@@ -71,7 +69,7 @@ final class V3MatchedFields {
       @Nonnull final String query, final int minWordLength, final boolean queryIdentifierParts) {
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
-    final Matcher matcher = WORD.matcher(EXCLUDED_WORD.matcher(query).replaceAll(" "));
+    final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
       final List<String> forms = forms(matcher.group(), queryIdentifierParts);
       if (!forms.isEmpty()) {

@@ -77,8 +77,10 @@ public class V3MatchedFieldsTest {
         names(new V3MatchedFields("platform data", 0).find(source, List.of("name"))),
         List.of("name"));
     assertTrue(new V3MatchedFields("da", 3).find(source, List.of("name")).isEmpty());
-    // A word the query excludes does not match
-    assertTrue(new V3MatchedFields("orders -datasets", 0).find(source, List.of("name")).isEmpty());
+    // A minus is plain text, as in the query, so the word after it matches too
+    assertEquals(
+        names(new V3MatchedFields("orders -datasets", 0).find(source, List.of("name"))),
+        List.of("name"));
   }
 
   /**
