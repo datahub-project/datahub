@@ -152,6 +152,27 @@ export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
 }
 
 /**
+ * Resolves the display name for a change-history transaction's actor.
+ *
+ * `nameMap` comes from useResolveEntityNames, which batch-resolves the actor
+ * URN (and other referenced entity URNs) to a CorpUser's configured display
+ * name. Falls back to the raw URN's trailing segment (the username) when the
+ * actor isn't in nameMap — e.g. a query still in flight, or an actor entity
+ * that no longer exists. This fallback is also what every caller did before
+ * nameMap covered actors, so it never regresses a case that worked before,
+ * and produces the identical string for an actor with no configured display
+ * name (falling all the way through to `username`, per UserEntity.displayName
+ * in datahub-web-react/src/app/entityV2/user/User.tsx).
+ */
+export function resolveActorName(actorUrn?: string | null, nameMap?: Map<string, string>): string | null {
+    if (!actorUrn) return null;
+    const resolved = nameMap?.get(actorUrn);
+    if (resolved) return resolved;
+    const parts = actorUrn.split(':');
+    return parts[parts.length - 1] || null;
+}
+
+/**
  * Filters change entries by category selection and search text.
  * A transaction matches if at least one of its changes satisfies both filters.
  *
