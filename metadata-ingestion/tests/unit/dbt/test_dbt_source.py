@@ -4816,9 +4816,6 @@ def test_load_file_as_json_handles_utf8_bom():
 
 
 def test_dbt_source_patching_dedupes_existing_owners():
-    """The owners merge is list-based, unlike the tag/term merges which go
-    through a set. Duplicates already stored on the server must not be carried
-    forward verbatim."""
     source = create_mocked_dbt_source()
     graph = mock.MagicMock()
 
@@ -4883,3 +4880,24 @@ def test_dbt_source_patching_keeps_distinct_owner_identities():
         "urn:li:ownershipType:__system__data_steward",
         "urn:li:ownershipType:__system__producer",
     }
+
+
+def test_dbt_source_patching_dedupes_when_server_aspect_is_empty():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+    graph.get_ownership.return_value = None
+    source.ctx.graph = graph
+
+    incoming = OwnerClass(
+        owner="urn:li:corpuser:dbt_defined_owner",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [incoming, incoming],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 1
