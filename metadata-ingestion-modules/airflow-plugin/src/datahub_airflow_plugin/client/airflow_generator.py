@@ -151,7 +151,7 @@ class AirflowGenerator:
             return None
         summary = getattr(timetable, "summary", None)
         if summary is None:
-            with suppress(ImportError):
+            with suppress(Exception):
                 from airflow.serialization.encoders import coerce_to_core_timetable
 
                 summary = coerce_to_core_timetable(timetable).summary

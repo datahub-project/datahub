@@ -329,6 +329,30 @@ def test_generate_dataflow_captures_schedule(
         assert properties["schedule"] == expected
 
 
+def test_get_schedule_swallows_coercion_errors() -> None:
+    """A timetable the serializer can't convert (e.g. an unregistered custom
+    timetable raises TimetableNotRegistered) must degrade to None rather than
+    propagating out of generate_dataflow and dropping the entire DAG's
+    metadata emission."""
+    from types import SimpleNamespace
+
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    encoders = pytest.importorskip("airflow.serialization.encoders")
+    if not hasattr(encoders, "coerce_to_core_timetable"):
+        pytest.skip("coerce_to_core_timetable not available in this Airflow version")
+
+    # A timetable with no `summary`, forcing the coercion fallback path.
+    dag = SimpleNamespace(timetable=SimpleNamespace(summary=None))
+
+    with mock.patch.object(
+        encoders,
+        "coerce_to_core_timetable",
+        side_effect=RuntimeError("can not serialize timetable"),
+    ):
+        assert AirflowGenerator._get_schedule(dag) is None
+
+
 def test_entities():
     assert (
         Dataset("snowflake", "mydb.schema.tableConsumed").urn
