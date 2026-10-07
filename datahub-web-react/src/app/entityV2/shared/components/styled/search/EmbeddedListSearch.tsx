@@ -132,6 +132,12 @@ type Props = {
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
+    /**
+     * Scope this list to the view selected in the search bar and offer an "All / <view>" switcher.
+     * Off by default: an embedded list shows what its entity holds (children, members, owned
+     * assets) whatever the selected view, and then shows no view switcher, so the UI never
+     * presents a view the results do not apply.
+     */
     applyView?: boolean;
     showFilterBar?: boolean;
     sort?: SortCriterion;
@@ -263,7 +269,9 @@ export const EmbeddedListSearch = ({
         variables: {
             urn: defaultViewUrn || '',
         },
-        skip: !defaultViewUrn,
+        // Without the view the switcher is not rendered: it would count the view's matches and
+        // highlight the view while the list ignores it.
+        skip: !applyView || !defaultViewUrn,
     });
 
     const view = (viewData?.view?.__typename === 'DataHubView' && viewData?.view) || undefined;

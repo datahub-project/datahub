@@ -12,6 +12,7 @@ import {
 import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { UnionType } from '@app/search/utils/constants';
+import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
@@ -231,7 +232,7 @@ export const EmbeddedListSearchResults = ({
                 )}
 
                 <ResultContainer data-testid="embedded-list-search-results">
-                    {view && (
+                    {applyView && view ? (
                         <ViewsContainer>
                             <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
@@ -251,6 +252,25 @@ export const EmbeddedListSearchResults = ({
                                 </Pill>
                             )}
                         </ViewsContainer>
+                    ) : (
+                        // A list that does not apply the search bar's view never offers it; it only
+                        // shows the filters added in the list itself, when there are any.
+                        selectedFilters.length > 0 && (
+                            <ViewsContainer data-testid="embedded-list-active-filters">
+                                <SelectedSearchFilters
+                                    availableFilters={filters || []}
+                                    selectedFilters={selectedFilters}
+                                    unionType={unionType}
+                                    onChangeFilters={onChangeFilters}
+                                    onChangeUnionType={onChangeUnionType}
+                                    onClearFilters={() => onChangeFilters([])}
+                                    showUnionType={false}
+                                    showAddFilter={false}
+                                    showClearAll
+                                    isCompact
+                                />
+                            </ViewsContainer>
+                        )
                     )}
                     {loading && (
                         <LoadingContainer>
