@@ -109,6 +109,45 @@ def profiler(sqlite_engine, profiler_config, mock_report):
     )
 
 
+class TestNullStdevResolution:
+    """A NULL stddev is settled from the count already in hand, not a requery."""
+
+    @staticmethod
+    def _stdev_for(profiler, non_null_count):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        runner = MagicMock()
+        runner.adapter = GenericAdapter(profiler.config, SQLSourceReport(), MagicMock())
+        future = MagicMock()
+        future.result.return_value = None
+        column_profile = DatasetFieldProfileClass(fieldPath="value_col")
+        profiler._process_numeric_column_stats(
+            runner=runner,
+            sql_table=MagicMock(),
+            col_name="value_col",
+            column_profile=column_profile,
+            col_type=ProfilerDataType.INT,
+            cardinality=Cardinality.MANY,
+            non_null_count=non_null_count,
+            numeric_stats_futures={"value_col": {"stdev": future}},
+            pretty_name="test.table",
+        )
+        # No second query may be issued to settle it.
+        runner.get_column_non_null_count.assert_not_called()
+        return column_profile.stdev
+
+    def test_single_value_is_undefined(self, profiler):
+        assert self._stdev_for(profiler, 1) is None
+
+    def test_several_equal_values_are_zero_variance(self, profiler):
+        assert self._stdev_for(profiler, 5) == "0.0"
+
+    def test_all_null_column_defers_to_the_adapter(self, profiler):
+        assert self._stdev_for(profiler, 0) is None
+
+
 class TestSQLAlchemyProfiler:
     """Test cases for SQLAlchemyProfiler."""
 
@@ -530,6 +569,7 @@ class TestSQLAlchemyProfiler:
             column_profile=mock_column_profile,
             col_type=ProfilerDataType.FLOAT,
             cardinality=Cardinality.MANY,
+            non_null_count=10,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
         )
@@ -566,6 +606,7 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
                 },
@@ -581,6 +622,7 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
                 },
