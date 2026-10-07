@@ -36,6 +36,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -49,6 +50,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryH
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,11 +58,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
@@ -69,6 +74,8 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.testng.Assert;
@@ -653,11 +660,12 @@ public class AutocompleteRequestHandlerTest {
   }
 
   /**
-   * V3 autocompletes and highlights with the same query as V2; only the entity type filter values
-   * change. This pins parity with V2, not the V2 subfields the query reads today.
+   * Deliberate V3 change: autocomplete reads the shared _search.autocomplete field, which every
+   * enableAutocomplete field copies into, and takes the suggestion from the fetched root values,
+   * the name first, so it sets no highlighter.
    */
   @Test
-  public void testV3AutocompleteUsesV2Query() {
+  public void testV3AutocompleteQueriesSharedAutocompleteField() {
     Filter filter =
         new Filter()
             .setOr(
@@ -668,21 +676,146 @@ public class AutocompleteRequestHandlerTest {
                                 buildCriterion(
                                     "platform", Condition.EQUAL, "urn:li:dataPlatform:hive"),
                                 buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
-    SearchSourceBuilder v2 = getDatasetAutocompleteSource(testQueryConfig, filter);
     SearchSourceBuilder v3 = getDatasetAutocompleteSource(TEST_V3_QUERY_CONFIG, filter);
 
-    QueryBuilder v3Autocomplete =
-        extractNestedQuery((BoolQueryBuilder) ((FunctionScoreQueryBuilder) v3.query()).query());
+    List<QueryBuilder> clauses = v3AutocompleteClauses(v3);
+    assertEquals(clauses.size(), 3, clauses.toString());
+    MultiMatchQueryBuilder boolPrefix = only(clauses, MultiMatchQueryBuilder.class);
+    assertEquals(boolPrefix.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
     assertEquals(
-        v3Autocomplete,
-        extractNestedQuery((BoolQueryBuilder) ((FunctionScoreQueryBuilder) v2.query()).query()));
-    assertEquals(v3.highlighter(), v2.highlighter());
+        boolPrefix.fields().keySet(),
+        Set.of(
+            "_search.autocomplete.ngram",
+            "_search.autocomplete.ngram._2gram",
+            "_search.autocomplete.ngram._3gram",
+            "_search.autocomplete.ngram._4gram"));
+    assertEquals(
+        only(clauses, MatchPhrasePrefixQueryBuilder.class).fieldName(),
+        "_search.autocomplete.ngram");
+    TermQueryBuilder exact = only(clauses, TermQueryBuilder.class);
+    assertEquals(exact.fieldName(), "_search.autocomplete");
+    assertEquals(exact.value(), "ord");
+    assertNull(v3.highlighter());
+    List<String> fetched = List.of(v3.fetchSource().includes());
+    assertEquals(fetched.subList(0, 2), List.of("urn", "name"), fetched.toString());
+    assertTrue(fetched.containsAll(List.of("qualifiedName", "id", "platform")), fetched.toString());
 
-    // Filters read the V2 .keyword subfield; V3 stores the registry entity name in _entityType
+    // Filters read the .keyword subfield; V3 stores the registry entity name in _entityType
     String v3Query = v3.query().toString();
     assertTrue(v3Query.contains("platform.keyword"), v3Query);
     assertTrue(v3Query.contains("\"dataProduct\""), v3Query);
     assertFalse(v3Query.contains("DATA_PRODUCT"), v3Query);
+  }
+
+  /**
+   * Deliberate V3 change: autocomplete on a requested field matches a prefix of that root field's
+   * whole value, since root fields are not analyzed, and a field that holds no strings matches
+   * nothing.
+   */
+  @Test
+  public void testV3AutocompleteOnRequestedField() {
+    AutocompleteRequestHandler v3Handler = getCachedDatasetHandler(TEST_V3_QUERY_CONFIG);
+
+    SearchSourceBuilder named =
+        v3Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", "name", null, 10)
+            .source();
+    assertEquals(v3AutocompleteClauses(named), List.of(QueryBuilders.prefixQuery("name", "ord")));
+    assertEquals(Set.of(named.fetchSource().includes()), Set.of("urn", "name"));
+
+    SearchSourceBuilder notString =
+        v3Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", "removed", null, 10)
+            .source();
+    assertEquals(v3AutocompleteClauses(notString), List.of(new MatchNoneQueryBuilder()));
+  }
+
+  /**
+   * Search V3 autocomplete reads the one shared field, so a field configuration that changes the
+   * autocomplete fields does not apply to it.
+   */
+  @Test
+  public void testV3AutocompleteKeepsTheSharedFieldUnderAFieldConfiguration() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "names",
+                    FieldConfiguration.builder()
+                        .searchFields(SearchFields.builder().replace(List.of("name")).build())
+                        .build()))
+            .build();
+    AutocompleteRequestHandler handler =
+        new AutocompleteRequestHandler(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_V3_QUERY_CONFIG,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchSourceBuilder source =
+        handler
+            .getSearchRequest(
+                nonMockOpContext.withSearchFlags(flags -> flags.setFieldConfiguration("names")),
+                DATASET_ENTITY_NAME,
+                "ord",
+                null,
+                null,
+                10)
+            .source();
+
+    assertEquals(
+        only(v3AutocompleteClauses(source), TermQueryBuilder.class).fieldName(),
+        "_search.autocomplete");
+  }
+
+  /**
+   * The V3 suggestion is the first fetched value, in suggestion order, holding a word the input
+   * starts: the name when it matches, else the matching field, else the first value.
+   */
+  @Test
+  public void testV3SuggestionPrefersTheMatchingName() {
+    SearchHit[] hits = {
+      suggestionHit("a", Map.of("name", "Orders Daily", "id", "db.orders_daily")),
+      suggestionHit("b", Map.of("name", "Revenue", "id", "db.orders")),
+      suggestionHit("c", Map.of("name", "Revenue", "id", "db.revenue")),
+      // An empty array value has no first value to suggest
+      suggestionHit("d", Map.of("name", List.of(), "id", "db.revenue"))
+    };
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(new SearchHits(hits, new TotalHits(4L, TotalHits.Relation.EQUAL_TO), 1.0f));
+
+    AutoCompleteResult result =
+        getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
+            .extractResult(nonMockOpContext, response, "ord");
+
+    assertEquals(
+        result.getSuggestions(), List.of("Orders Daily", "db.orders", "Revenue", "db.revenue"));
+    assertEquals(result.getEntities().size(), 4);
+  }
+
+  private static SearchHit suggestionHit(String name, Map<String, Object> fields) {
+    Map<String, Object> source = new HashMap<>(fields);
+    source.put("urn", "urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap()).thenReturn(source);
+    return hit;
+  }
+
+  /** The clauses of the V3 autocomplete query, under the default filters. */
+  private static List<QueryBuilder> v3AutocompleteClauses(SearchSourceBuilder source) {
+    BoolQueryBuilder nested =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) source.query()).query();
+    assertEquals(nested.should().size(), 1);
+    return ((BoolQueryBuilder) nested.should().get(0)).should();
+  }
+
+  private static <T> T only(List<QueryBuilder> clauses, Class<T> type) {
+    List<QueryBuilder> matching = clauses.stream().filter(type::isInstance).toList();
+    assertEquals(matching.size(), 1, clauses.toString());
+    return type.cast(matching.get(0));
   }
 
   /** A handler built for V2 first must not be reused when V3 keyword read is requested. */

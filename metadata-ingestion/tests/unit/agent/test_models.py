@@ -1,8 +1,17 @@
-"""What `probe describe` serialises. ProbeNode/ProbeResult tests went with those
-types: they described the deleted hierarchy's output shape, which nothing produces.
+"""What `probe describe` serialises, and the keys of the `probe run` envelope.
+ProbeNode/ProbeResult tests went with those types: they described the deleted
+hierarchy's output shape, which nothing produces.
 """
 
-from datahub.ingestion.agent.models import FieldKind, FieldSpec, SourceSpec
+from typing import get_type_hints
+
+from datahub.ingestion.agent.models import (
+    FieldKind,
+    FieldSpec,
+    ProbeRunEnvelope,
+    ProbeRunEnvelopeView,
+    SourceSpec,
+)
 
 
 def test_field_spec_to_dict_serializes_kind_as_string():
@@ -40,3 +49,12 @@ def test_source_spec_to_dict():
     first_capability = capabilities[0]
     assert isinstance(first_capability, dict)
     assert first_capability["supported"]
+
+
+def test_the_run_envelope_view_names_exactly_the_keys_the_writer_writes() -> None:
+    # Declared twice, precisely for ProbeMethodResult.to_dict and object-valued
+    # for the reader of caller JSON, so a key added to one must be added to the
+    # other or `probe filter --from-run` would never read it.
+    assert get_type_hints(ProbeRunEnvelope).keys() == (
+        get_type_hints(ProbeRunEnvelopeView).keys()
+    )

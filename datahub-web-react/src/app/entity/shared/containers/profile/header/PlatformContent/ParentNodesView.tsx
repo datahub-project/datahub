@@ -1,8 +1,8 @@
-import { RightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import styled from 'styled-components';
 
-export const StyledRightOutlined = styled(RightOutlined)`
+export const StyledRightOutlined = styled(CaretRight)`
     color: ${(props) => props.theme.colors.textTertiary};
     font-size: 8px;
     margin: 0 10px;

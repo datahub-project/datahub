@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional
+from typing import Dict, Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -512,7 +512,45 @@ def test_odbc_mode_from_source_type(
         source = SQLServerSource.create(config_dict, mock_ctx)
 
     # is_odbc is stored on the source instance (not config)
-    assert source._is_odbc is expected_is_odbc
+    assert source.config.uses_odbc() is expected_is_odbc
+
+
+def test_create_validates_with_the_probes_context(mock_pipeline_context):
+    """Ingestion and `probe filter` must validate a recipe the same way, so
+    create reads the one hook the probe reads rather than restating it."""
+    seen = []
+
+    def context_for(source_type: str) -> Dict[str, object]:
+        seen.append(source_type)
+        return {"is_odbc": False}
+
+    config_dict = {
+        "host_port": "localhost:1433",
+        "username": "test",
+        "password": "test",
+        "database": "test_db",
+        "include_descriptions": False,
+    }
+    with (
+        patch.object(SQLServerConfig, "probe_validation_context", context_for),
+        patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"),
+    ):
+        # mssql-odbc would require uri_args; the hook said pytds, so it does not.
+        source = SQLServerSource.create(
+            config_dict, mock_pipeline_context("mssql-odbc")
+        )
+    assert seen == ["mssql-odbc"]
+    assert source.config.uses_odbc() is False
+
+
+def test_is_odbc_argument_leaves_the_callers_config_alone():
+    config = SQLServerConfig.model_validate(
+        {"host_port": "localhost:1433", "include_descriptions": False}
+    )
+    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+        source = SQLServerSource(config, MagicMock(), is_odbc=True)
+    assert source.config.uses_odbc() is True
+    assert config.uses_odbc() is False
 
 
 def test_use_odbc_removed_field_warning(mock_pipeline_context):
@@ -542,8 +580,8 @@ def test_use_odbc_removed_field_warning(mock_pipeline_context):
         assert "use_odbc" in str(config_warnings[0].message)
         assert "removed" in str(config_warnings[0].message)
 
-    # is_odbc is determined by source type, stored on instance
-    assert source._is_odbc is True
+    # is_odbc is determined by source type, and read from the config
+    assert source.config.uses_odbc() is True
 
 
 def test_get_columns_does_not_mutate_inspector_cache(mssql_source):
