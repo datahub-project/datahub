@@ -7,7 +7,6 @@ import sqlglot.errors
 import sqlglot.expressions
 
 from datahub.emitter.mce_builder import (
-    make_container_urn,
     make_dataplatform_instance_urn,
     make_tag_urn,
     make_ts_millis,
@@ -1122,13 +1121,9 @@ class SnowflakeSemanticModelMapper:
             )
         # Id-only db/schema entries render as separate browse folders, and an
         # explicit browsePathsV2 wins over the path derived from container.
-        db_urn = make_container_urn(
-            guid=self.identifiers.gen_database_key(db_name).guid()
-        )
+        db_urn = self.identifiers.gen_database_key(db_name).as_urn()
         entries.append(BrowsePathEntryClass(id=db_urn, urn=db_urn))
-        schema_urn = make_container_urn(
-            guid=self.identifiers.gen_schema_key(db_name, schema_name).guid()
-        )
+        schema_urn = self.identifiers.gen_schema_key(db_name, schema_name).as_urn()
         entries.append(BrowsePathEntryClass(id=schema_urn, urn=schema_urn))
         return entries
 

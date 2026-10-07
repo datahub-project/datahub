@@ -197,7 +197,7 @@ def _schema_fields_by_path(
     return {f.fieldPath: f for f in schemas[0].fields}
 
 
-def _legacy_db_schema_container_urns(
+def _db_schema_container_urns(
     mapper: SnowflakeSemanticModelMapper,
 ) -> Tuple[str, str]:
     db_urn = mapper.identifiers.gen_database_key(_DB).as_urn()
@@ -344,7 +344,7 @@ def test_semantic_model_dataset_attached_to_schema_container_with_urn_browse_pat
             fine_grained_lineages=[],
         )
     )
-    db_urn, schema_urn = _legacy_db_schema_container_urns(mapper)
+    db_urn, schema_urn = _db_schema_container_urns(mapper)
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         semantic_view.name, _SCHEMA, _DB
     )
@@ -378,8 +378,8 @@ def test_semantic_model_dataset_attached_to_schema_container_with_urn_browse_pat
 def test_semantic_model_browse_container_urns_follow_snowflake_identifier_without_lowercase():
     mapper_lower = _make_mapper(convert_urns_to_lowercase=True)
     mapper_upper = _make_mapper(convert_urns_to_lowercase=False)
-    lower_db_urn, lower_schema_urn = _legacy_db_schema_container_urns(mapper_lower)
-    upper_db_urn, upper_schema_urn = _legacy_db_schema_container_urns(mapper_upper)
+    lower_db_urn, lower_schema_urn = _db_schema_container_urns(mapper_lower)
+    upper_db_urn, upper_schema_urn = _db_schema_container_urns(mapper_upper)
     assert lower_db_urn != upper_db_urn
     assert lower_schema_urn != upper_schema_urn
 
@@ -411,7 +411,7 @@ def test_semantic_model_browse_paths_keep_platform_instance_first():
             fine_grained_lineages=[],
         )
     )
-    db_urn, schema_urn = _legacy_db_schema_container_urns(mapper)
+    db_urn, schema_urn = _db_schema_container_urns(mapper)
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         semantic_view.name, _SCHEMA, _DB
     )
@@ -514,6 +514,8 @@ def test_semantic_model_info_datasets_and_field_grouping():
     assert info.description == "Sales semantic view"
     # Membership is member-side only (semanticModelProperties / metricInfo).
 
+    # Each logical dataset is a dataset entity with the SEMANTIC_MODEL_DATASET
+    # subtype and a semanticModelProperties back-reference to the model.
     for dataset_urn in (orders_urn, customers_urn):
         subtypes = _aspects_for(workunits, dataset_urn, SubTypesClass)
         assert len(subtypes) == 1
@@ -548,7 +550,7 @@ def test_semantic_model_info_datasets_and_field_grouping():
     customer_id_ann = _annotation_for(workunits, customers_urn, "customer_id")
     assert customer_id_ann is not None
     assert customer_id_ann.type == SemanticFieldTypeClass.DIMENSION
-    # View-scoped metrics are separate metric entities, not logical-dataset fields.
+    # Metrics are not fields on any logical dataset and have no annotation.
     for dataset_urn in (orders_urn, customers_urn):
         assert "total_revenue" not in _schema_fields_by_path(workunits, dataset_urn)
         assert _annotation_for(workunits, dataset_urn, "total_revenue") is None
@@ -702,8 +704,9 @@ def test_metric_entities_emitted_with_derived_from_relationships():
     # MetricInfo no longer carries a nested aiContext; synonyms are not
     # emitted in this PR (first-class aiContext is a fast-follow).
 
-    # Leaf metrics still need a relationships aspect so search indexes them as
-    # root metrics in the /metrics sidebar (hasParentMetric=false).
+    # Metrics that don't reference other metrics still emit metricRelationships,
+    # with an empty derivedFrom and no parentMetric, so hasParentMetric is indexed
+    # as false and they appear as root metrics in the /metrics sidebar.
     for urn in (revenue_urn, count_urn):
         relationships = _aspects_for(workunits, urn, MetricRelationshipsClass)
         assert len(relationships) == 1
@@ -731,8 +734,9 @@ def test_metric_entities_emitted_with_derived_from_relationships():
 
 
 def test_derived_from_preserves_case_when_lowercasing_disabled():
-    # Regression: derivedFrom must target the referenced metric's canonical URN
-    # spelling; folding case would link to a different entity.
+    # Regression test: the destination URN for a metric-to-metric derivation must
+    # match the referenced metric's own URN exactly, including case, when
+    # convert_urns_to_lowercase is disabled.
     mapper = _make_mapper(convert_urns_to_lowercase=False)
     semantic_view = _make_semantic_view(
         # column_occurrences is keyed by the column's stored name (see
@@ -1095,7 +1099,7 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
     assert [u.dataset for u in upstream_lineage.upstreams] == [orders_dataset_urn]
     assert upstream_lineage.fineGrainedLineages == [dimension_fgl]
 
-    # The model is a container only — table-level hops stay on logical datasets.
+    # The model carries no upstreamLineage (it is a container, not a lineage hop).
     assert not _aspects_for(workunits, model_urn, UpstreamLineageClass)
     # Table-bound metric has Metric → SMD lineage via metricUpstreams.
     metric_upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
@@ -1264,7 +1268,7 @@ def test_logical_dataset_upstream_lineage_uses_base_table_even_without_resolved_
         )
     )
 
-    # Table-level upstream edges live on logical datasets, not the model entity.
+    # The model carries no upstreamLineage in the new model.
     assert not _aspects_for(workunits, model_urn, UpstreamLineageClass)
     # The logical dataset carries the base-table upstream edge.
     upstream_lineages = _aspects_for(
@@ -1298,6 +1302,7 @@ def test_subtypes_and_status_always_emitted():
     assert len(statuses) == 1 and statuses[0].removed is False
     assert not _aspects_for(workunits, model_urn, SubTypesClass)
 
+    # Each logical dataset carries the SEMANTIC_MODEL_DATASET subtype + Status.
     for dataset_urn in (orders_urn, customers_urn):
         subtypes = _aspects_for(workunits, dataset_urn, SubTypesClass)
         assert len(subtypes) == 1
