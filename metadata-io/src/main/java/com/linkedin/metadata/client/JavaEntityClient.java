@@ -101,7 +101,7 @@ public class JavaEntityClient implements EntityClient {
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
   private final MetricUtils metricUtils;
-  // Null for the system client and where the async delete factory is not scanned.
+  // Null for the system client and where ReliableHardDeleteFactory is not scanned.
   @Nullable private final ReliableHardDelete reliableHardDelete;
 
   public JavaEntityClient(
@@ -661,9 +661,8 @@ public class JavaEntityClient implements EntityClient {
   }
 
   /**
-   * Hard delete an entity with a particular urn. With the reliable hard delete on, its references,
-   * data and timeseries up to now are removed before this returns, so a following {@link
-   * #deleteEntityReferences} finds nothing to do.
+   * Hard delete an entity with a particular urn. With the reliable hard delete on, its references
+   * are removed first, so a following {@link #deleteEntityReferences} finds nothing to do.
    */
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)

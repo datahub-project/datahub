@@ -1,21 +1,11 @@
 package com.linkedin.metadata.entity;
 
-/** Result of a ceiling-bounded hard delete. */
+/** Result of a version-bounded hard delete of an entity. */
 public enum ConditionalDeleteOutcome {
-  /**
-   * Everything at or below the ceiling was deleted and nothing newer remained: for an entity the
-   * key went too (the entity is gone); for an aspect every version went.
-   */
+  /** Everything captured was deleted and nothing newer remained, so the key went too. */
   DELETED,
-  /**
-   * Rows at or below the ceiling were deleted (possibly none) but newer data survives: for an
-   * entity at least one aspect advanced past its ceiling or was created after the capture, so the
-   * key stays; for an aspect its latest version is newer than the ceiling.
-   */
+  /** What was captured was deleted, but data written since survives, so the entity stays. */
   PARTIAL,
-  /**
-   * Nothing to delete: the key (or the aspect) is absent, or the urn was hard-deleted and recreated
-   * after the capture. Nothing was written and no MCL was produced.
-   */
+  /** The entity did not exist when the delete was requested. Nothing was written. */
   ALREADY_DELETED
 }

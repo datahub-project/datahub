@@ -48,6 +48,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.Aspect;
@@ -3216,6 +3217,121 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertEquals(result.getUrn(), entityUrn);
     assertEquals(result.getEntityName(), "corpuser");
     assertEquals(result.getAspectName(), aspectName);
+  }
+
+  private <T extends RecordTemplate> void ingestOne(Urn urn, T aspect, Class<T> clazz)
+      throws Exception {
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        urn,
+        List.of(
+            new Pair<String, RecordTemplate>(AspectGenerationUtils.getAspectName(aspect), aspect)),
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
+  }
+
+  private static Map<String, String> upToVersion(long version) {
+    return Map.of(EntityService.DELETE_CONDITION_MAX_VERSION, String.valueOf(version));
+  }
+
+  @Test
+  public void testDeleteAspectUpToVersionLeavesANewerLatestAndItsHistory() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteUpToVersionNewer");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v1@test.com"), CorpUserInfo.class);
+    CorpUserInfo latest = AspectGenerationUtils.createCorpUserInfo("v2@test.com");
+    ingestOne(entityUrn, latest, CorpUserInfo.class);
+
+    // The latest is version 2: a bound of 1 matches nothing.
+    assertTrue(
+        _entityServiceImpl
+            .deleteAspect(opContext, entityUrn.toString(), aspectName, upToVersion(1), true)
+            .isEmpty());
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            latest, _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName)));
+    assertNotNull(_aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1L));
+  }
+
+  @Test
+  public void testDeleteAspectUpToVersionRemovesEveryVersionAtOrBelowIt() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteUpToVersionAll");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v1@test.com"), CorpUserInfo.class);
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v2@test.com"), CorpUserInfo.class);
+
+    assertTrue(
+        _entityServiceImpl
+            .deleteAspect(opContext, entityUrn.toString(), aspectName, upToVersion(2), true)
+            .isPresent());
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName));
+    assertNull(_aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1L));
+  }
+
+  @Test
+  public void testBoundedDeleteUrnDeletesAnUnchangedEntityAsToday() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteUnchanged");
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("a@test.com"), CorpUserInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+
+    RollbackRunResult result = _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertEquals(result.getRollbackResults().size(), 1);
+    assertTrue(result.getRollbackResults().get(0).getKeyAffected());
+    assertTrue(_entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).isEmpty());
+  }
+
+  @Test
+  public void testBoundedDeleteUrnKeepsAnEntityWrittenSinceTheCapture() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteNewerVersion");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v1@test.com"), CorpUserInfo.class);
+    ingestOne(
+        entityUrn, new CorpUserEditableInfo().setAboutMe("captured"), CorpUserEditableInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    CorpUserInfo newer = AspectGenerationUtils.createCorpUserInfo("v2@test.com");
+    ingestOne(entityUrn, newer, CorpUserInfo.class);
+
+    RollbackRunResult result = _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(
+        result.getRollbackResults().stream()
+            .noneMatch(r -> Boolean.TRUE.equals(r.getKeyAffected())));
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(
+            opContext, entityUrn, opContext.getKeyAspectName(entityUrn)));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            newer, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName));
+  }
+
+  @Test
+  public void testBoundedDeleteUrnKeepsAnEntityWithAnAspectAddedSinceTheCapture() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteNewAspect");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("a@test.com"), CorpUserInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    CorpUserEditableInfo added = new CorpUserEditableInfo().setAboutMe("added later");
+    ingestOne(entityUrn, added, CorpUserEditableInfo.class);
+
+    _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(
+            opContext, entityUrn, opContext.getKeyAspectName(entityUrn)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            added, _entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName)));
   }
 
   @Test

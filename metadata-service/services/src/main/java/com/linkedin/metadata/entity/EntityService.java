@@ -549,61 +549,38 @@ public interface EntityService<U extends ChangeMCP> {
   RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn);
 
   /**
-   * The {@link DeleteCeiling} of {@code urn} as primary storage holds it now: every non-key,
-   * non-timeseries aspect's latest version and the key's creation time. Empty when the key aspect
-   * is absent. Reads only. {@code capturedAtMillis} must be read (from the caller's clock) before
-   * this call; it bounds the timeseries delete.
+   * A {@link #deleteAspect} condition bounding a hard delete by version: only rows at or below it
+   * are deleted, the latest row judged by its {@code systemMetadata.version} and a history row by
+   * its row version. A newer latest row matches nothing, so that aspect is left as it is.
+   */
+  String DELETE_CONDITION_MAX_VERSION = "maxVersion";
+
+  /**
+   * Every aspect {@code urn} has in primary storage now, key included, mapped to the version a
+   * delete bounded by it may remove up to. Empty when the key aspect is absent. Reads only.
    */
   @Nonnull
   Optional<DeleteCeiling> captureDeleteCeiling(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, long capturedAtMillis);
+      @Nonnull OperationContext opContext, @Nonnull Urn urn);
 
   /**
-   * Throws if today's key-aspect hard delete of {@code urn} would be rejected for {@code
-   * opContext}: a DELETE proposal validator ({@code ValidationException}) or the
-   * structured-property soft-delete-first rule ({@code IllegalArgumentException}). Reads only. Lets
-   * a caller reject a delete synchronously before it hands the work elsewhere.
+   * Throws if the hard delete of {@code urn} would be rejected, by the same checks {@link
+   * #deleteUrn(OperationContext, Urn)} runs: a DELETE proposal validator ({@code
+   * ValidationException}) or the structured-property soft-delete-first rule ({@code
+   * IllegalArgumentException}). Reads only.
    */
   void validateHardDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn);
 
   /**
-   * Hard-deletes what {@code ceiling} covers, in one primary-storage transaction that first locks
-   * the key row and then every latest row of {@code urn} (row locks in both locking modes on
-   * Ebean). Per listed aspect, rows at or below its version are deleted; a newer latest survives;
-   * aspects not listed are untouched. The key goes only when nothing survives.
-   *
-   * <p>{@link RollbackRunResult#getConditionalDeleteOutcome()} is never null: {@code DELETED} (the
-   * entity is gone; the key DELETE MCL was produced unless in CDC mode), {@code PARTIAL} (newer
-   * data survives; one DELETE MCL per aspect whose latest was removed), {@code ALREADY_DELETED} (no
-   * key, or the urn was recreated after the capture: nothing written, no MCL).
-   *
-   * <p>Concurrency: a writer of a locked row either committed before the read (its newer version
-   * survives) or waits and lands after the commit (as today, it recreates the entity). On Cassandra
-   * there are no transactions or row locks: best-effort.
-   *
-   * @throws IllegalArgumentException if {@code ceiling} lists the key aspect, or {@link
-   *     #validateHardDelete} rejects the delete
+   * {@link #deleteUrn(OperationContext, Urn)}, bounded by {@code ceiling} when it is not null (null
+   * is exactly {@link #deleteUrn(OperationContext, Urn)}). Within the delete transaction every
+   * latest row of {@code urn} is read for update; the entity is deleted as today only when each is
+   * at or below its ceiling and none is new since the capture. Otherwise the key stays and each
+   * captured aspect is deleted up to its ceiling ({@link #DELETE_CONDITION_MAX_VERSION}); the
+   * result then holds no key-aspect row.
    */
   RollbackRunResult deleteUrn(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling);
-
-  /**
-   * Hard-deletes one non-key, non-timeseries aspect up to {@code ceilingVersion}, in one
-   * transaction that row-locks only that aspect's latest row (both locking modes on Ebean). Latest
-   * at or below the ceiling: every version goes ({@code DELETED}; the aspect DELETE MCL is produced
-   * unless in CDC mode). Latest above it: history rows {@code 1..ceilingVersion} go and the latest
-   * stays ({@code PARTIAL}; no MCL, the latest is unchanged). Absent: {@code ALREADY_DELETED}. The
-   * same validators and structured-property rule as today's aspect delete apply.
-   *
-   * @throws IllegalArgumentException for the key aspect (use {@link #deleteUrn(OperationContext,
-   *     Urn, DeleteCeiling)}), a timeseries or unknown aspect, or {@code ceilingVersion < 1}
-   */
-  @Nonnull
-  ConditionalDeleteOutcome deleteAspectUpToVersion(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      long ceilingVersion);
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling);
 
   RollbackRunResult rollbackRun(
       @Nonnull OperationContext opContext,

@@ -5,9 +5,16 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.expectThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
@@ -27,11 +34,17 @@ import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -50,6 +63,11 @@ public class DeleteEntityServiceGuardHandlingTest {
   private final EntitySearchService _searchService = mock(EntitySearchService.class);
   private final DeleteEntityService _deleteEntityService =
       new DeleteEntityService(_entityService, _graphService, _searchService, null, null);
+
+  @BeforeMethod
+  public void resetMocks() {
+    reset(_entityService, _graphService, _searchService);
+  }
 
   private static EntityResponse datasetWithContainerAspect(Urn datasetUrn, Urn containerUrn) {
     final Container containerAspect = new Container();
@@ -188,6 +206,159 @@ public class DeleteEntityServiceGuardHandlingTest {
             eq(dataset2.toString()),
             eq(Constants.CONTAINER_ASPECT_NAME),
             anyMap(),
+            eq(true));
+  }
+
+  private static final Urn TAG = UrnUtils.getUrn("urn:li:tag:deleted");
+  private static final Urn OTHER_TAG = UrnUtils.getUrn("urn:li:tag:kept");
+
+  /** {@code referrer} holds a reference of {@code relationship} to {@code deleted}. */
+  private void referencedBy(Urn deleted, String relationship, Urn referrer, EnvelopedAspect aspect)
+      throws Exception {
+    final ScrollResult noFiles = new ScrollResult();
+    noFiles.setEntities(new SearchEntityArray());
+    noFiles.setNumEntities(0);
+    when(_searchService.structuredScroll(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            isNull(),
+            nullable(String.class),
+            anyString(),
+            anyInt()))
+        .thenReturn(noFiles);
+    when(_graphService.scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", deleted.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            eq("5m"),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class)))
+        .thenReturn(
+            RelatedEntitiesScrollResult.builder()
+                .numResults(1)
+                .pageSize(1)
+                .scrollId(null)
+                .entities(
+                    ImmutableList.of(
+                        new RelatedEntities(
+                            relationship,
+                            referrer.toString(),
+                            deleted.toString(),
+                            RelationshipDirection.INCOMING,
+                            null)))
+                .build());
+    final EntityResponse response = new EntityResponse();
+    response.setUrn(referrer);
+    response.setEntityName(referrer.getEntityType());
+    response.setAspects(new EnvelopedAspectMap(Map.of(aspect.getName(), aspect)));
+    when(_entityService.getEntityV2(
+            any(OperationContext.class), eq(referrer.getEntityType()), eq(referrer), anySet()))
+        .thenReturn(response);
+  }
+
+  private static EnvelopedAspect tagsAtVersion(String version) throws URISyntaxException {
+    final GlobalTags tags =
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(
+                    List.of(
+                        new TagAssociation().setTag(TagUrn.createFromUrn(TAG)),
+                        new TagAssociation().setTag(TagUrn.createFromUrn(OTHER_TAG)))));
+    return new EnvelopedAspect()
+        .setName(Constants.GLOBAL_TAGS_ASPECT_NAME)
+        .setValue(new Aspect(tags.data()))
+        .setSystemMetadata(new SystemMetadata().setVersion(version));
+  }
+
+  /**
+   * The reliable path's referrer rewrite carries the version it read; when a write lands in
+   * between, the precondition fails, the write is not committed, and the cleanup throws so the
+   * entity is not deleted.
+   */
+  @Test
+  public void failingCleanupRewritesConditionallyAndThrowsWhenTheReferrerChanged()
+      throws Exception {
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "conditional_rewrite", "DEV");
+    referencedBy(TAG, "TaggedWith", dataset, tagsAtVersion("4"));
+    when(_entityService.ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean()))
+        .thenReturn(IngestResult.builder().sqlCommitted(false).build());
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> _deleteEntityService.deleteReferencesToOrFail(opContext, TAG));
+
+    final ArgumentCaptor<MetadataChangeProposal> proposal =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityService)
+        .ingestProposal(any(OperationContext.class), proposal.capture(), any(), eq(false));
+    assertEquals(proposal.getValue().getHeaders().get("If-Version-Match"), "4");
+  }
+
+  /** Today's cleanup is unchanged: unconditional rewrite, failures logged, not thrown. */
+  @Test
+  public void todaysCleanupRewritesUnconditionallyAndCarriesOn() throws Exception {
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "unconditional_rewrite", "DEV");
+    referencedBy(TAG, "TaggedWith", dataset, tagsAtVersion("4"));
+    when(_entityService.ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean()))
+        .thenReturn(IngestResult.builder().sqlCommitted(false).build());
+
+    assertNotNull(_deleteEntityService.deleteReferencesTo(opContext, TAG, false));
+
+    final ArgumentCaptor<MetadataChangeProposal> proposal =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityService)
+        .ingestProposal(any(OperationContext.class), proposal.capture(), any(), eq(false));
+    assertNull(proposal.getValue().getHeaders());
+  }
+
+  /**
+   * A reference in a required field removes the whole referrer aspect, bounded by the version read:
+   * a newer value survives (empty result) and the cleanup throws.
+   */
+  @Test
+  public void failingCleanupDeletesARequiredFieldReferrerOnlyUpToTheVersionRead() throws Exception {
+    final Urn container = UrnUtils.getUrn("urn:li:container:bounded-delete");
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "bounded_delete", "DEV");
+    final Container containerAspect = new Container().setContainer(container);
+    referencedBy(
+        container,
+        "IsPartOf",
+        dataset,
+        new EnvelopedAspect()
+            .setName(Constants.CONTAINER_ASPECT_NAME)
+            .setValue(new Aspect(containerAspect.data()))
+            .setSystemMetadata(new SystemMetadata().setVersion("2")));
+    when(_entityService.deleteAspect(
+            any(OperationContext.class), anyString(), anyString(), anyMap(), anyBoolean()))
+        .thenReturn(Optional.empty());
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> _deleteEntityService.deleteReferencesToOrFail(opContext, container));
+
+    verify(_entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(dataset.toString()),
+            eq(Constants.CONTAINER_ASPECT_NAME),
+            eq(Map.of(EntityService.DELETE_CONDITION_MAX_VERSION, "2")),
             eq(true));
   }
 }

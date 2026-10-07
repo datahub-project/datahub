@@ -369,15 +369,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         aspectMetadatas, listResultMetadata, start, pageNumber, pageSize, totalCount);
   }
 
-  /**
-   * Cassandra has no multi-statement transactions: {@code block} runs with no isolation, and reads
-   * inside it take no locks ({@code getLatestAspectForDecision} and {@code
-   * getLatestAspectsForDecision} keep the {@link AspectDao} defaults, unlocked reads, and {@code
-   * deleteAspectVersionRange} deletes row by row). Ceiling-bounded hard deletes ({@code
-   * EntityService#deleteUrn(OperationContext, Urn, DeleteCeiling)} and {@code
-   * EntityService#deleteAspectUpToVersion}) are therefore best-effort on this store: the ceiling is
-   * applied, but a write that lands between the read and the delete is not detected.
-   */
   @Nonnull
   @Override
   public <T> Optional<T> runInTransactionWithRetry(

@@ -276,25 +276,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     graphWriteDAO.deleteByQuery(opContext, GraphFilters.ALL, urn.toString());
   }
 
-  /**
-   * Deletes the outgoing, incoming and lifecycle-owned edges in turn, proceeding past version
-   * conflicts; throws when any of them may have left an edge behind.
-   */
-  @Override
-  public void removeNodeReportingFailures(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Urn urn,
-      final boolean includeSoftDeleted) {
-    final OperationContext deleteContext =
-        opContext.withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDeleted));
-    final Filter urnFilter = createUrnFilter(urn);
-    graphWriteDAO.deleteByQueryProceedOnConflict(
-        deleteContext, GraphFilters.outgoingFilter(urnFilter), null);
-    graphWriteDAO.deleteByQueryProceedOnConflict(
-        deleteContext, GraphFilters.incomingFilter(urnFilter), null);
-    graphWriteDAO.deleteByQueryProceedOnConflict(deleteContext, GraphFilters.ALL, urn.toString());
-  }
-
   @Override
   public void setEdgeStatus(
       @Nonnull OperationContext opContext,

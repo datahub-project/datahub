@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.datahub.util.RecordUtils;
@@ -12,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -51,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,79 +78,6 @@ public class DeleteEntityService {
   private static final String SCROLL_KEEP_ALIVE = "5m";
 
   /**
-   * Removes every reference to {@code urn} while its graph edges still exist, phase by phase. The
-   * first referrer that cannot be cleaned (for example one written since it was read) throws. Every
-   * step is idempotent and conditional, so running it again, with or without a checkpoint, finishes
-   * the work. Exceptions the listener throws reach the caller unwrapped. {@link
-   * #deleteReferencesTo} is unchanged.
-   *
-   * @param resumeFrom the phase an earlier call reached, or null to start from the first phase
-   * @param listener called before each page; may stop the cascade by throwing
-   * @return how many referrers had a reference removed
-   */
-  public int removeReferencesResumable(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nullable final DeleteCascadeCheckpoint resumeFrom,
-      @Nonnull final DeleteCascadeListener listener) {
-    return cascadeEngine().removeReferencesResumable(opContext, urn, resumeFrom, listener);
-  }
-
-  @Nonnull
-  private DeleteCascadeEngine cascadeEngine() {
-    return new DeleteCascadeEngine(
-        _entityService, _graphService, _searchService, _metricUtils, new CascadeHost());
-  }
-
-  /** Hands the cascade engine the helpers whose bodies differ between OSS and the fork. */
-  private class CascadeHost implements DeleteCascadeEngine.Host {
-    @Nonnull
-    @Override
-    public Map<String, AspectSpec> aspectSpecsReferringTo(
-        @Nonnull final String relatedEntityType,
-        @Nonnull final String relationshipType,
-        @Nonnull final EntitySpec entitySpec) {
-      return getAspectSpecsReferringTo(relatedEntityType, relationshipType, entitySpec);
-    }
-
-    @Override
-    public boolean shouldDeleteAssetReferencingUrn(
-        @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
-      return DeleteEntityService.this.shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn);
-    }
-
-    @Nonnull
-    @Override
-    public List<String> aspectsToUpdate(
-        @Nonnull final Urn deletedUrn, @Nonnull final Urn assetUrn) {
-      return getAspectsToUpdate(deletedUrn, assetUrn);
-    }
-
-    @Nullable
-    @Override
-    public MetadataChangeProposal updateAspectForSearchReference(
-        @Nonnull OperationContext ctx,
-        @Nonnull final Urn assetUrn,
-        @Nonnull final Urn deletedUrn,
-        @Nonnull final String aspectName) {
-      return DeleteEntityService.this.updateAspectForSearchReference(
-          ctx, assetUrn, deletedUrn, aspectName);
-    }
-
-    @Nonnull
-    @Override
-    public AuditStamp createAuditStamp() {
-      return DeleteEntityService.this.createAuditStamp();
-    }
-
-    @Override
-    public void deleteStorageObject(
-        @Nonnull final Urn fileUrn, @Nonnull final DataHubFileInfo fileInfo) {
-      DeleteEntityService.this.deleteStorageObject(fileUrn, fileInfo);
-    }
-  }
-
-  /**
    * Public endpoint that deletes references to a given urn across DataHub's metadata graph. This is
    * the entrypoint for addressing dangling pointers whenever a user deletes some entity.
    *
@@ -166,15 +96,35 @@ public class DeleteEntityService {
     if (dryRun) {
       return deleteReferencesToDryRun(opContext, urn, result);
     }
+    return deleteReferencesTo(opContext, urn, result, false);
+  }
 
+  /**
+   * {@link #deleteReferencesTo} (not a dry run) for the reliable hard delete. Every referrer write
+   * is conditional on the version just read ({@code If-Version-Match}; a required-field reference
+   * deletes the referrer's aspect only up to that version), and a referrer that could not be
+   * cleaned throws {@link IllegalStateException} instead of being logged and skipped, so the caller
+   * keeps the entity rather than leave a dangling reference to it.
+   */
+  public DeleteReferencesResponse deleteReferencesToOrFail(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    return deleteReferencesTo(opContext, urn, new DeleteReferencesResponse(), true);
+  }
+
+  private DeleteReferencesResponse deleteReferencesTo(
+      @Nonnull OperationContext opContext,
+      final Urn urn,
+      final DeleteReferencesResponse result,
+      final boolean failIfNotRemoved) {
     try (CascadeOperationContext cascade =
         CascadeOperationContext.begin(_metricUtils, "deleteReferencesTo", urn, -1)) {
 
       // Phase 1: Delete file references (object storage + file entity soft-delete)
-      int totalFileCount = deleteFileReferences(opContext, urn, false, cascade);
+      int totalFileCount = deleteFileReferences(opContext, urn, false, cascade, failIfNotRemoved);
 
       // Phase 2: Delete search-based references (forms, structured properties)
-      int totalSearchAssetCount = deleteSearchReferences(opContext, urn, false, cascade);
+      int totalSearchAssetCount =
+          deleteSearchReferences(opContext, urn, false, cascade, failIfNotRemoved);
 
       // Phase 3: Delete graph-based references (scroll all incoming relationships)
       RelatedEntitiesScrollResult scrollResult =
@@ -220,7 +170,7 @@ public class DeleteEntityService {
               .getEntities()
               .forEach(
                   entity -> {
-                    deleteReference(opContext, urn, entity, cascade);
+                    deleteReference(opContext, urn, entity, cascade, failIfNotRemoved);
                     cascade.recordEntityProcessed();
                   });
           totalProcessed += scrollResult.getEntities().size();
@@ -259,8 +209,8 @@ public class DeleteEntityService {
    */
   private DeleteReferencesResponse deleteReferencesToDryRun(
       @Nonnull OperationContext opContext, final Urn urn, final DeleteReferencesResponse result) {
-    int totalFileCount = deleteFileReferences(opContext, urn, true, null);
-    int totalSearchAssetCount = deleteSearchReferences(opContext, urn, true, null);
+    int totalFileCount = deleteFileReferences(opContext, urn, true, null, false);
+    int totalSearchAssetCount = deleteSearchReferences(opContext, urn, true, null, false);
 
     RelatedEntitiesScrollResult scrollResult =
         _graphService.scrollRelatedEntities(
@@ -417,7 +367,8 @@ public class DeleteEntityService {
                 new EnrichedAspect(
                     envelopedAspect.getName(),
                     envelopedAspect.getValue(),
-                    aspectSpecs.get(envelopedAspect.getName())));
+                    aspectSpecs.get(envelopedAspect.getName()),
+                    versionOf(envelopedAspect)));
   }
 
   /**
@@ -431,7 +382,8 @@ public class DeleteEntityService {
       @Nonnull OperationContext opContext,
       final Urn urn,
       final RelatedEntity relatedEntity,
-      final CascadeOperationContext cascade) {
+      final CascadeOperationContext cascade,
+      final boolean failIfNotRemoved) {
     final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
     final String relationshipType = relatedEntity.getRelationshipType();
     getAspects(opContext, urn, relatedUrn, relationshipType, cascade)
@@ -477,11 +429,25 @@ public class DeleteEntityService {
               if (!aspect.equals(updatedAspect.get())) {
                 if (updatedAspect.get() == null) {
                   // Then we should remove the aspect.
-                  deleteAspect(opContext, relatedUrn, aspectName, aspect, cascade);
+                  deleteAspect(
+                      opContext,
+                      relatedUrn,
+                      aspectName,
+                      aspect,
+                      cascade,
+                      failIfNotRemoved,
+                      enrichedAspect.getVersion());
                 } else {
                   // Then we should update the aspect.
                   updateAspect(
-                      opContext, relatedUrn, aspectName, aspect, updatedAspect.get(), cascade);
+                      opContext,
+                      relatedUrn,
+                      aspectName,
+                      aspect,
+                      updatedAspect.get(),
+                      cascade,
+                      failIfNotRemoved,
+                      enrichedAspect.getVersion());
                 }
               }
             });
@@ -499,12 +465,24 @@ public class DeleteEntityService {
       Urn urn,
       String aspectName,
       RecordTemplate prevAspect,
-      @Nonnull CascadeOperationContext cascade) {
+      @Nonnull CascadeOperationContext cascade,
+      final boolean failIfNotRemoved,
+      final long readVersion) {
     final Optional<RollbackResult> rollbackResult;
     try {
       rollbackResult =
-          _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
+          _entityService.deleteAspect(
+              opContext,
+              urn.toString(),
+              aspectName,
+              failIfNotRemoved
+                  ? Map.of(EntityService.DELETE_CONDITION_MAX_VERSION, String.valueOf(readVersion))
+                  : new HashMap<>(),
+              true);
     } catch (IllegalArgumentException e) {
+      if (failIfNotRemoved) {
+        throw notRemoved(urn, aspectName, e);
+      }
       // Delete-time guards can reject individual aspect deletions — e.g. the propertyDefinition
       // of an ACTIVE structured property that references the deleted entity requires a prior
       // soft delete. Leave that aspect in place and continue the cascade for the remaining
@@ -527,6 +505,10 @@ public class DeleteEntityService {
               DeleteEntityServiceErrorReason.ASPECT_DELETE_FAILED,
               ImmutableMap.of("urn", urn, "aspectName", aspectName)),
           cascade);
+      // Bounded by the version read, an empty result may mean a newer value survived.
+      if (failIfNotRemoved) {
+        throw notRemoved(urn, aspectName, null);
+      }
     }
   }
 
@@ -544,13 +526,18 @@ public class DeleteEntityService {
       String aspectName,
       RecordTemplate prevAspect,
       RecordTemplate newAspect,
-      @Nonnull CascadeOperationContext cascade) {
+      @Nonnull CascadeOperationContext cascade,
+      final boolean failIfNotRemoved,
+      final long readVersion) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setChangeType(ChangeType.UPSERT);
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(newAspect));
+    if (failIfNotRemoved) {
+      proposal.setHeaders(ifVersionMatch(readVersion));
+    }
 
     // Attach cascade operation ID for cross-service correlation via Kafka
     proposal.setSystemMetadata(new SystemMetadata());
@@ -575,6 +562,9 @@ public class DeleteEntityService {
               DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
               ImmutableMap.of("proposal", proposal)),
           cascade);
+      if (failIfNotRemoved) {
+        throw notRemoved(urn, aspectName, null);
+      }
     }
   }
 
@@ -719,7 +709,8 @@ public class DeleteEntityService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn deletedUrn,
       final boolean dryRun,
-      @Nullable final CascadeOperationContext cascade) {
+      @Nullable final CascadeOperationContext cascade,
+      final boolean failIfNotRemoved) {
     int totalAssetCount = 0;
     String scrollId = null;
     do {
@@ -732,7 +723,8 @@ public class DeleteEntityService {
         assetsReferencingUrn.forEach(
             assetUrn -> {
               List<MetadataChangeProposal> mcps =
-                  deleteSearchReferencesForAsset(opContext, assetUrn, deletedUrn, cascade);
+                  deleteSearchReferencesForAsset(
+                      opContext, assetUrn, deletedUrn, cascade, failIfNotRemoved);
               mcps.forEach(
                   mcp -> {
                     if (cascade != null) {
@@ -741,7 +733,12 @@ public class DeleteEntityService {
                       }
                       cascade.attachToSystemMetadata(mcp.getSystemMetadata());
                     }
-                    _entityService.ingestProposal(opContext, mcp, createAuditStamp(), true);
+                    final IngestResult ingested =
+                        _entityService.ingestProposal(
+                            opContext, mcp, createAuditStamp(), !failIfNotRemoved);
+                    if (failIfNotRemoved && (ingested == null || !ingested.isSqlCommitted())) {
+                      throw notRemoved(assetUrn, mcp.getAspectName(), null);
+                    }
                   });
               if (cascade != null) {
                 cascade.recordEntityProcessed();
@@ -820,7 +817,8 @@ public class DeleteEntityService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn assetUrn,
       @Nonnull final Urn deletedUrn,
-      @Nullable final CascadeOperationContext cascade) {
+      @Nullable final CascadeOperationContext cascade,
+      final boolean failIfNotRemoved) {
     if (shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn)) {
       _entityService.deleteUrn(opContext, assetUrn);
     }
@@ -830,12 +828,21 @@ public class DeleteEntityService {
     aspectsToUpdate.forEach(
         aspectName -> {
           try {
+            // Read before the builder re-reads it, so a write in between fails the update.
+            final Long readVersion =
+                failIfNotRemoved ? readVersion(opContext, assetUrn, aspectName) : null;
             MetadataChangeProposal mcp =
                 updateAspectForSearchReference(opContext, assetUrn, deletedUrn, aspectName);
             if (mcp != null) {
+              if (readVersion != null) {
+                mcp.setHeaders(ifVersionMatch(readVersion));
+              }
               mcps.add(mcp);
             }
           } catch (Exception e) {
+            if (failIfNotRemoved) {
+              throw notRemoved(assetUrn, aspectName, e);
+            }
             log.error(
                 String.format(
                     "Error trying to update aspect %s for asset %s when deleting %s",
@@ -940,7 +947,8 @@ public class DeleteEntityService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn deletedUrn,
       final boolean dryRun,
-      @Nullable final CascadeOperationContext cascade) {
+      @Nullable final CascadeOperationContext cascade,
+      final boolean failIfNotRemoved) {
 
     Filter filter = DeleteEntityUtils.getFilterForFileDeletion(deletedUrn);
     List<String> entityNames = ImmutableList.of(Constants.DATAHUB_FILE_ENTITY_NAME);
@@ -965,6 +973,9 @@ public class DeleteEntityService {
                   cascade.recordEntityProcessed();
                 }
               } catch (Exception e) {
+                if (failIfNotRemoved) {
+                  throw notRemoved(fileUrn, Constants.DATAHUB_FILE_INFO_ASPECT_NAME, e);
+                }
                 log.error(
                     "Failed to process file deletion for urn: {} referenced by deleted entity: {}",
                     fileUrn,
@@ -1016,7 +1027,33 @@ public class DeleteEntityService {
 
       DataHubFileInfo fileInfo = new DataHubFileInfo(record.data());
 
-      deleteStorageObject(fileUrn, fileInfo);
+      // Delete from object storage when client is available and file has storage location
+      if (_objectStorageClient != null
+          && _objectStorageClient.isConfigured()
+          && fileInfo.hasBucketStorageLocation()) {
+        BucketStorageLocation location = fileInfo.getBucketStorageLocation();
+        String bucket = location.getStorageBucket();
+        String key = location.getStorageKey();
+
+        try {
+          _objectStorageClient.deleteObject(new ObjectStorageReference(bucket, key));
+          log.info(
+              "Successfully deleted file from object storage: bucket={}, key={}, urn={}",
+              bucket,
+              key,
+              fileUrn);
+        } catch (Exception e) {
+          log.error(
+              "Failed to delete file from object storage for urn: {}. Will continue with soft-delete to avoid "
+                  + "leaving entity in inconsistent state. Manual cleanup may be required.",
+              fileUrn,
+              e);
+        }
+      } else {
+        log.warn(
+            "Object storage not configured or file has no storage location, skipping object deletion for file: {}",
+            fileUrn);
+      }
 
       // Soft delete the file entity
       MetadataChangeProposal softDeleteMcp = DeleteEntityUtils.buildSoftDeleteProposal(fileUrn);
@@ -1029,36 +1066,52 @@ public class DeleteEntityService {
     }
   }
 
-  /** Deletes the file's object when storage is configured; failures are logged, not thrown. */
-  private void deleteStorageObject(
-      @Nonnull final Urn fileUrn, @Nonnull final DataHubFileInfo fileInfo) {
-    // Delete from object storage when client is available and file has storage location
-    if (_objectStorageClient != null
-        && _objectStorageClient.isConfigured()
-        && fileInfo.hasBucketStorageLocation()) {
-      BucketStorageLocation location = fileInfo.getBucketStorageLocation();
-      String bucket = location.getStorageBucket();
-      String key = location.getStorageKey();
-
+  /**
+   * The version a referrer aspect was read at, by {@code
+   * ConditionalWriteValidator.resolveAspectVersion}'s rule: a numeric {@code
+   * systemMetadata.version}, else max(1, row version). Used as the {@code If-Version-Match} of the
+   * rewrite, or the version bound of the delete, on the reliable path.
+   */
+  private static long versionOf(@Nonnull final EnvelopedAspect current) {
+    if (current.hasSystemMetadata() && current.getSystemMetadata().hasVersion()) {
       try {
-        _objectStorageClient.deleteObject(new ObjectStorageReference(bucket, key));
-        log.info(
-            "Successfully deleted file from object storage: bucket={}, key={}, urn={}",
-            bucket,
-            key,
-            fileUrn);
-      } catch (Exception e) {
-        log.error(
-            "Failed to delete file from object storage for urn: {}. Will continue with soft-delete to avoid "
-                + "leaving entity in inconsistent state. Manual cleanup may be required.",
-            fileUrn,
-            e);
+        return Long.parseLong(current.getSystemMetadata().getVersion());
+      } catch (NumberFormatException e) {
+        // A non-numeric version counts as absent, as in SystemAspect.
       }
-    } else {
-      log.warn(
-          "Object storage not configured or file has no storage location, skipping object deletion for file: {}",
-          fileUrn);
     }
+    return Math.max(1L, current.hasVersion() ? current.getVersion() : 0L);
+  }
+
+  @Nullable
+  private Long readVersion(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName) {
+    final EntityResponse response;
+    try {
+      response =
+          _entityService.getEntityV2(opContext, urn.getEntityType(), urn, Set.of(aspectName));
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException("Unreadable urn " + urn, e);
+    }
+    final EnvelopedAspect current = response == null ? null : response.getAspects().get(aspectName);
+    return current == null ? null : versionOf(current);
+  }
+
+  @Nonnull
+  private static StringMap ifVersionMatch(final long version) {
+    return new StringMap(Map.of(HTTP_HEADER_IF_VERSION_MATCH, String.valueOf(version)));
+  }
+
+  @Nonnull
+  private static IllegalStateException notRemoved(
+      @Nonnull final Urn referrer, @Nonnull final String aspectName, @Nullable final Exception e) {
+    return new IllegalStateException(
+        String.format(
+            "Could not remove the reference held by %s of %s (it may have changed since it was read)",
+            aspectName, referrer),
+        e);
   }
 
   @AllArgsConstructor
@@ -1083,5 +1136,6 @@ public class DeleteEntityService {
     String name;
     Aspect aspect;
     AspectSpec spec;
+    long version;
   }
 }

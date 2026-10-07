@@ -3503,6 +3503,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @Override
   public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
+    return deleteUrn(opContext, urn, null);
+  }
+
+  @Override
+  public RollbackRunResult deleteUrn(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling) {
     // No write gate is taken here. It is acquired inside deleteAspectWithoutMCL (the shared
     // DB-delete primitive), which scopes the lock to just the DB transaction and keeps the async
     // MCL
@@ -3524,7 +3530,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             keyAspectName,
             Collections.emptyMap(),
             true,
-            DeletePurpose.ORDINARY);
+            DeletePurpose.ORDINARY,
+            ceiling);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -3571,6 +3578,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           throw new RuntimeException(e);
         }
       }
+    } else if (ceiling != null) {
+      // Written to since the capture, so the entity stays: delete what was captured, aspect by
+      // aspect. Rows newer than the ceiling survive.
+      ceiling
+          .aspectVersions()
+          .forEach(
+              (aspectName, version) -> {
+                if (!aspectName.equals(keyAspectName)) {
+                  deleteAspect(
+                          opContext,
+                          urn.toString(),
+                          aspectName,
+                          Map.of(DELETE_CONDITION_MAX_VERSION, String.valueOf(version)),
+                          true)
+                      .ifPresent(removedAspectResults::add);
+                }
+              });
     }
 
     return new RollbackRunResult(
@@ -3580,326 +3604,58 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   @Nonnull
   public Optional<DeleteCeiling> captureDeleteCeiling(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, long capturedAtMillis) {
-    final String keyAspectName = opContext.getKeyAspectName(urn);
-    final Set<String> versionedAspects =
-        opContext.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpecs().stream()
-            .filter(aspectSpec -> !aspectSpec.isTimeseries())
-            .map(AspectSpec::getName)
-            .collect(Collectors.toSet());
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final OperationContext primary = opContext.withReadPreference(ReadPreference.PRIMARY);
     final Map<String, SystemAspect> latest;
     try {
       latest =
           aspectDao
               .getLatestAspects(
-                  opContext.withReadPreference(ReadPreference.PRIMARY),
-                  Map.of(urn.toString(), versionedAspects),
-                  false)
+                  primary, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)), false)
               .getOrDefault(urn.toString(), Map.of());
     } catch (EntityNotFoundException e) {
       return Optional.empty();
     }
-    final SystemAspect key = latest.get(keyAspectName);
-    if (key == null) {
+    if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
       return Optional.empty();
     }
-    final Map<String, Long> aspectVersions = new HashMap<>();
+    final Map<String, Long> versions = new HashMap<>();
     latest.forEach(
         (aspectName, row) -> {
-          if (!aspectName.equals(keyAspectName)) {
-            aspectVersions.put(aspectName, ConditionalWriteValidator.resolveAspectVersion(row));
-          }
+          // A legacy latest row has no systemMetadata.version (it counts as 1) while its history
+          // rows may be numbered higher: bound it by its highest row version instead, or those
+          // older rows would survive a bounded aspect delete and be restored as the latest.
+          final long version =
+              row.getSystemMetadataVersion()
+                  .orElseGet(
+                      () ->
+                          Math.max(
+                              1L,
+                              Optional.ofNullable(
+                                      aspectDao
+                                          .getVersionRange(primary, urn.toString(), aspectName)
+                                          .getSecond())
+                                  .orElse(0L)));
+          versions.put(aspectName, version);
         });
-    return Optional.of(
-        new DeleteCeiling(aspectVersions, DeleteCeiling.keyCreatedMillisOf(key), capturedAtMillis));
+    return Optional.of(new DeleteCeiling(versions));
   }
 
   @Override
   public void validateHardDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    validateCeilingDelete(opContext, urn, opContext.getKeyAspectName(urn));
-  }
-
-  /**
-   * Today's DELETE proposal validators, plus the soft-delete-first rule {@code
-   * deleteAspectWithoutMCL} applies to an ordinary destructive delete of a structured property (the
-   * entity, or its propertyDefinition) by a non-system session. Repeated here, not extracted, so
-   * the existing method stays byte-identical (R2).
-   */
-  private void validateCeilingDelete(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
-    final ValidationExceptionCollection exceptions =
-        AspectsBatch.validateProposed(
-            opContext,
-            List.of(
-                DeleteItemImpl.builder()
-                    .urn(urn)
-                    .aspectName(aspectName)
-                    .auditStamp(opContext.getAuditStamp())
-                    .build(opContext.getAspectRetriever())),
-            opContext.getRetrieverContext(),
-            opContext);
-    if (!exceptions.isEmpty()) {
-      throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
-    }
-    final boolean guarded =
-        STRUCTURED_PROPERTY_ENTITY_NAME.equals(urn.getEntityType())
-            && (aspectName.equals(opContext.getKeyAspectName(urn))
-                || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
-            && !opContext.isSystemAuth()
-            && !(opContext.getValidationContext() != null
-                && opContext.getValidationContext().isRemediationDeletion());
-    final OperationContext primary = opContext.withReadPreference(ReadPreference.PRIMARY);
-    if (guarded
-        && !isSoftDeleted(primary, urn.toString())
-        && latestAspectExists(primary, urn.toString(), aspectName)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Hard delete rejected for structured property qualifiedName '%s'. Soft-delete the"
-                  + " property first; soft deletion is reversible.",
-              urn.getId()));
-    }
-  }
-
-  @Override
-  public RollbackRunResult deleteUrn(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
-    if (ceiling.aspectVersions().containsKey(opContext.getKeyAspectName(urn))) {
-      throw new IllegalArgumentException(
-          String.format("A delete ceiling never lists the key aspect of %s", urn));
-    }
-    validateHardDelete(opContext, urn);
-    // The whole entity may go, so the gate covers its full aspect key-set (scoped mode only), as
-    // a key-aspect hard delete does today. MCL production stays outside it.
-    final List<String> gateKeys =
-        opContext.getEntityAspectNames(urn).stream()
-            .map(aspectName -> writeGateKey(urn.toString(), aspectName))
-            .collect(Collectors.toList());
-    final CeilingDeleteTransaction.Result result;
-    try (EntityWriteLock.LockHandle writeGate = acquireWriteGate(opContext, gateKeys)) {
-      result =
-          aspectDao
-              .runInTransactionWithRetry(
-                  opContext,
-                  txContext ->
-                      TransactionResult.commit(
-                          new CeilingDeleteTransaction(aspectDao)
-                              .deleteEntity(opContext, txContext, urn, ceiling)),
-                  DEFAULT_MAX_TRANSACTION_RETRY)
-              .orElseThrow(
-                  () -> new IllegalStateException("No result from the ceiling delete of " + urn));
-    }
-    return emitCeilingDelete(opContext, urn, result);
-  }
-
-  /**
-   * Post-commit work of a ceiling delete: today's side effects, cache invalidation and MCLs.
-   *
-   * <p>{@code PARTIAL}: the key stays, rows written after the ceiling survive and no key MCL is
-   * produced; only the removed latest rows get DELETE MCLs. The caller reads the outcome from the
-   * returned {@link RollbackRunResult}.
-   */
-  @Nonnull
-  private RollbackRunResult emitCeilingDelete(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull CeilingDeleteTransaction.Result result) {
-    final EntitySpec spec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
-    final List<AspectRowSummary> summaries = new ArrayList<>();
-    final List<RollbackResult> deletes = new ArrayList<>();
-    if (result.deletedKey() != null) {
-      final RollbackResult keyDelete =
-          deleteResultOf(urn, result.deletedKey(), true, result.rowsDeleted());
-      emitKeyDelete(
-          opContext, urn, result.keyDeleteSideEffectPreImages(), keyDelete, !cdcModeChangeLog);
-      summaries.add(deletedRowSummary(opContext, urn, keyDelete));
-      deletes.add(keyDelete);
-    }
-    for (SystemAspect row : result.deletedLatest()) {
-      final RollbackResult aspectDelete = deleteResultOf(urn, row, false, 0);
-      processPostCommitMCLSideEffects(
-          opContext, List.of(aspectDelete.toMCL(opContext.getAuditStamp())));
-      invalidateGraphCacheOnDelete(opContext, urn, row.getAspectName(), false);
-      if (!cdcModeChangeLog) {
-        produceDeleteMclAndAwait(opContext, aspectDelete, spec.getAspectSpec(row.getAspectName()));
-      }
-      summaries.add(deletedRowSummary(opContext, urn, aspectDelete));
-      deletes.add(aspectDelete);
-    }
-    return new RollbackRunResult(summaries, result.rowsDeleted(), deletes, result.outcome());
-  }
-
-  /**
-   * Post-commit work of a key-aspect hard delete, as {@code deleteAspectWithoutMCL} does it today:
-   * side effects fed by the pre-images, entity-wide graph-cache invalidation, then the key DELETE
-   * MCL.
-   */
-  private void emitKeyDelete(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull Map<String, RecordTemplate> preImages,
-      @Nonnull RollbackResult keyDelete,
-      boolean produce) {
-    processPostCommitMCLSideEffects(
+    final String keyAspectName = opContext.getKeyAspectName(urn);
+    validateDeleteProposal(
         opContext,
-        buildKeyDeleteSideEffectMcls(urn, opContext.getAuditStamp(), preImages, keyDelete));
-    invalidateGraphCacheOnDelete(opContext, urn, keyDelete.getAspectName(), true);
-    if (produce) {
-      produceDeleteMclAndAwait(
-          opContext,
-          keyDelete,
-          opContext.getEntityRegistry().getEntitySpec(urn.getEntityType()).getKeyAspectSpec());
+        DeleteItemImpl.builder()
+            .urn(urn)
+            .aspectName(keyAspectName)
+            .auditStamp(createSystemAuditStamp())
+            .build(opContext.getAspectRetriever()));
+    if (guardsStructuredPropertyDelete(
+        opContext, urn, keyAspectName, true, DeletePurpose.ORDINARY)) {
+      rejectUnlessSoftDeleted(
+          opContext.withReadPreference(ReadPreference.PRIMARY), urn, urn.toString(), keyAspectName);
     }
-  }
-
-  /**
-   * The MCL list a key-aspect hard delete hands to the post-commit side effects: the pre-image
-   * DELETE MCLs first, then the key DELETE MCL (the order {@code deleteAspectWithoutMCL} uses).
-   */
-  @VisibleForTesting
-  static List<MetadataChangeLog> buildKeyDeleteSideEffectMcls(
-      @Nonnull Urn urn,
-      @Nonnull AuditStamp auditStamp,
-      @Nonnull Map<String, RecordTemplate> preImages,
-      @Nonnull RollbackResult keyDelete) {
-    final List<MetadataChangeLog> mcls = new ArrayList<>();
-    preImages.forEach(
-        (aspectName, preImage) ->
-            mcls.add(
-                constructMCL(
-                    null,
-                    urn.getEntityType(),
-                    urn,
-                    ChangeType.DELETE,
-                    aspectName,
-                    auditStamp,
-                    null,
-                    null,
-                    preImage,
-                    null)));
-    mcls.add(keyDelete.toMCL(auditStamp));
-    return mcls;
-  }
-
-  private static void invalidateGraphCacheOnDelete(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      boolean keyAffected) {
-    final SyncGraphInvalidationBatch invalidationBatch =
-        EntityGraphSyncInvalidationSupport.fromSyncEntityDelete(
-            opContext, urn.toString(), urn.getEntityType(), aspectName, keyAffected);
-    if (!invalidationBatch.isEmpty()) {
-      opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
-    }
-  }
-
-  @Nonnull
-  private static RollbackResult deleteResultOf(
-      @Nonnull Urn urn, @Nonnull SystemAspect row, boolean keyAspect, int rowsDeleted) {
-    return new RollbackResult(
-        urn,
-        urn.getEntityType(),
-        row.getAspectName(),
-        row.getRecordTemplate(),
-        null,
-        row.getSystemMetadata(),
-        null,
-        ChangeType.DELETE,
-        keyAspect,
-        rowsDeleted);
-  }
-
-  @Nonnull
-  private static AspectRowSummary deletedRowSummary(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull RollbackResult deleted) {
-    final AspectRowSummary summary = new AspectRowSummary();
-    summary.setUrn(urn.toString());
-    summary.setKeyAspect(Boolean.TRUE.equals(deleted.getKeyAffected()));
-    summary.setAspectName(deleted.getAspectName());
-    summary.setVersion(0);
-    final SystemMetadata old = deleted.getOldSystemMetadata();
-    summary.setTimestamp(
-        old != null && old.getAspectCreated() != null
-            ? old.getAspectCreated().getTime()
-            : opContext.getAuditStamp().getTime());
-    return summary;
-  }
-
-  /** Produces the DELETE MCL for a committed delete and waits for the broker ack. */
-  void produceDeleteMclAndAwait(
-      @Nonnull OperationContext opContext,
-      @Nonnull RollbackResult result,
-      @Nonnull AspectSpec aspectSpec) {
-    final Future<?> future =
-        alwaysProduceMCLAsync(
-                opContext,
-                result.getUrn(),
-                result.getEntityName(),
-                result.getAspectName(),
-                aspectSpec,
-                result.getOldValue(),
-                result.getNewValue(),
-                result.getOldSystemMetadata(),
-                result.getNewSystemMetadata(),
-                opContext.getAuditStamp(),
-                result.getChangeType())
-            .getFirst();
-    if (future == null) {
-      return;
-    }
-    try {
-      future.get();
-      Optional.ofNullable(opContext.getSystemTelemetryContext())
-          .map(SystemTelemetryContext::getUsageSpanExporter)
-          .ifPresent(SpanProcessor::forceFlush);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException("Interrupted producing DELETE MCL for " + result.getUrn(), e);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Failed to produce DELETE MCL for " + result.getUrn(), e);
-    }
-  }
-
-  @Override
-  @Nonnull
-  public ConditionalDeleteOutcome deleteAspectUpToVersion(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      long ceilingVersion) {
-    final AspectSpec aspectSpec =
-        opContext.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpec(aspectName);
-    if (aspectName.equals(opContext.getKeyAspectName(urn))
-        || aspectSpec == null
-        || aspectSpec.isTimeseries()
-        || ceilingVersion < 1) {
-      throw new IllegalArgumentException(
-          String.format(
-              "deleteAspectUpToVersion needs a non-key, non-timeseries aspect of %s and a version"
-                  + " >= 1; got %s up to %d",
-              urn, aspectName, ceilingVersion));
-    }
-    validateCeilingDelete(opContext, urn, aspectName);
-    final CeilingDeleteTransaction.Result result;
-    try (EntityWriteLock.LockHandle writeGate =
-        acquireWriteGate(opContext, List.of(writeGateKey(urn.toString(), aspectName)))) {
-      result =
-          aspectDao
-              .runInTransactionWithRetry(
-                  opContext,
-                  txContext ->
-                      TransactionResult.commit(
-                          new CeilingDeleteTransaction(aspectDao)
-                              .deleteAspect(opContext, urn, aspectName, ceilingVersion)),
-                  DEFAULT_MAX_TRANSACTION_RETRY)
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          "No result from the ceiling delete of " + aspectName + " of " + urn));
-    }
-    emitCeilingDelete(opContext, urn, result);
-    return result.outcome();
   }
 
   @Override
@@ -3984,6 +3740,54 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
+  /** Today's DELETE proposal validators. */
+  private void validateDeleteProposal(
+      @Nonnull OperationContext opContext, @Nonnull MCPItem deleteItem) {
+    ValidationExceptionCollection exceptions =
+        AspectsBatch.validateProposed(
+            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
+    if (!exceptions.isEmpty()) {
+      throw new ValidationException(
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
+    }
+  }
+
+  private static boolean guardsStructuredPropertyDelete(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName,
+      boolean entityWideHardDelete,
+      DeletePurpose deletePurpose) {
+    return STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
+        && (entityWideHardDelete || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
+        && deletePurpose == DeletePurpose.ORDINARY
+        && !opContext.isSystemAuth()
+        // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
+        // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
+        // its rejection would otherwise be swallowed by processPendingDeletions and the
+        // aspect would stay oversized forever.
+        && !(opContext.getValidationContext() != null
+            && opContext.getValidationContext().isRemediationDeletion());
+  }
+
+  private void rejectUnlessSoftDeleted(
+      @Nonnull OperationContext primaryReadOpContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String urn,
+      @Nonnull String aspectName) {
+    if (!isSoftDeleted(primaryReadOpContext, urn)
+        && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
+                  + "can leave a permanent entity-index mapping for this normalized name, "
+                  + "preventing reuse until the affected entity indices are reindexed with "
+                  + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
+                  + "soft-deleted; soft deletion is reversible.",
+              entityUrn.getId()));
+    }
+  }
+
   /** Does not emit MCL */
   @VisibleForTesting
   @Nullable
@@ -4006,6 +3810,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull Map<String, String> conditions,
       boolean hardDelete,
       DeletePurpose deletePurpose) {
+    return deleteAspectWithoutMCL(
+        opContext, urn, aspectName, conditions, hardDelete, deletePurpose, null);
+  }
+
+  /**
+   * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
+   *     read under lock in the delete transaction, is at or below its captured version and none is
+   *     new since the capture; otherwise nothing is deleted
+   */
+  @Nullable
+  private RollbackResult deleteAspectWithoutMCL(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose,
+      @Nullable DeleteCeiling ceiling) {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
@@ -4023,13 +3845,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .build(opContext.getAspectRetriever());
 
     // Delete validation hooks
-    ValidationExceptionCollection exceptions =
-        AspectsBatch.validateProposed(
-            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
-    if (!exceptions.isEmpty()) {
-      throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
-    }
+    validateDeleteProposal(opContext, deleteItem);
 
     // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
     // effects before deleteUrn. Structured properties: PropertyDefinitionDeleteSideEffect.
@@ -4046,17 +3862,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final boolean entityWideHardDelete =
         hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn));
     final boolean guardStructuredPropertyDelete =
-        STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
-            && (entityWideHardDelete
-                || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
-            && deletePurpose == DeletePurpose.ORDINARY
-            && !opContext.isSystemAuth()
-            // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
-            // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
-            // its rejection would otherwise be swallowed by processPendingDeletions and the
-            // aspect would stay oversized forever.
-            && !(opContext.getValidationContext() != null
-                && opContext.getValidationContext().isRemediationDeletion());
+        guardsStructuredPropertyDelete(
+            opContext, entityUrn, aspectName, entityWideHardDelete, deletePurpose);
 
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
@@ -4095,17 +3902,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           guardStructuredPropertyDelete
               ? opContext.withReadPreference(ReadPreference.PRIMARY)
               : opContext;
-      if (guardStructuredPropertyDelete
-          && !isSoftDeleted(primaryReadOpContext, urn)
-          && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
-                    + "can leave a permanent entity-index mapping for this normalized name, "
-                    + "preventing reuse until the affected entity indices are reindexed with "
-                    + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
-                    + "soft-deleted; soft deletion is reversible.",
-                entityUrn.getId()));
+      if (guardStructuredPropertyDelete) {
+        rejectUnlessSoftDeleted(primaryReadOpContext, entityUrn, urn, aspectName);
       }
       result =
           aspectDao
@@ -4117,7 +3915,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // 1. Fetch the latest existing version of the aspect.
                     SystemAspect latest = null;
                     try {
-                      latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      // Bounded by version: lock the row so a write cannot land between the
+                      // version check and the delete.
+                      latest =
+                          aspectDao.getLatestAspect(
+                              opContext,
+                              urn,
+                              aspectName,
+                              conditions.containsKey(DELETE_CONDITION_MAX_VERSION));
                     } catch (EntityNotFoundException e) {
                       log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
                       opContext
@@ -4135,12 +3940,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // 2. Compare the match conditions, if they don't match, ignore.
                     SystemMetadata latestSystemMetadata = latest.getSystemMetadata();
-                    if (!filterMatch(latestSystemMetadata, conditions)) {
+                    if (!filterMatch(
+                        latestSystemMetadata,
+                        ConditionalWriteValidator.resolveAspectVersion(latest),
+                        conditions)) {
                       return TransactionResult.rollback();
                     }
 
                     // 3. Check if this is a key aspect
                     Boolean isKeyAspect = opContext.getKeyAspectName(entityUrn).equals(aspectName);
+
+                    // 3.1 A bounded entity delete: anything written since the capture keeps it.
+                    if (isKeyAspect
+                        && hardDelete
+                        && ceiling != null
+                        && !withinCeiling(opContext, entityUrn, ceiling)) {
+                      return TransactionResult.rollback();
+                    }
 
                     // 4. Fetch all preceding aspects, that match
                     List<SystemAspect> aspectsToDelete = new ArrayList<>();
@@ -4175,7 +3991,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           candidateAspect != null ? candidateAspect.getSystemMetadata() : null;
                       filterMatch =
                           previousSysMetadata != null
-                              && filterMatch(previousSysMetadata, conditions);
+                              && filterMatch(previousSysMetadata, maxVersion, conditions);
                       if (filterMatch) {
                         aspectsToDelete.add(candidateAspect);
                       } else if (candidateAspect == null) {
@@ -4442,8 +4258,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result;
   }
 
+  /**
+   * @param version the row's version: the latest row's {@code systemMetadata.version}, a history
+   *     row's row version
+   */
   protected boolean filterMatch(
-      @Nonnull SystemMetadata systemMetadata, Map<String, String> conditions) {
+      @Nonnull SystemMetadata systemMetadata, long version, Map<String, String> conditions) {
     String runIdCondition = conditions.getOrDefault("runId", null);
     if (runIdCondition != null) {
       if (!runIdCondition.equals(systemMetadata.getRunId())) {
@@ -4462,7 +4282,33 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         return false;
       }
     }
+    String maxVersionCondition = conditions.getOrDefault(DELETE_CONDITION_MAX_VERSION, null);
+    if (maxVersionCondition != null) {
+      if (version > Long.parseLong(maxVersionCondition)) {
+        return false;
+      }
+    }
     return true;
+  }
+
+  /**
+   * Whether every latest row of {@code urn}, read with {@code forUpdate}, is at or below its
+   * captured version: none was written, or created, since the capture.
+   */
+  private boolean withinCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
+    return aspectDao
+        .getLatestAspects(
+            opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)), true)
+        .getOrDefault(urn.toString(), Map.of())
+        .entrySet()
+        .stream()
+        .allMatch(
+            row -> {
+              final Long bound = ceiling.aspectVersions().get(row.getKey());
+              return bound != null
+                  && ConditionalWriteValidator.resolveAspectVersion(row.getValue()) <= bound;
+            });
   }
 
   protected AuditStamp createSystemAuditStamp() {

@@ -572,17 +572,12 @@ public abstract class GenericEntitiesController<
               .collect(Collectors.toSet());
     }
 
-    if (reliableHardDelete != null
-        && reliableHardDelete.isEnabled()
-        && (aspects == null
-            || aspects.isEmpty()
-            || aspects.contains(entitySpec.getKeyAspectName()))) {
-      reliableHardDelete.delete(opContext, urn);
-      return;
-    }
-
     if (aspects == null || aspects.isEmpty() || aspects.contains(entitySpec.getKeyAspectName())) {
-      entityService.deleteUrn(opContext, urn);
+      if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
+        reliableHardDelete.delete(opContext, urn);
+      } else {
+        entityService.deleteUrn(opContext, urn);
+      }
     } else {
       aspects.stream()
           .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
