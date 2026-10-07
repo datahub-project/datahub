@@ -1,4 +1,5 @@
 import pathlib
+import re
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -2023,11 +2024,11 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     query_sql = captured["query"]
     assert "tl2.statement_id" in query_sql
     assert "system.access.table_lineage tl2" in query_sql
-    assert "UPPER(tl2.source_table_catalog) RLIKE ?" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE ?" in query_sql
-    assert "^MAIN$" not in query_sql
+    assert "tl2.source_table_catalog RLIKE ?" in query_sql
+    assert "tl2.target_table_catalog RLIKE ?" in query_sql
+    assert "^main$" not in query_sql
     assert len(captured["params"]) == 8
-    assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
+    assert captured["params"][6:] == ("(?i)^main$", "(?i)^main$")
     assert "%s" not in query_sql
     assert query_sql.count("?") == len(captured["params"])
 
@@ -2060,8 +2061,8 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
 
     query_sql = captured["query"]
     assert "NOT RLIKE ?" in query_sql
-    assert "^SYSTEM$" not in query_sql
-    assert captured["params"][6:] == ("^SYSTEM$", "^SYSTEM$")
+    assert "^system$" not in query_sql
+    assert captured["params"][6:] == ("(?i)^system$", "(?i)^system$")
 
 
 def test_fetch_queries_passes_catalog_pattern_when_pushdown_enabled(
@@ -2514,7 +2515,7 @@ def test_get_query_history_catalog_pushdown_binds_pattern_params() -> None:
 
     assert malicious_pattern not in captured["query"]
     assert "RLIKE ?" in captured["query"]
-    assert malicious_pattern.upper() in captured["params"]
+    assert f"(?i){malicious_pattern}" in captured["params"]
 
 
 def test_usage_statement_types_select_only_when_ops_disabled() -> None:
@@ -2777,6 +2778,20 @@ def test_build_catalog_column_filter_respects_ignore_case_false() -> None:
     assert params == ["^Main$"]
 
 
+def test_build_catalog_column_filter_ignore_case_preserves_regex_escapes() -> None:
+    """ignoreCase must not upper-case the pattern text: that flips \\d to \\D."""
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
+
+    _, params = _build_catalog_column_filter(
+        "tl2.source_table_catalog",
+        AllowDenyPattern(allow=[r"^prod_\d+$"], deny=[], ignoreCase=True),
+    )
+    (bound_pattern,) = params
+    assert re.search(bound_pattern, "PROD_2024")
+    assert re.search(bound_pattern, "prod_2024")
+
+
 def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
     from datahub.configuration.common import AllowDenyPattern
 
@@ -2802,9 +2817,9 @@ def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
         )
 
     query_sql = captured["query"]
-    assert "UPPER(tl2.source_table_catalog) RLIKE ?" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE ?" in query_sql
-    assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
+    assert "tl2.source_table_catalog RLIKE ?" in query_sql
+    assert "tl2.target_table_catalog RLIKE ?" in query_sql
+    assert captured["params"][6:] == ("(?i)^main$", "(?i)^main$")
 
 
 def test_aggregate_parse_failure_warning() -> None:

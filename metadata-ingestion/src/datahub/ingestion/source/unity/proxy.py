@@ -199,15 +199,15 @@ def _build_catalog_column_filter(
     bind_params: list[str] = []
 
     def transform(pattern: str) -> str:
-        return pattern.upper() if catalog_pattern.ignoreCase else pattern
-
-    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+        # Upper-casing the pattern text would flip escape classes (\d -> \D),
+        # so case-insensitivity goes through the regex flag instead.
+        return f"(?i){pattern}" if catalog_pattern.ignoreCase else pattern
 
     allow_patterns = catalog_pattern.allow
     if allow_patterns and allow_patterns != [".*"]:
         allow_conditions = []
         for pattern in allow_patterns:
-            allow_conditions.append(f"{col_expr} RLIKE ?")
+            allow_conditions.append(f"{column_expr} RLIKE ?")
             bind_params.append(transform(pattern))
         if allow_conditions:
             pattern_parts.append(
@@ -220,7 +220,7 @@ def _build_catalog_column_filter(
     if deny_patterns:
         deny_conditions = []
         for pattern in deny_patterns:
-            deny_conditions.append(f"{col_expr} NOT RLIKE ?")
+            deny_conditions.append(f"{column_expr} NOT RLIKE ?")
             bind_params.append(transform(pattern))
         if deny_conditions:
             pattern_parts.append(
