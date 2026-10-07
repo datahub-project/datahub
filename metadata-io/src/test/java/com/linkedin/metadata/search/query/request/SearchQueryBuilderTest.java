@@ -2132,4 +2132,30 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     }
     children.forEach(child -> collectClauses(child, out));
   }
+
+  @Test
+  public void testExactMatchClausesCoverUserDisplayName() {
+    // corpuser/corpGroup keep their entity name in displayName (users also fullName), not name or
+    // title. Quoted queries run only the exact/prefix builder (simpleQuery is off for them), so a
+    // quoted user display name returned zero hits while the equivalent quoted dataset or domain
+    // name matched through name.keyword. The light path's exact-name boost had the same gap.
+    EntitySpec corpUserSpec = opContext.getEntityRegistry().getEntitySpec("corpuser");
+    // The exact/prefix builder with the core-field filter is the V2.5 path, selected by the V3
+    // keyword-read builder; the legacy builder queries every keyword field and is unaffected.
+    SearchQueryBuilder v25Builder = new SearchQueryBuilder(testQueryConfig, null, true);
+
+    String fullPath =
+        v25Builder
+            .buildQuery(opContext, ImmutableList.of(corpUserSpec), "\"Pat Example\"", true, false)
+            .toString();
+    assertTrue(fullPath.contains("\"displayName.keyword\""), fullPath);
+    assertTrue(fullPath.contains("\"fullName.keyword\""), fullPath);
+
+    String lightPath =
+        v25Builder
+            .buildQuery(opContext, ImmutableList.of(corpUserSpec), "Pat Example", true, true)
+            .toString();
+    assertTrue(lightPath.contains("\"displayName.keyword\""), lightPath);
+    assertTrue(lightPath.contains("\"fullName.keyword\""), lightPath);
+  }
 }
