@@ -69,11 +69,12 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
+    canCreateGlossaryEntity: boolean;
     isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
-    const { entityType, onClose, refetchData } = props;
+    const { entityType, onClose, refetchData, canCreateGlossaryEntity } = props;
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
@@ -255,7 +256,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 {
                     text: tc('create'),
                     variant: 'filled',
-                    disabled: createButtonDisabled,
+                    disabled: createButtonDisabled || !canCreateGlossaryEntity,
                     onClick: createGlossaryEntity,
                     buttonDataTestId: 'glossary-entity-modal-create-button',
                 },
