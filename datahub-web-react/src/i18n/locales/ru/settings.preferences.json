@@ -7,6 +7,7 @@
     "showApplications.description": "Приложения — ещё один способ организации данных, похожий на Домены. По умолчанию они скрыты.",
     "showApplications.successMessage": "Настройка обновлена!",
     "showApplications.title": "Показывать приложения",
+    "darkMode.beta": "Бета",
     "darkMode.description": "Использовать тёмную цветовую тему во всём DataHub.",
     "darkMode.title": "Тёмная тема"
 }

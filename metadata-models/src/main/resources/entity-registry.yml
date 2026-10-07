@@ -41,6 +41,7 @@ entities:
       - datasetDeprecation
       - datasetUpstreamLineage
       - upstreamLineage
+      - upstreamMetrics
       - institutionalMemory
       - ownership
       - editableSchemaMetadata
@@ -148,6 +149,7 @@ entities:
     keyAspect: chartKey
     aspects:
       - chartInfo
+      - upstreamMetrics
       - editableChartProperties
       - chartQuery
       - inputFields
@@ -185,6 +187,7 @@ entities:
       - subTypes
       - embed
       - dashboardInfo
+      - upstreamMetrics
       - editableDashboardProperties
       - ownership
       - status

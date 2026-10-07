@@ -86,7 +86,7 @@ public class UpdateIndicesServiceFactory {
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
@@ -121,7 +121,7 @@ public class UpdateIndicesServiceFactory {
       final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
       final TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,

@@ -56,7 +56,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -144,9 +145,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     operationContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-                new SnapshotEntityRegistry(new Snapshot()),
-                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
+        TestOperationContexts.withFixedSearchClient(
+                TestOperationContexts.systemContextNoSearchAuthorization(
+                    new SnapshotEntityRegistry(new Snapshot()),
+                    SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+                getSearchClient())
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
@@ -227,9 +230,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
     searchClientSpy = spy(getSearchClient());
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(operationContext, searchClientSpy);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            searchClientSpy,
             false,
             getElasticSearchConfiguration(),
             null,
@@ -237,13 +241,16 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClientSpy,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(getElasticSearchConfiguration(), searchClientSpy, getBulkProcessor());
+        new ESWriteDAO(
+            getElasticSearchConfiguration(),
+            searchClientSpy,
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
@@ -251,7 +258,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -777,20 +784,20 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
     verify(lineageSearchService, times(1))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "1"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
     verify(lineageSearchService, times(2))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     searchResult = searchAcrossLineage(QueryUtils.newFilter("degree", "2"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     verify(lineageSearchService, times(3))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true); // resets spy
 
     Urn urn2 = new TestEntityUrn("test2", "urn2", "VALUE_2");
@@ -807,7 +814,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     verify(lineageSearchService, times(1))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true);
 
     when(graphService.getImpactLineage(
@@ -823,7 +830,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().size(), 1);
     verify(lineageSearchService, times(1))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true);
 
     // Test Cache Behavior
@@ -857,7 +864,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         .getImpactLineage(
             eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt());
     verify(lineageSearchService, times(1))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     // Hit the cache on second attempt
     searchResult =
@@ -877,7 +884,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         .getImpactLineage(
             eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt());
     verify(lineageSearchService, times(2))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     // Case 2: Use the start and end time in the cache.
     when(graphService.getImpactLineage(
@@ -918,7 +925,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             eq(DOWNSTREAM_FILTERS),
             anyInt());
     verify(lineageSearchService, times(3))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     // Hit the cache on second attempt
     searchResult =
@@ -944,7 +951,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             eq(DOWNSTREAM_FILTERS),
             anyInt());
     verify(lineageSearchService, times(4))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     /*
      * Test filtering
@@ -967,7 +974,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     verify(lineageSearchService, times(1))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     // Cached
     searchResult =
@@ -992,7 +999,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             eq(DOWNSTREAM_FILTERS),
             anyInt());
     verify(lineageSearchService, times(2))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
 
@@ -1022,7 +1029,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     verify(lineageSearchService, times(3))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     // Cached
     searchResult =
@@ -1041,7 +1048,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         .getImpactLineage(
             eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), eq(1000));
     verify(lineageSearchService, times(4))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
 
@@ -1062,7 +1069,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     verify(lineageSearchService, times(5))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
 
     // Cached
     searchResult =
@@ -1087,7 +1094,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             eq(DOWNSTREAM_FILTERS),
             eq(1000));
     verify(lineageSearchService, times(6))
-        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        .getLightningSearchResult(any(), any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
 

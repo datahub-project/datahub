@@ -6,13 +6,17 @@ import styled from 'styled-components';
 import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
-import { CommandK } from '@app/searchV2/CommandK';
 import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     border-width: 2px !important;
     border-color: ${(props) => props.theme.colors.border};
+    padding-right: 4px !important;
+
+    &.ant-input-affix-wrapper {
+        padding-right: 4px !important;
+    }
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -33,7 +37,11 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
  `}
 `;
 
-const ViewSelectContainer = styled.div``;
+const ViewSelectContainer = styled.div`
+    display: flex;
+    align-items: center;
+    align-self: center;
+`;
 
 const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
@@ -58,12 +66,10 @@ background: ${props.theme.colors.bgSurface};
 `;
 
 const SuffixWrapper = styled.div`
-    display: flex;
+    display: inline-flex;
     flex-direction: row;
     align-items: center;
-    gap: 4px;
-    padding: 4px 0 4px 0;
-    line-height: 20px;
+    align-self: center;
 `;
 
 interface Props {
@@ -76,7 +82,6 @@ interface Props {
     onClear?: () => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
-    showCommandK?: boolean;
     viewsEnabled?: boolean;
     viewsWithPopover?: boolean;
     isViewsSelectOpened?: boolean;
@@ -98,7 +103,6 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             onClear,
             isDropdownOpened,
             placeholder,
-            showCommandK,
             viewsEnabled,
             viewsWithPopover,
             width,
@@ -162,7 +166,6 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     forceUncontrolled
                     suffix={
                         <SuffixWrapper>
-                            {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
                             {viewsEnabled && (
                                 <ViewSelectContainer
                                     onClick={onViewSelectContainerClickHandler}

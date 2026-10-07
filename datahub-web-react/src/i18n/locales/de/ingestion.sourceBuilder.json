@@ -235,6 +235,7 @@
     "secret.notFound": "Keine Secrets gefunden",
     "selectTemplate.noResults": "Datenquelle mit dem Namen \"{{searchFilter}}\" nicht gefunden.",
     "selectTemplate.searchPlaceholder": "Datenquellen suchen...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake schaltet die Authentifizierung mit Benutzername + Passwort (DEFAULT_AUTHENTICATOR) im Rahmen des Strong-Authentication-Rollouts ab. Die Passwort-Authentifizierung funktioniert ab einem kontospezifischen Stichtag in Phase 3 (Aug-Okt 2026) nicht mehr. Wechsle dieses Rezept vor dem Stichtag deines Kontos auf Key-Pair-Authentifizierung (KEY_PAIR_AUTHENTICATOR). Siehe den <anchor>Migrationsleitfaden</anchor>.",
     "steps.titles.createSchedule": "Synchronisationszeitplan",
     "steps.titles.defineRecipe": "Verbindung konfigurieren",
     "steps.titles.nameSource": "Abschließen",

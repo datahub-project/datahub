@@ -18,8 +18,10 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.ClassicalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -718,6 +720,135 @@ public class EmbeddingProviderFactoryTest {
         "expected dimension-mismatch message, got: " + ex.getMessage());
     // Provider must be closed to release native resources when validation fails.
     verify(provider).close();
+  }
+
+  // ------- Classical provider tests -------
+  // factoryWithOnnxConfig is the generic config + models wiring, reused as-is.
+
+  private static EmbeddingProviderConfiguration configWithClassical(String model) {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("classical");
+    config.getClassical().setModel(model);
+    config.getClassical().setAcknowledgeLexicalOnly(true);
+    return config;
+  }
+
+  private static Map<String, ModelEmbeddingConfig> modelsWith(
+      String key, int dims, String spaceType) {
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(dims);
+    modelConfig.setSpaceType(spaceType);
+    return Map.of(key, modelConfig);
+  }
+
+  @Test
+  public void instantiatesClassicalProviderViaGetInstance() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    EmbeddingProvider provider = factory.getInstance();
+
+    assertTrue(
+        provider instanceof ClassicalEmbeddingProvider,
+        "expected ClassicalEmbeddingProvider, got: " + provider.getClass().getName());
+    assertEquals(provider.embed("id", null).length, 2048);
+  }
+
+  /** The provider is lexical, not semantic: startup refuses it without the explicit opt-in. */
+  @Test
+  public void rejectsClassicalWithoutLexicalOnlyAcknowledgement() throws Exception {
+    EmbeddingProviderConfiguration config = configWithClassical("hash-v1-2048");
+    config.getClassical().setAcknowledgeLexicalOnly(false);
+    TestableFactory factory =
+        factoryWithOnnxConfig(config, modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY"),
+        "expected opt-in hint, got: " + ex.getMessage());
+  }
+
+  /** Elasticsearch names the metric "cosine"; OpenSearch "cosinesimil". Both are accepted. */
+  @Test
+  public void acceptsClassicalWithElasticsearchCosineSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-256"), modelsWith("hash_v1_256", 256, "cosine"));
+
+    assertTrue(factory.getInstance() instanceof ClassicalEmbeddingProvider);
+  }
+
+  @Test
+  public void rejectsClassicalWithMalformedModelName() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v9-2048"), modelsWith("hash_v9_2048", 2048, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalWhenModelKeyMissingFromModelsMap() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"),
+            modelsWith("text_embedding_3_large", 3072, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalOnDimensionMismatch() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 1024, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalOnNonCosineSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "l2"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  /** The mapping translator matches case-sensitively, so a case variant must fail here too. */
+  @Test
+  public void rejectsClassicalOnCaseVariantSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "Cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  /** A yaml without the classical block must fail with the configuration hint, not an NPE. */
+  @Test
+  public void rejectsClassicalWhenClassicalConfigBlockMissing() throws Exception {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("classical");
+    config.setClassical(null);
+    TestableFactory factory =
+        factoryWithOnnxConfig(config, modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("CLASSICAL_EMBEDDING_MODEL"),
+        "expected configuration hint, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsClassicalWhenModelsMapMissing() throws Exception {
+    TestableFactory factory = factoryWithOnnxConfig(configWithClassical("hash-v1-2048"), null);
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("semanticSearch.models"),
+        "expected missing-models message, got: " + ex.getMessage());
   }
 
   // ------- getInstance() NoOp paths -------

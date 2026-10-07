@@ -10,6 +10,7 @@ import {
     getDefaultSummaryPageTemplate,
 } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE } from '@app/homeV3/modules/constants';
+import usePrevious from '@app/shared/usePrevious';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
@@ -18,10 +19,11 @@ import { PageTemplateSurfaceType } from '@types';
 export function useTemplateState(templateType: PageTemplateSurfaceType) {
     const entityRegistry = useEntityRegistryV2();
     const [areTemplatesInitialized, setAreTemplatesInitialized] = useState(false);
+    const [isAssetSummaryTemplateInitialized, setIsAssetSummaryTemplateInitialized] = useState(false);
     const [personalTemplate, setPersonalTemplate] = useState<PageTemplateFragment | null>(null);
     const [globalTemplate, setGlobalTemplate] = useState<PageTemplateFragment | null>(null);
 
-    const { entityType, entityData } = useEntityContext();
+    const { entityType, entityData, urn } = useEntityContext();
     const { settings, loaded: globalSettingsLoaded } = useGlobalSettings();
     const { user, loaded: userLoaded } = useUserContext();
 
@@ -51,13 +53,28 @@ export function useTemplateState(templateType: PageTemplateSurfaceType) {
         templateType,
     ]);
 
+    const prevUrn = usePrevious(urn);
+    // reinitialization of templates for asset summary page when another entity is opened
+    useEffect(() => {
+        if (templateType === PageTemplateSurfaceType.AssetSummary && !!urn && !!prevUrn && prevUrn !== urn) {
+            setGlobalTemplate(null);
+            setPersonalTemplate(null);
+            setIsAssetSummaryTemplateInitialized(false);
+        }
+    }, [templateType, prevUrn, urn]);
+
     // setting default and local templates for asset summary page
     useEffect(() => {
-        if (templateType === PageTemplateSurfaceType.AssetSummary && !!entityData) {
+        if (
+            !isAssetSummaryTemplateInitialized &&
+            templateType === PageTemplateSurfaceType.AssetSummary &&
+            !!entityData
+        ) {
             setGlobalTemplate(getDefaultSummaryPageTemplate(entityType));
             setPersonalTemplate(entityData?.settings?.assetSummary?.templates?.[0].template || null);
+            setIsAssetSummaryTemplateInitialized(true);
         }
-    }, [areTemplatesInitialized, entityType, entityData, templateType]);
+    }, [isAssetSummaryTemplateInitialized, entityType, entityData, templateType]);
 
     const [isEditingGlobalTemplate, setIsEditingGlobalTemplate] = useState(false);
 

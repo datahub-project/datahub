@@ -20,7 +20,7 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
             Object.entries(params)
                 // select only the ones with the `filter_` prefix
                 .filter(([key, _]) => key.indexOf(FILTER_URL_PREFIX) >= 0)
-                // transform the filters currently in format [key, [value1, value2]] to [{key: key, value: value1}, { key: key, value: value2}] format that graphql expects
+                // Build FacetFilterInput objects with `values` arrays for GraphQL (singular `value` is not used).
                 .map(([key, value]) => {
                     // remove the `filter_` prefix
                     const fieldIndex = key.replace(FILTER_URL_PREFIX, '');

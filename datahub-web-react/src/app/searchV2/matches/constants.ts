@@ -118,18 +118,18 @@ function getDefaultMatchedFieldConfig(): Array<MatchedFieldConfig> {
     ];
 }
 
-const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = getDefaultMatchedFieldConfig();
+function getChartDashboardFieldConfig(): Array<MatchedFieldConfig> {
+    return getDefaultMatchedFieldConfig().map((config) =>
+        config.name === 'title' ? { ...config, groupInto: 'name' } : config,
+    );
+}
 
-const CHART_DASHBOARD_FIELD_CONFIG: Array<MatchedFieldConfig> = DEFAULT_MATCHED_FIELD_CONFIG.map((config) => {
-    if (config.name === 'title') return { ...config, groupInto: 'name' };
-    return config;
-});
-
-export const MATCHED_FIELD_CONFIG = {
-    [EntityType.Chart]: CHART_DASHBOARD_FIELD_CONFIG,
-    [EntityType.Dashboard]: CHART_DASHBOARD_FIELD_CONFIG,
-    DEFAULT: DEFAULT_MATCHED_FIELD_CONFIG,
-} as const;
+export function getMatchedFieldConfig(entityType: EntityType | undefined): Array<MatchedFieldConfig> {
+    if (entityType === EntityType.Chart || entityType === EntityType.Dashboard) {
+        return getChartDashboardFieldConfig();
+    }
+    return getDefaultMatchedFieldConfig();
+}
 
 export type MatchesGroupedByFieldName = {
     fieldName: string;

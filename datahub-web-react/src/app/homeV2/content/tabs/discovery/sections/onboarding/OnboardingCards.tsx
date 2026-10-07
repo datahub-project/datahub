@@ -30,6 +30,10 @@ export const OnboardingCards = () => {
     // We use manage policies here because this determines whether users can invite other users
     // with particular roles.
     const canManageUsers = platformPrivileges?.managePolicies;
+    // Determines if the user has privileges to create a domain
+    const canCreateDomains = platformPrivileges?.createDomains;
+    // Determines if the user has privileges to create an ingestion source
+    const canManageIngestion = platformPrivileges?.manageIngestion;
 
     const openInviteUsers = () => {
         setIsViewingInviteToken(true);
@@ -37,14 +41,16 @@ export const OnboardingCards = () => {
 
     return (
         <div style={{ display: 'flex', gap: '16px' }} id={HOME_PAGE_ONBOARDING_CARDS_ID}>
-            <Link to={`${PageRoutes.INGESTION}`}>
-                <Card
-                    icon={<Plugs color={theme.colors.icon} size={32} />}
-                    title={t('onboarding.addDataSourcesTitle')}
-                    subTitle={t('onboarding.addDataSourcesSubtitle')}
-                    button={<Button variant="text">{tc('add')}</Button>}
-                />
-            </Link>
+            {canManageIngestion ? (
+                <Link to={`${PageRoutes.INGESTION}`}>
+                    <Card
+                        icon={<Plugs color={theme.colors.icon} size={32} />}
+                        title={t('onboarding.addDataSourcesTitle')}
+                        subTitle={t('onboarding.addDataSourcesSubtitle')}
+                        button={<Button variant="text">{tc('add')}</Button>}
+                    />
+                </Link>
+            ) : null}
             {canManageUsers ? (
                 <Card
                     icon={<UserPlus color={theme.colors.icon} size={32} />}
@@ -54,14 +60,16 @@ export const OnboardingCards = () => {
                     button={<Button variant="text">{tc('invite')}</Button>}
                 />
             ) : null}
-            <Link to={`${PageRoutes.DOMAINS}?create=true`}>
-                <Card
-                    icon={<Globe color={theme.colors.icon} size={32} />}
-                    title={t('onboarding.addDomainsTitle')}
-                    subTitle={t('onboarding.addDomainsSubtitle')}
-                    button={<Button variant="text">{tc('add')}</Button>}
-                />
-            </Link>
+            {canCreateDomains ? (
+                <Link to={`${PageRoutes.DOMAINS}?create=true`}>
+                    <Card
+                        icon={<Globe color={theme.colors.icon} size={32} />}
+                        title={t('onboarding.addDomainsTitle')}
+                        subTitle={t('onboarding.addDomainsSubtitle')}
+                        button={<Button variant="text">{tc('add')}</Button>}
+                    />
+                </Link>
+            ) : null}
             <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
         </div>
     );

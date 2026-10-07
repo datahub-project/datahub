@@ -10,7 +10,7 @@ import LineageEdges from '@app/lineageV3/manualLineage/LineageEdges';
 import { buildUpdateLineagePayload } from '@app/lineageV3/manualLineage/buildUpdateLineagePayload';
 import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
-import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
@@ -83,7 +83,9 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     const fetchStatus = node.fetchStatus[direction];
     const { adjacencyList } = nodeContext;
     const validEntityTypes = getValidEntityTypes(direction, node.entity?.type);
-    const initialSetOfRelationshipsUrns = adjacencyList[direction].get(node.urn) || new Set();
+    const initialSetOfRelationshipsUrns = new Set(
+        filterManualLineageUrns(adjacencyList[direction].get(node.urn) || [], validEntityTypes),
+    );
     const [isSaving, setIsSaving] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
@@ -209,6 +211,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                             <LineageEdges
                                 parentUrn={node.urn}
                                 direction={direction}
+                                validEntityTypes={validEntityTypes}
                                 entitiesToAdd={entitiesToAdd}
                                 entitiesToRemove={entitiesToRemove}
                                 onRemoveEntity={(entity) => {

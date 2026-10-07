@@ -304,7 +304,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 subtype={getFirstSubType(data)}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -337,7 +337,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
@@ -381,6 +381,10 @@ export class DashboardEntity implements Entity<Dashboard> {
         return data.properties?.name || data.urn;
     };
 
+    createdTime = (data: Dashboard) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
+    };
+
     getGenericEntityProperties = (data: Dashboard) => {
         return getDataForEntityType({
             data,
@@ -417,4 +421,8 @@ export class DashboardEntity implements Entity<Dashboard> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Dashboard) => {
+        return data?.platform;
+    };
 }

@@ -1,4 +1,4 @@
-import { Input } from '@components';
+import { MultiValueInput } from '@components';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -7,7 +7,7 @@ import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/Enti
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { mapResourceTypeToEntityType, toStartsWithValues } from '@app/permissions/policy/policyUtils';
+import { mapResourceTypeToEntityType } from '@app/permissions/policy/policyUtils';
 
 import { EntityType, PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -23,6 +23,8 @@ type Props = {
     resourceTypeCondition: PolicyMatchCondition;
 };
 
+const EMPTY_ENTITY_TYPES: EntityType[] = [];
+
 const FieldWithConditionWrapper = styled.div`
     display: flex;
     gap: 8px;
@@ -33,10 +35,6 @@ const FieldWithConditionWrapper = styled.div`
 const SelectContainer = styled.div`
     flex: 1;
     min-width: 0;
-`;
-
-const StyledInput = styled(Input)`
-    width: 100%;
 `;
 
 export default function ResourceSelect({
@@ -53,7 +51,6 @@ export default function ResourceSelect({
     const { t } = useTranslation('settings.permissions');
 
     const isStartsWithCondition = resourceCondition === PolicyMatchCondition.StartsWith;
-    const startswithValue = isStartsWithCondition && resourceSelectValue.length > 0 ? resourceSelectValue[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(resourceCondition, FIELD_TYPES.RESOURCE, onConditionChange);
 
@@ -62,7 +59,7 @@ export default function ResourceSelect({
         // Equals condition: search only selected resource types' entity types
         if (resourceTypeCondition === PolicyMatchCondition.Equals) {
             if (!resourceTypeSelectValue?.length) {
-                return [];
+                return EMPTY_ENTITY_TYPES;
             }
             return resourceTypeSelectValue
                 .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
@@ -70,7 +67,7 @@ export default function ResourceSelect({
         }
 
         // For NotEquals and StartsWith, search all types
-        return [];
+        return EMPTY_ENTITY_TYPES;
     }, [resourceTypeCondition, resourceTypeSelectValue, resourcePrivileges]);
 
     return (
@@ -84,10 +81,11 @@ export default function ResourceSelect({
             />
             <SelectContainer>
                 {isStartsWithCondition ? (
-                    <StyledInput
+                    <MultiValueInput
                         placeholder={t('privilegeForm.resourcePrefixPlaceholder')}
-                        value={startswithValue}
-                        onChange={(e) => onResourcesChange(toStartsWithValues(e.target.value))}
+                        values={resourceSelectValue}
+                        onUpdate={onResourcesChange}
+                        width="full"
                     />
                 ) : (
                     <EntitySearchSelect

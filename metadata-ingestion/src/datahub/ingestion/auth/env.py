@@ -8,6 +8,8 @@ OAuth tokens instead of a static ``DATAHUB_GMS_TOKEN``.
 
 Supported values of ``DATAHUB_AUTH_TYPE`` and their variables:
 
+- ``pat``: ``DATAHUB_AUTH_TOKEN_FILE`` or ``DATAHUB_GMS_TOKEN`` (one required;
+  the file wins when both are set)
 - ``k8s_oidc``: ``DATAHUB_AUTH_TOKEN_FILE`` (optional),
   ``DATAHUB_AUTH_AUDIENCE`` (optional)
 - ``azure_entra``: ``DATAHUB_AUTH_AZURE_TENANT_ID``,
@@ -20,6 +22,7 @@ Supported values of ``DATAHUB_AUTH_TYPE`` and their variables:
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 
 from pydantic import SecretStr
@@ -27,6 +30,8 @@ from pydantic import SecretStr
 from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.auth.registry import AuthConfig
+
+logger = logging.getLogger(__name__)
 
 ENV_AUTH_TYPE = "DATAHUB_AUTH_TYPE"
 
@@ -53,8 +58,22 @@ def build_auth_config_from_env() -> Optional[AuthConfig]:
     if not auth_type:
         return None
 
+    gms_token = env_vars.get_gms_token()
+    static_token_ignored = gms_token is not None
+
     config: Dict[str, Any] = {}
-    if auth_type == "k8s_oidc":
+    if auth_type == "pat":
+        if token_file := env_vars.get_auth_token_file():
+            config["token_file"] = token_file
+        elif gms_token:
+            config["token"] = SecretStr(gms_token)
+            static_token_ignored = False
+        else:
+            raise ConfigurationError(
+                f"{ENV_AUTH_TYPE}=pat requires DATAHUB_AUTH_TOKEN_FILE or "
+                "DATAHUB_GMS_TOKEN to be set."
+            )
+    elif auth_type == "k8s_oidc":
         if token_file := env_vars.get_auth_token_file():
             config["token_file"] = token_file
         if audience := env_vars.get_auth_audience():
@@ -96,9 +115,14 @@ def build_auth_config_from_env() -> Optional[AuthConfig]:
     else:
         raise ConfigurationError(
             f"Unsupported {ENV_AUTH_TYPE}: '{auth_type}'. Supported types: "
-            "k8s_oidc, azure_entra, oidc_client_credentials. Custom providers "
+            "pat, k8s_oidc, azure_entra, oidc_client_credentials. Custom providers "
             "can be configured via the 'auth' field of the client config "
             "(e.g. datahub_api.auth in a recipe) instead."
         )
 
+    if static_token_ignored:
+        logger.warning(
+            f"Both {ENV_AUTH_TYPE} and DATAHUB_GMS_TOKEN are set; "
+            f"using {ENV_AUTH_TYPE} and ignoring the static token."
+        )
     return AuthConfig(type=auth_type, config=config)

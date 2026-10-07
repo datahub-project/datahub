@@ -66,7 +66,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 
 #### Permissions for DataHub Cloud Assertions (Observe)
 
-If you plan to use DataHub Cloud's [Freshness](/docs/managed-datahub/observe/freshness-assertions), [Volume](/docs/managed-datahub/observe/volume-assertions), or [Column](/docs/managed-datahub/observe/column-assertions) Assertions on Databricks, the required Unity Catalog privileges depend on which **Source** you select in the assertion builder:
+If you plan to use DataHub Cloud's [Freshness](../../../managed-datahub/observe/freshness-assertions.md), [Volume](../../../managed-datahub/observe/volume-assertions.md), or [Column](../../../managed-datahub/observe/column-assertions.md) Assertions on Databricks, the required Unity Catalog privileges depend on which **Source** you select in the assertion builder:
 
 | Source Type                                                                        | Required Privilege(s)                                                                                              | Notes                                                                                                                                                                                                                      |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

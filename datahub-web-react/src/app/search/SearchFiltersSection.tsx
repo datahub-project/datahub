@@ -11,7 +11,14 @@ import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '@app/onboarding/config/Search
 import { AdvancedSearchFilters } from '@app/search/AdvancedSearchFilters';
 import { SaveAsViewButton } from '@app/search/SaveAsViewButton';
 import { SimpleSearchFilters } from '@app/search/SimpleSearchFilters';
-import { UnionType } from '@app/search/utils/constants';
+import {
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    UnionType,
+    VERIFIED_FORMS_FILTER_NAME,
+} from '@app/search/utils/constants';
 import { hasAdvancedFilters } from '@app/search/utils/hasAdvancedFilters';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
@@ -77,6 +84,15 @@ const AdvancedSearchFiltersWrapper = styled.div`
     margin-right: 12px;
 `;
 
+const FILTERS_TO_REMOVE = [
+    // remove form-related filters for bulk form search and browse experience
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    VERIFIED_FORMS_FILTER_NAME,
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+];
+
 // This component renders the entire filters section that allows toggling
 // between the simplified search experience and advanced search
 export const SearchFiltersSection = ({
@@ -89,6 +105,7 @@ export const SearchFiltersSection = ({
 }: Props) => {
     const { t } = useTranslation('search');
     const { t: tc } = useTranslation('common.actions');
+    const filteredFilters = filters?.filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const userContext = useUserContext();
     const onlyShowAdvancedFilters = hasAdvancedFilters(selectedFilters, unionType);
     const [showViewBuilder, setShowViewBuilder] = useState(false);
@@ -127,7 +144,7 @@ export const SearchFiltersSection = ({
                             selectedFilters={selectedFilters}
                             onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                             onChangeUnionType={onChangeUnionType}
-                            facets={filters || []}
+                            facets={filteredFilters || []}
                             loading={loading}
                         />
                         {showSaveAsView && <SaveAsViewButton onClick={onSaveAsView} />}
@@ -143,7 +160,7 @@ export const SearchFiltersSection = ({
                 ) : (
                     <SimpleSearchFilters
                         loading={loading}
-                        facets={filters || []}
+                        facets={filteredFilters || []}
                         selectedFilters={selectedFilters}
                         onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                     />

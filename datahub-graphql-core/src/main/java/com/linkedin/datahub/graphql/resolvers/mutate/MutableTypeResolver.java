@@ -35,7 +35,7 @@ public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            _logger.debug(String.format("Mutating entity. input: %s", input));
+            _logger.debug("Mutating entity. input: {}", input);
             return _mutableType.update(urn, input, environment.getContext());
           } catch (AuthorizationException e) {
             throw e;

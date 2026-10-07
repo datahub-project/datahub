@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
@@ -77,14 +78,12 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Shim interface that abstracts different Elasticsearch/OpenSearch client implementations. This
- * allows DataHub to support ES 7.17 (with API compatibility), ES 8.x, ES 9.x and OpenSearch 2.x.,
- * through a common interface.
+ * allows DataHub to support ES 8.x, ES 9.x and OpenSearch 2.x/3.x through a common interface.
  */
 public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison {
 
   /** Enum representing the different search engine types supported by the shim */
   enum SearchEngineType {
-    ELASTICSEARCH_7("elasticsearch", "7"),
     ELASTICSEARCH_8("elasticsearch", "8"),
     ELASTICSEARCH_9("elasticsearch", "9"),
     OPENSEARCH_2("opensearch", "2"),
@@ -117,7 +116,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
 
     /** Determine if this engine type supports the ES 7.x REST high-level client */
     public boolean supportsEs7HighLevelClient() {
-      return this == ELASTICSEARCH_7 || this == OPENSEARCH_2;
+      return this == OPENSEARCH_2;
     }
 
     /** Determine if this engine type requires the new ES 8.x Java client */
@@ -172,6 +171,32 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     default boolean isEngineTypeAutoDetected() {
       return false;
     }
+
+    /** Explicit or JVM-resolved HTTP proxy host. Null means a direct connection. */
+    @Nullable
+    default String getProxyHost() {
+      return null;
+    }
+
+    @Nullable
+    default Integer getProxyPort() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyScheme() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyUsername() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyPassword() {
+      return null;
+    }
   }
 
   @OperationContextExempt(reason = "Local accessor, no I/O.")
@@ -181,7 +206,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   //
   // Data-plane methods take an {@link OperationFingerprint} as their first argument so the wrapper
   // layer (e.g. cloud's EnrichingShim) can hand it to its registered enrichers without changing
-  // what the raw impls do. The raw impls (Es8/OpenSearch2/Es7Compatibility/FaultInjecting) ignore
+  // what the raw impls do. The raw impls (Es8/OpenSearch/FaultInjecting) ignore
   // the context — they remain pure adapters over the native client. Per-event routing, tenant
   // filtering, doc-field stamping, etc. is decoration applied at the wrapper layer.
   @Nonnull
@@ -394,8 +419,8 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   /**
    * Returns the base config for the {@code search_as_you_type} partial-ngram subfield.
    *
-   * <p>ES7 and OpenSearch 2.x persist {@code doc_values: false} on round-trip, while ES8+ silently
-   * strips it. Each shim implementation supplies the variant that matches its engine, keeping
+   * <p>OpenSearch 2.x persists {@code doc_values: false} on round-trip, while ES8+ silently strips
+   * it. Each shim implementation supplies the variant that matches its engine, keeping
    * engine-version knowledge inside the shim layer.
    */
   @OperationContextExempt(reason = "Static per-engine constant, no I/O.")
@@ -528,4 +553,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   @OperationContextExempt(reason = "Escape-hatch accessor, no I/O.")
   @Nonnull
   T getNativeClient();
+
+  /**
+   * Register gauges for this client's HTTP connection pool (leased, waiting), tagged with {@code
+   * clusterName}. No-op for implementations without a pool.
+   */
+  @OperationContextExempt(reason = "Metrics registration at startup, no I/O.")
+  default void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {}
 }

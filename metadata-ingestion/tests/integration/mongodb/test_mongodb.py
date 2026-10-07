@@ -1,6 +1,13 @@
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.file import read_metadata_file
+from datahub.metadata.schema_classes import (
+    BytesTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -41,6 +48,11 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                 },
             }
         )
+        assert isinstance(pipeline.config.source.config, dict)
+        connection_config = {
+            key: pipeline.config.source.config[key]
+            for key in ("connect_uri", "username", "password")
+        }
         pipeline.run()
         pipeline.raise_from_status()
 
@@ -58,9 +70,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                 "source": {
                     "type": "mongodb",
                     "config": {
-                        "connect_uri": f"mongodb://localhost:{mongo_port}",
-                        "username": "mongoadmin",
-                        "password": "examplepass",
+                        **connection_config,
                         "maxSchemaSize": 10,
                         "platform_instance": "instance",
                     },
@@ -91,9 +101,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                 "source": {
                     "type": "mongodb",
                     "config": {
-                        "connect_uri": f"mongodb://localhost:{mongo_port}",
-                        "username": "mongoadmin",
-                        "password": "examplepass",
+                        **connection_config,
                         "useRandomSampling": False,
                         "platform_instance": "instance",
                     },
@@ -116,3 +124,45 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
             golden_path=test_resources_dir
             / "mongodb_mces_no_random_sampling_golden.json",
         )
+
+        # Keep the default Binary coverage above and exercise UUID decoding through
+        # the source's MongoClient options against the same subtype-4 seed value.
+        standard_uuid_output = tmp_path / "mongodb_mces_standard_uuid.json"
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mongodb-test-standard-uuid",
+                "source": {
+                    "type": "mongodb",
+                    "config": {
+                        **connection_config,
+                        "platform_instance": "instance",
+                        "collection_pattern": {
+                            "allow": [r"^mngdb\.nativeTypesCollection$"],
+                        },
+                        "schemaSamplingSize": None,
+                        "options": {"uuidRepresentation": "standard"},
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": str(standard_uuid_output)},
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        schemas = [
+            event.aspect
+            for event in read_metadata_file(standard_uuid_output)
+            if isinstance(event, MetadataChangeProposalWrapper)
+            and event.entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.nativeTypesCollection,PROD)"
+            and isinstance(event.aspect, SchemaMetadataClass)
+        ]
+        assert len(schemas) == 1
+        fields = {field.fieldPath: field for field in schemas[0].fields}
+        assert fields["uuidField"].nativeDataType == "uuid"
+        assert isinstance(fields["uuidField"].type.type, StringTypeClass)
+        assert fields["binaryData"].nativeDataType == "binary"
+        assert isinstance(fields["binaryData"].type.type, BytesTypeClass)

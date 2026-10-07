@@ -10,14 +10,15 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -45,7 +47,6 @@ import com.linkedin.metadata.throttle.ThrottleMechanismType;
 import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -67,8 +68,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
 import org.opensearch.action.search.DeletePitRequest;
-import org.opensearch.action.search.DeletePitResponse;
-import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -467,44 +466,43 @@ public class ESUtils {
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
-    if (filter == null) {
-      return finalQueryBuilder;
-    }
+    // No early return on a null filter: unfiltered searches still need the latest-version clause.
+    if (filter != null) {
+      StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
 
-    StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
-
-    if (filter.getOr() != null) {
-      // If caller is using the new Filters API, build boolean query from that.
-      filter
-          .getOr()
-          .forEach(
-              or ->
-                  finalQueryBuilder.should(
-                      ESUtils.buildConjunctiveFilterQuery(
-                          or,
-                          isTimeseries,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain)));
-    } else if (filter.getCriteria() != null) {
-      // Otherwise, build boolean query from the deprecated "criteria" field.
-      log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
-      final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-      filter
-          .getCriteria()
-          .forEach(
-              criterion -> {
-                if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
-                  andQueryBuilder.must(
-                      getQueryBuilderFromCriterion(
-                          criterion,
-                          isTimeseries,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain));
-                }
-              });
-      finalQueryBuilder.should(andQueryBuilder);
+      if (filter.getOr() != null) {
+        // If caller is using the new Filters API, build boolean query from that.
+        filter
+            .getOr()
+            .forEach(
+                or ->
+                    finalQueryBuilder.should(
+                        ESUtils.buildConjunctiveFilterQuery(
+                            or,
+                            isTimeseries,
+                            searchableFieldTypes,
+                            opContext,
+                            queryFilterRewriteChain)));
+      } else if (filter.getCriteria() != null) {
+        // Otherwise, build boolean query from the deprecated "criteria" field.
+        log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
+        final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
+        filter
+            .getCriteria()
+            .forEach(
+                criterion -> {
+                  if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
+                    andQueryBuilder.must(
+                        getQueryBuilderFromCriterion(
+                            criterion,
+                            isTimeseries,
+                            searchableFieldTypes,
+                            opContext,
+                            queryFilterRewriteChain));
+                  }
+                });
+        finalQueryBuilder.should(andQueryBuilder);
+      }
     }
     if (Boolean.TRUE.equals(
         opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
@@ -806,6 +804,74 @@ public class ESUtils {
     }
 
     return fieldName;
+  }
+
+  /**
+   * Returns a copy of the filter for a Search V3 entity index.
+   *
+   * <p>{@code _entityType} holds the registry entity name, so values such as {@code DATA_PRODUCT}
+   * are mapped onto it, as V2 does when it rewrites the filter to index names.
+   */
+  @Nullable
+  public static Filter toV3EntityFilter(
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
+    if (filter == null) {
+      return null;
+    }
+    Filter result = new Filter();
+    if (filter.getOr() != null) {
+      result.setOr(
+          filter.getOr().stream()
+              .map(
+                  and ->
+                      new ConjunctiveCriterion()
+                          .setAnd(toV3EntityCriteria(opContext, and.getAnd())))
+              .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+    }
+    if (filter.getCriteria() != null) {
+      result.setCriteria(toV3EntityCriteria(opContext, filter.getCriteria()));
+    }
+    return result;
+  }
+
+  private static CriterionArray toV3EntityCriteria(
+      @Nonnull OperationContext opContext, @Nonnull CriterionArray criteria) {
+    return criteria.stream()
+        .map(criterion -> toV3EntityCriterion(opContext, criterion))
+        .collect(Collectors.toCollection(CriterionArray::new));
+  }
+
+  private static Criterion toV3EntityCriterion(
+      @Nonnull OperationContext opContext, @Nonnull Criterion criterion) {
+    if (!StringUtils.removeEnd(criterion.getField(), KEYWORD_SUFFIX)
+        .equalsIgnoreCase(INDEX_VIRTUAL_FIELD)) {
+      return criterion;
+    }
+    // Copy rather than rebuild: a criterion without values must stay without values
+    Criterion result =
+        new Criterion()
+            .setField(INDEX_VIRTUAL_FIELD)
+            .setCondition(criterion.getCondition())
+            .setNegated(criterion.isNegated());
+    if (criterion.hasValues()) {
+      result.setValues(
+          criterion.getValues().stream()
+              .map(value -> v3EntityTypeValue(opContext, value))
+              .collect(Collectors.toCollection(StringArray::new)));
+    }
+    return result;
+  }
+
+  private static String v3EntityTypeValue(
+      @Nonnull OperationContext opContext, @Nonnull String value) {
+    EntitySpec entitySpec;
+    try {
+      entitySpec = opContext.getEntityRegistry().getEntitySpec(value.replace("_", ""));
+    } catch (IllegalArgumentException e) {
+      entitySpec = null;
+    }
+    // Unknown entity type: keep the value so the filter matches nothing, as on V2
+    return entitySpec != null ? entitySpec.getName() : value;
   }
 
   /**
@@ -1648,8 +1714,6 @@ public class ESUtils {
       }
     }
     switch (client.getEngineType()) {
-      case ELASTICSEARCH_7:
-        return createPointInTimeElasticSearch(opContext, client, indexArray, keepAlive);
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
       case OPENSEARCH_3:
@@ -1658,25 +1722,6 @@ public class ESUtils {
       default:
         log.warn("Unsupported elasticsearch implementation: {}", client.getEngineType());
         throw new IllegalStateException("Unsupported elasticsearch implementation.");
-    }
-  }
-
-  private static @Nonnull String createPointInTimeElasticSearch(
-      @Nonnull OperationContext opContext,
-      SearchClientShim<?> client,
-      String[] indexArray,
-      String keepAlive) {
-    String endPoint = String.join(",", indexArray) + "/_pit";
-    Request request = new Request("POST", endPoint);
-    request.addParameter("keep_alive", keepAlive);
-    try {
-      RawResponse response = client.performLowLevelRequest(opContext, request);
-      Map<String, Object> mappedResponse =
-          OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
-      return (String) mappedResponse.get("id");
-    } catch (IOException e) {
-      log.warn("Failed to generate PointInTime Identifier:", e);
-      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
     }
   }
 
@@ -1738,31 +1783,15 @@ public class ESUtils {
         case ELASTICSEARCH_9:
           {
             DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
-            DeletePitResponse deletePitResponse =
-                client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
-            // DeletePitResponse doesn't have isAcknowledged(), but if we get here without
-            // exception, it
-            // succeeded
+            client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
             log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
             break;
           }
-        case ELASTICSEARCH_7:
-          {
-            // For Elasticsearch, use the low-level client to delete PIT
-            String endPoint = "/_pit";
-            Request request = new Request("DELETE", endPoint);
-            request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
-            RawResponse response = client.performLowLevelRequest(opContext, request);
-            if (response.getStatusLine().getStatusCode() == 200) {
-              log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
-            } else {
-              log.warn(
-                  "Failed to clean up PIT {} for {}: HTTP {}",
-                  pitId,
-                  context,
-                  response.getStatusLine().getStatusCode());
-            }
-          }
+        default:
+          log.warn(
+              "Skipping PIT cleanup for unsupported engine type {} ({})",
+              client.getEngineType(),
+              context);
       }
     } catch (Exception e) {
       log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());
