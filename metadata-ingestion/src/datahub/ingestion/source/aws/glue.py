@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
+    TYPE_CHECKING,
+    Annotated,
     Any,
     Dict,
     Iterable,
@@ -14,6 +16,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
 )
@@ -29,7 +32,7 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
@@ -50,6 +53,13 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.rest_emitter import EmitMode
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    parent_required,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -66,6 +76,14 @@ from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.glue_selection import (
+    IGNORE_RESOURCE_LINKS,
+    database_verdict,
+    jobs_verdict,
+    table_link_verdict,
+    table_pattern_verdict,
+    table_verdict,
+)
 from datahub.ingestion.source.aws.platform_resource_repository import (
     GluePlatformResourceRepository,
 )
@@ -153,6 +171,10 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
 
+if TYPE_CHECKING:
+    from mypy_boto3_glue import GlueClient
+    from mypy_boto3_s3 import S3Client
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "glue"
@@ -220,6 +242,23 @@ def _sanitize_jdbc_url(jdbc_url: str) -> str:
     return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
 
 
+def _flag_or_none(value: Optional[str]) -> Optional[bool]:
+    """A boolean fact `probe run` stamped as "true"/"false"; None when absent."""
+    if value is None:
+        return None
+    return value == "true"
+
+
+def glue_catalog_kwargs(catalog_id: Optional[str]) -> Dict[str, Any]:
+    """The CatalogId argument every Glue catalog listing passes: the recipe's
+    catalog_id, or nothing for the calling account's own catalog.
+
+    One definition, shared with the probe, so `probe run` pages exactly the
+    catalog ingestion pages.
+    """
+    return {"CatalogId": catalog_id} if catalog_id else {}
+
+
 class TargetPlatformConfig(ConfigModel):
     """Config for aligning dataset URNs with a separately ingested platform."""
 
@@ -266,6 +305,29 @@ class GlueSourceConfig(
     platform: str = Field(
         default=DEFAULT_PLATFORM,
         description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
+    )
+
+    # Redeclared from AwsSourceConfig only to carry Filters(...): pydantic v2
+    # replaces an inherited field's annotation wholesale, and `probe filter`
+    # and `recipe describe` read which level a pattern filters from it.
+    # AwsSourceConfig is shared with DynamoDB and SageMaker, so the
+    # annotation belongs here rather than there.
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
+    table_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetSubTypes.TABLE),
+        Filters(DatasetSubTypes.VIEW),
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "regex patterns for tables and views to filter in ingestion, "
+            "matched against `<database>.<table>`."
+        ),
     )
 
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-owner
@@ -409,6 +471,129 @@ class GlueSourceConfig(
             "`aws-cn` for China, and the `aws-iso*` partitions for isolated regions."
         ),
     )
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Glue jobs: no pattern filters them (get_all_jobs lists every job).
+        Whether they are emitted at all is extract_transforms, which
+        probe_verdict_override applies."""
+        return {str(FlowContainerSubTypes.GLUE_JOB)}
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Tables and views sit under their database (_gen_table_wu re-checks
+        database_pattern on it); databases and Glue jobs are top-level."""
+        if kind == FlowContainerSubTypes.GLUE_JOB:
+            return ()
+        return ancestors_in(
+            (str(DatasetContainerSubTypes.DATABASE),),
+            kind,
+            {str(DatasetSubTypes.TABLE), str(DatasetSubTypes.VIEW)},
+        )
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """table_pattern is matched against f"{database}.{table}"
+        (_gen_table_wu's full_table_name), for views as for tables, so a table
+        needs its database as --parent. Databases and Glue jobs are top-level
+        and matched on the bare name."""
+        if self.probe_ancestor_kinds(kind=ctx.kind) == ():
+            return None
+        if parent_required(ctx):
+            return None
+        return f"{ctx.parent_path[-1]}.{ctx.name}"
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Glue's exclusions that no single pattern states, decided by the
+        same glue_selection functions GlueSource calls.
+
+        - A Glue job is emitted only when extract_transforms is truthy
+          (get_workunits_internal). The field is Optional[bool] and Glue
+          reads `null` as off too, while an Enables marker reads only False
+          as off, so jobs are judged here rather than by marking the field.
+        - A database is dropped when ignore_resource_links hides it, by
+          database_pattern, or -- with catalog_id set -- when its CatalogId
+          names another catalog (get_all_databases).
+        - A table is dropped when its database would be, judged from the
+          database facts `tables` copies onto each table record, because a
+          --parent container is judged by name only; when it is itself a
+          resource link and ignore_resource_links is on
+          (get_tables_from_database); or by the patterns (_gen_table_wu).
+
+        The facts come from `probe run ... --report-to` via `probe filter
+        --from-run`; with bare names a rule that needs one warns and is not
+        applied.
+        """
+        if ctx.kind == FlowContainerSubTypes.GLUE_JOB:
+            by_jobs = jobs_verdict(self)
+            return None if by_jobs.included else by_jobs
+        if ctx.kind == DatasetContainerSubTypes.DATABASE:
+            return self._database_facts_verdict(
+                ctx,
+                name=ctx.target,
+                link_key="resource_link",
+                catalog_key="catalog_id",
+            )
+        if ctx.kind in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            # name=None: a table's database pattern is the --parent check.
+            database_rule = self._database_facts_verdict(
+                ctx,
+                name=None,
+                link_key="database_resource_link",
+                catalog_key="database_catalog_id",
+            )
+            if not database_rule.included:
+                return database_rule
+            is_link = _flag_or_none(ctx.attributes.get("resource_link"))
+            if ctx.parent_path:
+                return table_verdict(
+                    self,
+                    database=ctx.parent_path[-1],
+                    table=ctx.name,
+                    is_resource_link=is_link,
+                )
+            if is_link is not None:
+                by_link = table_link_verdict(self, is_resource_link=is_link)
+                if not by_link.included:
+                    return by_link
+        return None
+
+    def _database_facts_verdict(
+        self,
+        ctx: VerdictContext,
+        name: Optional[str],
+        link_key: str,
+        catalog_key: str,
+    ) -> Verdict:
+        """database_verdict on the facts `probe run` stamped on the record,
+        warning for each one the recipe needs and a bare name lacks. The
+        catalog note is skipped once an earlier rule has decided."""
+        is_link = _flag_or_none(ctx.attributes.get(link_key))
+        if self.ignore_resource_links and is_link is None:
+            ctx.warn(
+                "ignore_resource_links is on, and whether a database is a "
+                "Lake Formation resource link is not known from a bare "
+                "name, so resource links were not excluded; judge the "
+                "output of `probe run databases` or `probe run tables` "
+                "with --from-run"
+            )
+        owner = ctx.attributes.get(catalog_key)
+        verdict = database_verdict(
+            self, name=name, catalog_id=owner, is_resource_link=is_link
+        )
+        if self.catalog_id and owner is None and verdict.included:
+            ctx.warn(
+                "catalog_id is set, and which catalog a database belongs "
+                "to is not known from a bare name, so the catalog check "
+                "was not applied; judge the output of `probe run "
+                "databases` or `probe run tables` with --from-run"
+            )
+        return verdict
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: glue_probe imports this module for the config type.
+        from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe
+
+        return GlueMetadataProbe
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
@@ -619,7 +804,6 @@ class GlueSource(StatefulIngestionSourceBase):
         self.s3_client = config.s3_client
         # Initialize Lake Formation client
         self.lf_client = config.lakeformation_client
-        self.extract_transforms = config.extract_transforms
         self.env = config.env
         self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
         # Tracks which structured property definitions have been emitted this run
@@ -997,6 +1181,35 @@ class GlueSource(StatefulIngestionSourceBase):
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @classmethod
+    def for_probe(
+        cls,
+        config: GlueSourceConfig,
+        glue_client: "GlueClient",
+        s3_client: "S3Client",
+    ) -> "GlueSource":
+        """An uninitialized source whose per-object helpers the probe reuses.
+
+        __init__ builds the stateful-ingestion handler, a SqlParsingAggregator,
+        a Lake Formation client and, with a graph, a platform-resource
+        repository; the probe needs none of them. Only what those helpers read
+        is primed: _is_delta_schema reads source_config; get_dataflow_script,
+        get_dataflow_graph and process_dataflow_graph (with the connection
+        and JDBC resolvers they reach) read the clients, report, env, platform
+        and _glue_connection_cache. A helper reaching for anything else fails
+        with AttributeError, which the probe reports as a defect (exit 1).
+        """
+        source = cls.__new__(cls)
+        source.ctx = PipelineContext(run_id="glue-probe")
+        source.source_config = config
+        source.report = GlueSourceReport()
+        source.report.catalog_id = config.catalog_id
+        source.glue_client = glue_client
+        source.s3_client = s3_client
+        source.env = config.env
+        source._glue_connection_cache = {}
+        return source
 
     @property
     def platform(self) -> str:
@@ -1656,24 +1869,24 @@ class GlueSource(StatefulIngestionSourceBase):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
 
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                CatalogId=self.source_config.catalog_id
+        paginator_response = paginator.paginate(
+            **glue_catalog_kwargs(self.source_config.catalog_id)
+        )
+
+        for database in paginator_response.search("DatabaseList"):
+            verdict = database_verdict(
+                self.source_config,
+                name=database["Name"],
+                catalog_id=database.get("CatalogId"),
+                # bool() keeps the old JMESPath `[?!TargetDatabase]` reading:
+                # a missing, null or empty TargetDatabase is not a link.
+                is_resource_link=bool(database.get("TargetDatabase")),
             )
-        else:
-            paginator_response = paginator.paginate()
-
-        pattern = "DatabaseList"
-        if self.source_config.ignore_resource_links:
-            # exclude resource links by using a JMESPath conditional query against the TargetDatabase struct key
-            pattern += "[?!TargetDatabase]"
-
-        for database in paginator_response.search(pattern):
-            if (not self.source_config.database_pattern.allowed(database["Name"])) or (
-                self.source_config.catalog_id
-                and database.get("CatalogId")
-                and database.get("CatalogId") != self.source_config.catalog_id
-            ):
+            if verdict.excluded_by == IGNORE_RESOURCE_LINKS:
+                # Never reported: the JMESPath filter that used to drop these
+                # kept them out of the report too.
+                continue
+            if not verdict.included:
                 self.report.databases.dropped(database["Name"])
             else:
                 self.report.databases.processed(database["Name"])
@@ -1685,19 +1898,19 @@ class GlueSource(StatefulIngestionSourceBase):
         paginator = self.glue_client.get_paginator("get_tables")
         database_name = database["Name"]
 
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                DatabaseName=database_name, CatalogId=self.source_config.catalog_id
-            )
-        else:
-            paginator_response = paginator.paginate(DatabaseName=database_name)
+        paginator_response = paginator.paginate(
+            DatabaseName=database_name,
+            **glue_catalog_kwargs(self.source_config.catalog_id),
+        )
 
         for table in paginator_response.search("TableList"):
             # Lake Formation can share individual tables across accounts as table-level
             # resource links (table has a TargetTable pointing at the shared table).
             # Database-level filtering in get_all_databases() does not catch these,
             # since they live inside non-resource-link databases.
-            if self.source_config.ignore_resource_links and "TargetTable" in table:
+            if not table_link_verdict(
+                self.source_config, is_resource_link="TargetTable" in table
+            ).included:
                 logger.debug(
                     f"Skipping resource link table {database_name}.{table.get('Name')} "
                     f"(TargetTable: {table.get('TargetTable')})"
@@ -2154,7 +2367,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     context=f"Table: {table_name}",
                     exc=e,
                 )
-        if self.extract_transforms:
+        if jobs_verdict(self.source_config).included:
             yield from self._transform_extraction()
 
         # Flush view lineage parsed from VIRTUAL_VIEW definitions. Deferred to here
@@ -2177,9 +2390,9 @@ class GlueSource(StatefulIngestionSourceBase):
         table_name = table["Name"]
         full_table_name = f"{database_name}.{table_name}"
         self.report.report_table_scanned()
-        if not self.source_config.database_pattern.allowed(
-            database_name
-        ) or not self.source_config.table_pattern.allowed(full_table_name):
+        if not table_pattern_verdict(
+            self.source_config, database=database_name, table=table_name
+        ).included:
             self.report.report_table_dropped(full_table_name)
             return
 

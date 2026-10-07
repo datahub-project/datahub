@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Optional, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
+
+from botocore.exceptions import ClientError
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -12,6 +14,9 @@ from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3ServiceResource
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -25,6 +30,35 @@ class S3ObjectInfo:
     key: str
     last_modified: datetime
     size: int
+
+
+def _bucket_tag_set(s3: "S3ServiceResource", bucket_name: str) -> List[Dict[str, str]]:
+    return [
+        {"Key": tag["Key"], "Value": tag["Value"]}
+        for tag in s3.Bucket(bucket_name).Tagging().tag_set
+    ]
+
+
+def get_bucket_tag_set(
+    bucket_name: str,
+    aws_config: AwsConnectionConfig,
+    verify_ssl: Optional[Union[bool, str]] = None,
+) -> List[Dict[str, str]]:
+    """The bucket's TagSet, read the way ingestion reads it (through the
+    resource). Raises what boto raises, NoSuchTagSet included."""
+    return _bucket_tag_set(aws_config.get_s3_resource(verify_ssl), bucket_name)
+
+
+def get_object_tag_set(
+    bucket_name: str, key: str, aws_config: AwsConnectionConfig
+) -> List[Dict[str, str]]:
+    """The object's TagSet (GetObjectTagging); metadata, never the object."""
+    return [
+        {"Key": tag["Key"], "Value": tag["Value"]}
+        for tag in aws_config.get_s3_client().get_object_tagging(
+            Bucket=bucket_name, Key=key
+        )["TagSet"]
+    ]
 
 
 def get_s3_tags(
@@ -42,22 +76,22 @@ def get_s3_tags(
     new_tags = GlobalTagsClass(tags=[])
     tags_to_add = []
     if use_s3_bucket_tags:
+        # Built outside the try, as before: only the tagging read itself is
+        # allowed to fail quietly, not resolving the credentials.
         s3 = aws_config.get_s3_resource(verify_ssl)
-        bucket = s3.Bucket(bucket_name)
         try:
             tags_to_add.extend(
                 [
                     make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                    for tag in bucket.Tagging().tag_set
+                    for tag in _bucket_tag_set(s3, bucket_name)
                 ]
             )
-        except s3.meta.client.exceptions.ClientError:
+        # s3.meta.client.exceptions.ClientError is botocore's ClientError.
+        except ClientError:
             logger.warning(f"No tags found for bucket={bucket_name}")
 
     if use_s3_object_tags and key_name is not None:
-        s3_client = aws_config.get_s3_client()
-        object_tagging = s3_client.get_object_tagging(Bucket=bucket_name, Key=key_name)
-        tag_set = object_tagging["TagSet"]
+        tag_set = get_object_tag_set(bucket_name, key_name, aws_config)
         if tag_set:
             tags_to_add.extend(
                 [make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""") for tag in tag_set]

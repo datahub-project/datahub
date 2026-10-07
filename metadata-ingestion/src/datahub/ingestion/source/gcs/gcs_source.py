@@ -1,17 +1,33 @@
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
+from dataclasses import replace
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import google.auth
 import google.auth.exceptions
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import Field, PrivateAttr, field_validator, model_validator
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, FiltersByRule
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+)
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -28,13 +44,22 @@ from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
     load_wif_credentials,
 )
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+    judge_bucket,
+    judge_dataset,
+    judge_folder,
+)
 from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
@@ -65,6 +90,15 @@ _GCS_OAUTH_S3_OPERATIONS = (
 )
 
 
+def _refresh_if_needed(credentials: Credentials, margin_seconds: float = 0.0) -> None:
+    need_refresh = not getattr(credentials, "token", None)
+    expiry = getattr(credentials, "expiry", None)
+    if not need_refresh and expiry is not None:
+        need_refresh = expiry.timestamp() - margin_seconds < time.time()
+    if need_refresh:
+        credentials.refresh(Request())
+
+
 def _register_gcs_oauth_before_send(
     client: Any,
     credentials: Credentials,
@@ -73,12 +107,7 @@ def _register_gcs_oauth_before_send(
     # boto3 uses SigV4 by default; GCS XML API accepts Bearer tokens instead.
 
     def inject_bearer(request: Any, **kwargs: Any) -> None:
-        need_refresh = not getattr(credentials, "token", None)
-        expiry = getattr(credentials, "expiry", None)
-        if not need_refresh and expiry is not None:
-            need_refresh = expiry.timestamp() < time.time()
-        if need_refresh:
-            credentials.refresh(Request())
+        _refresh_if_needed(credentials)
         request.headers["Authorization"] = f"Bearer {credentials.token}"
         if project_id:
             request.headers["x-goog-project-id"] = project_id
@@ -117,6 +146,16 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
             )
         _register_gcs_oauth_before_send(boto3_client, creds, self._gcs_oauth_project_id)
 
+    def refresh_token_if_needed(self, margin_seconds: float = 0.0) -> None:
+        """Refresh the OAuth token now, as the before-send hook otherwise
+        would on the next request. A caller that must classify a refresh
+        failure itself calls this first: raised inside the hook, the failure
+        is also logged by botocore with google-auth's full text.
+        `margin_seconds` also refreshes a token expiring within that long, so
+        the hook does not have to while the caller's requests run."""
+        if self._gcs_oauth_credentials is not None:
+            _refresh_if_needed(self._gcs_oauth_credentials, margin_seconds)
+
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
@@ -145,6 +184,18 @@ class GCSSourceConfig(
     PathSpecsConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    # Redeclared from PathSpecsConfigMixin to mark it: path_specs, not an
+    # AllowDenyPattern, decide every level this source emits, and the bucket
+    # kind differs per source (ABS shares the mixin).
+    path_specs: Annotated[
+        List[PathSpec],
+        FiltersByRule(DatasetContainerSubTypes.GCS_BUCKET),
+        FiltersByRule(DatasetContainerSubTypes.FOLDER),
+        FiltersByRule(DatasetSubTypes.TABLE),
+    ] = Field(
+        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
+    )
+
     auth_type: GCSAuthType = Field(
         default=GCSAuthType.HMAC,
         description=(
@@ -232,6 +283,157 @@ class GCSSourceConfig(
 
         return path_specs
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: gcs_probe imports this module
+        from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
+
+        return GCSMetadataProbe
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Judge one name the way GCSSource does: with the s3:// specs
+        equivalent_s3_path_specs builds for ingestion, and the name rewritten
+        to s3:// to match. The reported target stays the gs:// name given."""
+        specs = equivalent_s3_path_specs(self.path_specs)
+        kind = str(ctx.kind)
+        if kind == str(DatasetContainerSubTypes.GCS_BUCKET):
+            if "/" in ctx.name:
+                raise ProbeArgumentError(
+                    f"'{ctx.name}' is not a bucket name; pass bare names, as "
+                    f"`probe run buckets` lists them"
+                )
+            return judge_bucket(specs, ctx.name, ctx.warn)
+        if not is_gcs_uri(ctx.name):
+            raise ProbeArgumentError(
+                f"'{ctx.name}' is not a gs:// URI; {kind} names are full gs:// "
+                f"URIs, as `probe run datasets` lists them"
+            )
+        s3_uri = "s3://" + ctx.name[len("gs://") :]
+        if kind == str(DatasetContainerSubTypes.FOLDER):
+            try:
+                verdict = judge_folder(
+                    specs,
+                    s3_uri,
+                    ctx.warn,
+                    bucket_kind=str(DatasetContainerSubTypes.GCS_BUCKET),
+                )
+            except ProbeArgumentError as exc:
+                # The judge sees the rewritten s3:// name; the caller wrote gs://.
+                raise ProbeArgumentError(str(exc).replace(s3_uri, ctx.name)) from exc
+        else:
+            # GCSSource never sets use_s3_content_type, so S3Source passes
+            # ignore_ext=False for every file.
+            verdict = judge_dataset(specs, s3_uri, ctx.warn)
+        judged = verdict.matched_target or s3_uri
+        return replace(verdict, matched_target="gs://" + judged[len("s3://") :])
+
+
+def equivalent_s3_path_specs(path_specs: Sequence[PathSpec]) -> List[PathSpec]:
+    """The s3:// path_specs GCSSource ingests with: it runs S3Source, which
+    matches s3:// URIs, so every gs:// include and exclude is rewritten."""
+    s3_path_specs = []
+    for path_spec in path_specs:
+        # PathSpec modifies the passed-in include to add /** to the end if
+        # autodetecting partitions. Remove that, otherwise creating a new
+        # PathSpec will complain.
+        # TODO: this should be handled inside PathSpec, which probably shouldn't
+        # modify its input.
+        include = path_spec.include
+        if include.endswith("{table}/**") and not path_spec.allow_double_stars:
+            include = include.removesuffix("**")
+
+        s3_path_specs.append(
+            PathSpec(
+                include=include.replace("gs://", "s3://"),
+                exclude=(
+                    [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
+                    if path_spec.exclude
+                    else None
+                ),
+                file_types=path_spec.file_types,
+                default_extension=path_spec.default_extension,
+                table_name=path_spec.table_name,
+                enable_compression=path_spec.enable_compression,
+                sample_files=path_spec.sample_files,
+                allow_double_stars=path_spec.allow_double_stars,
+                autodetect_partitions=path_spec.autodetect_partitions,
+                include_hidden_folders=path_spec.include_hidden_folders,
+                tables_filter_pattern=path_spec.tables_filter_pattern,
+                traversal_method=path_spec.traversal_method,
+                emit_folders_only=path_spec.emit_folders_only,
+            )
+        )
+
+    return s3_path_specs
+
+
+def load_adc_credentials() -> Tuple[Credentials, Optional[str]]:
+    """Application Default Credentials and their project, for workload_identity."""
+    try:
+        credentials, project_id = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        logger.info(
+            "Loaded Application Default Credentials (project: %s)",
+            project_id,
+        )
+        if project_id is None:
+            logger.warning(
+                "Application Default Credentials did not return a project ID. "
+                "If GCS requests fail with permission errors, set the "
+                "GCLOUD_PROJECT or GOOGLE_CLOUD_PROJECT environment variable."
+            )
+        return credentials, project_id
+    except google.auth.exceptions.DefaultCredentialsError as e:
+        raise ValueError(
+            "Failed to load Application Default Credentials for GCS workload_identity auth. "
+            "Ensure GKE Workload Identity is enabled and the pod service account is bound. "
+            f"Details: {e}"
+        ) from e
+    except google.auth.exceptions.GoogleAuthError as e:
+        raise ValueError(
+            "Unexpected Google Auth error while loading Application Default Credentials "
+            f"for GCS workload_identity auth: {e}"
+        ) from e
+
+
+def build_gcs_oauth_aws_config(
+    credentials: Credentials, project_id: Optional[str]
+) -> GCSOAuthAwsConnectionConfig:
+    aws_config = GCSOAuthAwsConnectionConfig(
+        aws_endpoint_url=GCS_ENDPOINT_URL,
+        aws_region="auto",
+        aws_access_key_id="gcs-oauth",
+        aws_secret_access_key="not-used",
+    )
+    aws_config._gcs_oauth_credentials = credentials
+    aws_config._gcs_oauth_project_id = project_id
+    return aws_config
+
+
+def build_gcs_aws_connection_config(config: GCSSourceConfig) -> AwsConnectionConfig:
+    """The S3-API client config for a GCS recipe, from the recipe alone.
+
+    Loads credentials from local configuration and opens no connection: boto
+    builds its client on the first request, and OAuth tokens refresh in the
+    before-send hook. GCS_ENDPOINT_URL is read here, at call time, so a test
+    can point it elsewhere.
+    """
+    if config.auth_type == GCSAuthType.HMAC:
+        if not config.credential:
+            raise ValueError("HMAC credentials are required when auth_type is 'hmac'")
+        return AwsConnectionConfig(
+            aws_endpoint_url=GCS_ENDPOINT_URL,
+            aws_access_key_id=config.credential.hmac_access_id,
+            aws_secret_access_key=config.credential.hmac_access_secret.get_secret_value(),
+            aws_region="auto",
+        )
+    if config.auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
+        return build_gcs_oauth_aws_config(*load_wif_credentials(config))
+    if config.auth_type == GCSAuthType.WORKLOAD_IDENTITY:
+        return build_gcs_oauth_aws_config(*load_adc_credentials())
+    raise ValueError(f"Unsupported auth_type: {config.auth_type!r}")
+
 
 class GCSSourceReport(DataLakeSourceReport):
     pass
@@ -256,55 +458,12 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report: GCSSourceReport = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
-        self._gcp_credentials: Optional[Credentials] = None
-        self._gcp_project_id: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GCSSource":
         config = GCSSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def _setup_wif_credentials(self) -> None:
-        self._gcp_credentials, self._gcp_project_id = load_wif_credentials(self.config)
-
-    def _setup_adc_credentials(self) -> None:
-        try:
-            self._gcp_credentials, self._gcp_project_id = google.auth.default(
-                scopes=["https://www.googleapis.com/auth/cloud-platform"]
-            )
-            logger.info(
-                "Loaded Application Default Credentials (project: %s)",
-                self._gcp_project_id,
-            )
-            if self._gcp_project_id is None:
-                logger.warning(
-                    "Application Default Credentials did not return a project ID. "
-                    "If GCS requests fail with permission errors, set the "
-                    "GCLOUD_PROJECT or GOOGLE_CLOUD_PROJECT environment variable."
-                )
-        except google.auth.exceptions.DefaultCredentialsError as e:
-            raise ValueError(
-                "Failed to load Application Default Credentials for GCS workload_identity auth. "
-                "Ensure GKE Workload Identity is enabled and the pod service account is bound. "
-                f"Details: {e}"
-            ) from e
-        except google.auth.exceptions.GoogleAuthError as e:
-            raise ValueError(
-                "Unexpected Google Auth error while loading Application Default Credentials "
-                f"for GCS workload_identity auth: {e}"
-            ) from e
-
-    def _build_gcs_oauth_aws_config(self) -> GCSOAuthAwsConnectionConfig:
-        aws_config = GCSOAuthAwsConnectionConfig(
-            aws_endpoint_url=GCS_ENDPOINT_URL,
-            aws_region="auto",
-            aws_access_key_id="gcs-oauth",
-            aws_secret_access_key="not-used",
-        )
-        aws_config._gcs_oauth_credentials = self._gcp_credentials
-        aws_config._gcs_oauth_project_id = self._gcp_project_id
-        return aws_config
 
     def _build_s3_config(
         self, s3_path_specs: List[PathSpec], aws_config: AwsConnectionConfig
@@ -323,65 +482,10 @@ class GCSSource(StatefulIngestionSourceBase):
         )
 
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
-        s3_path_specs = self.create_equivalent_s3_path_specs()
-
-        if self.config.auth_type == GCSAuthType.HMAC:
-            if not self.config.credential:
-                raise ValueError(
-                    "HMAC credentials are required when auth_type is 'hmac'"
-                )
-            aws_config: AwsConnectionConfig = AwsConnectionConfig(
-                aws_endpoint_url=GCS_ENDPOINT_URL,
-                aws_access_key_id=self.config.credential.hmac_access_id,
-                aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
-                aws_region="auto",
-            )
-        elif self.config.auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
-            self._setup_wif_credentials()
-            aws_config = self._build_gcs_oauth_aws_config()
-        elif self.config.auth_type == GCSAuthType.WORKLOAD_IDENTITY:
-            self._setup_adc_credentials()
-            aws_config = self._build_gcs_oauth_aws_config()
-        else:
-            raise ValueError(f"Unsupported auth_type: {self.config.auth_type!r}")
-
-        return self._build_s3_config(s3_path_specs, aws_config)
-
-    def create_equivalent_s3_path_specs(self) -> List[PathSpec]:
-        s3_path_specs = []
-        for path_spec in self.config.path_specs:
-            # PathSpec modifies the passed-in include to add /** to the end if
-            # autodetecting partitions. Remove that, otherwise creating a new
-            # PathSpec will complain.
-            # TODO: this should be handled inside PathSpec, which probably shouldn't
-            # modify its input.
-            include = path_spec.include
-            if include.endswith("{table}/**") and not path_spec.allow_double_stars:
-                include = include.removesuffix("**")
-
-            s3_path_specs.append(
-                PathSpec(
-                    include=include.replace("gs://", "s3://"),
-                    exclude=(
-                        [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
-                        if path_spec.exclude
-                        else None
-                    ),
-                    file_types=path_spec.file_types,
-                    default_extension=path_spec.default_extension,
-                    table_name=path_spec.table_name,
-                    enable_compression=path_spec.enable_compression,
-                    sample_files=path_spec.sample_files,
-                    allow_double_stars=path_spec.allow_double_stars,
-                    autodetect_partitions=path_spec.autodetect_partitions,
-                    include_hidden_folders=path_spec.include_hidden_folders,
-                    tables_filter_pattern=path_spec.tables_filter_pattern,
-                    traversal_method=path_spec.traversal_method,
-                    emit_folders_only=path_spec.emit_folders_only,
-                )
-            )
-
-        return s3_path_specs
+        return self._build_s3_config(
+            equivalent_s3_path_specs(self.config.path_specs),
+            build_gcs_aws_connection_config(self.config),
+        )
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()

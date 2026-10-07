@@ -273,6 +273,39 @@ Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSke
 
 Enabling profiling will slow down ingestion runs.
 
+#### Checking path_specs before you ingest
+
+`datahub recipe probe` lists what your recipe can see and judges it with the same `path_specs`
+rules ingestion uses, without ingesting anything:
+
+```shell
+datahub recipe probe methods --recipe s3.yml
+datahub recipe probe run buckets --recipe s3.yml
+datahub recipe probe run objects --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run datasets --recipe s3.yml --path-spec 0 --report-to datasets.json
+datahub recipe probe filter --recipe s3.yml --from-run datasets.json
+datahub recipe probe filter --recipe s3.yml --kind Table --name s3://my-bucket/data/events
+datahub recipe probe run tags --recipe s3.yml --bucket my-bucket --key data/a.csv
+```
+
+- The listing commands only list (`ListBuckets`, `ListObjectsV2`). They never read object
+  contents. `tags` is the one command beyond those two: it calls `GetBucketTagging` /
+  `GetObjectTagging`, and only the lookups your recipe turns on (`use_s3_bucket_tags`,
+  `use_s3_object_tags`). Use it to check that ingestion can read object tags: a denied
+  `GetObjectTagging` fails an ingestion run.
+- A probe-only IAM identity needs `s3:ListAllMyBuckets` and `s3:ListBucket`. It does not need
+  `s3:GetObject`. Add `s3:GetBucketTagging` / `s3:GetObjectTagging` only to check tags.
+- `datasets` lists candidates, including the ones `path_specs` drop; `probe filter` says which
+  rule drops each one (for example `path_specs[0].tables_filter_pattern`).
+- For a `{table}` path_spec the verdict is decided at the table folder. `exclude`, `file_types`
+  and the files in the selected partitions are applied per file during ingestion, so a table
+  folder whose files all fail them is reported as included, with a warning.
+- With `use_s3_content_type: true`, file extensions are not checked, the same as in ingestion.
+- `buckets` needs `s3:ListAllMyBuckets`, and so does a path_spec whose bucket is a wildcard. A
+  credential scoped to named buckets reports a failure, not an empty list.
+- Recipes over local paths (platform `file`) cannot be probed, and a recipe without
+  `aws_config` is refused, as ingestion refuses it.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

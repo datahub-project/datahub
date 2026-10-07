@@ -160,6 +160,38 @@ If you are ingesting datasets from Google Cloud Storage, we recommend running th
 
 :::
 
+#### Checking path_specs before you ingest
+
+`datahub recipe probe` lists what your recipe can see and judges it with the same `path_specs`
+rules ingestion uses, without ingesting anything:
+
+```shell
+datahub recipe probe methods --recipe gcs.yml
+datahub recipe probe run buckets --recipe gcs.yml
+datahub recipe probe run objects --recipe gcs.yml --bucket my-bucket --prefix data/
+datahub recipe probe run datasets --recipe gcs.yml --path-spec 0 --report-to datasets.json
+datahub recipe probe filter --recipe gcs.yml --from-run datasets.json
+datahub recipe probe filter --recipe gcs.yml --kind Table --name gs://my-bucket/data/events
+```
+
+- The probe uses the same S3-compatible client and credentials as ingestion, and only lists
+  (`ListBuckets`, `ListObjectsV2`). It never reads object contents. That limit is in the
+  probe's code, not in the credential: `roles/storage.objectViewer` can read objects too.
+- For a probe-only credential, grant `storage.buckets.list` and `storage.objects.list` only.
+  Without `storage.buckets.list` on the project, `buckets` reports a failure, not an empty
+  list.
+- Names are `gs://` URIs, as you write them in `path_specs`. Bucket names are bare
+  (`my-bucket`).
+- `datasets` lists candidates, including the ones `path_specs` drop; `probe filter` says which
+  rule drops each one (for example `path_specs[0].tables_filter_pattern`).
+- For a `{table}` path_spec the verdict is decided at the table folder. `exclude`, `file_types`
+  and the files in the selected partitions are applied per file during ingestion, so a table
+  folder whose files all fail them is reported as included, with a warning. Use `objects` to
+  check its files.
+- A credential that is rejected (a wrong HMAC secret, or WIF / ADC credentials that cannot be
+  loaded or refreshed) is reported as a connection error. The error names the failure type
+  only, never the credential material, token file paths or the token endpoint's response.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

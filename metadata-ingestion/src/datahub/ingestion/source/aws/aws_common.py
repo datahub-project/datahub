@@ -511,6 +511,14 @@ class AwsConnectionConfig(ConfigModel):
                 )
             return self._s3_client_cache[verify_ssl]
 
+    def close_cached_s3_clients(self) -> None:
+        """Close and forget the clients get_s3_client memoized, for a caller that
+        owns this config and is done with it (the probe's __exit__)."""
+        with self._s3_client_lock:
+            for client in self._s3_client_cache.values():
+                client.close()
+            self._s3_client_cache.clear()
+
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3ServiceResource":
@@ -747,3 +755,17 @@ def aws_error_code(e: Union[ClientError, BotoCoreError]) -> str:
     # BotoCoreError subclasses don't carry a structured code; the class name
     # (e.g. "NoCredentialsError") is the next-best stable identifier.
     return type(e).__name__
+
+
+def aws_probe_error_code(exc: BaseException) -> Optional[str]:
+    """The error code of a botocore ClientError (`AccessDenied`,
+    `EntityNotFoundException`), for an AWS probe provider's `probe_error_code`;
+    None for any other exception. Only the code: the message names the calling
+    principal's ARN. S3 answers a HEAD request with the bare HTTP status as its
+    code, which is given as `HTTP 404`."""
+    if not isinstance(exc, ClientError):
+        return None
+    code = aws_error_code(exc)
+    if not isinstance(code, str) or not code:
+        return None
+    return f"HTTP {code}" if code.isdigit() else code

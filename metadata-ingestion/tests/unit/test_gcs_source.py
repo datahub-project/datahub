@@ -747,3 +747,54 @@ def test_gcs_oauth_aws_config_raises_without_creds():
 
         with pytest.raises(RuntimeError, match="_gcs_oauth_credentials must be set"):
             config.get_s3_client()
+
+
+def test_client_config_is_built_from_the_config_alone() -> None:
+    from datahub.ingestion.source.gcs.gcs_source import (
+        build_gcs_aws_connection_config,
+    )
+
+    config = GCSSourceConfig.model_validate(
+        {
+            "path_specs": [{"include": "gs://my-bucket/data/{table}/*.parquet"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        }
+    )
+    aws_config = build_gcs_aws_connection_config(config)
+    assert aws_config.aws_endpoint_url == "https://storage.googleapis.com"
+    assert aws_config.aws_access_key_id == "id"
+
+
+@mock.patch("google.auth.default")
+def test_adc_client_config_carries_the_oauth_credentials(
+    mock_default: mock.MagicMock,
+) -> None:
+    from datahub.ingestion.source.gcs.gcs_source import (
+        build_gcs_aws_connection_config,
+    )
+
+    creds = mock.MagicMock()
+    mock_default.return_value = (creds, "my-project")
+    aws_config = build_gcs_aws_connection_config(
+        GCSSourceConfig.model_validate(_VALID_ADC_CONFIG)
+    )
+    assert getattr(aws_config, "_gcs_oauth_credentials", None) is creds
+    assert getattr(aws_config, "_gcs_oauth_project_id", None) == "my-project"
+
+
+def test_equivalent_specs_match_what_the_source_ingests_with() -> None:
+    from datahub.ingestion.source.gcs.gcs_source import equivalent_s3_path_specs
+
+    ctx = PipelineContext(run_id="test-gcs")
+    source = GCSSource.create(
+        {
+            "path_specs": [{"include": "gs://my-bucket/data/{table}"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "s"},
+        },
+        ctx,
+    )
+    probe_specs = equivalent_s3_path_specs(source.config.path_specs)
+    assert [s.include for s in probe_specs] == [
+        s.include for s in source.s3_source.source_config.path_specs
+    ]
+    source.close()
