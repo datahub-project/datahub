@@ -1473,7 +1473,9 @@ ORDER BY event_time ASC
 
         dataset = Dataset(
             platform=self.platform,
-            name=dataset_name,
+            # Dataset skips make_dataset_urn_with_platform_instance, which every
+            # reference to this dictionary goes through.
+            name=dataset_name.lower() if builder.DATASET_URN_TO_LOWER else dataset_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=dictionary.name,
