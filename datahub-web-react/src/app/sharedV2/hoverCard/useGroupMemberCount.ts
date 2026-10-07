@@ -16,9 +16,10 @@ function getSelectedGroupMemberCount(entity: Entity): number | undefined {
  */
 export default function useGroupMemberCount(entity: Entity): number | undefined {
     const selectedMemberCount = getSelectedGroupMemberCount(entity);
-    const { data } = useGetGroupMemberCountQuery({
-        variables: { urn: entity.urn },
-        skip: entity.type !== EntityType.CorpGroup || selectedMemberCount !== undefined,
-    });
-    return selectedMemberCount ?? data?.corpGroup?.memberCount?.total ?? undefined;
+    const shouldFetch = entity.type === EntityType.CorpGroup && selectedMemberCount === undefined;
+    const { data } = useGetGroupMemberCountQuery({ variables: { urn: entity.urn }, skip: !shouldFetch });
+
+    if (!shouldFetch) return selectedMemberCount;
+    // Only trust a response for this group, whatever Apollo keeps in `data` across skips and urn changes.
+    return data?.corpGroup?.urn === entity.urn ? (data.corpGroup.memberCount?.total ?? undefined) : undefined;
 }

@@ -5,13 +5,20 @@ import { describe, expect, it, vi } from 'vitest';
 
 import useGroupMemberCount from '@app/sharedV2/hoverCard/useGroupMemberCount';
 
-import { GetGroupMemberCountDocument } from '@graphql/group.generated';
+import { GetGroupMemberCountDocument, useGetGroupMemberCountQuery } from '@graphql/group.generated';
 import { CorpGroup, CorpUser, Entity, EntityType } from '@types';
 
+// Passes through to the real query; one test swaps in a stale response to pin the urn check.
+vi.mock('@graphql/group.generated', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@graphql/group.generated')>();
+    return { ...actual, useGetGroupMemberCountQuery: vi.fn(actual.useGetGroupMemberCountQuery) };
+});
+
 const GROUP_URN = 'urn:li:corpGroup:data-platform';
+const OTHER_GROUP_URN = 'urn:li:corpGroup:analytics';
 const USER_URN = 'urn:li:corpuser:jdoe';
 
-function memberCountMock(urn: string, total: number) {
+function memberCountMock(urn: string, total: number, delay = 0) {
     const result = vi.fn(() => ({
         data: {
             corpGroup: {
@@ -22,7 +29,11 @@ function memberCountMock(urn: string, total: number) {
             },
         },
     }));
-    const mock: MockedResponse = { request: { query: GetGroupMemberCountDocument, variables: { urn } }, result };
+    const mock: MockedResponse = {
+        request: { query: GetGroupMemberCountDocument, variables: { urn } },
+        result,
+        delay,
+    };
     return { mock, result };
 }
 
@@ -34,7 +45,8 @@ function flushQueries() {
 }
 
 function renderUseGroupMemberCount(entity: Entity, mocks: MockedResponse[]) {
-    return renderHook(() => useGroupMemberCount(entity), {
+    return renderHook((props: { entity: Entity }) => useGroupMemberCount(props.entity), {
+        initialProps: { entity },
         wrapper: ({ children }) => <MockedProvider mocks={mocks}>{children}</MockedProvider>,
     });
 }
@@ -70,5 +82,50 @@ describe('useGroupMemberCount', () => {
         expect(result.current).toBeUndefined();
         await flushQueries();
         expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("drops a fetched count once the entity it was fetched for is replaced by one that doesn't need it", async () => {
+        const { mock } = memberCountMock(GROUP_URN, 5);
+        const { result, waitFor, rerender } = renderUseGroupMemberCount(
+            { urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup,
+            [mock],
+        );
+        await waitFor(() => expect(result.current).toBe(5));
+
+        rerender({ entity: { urn: USER_URN, type: EntityType.CorpUser } as CorpUser });
+
+        expect(result.current).toBeUndefined();
+    });
+
+    it("never shows one group's count on another group while that group's count loads", async () => {
+        const { mock: firstGroup } = memberCountMock(GROUP_URN, 5);
+        const { mock: secondGroup } = memberCountMock(OTHER_GROUP_URN, 9, 20);
+        const { result, waitFor, rerender } = renderUseGroupMemberCount(
+            { urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup,
+            [firstGroup, secondGroup],
+        );
+        await waitFor(() => expect(result.current).toBe(5));
+
+        rerender({ entity: { urn: OTHER_GROUP_URN, type: EntityType.CorpGroup } as CorpGroup });
+
+        expect(result.current).toBeUndefined();
+        await waitFor(() => expect(result.current).toBe(9));
+    });
+
+    it('ignores a response that belongs to another group, whatever Apollo leaves in data', () => {
+        vi.mocked(useGetGroupMemberCountQuery).mockReturnValueOnce({
+            data: {
+                corpGroup: {
+                    __typename: 'CorpGroup',
+                    urn: OTHER_GROUP_URN,
+                    type: EntityType.CorpGroup,
+                    memberCount: { __typename: 'EntityRelationshipsResult', total: 5 },
+                },
+            },
+        } as ReturnType<typeof useGetGroupMemberCountQuery>);
+
+        const { result } = renderUseGroupMemberCount({ urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup, []);
+
+        expect(result.current).toBeUndefined();
     });
 });
