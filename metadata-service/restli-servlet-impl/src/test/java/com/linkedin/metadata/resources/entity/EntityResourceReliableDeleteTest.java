@@ -33,6 +33,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -46,6 +47,7 @@ public class EntityResourceReliableDeleteTest {
   private EntityService<?> entityService;
   private ReliableHardDelete reliableHardDelete;
   private Engine engine;
+  private ScheduledExecutorService timerScheduler;
 
   @BeforeMethod
   @SuppressWarnings("unchecked")
@@ -75,16 +77,18 @@ public class EntityResourceReliableDeleteTest {
     final Authentication authentication = mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
     AuthenticationContext.setAuthentication(authentication);
+    timerScheduler = Executors.newSingleThreadScheduledExecutor();
     engine =
         new EngineBuilder()
             .setTaskExecutor(Runnable::run)
-            .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
+            .setTimerScheduler(timerScheduler)
             .build();
   }
 
   @AfterMethod
   public void tearDown() {
     engine.shutdown();
+    timerScheduler.shutdownNow();
     AuthenticationContext.remove();
   }
 
