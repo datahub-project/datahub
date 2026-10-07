@@ -486,20 +486,20 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "query_text": "SELECT * FROM users WHERE id = 1",
             "execution_count": 5,
             "total_exec_time_ms": 100.5,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
         {
             "query_id": "2",
             "query_text": "INSERT INTO orders VALUES (1, 'test')",
             "execution_count": 3,
             "total_exec_time_ms": 50.2,
-            "user_name": "admin",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
     ]
 
@@ -546,10 +546,10 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
             "query_text": "SELECT * FROM users",
             "execution_count": 10,  # Above threshold, would be returned by SQL
             "total_exec_time_ms": 100.5,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
         # Query with execution_count=3 would be filtered by SQL WHERE clause
     ]
@@ -599,10 +599,10 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
             "query_text": "SELECT * FROM users",
             "execution_count": 5,
             "total_exec_time_ms": 100.5,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
         # Queries with sys.tables and msdb.dbo.jobs would be filtered by SQL WHERE clause
     ]
@@ -868,20 +868,20 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "query_text": "SELECT * FROM users",
             "execution_count": 5,
             "total_exec_time_ms": 100.0,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
         {
             "query_id": "2",
             "query_text": "",  # Empty text
             "execution_count": 3,
             "total_exec_time_ms": 50.0,
-            "user_name": "admin",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
     ]
 
@@ -1528,7 +1528,6 @@ def test_mssql_very_long_query_text_handling():
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
-            "user_name": "testuser",
         }
     ]
 
@@ -1595,10 +1594,9 @@ def test_mssql_exclude_patterns_with_tsql_special_chars():
 
 def test_mssql_user_attribution_not_supported():
     """
-    Document that user_name extraction is not supported in MSSQL.
-
-    Query Store and DMV queries don't preserve historical user session context.
-    The user_name field has been removed from MSSQLQueryEntry.
+    Query Store and DMV queries don't preserve historical user session context,
+    so the default query_store source never attributes users. The audit_log and
+    extended_events sources do (see test_mssql_query_log.py).
     """
     mock_connection = Mock()
 
@@ -1622,6 +1620,7 @@ def test_mssql_user_attribution_not_supported():
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         }
     ]
 
@@ -1687,12 +1686,14 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "query_id": "1",
             "last_execution_time_utc": datetime(2026, 1, 1, 9, 30),
             "window_execution_count": 4,
+            "user_name": None,
         },
         {
             **common,
             "query_id": "1",
             "last_execution_time_utc": datetime(2026, 1, 1, 10, 45),
             "window_execution_count": 6,
+            "user_name": None,
         },
         {
             **common,
@@ -1700,6 +1701,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "query_text": "INSERT INTO archive SELECT * FROM orders",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
         },
     ]
     conn_mock.execute.return_value = mock_result
@@ -1878,3 +1880,60 @@ def test_is_mssql_system_object(name: str, expected: bool) -> None:
     """System catalog objects in query history are not datasets; filtering them
     keeps DataHub's own metadata queries from becoming Query entities."""
     assert is_mssql_system_object(name) == expected
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_query_history_respects_schema_pattern(create_engine_mock):
+    """Query history follows the same schema filter as table ingestion: a
+    query that only touches an out-of-scope schema is neither a Query entity
+    nor lineage, while one on an in-scope table still is."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "schema_pattern": {"allow": ["^reporting$"]},
+            "start_time": "2026-01-01T00:00:00Z",
+            "end_time": "2026-01-02T00:00:00Z",
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+    extractor = MSSQLLineageExtractor(
+        config, Mock(), source.report, source.aggregator, "dbo"
+    )
+    executed = [
+        MSSQLQueryExecution(
+            timestamp=datetime(2026, 1, 1, 9, tzinfo=timezone.utc), count=1
+        )
+    ]
+    entries = [
+        MSSQLQueryEntry(
+            query_id=query_id,
+            query_text=text,
+            execution_count=1,
+            total_exec_time_ms=1.0,
+            database_name="TestDB",
+            executions=executed,
+        )
+        for query_id, text in (
+            ("1", "SELECT id FROM reporting.orders"),
+            ("2", "SELECT id FROM raw.orders"),
+            ("3", "INSERT INTO raw.orders_copy SELECT id FROM reporting.orders"),
+        )
+    ]
+    with patch.object(extractor, "extract_query_history", return_value=entries):
+        extractor.populate_lineage_from_queries()
+    with patch.object(source, "_populate_aggregator_with_query_history"):
+        workunits = list(source._generate_aggregator_workunits())
+
+    statements = [
+        aspect.statement.value
+        for wu in workunits
+        for aspect in [wu.get_aspect_of_type(QueryPropertiesClass)]
+        if aspect is not None
+    ]
+    assert any("reporting.orders" in s and "INSERT" not in s for s in statements)
+    assert not any("FROM raw.orders" in s for s in statements)
+    lineage_targets = {
+        wu.get_urn() for wu in workunits if wu.get_aspect_of_type(UpstreamLineageClass)
+    }
+    assert DatasetUrn("mssql", "testdb.raw.orders_copy").urn() not in lineage_targets

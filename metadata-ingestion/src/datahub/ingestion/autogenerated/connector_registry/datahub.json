@@ -2901,7 +2901,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Optionally enabled via `include_query_lineage` with `include_query_usage_statistics` (per-query) and `include_usage_statistics` (per-table)",
+          "description": "Optionally enabled via `include_query_lineage` with `include_query_usage_statistics` (per-query) and `include_usage_statistics` (per-table); users are attributed with `query_history_source: audit_log` or `extended_events`",
           "subtype_modifier": null,
           "supported": true
         },

@@ -154,3 +154,48 @@ WHERE name = 'YourDatabase';
 
 - `is_query_store_on`: 1 (enabled)
 - `query_store_state_desc`: "READ_WRITE" (active)
+
+#### User Attribution Setup (Optional)
+
+Query Store and the plan-cache DMVs don't record who ran a query. To attribute queries and usage to users, set `query_history_source` to read a log that records the login instead. Both options need `include_query_lineage: true` and only capture queries from when the log was turned on.
+
+##### Option A: SQL Server Audit / Azure SQL Auditing (`audit_log`)
+
+The audit must capture `BATCH_COMPLETED_GROUP`. That group is part of the default Azure SQL Auditing policy, so if auditing is already on you may only need to grant read access.
+
+- **SQL Server / Managed Instance**: create a file audit and a database (or server) audit specification:
+
+  ```sql
+  CREATE SERVER AUDIT DataHubQueryAudit TO FILE (FILEPATH = 'D:\Audit\');
+  ALTER SERVER AUDIT DataHubQueryAudit WITH (STATE = ON);
+  USE [YourDatabase];
+  CREATE DATABASE AUDIT SPECIFICATION DataHubQuerySpec
+      FOR SERVER AUDIT DataHubQueryAudit
+      ADD (BATCH_COMPLETED_GROUP) WITH (STATE = ON);
+  -- Reading the audit (SQL Server 2022+; CONTROL SERVER on earlier versions)
+  GRANT VIEW SERVER SECURITY AUDIT TO [datahub_login];
+  -- Discovering the audit file when query_history_path is not set
+  GRANT VIEW SERVER SECURITY STATE TO [datahub_login];
+  ```
+
+- **Azure SQL Database**: turn on auditing to a **storage account** (the connector can't read Log Analytics or Event Hubs destinations) and grant `CONTROL DATABASE` (or `VIEW DATABASE SECURITY AUDIT`) to the DataHub user. Azure doesn't expose the audit location through T-SQL, so set `query_history_path` to the container URL, for example `https://<account>.blob.core.windows.net/sqldbauditlogs/<server>/`.
+
+##### Option B: Extended Events (`extended_events`)
+
+Create a session with an `event_file` target that captures completed batches and RPCs with the login:
+
+```sql
+CREATE EVENT SESSION DataHubQueries ON SERVER   -- ON DATABASE in Azure SQL Database
+ADD EVENT sqlserver.sql_batch_completed(
+    ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
+ADD EVENT sqlserver.rpc_completed(
+    ACTION(sqlserver.server_principal_name, sqlserver.database_name))
+ADD TARGET package0.event_file(SET filename = N'D:\XE\DataHubQueries.xel')  -- a blob URL in Azure
+WITH (STARTUP_STATE = ON);
+ALTER EVENT SESSION DataHubQueries ON SERVER STATE = START;
+-- SQL Server 2022+: VIEW SERVER PERFORMANCE STATE (VIEW SERVER STATE on earlier versions)
+-- Azure SQL Database: VIEW DATABASE PERFORMANCE STATE
+GRANT VIEW SERVER PERFORMANCE STATE TO [datahub_login];
+```
+
+When `query_history_path` is not set, the connector uses the first running session that has an `event_file` target and captures `sql_batch_completed` or `rpc_completed`, including database-scoped sessions in Azure SQL Database.
