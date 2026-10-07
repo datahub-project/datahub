@@ -617,28 +617,28 @@ def _clickhouse_extract_dictionary_tables(
     return result
 
 
-def _clickhouse_bare_dictget_tables(
+def _clickhouse_bare_dictionary_tables(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> Set[_TableName]:
-    """dictGet names without a database, which may refer to global XML dictionaries."""
+    """Dictionary names without a database part, which may refer to global XML dictionaries."""
     return {
         table
         for table in _clickhouse_extract_dictionary_tables(statement, dialect)
-        if table.database is None and table.db_schema is None
+        if table.db_schema is None
     }
 
 
-def _resolve_table_for_lineage(
+def _resolve_clickhouse_bare_dictionary_table(
     schema_resolver: SchemaResolverInterface,
     table: _TableName,
     qualified_urn: str,
     qualified_schema_info: Optional[SchemaInfo],
-    bare_dictget_tables: Set[_TableName],
+    bare_dictionary_tables: Set[_TableName],
 ) -> Tuple[str, Optional[SchemaInfo]]:
-    # ClickHouse looks up a bare dictGet name as a global (XML) dictionary
+    # ClickHouse looks up a bare dictionary name as a global (XML) dictionary
     # before trying the current database.
-    if table in bare_dictget_tables:
+    if table in bare_dictionary_tables:
         global_urn, global_schema_info = schema_resolver.resolve_table(table)
         if global_schema_info is not None:
             return global_urn, global_schema_info
@@ -2276,7 +2276,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    bare_dictget_tables = _clickhouse_bare_dictget_tables(statement, dialect)
+    bare_dictionary_tables = _clickhouse_bare_dictionary_tables(statement, dialect)
     resolved_tables_count = 0
 
     for table in tables | modified:
@@ -2289,12 +2289,12 @@ def _sqlglot_lineage_inner(
         qualified_urn, qualified_schema_info = schema_resolver.resolve_table(
             qualified_table
         )
-        lineage_urn, lineage_schema_info = _resolve_table_for_lineage(
+        lineage_urn, lineage_schema_info = _resolve_clickhouse_bare_dictionary_table(
             schema_resolver,
             table=table,
             qualified_urn=qualified_urn,
             qualified_schema_info=qualified_schema_info,
-            bare_dictget_tables=bare_dictget_tables,
+            bare_dictionary_tables=bare_dictionary_tables,
         )
 
         # A bare dictionary and a qualified table can share the same qualified
@@ -2303,8 +2303,9 @@ def _sqlglot_lineage_inner(
         if qualified_schema_info is not None:
             table_name_schema_mapping[qualified_table] = qualified_schema_info
 
-        # Also include the original, non-qualified table name in the urn mapping.
+        # Differs from the qualified URN when a bare name is a global dictionary.
         table_name_urn_mapping[table] = lineage_urn
+        # Not added to table_name_schema_mapping: an unqualified key breaks CLL.
         if lineage_schema_info is not None:
             resolved_tables_count += 1
 
