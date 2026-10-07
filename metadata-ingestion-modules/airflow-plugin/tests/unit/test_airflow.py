@@ -343,6 +343,7 @@ def test_get_schedule_swallows_coercion_errors() -> None:
         pytest.skip("coerce_to_core_timetable not available in this Airflow version")
 
     # A timetable with no `summary`, forcing the coercion fallback path.
+    # `_get_schedule` only duck-types `dag.timetable.summary`, so a stub suffices.
     dag = SimpleNamespace(timetable=SimpleNamespace(summary=None))
 
     with mock.patch.object(
@@ -350,7 +351,7 @@ def test_get_schedule_swallows_coercion_errors() -> None:
         "coerce_to_core_timetable",
         side_effect=RuntimeError("can not serialize timetable"),
     ):
-        assert AirflowGenerator._get_schedule(dag) is None
+        assert AirflowGenerator._get_schedule(dag) is None  # type: ignore[arg-type]
 
 
 def test_entities():
