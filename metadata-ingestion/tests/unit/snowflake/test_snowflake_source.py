@@ -407,13 +407,36 @@ def test_snowflake_workload_identity_native_connection_kwargs(mock_connect):
 @patch(
     "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
 )
-def test_snowflake_workload_identity_azure_native_connection_kwargs(mock_connect):
-    """Test that the Entra resource reaches the connector for the AZURE provider"""
+def test_snowflake_workload_identity_ignores_leftover_password(mock_connect):
+    """A password left over in the recipe must not reach the connector"""
+    config = SnowflakeV2Config.model_validate(
+        {**default_wif_config_dict, "username": "user", "password": "leftover"}
+    )
+
+    mock_connect.return_value = MagicMock()
+    try:
+        config.get_connection()
+    except Exception:
+        pass  # We expect this to fail since we're mocking, but we want to check the call args
+
+    mock_connect.assert_called_once()
+    assert "password" not in mock_connect.call_args[1]
+
+
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
+)
+def test_snowflake_workload_identity_azure_entra_resource_via_connect_args(
+    mock_connect,
+):
+    """A non-default Entra resource set through connect_args reaches the connector"""
     config = SnowflakeV2Config.model_validate(
         {
             **default_wif_config_dict,
             "workload_identity_provider": "AZURE",
-            "workload_identity_entra_resource": "api://fake-entra-resource",
+            "connect_args": {
+                "workload_identity_entra_resource": "api://fake-entra-resource"
+            },
         }
     )
 
@@ -472,7 +495,6 @@ def test_snowflake_workload_identity_happy_path(provider):
     )
     assert config.authentication_type == "WORKLOAD_IDENTITY_AUTHENTICATOR"
     assert config.workload_identity_provider == provider
-    assert config.workload_identity_entra_resource is None
 
 
 def test_snowflake_workload_identity_provider_case_insensitive():
@@ -498,6 +520,8 @@ def test_snowflake_workload_identity_requires_provider():
         "DEFAULT_AUTHENTICATOR",
         "KEY_PAIR_AUTHENTICATOR",
         "EXTERNAL_BROWSER_AUTHENTICATOR",
+        "OAUTH_AUTHENTICATOR",
+        "OAUTH_AUTHENTICATOR_TOKEN",
     ],
 )
 def test_snowflake_workload_identity_provider_rejected_for_other_auth_types(
@@ -509,24 +533,15 @@ def test_snowflake_workload_identity_provider_rejected_for_other_auth_types(
     }
     if authentication_type == "KEY_PAIR_AUTHENTICATOR":
         config_dict["private_key_path"] = "/a/random/path"
+    elif authentication_type == "OAUTH_AUTHENTICATOR":
+        config_dict["oauth_config"] = {**default_oauth_dict, "provider": "okta"}
+    elif authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
+        config_dict["token"] = "valid-token"
     with pytest.raises(
         ValidationError,
         match="can only be set when `authentication_type` is WORKLOAD_IDENTITY_AUTHENTICATOR",
     ):
         SnowflakeV2Config.model_validate(config_dict)
-
-
-def test_snowflake_workload_identity_entra_resource_requires_azure():
-    with pytest.raises(
-        ValidationError,
-        match="only applies when `workload_identity_provider` is AZURE",
-    ):
-        SnowflakeV2Config.model_validate(
-            {
-                **default_wif_config_dict,
-                "workload_identity_entra_resource": "api://fake-entra-resource",
-            }
-        )
 
 
 def test_snowflake_workload_identity_invalid_provider_rejected():
@@ -562,12 +577,14 @@ def test_snowflake_workload_identity_connect_args():
     assert connect_args[CLIENT_SESSION_KEEP_ALIVE] is True
 
 
-def test_snowflake_workload_identity_entra_resource_in_connect_args():
+def test_snowflake_workload_identity_entra_resource_kept_in_connect_args():
     config = SnowflakeV2Config.model_validate(
         {
             **default_wif_config_dict,
             "workload_identity_provider": "AZURE",
-            "workload_identity_entra_resource": "api://fake-entra-resource",
+            "connect_args": {
+                "workload_identity_entra_resource": "api://fake-entra-resource"
+            },
         }
     )
     connect_args = config.get_options()["connect_args"]

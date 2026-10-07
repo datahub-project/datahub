@@ -162,12 +162,11 @@ When ingestion runs on AWS, Azure or GCP, [Workload Identity Federation](https:/
 
 This requires the ingestion process to run **on** that cloud: the Snowflake connector reads a short-lived attestation from the cloud's instance metadata service. It does not work from a laptop or from any host outside the three supported providers.
 
-| Config option                                     | Value                                                                                                                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `authentication_type`                             | `WORKLOAD_IDENTITY_AUTHENTICATOR`                                                                                                                                                    |
-| `workload_identity_provider`                      | Required. One of `AWS`, `AZURE` or `GCP`, matching the cloud the ingestion process runs on.                                                                                          |
-| `workload_identity_entra_resource`                | Optional, and only when the provider is `AZURE`. The Entra application ID URI to request the managed identity token for. Leave it unset to use Snowflake's published Entra resource. |
-| `username`, `password`, `private_key` and `token` | Not used by this authentication type. Omit them.                                                                                                                                     |
+| Config option                                     | Value                                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `authentication_type`                             | `WORKLOAD_IDENTITY_AUTHENTICATOR`                                                           |
+| `workload_identity_provider`                      | Required. One of `AWS`, `AZURE` or `GCP`, matching the cloud the ingestion process runs on. |
+| `username`, `password`, `private_key` and `token` | Not used by this authentication type. Omit them.                                            |
 
 On the Snowflake side, create a service user whose workload identity is the cloud identity your ingestion runs as, then grant it your DataHub role. Use the statement for your cloud:
 
@@ -221,18 +220,11 @@ authentication_type: WORKLOAD_IDENTITY_AUTHENTICATOR
 workload_identity_provider: AWS # or AZURE, or GCP
 ```
 
-On Azure, if the workload uses a user-assigned managed identity you may also need the Entra resource:
-
-```yml
-authentication_type: WORKLOAD_IDENTITY_AUTHENTICATOR
-workload_identity_provider: AZURE
-# Optional - only when Snowflake's published Entra resource is not the right audience
-# workload_identity_entra_resource: "api://<application_id_uri>"
-```
+On Azure the connector requests the token for Snowflake's published Entra resource, so the recipe needs nothing beyond these two values. That resource is only the token's audience and does not pick the identity: to use a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable (see the notes below). In the rare case that Snowflake's resource is not the right audience, pass `workload_identity_entra_resource` under `connect_args`.
 
 A few environment notes:
 
-- **Azure**: with a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable on the ingestion process so the connector requests a token for the right identity.
+- **Azure**: with a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable to that identity's client ID on the process that runs ingestion (for UI-based ingestion, the executor or worker pod), so the connector requests a token for the right identity. This is environment configuration, not a recipe field.
 - **AWS**: the region is read from `AWS_REGION` or `AWS_DEFAULT_REGION`, falling back to the instance metadata service. The connector needs `boto3`, which it installs by default.
 - **Domains**: the attestation audience is the literal `snowflakecomputing.com`, so workload identity is not expected to work with the `snowflake_domain: snowflakecomputing.cn` setting.
 

@@ -160,10 +160,6 @@ class SnowflakeConnectionConfig(ConfigModel):
             description="Cloud provider whose workload identity attests this connection to Snowflake. Required when `authentication_type` is `WORKLOAD_IDENTITY_AUTHENTICATOR`. The ingestion process must run on that cloud (EC2/ECS/EKS with an IAM role, an Azure VM or Function with a managed identity, or GCE/Cloud Run/GKE with an attached service account). See https://docs.snowflake.com/en/user-guide/workload-identity-federation",
         )
     )
-    workload_identity_entra_resource: Optional[str] = pydantic.Field(
-        default=None,
-        description="Microsoft Entra resource (application ID URI) to request the managed-identity token for. Only applies when `workload_identity_provider` is `AZURE`; when unset the connector uses Snowflake's published Entra resource.",
-    )
     snowflake_domain: str = pydantic.Field(
         default=DEFAULT_SNOWFLAKE_DOMAIN,
         description="Snowflake domain. Use 'snowflakecomputing.com' for most regions or 'snowflakecomputing.cn' for China (cn-northwest-1) region.",
@@ -259,22 +255,10 @@ class SnowflakeConnectionConfig(ConfigModel):
                     "`workload_identity_provider` is required when `authentication_type` is "
                     "WORKLOAD_IDENTITY_AUTHENTICATOR. Set it to one of AWS, AZURE or GCP."
                 )
-        elif (
-            self.workload_identity_provider is not None
-            or self.workload_identity_entra_resource is not None
-        ):
+        elif self.workload_identity_provider is not None:
             raise ValueError(
-                f"`workload_identity_provider` / `workload_identity_entra_resource` can only be set "
-                f"when `authentication_type` is WORKLOAD_IDENTITY_AUTHENTICATOR, not {self.authentication_type}."
-            )
-
-        if (
-            self.workload_identity_entra_resource is not None
-            and self.workload_identity_provider != "AZURE"
-        ):
-            raise ValueError(
-                "`workload_identity_entra_resource` only applies when "
-                "`workload_identity_provider` is AZURE."
+                f"`workload_identity_provider` can only be set when `authentication_type` is "
+                f"WORKLOAD_IDENTITY_AUTHENTICATOR, not {self.authentication_type}."
             )
 
         # warnings.warn reaches --test-source-connection, which prints neither
@@ -408,11 +392,6 @@ class SnowflakeConnectionConfig(ConfigModel):
             connect_args.setdefault(
                 "workload_identity_provider", self.workload_identity_provider
             )
-            if self.workload_identity_entra_resource is not None:
-                connect_args.setdefault(
-                    "workload_identity_entra_resource",
-                    self.workload_identity_entra_resource,
-                )
 
         self._computed_connect_args = connect_args
         return connect_args

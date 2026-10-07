@@ -18,9 +18,8 @@ source:
     # See https://docs.snowflake.com/en/user-guide/workload-identity-federation
     # authentication_type: "WORKLOAD_IDENTITY_AUTHENTICATOR"
     # workload_identity_provider: "AWS"  # or "AZURE", or "GCP"
-    #
-    # (Optional, AZURE only) Entra resource to request the managed identity token for.
-    # workload_identity_entra_resource: "api://<application_id_uri>"
+    # On Azure, a user-assigned managed identity is picked with the MANAGED_IDENTITY_CLIENT_ID
+    # env var on the ingestion process, not with a recipe field.
 
     # (Optional) Uncomment and update this section to filter ingested datasets 
     # database_pattern:
