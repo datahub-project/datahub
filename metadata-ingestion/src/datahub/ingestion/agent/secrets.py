@@ -91,7 +91,8 @@ def default_resolvers() -> List[SecretResolver]:
     return [EnvVarResolver(), DatahubEnvResolver()]
 
 
-_EXPANDVARS_SETTING_PREFIX = "EXPANDVARS_"
+# The setting expandvars reads from the same environ after a miss.
+_EXPANDVARS_SETTINGS = frozenset({"EXPANDVARS_RECOVER_NULL"})
 
 
 class _ResolverEnviron(MutableMapping[str, str]):
@@ -123,9 +124,9 @@ class _ResolverEnviron(MutableMapping[str, str]):
                 if value:
                     self.supplied.add(value)
                 return value
-        # expandvars then reads settings of its own (EXPANDVARS_RECOVER_NULL),
-        # which are not the reference that failed.
-        if not name.startswith(_EXPANDVARS_SETTING_PREFIX):
+        # expandvars then reads a setting of its own, which is not the
+        # reference that failed; a recipe's own EXPANDVARS_* reference is.
+        if name not in _EXPANDVARS_SETTINGS:
             self.last_missing = name
         raise KeyError(name)
 

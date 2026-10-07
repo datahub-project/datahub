@@ -40,7 +40,13 @@ from tests.test_helpers.probe_parity import (
     pipeline_ingestion,
 )
 
-pytestmark = pytest.mark.integration
+# The parity harness masks its reports against the process-global registry, as
+# the CLI does; an earlier test's registered secret would otherwise redact this
+# fixture's identifiers (e.g. "test" inside "test_cases").
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.usefixtures("_isolate_secret_registry"),
+]
 
 _SOURCE_TYPE = "mysql"
 _CONTAINER = "testmysql"
@@ -51,6 +57,9 @@ _PASSWORD = str(
         "services"
     ][_CONTAINER]["environment"]["MYSQL_ROOT_PASSWORD"]
 )
+# Each docker call's ceiling: a wedged daemon fails the fixture, not the
+# whole batch at the process backstop.
+_DOCKER_TIMEOUT_SECONDS = 120
 _SECRET = "seeded-secret-value"
 # CLI exit codes (recipe_cli): 2 is the caller's input, 3 the source.
 _EXIT_USER = 2
@@ -66,7 +75,10 @@ def test_resources_dir(pytestconfig: pytest.Config) -> Path:
 
 def _is_mysql_up() -> bool:
     logs = subprocess.run(
-        ["docker", "logs", _CONTAINER], capture_output=True, text=True
+        ["docker", "logs", _CONTAINER],
+        capture_output=True,
+        text=True,
+        timeout=_DOCKER_TIMEOUT_SECONDS,
     )
     return any(
         "/usr/sbin/mysqld: ready for connections." in line and str(_MYSQL_PORT) in line
@@ -100,6 +112,7 @@ def mysql_port(
                 "source /setup/probe_setup.sql",
             ],
             check=True,
+            timeout=_DOCKER_TIMEOUT_SECONDS,
         )
         yield docker_services.port_for(_CONTAINER, _MYSQL_PORT)
 
@@ -259,6 +272,17 @@ def test_sql_gate_refuses_an_executable_comment(
     assert _SECRET not in result.output
     # Refused before the server saw it.
     assert executed_queries == []
+
+
+def test_a_misspelled_column_in_the_callers_query_is_the_callers(
+    mysql_port: int, tmp_path: Path, executed_queries: List[str]
+) -> None:
+    """The server answers errno 1054 and the driver no SQLSTATE; the query
+    reached the server, and the mistake was the caller's."""
+    query = "SELECT no_such_column FROM information_schema.tables"
+    result = _probe_cli(tmp_path, _recipe(mysql_port), "sql", "--query", query)
+    assert result.exit_code == _EXIT_USER, result.output
+    assert len(executed_queries) == 1
 
 
 def _budget(monkeypatch: pytest.MonkeyPatch, seconds: int) -> None:

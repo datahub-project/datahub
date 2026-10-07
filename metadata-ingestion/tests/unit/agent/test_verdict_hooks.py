@@ -182,6 +182,21 @@ class _Overriding(ConfigModel):
         return None
 
 
+class _StringAncestors(_Overriding):
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        # A bare str is a sequence too, of one-letter kinds.
+        return "Box" if kind == "Thing" else ()  # type: ignore[return-value]
+
+
+def test_ancestor_kinds_given_as_a_bare_string_are_a_connector_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _StringAncestors)
+    with pytest.raises(ProbeInternalError):
+        _judge("Thing", ["t"], parent_path=["a"])
+
+
 def test_an_override_decides_with_the_parent_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
