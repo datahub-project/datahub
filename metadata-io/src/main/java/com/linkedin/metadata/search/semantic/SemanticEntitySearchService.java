@@ -39,8 +39,9 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Semantic search service that issues approximate nearest-neighbour (kNN) queries against semantic
@@ -123,6 +125,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
+  private static final Set<String> WARNED_SHARED_INDEX_ENTITIES = ConcurrentHashMap.newKeySet();
 
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
@@ -133,7 +136,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String vectorField;
   private final int expectedVectorDimension;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
-  private final Set<String> warnedSharedIndexEntities = ConcurrentHashMap.newKeySet();
 
   /**
    * Constructs a semantic entity search service with the default model embedding key.
@@ -285,7 +287,12 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     final boolean readV3 = shouldReadSemanticV3(entityIndexConfiguration);
     List<String> indices =
         readV3
-            ? v3SemanticIndices(opContext, entityNames)
+            ? new ArrayList<>(
+                v3SemanticIndices(
+                        opContext,
+                        entityNames,
+                        Objects.requireNonNull(entityIndexConfiguration).getSemanticSearch())
+                    .values())
             : entityNames.stream()
                 .map(
                     entity -> {
@@ -361,10 +368,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             ? ESUtils.buildFilterMap(
                 // Use the new method that delegates to buildFilterQuery
                 transformedFilters, // Use transformed filters instead of raw postFilters
-                // The timeseries flag drops the .keyword suffix, which V3 needs: its keyword and
-                // URN fields have no such subfield, and its text fields are keyword-typed too. The
-                // flag's other effect, the rewrite context, is unused with an empty rewrite chain.
-                readV3,
+                false, // not timeseries
                 searchableFieldTypes,
                 opContext,
                 queryFilterRewriteChain)
@@ -480,15 +484,15 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
           "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ or Elasticsearch"
               + " 8.18+ on the Search V3 cluster, which runs OpenSearch "
               + version
-              + ": earlier OpenSearch k-NN pre-filters ignore the V3 _aspects fields that facet and"
-              + " View filters use");
+              + ", where V3 semantic reads have not been validated");
     }
   }
 
   /**
    * False for OpenSearch before 3.5, whose k-NN plugin runs a nested query's pre-filter in the
-   * nested scope for fields under an underscore-prefixed object. V3 keeps every aspect field under
-   * {@code _aspects}, so such filters match nothing there. Elasticsearch applies them.
+   * nested scope for fields under an underscore-prefixed object. V3 facet and View filters read
+   * such fields under {@code _aspects} until they moved to top-level fields; V3 semantic reads are
+   * validated only on OpenSearch 3.5+ and Elasticsearch, which applies them.
    */
   public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
     if (!isOpenSearch(client)) {
@@ -532,18 +536,18 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * V3 entity indices that can serve kNN for {@code entityNames}: entity-named indices of
-   * semantic-enabled entity types, the only V3 indices that get the {@code embeddings} mapping.
-   * With the default {@code enabledEntities} that leaves {@code documentindex_v3}. Entity types in
-   * a shared search-group index are skipped.
+   * V3 entity indices that can serve kNN for {@code entityNames}, keyed by canonical entity name:
+   * entity-named indices of semantic-enabled entity types, the only V3 indices that get the {@code
+   * embeddings} mapping. With the default {@code enabledEntities} that leaves {@code
+   * documentindex_v3}. Entity types in a shared search-group index are skipped.
    */
   @Nonnull
-  private List<String> v3SemanticIndices(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames) {
-    SemanticSearchConfiguration semanticConfig =
-        Objects.requireNonNull(entityIndexConfiguration).getSemanticSearch();
+  public static Map<String, String> v3SemanticIndices(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable SemanticSearchConfiguration semanticConfig) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    Set<String> indices = new LinkedHashSet<>();
+    Map<String, String> indices = new LinkedHashMap<>();
     for (String entityName : entityNames) {
       EntitySpec entitySpec;
       try {
@@ -557,7 +561,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       }
       String indexKey = V3IndexKeys.resolve(entitySpec);
       if (!indexKey.equals(entitySpec.getName())) {
-        if (warnedSharedIndexEntities.add(entitySpec.getName())) {
+        if (WARNED_SHARED_INDEX_ENTITIES.add(entitySpec.getName())) {
           log.warn(
               "Semantic search on Search V3 skips {}: it is stored in the shared {} index, which"
                   + " has no embeddings mapping",
@@ -566,18 +570,17 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         }
         continue;
       }
-      indices.add(indexConvention.getEntityIndexNameV3(opContext, indexKey));
+      indices.put(entitySpec.getName(), indexConvention.getEntityIndexNameV3(opContext, indexKey));
     }
-    return new ArrayList<>(indices);
+    return indices;
   }
 
   /**
    * Adapts a filter to the V3 mapping. {@code _entityType} becomes an {@code _index} filter on the
    * V3 index names, resolved like the V2 rewrite (underscores dropped, case ignored), because
    * GraphQL sends {@code DOCUMENT} while V3 stores {@code document}. Only entity-named V3 indices
-   * are searched, so an index name identifies the entity type. An explicit {@code .keyword} suffix
-   * is dropped: V3 keyword and URN fields have no such subfield, and its text fields are
-   * keyword-typed at the root.
+   * are searched, so an index name identifies the entity type. Other fields keep their V2 names: V3
+   * root fields carry the same {@code .keyword} subfields.
    */
   @Nonnull
   private static Filter toV3Filter(@Nonnull OperationContext opContext, @Nonnull Filter filter) {
@@ -597,19 +600,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     for (ConjunctiveCriterion conjunction : filter.getOr()) {
       CriterionArray and = new CriterionArray();
       for (Criterion criterion : conjunction.getAnd()) {
-        String field = criterion.getField();
-        if (field.endsWith(ESUtils.KEYWORD_SUFFIX)) {
-          field = field.substring(0, field.length() - ESUtils.KEYWORD_SUFFIX.length());
-        }
-        if (!field.equalsIgnoreCase(SearchUtil.INDEX_VIRTUAL_FIELD)) {
-          and.add(
-              field.equals(criterion.getField())
-                  ? criterion
-                  : buildCriterion(
-                      field,
-                      criterion.getCondition(),
-                      criterion.isNegated(),
-                      criterion.getValues()));
+        if (!StringUtils.removeEnd(criterion.getField(), ESUtils.KEYWORD_SUFFIX)
+            .equalsIgnoreCase(SearchUtil.INDEX_VIRTUAL_FIELD)) {
+          and.add(criterion);
           continue;
         }
         List<String> indexNames = new ArrayList<>();

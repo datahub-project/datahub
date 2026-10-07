@@ -268,89 +268,104 @@ fragment parentDomainsFields on ParentDomainsResult {
     }
 }
 
-fragment ownershipFields on Ownership {
-    owners {
-        owner {
-            ... on CorpUser {
-                urn
-                type
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                properties {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableProperties {
-                    displayName
-                    title
-                    pictureLink
-                    email
-                }
+fragment owner on Owner {
+    owner {
+        ... on CorpUser {
+            urn
+            type
+            username
+            info {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
             }
-            ... on CorpGroup {
-                urn
-                type
-                name
-                properties {
-                    displayName
-                    email
-                }
-                info {
-                    displayName
-                    email
-                    admins {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            email
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                            teams
-                            skills
-                        }
-                    }
-                    members {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            email
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                            teams
-                            skills
-                        }
-                    }
-                    groups
-                }
+            properties {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                title
+                pictureLink
+                email
             }
         }
+        ... on CorpGroup {
+            urn
+            type
+            name
+            properties {
+                displayName
+                email
+            }
+            memberCount: relationships(
+                input: {
+                    types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                    direction: INCOMING
+                    start: 0
+                    count: 0
+                    includeSoftDelete: false
+                }
+            ) {
+                total
+            }
+            info {
+                displayName
+                email
+                admins {
+                    urn
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                        teams
+                        skills
+                    }
+                }
+                members {
+                    urn
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                        teams
+                        skills
+                    }
+                }
+                groups
+            }
+        }
+    }
+}
+
+fragment ownershipFields on Ownership {
+    owners {
+        ...owner
         type
         ownershipType {
             urn
@@ -456,6 +471,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        created
         lastModified {
             time
             actor
@@ -622,6 +638,11 @@ fragment dataJobFields on DataJob {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
@@ -706,6 +727,11 @@ fragment dashboardFields on Dashboard {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     embed {
         ...embedFields
@@ -788,6 +814,11 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -869,6 +900,11 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -942,6 +978,11 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1146,6 +1187,11 @@ fragment nonRecursiveMLModel on MLModel {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1193,6 +1239,11 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1318,7 +1369,13 @@ fragment parentContainerFields on Container {
 }
 
 fragment domainEntitiesFields on Domain {
-    entities(input: { start: 0, count: 0 }) {
+    entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+        }
+    ) {
         total
     }
     dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
@@ -1448,6 +1505,10 @@ fragment entityDisplayNameFields on Entity {
     }
     ... on CorpUser {
         username
+        editableProperties {
+            displayName
+            email
+        }
         properties {
             displayName
             title
@@ -1549,6 +1610,11 @@ fragment entityDisplayNameFields on Entity {
         }
     }
     ... on Application {
+        properties {
+            name
+        }
+    }
+    ... on Api {
         properties {
             name
         }

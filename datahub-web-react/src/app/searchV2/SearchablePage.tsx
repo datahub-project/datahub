@@ -12,6 +12,7 @@ import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
 import ProductUpdates from '@app/shared/product/update/ProductUpdates';
+import { HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -53,7 +54,7 @@ const Content = styled.div<{
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: 11px 15px 11px ${props.$isNavBarCollapsed ? '15px' : '3px'};
+        padding: ${HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX}px;
     `}
     flex: 1;
     display: flex;

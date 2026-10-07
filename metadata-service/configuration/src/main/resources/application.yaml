@@ -428,6 +428,7 @@ entityService:
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
     applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
+  syncIngestStamping: ${DATAHUB_HONOR_SYNC_INGEST_FLAG:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -641,11 +642,16 @@ cassandra:
     datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
 # PostgreSQL optional SqlSetup (pgQueue).
-# postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
-# (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
-# The JDBC URL path selects the database only.
+# postgres.schema / DATAHUB_POSTGRES_SCHEMA: Ebean/metadata tables (default public). SqlSetup
+# CREATE SCHEMA (unless CREATE_SCHEMA=false) and search_path use this value. GMS and MCE copy a
+# non-public schema onto the Ebean JDBC URL as currentSchema so runtime reads the same schema.
+# Default public does not rewrite a URL that omits currentSchema. A URL currentSchema whose
+# first entry names a different schema fails startup. A list such as dhub,public is kept when
+# its first entry matches. pgQueue uses postgres.pgQueue.schema only (default queue)—queue DDL never
+# lands in postgres.schema unless you explicitly set both to the same value. The JDBC URL
+# path selects the database only.
 postgres:
-  schema: public
+  schema: ${DATAHUB_POSTGRES_SCHEMA:public}
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:
     cronSchema: ${DATAHUB_POSTGRES_PG_CRON_SCHEMA:cron}
@@ -900,6 +906,9 @@ elasticsearch:
       # Semantic (kNN) search reads document vectors from V3 indices instead of the V2 semantic
       # indices. Independent of keywordReadEnabled; turn on once V3 holds the document embeddings.
       semanticReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED:false}
+      # Full-text keyword search reranks document rows with kNN scores from the V3 document index,
+      # keeping every other row where keyword search put it. Needs V3 keyword and semantic reads.
+      hybridReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
@@ -1073,7 +1082,21 @@ elasticsearch:
     prefix: ${INDEX_PREFIX:}
     # numShards / numReplicas are per-cluster sizing; see clusters.<name>.index.
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
-    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
+    # Fallback copied into entity, graph, and system-metadata refresh intervals below.
+    # Timeseries and usage do not follow this value.
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}
+    # Two levels: a seconds field per index service, then entities / aspects overrides.
+    # A higher interval delays search visibility of writes. Timeseries and usage are not
+    # interactive search, so they default to 60s. Everything else stays at 3s.
+    refreshIntervals:
+      entitySeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITY_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      graphSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_GRAPH_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      systemMetadataSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_SYSTEM_METADATA_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      timeseriesSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS:60}
+      usageSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS:60}
+      # JSON objects, e.g. {"dataset": 10} and {"datasetProfile": 60}. Null when unset.
+      entities: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITIES:#{null}}
+      aspects: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ASPECTS:#{null}}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
@@ -1095,6 +1118,8 @@ elasticsearch:
     waitForUnresolvedReindexTask: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK:true} # skip stall resubmit while the ES reindex task is still running or status lookup failed
     # Parallel reindexing configuration
     enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    # Bounded pool for refresh_interval and other non-reindex settings updates.
+    maxConcurrentSettingsUpdates: ${ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_SETTINGS_UPDATES:8}
     taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
     # Cost-based reindexing configuration (P=2 enhancements)
@@ -1184,14 +1209,16 @@ elasticsearch:
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
     # Default entity types when callers omit types. No code baseline — configure via YAML/env.
     # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    # When editing these lists, also update the mirrored DEFAULT_*_ENTITY_TYPES constants in
+    # EntityTypeListConfig.java (metadata-service/configuration); tests seed SearchContext from them.
     defaultEntityTypes:
-      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel}
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel,api}
       add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
 
     # Default entity types for autocomplete-across-entities when callers omit types.
     autocompleteEntityTypes:
-      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel}
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel,api}
       add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
 
@@ -1823,6 +1850,10 @@ structuredProperties:
   # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
   # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
+  # Reindex when an existing SP field's copy_to disagrees with the definition-driven target.
+  # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+  # (stock default false). A put-mapping does not backfill already-indexed documents.
+  copyToMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
   # When true, persist oversized string-backed SP values in SQL but omit them from search documents.
   # Default false: StructuredPropertiesValidator rejects those writes (HTTP 422).

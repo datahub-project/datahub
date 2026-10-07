@@ -13,6 +13,10 @@ import {
     useDeleteAssertionMutation,
 } from '@graphql/assertion.generated';
 
+/**
+ * @description A custom hook for deleting an assertion with cache eviction.
+ * Use this instead of the default useDeleteAssertionMutation hook.
+ */
 export const useDeleteAssertionMutationWithCache = (
     baseOptions?: MutationHookOptions<DeleteAssertionMutation, DeleteAssertionMutationVariables>,
 ) => {
