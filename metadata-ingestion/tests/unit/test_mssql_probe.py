@@ -812,14 +812,14 @@ def test_the_probe_engine_reads_sql_variant_on_pyodbc_only(
             "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7Bx%7D%3BDATABASE%3DNewData%3B",
             "NewData",
         ),
-        pytest.param(
+        # The last keyword of a connect string needs no ';'.
+        (
             "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7Bx%7D%3BDATABASE%3DNewData",
             "NewData",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="DATABASE= must end in ';' today; fixing it changes "
-                "ingestion's database name for such recipes",
-            ),
+        ),
+        (
+            "mssql+pyodbc:///?odbc_connect=DATABASE%3DNewData%3BDRIVER%3D%7Bx%7D",
+            "NewData",
         ),
     ],
 )

@@ -248,7 +248,8 @@ def database_name_from_url(url: URL) -> str:
     if "odbc_connect" in query:
         # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
         database = re.search(
-            r"DATABASE=([^;]*);",
+            # The last keyword needs no ';'.
+            r"DATABASE=([^;]*)(?:;|$)",
             urllib.parse.unquote_plus(str(query["odbc_connect"])),
             flags=re.IGNORECASE,
         )
