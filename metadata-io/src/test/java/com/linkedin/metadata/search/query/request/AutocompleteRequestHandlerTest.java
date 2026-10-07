@@ -798,22 +798,33 @@ public class AutocompleteRequestHandlerTest {
 
   /**
    * An autocomplete input matches whole, as the autocomplete analyzer keeps it: the "i" of order_i
-   * is not a prefix of its own, so the hit is suggested by the id the input starts, not its name.
+   * or order-i is not a prefix of its own, so the hit is suggested by the id the input starts, not
+   * its name.
    */
   @Test
   public void testV3SuggestionMatchesAnIdentifierInputWhole() {
-    SearchHit[] hits = {
-      suggestionHit("a", Map.of("name", "Inventory snapshot", "id", "warehouse.order_items"))
-    };
-    SearchResponse response = mock(SearchResponse.class);
-    when(response.getHits())
-        .thenReturn(new SearchHits(hits, new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1.0f));
+    assertEquals(
+        v3Suggestions(
+            Map.of("name", "Inventory snapshot", "id", "warehouse.order_items"), "order_i"),
+        List.of("warehouse.order_items"));
+    assertEquals(
+        v3Suggestions(
+            Map.of("name", "Inventory snapshot", "id", "warehouse.order-items"), "order-i"),
+        List.of("warehouse.order-items"));
+  }
 
-    AutoCompleteResult result =
-        getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
-            .extractResult(nonMockOpContext, response, "order_i");
-
-    assertEquals(result.getSuggestions(), List.of("warehouse.order_items"));
+  /**
+   * Values are read as the autocomplete analyzer indexes them, whole and unstemmed: neither a part
+   * of order_items nor the stem of orders makes the name the suggestion.
+   */
+  @Test
+  public void testV3SuggestionReadsValueWordsWhole() {
+    assertEquals(
+        v3Suggestions(Map.of("name", "order_items", "id", "warehouse.items_daily"), "items"),
+        List.of("warehouse.items_daily"));
+    assertEquals(
+        v3Suggestions(Map.of("name", "Order history", "id", "warehouse.orders_daily"), "orders"),
+        List.of("warehouse.orders_daily"));
   }
 
   /**
@@ -822,18 +833,20 @@ public class AutocompleteRequestHandlerTest {
    */
   @Test
   public void testV3SuggestionKeepsAStopWordInput() {
-    SearchHit[] hits = {
-      suggestionHit("a", Map.of("name", "Inventory snapshot", "id", "theater.ticket_sales"))
-    };
+    assertEquals(
+        v3Suggestions(Map.of("name", "Inventory snapshot", "id", "theater.ticket_sales"), "the"),
+        List.of("theater.ticket_sales"));
+  }
+
+  /** The V3 suggestions for one hit with these fields. */
+  private List<String> v3Suggestions(Map<String, Object> fields, String input) {
+    SearchHit[] hits = {suggestionHit("a", fields)};
     SearchResponse response = mock(SearchResponse.class);
     when(response.getHits())
         .thenReturn(new SearchHits(hits, new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1.0f));
-
-    AutoCompleteResult result =
-        getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
-            .extractResult(nonMockOpContext, response, "the");
-
-    assertEquals(result.getSuggestions(), List.of("theater.ticket_sales"));
+    return getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
+        .extractResult(nonMockOpContext, response, input)
+        .getSuggestions();
   }
 
   private static SearchHit suggestionHit(String name, Map<String, Object> fields) {

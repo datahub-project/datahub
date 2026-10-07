@@ -44,6 +44,8 @@ final class V3MatchedFields {
   // Letters and digits in any script, as the shared fields' tokenizer splits them, the accents of
   // decomposed letters, which belong to their word, and underscores, which join an identifier
   private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_]+");
+  // The words of the autocomplete analyzer, whose word delimiter keeps hyphens inside a word too
+  private static final Pattern AUTOCOMPLETE_WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_-]+");
   private static final Pattern UNDERSCORES = Pattern.compile("_+");
   // Longer values are cut to this many characters around the first match, about what the V2
   // highlighter returns
@@ -53,8 +55,9 @@ final class V3MatchedFields {
   private static final Map<String, String> STEM_OVERRIDES = stemOverrides();
 
   private final int minWordLength;
-  // The autocomplete analyzer drops no stop words
-  private final boolean keepStopWords;
+  // Words are read as the autocomplete analyzer reads them: whole, stop words kept, not stemmed
+  private final boolean autocomplete;
+  private final Pattern wordPattern;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
   // The forms of the query's last word, which match as a prefix
@@ -71,11 +74,12 @@ final class V3MatchedFields {
   private V3MatchedFields(
       @Nonnull final String query, final int minWordLength, final boolean autocomplete) {
     this.minWordLength = minWordLength;
-    this.keepStopWords = autocomplete;
+    this.autocomplete = autocomplete;
+    this.wordPattern = autocomplete ? AUTOCOMPLETE_WORD : WORD;
     final List<List<String>> queryWords = new ArrayList<>();
-    final Matcher matcher = WORD.matcher(query);
+    final Matcher matcher = wordPattern.matcher(query);
     while (matcher.find()) {
-      final List<String> forms = forms(matcher.group(), !autocomplete);
+      final List<String> forms = forms(matcher.group());
       if (!forms.isEmpty()) {
         queryWords.add(forms);
       }
@@ -86,9 +90,10 @@ final class V3MatchedFields {
   }
 
   /**
-   * For an autocomplete input, a prefix being typed, read as the autocomplete analyzer keeps it: no
-   * word of it is too short to match, stop words stay, and an identifier such as {@code order_i}
-   * only matches whole, since its parts would be prefixes of unrelated words.
+   * For an autocomplete input, a prefix being typed, matched as the autocomplete analyzer reads
+   * words: none is too short and no stop word is dropped, nothing is stemmed, and an identifier
+   * such as {@code order_i} or {@code order-i} stays whole, in the input and in the values, since
+   * its parts would be prefixes of unrelated words.
    */
   @Nonnull
   static V3MatchedFields forAutocomplete(@Nonnull final String input) {
@@ -126,9 +131,9 @@ final class V3MatchedFields {
    * a long value is scanned only up to its first match.
    */
   private int firstMatch(@Nonnull final String text) {
-    final Matcher matcher = WORD.matcher(text);
+    final Matcher matcher = wordPattern.matcher(text);
     while (matcher.find()) {
-      for (String form : forms(matcher.group(), true)) {
+      for (String form : forms(matcher.group())) {
         if (lastQueryForms.stream().anyMatch(form::startsWith) || queryStems.contains(stem(form))) {
           return matcher.start();
         }
@@ -138,18 +143,18 @@ final class V3MatchedFields {
   }
 
   /**
-   * The forms the analyzers keep of one word: the word and, for an identifier when {@code parts},
-   * the parts around its underscores, with case and accents folded and short words and, unless
-   * {@link #keepStopWords}, stop words dropped.
+   * The forms the analyzers keep of one word: the word, with case and accents folded, and for an
+   * identifier its parts around the underscores, without short words and stop words. Autocomplete
+   * keeps an identifier whole and keeps stop words.
    */
   @Nonnull
-  private List<String> forms(@Nonnull final String word, final boolean parts) {
+  private List<String> forms(@Nonnull final String word) {
     final String folded = fold(word);
     final List<String> forms = new ArrayList<>();
     if (isKept(folded)) {
       forms.add(folded);
     }
-    if (parts && folded.indexOf('_') >= 0) {
+    if (!autocomplete && folded.indexOf('_') >= 0) {
       for (String part : UNDERSCORES.split(folded)) {
         if (isKept(part) && !forms.contains(part)) {
           forms.add(part);
@@ -178,13 +183,16 @@ final class V3MatchedFields {
 
   private boolean isKept(@Nonnull final String word) {
     return word.length() >= Math.max(1, minWordLength)
-        && (keepStopWords
+        && (autocomplete
             || (!DATAHUB_STOP_WORDS_LIST.contains(word)
                 && !EnglishAnalyzer.ENGLISH_STOP_WORDS_SET.contains(word)));
   }
 
   @Nonnull
   private String stem(@Nonnull final String word) {
+    if (autocomplete) {
+      return word;
+    }
     final String override = STEM_OVERRIDES.get(word);
     if (override != null) {
       return override;
@@ -217,7 +225,8 @@ final class V3MatchedFields {
                 final int arrow = line.indexOf("=>");
                 final String stem = line.substring(arrow + 2).trim();
                 for (String word : line.substring(0, arrow).split(",")) {
-                  overrides.put(word.trim(), stem);
+                  // The first rule naming a word wins, as in the engine's filter
+                  overrides.putIfAbsent(word.trim(), stem);
                 }
               });
     } catch (IOException e) {
