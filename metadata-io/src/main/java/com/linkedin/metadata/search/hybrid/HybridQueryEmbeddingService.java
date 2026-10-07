@@ -7,6 +7,7 @@ import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -21,6 +22,8 @@ public class HybridQueryEmbeddingService {
   // A search page and its facet request embed the same query; repeat queries skip the provider
   private final Cache<String, float[]> recentEmbeddings =
       CacheBuilder.newBuilder().maximumSize(1_000).expireAfterWrite(Duration.ofMinutes(1)).build();
+
+  private final AtomicLong lastProviderSuccessNanos = new AtomicLong(System.nanoTime());
 
   public HybridQueryEmbeddingService(
       @Nonnull final EmbeddingProvider embeddingProvider,
@@ -43,9 +46,9 @@ public class HybridQueryEmbeddingService {
     this.expectedDimension = expectedDimension;
   }
 
-  /** Whether a recent embedding of the query is cached, so embedding it calls no provider. */
-  public boolean isCached(@Nonnull final String query) {
-    return recentEmbeddings.getIfPresent(query) != null;
+  /** Whether the provider returned a query embedding at or after {@code nanos}, a nanoTime. */
+  public boolean providerSucceededSince(final long nanos) {
+    return lastProviderSuccessNanos.get() - nanos >= 0;
   }
 
   /**
@@ -73,9 +76,12 @@ public class HybridQueryEmbeddingService {
     if (remainingNanos <= 0) {
       throw new UncheckedTimeoutException("The hybrid deadline passed before the query embedding");
     }
-    return checkDimension(
-        embeddingProvider.embed(
-            query, modelId, EmbeddingTaskType.QUERY, Duration.ofNanos(remainingNanos)));
+    final float[] vector =
+        checkDimension(
+            embeddingProvider.embed(
+                query, modelId, EmbeddingTaskType.QUERY, Duration.ofNanos(remainingNanos)));
+    lastProviderSuccessNanos.set(System.nanoTime());
+    return vector;
   }
 
   // Checked while loading, so a wrong-sized vector is not cached and the next search retries

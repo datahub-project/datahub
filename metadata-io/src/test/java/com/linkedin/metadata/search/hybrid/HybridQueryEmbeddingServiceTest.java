@@ -89,20 +89,25 @@ public class HybridQueryEmbeddingServiceTest {
   }
 
   @Test
-  public void testIsCachedOnceTheQueryIsEmbedded() {
+  public void testRecordsWhenTheProviderLastAnswered() {
     EmbeddingProvider provider = mock(EmbeddingProvider.class);
     when(provider.embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class)))
         .thenThrow(new IllegalStateException("provider down"))
         .thenReturn(new float[] {0.1f, 0.2f});
     HybridQueryEmbeddingService service =
         new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
+    long before = System.nanoTime();
 
-    assertFalse(service.isCached("revenue"));
+    assertFalse(service.providerSucceededSince(before));
     assertThrows(IllegalStateException.class, () -> service.embed("revenue", inSeconds(60)));
-    // A failed embedding is not cached
-    assertFalse(service.isCached("revenue"));
+    // A failed call is no answer
+    assertFalse(service.providerSucceededSince(before));
     service.embed("revenue", inSeconds(60));
-    assertTrue(service.isCached("revenue"));
+    assertTrue(service.providerSucceededSince(before));
+    // A cached embedding makes no call
+    long afterLoad = System.nanoTime() + 1;
+    service.embed("revenue", inSeconds(60));
+    assertFalse(service.providerSucceededSince(afterLoad));
   }
 
   @Test

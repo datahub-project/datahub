@@ -92,6 +92,8 @@ public class ESSearchDAOHybridTest {
             });
     when(reranker.vectorEntityNames(any(OperationContext.class), any()))
         .thenReturn(Set.of("document"));
+    // Each rerank called the provider, unless a test says otherwise
+    when(reranker.providerSucceededSince(anyLong())).thenReturn(true);
     dao =
         new ESSearchDAO(
             false,
@@ -333,6 +335,7 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testRepeatedFailuresPauseHybridRead() throws Exception {
+    dao.setHybridTimeoutMillis(60_000);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -360,6 +363,7 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testHybridReadResumesAfterThePause() throws Exception {
+    dao.setHybridTimeoutMillis(60_000);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -527,6 +531,12 @@ public class ESSearchDAOHybridTest {
       }
       verify(metrics, timeout(30_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
+      // The executor stays full, so each of these is rejected in turn; if rejections counted,
+      // three in a row would pause hybrid read and the last one would be skipped
+      for (int i = 0; i < 4; i++) {
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+      }
+      verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     } finally {
       release.countDown();
       for (Future<SearchResult> search : held) {
@@ -534,10 +544,6 @@ public class ESSearchDAOHybridTest {
       }
       searches.shutdown();
     }
-    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
-
-    // A rejected search waited for nothing, so the rejections did not pause hybrid read
-    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
   }
 
@@ -582,6 +588,7 @@ public class ESSearchDAOHybridTest {
 
   @Test
   public void testRerankWithoutVectorsEndsTheFailureStreakButIsNotApplied() throws Exception {
+    dao.setHybridTimeoutMillis(60_000);
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
@@ -610,8 +617,10 @@ public class ESSearchDAOHybridTest {
     SearchResponse keywordResponse = response(100);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(keywordResponse);
-    // A provider outage: new queries fail, while a query embedded before it still reranks
-    when(reranker.isEmbeddingCached("paged")).thenReturn(true);
+    // A provider outage: new queries fail, while a query embedded before it still reranks on its
+    // cached embedding, and no provider call succeeds
+    dao.setHybridTimeoutMillis(60_000);
+    when(reranker.providerSucceededSince(anyLong())).thenReturn(false);
     when(reranker.rerank(
             any(OperationContext.class), any(), eq("revenue"), anyList(), any(), anyLong()))
         .thenThrow(new IOException("provider unavailable"));

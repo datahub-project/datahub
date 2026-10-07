@@ -54,9 +54,9 @@ public class HybridSearchResultReranker {
     return knnRequestBuilder.vectorEntityNames(opContext, entityNames);
   }
 
-  /** Whether a rerank of the query would reuse a recent embedding rather than call the provider. */
-  public boolean isEmbeddingCached(@Nonnull final String query) {
-    return queryEmbeddingService.isCached(query);
+  /** Whether the embedding provider answered at or after {@code nanos}, a nanoTime. */
+  public boolean providerSucceededSince(final long nanos) {
+    return queryEmbeddingService.providerSucceededSince(nanos);
   }
 
   /**
@@ -139,13 +139,12 @@ public class HybridSearchResultReranker {
       throw new IOException("The kNN response reported a timed-out or failed shard");
     }
     final Map<Urn, Double> vectorScores = scoreMapBuilder.vectorScores(knnResponse);
-    if (vectorScores.isEmpty()) {
-      // e.g. the V3 document index has no embeddings yet: one embedding call bought nothing
-      count(opContext, "hybridReadNoVectors");
-    }
     // A row without vectors, e.g. not embedded yet, has nothing to compare and keeps its position
     lexicalScores.keySet().retainAll(vectorScores.keySet());
     if (lexicalScores.size() < 2) {
+      // e.g. the V3 document index has few embeddings yet: the embedding and kNN calls bought
+      // nothing
+      count(opContext, "hybridReadNoVectors");
       return List.of();
     }
     return candidateMerger.merge(lexicalScores, vectorScores);

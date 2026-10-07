@@ -613,8 +613,6 @@ public class ESSearchDAO {
     if (windowVectorRows >= 2) {
       final long startNanos = System.nanoTime();
       final long deadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(hybridTimeoutMillis);
-      // A rerank on a cached embedding calls no provider, so its success says nothing about one
-      final boolean callsProvider = !hybridSearchResultReranker.isEmbeddingCached(input);
       try {
         // The worker gets its own copies: a rerank that finishes after the timeout must not change
         // the rows served as the keyword fallback
@@ -636,9 +634,10 @@ public class ESSearchDAO {
                                 deadlineNanos)));
         final Optional<List<SearchEntity>> reranked =
             rerank.get(hybridTimeoutMillis, TimeUnit.MILLISECONDS);
-        // A rerank that called the provider and completed ends the failure streak, also one that
-        // found no vectors
-        if (callsProvider) {
+        // A completed rerank ends the failure streak, also one that found no vectors, but only if
+        // the provider answered since it started: one on a cached embedding says nothing about it,
+        // while its kNN failures still count
+        if (hybridSearchResultReranker.providerSucceededSince(startNanos)) {
           hybridFailures.set(0);
         }
         if (reranked.isPresent()) {
