@@ -624,7 +624,7 @@ def _clickhouse_bare_dictget_tables(
     """dictGet names without a database, which may refer to global XML dictionaries."""
     return {
         table
-        for table in _clickhouse_extract_dictget_tables(statement, dialect)
+        for table in _clickhouse_extract_dictionary_tables(statement, dialect)
         if table.database is None and table.db_schema is None
     }
 
