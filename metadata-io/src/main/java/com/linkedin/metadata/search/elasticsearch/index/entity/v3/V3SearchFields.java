@@ -51,7 +51,11 @@ import javax.annotation.Nonnull;
  *       and fields of an entity a reference field names ({@code @SearchableRef}) only ever copy
  *       into {@code _search.other}, and matched fields do not report them;
  *   <li>a string field with {@code enableAutocomplete} also copies into {@code
- *       _search.autocomplete}, the only field with an ngram subfield.
+ *       _search.autocomplete}, the only field with an ngram subfield;
+ *   <li>a structured property's {@code string}, {@code rich_text} and {@code urn} values copy into
+ *       {@code _search.structuredProperties} from the property's own field (see {@link
+ *       StructuredPropertyMappingBuilder}), unless its definition opts out. No searchable field
+ *       feeds it, so every index maps it and every search reads it.
  * </ul>
  *
  * <p>Only these shared fields are analyzed. Root fields and the {@code _aspects} copies stay
@@ -71,6 +75,7 @@ public final class V3SearchFields {
   public static final String DESCRIPTION = "description";
   public static final String COLUMNS = "columns";
   public static final String OTHER = "other";
+  public static final String STRUCTURED_PROPERTIES = "structuredProperties";
   public static final String AUTOCOMPLETE = "autocomplete";
 
   /** Word subfield of every full-text shared field. */
@@ -120,7 +125,8 @@ public final class V3SearchFields {
 
   // Shared fields only full-text search reads, which hold just their analyzed subfields. A label a
   // model names keeps its indexed keyword for the sorts, filters and score functions it serves
-  private static final Set<String> TEXT_ONLY_FIELDS = Set.of(DESCRIPTION, COLUMNS, OTHER);
+  private static final Set<String> TEXT_ONLY_FIELDS =
+      Set.of(DESCRIPTION, COLUMNS, STRUCTURED_PROPERTIES, OTHER);
 
   // Indexed shared keywords skip longer values, whose UTF-8 bytes could exceed the engine's term
   // limit: copy_to copies a value the source field skipped
@@ -128,9 +134,10 @@ public final class V3SearchFields {
       ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH);
 
   // Relative weight of a match in each full-text shared field; a field not listed weighs 1. These
-  // replace the per-field @Searchable boostScore on V3
+  // replace the per-field @Searchable boostScore on V3. Structured property values weigh what
+  // DataHub Cloud's query gives the field it copies them into
   private static final Map<String, Float> WEIGHTS =
-      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, OTHER, 0.5f);
+      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, STRUCTURED_PROPERTIES, 0.8f, OTHER, 0.5f);
 
   private static final Set<FieldType> STRING_FIELD_TYPES =
       Set.of(
@@ -208,8 +215,9 @@ public final class V3SearchFields {
   /**
    * The shared fields full-text search reads for these entities, each with the root fields that
    * feed it, in the order the entities and their aspects declare them. A shared field is listed
-   * when at least one string field queried by default feeds it; {@code other} always is, since
-   * every document's urn copies into it.
+   * when at least one string field queried by default feeds it; {@code structuredProperties} always
+   * is, with no root field, since a property can be added to any entity, and {@code other} is,
+   * since every document's urn copies into it.
    */
   @Nonnull
   public static Map<String, List<String>> fullTextFields(
@@ -232,6 +240,7 @@ public final class V3SearchFields {
                 }
               }
             });
+    queried.add(STRUCTURED_PROPERTIES);
     // The catch-all goes last, so a hit's matched fields list the specific fields first
     queried.remove(OTHER);
     queried.add(OTHER);

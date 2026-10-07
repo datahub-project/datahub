@@ -903,6 +903,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(query.contains("_search.entityName.text"), query);
     assertTrue(query.contains("_search.columns.text"), query);
     assertTrue(query.contains("_search.columns.stemmed"), query);
+    assertTrue(query.contains("_search.structuredProperties.text"), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());
@@ -910,6 +911,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
     assertTrue(
         fetched.stream().noneMatch(field -> field.startsWith("_search")), fetched.toString());
+    // Structured property values are searched, never fetched for matched fields
+    assertTrue(
+        fetched.stream().noneMatch(field -> field.startsWith("structuredProperties")),
+        fetched.toString());
   }
 
   /** V3 fetches no matched-field sources when highlighting is skipped or configured off. */

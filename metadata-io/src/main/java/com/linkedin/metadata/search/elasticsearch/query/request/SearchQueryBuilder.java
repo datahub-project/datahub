@@ -80,7 +80,6 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 @Slf4j
 public class SearchQueryBuilder {
   public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
-  private static final float CUSTOM_FULL_TEXT_SEARCH_BOOST = 0.8f;
 
   private static final int WILDCARD_MIN_LENGTH = 5;
   private static final float WILDCARD_BOOST_FACTOR = 0.3f;
@@ -269,8 +268,6 @@ public class SearchQueryBuilder {
   private final WordGramConfiguration wordGramConfiguration;
   private final SearchValidationConfiguration searchValidationConfiguration;
   private final Pattern validationRegex;
-  // Search V3 indices copy structured property values into this field; V2 indices do not have it
-  private final Set<SearchFieldConfig> customFullTextSearchFields;
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -316,20 +313,6 @@ public class SearchQueryBuilder {
             ? searchConfiguration.getValidation()
             : new SearchValidationConfiguration();
     this.validationRegex = Pattern.compile(this.searchValidationConfiguration.getRegex());
-    this.customFullTextSearchFields =
-        v3KeywordReadEnabled
-            ? Set.of(
-                SearchFieldConfig.detectSubFieldType(
-                    CUSTOM_FULL_TEXT_SEARCH_FIELDS,
-                    CUSTOM_FULL_TEXT_SEARCH_BOOST,
-                    SearchableAnnotation.FieldType.TEXT,
-                    true),
-                SearchFieldConfig.detectSubFieldType(
-                    CUSTOM_FULL_TEXT_SEARCH_FIELDS + ".delimited",
-                    CUSTOM_FULL_TEXT_SEARCH_BOOST * partialConfiguration.getFactor(),
-                    SearchableAnnotation.FieldType.TEXT,
-                    true))
-            : Set.of();
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
             .build();
@@ -1129,7 +1112,6 @@ public class SearchQueryBuilder {
                         value.stream().anyMatch(SearchFieldConfig::isDelimitedSubfield),
                         value.stream().anyMatch(SearchFieldConfig::isKeywordSubfield),
                         value.stream().anyMatch(SearchFieldConfig::isWordGramSubfield))));
-    fields.addAll(customFullTextSearchFields);
 
     return fields;
   }
@@ -1257,7 +1239,6 @@ public class SearchQueryBuilder {
             true));
 
     fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
-    fields.addAll(customFullTextSearchFields);
 
     return fields;
   }

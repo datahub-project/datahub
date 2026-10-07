@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.CUSTOM_FULL_TEXT_SEARCH_FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -92,7 +91,7 @@ public class StructuredPropertyMappingBuilder {
     }
 
     if (isFullTextEligible(logicalValueType) && !isExcludedFromFullTextSearch(definition)) {
-      fieldMapping.put(COPY_TO, List.of(CUSTOM_FULL_TEXT_SEARCH_FIELDS));
+      fieldMapping.put(COPY_TO, List.of(V3SearchFields.path(V3SearchFields.STRUCTURED_PROPERTIES)));
     }
 
     return fieldMapping;

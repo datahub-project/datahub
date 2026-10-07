@@ -6,7 +6,6 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityType
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.CUSTOM_FULL_TEXT_SEARCH_FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -544,10 +543,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     // entity-type facet includes the registry names case-sensitively.
     properties.putIfAbsent(
         V3SearchDocumentProjector.ENTITY_TYPE_FIELD, new HashMap<>(Map.of(TYPE, "keyword")));
-    // Structured property values are copied into this field (StructuredPropertyMappingBuilder), so
-    // it is mapped before any property exists, always with the subfields V3 queries read
-    properties.put(
-        CUSTOM_FULL_TEXT_SEARCH_FIELDS, FieldTypeMapper.getMappingsForCopiedText(keywordMaxLength));
   }
 
   private void applyMappingContributors(

@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.custom.FieldConfiguration;
 import com.linkedin.metadata.config.search.custom.SearchFields;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -44,9 +45,14 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   // A stemmed match is a looser one, so it counts for less than the same word unstemmed
   private static final float STEMMED_FACTOR = 0.5f;
 
-  // The Stage 1 field a shared field stands for, where its name differs
+  // The Stage 1 field a shared field stands for, where its name differs. DataHub Cloud's query
+  // reads structured property values in customFullTextSearchFields
   private static final Map<String, String> STAGE_1_NAMES =
-      Map.of(V3SearchFields.ENTITY_NAME, "name");
+      Map.of(
+          V3SearchFields.ENTITY_NAME,
+          "name",
+          V3SearchFields.STRUCTURED_PROPERTIES,
+          V2MappingsBuilder.CUSTOM_FULL_TEXT_SEARCH_FIELDS);
 
   private static final Set<String> IDENTITY_TEXT_FIELDS =
       Set.of(textField(V3SearchFields.ENTITY_NAME), textField(V3SearchFields.QUALIFIED_NAME));

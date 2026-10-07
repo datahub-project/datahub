@@ -259,7 +259,7 @@ public class StructuredPropertyMappingBuilderTest {
           StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
                   propertyOfType(valueType))
               .get("copy_to"),
-          List.of("customFullTextSearchFields"),
+          List.of("_search.structuredProperties"),
           valueType);
     }
     for (String valueType : List.of("number", "date")) {
