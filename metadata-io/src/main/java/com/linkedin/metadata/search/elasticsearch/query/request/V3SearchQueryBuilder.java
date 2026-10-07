@@ -155,12 +155,6 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   @Override
-  protected boolean isFuzzyAnalyzer(@Nonnull String analyzer) {
-    // A fuzzy term is not stemmed, so it would rarely match a stemmed word
-    return !V3SearchFields.STEMMED_SEARCH_ANALYZER.equals(analyzer);
-  }
-
-  @Override
   protected boolean isDelimitedIdentityField(@Nonnull SearchFieldConfig cfg) {
     return IDENTITY_TEXT_FIELDS.contains(cfg.fieldName());
   }

@@ -53,7 +53,7 @@ public class V3SearchQueryBuilderTest {
     assertTrue(
         ((FunctionScoreQueryBuilder) query).query() instanceof DisMaxQueryBuilder,
         query.toString());
-    // The fuzzy simple queries, one per analyzer: of the shared fields, only the text subfields
+    // The fuzzy simple queries, one per analyzer: the shared text and stemmed subfields
     Map<String, Set<String>> fuzzy =
         find(query, SimpleQueryStringBuilder.class).stream()
             .filter(sqs -> sqs.value().contains("~"))
@@ -78,34 +78,10 @@ public class V3SearchQueryBuilderTest {
                 "_search.other.text")),
         text.toString());
     assertTrue(text.stream().allMatch(field -> field.endsWith(".text")), text.toString());
-    // A fuzzy term is not stemmed, so the stemmed subfields are only matched without fuzziness
-    assertFalse(fuzzy.containsKey(V3SearchFields.STEMMED_SEARCH_ANALYZER), fuzzy.toString());
-    Set<String> stemmed =
-        find(query, SimpleQueryStringBuilder.class).stream()
-            .filter(sqs -> V3SearchFields.STEMMED_SEARCH_ANALYZER.equals(sqs.analyzer()))
-            .flatMap(sqs -> sqs.fields().keySet().stream())
-            .collect(Collectors.toSet());
+    Set<String> stemmed = fuzzy.get(V3SearchFields.STEMMED_SEARCH_ANALYZER);
+    assertNotNull(stemmed, fuzzy.toString());
     assertTrue(stemmed.contains("_search.entityName.stemmed"), stemmed.toString());
     assertTrue(stemmed.stream().allMatch(field -> field.endsWith(".stemmed")), stemmed.toString());
-  }
-
-  /**
-   * The fuzzy terms share the clause budget only with the fields they are matched on, so the
-   * stemmed subfields leave a query of several words more expansions than if they were fuzzy too.
-   */
-  @Test
-  public void testStemmedSubfieldsTakeNoFuzzyExpansions() {
-    V3SearchQueryBuilder fuzzyStemmed =
-        new V3SearchQueryBuilder(SearchQueryBuilderTest.testQueryConfig, null) {
-          @Override
-          protected boolean isFuzzyAnalyzer(String analyzer) {
-            return true;
-          }
-        };
-    String input = "quarterly revenue forecast regional breakdown";
-
-    int expansions = fuzzyExpansions(builder(null), input);
-    assertTrue(expansions > fuzzyExpansions(fuzzyStemmed, input), String.valueOf(expansions));
   }
 
   /** V3 indices have neither the per-field analyzed subfields nor their analyzers. */
@@ -433,16 +409,6 @@ public class V3SearchQueryBuilderTest {
 
   private static V3SearchQueryBuilder builder(CustomSearchConfiguration customConfiguration) {
     return new V3SearchQueryBuilder(SearchQueryBuilderTest.testQueryConfig, customConfiguration);
-  }
-
-  private static int fuzzyExpansions(V3SearchQueryBuilder builder, String input) {
-    return find(
-            builder.buildQuery(OP_CONTEXT, DATASET, input, true), SimpleQueryStringBuilder.class)
-        .stream()
-        .filter(sqs -> sqs.value().contains("~"))
-        .mapToInt(SimpleQueryStringBuilder::fuzzyMaxExpansions)
-        .max()
-        .orElse(0);
   }
 
   private static FieldConfiguration searchFields(SearchFields searchFields) {
