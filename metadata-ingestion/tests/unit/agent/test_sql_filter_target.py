@@ -1,10 +1,11 @@
 from types import SimpleNamespace
-from typing import Any, Callable, List, cast
+from typing import Annotated, Any, Callable, Dict, List, Optional, cast
 
 import pytest
 from sqlalchemy.engine.reflection import Inspector
 
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
+from datahub.configuration.common import Qualifier
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.common import PipelineContext
@@ -16,7 +17,10 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.sql.druid import DruidConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_probe import (
+    IDENTIFIER_DEGRADE_MARKER,
     _identifier_target,
     _shim_inspector,
 )
@@ -26,9 +30,7 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 # db2 and starrocks are imported inside the two tests that need them, and not
 # up here with the rest.
 #
-# Both are necessary, not stylistic. This comment twice claimed otherwise --
-# first that only db2 needed it, then that `starrocks>=1.3.3,<2.0` sits in the
-# `[dev]` block unconditionally. Neither is in `[dev]`. setup.py maps "dev" to
+# Both are necessary, not stylistic. Neither is in `[dev]`: setup.py maps "dev" to
 # dev_requirements, which is base_dev_requirements, and that plugin list names
 # neither; both are in full_test_dev_requirements, exposed as the
 # `integration-tests` extra. So a plain `[dev]` environment has neither
@@ -51,43 +53,54 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 # set and the latter two are in `[dev]`, so the driver arrives either way.
 
 
-def test_an_uninstalled_provider_extra_falls_back_to_the_marker():
-    """The one failure that is about the environment, not the connector.
-
-    Every probe_provider_class() is a lazy import of a provider module, so a
-    missing extra raises ImportError here -- and declares_qualifier is the
-    right answer for a provider that cannot be built.
-    """
-    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
-
-    class _Config:
-        @classmethod
-        def probe_provider_class(cls) -> type:
-            raise ImportError("No module named 'some_optional_driver'")
-
-    # No Qualifier marker either, so the fallback's answer is False rather
-    # than an accident of the provider check.
-    assert not _matches_a_qualified_name(_Config())
+class _OwnProvider:
+    """Stands in for a provider that is not the SQL family's."""
 
 
-def test_a_broken_provider_is_not_quietly_downgraded_to_the_marker():
-    """`except Exception: pass` hid a defect behind a weaker question.
+class _UrlConfig(SQLCommonConfig):
+    def get_sql_alchemy_url(self) -> str:
+        return "postgresql://host/DB"
 
-    The provider check is the arity question; declares_qualifier reads a
-    marker and is the fallback. Swallowing every exception meant an
-    installed-but-broken provider silently produced the fallback's answer,
-    which can differ -- and this function returns a bool with no warn
-    channel, so nothing in the output would say so.
-    """
-    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
 
-    class _Config:
-        @classmethod
-        def probe_provider_class(cls) -> type:
-            raise AttributeError("the provider module is broken")
+class _OwnProviderConfig(_UrlConfig):
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        return _OwnProvider
 
-    with pytest.raises(AttributeError, match="provider module is broken"):
-        _matches_a_qualified_name(_Config())
+
+class _QualifiedConfig(_UrlConfig):
+    database: Annotated[Optional[str], Qualifier()] = None
+
+
+def test_a_provider_of_its_own_does_not_qualify_a_source():
+    """Which provider a connector brings says nothing about the identifier
+    its ingestion matches, so without a declaration the table is judged on
+    what its get_identifier builds."""
+    ctx = ClassifyContext(
+        config=_OwnProviderConfig.model_construct(),
+        name="T1",
+        fqn="DB.SCH.T1",
+        pattern_field="table_pattern",
+        parent_path=("DB", "SCH"),
+        warn=_ignore_warn,
+    )
+    assert _identifier_target(ctx) == "SCH.T1"
+
+
+def test_a_qualifier_declares_that_tables_match_on_the_qualified_name():
+    ctx = ClassifyContext(
+        config=_QualifiedConfig.model_construct(),
+        name="T1",
+        fqn="DB.SCH.T1",
+        pattern_field="table_pattern",
+        parent_path=("DB", "SCH"),
+        warn=_ignore_warn,
+    )
+    assert _identifier_target(ctx) == "DB.SCH.T1"
+
+
+# Planted in an AttributeError's text: foreign text must not reach the warning.
+_SENTINEL = "PLANTED-exception-text"
 
 
 def _ignore_warn(message: str) -> None:
@@ -290,12 +303,11 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
     is the literal "default_catalog" -- StarRocks's name for its built-in
     internal catalog that most tables actually live in. Priming the shim to
     that same __init__ value (mirroring current_database's mssql handling)
-    turns what used to be an AttributeError fallback into a real answer, not
-    a guess: this is exactly the failure mode a recipe with
-    table_pattern.allow: ["default_catalog\\.analytics\\..*"] hit before this
-    fix (every table reported excluded_by: table_pattern while ingestion
-    ingested them all). No warning: this is a real (if partial -- external
-    catalogs still can't be resolved) answer, not a degrade."""
+    gives a real answer rather than the AttributeError fallback, under which
+    a recipe with table_pattern.allow: ["default_catalog\\.analytics\\..*"]
+    reports every table excluded_by: table_pattern while ingestion ingests
+    them all. No warning: this is a real (if partial -- external catalogs
+    still can't be resolved) answer, not a degrade."""
     # Local because the dialect really can be missing: starrocks is in the
     # `integration-tests` extra, not `[dev]`. See the note beside the imports.
     from datahub.ingestion.source.sql.starrocks import StarRocksConfig
@@ -308,21 +320,18 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
 
 
 def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypatch):
-    """Regression guard: ctx.warn dedupes on message identity (see
-    ClientProbe.list_children's warn closure), but an earlier version of this
-    message embedded ctx.fqn, which is different for every node -- defeating
-    the dedupe and, per a whole-plan review, flooding ProbeResult.warnings
-    with one near-identical entry per table (measured: 200 for 200 StarRocks
-    tables, before StarRocks itself was fixed to no longer hit this path at
-    all -- see test_starrocks_shim_primes_current_catalog_to_its_init_state
-    above). Faking the AttributeError here (rather than relying on a real
-    connector) keeps this test valid regardless of which real connectors do
-    or don't exercise the fallback at any given time.
+    """ctx.warn dedupes on message identity (see ClientProbe.list_children's
+    warn closure), so a message embedding ctx.fqn, which differs per node,
+    would put one near-identical entry per table in ProbeResult.warnings.
+    The AttributeError is faked rather than taken from a real connector, so
+    this holds whichever connectors reach the fallback.
     """
 
     class _FakeSource:
         def get_identifier(self, *, schema, entity, inspector):
-            raise AttributeError("'_FakeSource' object has no attribute '_never_set'")
+            raise AttributeError(
+                f"no attribute '_never_set' on {_SENTINEL}", name="_never_set"
+            )
 
     monkeypatch.setattr(
         sql_probe_module, "_source_class_for", lambda config: _FakeSource
@@ -339,6 +348,67 @@ def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypat
     assert len(warn.messages) == 1
     assert "_FakeSource" in warn.messages[0]
     assert "_never_set" in warn.messages[0]
+    assert _SENTINEL not in warn.messages[0]
+
+
+def test_the_shim_gives_get_identifier_the_config_and_nothing_else(monkeypatch):
+    """Source state a get_identifier reads beyond its config is the
+    connector's to provide, through its config's probe_filter_target or a
+    class-level default; a shim that primed one connector's attributes would
+    be guessing them for every other."""
+
+    class _ReadsIterationState(SQLAlchemySource):
+        # Annotated, not assigned: set only by ingestion as it walks.
+        current_database: str
+
+        def get_identifier(self, *, schema, entity, inspector, **kwargs):
+            return f"{self.current_database}:{schema}:{entity}"
+
+    monkeypatch.setattr(
+        sql_probe_module, "_source_class_for", lambda config: _ReadsIterationState
+    )
+    warn = _WarningCollector()
+    ctx = ClassifyContext(
+        config=PostgresConfig(host_port="localhost:5432"),
+        name="orders",
+        fqn="salesdb.public.orders",
+        pattern_field="table_pattern",
+        parent_path=("salesdb", "public"),
+        warn=warn,
+    )
+    assert _identifier_target(ctx) == ctx.fqn
+    assert len(warn.messages) == 1
+    assert IDENTIFIER_DEGRADE_MARKER in warn.messages[0]
+    assert "current_database" in warn.messages[0]
+
+
+@pytest.mark.parametrize(
+    "parent_path, config_database, expected",
+    [
+        (("salesdb", "dbo"), None, "salesdb.dbo.orders"),
+        (("dbo",), "pinned", "pinned.dbo.orders"),
+        (("dbo",), None, "dbo.orders"),
+        # A pinned recipe never sets current_database (get_inspectors' single
+        # branch), so a --parent database does not reach the identifier; the
+        # Database verdict excludes a node under another database.
+        (("salesdb", "dbo"), "pinned", "pinned.dbo.orders"),
+    ],
+)
+def test_mssql_qualifies_a_table_with_the_database_ingestion_is_reading(
+    parent_path, config_database, expected
+):
+    from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
+
+    config = SQLServerConfig(host_port="localhost:1433", database=config_database)
+    ctx = ClassifyContext(
+        config=config,
+        name="orders",
+        fqn=".".join((*parent_path, "orders")),
+        pattern_field="table_pattern",
+        parent_path=parent_path,
+        warn=_ignore_warn,
+    )
+    assert _identifier_target(ctx) == expected
 
 
 def test_redshift_probe_filter_target_includes_the_database_segment():
@@ -446,8 +516,8 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
     """redshift.py gates schema iteration through is_schema_allowed(...,
     match_fully_qualified_names) -- so once that flag is on, ingestion checks
     "database.schema" against schema_pattern, not the bare schema name.
-    RedshiftConfig.probe_schema_verdict_override carries that, and
-    filter_check consults it before applying the pattern generically."""
+    SQLCommonConfig's probe_verdict_override (sql_structural_verdict) carries
+    that, and filter_check consults it before applying the pattern."""
     bare_name_deny = _schema_verdict(
         {
             **_REDSHIFT,
@@ -455,7 +525,7 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
             "schema_pattern": {"deny": [r"^public$"]},
         }
     )
-    # A deny anchored to the bare schema name no longer excludes once
+    # A deny anchored to the bare schema name does not exclude once
     # match_fully_qualified_names is on: ingestion checks "analytics.public".
     assert bare_name_deny.included
     assert bare_name_deny.excluded_by is None
@@ -571,8 +641,8 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
 
 def test_a_single_pinned_container_needs_no_parent():
     """The other side of the same coin: Qualifier() on project_ids means a
-    single-project recipe is answerable without --parent, which is the
-    common case and used to warn."""
+    single-project recipe, the common case, is answerable without --parent
+    and without a warning."""
     result = check_filters(
         source_type="bigquery",
         config_dict={
@@ -712,3 +782,65 @@ def test_a_database_verdict_is_not_reported_as_degraded():
         ("OTHERDB", False),
     ]
     assert not [w for w in result.warnings if "qualified" in w], result.warnings
+
+
+_NO_DATABASE_WARNING = (
+    "this recipe sets no `database`, so ingestion qualifies each table with "
+    "the database it was found in; pass that database as the first --parent, "
+    "or the name is judged on 'schema.table', which ingestion never matches"
+)
+
+
+@pytest.mark.parametrize(
+    "config, parent_path, target, warned",
+    [
+        ({}, ["dbo"], "dbo.orders", True),
+        ({}, ["sales", "dbo"], "sales.dbo.orders", False),
+        ({"database": "sales"}, ["dbo"], "sales.dbo.orders", False),
+        (
+            {"sqlalchemy_uri": "mssql+pytds://u:p@h:1433/sales"},
+            ["dbo"],
+            "dbo.orders",
+            False,
+        ),
+    ],
+)
+def test_sql_server_says_when_the_table_target_lacks_its_database(
+    config: Dict[str, object], parent_path: List[str], target: str, warned: bool
+) -> None:
+    """Without a `database`, ingestion walks every database and qualifies a
+    table with the one it is in, which only a database --parent supplies."""
+    result = check_filters(
+        source_type="mssql",
+        config_dict={"host_port": "h:1433", "username": "u", "password": "p", **config},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=parent_path,
+        names=["orders"],
+    )
+    assert result.results[0].target == target
+    assert (_NO_DATABASE_WARNING in result.warnings) is warned, result.warnings
+
+
+class _ReportReadingConfig(_UrlConfig):
+    pass
+
+
+class _ReportReadingSource(SQLAlchemySource):
+    """A get_identifier that reads the report, as the view listing does: both
+    run on the one config-only Source."""
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        assert self.report is not None
+        return f"{schema}.{entity}.checked"
+
+
+def test_the_identifier_source_carries_the_report_the_view_listing_reads() -> None:
+    warn = _WarningCollector()
+    config = _ReportReadingConfig.model_validate({})
+    assert sql_probe_module.config_only_source(config).report is not None
+    assert _identifier_target(_ctx(config, "public", "orders", warn=warn)) == (
+        "public.orders.checked"
+    )
+    assert warn.messages == []

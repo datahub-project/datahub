@@ -24,6 +24,36 @@ _SYSTEM_DATABASE_EXCLUSION = ", ".join(f"'{name}'" for name in MSSQL_SYSTEM_DATA
 class MSSQLQuery:
     """SQL queries for extracting query history from MS SQL Server."""
 
+    # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
+    # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
+    TABLE_DESCRIPTIONS = """
+            SELECT
+              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
+              T.NAME AS table_name,
+              EP.VALUE AS table_description
+            FROM sys.tables AS T
+            INNER JOIN sys.extended_properties AS EP
+              ON EP.MAJOR_ID = T.[OBJECT_ID]
+              AND EP.MINOR_ID = 0
+              AND EP.NAME = 'MS_Description'
+              AND EP.CLASS = 1
+            """
+
+    @staticmethod
+    def table_description(conn: Connection, schema: str, table: str) -> Optional[str]:
+        """One table's MS_Description, in the database `conn` is on.
+
+        Bound parameters, not interpolation: the names come from a caller.
+        """
+        row = conn.execute(
+            text(
+                f"SELECT d.table_description FROM ({MSSQLQuery.TABLE_DESCRIPTIONS}) AS d "
+                "WHERE d.schema_name = :schema AND d.table_name = :table"
+            ),
+            {"schema": schema, "table": table},
+        ).fetchone()
+        return None if row is None or row[0] is None else str(row[0])
+
     @staticmethod
     def _build_exclude_clause(
         exclude_patterns: Optional[List[str]], column_expr: str

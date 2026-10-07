@@ -6,6 +6,7 @@ import typing
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     Iterable,
@@ -57,7 +58,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    ProbeEngineSettings,
+    SQLCommonConfig,
+)
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -86,6 +90,9 @@ except ImportError:
     def override(f: _F, /) -> _F:
         return f
 
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger = logging.getLogger(__name__)
 
@@ -505,7 +512,14 @@ class AthenaConfig(SQLCommonConfig):
             },
         )
 
-    def probe_prepare_engine(self, engine: Any) -> None:
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return (
+            super()
+            .probe_engine_settings(budget)
+            .followed_by(self._use_ingestions_dialect)
+        )
+
+    def _use_ingestions_dialect(self, engine: Any) -> None:
         # Same substitution get_inspectors() makes, and for the same reason: the
         # stock PyAthena dialect omits ICEBERG from get_table_names (so S3 Tables
         # go missing) and does not unpack the complex types Athena reports as DDL
