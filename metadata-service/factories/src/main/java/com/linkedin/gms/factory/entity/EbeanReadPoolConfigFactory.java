@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
+import com.linkedin.gms.factory.common.ActorSqlComment;
 import com.linkedin.gms.factory.common.LocalEbeanConfigFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.ReadPoolConfiguration;
@@ -85,6 +86,16 @@ public class EbeanReadPoolConfigFactory {
     serverConfig.setRegister(false);
     serverConfig.setDdlGenerate(false);
     serverConfig.setDdlRun(false);
+    ActorSqlComment.install(
+        serverConfig,
+        "gmsEbeanReadPoolDatabaseConfig",
+        readPoolDataSourceConfig,
+        configurationProvider.getTelemetry() != null
+            && configurationProvider.getTelemetry().getRequestAttribution() != null
+            && configurationProvider
+                .getTelemetry()
+                .getRequestAttribution()
+                .isPostgresActorComment());
     return serverConfig;
   }
 
