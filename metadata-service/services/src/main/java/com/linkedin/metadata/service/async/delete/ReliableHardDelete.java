@@ -17,9 +17,11 @@ import javax.annotation.Nonnull;
  * check {@link #isEnabled()} and run their existing code when it is off.
  *
  * <p>It is today's {@code deleteUrn}, bounded by the aspect versions captured when the request
- * arrived: data written after the capture survives. References other entities hold are not touched;
- * each caller keeps its own cleanup. Repeating a failed request is safe; a repeated request
- * captures the versions again, so it also deletes what was written before it.
+ * arrived: data written after the capture survives. When that keeps the entity, the request fails
+ * with an {@link IllegalStateException}, so a caller does not go on to remove references to an
+ * entity that still exists. References other entities hold are not touched; each caller keeps its
+ * own cleanup. Repeating a failed request is safe; a repeated request captures the versions again,
+ * so it also deletes what was written before it.
  *
  * <p>On Cassandra the latest rows are not locked, so the bound is best-effort there.
  */
@@ -36,7 +38,12 @@ public class ReliableHardDelete {
     return enabled;
   }
 
-  /** Hard-deletes {@code urn}; the caller has already authorized it. */
+  /**
+   * Hard-deletes {@code urn}; the caller has already authorized it.
+   *
+   * @throws IllegalStateException when the entity was written to while being deleted and so still
+   *     exists; the captured aspects were deleted, and repeating the request finishes the delete
+   */
   @Nonnull
   public DeleteEntityReport delete(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
     final Optional<DeleteCeiling> ceiling = entityService.captureDeleteCeiling(opContext, urn);
@@ -58,7 +65,11 @@ public class ReliableHardDelete {
       // Not deleted by this request, but gone: a concurrent request deleted it.
       outcome = ConditionalDeleteOutcome.ALREADY_DELETED;
     } else {
-      outcome = ConditionalDeleteOutcome.PARTIAL;
+      throw new IllegalStateException(
+          String.format(
+              "Hard delete of %s did not complete: it was written to while being deleted; try the"
+                  + " delete again",
+              urn));
     }
     return new DeleteEntityReport(
         urn.toString(), outcome, (keyRows == null ? 0 : keyRows) + otherRows);

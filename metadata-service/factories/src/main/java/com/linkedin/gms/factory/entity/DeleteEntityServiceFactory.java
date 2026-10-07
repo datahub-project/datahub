@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
@@ -38,10 +39,20 @@ public class DeleteEntityServiceFactory {
   @Nullable
   private MetricUtils _metricUtils;
 
+  @Autowired
+  @Qualifier("configurationProvider")
+  private ConfigurationProvider _configurationProvider;
+
   @Bean(name = "deleteEntityService")
   @Nonnull
   protected DeleteEntityService createDeleteEntityService() {
     return new DeleteEntityService(
-        _entityService, _graphService, _entitySearchService, _objectStorageClient, _metricUtils);
+        _entityService,
+        _graphService,
+        _entitySearchService,
+        _objectStorageClient,
+        _metricUtils,
+        _configurationProvider.getFeatureFlags().isReliableHardDelete(),
+        _configurationProvider.getEntityService().getDeleteReferenceWriteLimit());
   }
 }

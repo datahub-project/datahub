@@ -4,6 +4,7 @@ import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.time.Instant;
 import java.util.Collection;
@@ -132,6 +134,15 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
    */
   public static long resolveAspectVersion(@Nonnull SystemAspect aspect) {
     return aspect.getSystemMetadataVersion().orElseGet(() -> Math.max(1L, aspect.getVersion()));
+  }
+
+  /** {@link #resolveAspectVersion(SystemAspect)} for an aspect read through the entity API. */
+  public static long resolveAspectVersion(@Nonnull EnvelopedAspect aspect) {
+    final SystemMetadata systemMetadata = aspect.getSystemMetadata();
+    if (systemMetadata != null && systemMetadata.hasVersion()) {
+      return Long.parseLong(systemMetadata.getVersion());
+    }
+    return Math.max(1L, aspect.hasVersion() ? aspect.getVersion() : 0L);
   }
 
   private static Optional<AspectValidationException> validateVersionPrecondition(

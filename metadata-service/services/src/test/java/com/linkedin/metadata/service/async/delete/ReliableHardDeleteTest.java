@@ -66,16 +66,17 @@ public class ReliableHardDeleteTest {
     assertEquals(report.rowsDeleted(), 7L);
   }
 
-  /** Data written since the capture keeps the key: only captured aspects were deleted. */
+  /**
+   * Data written since the capture keeps the key: only captured aspects were deleted, and the
+   * request fails so the caller does not remove references to an entity that still exists.
+   */
   @Test
-  public void anEntityWrittenSinceTheCaptureStays() {
+  public void anEntityWrittenSinceTheCaptureStaysAndTheDeleteFails() {
     when(entityService.deleteUrn(any(), eq(URN), eq(CEILING)))
         .thenReturn(new RollbackRunResult(List.of(), 0, List.of(deleted("tagProperties", false))));
 
-    final DeleteEntityReport report = reliableHardDelete.delete(opContext, URN);
-
-    assertEquals(report.outcome(), ConditionalDeleteOutcome.PARTIAL);
-    assertEquals(report.rowsDeleted(), 1L);
+    expectThrows(IllegalStateException.class, () -> reliableHardDelete.delete(opContext, URN));
+    verify(entityService).deleteUrn(any(), eq(URN), eq(CEILING));
   }
 
   /** The key survived only because a concurrent request deleted the entity: nothing is left. */

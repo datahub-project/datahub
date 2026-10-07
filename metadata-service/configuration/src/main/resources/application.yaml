@@ -423,6 +423,7 @@ datahub:
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
+  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Writes of one reference removal during a hard delete, the first included, before a failure caused by concurrent edits is reported (reliableHardDelete only); at least 1
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
