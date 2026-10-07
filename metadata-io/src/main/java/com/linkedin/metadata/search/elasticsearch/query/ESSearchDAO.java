@@ -637,15 +637,8 @@ public class ESSearchDAO {
                                 deadlineNanos)));
         final Optional<List<SearchEntity>> reranked =
             rerank.get(hybridTimeoutMillis, TimeUnit.MILLISECONDS);
-        // A completed rerank ends the failure streak, also one that found no vectors, but only if
-        // the provider answered in time since both the rerank started and the last counted
-        // failure: one on a cached embedding says nothing about the provider, while its kNN
-        // failures still count
-        final long lastFailureNanos = hybridLastFailureNanos.get();
-        if (hybridSearchResultReranker.providerSucceededSince(
-            lastFailureNanos - startNanos > 0 ? lastFailureNanos : startNanos)) {
-          hybridFailures.set(0);
-        }
+        // Also a rerank that found no vectors
+        recordHybridSuccess(startNanos);
         if (reranked.isPresent()) {
           ranked = new ArrayList<>(reranked.get());
           ranked.addAll(rows.subList(windowEnd, rows.size()));
@@ -712,6 +705,20 @@ public class ESSearchDAO {
           "Hybrid read failed {} times in a row; serving the keyword ranking for {} ms.",
           HYBRID_FAILURES_BEFORE_PAUSE,
           TimeUnit.NANOSECONDS.toMillis(hybridPauseNanos));
+    }
+  }
+
+  /**
+   * Ends the failure streak after a completed rerank, but only if the provider answered in time
+   * since both the rerank started and the last counted failure: one on a cached embedding says
+   * nothing about the provider, while its kNN failures still count. Synchronized with {@link
+   * #recordHybridFailure}, so a failure counted meanwhile is not erased.
+   */
+  private synchronized void recordHybridSuccess(final long searchStartNanos) {
+    final long lastFailureNanos = hybridLastFailureNanos.get();
+    if (hybridSearchResultReranker.providerSucceededSince(
+        lastFailureNanos - searchStartNanos > 0 ? lastFailureNanos : searchStartNanos)) {
+      hybridFailures.set(0);
     }
   }
 
