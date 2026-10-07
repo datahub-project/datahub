@@ -77,8 +77,8 @@ public class DeleteEntityService {
   /**
    * Removes every reference to {@code urn} while its graph edges still exist, phase by phase. The
    * first referrer that cannot be cleaned (for example one written since it was read) throws. Every
-   * step is idempotent and conditional, so running it again, with or without a checkpoint,
-   * finishes the work. Exceptions the listener throws reach the caller unwrapped. {@link
+   * step is idempotent and conditional, so running it again, with or without a checkpoint, finishes
+   * the work. Exceptions the listener throws reach the caller unwrapped. {@link
    * #deleteReferencesTo} is unchanged.
    *
    * @param resumeFrom the phase an earlier call reached, or null to start from the first phase

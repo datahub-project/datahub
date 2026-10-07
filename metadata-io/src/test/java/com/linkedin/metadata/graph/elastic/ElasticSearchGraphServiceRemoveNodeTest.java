@@ -51,7 +51,8 @@ public class ElasticSearchGraphServiceRemoveNodeTest {
 
     ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
     verify(writeDAO, times(2))
-        .deleteByQueryProceedOnConflict(any(OperationContext.class), any(GraphFilters.class), isNull());
+        .deleteByQueryProceedOnConflict(
+            any(OperationContext.class), any(GraphFilters.class), isNull());
     verify(writeDAO)
         .deleteByQueryProceedOnConflict(
             any(OperationContext.class), eq(GraphFilters.ALL), eq(URN.toString()));
@@ -67,7 +68,8 @@ public class ElasticSearchGraphServiceRemoveNodeTest {
   public void anIncompleteEdgeDeleteFailsTheRemoval() {
     doThrow(new IllegalStateException("2 version conflicts"))
         .when(writeDAO)
-        .deleteByQueryProceedOnConflict(any(OperationContext.class), any(GraphFilters.class), any());
+        .deleteByQueryProceedOnConflict(
+            any(OperationContext.class), any(GraphFilters.class), any());
 
     expectThrows(
         IllegalStateException.class,

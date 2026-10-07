@@ -219,7 +219,8 @@ final class DeleteCascadeEngine {
               listener,
               asset -> removeSearchReference(ctx, urn, asset));
       case DeleteCascadeCheckpoint.PHASE_FILES ->
-          runSearchPhase(ctx, fileScan(urn), phase, listener, file -> removeFileReference(ctx, file));
+          runSearchPhase(
+              ctx, fileScan(urn), phase, listener, file -> removeFileReference(ctx, file));
       default -> host.runExtraPhase(this, ctx, urn, phase, listener);
     }
   }
@@ -389,8 +390,8 @@ final class DeleteCascadeEngine {
   // ---------------------------------------------------------------- search-index phases
 
   /**
-   * Assets found only through the search index: form and structured-property references, which
-   * have no graph edge. Null for other entity types.
+   * Assets found only through the search index: form and structured-property references, which have
+   * no graph edge. Null for other entity types.
    */
   @Nullable
   static SearchScan searchReferenceScan(@Nonnull final Urn deletedUrn) {

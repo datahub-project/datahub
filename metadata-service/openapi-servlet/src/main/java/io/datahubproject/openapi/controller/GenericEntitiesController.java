@@ -109,6 +109,7 @@ public abstract class GenericEntitiesController<
   @Autowired(required = false)
   @Nullable
   protected ReliableHardDelete reliableHardDelete;
+
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
 

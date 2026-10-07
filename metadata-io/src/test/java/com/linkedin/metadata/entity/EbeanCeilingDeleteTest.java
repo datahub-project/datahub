@@ -288,8 +288,8 @@ public class EbeanCeilingDeleteTest {
   }
 
   /**
-   * I2, I4, I5 for an entity that is only its key: the ceiling lists no aspect, and an empty ceiling
-   * must still mean "delete", not "nothing to delete".
+   * I2, I4, I5 for an entity that is only its key: the ceiling lists no aspect, and an empty
+   * ceiling must still mean "delete", not "nothing to delete".
    */
   @Test
   public void aKeyOnlyEntityIsDeletedWithItsKeyDeleteEvent() {

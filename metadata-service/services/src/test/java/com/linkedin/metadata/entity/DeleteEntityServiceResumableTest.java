@@ -408,7 +408,8 @@ public class DeleteEntityServiceResumableTest {
             any(OperationContext.class), eq(DATASET_A), eq(Constants.FORMS_ASPECT_NAME)))
         .thenReturn(forms);
 
-    final int removed = service.removeReferencesResumable(opContext, FORM, null, recordingListener());
+    final int removed =
+        service.removeReferencesResumable(opContext, FORM, null, recordingListener());
 
     final ArgumentCaptor<MetadataChangeProposal> written =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
@@ -493,7 +494,8 @@ public class DeleteEntityServiceResumableTest {
     verifyNoInteractions(graphService);
     assertEquals(
         checkpoints.stream().map(DeleteCascadeCheckpoint::phase).toList(),
-        List.of(DeleteCascadeCheckpoint.PHASE_SEARCH_REFERENCES, DeleteCascadeCheckpoint.PHASE_FILES));
+        List.of(
+            DeleteCascadeCheckpoint.PHASE_SEARCH_REFERENCES, DeleteCascadeCheckpoint.PHASE_FILES));
     // The resumed phase starts over from its first page.
     verify(searchService)
         .structuredScroll(

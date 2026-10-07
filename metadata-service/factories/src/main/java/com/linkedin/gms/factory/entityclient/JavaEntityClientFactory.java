@@ -42,8 +42,8 @@ public class JavaEntityClientFactory {
       final RollbackService rollbackService,
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils,
-      // Absent where the async delete package is not scanned; deletes then run today's path.
-      final @Qualifier("reliableHardDelete") ObjectProvider<ReliableHardDelete>
+          // Absent where the async delete package is not scanned; deletes then run today's path.
+          final @Qualifier("reliableHardDelete") ObjectProvider<ReliableHardDelete>
               reliableHardDelete) {
     return new JavaEntityClient(
         _entityService,
