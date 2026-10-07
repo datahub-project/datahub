@@ -131,7 +131,13 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
    * use this same rule, so a version read through one path always matches the other.
    */
   public static long resolveAspectVersion(@Nonnull SystemAspect aspect) {
-    return aspect.getSystemMetadataVersion().orElseGet(() -> Math.max(1L, aspect.getVersion()));
+    return resolveAspectVersion(aspect.getSystemMetadataVersion(), aspect.getVersion());
+  }
+
+  /** The same rule for a version read outside a {@link SystemAspect}. */
+  public static long resolveAspectVersion(
+      @Nonnull Optional<Long> systemMetadataVersion, long rowVersion) {
+    return systemMetadataVersion.orElseGet(() -> Math.max(1L, rowVersion));
   }
 
   private static Optional<AspectValidationException> validateVersionPrecondition(

@@ -11,6 +11,7 @@ import static org.testng.Assert.expectThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -409,5 +410,115 @@ public class DeleteEntityServiceGuardHandlingTest {
 
     verify(_entityService).deleteUrn(any(OperationContext.class), eq(test), eq(ceiling));
     verify(_entityService, never()).deleteUrn(any(OperationContext.class), eq(test));
+  }
+
+  /**
+   * A conditional rewrite that returns no result cannot be shown to have committed, so the failing
+   * cleanup throws rather than delete the entity on an unconfirmed write.
+   */
+  @Test
+  public void failingCleanupThrowsWhenTheReferrerRewriteReturnsNoResult() throws Exception {
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "no_result_rewrite", "DEV");
+    referencedBy(TAG, "TaggedWith", dataset, tagsAtVersion("4"));
+    when(_entityService.ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean()))
+        .thenReturn(null);
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> _deleteEntityService.deleteReferencesToOrFail(opContext, TAG));
+  }
+
+  /** Today's cleanup treats a rewrite with no result as it always has: carries on. */
+  @Test
+  public void todaysCleanupCarriesOnWhenTheReferrerRewriteReturnsNoResult() throws Exception {
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "no_result_unconditional", "DEV");
+    referencedBy(TAG, "TaggedWith", dataset, tagsAtVersion("4"));
+    when(_entityService.ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean()))
+        .thenReturn(null);
+
+    assertNotNull(_deleteEntityService.deleteReferencesTo(opContext, TAG, false));
+  }
+
+  /**
+   * A form's reference in an asset is removed only if the asset's aspect was seen at a version
+   * first. When the pre-read finds no aspect but the update builder then finds one, it was written
+   * in between: no version to hold, so the cleanup throws instead of writing unconditionally.
+   */
+  @Test
+  public void failingCleanupThrowsRatherThanRewriteAnAssetAspectThatAppearedAfterTheRead() {
+    final Urn form = UrnUtils.getUrn("urn:li:form:appeared-after-read");
+    final Urn asset = UrnUtils.toDatasetUrn("snowflake", "forms_appeared", "DEV");
+    final ScrollResult noFiles = new ScrollResult();
+    noFiles.setEntities(new SearchEntityArray());
+    noFiles.setNumEntities(0);
+    when(_searchService.structuredScroll(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            isNull(),
+            nullable(String.class),
+            anyString(),
+            anyInt()))
+        .thenReturn(noFiles);
+    final ScrollResult referencingAsset = new ScrollResult();
+    referencingAsset.setEntities(
+        new SearchEntityArray(List.of(new SearchEntity().setEntity(asset))));
+    referencingAsset.setNumEntities(1);
+    when(_searchService.structuredScroll(
+            any(OperationContext.class),
+            eq(DeleteEntityUtils.getEntityNamesForFormDeletion()),
+            anyString(),
+            any(Filter.class),
+            isNull(),
+            nullable(String.class),
+            anyString(),
+            anyInt()))
+        .thenReturn(referencingAsset);
+    // The pre-read (getEntityV2) finds nothing; the update builder's own read finds the aspect.
+    when(_entityService.getLatestAspect(any(OperationContext.class), eq(asset), eq("forms")))
+        .thenReturn(new Forms());
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> _deleteEntityService.deleteReferencesToOrFail(opContext, form));
+
+    verify(_entityService, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean());
+  }
+
+  /** The failing cleanup completes when every conditional rewrite commits. */
+  @Test
+  public void failingCleanupCompletesWhenTheConditionalRewriteCommits() throws Exception {
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "conditional_rewrite_commits", "DEV");
+    referencedBy(TAG, "TaggedWith", dataset, tagsAtVersion("4"));
+    when(_entityService.ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean()))
+        .thenReturn(IngestResult.builder().sqlCommitted(true).build());
+
+    final DeleteReferencesResponse response =
+        _deleteEntityService.deleteReferencesToOrFail(opContext, TAG);
+
+    assertEquals((int) response.getTotal(), 1);
+    final ArgumentCaptor<MetadataChangeProposal> proposal =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityService)
+        .ingestProposal(any(OperationContext.class), proposal.capture(), any(), eq(false));
+    assertEquals(proposal.getValue().getHeaders().get("If-Version-Match"), "4");
   }
 }

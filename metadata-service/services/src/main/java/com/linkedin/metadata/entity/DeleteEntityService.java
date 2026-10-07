@@ -25,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -1102,14 +1103,12 @@ public class DeleteEntityService {
    * rewrite, or the version bound of the delete, on the reliable path.
    */
   private static long versionOf(@Nonnull final EnvelopedAspect current) {
-    if (current.hasSystemMetadata() && current.getSystemMetadata().hasVersion()) {
-      try {
-        return Long.parseLong(current.getSystemMetadata().getVersion());
-      } catch (NumberFormatException e) {
-        // A non-numeric version counts as absent, as in SystemAspect.
-      }
-    }
-    return Math.max(1L, current.hasVersion() ? current.getVersion() : 0L);
+    return ConditionalWriteValidator.resolveAspectVersion(
+        Optional.ofNullable(current.hasSystemMetadata() ? current.getSystemMetadata() : null)
+            .filter(SystemMetadata::hasVersion)
+            .map(SystemMetadata::getVersion)
+            .map(Long::parseLong),
+        current.hasVersion() ? current.getVersion() : 0L);
   }
 
   @Nullable

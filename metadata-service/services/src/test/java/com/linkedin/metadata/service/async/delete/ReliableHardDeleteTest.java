@@ -74,6 +74,7 @@ public class ReliableHardDeleteTest {
 
     final InOrder order = inOrder(entityService, deleteEntityService);
     order.verify(entityService).validateHardDelete(any(), eq(URN));
+    order.verify(entityService).captureDeleteCeiling(any(), eq(URN));
     order.verify(deleteEntityService).deleteReferencesToOrFail(any(), eq(URN));
     order.verify(entityService).deleteUrn(any(), eq(URN), eq(CEILING));
     assertEquals(report.outcome(), ConditionalDeleteOutcome.DELETED);
@@ -91,6 +92,19 @@ public class ReliableHardDeleteTest {
 
     assertEquals(report.outcome(), ConditionalDeleteOutcome.PARTIAL);
     assertEquals(report.rowsDeleted(), 1L);
+  }
+
+  /** The key survived only because a concurrent request deleted the entity: nothing is left. */
+  @Test
+  public void anEntityDeletedByAConcurrentRequestIsAlreadyDeletedNotPartial() {
+    when(entityService.captureDeleteCeiling(any(), eq(URN)))
+        .thenReturn(Optional.of(CEILING), Optional.empty());
+    when(entityService.deleteUrn(any(), eq(URN), eq(CEILING)))
+        .thenReturn(new RollbackRunResult(List.of(), 0, List.of()));
+
+    assertEquals(
+        reliableHardDelete.delete(opContext, URN).outcome(),
+        ConditionalDeleteOutcome.ALREADY_DELETED);
   }
 
   /** A referrer that could not be cleaned (e.g. written since it was read) keeps the entity. */
