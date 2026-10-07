@@ -88,7 +88,7 @@
     "manageLineage.modalTitleUpstream": "Управление вышестоящим lineage",
     "manageLineage.unauthorized": "У вас нет прав изменять lineage для этого объекта.",
     "manageLineage.upstreamDisabled": "Сделайте этот объект домашним, чтобы редактировать вышестоящие связи.",
-    "manualLineage.copyUrn": "Скопировать URN",
+    "manualLineage.copyUrn": "Копировать URN",
     "manualLineage.currentDownstreamsHeader": "Текущие нижестоящие",
     "manualLineage.currentUpstreamsHeader": "Текущие вышестоящие",
     "manualLineage.exitConfirmText_one": "Вы уверены, что хотите выйти? {{count}} изменение будет сброшено.",

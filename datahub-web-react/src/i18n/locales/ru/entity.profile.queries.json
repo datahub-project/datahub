@@ -1,5 +1,5 @@
 {
-    "copyQuery.tooltip": "Скопировать запрос",
+    "copyQuery.tooltip": "Копировать запрос",
     "queriesTab.addHighlightedQueryButton": "Добавить отмеченный запрос",
     "queriesTab.addHighlightedQueryTooltip": "Добавить отмеченный запрос",
     "queriesTab.addUnauthorizedMessage": "У вас нет прав добавлять запросы к этому объекту.",

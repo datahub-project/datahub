@@ -1,7 +1,7 @@
 {
     "backButton.tooltip": "Назад",
     "confirmationModal.areYouSure": "Вы уверены?",
-    "copyUrn.tooltip": "Скопировать URN. URN однозначно идентифицирует сущность в DataHub.",
+    "copyUrn.tooltip": "Копировать URN. URN однозначно идентифицирует сущность в DataHub.",
     "customIcon.alt": "Иконка",
     "entityCountCard.viewCountTooltip": "Просмотреть {{formattedCount}} {{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",

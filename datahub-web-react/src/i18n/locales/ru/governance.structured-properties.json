@@ -71,7 +71,7 @@
     "table.allowedPlatformsColumn": "Платформы",
     "table.confirmDeleteText": "Вы уверены, что хотите удалить? Удаление приведёт к исчезновению этого свойства со всех ассетов, где оно сейчас установлено.",
     "table.confirmDeleteTitle": "Подтвердите удаление",
-    "table.copyUrn": "Скопировать Urn",
+    "table.copyUrn": "Копировать URN",
     "table.createdByColumn": "Создал(а)",
     "table.creationDateColumn": "Дата создания",
     "table.deleteError": "Не удалось удалить структурированное свойство",

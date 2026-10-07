@@ -7,7 +7,7 @@
     "documentType.faq": "Частые вопросы",
     "documentType.insight": "Инсайт",
     "documentType.runbook": "Руководство (runbook)",
-    "documentation.aboutTitle": "О проекте",
+    "documentation.aboutTitle": "Описание",
     "documentation.editTitle": "Изменить описание",
     "documentation.editTooltip": "Изменить описание",
     "documentation.updateError": "Не удалось обновить описание: \n {{error}}",

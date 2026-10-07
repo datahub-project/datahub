@@ -1,7 +1,7 @@
 {
     "applications.columnApplication": "Приложение",
     "applications.columnOwners": "Владельцы",
-    "applications.copyUrn": "Скопировать URN",
+    "applications.copyUrn": "Копировать URN",
     "applications.createButton": "Создать приложение",
     "applications.createError": "Не удалось создать приложение. Произошла непредвиденная ошибка",
     "applications.createErrorDetail": "Не удалось создать приложение. Произошла непредвиденная ошибка: {{error}}",
@@ -206,7 +206,7 @@
     "tags.columnAppliedTo": "Применено к",
     "tags.columnOwners": "Владельцы",
     "tags.columnTag": "Тег",
-    "tags.copyUrn": "Скопировать URN",
+    "tags.copyUrn": "Копировать URN",
     "tags.createButton": "Создать тег",
     "tags.createError": "Не удалось создать тег. Произошла непредвиденная ошибка",
     "tags.createErrorDetail": "Не удалось создать тег. {{error}}",

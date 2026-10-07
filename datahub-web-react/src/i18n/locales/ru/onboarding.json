@@ -119,7 +119,7 @@
     "ingestion.refreshTitle": "Обновить источники загрузки",
     "lineageGraph.dataLineageDescription": "<bold>Lineage</bold> данных позволяет визуализировать и понимать как вышестоящие зависимости, так и нижестоящих потребителей этого объекта.",
     "lineageGraph.introDescription": "На этой странице можно просмотреть <bold>граф lineage</bold> для объекта.",
-    "lineageGraph.introTitle": "Граф Lineage",
+    "lineageGraph.introTitle": "Граф lineage",
     "lineageGraph.learnMore": "Подробнее о <bold>lineage</bold> <anchor>здесь.</anchor>",
     "lineageGraph.timeFilterDescription": "Вы можете выбрать даты, для которых нужно видеть связи lineage на этом графе. По умолчанию граф показывает связи, наблюдавшиеся за последние 14 дней. Обратите внимание: связи, добавленные вручную, и связи без временной информации всегда отображаются.",
     "lineageGraph.timeFilterTitle": "Фильтр связей lineage по дате",
