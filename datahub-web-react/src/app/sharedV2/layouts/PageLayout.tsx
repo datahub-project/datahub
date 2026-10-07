@@ -3,7 +3,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { PanelResizeHandle } from '@app/sharedV2/layouts/PanelResizeHandle';
-import { isHiddenRightPanel } from '@app/sharedV2/layouts/rightPanelContent';
 
 const Card = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
@@ -186,9 +185,7 @@ export function PageLayout({
     );
 
     const rightPanel = useMemo(() => {
-        // Drop the rail for the OSS AIChat stub. Do not import/modify AIChat.tsx —
-        // acryl-main deleted that file and passes MultiTabEmbeddedChat here instead.
-        if (!rightPanelContent || isHiddenRightPanel(rightPanelContent)) return null;
+        if (!rightPanelContent) return null;
         if (!isRightPanelResizable) {
             return <SidePanel $closed={isRightPanelCollapsed}>{rightPanelContent}</SidePanel>;
         }
