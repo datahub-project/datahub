@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
+import { useViewsSelectContext } from '@app/entityV2/view/select/ViewSelectContext';
 import {
     CardViewLabel,
     ViewContainer,
@@ -108,6 +109,7 @@ export const ViewOptionName = ({
 }: Props) => {
     const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { updateOpenState } = useViewsSelectContext();
     const { theme } = useCustomTheme();
 
     const renderViewIcon = () => {
@@ -205,7 +207,8 @@ export const ViewOptionName = ({
                     <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>{description}</ViewDescription>
                 </ViewContent>
             </Tooltip>
-            <ViewDropdownMenuContainer>
+            {/* Menu actions (and the modals they open) must not bubble up to the row and select the view. */}
+            <ViewDropdownMenuContainer onClick={(e) => e.stopPropagation()}>
                 <ViewDropdownMenu
                     view={view}
                     isOwnedByUser={isOwnedByUser}
@@ -213,6 +216,7 @@ export const ViewOptionName = ({
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
                     selectView={selectView}
+                    onActionComplete={() => updateOpenState(false)}
                 />
             </ViewDropdownMenuContainer>
         </ViewContainer>

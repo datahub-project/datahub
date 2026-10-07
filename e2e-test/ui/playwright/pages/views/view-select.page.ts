@@ -43,7 +43,7 @@ export class ViewSelectPage extends BasePage {
     this.menuItemSetDefault = page.getByTestId('menu-item-set-default');
     this.menuItemRemoveDefault = page.getByTestId('menu-item-remove-default');
     this.menuItemDelete = page.getByTestId('menu-item-delete');
-    this.confirmDeleteYes = page.getByRole('button', { name: 'Yes' });
+    this.confirmDeleteYes = page.getByTestId('modal-confirm-button');
     this.viewsButton = page.getByTestId('views-button');
     this.viewSelectItem = page.getByTestId('view-select-item');
     this.closeIcon = page.getByTestId('views-clear-button');
@@ -229,6 +229,14 @@ export class ViewSelectPage extends BasePage {
     await this.waitForPopoverClose();
   }
 
+  async selectView(viewName: string): Promise<void> {
+    await this.viewsButton.click();
+    await this.waitForPopoverOpen();
+    await this.getSelectedViewItem(viewName).click();
+    await this.waitForPopoverClose();
+    await this.page.waitForLoadState('networkidle');
+  }
+
   async removeViewAsDefault(viewName: string): Promise<void> {
     await this.openViewDropdown(viewName);
     await this.menuItemRemoveDefault.click();
@@ -240,6 +248,7 @@ export class ViewSelectPage extends BasePage {
     await this.openViewDropdown(viewName);
     await this.menuItemDelete.click();
 
+    await expect(this.confirmDeleteYes).toBeVisible();
     await this.confirmDeleteYes.click();
     await this.page.waitForLoadState('networkidle');
     await this.waitForPopoverClose();

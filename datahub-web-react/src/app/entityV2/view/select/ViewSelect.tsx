@@ -156,8 +156,6 @@ export const ViewSelect = () => {
                 <Popover
                     open={isInternalOpen}
                     onOpenChange={onOpenChangeHandler}
-                    // Keep content mounted on close so the delete confirmation modal inside it isn't unmounted.
-                    destroyTooltipOnHide={false}
                     content={
                         <>
                             <ViewSelectPopoverContent
