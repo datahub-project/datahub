@@ -20,7 +20,13 @@ from tests.test_helpers.probe_parity import (
     pipeline_ingestion,
 )
 
-pytestmark = pytest.mark.integration_batch_4
+# The parity harness masks its reports against the process-global registry, as
+# the CLI does; a secret an earlier test in the batch registered would otherwise
+# redact any of this fixture's identifiers that contain it.
+pytestmark = [
+    pytest.mark.integration_batch_4,
+    pytest.mark.usefixtures("_isolate_secret_registry"),
+]
 
 # A workspace container's subtype is its workspace type, so a personal
 # workspace is not a "Workspace" container.
