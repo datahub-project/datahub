@@ -564,14 +564,6 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext, @Nonnull Urn urn);
 
   /**
-   * Throws if the hard delete of {@code urn} would be rejected, by the same checks {@link
-   * #deleteUrn(OperationContext, Urn)} runs: a DELETE proposal validator ({@code
-   * ValidationException}) or the structured-property soft-delete-first rule ({@code
-   * IllegalArgumentException}). Reads only.
-   */
-  void validateHardDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn);
-
-  /**
    * {@link #deleteUrn(OperationContext, Urn)}, bounded by {@code ceiling} when it is not null (null
    * is exactly {@link #deleteUrn(OperationContext, Urn)}). Within the delete transaction every
    * latest row of {@code urn} is read for update; the entity is deleted as today only when each is

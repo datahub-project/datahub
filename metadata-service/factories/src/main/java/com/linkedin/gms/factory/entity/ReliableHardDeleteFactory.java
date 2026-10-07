@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import javax.annotation.Nonnull;
@@ -22,11 +21,8 @@ public class ReliableHardDeleteFactory {
   @Nonnull
   protected ReliableHardDelete reliableHardDelete(
       @Qualifier("entityService") final EntityService<?> entityService,
-      @Qualifier("deleteEntityService") final DeleteEntityService deleteEntityService,
       @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider) {
     return new ReliableHardDelete(
-        entityService,
-        deleteEntityService,
-        configurationProvider.getFeatureFlags().isReliableHardDelete());
+        entityService, configurationProvider.getFeatureFlags().isReliableHardDelete());
   }
 }

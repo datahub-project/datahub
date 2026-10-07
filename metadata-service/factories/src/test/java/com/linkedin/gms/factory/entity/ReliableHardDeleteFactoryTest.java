@@ -6,7 +6,6 @@ import static org.testng.Assert.assertEquals;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -30,8 +29,6 @@ public class ReliableHardDeleteFactoryTest {
 
     try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
       context.registerBean("entityService", EntityService.class, () -> mock(EntityService.class));
-      context.registerBean(
-          "deleteEntityService", DeleteEntityService.class, () -> mock(DeleteEntityService.class));
       context.registerBean(
           "configurationProvider", ConfigurationProvider.class, () -> configurationProvider);
       context.register(ReliableHardDeleteFactory.class);

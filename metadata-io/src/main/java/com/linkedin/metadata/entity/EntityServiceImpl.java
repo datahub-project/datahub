@@ -3643,23 +3643,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   @Override
-  public void validateHardDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    final String keyAspectName = opContext.getKeyAspectName(urn);
-    validateDeleteProposal(
-        opContext,
-        DeleteItemImpl.builder()
-            .urn(urn)
-            .aspectName(keyAspectName)
-            .auditStamp(createSystemAuditStamp())
-            .build(opContext.getAspectRetriever()));
-    if (guardsStructuredPropertyDelete(
-        opContext, urn, keyAspectName, true, DeletePurpose.ORDINARY)) {
-      rejectUnlessSoftDeleted(
-          opContext.withReadPreference(ReadPreference.PRIMARY), urn, urn.toString(), keyAspectName);
-    }
-  }
-
-  @Override
   public Set<Urn> exists(
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<Urn> urns,
@@ -3741,54 +3724,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
-  /** Today's DELETE proposal validators. */
-  private void validateDeleteProposal(
-      @Nonnull OperationContext opContext, @Nonnull MCPItem deleteItem) {
-    ValidationExceptionCollection exceptions =
-        AspectsBatch.validateProposed(
-            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
-    if (!exceptions.isEmpty()) {
-      throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
-    }
-  }
-
-  private static boolean guardsStructuredPropertyDelete(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn entityUrn,
-      @Nonnull String aspectName,
-      boolean entityWideHardDelete,
-      DeletePurpose deletePurpose) {
-    return STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
-        && (entityWideHardDelete || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
-        && deletePurpose == DeletePurpose.ORDINARY
-        && !opContext.isSystemAuth()
-        // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
-        // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
-        // its rejection would otherwise be swallowed by processPendingDeletions and the
-        // aspect would stay oversized forever.
-        && !(opContext.getValidationContext() != null
-            && opContext.getValidationContext().isRemediationDeletion());
-  }
-
-  private void rejectUnlessSoftDeleted(
-      @Nonnull OperationContext primaryReadOpContext,
-      @Nonnull Urn entityUrn,
-      @Nonnull String urn,
-      @Nonnull String aspectName) {
-    if (!isSoftDeleted(primaryReadOpContext, urn)
-        && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
-                  + "can leave a permanent entity-index mapping for this normalized name, "
-                  + "preventing reuse until the affected entity indices are reindexed with "
-                  + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
-                  + "soft-deleted; soft deletion is reversible.",
-              entityUrn.getId()));
-    }
-  }
-
   /** Does not emit MCL */
   @VisibleForTesting
   @Nullable
@@ -3846,7 +3781,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .build(opContext.getAspectRetriever());
 
     // Delete validation hooks
-    validateDeleteProposal(opContext, deleteItem);
+    ValidationExceptionCollection exceptions =
+        AspectsBatch.validateProposed(
+            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
+    if (!exceptions.isEmpty()) {
+      throw new ValidationException(
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
+    }
 
     // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
     // effects before deleteUrn. Structured properties: PropertyDefinitionDeleteSideEffect.
@@ -3863,8 +3804,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final boolean entityWideHardDelete =
         hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn));
     final boolean guardStructuredPropertyDelete =
-        guardsStructuredPropertyDelete(
-            opContext, entityUrn, aspectName, entityWideHardDelete, deletePurpose);
+        STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
+            && (entityWideHardDelete
+                || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
+            && deletePurpose == DeletePurpose.ORDINARY
+            && !opContext.isSystemAuth()
+            // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
+            // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
+            // its rejection would otherwise be swallowed by processPendingDeletions and the
+            // aspect would stay oversized forever.
+            && !(opContext.getValidationContext() != null
+                && opContext.getValidationContext().isRemediationDeletion());
 
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
@@ -3903,8 +3853,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           guardStructuredPropertyDelete
               ? opContext.withReadPreference(ReadPreference.PRIMARY)
               : opContext;
-      if (guardStructuredPropertyDelete) {
-        rejectUnlessSoftDeleted(primaryReadOpContext, entityUrn, urn, aspectName);
+      if (guardStructuredPropertyDelete
+          && !isSoftDeleted(primaryReadOpContext, urn)
+          && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
+                    + "can leave a permanent entity-index mapping for this normalized name, "
+                    + "preventing reuse until the affected entity indices are reindexed with "
+                    + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
+                    + "soft-deleted; soft deletion is reversible.",
+                entityUrn.getId()));
       }
       result =
           aspectDao

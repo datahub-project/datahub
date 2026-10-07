@@ -10,13 +10,9 @@ import javax.annotation.Nonnull;
  *
  * @param rowsDeleted rows the entity delete removed, as {@code deleteUrn} counts them; when the
  *     entity stays ({@code PARTIAL}), one per aspect deleted
- * @param referencesRemoved the total the reference cleanup reports
  */
 public record DeleteEntityReport(
-    @Nonnull String urn,
-    @Nonnull ConditionalDeleteOutcome outcome,
-    long rowsDeleted,
-    int referencesRemoved) {
+    @Nonnull String urn, @Nonnull ConditionalDeleteOutcome outcome, long rowsDeleted) {
 
   public DeleteEntityReport {
     Objects.requireNonNull(urn, "urn");
@@ -25,6 +21,6 @@ public record DeleteEntityReport(
 
   @Nonnull
   public static DeleteEntityReport alreadyDeleted(@Nonnull Urn urn) {
-    return new DeleteEntityReport(urn.toString(), ConditionalDeleteOutcome.ALREADY_DELETED, 0L, 0);
+    return new DeleteEntityReport(urn.toString(), ConditionalDeleteOutcome.ALREADY_DELETED, 0L);
   }
 }

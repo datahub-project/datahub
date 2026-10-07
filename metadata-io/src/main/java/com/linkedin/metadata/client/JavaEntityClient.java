@@ -660,11 +660,7 @@ public class JavaEntityClient implements EntityClient {
     return entityService.listUrns(opContext, entityName, start, count);
   }
 
-  /**
-   * Hard delete an entity with a particular urn. With the reliable hard delete on, the references
-   * found when it runs are removed first; one added concurrently can still need a following {@link
-   * #deleteEntityReferences}.
-   */
+  /** Hard delete an entity with a particular urn. */
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {

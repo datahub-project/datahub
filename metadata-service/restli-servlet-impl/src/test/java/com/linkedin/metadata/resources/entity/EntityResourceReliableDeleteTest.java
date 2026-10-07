@@ -96,8 +96,7 @@ public class EntityResourceReliableDeleteTest {
   public void flagOnWholeEntityDeleteCallsTheReliableDeleteInsteadOfDeleteUrn() throws Exception {
     enable(true);
     when(reliableHardDelete.delete(any(), eq(URN)))
-        .thenReturn(
-            new DeleteEntityReport(URN.toString(), ConditionalDeleteOutcome.DELETED, 12L, 2));
+        .thenReturn(new DeleteEntityReport(URN.toString(), ConditionalDeleteOutcome.DELETED, 12L));
 
     final DeleteEntityResponse response =
         await(resource.deleteEntity(URN.toString(), null, null, null));
