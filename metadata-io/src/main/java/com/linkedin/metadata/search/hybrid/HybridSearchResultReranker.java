@@ -57,7 +57,7 @@ public class HybridSearchResultReranker {
   /**
    * Returns {@code lexicalRows} with the rows of entity types that have vectors reordered by
    * combined lexical and vector score, each moved into a position such a row held before. Empty
-   * when no row got a vector score, so the rows keep the keyword ranking.
+   * when fewer than two rows got a vector score, so the rows keep the keyword ranking.
    *
    * @param deadlineNanos {@link System#nanoTime()} by which the embedding and kNN calls end
    */
@@ -78,7 +78,8 @@ public class HybridSearchResultReranker {
   /**
    * Scores the rows that have vectors, highest combined score first. The kNN query scores only
    * these rows. Empty when the query is a wildcard or fewer than two rows have an entity type with
-   * vectors, in which case no embedding or kNN request is made, and when no row has a vector.
+   * vectors, in which case no embedding or kNN request is made, and when fewer than two of them
+   * have a vector.
    *
    * @throws UncheckedTimeoutException when the deadline passes before the kNN call
    * @throws IOException when the kNN call fails or its response may be missing hits
@@ -139,6 +140,9 @@ public class HybridSearchResultReranker {
     }
     // A row without vectors, e.g. not embedded yet, has nothing to compare and keeps its position
     lexicalScores.keySet().retainAll(vectorScores.keySet());
+    if (lexicalScores.size() < 2) {
+      return List.of();
+    }
     return candidateMerger.merge(lexicalScores, vectorScores);
   }
 

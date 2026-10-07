@@ -129,14 +129,17 @@ public class ESSearchDAO {
   private static final int HYBRID_FAILURES_BEFORE_PAUSE = 3;
 
   /**
-   * How long hybrid read pauses after repeated failures: while a slow or rate-limited provider
-   * recovers, searches neither call it nor hold their request thread for the timeout.
+   * How long hybrid read pauses after repeated failures, in this GMS process: while a slow provider
+   * recovers, searches neither call it nor hold their request thread for the timeout. When the
+   * pause ends, searches try hybrid read again until three fail in a row, so in a lasting outage
+   * searches wait out the timeout about once per pause.
    */
   private static final long HYBRID_PAUSE_MILLIS = 30_000;
 
   // Runs the embedding and kNN calls so a slow provider cannot hold a search past the timeout. The
-  // calls end by the same deadline, so a worker is free about when its search falls back. The
-  // queue is bounded: when every worker is busy, searches get the keyword ranking right away
+  // remote calls end by the same deadline, so a worker is free about when its search falls back;
+  // the in-process providers ignore it and keep their worker until they finish. The queue is
+  // bounded: when every worker is busy, searches get the keyword ranking right away
   private static final ExecutorService HYBRID_EXECUTOR =
       new ThreadPoolExecutor(
           8,
@@ -535,8 +538,8 @@ public class ESSearchDAO {
   /**
    * The number of keyword rows a hybrid search fetches, or 0 when the search stays keyword-only:
    * hybrid read is off, the page starts past the rerank window, no rows are requested, results are
-   * not sorted by relevance, the input is not a full-text query, or no requested entity type has
-   * vectors.
+   * not sorted by relevance, the input is not a full-text query or is an exact lookup, no requested
+   * entity type has vectors, or hybrid read is paused after repeated failures.
    */
   private int hybridFetchSize(
       @Nonnull OperationContext opContext,
@@ -558,10 +561,7 @@ public class ESSearchDAO {
         || trimmed.isEmpty()
         || "*".equals(trimmed)
         || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
-        // Exact lookups, as for the light query: a quoted phrase or a URN or path has no meaning
-        // for the vectors to add
-        || isQuotedPhrase(trimmed)
-        || QueryUnderstanding.understand(trimmed) == QueryIntent.IDENTITY) {
+        || isExactLookup(trimmed)) {
       return 0;
     }
     final int fetchSize = Math.max(HYBRID_RERANK_WINDOW, from + pageSize);
@@ -602,7 +602,8 @@ public class ESSearchDAO {
             .filter(urn -> urn != null && vectorEntityNames.contains(urn.getEntityType()))
             .distinct()
             .count();
-    // Fewer than two rows that have vectors cannot trade positions, so no embedding or kNN call
+    // Fewer than two rows of an entity type with vectors cannot trade positions, so no embedding or
+    // kNN call
     if (windowVectorRows >= 2) {
       final long deadlineNanos =
           System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(HYBRID_TIMEOUT_MILLIS);
@@ -644,6 +645,8 @@ public class ESSearchDAO {
         countHybridTimeout(opContext);
         recordHybridFailure();
       } catch (InterruptedException e) {
+        // The search itself was interrupted, which says nothing about the provider, so it does not
+        // count toward the pause
         rerank.cancel(true);
         Thread.currentThread().interrupt();
         countHybrid(opContext, "hybridReadFailed");
@@ -726,8 +729,7 @@ public class ESSearchDAO {
         || trimmed.isEmpty()
         || "*".equals(trimmed)
         || trimmed.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
-        || isQuotedPhrase(trimmed)
-        || QueryUnderstanding.understand(trimmed) == QueryIntent.IDENTITY) {
+        || isExactLookup(trimmed)) {
       return null;
     }
     return SearchRequestHandler.getBuilder(
@@ -919,10 +921,14 @@ public class ESSearchDAO {
                     || criterion.getField().startsWith("fieldPaths.")));
   }
 
-  /** Returns true if the query is wrapped in double or single quotes. */
-  private static boolean isQuotedPhrase(@Nonnull final String trimmedQuery) {
+  /**
+   * Returns true for exact lookups: a query wrapped in double or single quotes, or a URN or storage
+   * path. Neither the light query nor the vectors have anything to add to them.
+   */
+  private static boolean isExactLookup(@Nonnull final String trimmedQuery) {
     return (trimmedQuery.startsWith("\"") && trimmedQuery.endsWith("\""))
-        || (trimmedQuery.startsWith("'") && trimmedQuery.endsWith("'"));
+        || (trimmedQuery.startsWith("'") && trimmedQuery.endsWith("'"))
+        || QueryUnderstanding.understand(trimmedQuery) == QueryIntent.IDENTITY;
   }
 
   @VisibleForTesting

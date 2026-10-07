@@ -128,7 +128,7 @@ public class HybridSearchResultRerankerTest {
   @Test
   public void testRowWithoutVectorKeepsItsPosition() throws Exception {
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
-        .thenReturn(knnHits(Map.of(DOC_B, 0.4d)));
+        .thenReturn(knnHits(Map.of(DOC_B, 0.1d, DOC_C, 0.9d)));
 
     List<SearchEntity> reranked =
         reranker
@@ -136,13 +136,25 @@ public class HybridSearchResultRerankerTest {
                 opContext,
                 ENTITY_NAMES,
                 "revenue",
-                List.of(row(DOC_A, 50), row(DOC_B, 50)),
+                List.of(row(DOC_A, 50), row(DOC_B, 50), row(DOC_C, 50)),
                 List.of("urn"),
                 inSeconds(60))
             .orElseThrow();
 
-    // DOC_A has no vector, e.g. not embedded yet, so it stays first
-    assertEquals(urns(reranked), List.of(DOC_A, DOC_B));
+    // DOC_A has no vector, e.g. not embedded yet, so it stays first while the others trade places
+    assertEquals(urns(reranked), List.of(DOC_A, DOC_C, DOC_B));
+  }
+
+  @Test
+  public void testSingleRowWithVectorHitIsNotReranked() throws Exception {
+    // DOC_A is not embedded yet, so DOC_B has no other position to move into
+    when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(knnHits(Map.of(DOC_B, 0.4d)));
+    List<SearchEntity> rows = List.of(row(DOC_A, 50), row(DOC_B, 50));
+
+    assertEquals(
+        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        Optional.empty());
   }
 
   @Test

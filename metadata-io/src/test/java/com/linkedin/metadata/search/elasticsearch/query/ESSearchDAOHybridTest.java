@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -37,9 +39,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -357,6 +361,124 @@ public class ESSearchDAOHybridTest {
     // After the pause, hybrid read tries again
     Thread.sleep(1_100);
     dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+    verify(reranker, times(4))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+  }
+
+  @Test
+  public void testTimedOutSearchesPauseHybridRead() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    // A slow provider: every rerank runs past the timeout, whose interrupt ends it
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(10_000);
+              return Optional.empty();
+            });
+
+    // Three at once, so the test waits out one timeout rather than three
+    ExecutorService searches = Executors.newFixedThreadPool(3);
+    try {
+      List<Future<SearchResult>> slow = new ArrayList<>();
+      for (int i = 0; i < 3; i++) {
+        slow.add(
+            searches.submit(
+                () ->
+                    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())));
+      }
+      for (Future<SearchResult> search : slow) {
+        assertEquals(rowIds(search.get()), range(0, 10));
+      }
+    } finally {
+      searches.shutdownNow();
+    }
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+
+    // Three timeouts in a row pause hybrid read, so the fourth search makes no rerank call
+    verify(metrics, times(3)).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
+    verify(metrics).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+    verify(reranker, times(3))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+  }
+
+  @Test
+  public void testRejectedSearchesPauseHybridRead() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    CountDownLatch release = new CountDownLatch(1);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              release.await();
+              return Optional.empty();
+            });
+
+    // 8 running and 16 queued reranks fill the hybrid executor, so the searches past them are
+    // rejected
+    ExecutorService searches = Executors.newFixedThreadPool(27);
+    List<Future<SearchResult>> held = new ArrayList<>();
+    try {
+      for (int i = 0; i < 27; i++) {
+        held.add(
+            searches.submit(
+                () ->
+                    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of())));
+      }
+      verify(metrics, timeout(1_000).atLeast(3))
+          .increment(ESSearchDAO.class, "hybridReadRejected", 1);
+      // The executor stays full, so each of these is rejected until three rejections in a row
+      // pause hybrid read; the last one is skipped at the latest
+      for (int i = 0; i < 4; i++) {
+        dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+      }
+      verify(metrics, atLeastOnce()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
+    } finally {
+      release.countDown();
+      for (Future<SearchResult> search : held) {
+        search.get();
+      }
+      searches.shutdown();
+    }
+    // Released well before their timeout: only the rejections can have paused hybrid read
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadTimeout", 1);
+  }
+
+  @Test
+  public void testInterruptedSearchesDoNotPauseHybridRead() throws Exception {
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    Semaphore started = new Semaphore(0);
+    AtomicBoolean hold = new AtomicBoolean(true);
+    when(reranker.rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              if (hold.get()) {
+                started.release();
+                Thread.sleep(10_000);
+              }
+              return Optional.empty();
+            });
+
+    for (int i = 0; i < 3; i++) {
+      Thread search =
+          new Thread(
+              () -> dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of()));
+      search.start();
+      // Interrupts the search while it waits for its rerank
+      started.acquire();
+      search.interrupt();
+      search.join();
+    }
+    hold.set(false);
+    dao.search(opContext, ENTITY_NAMES, "revenue", null, null, 0, 10, List.of());
+
+    // Interrupted searches do not count toward the pause, so the fourth search reranks
+    verify(metrics, times(3)).increment(ESSearchDAO.class, "hybridReadFailed", 1);
+    verify(metrics, never()).increment(ESSearchDAO.class, "hybridReadSkipped", 1);
     verify(reranker, times(4))
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
