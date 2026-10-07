@@ -267,6 +267,10 @@ export function BarChart({
                                             <Popover
                                                 open
                                                 defaultOpen
+                                                // The tooltip must never receive hover itself:
+                                                // reaching it ends the chart hover and flickers
+                                                // the tooltip closed and open.
+                                                overlayStyle={{ pointerEvents: 'none' }}
                                                 // adjust offset for horizontal barchart to prevent blinking of popover and hover state
                                                 align={horizontal ? { offset: [0, 20] } : undefined}
                                                 placement={horizontal ? 'bottomRight' : 'topLeft'}
