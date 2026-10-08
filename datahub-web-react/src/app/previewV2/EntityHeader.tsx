@@ -31,7 +31,7 @@ const StyledLink = styled(Link)`
 const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     &&& {
         font-size: ${(props) => props.$titleSizePx || 16}px;
-        font-weight: 700;
+        font-weight: 500;
         vertical-align: middle;
 
         :hover {
