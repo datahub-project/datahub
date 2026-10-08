@@ -336,6 +336,16 @@ The full set of built-in resolvers.
 | `SIBLINGS_IN_DATA_PRODUCT` | entity URNs | Other entities in the same data product as the source entity. |
 | `SIBLINGS_IN_APPLICATION`  | entity URNs | Other entities in the same application as the source entity.  |
 
+**Field-context resolvers (hierarchy children)** — return the direct children of a parent entity of the same type. The field's `allowedEntityTypes` must be exactly the child type. Pair with `"source": "field:<parent-field-id>"` to build cascading pickers, for example a sub-domain field whose options follow the domain chosen in an earlier field.
+
+| Resolver                  | Returns            | Purpose                                                |
+| ------------------------- | ------------------ | ------------------------------------------------------ |
+| `CHILD_DOMAINS_OF`        | domain URNs        | Direct sub-domains of the source domain.               |
+| `CHILD_CONTAINERS_OF`     | container URNs     | Containers directly inside the source container.       |
+| `CHILD_GLOSSARY_NODES_OF` | glossary node URNs | Glossary nodes directly under the source node.         |
+| `CHILD_DATA_PRODUCTS_OF`  | data product URNs  | Direct child data products of the source data product. |
+| `CHILD_METRICS_OF`        | metric URNs        | Direct child metrics of the source metric.             |
+
 **Catalogue-wide resolver** — returns every entity matching the parent field's `allowedEntityTypes`, useful when paired with a `filter` for fixed-URN allow-lists.
 
 | Resolver       | Returns     | Purpose                                                                                                                         |
