@@ -4,7 +4,7 @@
     "changeHistoryGraph.operation.alter": "Изменение",
     "changeHistoryGraph.operation.create": "Создание",
     "changeHistoryGraph.operation.delete": "Удаление",
-    "changeHistoryGraph.operation.drop": "Удаление (drop)",
+    "changeHistoryGraph.operation.drop": "Удаление таблицы",
     "changeHistoryGraph.operation.insert": "Вставка",
     "changeHistoryGraph.operation.update": "Обновление",
     "changeHistoryGraph.empty": "Для этого ассета не зафиксировано изменений за последний год.",

@@ -39,7 +39,7 @@
     "operators.startsWithDesc": "Начинается с заданного значения",
     "prop.activeIncidents": "Активные инциденты",
     "prop.activeIncidentsDesc": "Активные инциденты для ассета",
-    "prop.assertions": "Проверки (assertions)",
+    "prop.assertions": "Проверки",
     "prop.asset": "Ассет",
     "prop.assetDesc": "Сам конкретный ассет",
     "prop.browsePathContainer": "Контейнер пути просмотра",

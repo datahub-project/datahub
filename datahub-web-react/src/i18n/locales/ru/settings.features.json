@@ -1,6 +1,6 @@
 {
     "cloudLabel": "DataHub Cloud",
-    "docPropagation.assetLevelDescription": "Распространять новую документацию от вышестоящих ассетов к нижестоящим на основе связей происхождения данных (lineage).",
+    "docPropagation.assetLevelDescription": "Распространять новую документацию от вышестоящих ассетов к нижестоящим по связям lineage.",
     "docPropagation.assetLevelTitle": "Распространение на уровне ассета",
     "docPropagation.backfillButton": "Инициализировать",
     "docPropagation.backfillTitle": "Заполнить существующую документацию от вышестоящих к нижестоящим столбцам/ассетам",

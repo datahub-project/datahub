@@ -221,7 +221,7 @@
     "sidebar.ownership.type.businessOwnerDescription": "Основные заинтересованные лица или эксперты домена, связанные с ассетом(ами).",
     "sidebar.ownership.type.businessOwnerName": "Бизнес-владелец",
     "sidebar.ownership.type.dataStewardDescription": "Участвует в governance ассета(ов).",
-    "sidebar.ownership.type.dataStewardName": "Ответственный за данные (steward)",
+    "sidebar.ownership.type.dataStewardName": "Ответственный за данные",
     "sidebar.ownership.type.noneDescription": "Тип владения не указан.",
     "sidebar.ownership.type.noneName": "Нет",
     "sidebar.ownership.type.otherName": "Другое",
