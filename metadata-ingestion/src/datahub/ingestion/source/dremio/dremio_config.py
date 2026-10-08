@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict, List, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional
 
 import certifi
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -8,6 +8,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
+    Filters,
     HiddenFromDocs,
     TransparentSecretStr,
 )
@@ -16,8 +17,21 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
+)
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
+from datahub.ingestion.source.dremio.dremio_selection import (
+    UNKNOWN,
+    DatasetFacts,
+    container_verdict,
+    dataset_verdict,
+    folder_verdict,
+    sql_schema_filter_value,
 )
 from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -185,12 +199,23 @@ class DremioSourceConfig(
         ),
     )
 
-    schema_pattern: AllowDenyPattern = Field(
+    # In kind-name order: `recipe describe` names a field's first Filters,
+    # and `probe filter`'s field map takes the first kind in sorted order.
+    schema_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetContainerSubTypes.DREMIO_FOLDER),
+        Filters(DatasetContainerSubTypes.DREMIO_SOURCE),
+        Filters(DatasetContainerSubTypes.DREMIO_SPACE),
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
     )
 
-    dataset_pattern: AllowDenyPattern = Field(
+    dataset_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetSubTypes.TABLE),
+        Filters(DatasetSubTypes.VIEW),
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables and views to filter in ingestion. Specify regex to match the entire table name in dremio.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'dremio.public.customer.*'",
     )
@@ -255,6 +280,68 @@ class DremioSourceConfig(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: dremio_probe imports this module, and ingestion should
+        # not load the probe provider.
+        from datahub.ingestion.source.dremio.dremio_probe import DremioMetadataProbe
+
+        return DremioMetadataProbe
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Every probe listing names an object by its full dotted path, and
+        ingestion's decision reads that path rather than one pattern match:
+        dremio_selection holds the rules, which DremioFilter and
+        DremioSource.process_dataset also call."""
+        if ctx.structural is not None:
+            return None
+        if ctx.kind in (
+            DatasetContainerSubTypes.DREMIO_SOURCE,
+            DatasetContainerSubTypes.DREMIO_SPACE,
+        ):
+            return container_verdict(self, [ctx.name])
+        if ctx.kind == DatasetContainerSubTypes.DREMIO_FOLDER:
+            root = ctx.attributes.get("root")
+            if root is None or not ctx.name.startswith(root + "."):
+                root = ctx.name.split(".", 1)[0]
+                ctx.warn(
+                    f"no root container for '{ctx.name}' here, so it is read as "
+                    "the text before the first '.'; a saved `probe run folders` "
+                    "run carries it, pass one with `probe filter --from-run`"
+                )
+            return folder_verdict(self, [root, ctx.name[len(root) + 1 :]])
+        if ctx.kind in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            return self._dataset_verdict(ctx)
+        return None
+
+    def _dataset_verdict(self, ctx: VerdictContext) -> Verdict:
+        schema = ctx.attributes.get("schema")
+        if schema is None or not ctx.name.startswith(schema + "."):
+            schema = ctx.name.rsplit(".", 1)[0] if "." in ctx.name else ""
+        table = ctx.name[len(schema) + 1 :] if schema else ctx.name
+        has_columns = ctx.attributes.get("has_columns")
+        edition = ctx.attributes.get("edition") or (
+            "CLOUD" if self.is_dremio_cloud else None
+        )
+        if edition is None:
+            ctx.warn(
+                f"no Dremio edition for '{ctx.name}' here, and schema_pattern "
+                "reaches datasets through a query that differs by edition, so "
+                "it was not judged; a saved `probe run tables` or `views` run "
+                "carries the edition, pass one with `probe filter --from-run`"
+            )
+        return dataset_verdict(
+            self,
+            DatasetFacts(
+                path=schema.split(".") if schema else [],
+                name=table,
+                schema_filter_value=UNKNOWN
+                if edition is None
+                else sql_schema_filter_value(edition, schema, table),
+                has_columns=UNKNOWN if has_columns is None else has_columns == "true",
+            ),
+        )
 
     @model_validator(mode="after")
     def _warn_if_stateful_time_window_without_stateful_ingestion(

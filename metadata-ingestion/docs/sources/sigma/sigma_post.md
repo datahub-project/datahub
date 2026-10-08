@@ -304,6 +304,30 @@ chart_sources_platform_mapping:
     env: PROD
 ```
 
+#### Probe support
+
+`datahub recipe probe` checks a Sigma recipe against the live tenant before a run. It authenticates with the recipe's `client_id` and `client_secret` against `api_url`, reads through the connector's own API client (the same token refresh, retries and `/files` walk that ingestion uses), and returns metadata only.
+
+| Command       | Parameters           | Returns                                                                                                        |
+| ------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `workspaces`  | `limit`              | Each workspace's name and id. A personal space is listed as `My documents`, the name ingestion matches.        |
+| `workbooks`   | `workspace`, `limit` | Workbooks in one workspace, or in all of them, with `workspace`, `has_workspace` and `in_files`                |
+| `data_models` | `workspace`, `limit` | Data Models that `/dataModels` lists, in one workspace or in all of them, with `workspace` and `has_workspace` |
+
+`workspace_pattern` filters workspaces by name, `workbook_pattern` filters workbooks by name and `data_model_pattern` filters Data Models by name. A workbook or Data Model that passes its own pattern also needs a placement that ingestion keeps. In a workspace this client can read, `workspace_pattern` decides. In none, for example because its workspace refuses the lookup, `ingest_shared_entities` decides. Ingestion also drops a workbook that Sigma's `/files` listing does not return (`in_files: false`), which usually means the client's user must be added to that workspace. Save a listing and judge it from the saved run, so that these facts are applied:
+
+```shell
+datahub recipe probe run workbooks --recipe recipe.yml --report-to workbooks.json
+datahub recipe probe filter --recipe recipe.yml --kind "Sigma Workbook" --from-run workbooks.json
+datahub recipe probe run data_models --recipe recipe.yml --workspace "Sales"
+```
+
+With `--name` alone, only the name pattern is judged, with a warning. With `--parent`, the parent workspace is judged by `workspace_pattern`. `ingest_data_models: false` excludes every Data Model.
+
+`workbook_lineage_pattern` is not a probe filter: it decides which workbooks get lineage, not which are ingested.
+
+A personal space (`My documents`) holds one person's own documents. When the recipe does not ingest it, the probe counts it, and the workbooks and Data Models in it, in a warning without listing them. A personal-space Data Model that `/dataModels` does not list, which ingestion reaches only through another Data Model's lineage with `ingest_shared_entities` on, is not in the `data_models` listing.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

@@ -41,6 +41,11 @@ class DataModelKey(ContainerKey):
     dataModelId: str
 
 
+# What a user's personal space ("User Folder" in the API) is renamed to, and
+# so the name workspace_pattern is matched against for it.
+PERSONAL_WORKSPACE_NAME = "My documents"
+
+
 class Workspace(BaseModel):
     workspaceId: str
     name: str
@@ -63,7 +68,7 @@ class Workspace(BaseModel):
         # escape as a bare KeyError and be reported as a malformed response
         # rather than a malformed row.
         if values.get("name") == "User Folder":
-            values["name"] = "My documents"
+            values["name"] = PERSONAL_WORKSPACE_NAME
         return values
 
 
