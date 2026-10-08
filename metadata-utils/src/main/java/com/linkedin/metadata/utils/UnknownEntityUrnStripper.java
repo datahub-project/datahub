@@ -34,7 +34,9 @@ import javax.annotation.Nullable;
  * this runs on every write and every read. For each such urn the smallest enclosing removable
  * element is dropped: the array element or map entry holding it, or the optional record field
  * holding it. A urn held by required fields or union members all the way up to the aspect root is
- * left in place, so validation still rejects that one aspect.
+ * left in place: a write of that aspect is still rejected by validation, and a read serves it
+ * unchanged (only logged), since dropping it would make read-modify-write callers treat the aspect
+ * as missing and overwrite the newer version's data.
  *
  * <p>The walk follows the schema and only descends into parts of it that can hold an urn, so
  * aspects without urn fields cost one cached lookup.

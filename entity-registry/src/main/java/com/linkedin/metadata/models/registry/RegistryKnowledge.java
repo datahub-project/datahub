@@ -63,7 +63,8 @@ public final class RegistryKnowledge {
 
   /**
    * The entity type of {@code urn:li:<type>:<key>}, read without parsing the key; null when the
-   * string isn't shaped like a urn. Cheap enough for hot paths that only need the type.
+   * string isn't shaped like a urn (including an empty type or key), so callers leave it for
+   * validation to reject. Cheap enough for hot paths that only need the type.
    */
   @Nullable
   public static String entityTypeOf(@Nullable final String urn) {
@@ -71,7 +72,9 @@ public final class RegistryKnowledge {
       return null;
     }
     final int end = urn.indexOf(':', URN_PREFIX.length());
-    return end <= URN_PREFIX.length() ? null : urn.substring(URN_PREFIX.length(), end);
+    return end <= URN_PREFIX.length() || end == urn.length() - 1
+        ? null
+        : urn.substring(URN_PREFIX.length(), end);
   }
 
   /** True when the entity type and aspect are unknown to the registry (not malformed). */
