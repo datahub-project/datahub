@@ -9,8 +9,13 @@ import pytest
 
 import datahub.ingestion.source.dbt.dbt_artifacts as dbt_artifacts_module
 import datahub.ingestion.source.dbt.dbt_core as dbt_core_module
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.dbt.dbt_common import DBTMetricsParse, DBTNode, DBTProject
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 from datahub.utilities.time import datetime_to_ts_millis
 
 
@@ -1147,3 +1152,120 @@ def test_prefetched_bytes_are_released_when_a_project_fails(
 
     assert source.report.manifests_failed == 1
     assert source._artifacts.prefetched == {}
+
+
+def _node(dbt_name: str, **overrides: Any) -> DBTNode:
+    defaults: Dict[str, Any] = dict(
+        database=None,
+        schema=None,
+        name=dbt_name.split(".")[-1],
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=dbt_name,
+        dbt_file_path=None,
+        dbt_package_name=dbt_name.split(".")[1],
+        node_type=dbt_name.split(".")[0],
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    defaults.update(overrides)
+    return DBTNode(**defaults)
+
+
+def _project(**overrides: Any) -> DBTProject:
+    defaults: Dict[str, Any] = dict(
+        nodes=[],
+        exposures=[],
+        metrics=DBTMetricsParse(),
+        platform_instance=None,
+        project_name=None,
+        manifest_path=None,
+        artifact_props={},
+        catalog_generated_at=None,
+        manifest_generated_at=None,
+    )
+    defaults.update(overrides)
+    return DBTProject(**defaults)
+
+
+def _described_urns(source: DBTCoreSource) -> Set[str]:
+    return {
+        wu.get_urn()
+        for wu in source.get_workunits()
+        if isinstance(wu, MetadataWorkUnit)
+        and wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    }
+
+
+def test_emit_loop_scopes_the_instance_to_each_project() -> None:
+    source = _make_source(write_semantics="OVERRIDE")
+    projects = [
+        _project(
+            platform_instance="project_a",
+            project_name="project_a",
+            nodes=[_node("model.project_a.orders", database="db", schema="sch_a")],
+        ),
+        _project(
+            platform_instance="project_b",
+            project_name="project_b",
+            nodes=[_node("model.project_b.orders", database="db", schema="sch_b")],
+        ),
+    ]
+    source.load_projects = lambda: iter(projects)  # type: ignore[method-assign]
+
+    assert _described_urns(source) == {
+        make_dataset_urn_with_platform_instance(
+            "dbt", "db.sch_a.orders", "project_a", "PROD"
+        ),
+        make_dataset_urn_with_platform_instance(
+            "dbt", "db.sch_b.orders", "project_b", "PROD"
+        ),
+    }
+    assert source._current_project is None
+
+
+def test_an_empty_project_emits_nothing_and_fails_nothing() -> None:
+    source = _make_source(write_semantics="OVERRIDE")
+    source.load_projects = lambda: iter(  # type: ignore[method-assign]
+        [_project(platform_instance="empty", project_name="empty")]
+    )
+
+    assert list(source.get_workunits()) == []
+    assert source.report.failures == []
+    assert source.report.num_exposures_emitted == 0
+
+
+def test_assertion_urns_carry_the_current_projects_instance() -> None:
+    source = _make_source()
+    test_node = _node(
+        "test.pkg.unique_dim_id",
+        upstream_nodes=["model.pkg.dim"],
+    )
+    test_node.test_info = DBTTest(
+        qualified_test_name="not_null", column_name="id", kw_args={}
+    )
+    model_node = _node("model.pkg.dim", database="db", schema="sch")
+
+    def assertion_urns(instance: str) -> Set[str]:
+        source._current_project = _project(platform_instance=instance)
+        try:
+            return {
+                str(mcp.entityUrn)
+                for mcp in source.create_test_entity_mcps(
+                    [test_node], {"model.pkg.dim": model_node}
+                )
+            }
+        finally:
+            source._current_project = None
+
+    a = assertion_urns("project_a")
+    b = assertion_urns("project_b")
+    assert a and b
+    assert a.isdisjoint(b)
