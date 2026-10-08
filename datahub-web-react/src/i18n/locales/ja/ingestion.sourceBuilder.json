@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "設定を続ける",
     "multiStep.builder.discard.description": "今すぐ終了すると、設定が破棄されます。設定を続けるか、終了して後でやり直すことができます",
     "multiStep.builder.discard.title": "保存されていない変更があります",
-    "multiStep.chat.placeholder": "AIチャットのプレースホルダー",
     "multiStep.connection.addOwners": "Ownerを追加",
     "multiStep.connection.advancedSettings": "高度な設定",
     "multiStep.connection.cannotChangeSourceType": "既存のIngestionソースのソースタイプは変更できません",

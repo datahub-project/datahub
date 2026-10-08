@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Einrichtung fortsetzen",
     "multiStep.builder.discard.description": "Wenn du jetzt beendest, wird deine Konfiguration verworfen. Du kannst die Einrichtung fortsetzen oder beenden und später neu beginnen",
     "multiStep.builder.discard.title": "Du hast ungespeicherte Änderungen",
-    "multiStep.chat.placeholder": "Platzhalter für KI-Chat",
     "multiStep.connection.addOwners": "Owners hinzufügen",
     "multiStep.connection.advancedSettings": "Erweiterte Einstellungen",
     "multiStep.connection.cannotChangeSourceType": "Es ist nicht möglich, den Source-Typ einer bestehenden Ingestion-Source zu ändern",

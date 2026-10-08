@@ -10,7 +10,10 @@ from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
+from datahub.ingestion.source.sql.sql_config import (
+    ProbeEngineSettings,
+    SQLAlchemyConnectionConfig,
+)
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 
 logger = logging.getLogger(__name__)
@@ -26,11 +29,10 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
 
     It lives on the config rather than the Source because *both* ingestion and
     `datahub recipe probe` build such engines, and the config is the only object
-    both of them hold. While this setup lived on the Source, the probe could not
-    reach it at all: `probe_prepare_engine` is a config method, so an AWS_IAM
-    recipe either failed to connect or would have needed the probe to rebuild
-    the token manager itself -- a second implementation of a credential path,
-    which is precisely the drift the hook exists to prevent.
+    both of them hold: the probe's engine setup (`probe_engine_settings`) is a
+    config method, so a listener on the Source would leave an AWS_IAM recipe
+    unable to connect, or the probe rebuilding the token manager itself -- a
+    second implementation of a credential path.
 
     The token manager is cached rather than rebuilt per engine: it holds the
     current token and its expiry, so a fresh instance per engine would go back
@@ -214,6 +216,16 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             self._warn_if_token_rides_unverified_tls(cparams)
 
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+
+    def with_rds_iam(self, settings: ProbeEngineSettings) -> ProbeEngineSettings:
+        """`settings`, followed by install_rds_iam_auth when this recipe
+        selected IAM auth."""
+        # Without this, an AWS_IAM recipe cannot be probed at all: the password
+        # is a token injected per connection, so a bare create_engine() has no
+        # credential to connect with.
+        if self.rds_iam_enabled():
+            return settings.followed_by(self.install_rds_iam_auth)
+        return settings
 
     def _warn_if_token_rides_unverified_tls(self, cparams: Dict[str, Any]) -> None:
         """Say so when the token is about to cross an unauthenticated channel.

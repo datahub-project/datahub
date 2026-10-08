@@ -149,7 +149,7 @@ export default class EntityRegistry {
         const previewData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
-                <PreviewContext.Provider value={{ previewData }}>
+                <PreviewContext.Provider value={{ previewData, previewType: PreviewType.SEARCH }}>
                     {entity.renderSearch(searchResult)}
                 </PreviewContext.Provider>
             </SearchResultProvider>
