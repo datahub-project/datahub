@@ -17,7 +17,7 @@
     "page.createGlossary": "Создать глоссарий",
     "page.subtitle": "Классифицируйте ассеты данных и столбцы с помощью словарей данных",
     "page.title": "Бизнес-глоссарий",
-    "section.glossaryTerms": "Термины глоссария",
+    "section.glossaryTerms": "Термины",
     "section.termGroups": "Группы терминов",
     "sidebar.collapse": "Свернуть глоссарий",
     "sidebar.expand": "Развернуть глоссарий",
@@ -26,7 +26,7 @@
     "sidebar.ownerFilter.placeholder": "Фильтр по владельцу",
     "sidebar.domainFilter.label": "Домены",
     "sidebar.domainFilter.placeholder": "Фильтр по домену",
-    "sidebar.section.allTerms": "Все термины глоссария",
+    "sidebar.section.allTerms": "Все термины",
     "sidebar.tagFilter.label": "Теги",
     "sidebar.tagFilter.placeholder": "Фильтр по тегу"
 }

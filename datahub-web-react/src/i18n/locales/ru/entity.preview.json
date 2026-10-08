@@ -89,7 +89,7 @@
     "removeFromApplication": "Удалить из приложения",
     "removeFromDataProduct": "Удалить из дата-продукта",
     "removeFromDomain": "Удалить из домена",
-    "removeGlossaryTerm": "Удалить термин глоссария",
+    "removeGlossaryTerm": "Удалить термин",
     "sourceEntityFallback": "исходный объект",
     "term.removeConfirmContent": "Вы уверены, что хотите удалить термин {{name}}?",
     "term.removeConfirmTitle": "Удалить термин {{name}}?",

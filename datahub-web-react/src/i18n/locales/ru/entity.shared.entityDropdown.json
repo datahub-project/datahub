@@ -55,7 +55,7 @@
     "editGlossary.success": "{{entityName}} обновлён(а)!",
     "editGlossary.title": "Изменить {{entityName}}",
     "glossary": "Глоссарий",
-    "glossaryTerm": "Термин глоссария",
+    "glossaryTerm": "Термин",
     "linkVersion.error": "Не удалось связать: \n {{errorMessage}}",
     "linkVersion.invalidError": "Нельзя связать с не версионируемым или не последним объектом",
     "linkVersion.loading": "Связывание...",

@@ -29,7 +29,7 @@
     "browse.noEntitiesEmpty": "Объектов нет",
     "businessAttribute.addDocumentation": "Добавить документацию",
     "businessAttribute.advancedSection": "Дополнительно",
-    "businessAttribute.columnGlossaryTerms": "Термины глоссария",
+    "businessAttribute.columnGlossaryTerms": "Термины",
     "businessAttribute.createButton": "Создать бизнес-атрибут",
     "businessAttribute.createError": "Не удалось создать: {{error}}",
     "businessAttribute.createModalTitle": "Создать бизнес-атрибут",

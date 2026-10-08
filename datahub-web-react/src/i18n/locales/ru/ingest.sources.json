@@ -60,7 +60,7 @@
     "sources.preset.description": "Импорт графиков и дашбордов из Preset.",
     "sources.presto.description": "Импорт таблиц, баз данных, схем и статистики из Presto.",
     "sources.qlikSense.description": "Импорт пространств, приложений, листов, графиков и датасетов из Qlik Sense.",
-    "sources.rdf.description": "Импорт терминов глоссария, групп терминов и связей из онтологий RDF/OWL (SKOS, Turtle, RDF/XML).",
+    "sources.rdf.description": "Импорт терминов, групп терминов и связей из онтологий RDF/OWL (SKOS, Turtle, RDF/XML).",
     "sources.redshift.description": "Импорт таблиц, представлений, баз данных, схем, lineage, запросов и статистики из Redshift.",
     "sources.s3.description": "Импорт датасетов, папок, S3-бакетов и предполагаемых схем из S3.",
     "sources.sac.description": "Импорт историй, приложений и моделей из SAP Analytics Cloud.",

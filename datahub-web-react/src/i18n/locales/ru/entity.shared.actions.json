@@ -12,14 +12,14 @@
     "addedApplicationSuccess": "Ассеты добавлены в приложение!",
     "addedDataProductSuccess": "Ассеты добавлены в дата-продукт!",
     "addedDomainSuccess": "Ассеты добавлены в домен!",
-    "addedTermSuccess": "Термин глоссария добавлен к объектам!",
+    "addedTermSuccess": "Термин добавлен к объектам!",
     "addTerm": "Добавить термин",
-    "addTermError": "Не удалось добавить термин глоссария: {{error}}",
+    "addTermError": "Не удалось добавить термин: {{error}}",
     "addTermGroup": "Добавить группу терминов",
-    "addTermModalTitle": "Добавить термин глоссария к ассетам",
-    "addTermTooltip": "Добавить термин глоссария к ассетам",
+    "addTermModalTitle": "Добавить термин к ассетам",
+    "addTermTooltip": "Добавить термин к ассетам",
     "addToAssets": "Добавить в ассеты",
     "bulkEditUnauthorized": "В выбранные для массового редактирования объекты попали те, на изменение которых у вас нет прав. Массовое редактирование не будет сохранено.",
     "createTermGroupTooltip": "Создать новую группу терминов",
-    "createTermTooltip": "Создать новый термин глоссария"
+    "createTermTooltip": "Создать новый термин"
 }
