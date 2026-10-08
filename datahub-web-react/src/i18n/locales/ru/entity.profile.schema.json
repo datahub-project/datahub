@@ -44,7 +44,7 @@
     "fieldBusinessAttribute.sectionTitle": "Бизнес-атрибут",
     "fieldDescription.addDescription": "Добавить описание",
     "fieldDescription.addDescriptionTitle": "Добавить описание",
-    "fieldDescription.proposalFailed": "Предложение не удалось!\n{{message}}",
+    "fieldDescription.proposalFailed": "Не удалось отправить предложение\n{{message}}",
     "fieldDescription.sectionTitle": "Описание",
     "fieldDescription.updateDescriptionTitle": "Обновить описание",
     "fieldDescription.addDescriptionButton": "+ Добавить описание",

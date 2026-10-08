@@ -117,7 +117,7 @@
     "tabs.users": "Пользователи",
     "users.activeStatusTooltip": "Пользователь входил в систему.",
     "users.columns.assignedGroups": "Назначенные группы",
-    "users.columns.name": "Название",
+    "users.columns.name": "Имя",
     "users.columns.role": "Роль",
     "users.columns.status": "Статус",
     "users.copyUrn": "Копировать URN",
