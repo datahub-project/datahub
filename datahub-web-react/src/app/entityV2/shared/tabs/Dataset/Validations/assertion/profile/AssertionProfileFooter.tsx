@@ -1,4 +1,4 @@
-import { BellTwoTone } from '@ant-design/icons';
+import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -23,7 +23,7 @@ const Title = styled.div`
     margin-bottom: 8px;
 `;
 
-const StyledBell = styled(BellTwoTone)`
+const StyledBell = styled(Bell)`
     margin-right: 4px;
 `;
 

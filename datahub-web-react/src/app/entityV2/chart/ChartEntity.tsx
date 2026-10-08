@@ -1,15 +1,11 @@
-import {
-    DashboardOutlined,
-    EyeOutlined,
-    FileOutlined,
-    LayoutOutlined,
-    PartitionOutlined,
-    UnorderedListOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
 import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { File } from '@phosphor-icons/react/dist/csr/File';
+import { Gauge } from '@phosphor-icons/react/dist/csr/Gauge';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -144,14 +140,14 @@ export class ChartEntity implements Entity<Chart> {
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
             {
                 name: i18next.t('entity.types:chart.fieldsTab'),
                 component: InputFieldsTab,
-                icon: LayoutOutlined,
+                icon: Layout,
                 display: {
                     visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
                     enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
@@ -160,7 +156,7 @@ export class ChartEntity implements Entity<Chart> {
             {
                 name: i18next.t('common.actions:preview'),
                 component: EmbedTab,
-                icon: EyeOutlined,
+                icon: Eye,
                 display: {
                     visible: (_, chart: GetChartQuery) =>
                         !!chart?.chart?.embed?.renderUrl &&
@@ -173,7 +169,7 @@ export class ChartEntity implements Entity<Chart> {
             {
                 name: i18next.t('entity.types:tab.lineage'),
                 component: LineageTab,
-                icon: PartitionOutlined,
+                icon: TreeStructure,
                 properties: {
                     defaultDirection: LineageDirection.Upstream,
                 },
@@ -182,12 +178,12 @@ export class ChartEntity implements Entity<Chart> {
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:dashboard.namePlural'),
                 component: ChartDashboardsTab,
-                icon: DashboardOutlined,
+                icon: Gauge,
                 display: {
                     visible: (_, _1) => true,
                     enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
@@ -198,7 +194,7 @@ export class ChartEntity implements Entity<Chart> {
                 getCount: (_, chart, loading) => {
                     return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                 },
-                icon: WarningOutlined,
+                icon: Warning,
                 component: IncidentTab,
             },
         ];
@@ -322,7 +318,7 @@ export class ChartEntity implements Entity<Chart> {
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
                     <MatchedFieldList
@@ -362,6 +358,10 @@ export class ChartEntity implements Entity<Chart> {
         return data.properties?.name || data.urn;
     };
 
+    createdTime = (data: Chart) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
+    };
+
     getGenericEntityProperties = (data: Chart) => {
         return getDataForEntityType({
             data,
@@ -396,4 +396,8 @@ export class ChartEntity implements Entity<Chart> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Chart) => {
+        return data?.platform;
+    };
 }

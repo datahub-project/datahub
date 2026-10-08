@@ -1,5 +1,6 @@
-import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -143,7 +144,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
-            icon: PartitionOutlined,
+            icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
@@ -152,7 +153,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 
@@ -240,5 +241,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);
+    };
+
+    getPlatformProperties = (data: MlPrimaryKey) => {
+        return data?.properties?.sources?.[0]?.platform;
     };
 }

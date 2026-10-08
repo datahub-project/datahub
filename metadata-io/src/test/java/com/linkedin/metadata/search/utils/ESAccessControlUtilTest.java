@@ -39,6 +39,7 @@ import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -642,7 +643,8 @@ public class ESAccessControlUtilTest {
           new GroupService(
               mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
               mock(EntityService.class),
-              mock(GraphClient.class)),
+              mock(GraphClient.class),
+              mock(GraphService.class)),
           0,
           0,
           AuthorizationMode.DEFAULT,
@@ -655,7 +657,10 @@ public class ESAccessControlUtilTest {
               opContext,
               specEntityClient,
               new GroupService(
-                  specEntityClient, mock(EntityService.class), mock(GraphClient.class)));
+                  specEntityClient,
+                  mock(EntityService.class),
+                  mock(GraphClient.class),
+                  mock(GraphService.class)));
 
       AuthorizerContext ctx = mock(AuthorizerContext.class);
       when(ctx.getEntitySpecResolver()).thenReturn(specResolver);

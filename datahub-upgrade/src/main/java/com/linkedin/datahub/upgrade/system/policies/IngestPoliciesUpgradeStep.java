@@ -233,14 +233,14 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
       return;
     }
 
-    final String docId =
+    final String v2DocId =
         systemOperationContext
             .getSearchContext()
             .getIndexConvention()
             .getEntityDocumentId(entityResponse.getUrn());
 
     _entitySearchService.upsertDocument(
-        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId);
+        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), v2DocId);
   }
 
   private void ingestPolicy(

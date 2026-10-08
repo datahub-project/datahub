@@ -1,11 +1,9 @@
-import { Icon, Popover } from '@components';
+import { Dropdown, Icon, Popover } from '@components';
 import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { House } from '@phosphor-icons/react/dist/csr/House';
-import { Button, Dropdown } from 'antd';
-import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import * as QueryString from 'query-string';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +13,7 @@ import styled, { useTheme } from 'styled-components';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
+import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -22,6 +21,7 @@ import { EntityType, LineageDirection } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;
+type DropdownItem = NonNullable<NonNullable<React.ComponentProps<typeof Dropdown>['menu']>['items']>[number];
 
 const Wrapper = styled.div`
     border-radius: 4px;
@@ -39,22 +39,19 @@ const MenuItemContent = styled.div`
     font-size: 12px;
 `;
 
-const StyledButton = styled(Button)`
+const StyledButton = styled.button`
     height: min-content;
     padding: 0;
     border: none;
+    background: transparent;
     box-shadow: none;
     transition: none;
+    cursor: pointer;
+    color: inherit;
 
     display: flex;
     align-items: center;
     justify-content: center;
-
-    .ant-dropdown {
-        top: 20px !important;
-        left: auto !important;
-        right: 0 !important;
-    }
 `;
 
 const PopoverContent = styled.span`
@@ -101,12 +98,17 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     search: newSearch,
                 });
 
+                // updateLineage cannot persist Metric-as-downstream (empty upstream types)
+                if (getValidEntityTypes(direction, node.type).length === 0) {
+                    return;
+                }
+
                 // Open the modal with the specified direction
                 setLineageDirection(direction);
                 setIsModalVisible(true);
             }
         }
-    }, [isRootUrn, location, history]);
+    }, [isRootUrn, location, history, node.type]);
 
     function manageLineage(direction: LineageDirection) {
         setLineageDirection(direction);
@@ -128,11 +130,13 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     const disableUpstream = node.direction === LineageDirection.Downstream;
     const disableDownstream = node.direction === LineageDirection.Upstream;
     const isDashboard = node.type === EntityType.Dashboard;
-    const isDownstreamDisabled = disableDownstream || isDashboard || !canEditLineage;
-    const isUpstreamDisabled = disableUpstream || !canEditLineage;
+    const hasValidUpstreamTypes = getValidEntityTypes(LineageDirection.Upstream, node.type).length > 0;
+    const hasValidDownstreamTypes = getValidEntityTypes(LineageDirection.Downstream, node.type).length > 0;
+    const isDownstreamDisabled = disableDownstream || !hasValidDownstreamTypes || !canEditLineage;
+    const isUpstreamDisabled = disableUpstream || !hasValidUpstreamTypes || !canEditLineage;
     const isManualLineageSupported = ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(node.type);
 
-    const items: ItemType[] = [];
+    const items: DropdownItem[] = [];
 
     if (!isRootUrn) {
         items.push({
@@ -155,9 +159,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                 onClick: () => manageLineage(LineageDirection.Upstream),
                 label: (
                     <Popover
-                        content={
-                            !canEditLineage ? t('manageLineage.unauthorized') : t('manageLineage.upstreamDisabled')
-                        }
+                        content={getUpstreamDisabledPopoverContent(canEditLineage, hasValidUpstreamTypes, t)}
                         overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                     >
                         <MenuItemContent data-testid="edit-upstream-lineage">
@@ -201,14 +203,14 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     if (!items.length) return null;
     return (
         <Wrapper>
-            <StyledButton onClick={handleMenuClick} type="text" data-testid={`manage-lineage-menu-${node.urn}`}>
+            <StyledButton onClick={handleMenuClick} type="button" data-testid={`manage-lineage-menu-${node.urn}`}>
                 <Dropdown
                     open={isOpen}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
                     placement="topRight"
                     menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${theme.colors.border}` } }}
                 >
-                    <Icon icon={DotsThreeVertical} color="gray" />
+                    <Icon icon={DotsThreeVertical} color="icon" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (
@@ -221,6 +223,22 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
             )}
         </Wrapper>
     );
+}
+
+function getUpstreamDisabledPopoverContent(
+    canEditLineage: boolean,
+    hasValidUpstreamTypes: boolean,
+    t: (key: string) => string,
+) {
+    let text = '';
+    if (!canEditLineage) {
+        text = t('manageLineage.unauthorized');
+    } else if (!hasValidUpstreamTypes) {
+        text = t('manageLineage.metricNoUpstream');
+    } else {
+        text = t('manageLineage.upstreamDisabled');
+    }
+    return <PopoverContent>{text}</PopoverContent>;
 }
 
 function getDownstreamDisabledPopoverContent(

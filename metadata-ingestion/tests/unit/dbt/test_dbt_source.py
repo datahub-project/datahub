@@ -20,11 +20,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
-    SemanticModelDimension,
-    SemanticModelEntity,
-    SemanticModelMeasure,
     convert_semantic_model_fields_to_columns,
     get_column_type,
+    parse_semantic_model,
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -3049,6 +3047,38 @@ def test_load_run_results_failed_test():
     assert tr.native_results["failures"] == "3"
 
 
+def test_load_run_results_skipped_test_has_no_result():
+    # A skipped test (e.g. an upstream model failed in `dbt build`) never ran,
+    # so it must not be reported as an assertion failure. Matches dbt Cloud.
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-004",
+        },
+        "results": [
+            {
+                "unique_id": "test.project.skipped_test",
+                "status": "skipped",
+                "message": None,
+                "failures": None,
+                "timing": [],
+            },
+        ],
+    }
+    test_node = _make_dbt_node("test.project.skipped_test", node_type="test")
+    test_node.test_info = DBTTest(
+        qualified_test_name="dbt_utils.skipped_test", column_name=None, kw_args={}
+    )
+
+    load_run_results(
+        mock.MagicMock(), run_results_json, {test_node.dbt_name: test_node}
+    )
+
+    assert test_node.test_results == []
+
+
 def test_load_run_results_unknown_node_skipped():
     run_results_json = {
         "metadata": {
@@ -3483,20 +3513,36 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
 
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "order_id", "type": "primary", "description": "Primary order key"},
-        {"name": "customer_id", "type": "foreign", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "order_date", "type": "time", "description": "When order was placed"},
-        {"name": "status", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
-        {"name": "order_count", "agg": "count", "description": ""},
-    ]
+    definition = parse_semantic_model(
+        {
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "description": "Primary order key",
+                },
+                {"name": "customer_id", "type": "foreign", "description": ""},
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "description": "When order was placed",
+                },
+                {"name": "status", "type": "categorical", "description": ""},
+            ],
+            "measures": [
+                {
+                    "name": "total_revenue",
+                    "agg": "sum",
+                    "description": "Sum of order amounts",
+                },
+                {"name": "order_count", "agg": "count", "description": ""},
+            ],
+        }
+    ).definition
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 6
 
@@ -3519,17 +3565,17 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
 def test_convert_semantic_model_fields_empty_descriptions():
     """Test default description generation when descriptions are empty."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "id", "type": "primary", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "category", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total", "agg": "sum", "description": ""},
-    ]
+    definition = parse_semantic_model(
+        {
+            "entities": [{"name": "id", "type": "primary", "description": ""}],
+            "dimensions": [
+                {"name": "category", "type": "categorical", "description": ""}
+            ],
+            "measures": [{"name": "total", "agg": "sum", "description": ""}],
+        }
+    ).definition
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 3
 
@@ -3584,6 +3630,134 @@ def test_extract_semantic_models_partial_node_relation():
     assert node.dbt_adapter == "snowflake"
 
 
+def _make_semantic_model_node(
+    *,
+    dbt_name: str = "semantic_model.my_project.order_metrics",
+    name: str = "order_metrics",
+    database: Optional[str] = "analytics",
+    schema: Optional[str] = "public",
+    convert_urns_to_lowercase: bool = False,
+) -> DBTNode:
+    return DBTNode(
+        database=database,
+        schema=schema,
+        name=name,
+        alias=name,
+        dbt_name=dbt_name,
+        dbt_adapter="postgres",
+        node_type="semantic_model",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="",
+        dbt_file_path="models/semantic_models/order_metrics.yml",
+        catalog_type=None,
+        language="yaml",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner=None,
+        convert_urns_to_lowercase=convert_urns_to_lowercase,
+    )
+
+
+def test_semantic_model_urn_does_not_collide_with_its_model() -> None:
+    """dbt's documented convention names a semantic model after the model it sits on.
+
+    Both used to resolve to <database>.<schema>.<name>, so the semantic model - emitted
+    last - silently overwrote the model's schema, subtype and properties.
+    """
+    model = DBTNode(
+        database="pagila",
+        schema="public",
+        name="orders",
+        alias="orders",
+        dbt_name="model.my_project.orders",
+        dbt_adapter="postgres",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        comment="",
+        description="",
+        dbt_file_path="models/orders.sql",
+        catalog_type="table",
+        language="sql",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+    semantic_model = _make_semantic_model_node(
+        dbt_name="semantic_model.my_project.orders",
+        name="orders",
+        database="pagila",
+        schema="public",
+    )
+
+    assert model.get_urn("dbt", "PROD", None) != semantic_model.get_urn(
+        "dbt", "PROD", None
+    )
+    assert semantic_model.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.my_project.orders,PROD)"
+    )
+
+
+def test_semantic_model_urn_uses_dbt_unique_id() -> None:
+    """The name is dbt's own unique id, as it already is for exposures."""
+    assert _make_semantic_model_node().get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_urn_is_independent_of_database_and_schema() -> None:
+    """dbt Cloud's Discovery API returns neither, and dbt Core derives them from the
+    first upstream node it finds - so neither may take part in the identity."""
+    with_warehouse_address = _make_semantic_model_node()
+    without_warehouse_address = _make_semantic_model_node(database=None, schema=None)
+    moved_to_another_schema = _make_semantic_model_node(schema="staging")
+
+    urn = with_warehouse_address.get_urn("dbt", "PROD", None)
+    assert without_warehouse_address.get_urn("dbt", "PROD", None) == urn
+    assert moved_to_another_schema.get_urn("dbt", "PROD", None) == urn
+
+
+def test_semantic_model_urn_with_platform_instance() -> None:
+    """The instance is prefixed by the urn builder, not baked into the name."""
+    assert _make_semantic_model_node().get_urn("dbt", "PROD", "my_instance") == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "my_instance.semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_urn_respects_convert_urns_to_lowercase() -> None:
+    node = _make_semantic_model_node(
+        dbt_name="semantic_model.My_Project.Order_Metrics",
+        convert_urns_to_lowercase=True,
+    )
+    assert node.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_does_not_exist_in_target_platform() -> None:
+    assert _make_semantic_model_node().exists_in_target_platform is False
+
+
+def test_materialized_node_pattern_does_not_filter_semantic_models() -> None:
+    """A semantic model has no materialized location, so the borrowed database/schema
+    of the model it sits on must not decide whether it is ingested."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **create_base_dbt_config(),
+        materialized_node_pattern={"database_pattern": {"deny": ["analytics"]}},
+    )
+    source = DBTCoreSource(config, ctx)
+
+    assert source._is_allowed_materialized_node(_make_semantic_model_node()) is True
+
+
 def test_dbt_semantic_model_subtype() -> None:
     """Test that semantic models get the correct SEMANTIC_MODEL subtype."""
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
@@ -3613,7 +3787,7 @@ def test_dbt_semantic_model_subtype() -> None:
 
     subtype_wu = source._create_subType_wu(
         semantic_model_node,
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.public.order_metrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.my_project.order_metrics,PROD)",
     )
 
     assert subtype_wu is not None
@@ -3646,7 +3820,10 @@ def test_extract_semantic_models_basic():
                 {"name": "revenue", "agg": "sum", "description": "Total revenue"}
             ],
             "tags": ["metrics", "orders"],
-            "meta": {"team": "analytics"},
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@data-team"},
+            },
             "original_file_path": "models/semantic_models/order_metrics.yml",
         }
     }
@@ -3688,6 +3865,61 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # Check meta is read from config.meta
+    assert node.meta == {"team": "analytics", "owner": "@data-team"}
+    assert node.owner == "@data-team"
+
+
+def test_extract_semantic_models_config_meta():
+    """Test that meta is read from config.meta (not top-level) matching real dbt manifests."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.revenue_metrics": {
+            "name": "revenue_metrics",
+            "description": "Revenue metrics",
+            "node_relation": {
+                "database": "analytics",
+                "schema": "public",
+                "alias": "revenue_metrics",
+            },
+            "depends_on": {"nodes": ["model.my_project.fct_revenue"]},
+            "entities": [
+                {"name": "order_id", "type": "primary", "description": "Primary key"}
+            ],
+            "dimensions": [],
+            "measures": [
+                {"name": "total_revenue", "agg": "sum", "description": "Total revenue"}
+            ],
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@alice"},
+            },
+            "original_file_path": "models/semantic_models/revenue_metrics.yml",
+            "package_name": "my_project",
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.fct_revenue": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "fct_revenue",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.meta == {"team": "analytics", "owner": "@alice"}
+    assert node.owner == "@alice"
+    assert node.tags == []
 
 
 def test_extract_semantic_models_fallback_to_depends_on():
@@ -3861,11 +4093,24 @@ def test_dbt_cloud_parse_semantic_model_node():
     assert node.language == "yaml"
     assert len(node.columns) == 3
 
+    # The urn comes from dbt's unique id, so it is well-defined even though the
+    # Discovery API gives us no database or schema to build a warehouse address from.
+    assert node.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
     # Verify columns were converted correctly
     column_names = [c.name for c in node.columns]
     assert "order_id" in column_names
     assert "order_date" in column_names
     assert "total_revenue" in column_names
+
+    # The typed definition is kept alongside the flattened columns, read from
+    # the Discovery API's camelCase keys.
+    assert node.semantic_model_def is not None
+    assert node.semantic_model_def.entities[0].is_key
+    assert node.semantic_model_def.measures[0].create_metric
 
 
 def test_dbt_cloud_semantic_model_column_types():
@@ -4576,3 +4821,91 @@ def test_load_file_as_json_handles_utf8_bom():
         assert DBTCoreSource.load_file_as_json(
             "https://example.com/manifest.json", None
         ) == {"nodes": {}}
+
+
+def test_dbt_source_patching_dedupes_existing_owners():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    duplicated_owner = OwnerClass(
+        owner="urn:li:corpGroup:data-engineering",
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+        source=None,
+    )
+    graph.get_ownership.return_value = OwnershipClass(owners=[duplicated_owner] * 88)
+    source.ctx.graph = graph
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 1
+    assert transformed[0].owner == "urn:li:corpGroup:data-engineering"
+
+
+def test_dbt_source_patching_keeps_distinct_owner_identities():
+    """Only identical identities collapse. The same urn under a different
+    ownership type, or from a different source, is a separate owner."""
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    group = "urn:li:corpGroup:data-engineering"
+    steward = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+    )
+    # Same owner and type=CUSTOM, different custom type urn - every custom
+    # ownership type shares type=CUSTOM, so typeUrn is what tells them apart.
+    producer = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__producer",
+    )
+    # Same owner, same type, different provenance.
+    from_service = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SERVICE),
+    )
+    graph.get_ownership.return_value = OwnershipClass(
+        owners=[steward] * 88 + [producer, from_service]
+    )
+    source.ctx.graph = graph
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 3
+    assert {o.typeUrn for o in transformed} == {
+        "urn:li:ownershipType:__system__data_steward",
+        "urn:li:ownershipType:__system__producer",
+    }
+
+
+def test_dbt_source_patching_dedupes_when_server_aspect_is_empty():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+    graph.get_ownership.return_value = None
+    source.ctx.graph = graph
+
+    incoming = OwnerClass(
+        owner="urn:li:corpuser:dbt_defined_owner",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [incoming, incoming],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 1

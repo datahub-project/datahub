@@ -482,6 +482,15 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
+    return deleteUrnExcept(opContext, txContext, urn, Set.of());
+  }
+
+  @Override
+  public int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -500,6 +509,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     List<String> nonKeyAspectNames =
         allAspectNames.stream()
             .filter(aspectName -> !aspectName.equals(keyAspectName))
+            .filter(aspectName -> !keptAspectNames.contains(aspectName))
             .collect(Collectors.toList());
 
     ResultSet nonKeyResult = null;
@@ -521,20 +531,22 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     // Then, delete the key aspect
-    SimpleStatement deleteKeyAspect =
-        deleteFrom(CassandraAspect.TABLE_NAME)
-            .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(urn))
-            .whereColumn(CassandraAspect.ASPECT_COLUMN)
-            .isEqualTo(literal(keyAspectName))
-            .build();
-    keyResult = _cqlSession.execute(deleteKeyAspect);
+    if (!keptAspectNames.contains(keyAspectName)) {
+      SimpleStatement deleteKeyAspect =
+          deleteFrom(CassandraAspect.TABLE_NAME)
+              .whereColumn(CassandraAspect.URN_COLUMN)
+              .isEqualTo(literal(urn))
+              .whereColumn(CassandraAspect.ASPECT_COLUMN)
+              .isEqualTo(literal(keyAspectName))
+              .build();
+      keyResult = _cqlSession.execute(deleteKeyAspect);
+    }
 
     // TODO: look into how to get around this for counts in Cassandra
     // https://stackoverflow.com/questions/28611459/how-to-know-affected-rows-in-cassandracql
     // Check for errors in both operations
     if ((nonKeyResult != null && nonKeyResult.getExecutionInfo().getErrors().size() > 0)
-        || keyResult.getExecutionInfo().getErrors().size() > 0) {
+        || (keyResult != null && keyResult.getExecutionInfo().getErrors().size() > 0)) {
       log.error("Failed to delete URN {} - errors in execution", urn);
       return 0;
     }

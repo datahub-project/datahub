@@ -1,6 +1,8 @@
-import { AppstoreOutlined, FileOutlined, UnlockOutlined } from '@ant-design/icons';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { LockOpen } from '@phosphor-icons/react/dist/csr/LockOpen';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -120,14 +122,14 @@ export class ContainerEntity implements Entity<Container> {
             {
                 name: i18next.t('entity.types:tab.contents'),
                 component: ContainerEntitiesTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             ...(!showSummaryTab
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
@@ -139,7 +141,7 @@ export class ContainerEntity implements Entity<Container> {
             {
                 name: i18next.t('entity.types:shared.accessTab'),
                 component: AccessManagement,
-                icon: UnlockOutlined,
+                icon: LockOpen,
                 display: {
                     visible: (_, container: GetContainerQuery) => {
                         return (
@@ -315,4 +317,8 @@ export class ContainerEntity implements Entity<Container> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Container) => {
+        return data?.platform;
+    };
 }

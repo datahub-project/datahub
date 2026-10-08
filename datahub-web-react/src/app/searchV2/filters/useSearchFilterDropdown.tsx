@@ -20,6 +20,7 @@ interface Props {
     aggregationsEntityTypes?: Array<EntityType>;
     shouldUseAggregationsFromFilter?: boolean;
     shouldApplyView?: boolean;
+    fetchPolicy?: 'cache-first' | 'network-only' | 'cache-and-network';
 }
 
 export default function useSearchFilterDropdown({
@@ -29,6 +30,7 @@ export default function useSearchFilterDropdown({
     aggregationsEntityTypes,
     shouldUseAggregationsFromFilter,
     shouldApplyView = true,
+    fetchPolicy = 'cache-first',
 }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
     const shouldFetchAggregations: boolean = !!filter.field && numActiveFilters > 0 && !shouldUseAggregationsFromFilter;
@@ -37,7 +39,9 @@ export default function useSearchFilterDropdown({
         useMemo(() => [filter.field], [filter.field]),
     );
 
-    const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
+    const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery({
+        fetchPolicy,
+    });
 
     useEffect(() => {
         // Fetch the aggregates of the current facet only if there are active filters

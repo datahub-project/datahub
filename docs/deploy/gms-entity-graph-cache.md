@@ -8,7 +8,7 @@ description: Configure the unified entity hierarchy graph cache for View-Based A
 
 This guide explains how to enable, configure, and operate the **GMS entity graph cache** — a distributed cache of pre-built hierarchy snapshots used to expand domain (and other) relationships without repeated primary-storage or search scroll work on every request.
 
-**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). MAE/MCE consumers and `datahub-upgrade` set **`enabled=false`** in module `application.properties` (and consumer Docker env) so [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
+**Deployment scope:** The full cache (Hazelcast snapshots, rebuild threads, config validation) runs when **`datahub.gms.entityGraphCache.enabled=true`** (default on GMS via shared `application.yaml` / `ENTITY_GRAPH_CACHE_ENABLED`). Standalone MCL (`SPRING_PROFILES_ACTIVE=mae`), MCP (`SPRING_PROFILES_ACTIVE=mce`), and datahub-upgrade (`SPRING_PROFILES_ACTIVE=upgrade`) default **`enabled=false`**. `ENTITY_GRAPH_CACHE_ENABLED` still overrides that default. When the flag is off, [`EntityGraphCacheFactory`](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/context/EntityGraphCacheFactory.java) registers only `EntityGraphCache.NO_OP`.
 
 ## What this is — and is not
 
@@ -64,7 +64,7 @@ All domain call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/ja
 2. **Authoritative verify** — `batchGetV2` on `domainProperties` for each candidate; a child counts only when `parentDomain` still points at the parent URN in primary storage.
 3. **Truncation safety** — when the filter page is **full** (`entities.size() >= 200`) and `numEntities > 200`, the walker returns `true` conservatively (true pagination). It does **not** treat `numEntities > entities.size()` alone as truncation: [`ValidationUtils.validateSearchResult`](../../metadata-io/src/main/java/com/linkedin/metadata/entity/validation/ValidationUtils.java) can strip index **ghosts** (entities deleted in primary storage but still counted in ES `numEntities`) without adjusting `numEntities`, so an empty validated entity list with a positive count must fall through to “no children” rather than blocking parent delete.
 
-After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ### Soft delete
 
@@ -147,10 +147,9 @@ Container call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/jav
 | -------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------- | ----------------------------- |
 | VBAC / policy `CONTAINER` field (`ContainerFieldResolverProvider`)               | **Core** — `VIEW_AUTHORIZATION_ENABLED` | `FORWARD` ancestor expand on container URNs | Aspect parent walk            |
 | GraphQL container hierarchy (`parentContainers` on datasets, charts, containers) | **Core**                                | Ordered `FORWARD` parent walk               | Aspect parent walk            |
-| GraphQL container children (`relationships` INCOMING `IsPartOf` on `container`)  | **Core**                                | `REVERSE` direct children (`maxDepth=1`)    | `GraphRetriever` scroll       |
 | Search filter rewriters (`ContainerExpansionRewriter`, `container.keyword`)      | **Core**                                | `FORWARD` or `REVERSE` per filter           | `GraphRetriever` scroll       |
 
-Direct-child `relationships` queries return **nested sub-containers only** (container → container edges), not datasets or other assets in the container. Asset listing uses `Container.entities` (search on `container.keyword`).
+GraphQL `Container.relationships(types: [IsPartOf], direction: INCOMING)` does **not** use this cache. That API is a generic graph-edge listing and returns all contained assets (datasets, charts, dashboards, nested containers, etc.) via `GraphClient` / the live graph index — the same behavior as before the entity graph cache. Prefer `Container.entities` (search on `container.keyword`) when you only need assets under a container with search filters and paging.
 
 Sync invalidation on **`container` entity** `container` aspect changes drops all partial keys (`DROP_PARTIAL`). Updates to asset `container` aspects (dataset moves between schemas) do **not** invalidate this graph — call sites read the direct parent from primary storage first.
 
@@ -168,16 +167,18 @@ Production ships a **FULL** graph for actor / group / role membership walks used
 | Population   | `SCHEDULED` (default 600s)                                                                                           |
 | Bounds       | `maxVertices: 21000`, `maxEdges: 60000` (target ~15k users + ~5k groups; raise via `ENTITY_GRAPH_CACHE_CONFIG_JSON`) |
 
+GraphQL `relationships` with `relatedEntityTypes` fetches neighbors up to **`bounds.maxEdges`** before filtering and paginating (fail closed if the listing exceeds that cap). Raise `maxEdges` when large role/group member listings need type-filtered pages.
+
 Membership call sites use [`BoundMembershipAccess`](../../metadata-io/src/main/java/com/linkedin/metadata/graph/cache/client/BoundMembershipAccess.java) with [`MembershipBindings.membershipSpec()`](../../metadata-io/src/main/java/com/linkedin/metadata/graph/cache/client/MembershipBindings.java):
 
-| Call site                                                               | Path                                                                                           | Fallback                                       |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| GraphQL `relationships` OUTGOING on session `corpuser` (groups / roles) | **Session shortcut** — `ActorContext` groups + `AuthorizationContext.resolveSessionActorRoles` | — (no cache / graph)                           |
-| GraphQL `relationships` OUTGOING on `corpuser` (groups)                 | Typed `listRelated` depth 1                                                                    | Aspect read or graph scroll                    |
-| GraphQL `relationships` OUTGOING on `corpuser` (`IsMemberOfRole`)       | **`effectiveRolesForUser`** (direct roles ∪ roles via groups)                                  | `ActorGroupMembershipService` / graph scroll   |
-| GraphQL `relationships` INCOMING on `corpGroup` (members)               | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll (ES graph index)                  |
-| GraphQL `relationships` OUTGOING on `corpGroup` (roles)                 | Typed `listRelated` depth 1                                                                    | Batch `RoleMembership` on group / graph scroll |
-| GraphQL `relationships` INCOMING on `dataHubRole` (assigned users)      | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll                                   |
+| Call site                                                                         | Path                                                                                           | Fallback                                       |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| GraphQL `relationships` OUTGOING on session `corpuser` (groups / roles)           | **Session shortcut** — `ActorContext` groups + `AuthorizationContext.resolveSessionActorRoles` | — (no cache / graph)                           |
+| GraphQL `relationships` OUTGOING on `corpuser` (groups)                           | Typed `listRelated` depth 1                                                                    | Aspect read or graph scroll                    |
+| GraphQL `relationships` OUTGOING on `corpuser` (`IsMemberOfRole`)                 | **`effectiveRolesForUser`** (direct roles ∪ roles via groups)                                  | `ActorGroupMembershipService` / graph scroll   |
+| GraphQL `relationships` INCOMING on `corpGroup` (members)                         | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll (ES graph index)                  |
+| GraphQL `relationships` OUTGOING on `corpGroup` (roles)                           | Typed `listRelated` depth 1                                                                    | Batch `RoleMembership` on group / graph scroll |
+| GraphQL `relationships` INCOMING on `dataHubRole` (members: users **and** groups) | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll                                   |
 
 **Effective roles:** Cached / fast-path `IsMemberOfRole` OUTGOING on a `corpuser` returns **effective** roles (direct assignment plus roles inherited via group membership), aligned with [`SessionActorIdentity.resolveAllRoles`](../../li-utils/src/main/java/com/datahub/authorization/SessionActorIdentity.java). This may differ from a raw Elasticsearch graph scroll that lists only direct user→role edges.
 
@@ -352,13 +353,15 @@ Operators define **which graphs exist** (edges, `buildSource`, scope, population
 
 **REVERSE self-only expand:** a root with no descendants returns **`EmptyHit(emptySet)`** — a valid result, not a cache miss. Call sites must not treat this as a miss.
 
-**Seed coverage (all scopes):** when some seed URNs are absent from the materialized snapshot, `expand()` returns reachable vertices for seeds that **are** present (`Hit`) rather than failing closed. PARTIAL multi-root requests fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)). Call sites that need a complete expansion for every seed should check seed membership or use live fallback when partial results are insufficient.
+**Seed coverage (all scopes):** when **any** requested seed URN is absent from the materialized snapshot, `expand()` returns **`Miss(ABSENT)`** so callers fall back to the live graph (or aspect walk). A partial HIT that expands only present seeds would under-restrict VBAC / policy ancestor expansion and hierarchy reads for newly created or re-parented roots still outside the snapshot. PARTIAL multi-root requests also fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)).
 
 **LAZY rebuild latency:** missing or stale keys rebuild on the request thread when `rebuildExecution` is `SYNC` (default). **`SCHEDULED`** rebuilds run on `entity-graph-scheduler` (bundled `domain@search`). **`BACKGROUND`** (LAZY + FULL only) enqueues async rebuild — cached reads return **`Miss(STALE_BLOCKED)`** until fresh. While another pod holds `BUILDING`, **FULL**-scope cached reads may still serve the previous `ACTIVE` snapshot until sync invalidation removes stale vertices or drops the graph.
 
 ### Traversal coverage
 
 PARTIAL snapshots carry **`TraversalCoverage`** metadata per direction (`explored`, `complete`, `exploredDepth`). Expand requires `explored && complete` for the requested direction; otherwise GMS rebuilds or returns empty. FULL snapshots mark both directions complete after a successful build. On-demand direction extension (PARTIAL + `buildSource: graph`) can merge a second directional build at the same WCC cache key.
+
+A caller that already finished an unlimited walk in one direction can publish that walk back into the partial component (`publishFullWalk`). The cache records the seeds whose closure was walked. A non-empty seed list is the trust stamp. When that direction already has coverage, the builder's explored depth and completeness stay in place, so ordinary expands remain capped there. A later full-path expand hits when every requested root lies in that closure, and it follows only the edges from that walk. Leftover edges in the component stay available to ordinary expands. A positive depth stops at that level. Depth 0 and an unset depth walk that closure without the `scope.maxDepth` clamp. When the trusted closure does not cover the roots, a positive depth the builder already explored completely is served from that limited walk. Depth 0 and an unset depth still miss. A root that merely shares the component through the opposite direction misses an unlimited read. `bounds.maxVertices` and `bounds.maxEdges` still apply to the merged component; a walk that would exceed them, join two components, or store disconnected edges is refused and the existing snapshot is left unchanged. A successful publish refreshes `builtAtMillis`. While that snapshot is fresh, a builder publish that drops the trusted direction is skipped, including when its fingerprint differs or a rebuild lease is held. Once the snapshot is stale, that builder publish replaces it. A full-path miss does not start a rebuild. Ordinary snapshots stay on serializer version 1. A snapshot is written as version 2 only while a direction is trusted. Version-1 pods throw when reading version 2, so roll out reader-capable pods before publishing full walks.
 
 ### Skip cache
 
@@ -369,6 +372,10 @@ When `SearchFlags.skipCache=true`, `EntityGraphCacheClients` uses **`ReadMode.EP
 ### Hazelcast layout
 
 When `entityGraphCache.enabled=true`, GMS **automatically bootstraps** the shared `HazelcastInstance` — you do **not** need `searchService.cacheImplementation=hazelcast` or `SEARCH_SERVICE_ENABLE_CACHE`. GMS joins the cluster via `searchService.cache.hazelcast.serviceName` (default `hazelcast-service`, env `SEARCH_SERVICE_HAZELCAST_SERVICE_NAME`).
+
+Quickstart and CI, which are not running in Kubernetes, start a single member when the default discovery name `hazelcast-service` does not resolve. The lookup is retried before that choice. A failure inside Kubernetes keeps Kubernetes join so discovery can recover. A name that resolves only to loopback is a single node. A custom name that fails DNS outside Kubernetes also keeps Kubernetes join.
+
+GMS also starts that instance for access-token revocation when the graph cache is off.
 
 | Map                              | Purpose                                                                                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -594,7 +601,7 @@ PARTIAL graphs store **one Hazelcast entry per WCC** at `{graphId}@{source}:{fin
 
 **Fingerprint:** first 16 hex chars of SHA-256 over sorted canonical edge lines (`source`, `destination`, `relationshipType`) from the induced WCC for the build seeds; stored as `topologyFingerprint`.
 
-**Merge-in-place:** rebuilds against an existing key seed from prior edges, extend via directional BFS, and keep the same key (second direction, stale TTL, or incomplete `TraversalCoverage`). Publish is skipped when fingerprint is unchanged and coverage is not a strict improvement (`shouldSkipPublish`).
+**Merge-in-place:** rebuilds against an existing key seed from prior edges, extend via directional BFS, and keep the same key (second direction, stale TTL, or incomplete `TraversalCoverage`). Publish is skipped when fingerprint is unchanged and coverage is not a strict improvement (`shouldSkipPublish`). A fresh trusted full walk is also kept when a rebuild would drop that stamp.
 
 **Reads:** multi-root requests fail closed if any root is not `ACTIVE` or lacks per-direction coverage. Multi-component unions walk all edges present in each merged component view. Sync invalidation uses `DROP_PARTIAL` (all component keys for the graph id) — not surgical edge removal.
 
@@ -614,7 +621,7 @@ PARTIAL graphs store **one Hazelcast entry per WCC** at `{graphId}@{source}:{fin
 
 ## Verification (smoke tests)
 
-Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-test/tests/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
+Python smoke tests under [`smoke-test/tests/e2e/entity_graph_cache/`](../../smoke-test/tests/e2e/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
 
 | Test                                                    | What it validates                                                                               |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -630,12 +637,12 @@ Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-te
 
 ```bash
 cd smoke-test
-pytest tests/entity_graph_cache -q
+pytest tests/e2e/entity_graph_cache -q
 ```
 
 Hierarchy setup uses batched `graph_client.emit_mcp` plus one `wait_for_writes_to_sync()` per test; GraphQL mutations are reserved for sync invalidation cases only. Prometheus counter tests skip when pytest-xdist is active, `BATCH_COUNT > 1`, or GMS management port (`4319`) is not reachable from the test runner — GraphQL assertions are the CI contract.
 
-Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ## Related documentation
 

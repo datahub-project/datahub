@@ -204,7 +204,7 @@ export type SelectParams = {
     options: SelectOption[];
 };
 
-export type EntitySearchParams = {
+type EntitySearchParams = {
     entityTypes: EntityType[];
 };
 

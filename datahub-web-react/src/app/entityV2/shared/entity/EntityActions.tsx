@@ -1,5 +1,6 @@
-import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -60,7 +61,7 @@ const ButtonWrapper = styled.div`
     }
 `;
 
-const StyledPlusOutlined = styled(PlusOutlined)`
+const StyledPlusOutlined = styled(Plus)`
     font-size: 12px;
 `;
 
@@ -277,7 +278,7 @@ function EntityActions(props: Props) {
                             data-testid="glossary-batch-add"
                             size="sm"
                         >
-                            <LinkOutlined /> {t('addToAssets')}
+                            <LinkIcon /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
@@ -289,7 +290,7 @@ function EntityActions(props: Props) {
                             data-testid="domain-batch-add"
                             size="sm"
                         >
-                            <LinkOutlined /> {t('addToAssets')}
+                            <LinkIcon /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
@@ -306,7 +307,7 @@ function EntityActions(props: Props) {
                             size="sm"
                             data-testid="data-product-batch-add"
                         >
-                            <LinkOutlined />
+                            <LinkIcon />
                             {t('addAssets')}
                         </Button>
                     </Tooltip>
@@ -332,7 +333,7 @@ function EntityActions(props: Props) {
                 {actionItems.has(EntityActionItem.BATCH_ADD_APPLICATION) && (
                     <Tooltip title={t('addApplicationTooltip')} showArrow={false} placement="bottom">
                         <Button variant="outline" onClick={() => setIsBatchSetApplicationModalVisible(true)}>
-                            <LinkOutlined /> {t('addToAssets')}
+                            <LinkIcon /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}

@@ -13,11 +13,13 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { NavbarPage } from '../../pages/navbar.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.describe('navbar redesign', () => {
   let navbarPage: NavbarPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     navbarPage = new NavbarPage(page, logger, logDir);
   });
 

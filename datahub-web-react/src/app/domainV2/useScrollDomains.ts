@@ -61,7 +61,6 @@ export function getDomainsScrollInput({
             sortInput: {
                 sortCriteria: [domainSidebarSortToCriterion(sort)],
             },
-            searchFlags: { skipCache: true },
         },
     };
 }

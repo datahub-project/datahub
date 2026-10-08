@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
+import { mergeScrollPageResults } from '@app/marketplace/utils/scrollMergeUtils';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 
 import { useScrollDataProductsQuery } from '@graphql/marketplaceBrowse.generated';
@@ -54,24 +55,22 @@ export default function useDataProductChildren({ parentUrn, skip }: Props) {
     });
 
     useEffect(() => {
-        if (scrollData?.scrollAcrossEntities?.searchResults) {
-            const fresh = scrollData.scrollAcrossEntities.searchResults
-                .map((r) => r.entity)
-                .filter((e): e is DataProductEntity => e?.__typename === 'DataProduct');
-            const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
+        if (skip) return;
+        if (loading && scrollId === null) return;
+        if (!scrollData?.scrollAcrossEntities?.searchResults) return;
 
-            setData((currData) => {
-                const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
-                const seenUrns = new Set(updated.map((e) => e.urn));
-                const additions = fresh.filter((e) => !seenUrns.has(e.urn));
-                if (additions.length === 0 && updated.every((e, i) => e === currData[i])) {
-                    return currData;
-                }
-                return [...updated, ...additions];
-            });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scrollData]);
+        const fresh = scrollData.scrollAcrossEntities.searchResults
+            .map((r) => r.entity)
+            .filter((e): e is DataProductEntity => e?.__typename === 'DataProduct');
+
+        setData((currData) =>
+            mergeScrollPageResults({
+                current: currData,
+                fresh,
+                scrollId,
+            }),
+        );
+    }, [scrollData, skip, loading, scrollId]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 

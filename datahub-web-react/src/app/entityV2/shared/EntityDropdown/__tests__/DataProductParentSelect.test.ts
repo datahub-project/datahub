@@ -1,4 +1,4 @@
-import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/DataProductParentSelect';
+import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/dataProductParentSelectUtils';
 
 import { DataProduct, EntityType } from '@types';
 

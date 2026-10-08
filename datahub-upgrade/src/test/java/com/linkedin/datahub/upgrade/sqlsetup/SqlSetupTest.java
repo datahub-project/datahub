@@ -36,6 +36,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -64,6 +65,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -112,6 +114,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -140,6 +143,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -169,6 +173,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -198,6 +203,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -244,6 +250,7 @@ public class SqlSetupTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,

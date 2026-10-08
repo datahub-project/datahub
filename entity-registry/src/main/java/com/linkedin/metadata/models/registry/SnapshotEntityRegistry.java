@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.patch.template.common.DocumentationTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.DomainsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.InstitutionalMemoryTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.OwnershipTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.SiblingsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.StatusTemplate;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.aspect.patch.template.dataflow.DataFlowInfoTemplate
 import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInputOutputTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductsTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableDatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
@@ -111,10 +113,12 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
+    aspectSpecTemplateMap.put(INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryTemplate());
     aspectSpecTemplateMap.put(DATA_FLOW_INFO_ASPECT_NAME, new DataFlowInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
     aspectSpecTemplateMap.put(
         DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
+    aspectSpecTemplateMap.put(DATA_PRODUCTS_ASPECT_NAME, new DataProductsTemplate());
     aspectSpecTemplateMap.put(CHART_INFO_ASPECT_NAME, new ChartInfoTemplate());
     aspectSpecTemplateMap.put(DASHBOARD_INFO_ASPECT_NAME, new DashboardInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());

@@ -24,7 +24,7 @@ function getCommonTickLabelProps(theme?: DefaultTheme): TickLabelProps<Datum> {
     };
 }
 
-export function getLineChartDefaults(theme?: DefaultTheme): LineChartProps {
+function getLineChartDefaults(theme?: DefaultTheme): LineChartProps {
     const commonTickLabelProps = getCommonTickLabelProps(theme);
 
     return {
@@ -95,5 +95,3 @@ export function getLineChartDefaults(theme?: DefaultTheme): LineChartProps {
         renderGlyphOnSingleDataPoint: Glyph,
     };
 }
-
-export const lineChartDefault: LineChartProps = getLineChartDefaults();

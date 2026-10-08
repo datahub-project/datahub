@@ -2,7 +2,7 @@
 
 The `sqlalchemy` module ingests metadata from SQLAlchemy into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-The sqlalchemy source is useful if we don't have a pre-built source for your chosen database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/) defined elsewhere.
+The sqlalchemy source is useful if we don't have a pre-built source for your chosen database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/20/dialects/) defined elsewhere.
 In order to use this, you must `pip install` the required dialect packages yourself.
 
 This plugin extracts the following:

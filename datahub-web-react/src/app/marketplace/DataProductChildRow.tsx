@@ -1,11 +1,12 @@
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 
 import { MarketplaceTreeItem } from '@app/marketplace/MarketplaceTreeItem';
 import { useMarketplaceEntityContext } from '@app/marketplace/context/MarketplaceEntityContext';
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
 import useDataProductChildren from '@app/marketplace/useDataProductChildren';
+import { countPendingOptimistic, mergeDataProductEntities } from '@app/marketplace/utils/marketplaceDataProductEntity';
 import { PageRoutes } from '@conf/Global';
 
 export type DataProductChildRowProps = {
@@ -30,9 +31,9 @@ export function DataProductChildRow({
     onToggleDataProduct,
 }: DataProductChildRowProps) {
     const history = useHistory();
-    const { entityData } = useMarketplaceEntityContext();
-    const hasChildren = (dataProduct.childDataProducts?.total ?? 0) > 0;
-    const childCount = dataProduct.childDataProducts?.total ?? 0;
+    const { entityData, getOptimisticChildren, refetchKey } = useMarketplaceEntityContext();
+    const optimisticChildren = getOptimisticChildren(dataProduct.urn);
+    const hasChildren = (dataProduct.childDataProducts?.total ?? 0) > 0 || optimisticChildren.length > 0;
 
     useEffect(() => {
         if (!entityData?.parentDataProducts) return;
@@ -42,12 +43,23 @@ export function DataProductChildRow({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityData?.urn, entityData?.parentDataProducts, dataProduct.urn]);
 
-    const { data, scrollRef } = useDataProductChildren({
+    const { data, scrollRef, refetch } = useDataProductChildren({
         parentUrn: dataProduct.urn,
         skip: !isExpanded || !hasChildren,
     });
 
-    const children = data as DataProductEntity[];
+    useEffect(() => {
+        if (refetchKey > 0 && isExpanded) {
+            refetch();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refetchKey, isExpanded]);
+
+    const children = useMemo(
+        () => mergeDataProductEntities(data as DataProductEntity[], optimisticChildren),
+        [data, optimisticChildren],
+    );
+    const childCount = (dataProduct.childDataProducts?.total ?? 0) + countPendingOptimistic(data, optimisticChildren);
     const title = dataProduct.properties?.name ?? dataProduct.urn;
 
     return (

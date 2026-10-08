@@ -1350,6 +1350,8 @@ curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
 }'
 ```
 
+`getTimeseriesAspectValues` requires authorization to view the entity and, for `datasetProfile`, `datasetUsageStatistics`, `operation`, and dashboard `dashboardUsageStatistics`, the corresponding View Dataset Profile / Usage / Operations privilege. When REST API authorization is enabled, **Get Timeseries Aspect API** is also required.
+
 For example, to fetch "datasetProfile" timeseries aspects for a dataset with urn `urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)`
 that were reported after July 26, 2021 and before July 28, 2021, you could issue the following query:
 

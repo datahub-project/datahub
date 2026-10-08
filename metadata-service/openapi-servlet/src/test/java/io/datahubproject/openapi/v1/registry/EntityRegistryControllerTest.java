@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -376,7 +377,7 @@ public class EntityRegistryControllerTest {
   }
 
   @Test
-  public void testGetEntitySpecsExposesSearchGroup() throws Exception {
+  public void testGetEntitySpecsExposesUnsetSearchGroup() throws Exception {
     authUtilMock
         .when(
             () ->
@@ -393,7 +394,7 @@ public class EntityRegistryControllerTest {
         .andExpect(
             jsonPath(
                 "$.elements[?(@.name=='dataset')].entityAnnotation.searchGroup",
-                hasItem("primary")));
+                hasItem(nullValue())));
   }
 
   @Test

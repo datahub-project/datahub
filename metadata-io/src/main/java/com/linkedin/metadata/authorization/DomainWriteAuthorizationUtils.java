@@ -14,8 +14,10 @@ import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -39,14 +41,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Helpers for domain-separated writers: privilege selection by entity existence, proposed-domain
- * resolution (including PATCH apply), and authorizing writes against domain-scoped Create/Edit
- * policies (including before/after Edit reconciliation for {@code domains} PATCH).
+ * resolution (including PATCH apply), and authorizing {@code domains} writes against domain-scoped
+ * Create/Edit Entity policies or the aspect-specific Edit Domain privilege (including before/after
+ * reconciliation for {@code domains} PATCH).
  */
 @Slf4j
 public final class DomainWriteAuthorizationUtils {
@@ -203,8 +207,8 @@ public final class DomainWriteAuthorizationUtils {
       case CREATE:
         return UPDATE;
       case PATCH:
-        // PATCH never uses CREATE_ENTITY — always Edit Entity.
-        return UPDATE;
+        // PATCH on a missing entity is a create; Edit Domain must not suffice.
+        return entityExists ? UPDATE : CREATE;
       case UPSERT:
       case UPDATE:
       case RESTATE:
@@ -222,7 +226,75 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize domain-scoped {@code EDIT_ENTITY} for a domains write given before/after membership.
+   * Drops Domain URNs that no longer resolve to an existing Domain. Authorization must not depend
+   * on a Domain that does not exist — otherwise the before-set check freezes {@code domains} writes
+   * (including detach patches) after the Domain is deleted.
+   *
+   * <p>Applies to the <em>before</em> set only. Do not prune proposed/after domains.
+   */
+  @Nullable
+  public static Domains existingDomainsOnly(
+      @Nonnull OperationFingerprint ctx,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nullable Domains domains) {
+    if (domains == null) {
+      return null;
+    }
+    Set<Urn> unique = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains);
+    if (unique.isEmpty()) {
+      return domains;
+    }
+    Map<Urn, Boolean> exists = aspectRetriever.entityExists(ctx, unique);
+    if (unique.stream().allMatch(urn -> Boolean.TRUE.equals(exists.get(urn)))) {
+      return domains;
+    }
+    Domains pruned = new Domains();
+    if (domains.getDomains() != null) {
+      pruned.setDomains(
+          new UrnArray(
+              domains.getDomains().stream()
+                  .filter(urn -> urn != null && Boolean.TRUE.equals(exists.get(urn)))
+                  .collect(Collectors.toList())));
+    }
+    if (domains.getDomainAssociations() != null) {
+      pruned.setDomainAssociations(
+          new DomainAssociationArray(
+              domains.getDomainAssociations().stream()
+                  .filter(
+                      association ->
+                          association.hasDomain()
+                              && Boolean.TRUE.equals(exists.get(association.getDomain())))
+                  .collect(Collectors.toList())));
+    }
+    return pruned;
+  }
+
+  /**
+   * Privileges that can authorize a {@code domains} aspect write.
+   *
+   * <p>{@link ApiOperation#UPDATE} (set / clear / move on an existing entity) accepts {@code
+   * EDIT_ENTITY} <em>or</em> {@code EDIT_DOMAINS_PRIVILEGE}. Domain resource filters still apply to
+   * whichever privilege matches. {@link ApiOperation#CREATE} stays Create/Edit Entity only so Edit
+   * Domain cannot create entities.
+   */
+  @Nonnull
+  public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupDomainsAspectPrivileges(
+      @Nonnull ApiOperation apiOperation, @Nonnull String entityType) {
+    Disjunctive<Conjunctive<PoliciesConfig.Privilege>> entityPrivileges =
+        AuthUtil.lookupAPIPrivilege(ENTITY, apiOperation, entityType);
+    if (apiOperation != UPDATE) {
+      return entityPrivileges;
+    }
+    return new Disjunctive<>(
+        Stream.concat(
+                entityPrivileges.stream(),
+                Stream.of(Conjunctive.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE)))
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Authorize a domains write given before/after membership. Update-path checks accept Edit Domain
+   * or Edit Entity; domain-scoped policies must still match the seeded domain field.
    *
    * <ul>
    *   <li>No before domains: match against after only (first-domains pattern).
@@ -444,8 +516,11 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize a write against the entity resource, optionally seeding the session resource-spec
-   * cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   * Authorize a {@code domains} write against the entity resource, optionally seeding the session
+   * resource-spec cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   *
+   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
+   * requires Create/Edit Entity.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -463,7 +538,7 @@ public final class DomainWriteAuthorizationUtils {
     return AuthUtil.isAuthorized(
         session,
         AuthUtil.buildDisjunctivePrivilegeGroup(
-            AuthUtil.lookupAPIPrivilege(ENTITY, apiOperation, urn.getEntityType())),
+            lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
         resourceSpec);
   }
 

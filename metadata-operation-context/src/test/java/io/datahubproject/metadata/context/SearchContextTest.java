@@ -7,7 +7,11 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
+import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class SearchContextTest {
@@ -124,5 +128,27 @@ public class SearchContextTest {
 
     // ensure original is not changed
     assertEquals(initial.getSearchFlags(), new SearchFlags().setSkipCache(false));
+  }
+
+  @Test
+  public void testSearchClusterAccessIsExcludedFromCacheKeyAndEquals() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchClusterAccess accessA = SearchClusterAccess.fixed(Mockito.mock(SearchClientShim.class));
+    SearchClusterAccess accessB = SearchClusterAccess.fixed(Mockito.mock(SearchClientShim.class));
+
+    SearchContext withoutAccess = SearchContext.builder().indexConvention(convention).build();
+    SearchContext withAccess =
+        SearchContext.builder().indexConvention(convention).searchClusterAccess(accessA).build();
+    SearchContext otherAccess =
+        SearchContext.builder().indexConvention(convention).searchClusterAccess(accessB).build();
+
+    assertEquals(withoutAccess.getCacheKeyComponent(), withAccess.getCacheKeyComponent());
+    assertEquals(withAccess.getCacheKeyComponent(), otherAccess.getCacheKeyComponent());
+    assertEquals(withoutAccess, withAccess);
+    assertEquals(withAccess, otherAccess);
+
+    SearchContext copied = withAccess.withFlagDefaults(flags -> flags.setSkipCache(true));
+    assertEquals(copied.getSearchClusterAccess(), accessA);
   }
 }

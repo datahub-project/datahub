@@ -51,6 +51,7 @@ export type FetchedEntity = {
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
     fineGrainedLineages?: FineGrainedLineage[];
+    upstreamSchemaFieldUrns?: string[];
     siblings?: Maybe<SiblingProperties>;
     siblingsSearch?: Maybe<ScrollResults>;
     schemaMetadata?: SchemaMetadata;
@@ -176,7 +177,7 @@ export interface UpdatedLineages {
     [urn: string]: UpdatedLineage;
 }
 
-export interface UpdatedLineage {
+interface UpdatedLineage {
     lineageDirection: Direction;
     entitiesToAdd: Entity[];
     urnsToRemove: string[];

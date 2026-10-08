@@ -1,6 +1,10 @@
 import React from 'react';
 
-import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
+import { AppConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
+
+export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig'> & {
+    policiesConfig: Omit<PoliciesConfig, 'platformPrivileges' | 'resourcePrivileges'>;
+};
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -25,8 +29,10 @@ export const DEFAULT_APP_CONFIG = {
         queriesTab: {
             queriesTabResultSize: 5,
         },
-        entityProfile: {
-            domainDefaultTab: null,
+        entityProfiles: {
+            domain: {
+                defaultTab: null,
+            },
         },
         searchResult: {
             enableNameHighlight: false,
@@ -75,6 +81,7 @@ export const DEFAULT_APP_CONFIG = {
         themeV2Enabled: false,
         themeV2Default: false,
         themeV2Toggleable: false,
+        themeDarkModeEnabled: false,
         showSeparateSiblings: false,
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,
@@ -102,9 +109,11 @@ export const DEFAULT_APP_CONFIG = {
         metricsEnabled: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
+        documentExplicitSaveEnabled: false,
         hideLineageInSearchCards: false,
         dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,
+        structuredPropertiesInPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
         i18nEnabled: true,
@@ -116,7 +125,7 @@ export const DEFAULT_APP_CONFIG = {
 };
 
 export const AppConfigContext = React.createContext<{
-    config: AppConfig;
+    config: AppConfigWithoutPolicyPrivileges;
     loaded: boolean;
     refreshContext: () => void;
 }>({ config: DEFAULT_APP_CONFIG, loaded: false, refreshContext: () => null });

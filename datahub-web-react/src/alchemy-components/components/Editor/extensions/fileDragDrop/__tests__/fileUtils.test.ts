@@ -4,6 +4,7 @@ import {
     createFileNodeAttributes,
     generateFileId,
     getExtensionFromFileName,
+    getFileNameFromUrl,
     getFileTypeFromFilename,
     getFileTypeFromUrl,
     handleFileDownload,
@@ -292,6 +293,20 @@ describe('fileUtils', () => {
             expect(getExtensionFromFileName('file.PDF')).toBe('pdf');
             expect(getExtensionFromFileName('file.PNG')).toBe('png');
             expect(getExtensionFromFileName('file.TXT')).toBe('txt');
+        });
+    });
+
+    describe('getFileNameFromUrl', () => {
+        it('should extract the original file name from a relative upload URL', () => {
+            expect(getFileNameFromUrl('/openapi/v1/files/uuid__logo.png')).toBe('logo.png');
+        });
+
+        it('should extract the original file name from an absolute upload URL', () => {
+            expect(getFileNameFromUrl('https://example.com/openapi/v1/files/uuid__logo.png')).toBe('logo.png');
+        });
+
+        it('should return undefined for non-file URLs', () => {
+            expect(getFileNameFromUrl('https://cdn.example.com/logo.png')).toBeUndefined();
         });
     });
 });

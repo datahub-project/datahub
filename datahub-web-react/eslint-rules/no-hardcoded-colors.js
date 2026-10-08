@@ -43,6 +43,7 @@ const CSS_NAMED_COLOR_REGEX = new RegExp(
 );
 
 const MESSAGE =
+    // eslint-disable-next-line no-template-curly-in-string
     'Hardcoded color "{{color}}". Use semantic tokens: `${(props) => props.theme.colors.*}` in styled-components or `useTheme().colors.*` in components. See colorThemes/types.ts for available tokens.';
 
 // The alchemy `violet` and `primary` palettes are static — they bypass the configurable
@@ -50,6 +51,7 @@ const MESSAGE =
 const BRAND_PALETTE_MESSAGE =
     'Static brand palette "{{value}}" bypasses the central theme. Use a ColorTheme brand token: ' +
     '`color="iconBrand"`/`textBrand`/`hyperlinks` for Icon/Text, `color="primary"` for Button/Pill, ' +
+    // eslint-disable-next-line no-template-curly-in-string
     'or `${(props) => props.theme.colors.*}` / `useTheme().colors.*` in styles. See colorThemes/types.ts.';
 
 // The legacy `theme.styles[<color-key>]` channel is a parallel color on-ramp that bypasses the
@@ -60,11 +62,13 @@ const BRAND_PALETTE_MESSAGE =
 const NON_COLOR_STYLE_KEY_REGEX = /^border-radius(-|$)/;
 const STYLES_LEGACY_MESSAGE =
     'Legacy theme.styles["{{key}}"] is deprecated. Use a ColorTheme token instead ' +
+    // eslint-disable-next-line no-template-curly-in-string
     '(`${(props) => props.theme.colors.*}` — e.g. textBrand/buttonFillBrand/borderBrand/bgSurfaceBrand for brand, ' +
     'border for borders, shadowSm/shadowMd/shadowNavbar for shadows). See colorThemes/types.ts.';
 
 function findMatches(regex, value) {
     const results = [];
+    // eslint-disable-next-line no-param-reassign
     regex.lastIndex = 0;
     let match = regex.exec(value);
     while (match !== null) {

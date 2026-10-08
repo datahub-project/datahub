@@ -1,5 +1,5 @@
-import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Select } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -114,7 +114,7 @@ export default function VersionSelector({
                     });
                 }}
                 data-testid="schema-version-selector-dropdown"
-                suffixIcon={<CaretDownOutlined />}
+                suffixIcon={<CaretDown />}
             >
                 {versionOptions.map((v) => (
                     <SchemaBlameSelectorOption

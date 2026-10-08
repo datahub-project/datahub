@@ -441,6 +441,37 @@ public class PropertyDefinitionValidatorTest {
   }
 
   @Test
+  public void testCanReorderAllowedValues()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    StructuredPropertyDefinition oldProperty = new StructuredPropertyDefinition();
+    oldProperty.setEntityTypes(
+        new UrnArray(
+            Urn.createFromString("urn:li:logicalEntity:dataset"),
+            Urn.createFromString("urn:li:logicalEntity:chart")));
+    oldProperty.setDisplayName("oldProp");
+    oldProperty.setQualifiedName("prop3");
+    oldProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    PropertyValue gold =
+        new PropertyValue().setValue(PrimitivePropertyValue.create("Gold")).setDescription("first");
+    PropertyValue silver =
+        new PropertyValue()
+            .setValue(PrimitivePropertyValue.create("Silver"))
+            .setDescription("second");
+    oldProperty.setAllowedValues(new PropertyValueArray(gold, silver));
+
+    StructuredPropertyDefinition newProperty = oldProperty.copy();
+    newProperty.setAllowedValues(new PropertyValueArray(silver, gold));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
+  }
+
+  @Test
   public void testUrnIdWithSpace()
       throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test me out.foo.bar");
@@ -591,12 +622,15 @@ public class PropertyDefinitionValidatorTest {
     when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
         .thenReturn(true);
 
+    // The collision is still rejected; the message must surface both causes (live '.'/'_'
+    // collision vs residual mapping from a hard-deleted property) plus the reindex recovery path.
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
                 operationContext,
                 TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
                 mockRetrieverContext,
                 mockStructuredPropertyMappingLookup)
+            .filter(e -> e.getMessage().contains("residual") && e.getMessage().contains("reindex"))
             .count(),
         1);
   }

@@ -1,15 +1,15 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-from confluent_kafka import KafkaError, Message
 from pydantic import Field
 
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.kafka_emitter import (
     DatahubKafkaEmitter,
     KafkaEmitterConfig,
+    KafkaOnDelivery,
     MessageTooLargeError,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -89,9 +89,7 @@ class _KafkaCallback:
     # thread, so a threading.Event (thread-safe) is used.
     failure_signal: Optional[threading.Event] = None
 
-    def kafka_callback(
-        self, err: Optional[Union[KafkaError, Exception]], msg: Optional[Message]
-    ) -> None:
+    def kafka_callback(self, err: Any, msg: Any) -> None:
         """
         Kafka delivery callback invoked by confluent-kafka producer.
 
@@ -163,9 +161,7 @@ class _AggregatingKafkaCallback:
     def __post_init__(self) -> None:
         self._remaining = self.total
 
-    def kafka_callback(
-        self, err: Optional[Union[KafkaError, Exception]], msg: Optional[Message]
-    ) -> None:
+    def kafka_callback(self, err: Any, msg: Any) -> None:
         with self._lock:
             self._remaining -= 1
             if err is not None and not self._failed:
@@ -215,9 +211,7 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
     def _emit_mcp_via_rest_fallback(
         self,
         record: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
-        delivery_callback: Callable[
-            [Optional[Union[KafkaError, Exception]], Optional[Message]], None
-        ],
+        delivery_callback: KafkaOnDelivery,
     ) -> None:
         """Degrade an oversize MCP (MessageTooLargeError) to the REST fallback.
 

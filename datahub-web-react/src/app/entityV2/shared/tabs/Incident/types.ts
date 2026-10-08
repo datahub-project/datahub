@@ -122,7 +122,6 @@ export interface TimelineContentDetails extends BaseItemType {
 }
 
 export enum IncidentConstant {
-    PRIORITY = 'priority',
     CATEGORY = 'category',
 }
 

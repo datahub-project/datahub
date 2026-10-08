@@ -2,7 +2,9 @@ import { renderHook } from '@testing-library/react-hooks';
 import { Mock, vi } from 'vitest';
 
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
+import { StructuredProp } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
 vi.mock('@app/govern/structuredProperties/utils', () => ({
     getEntityTypeUrn: vi.fn((_, entityType) => `urn:li:entityType:${entityType}`),
@@ -14,637 +16,248 @@ vi.mock('@app/govern/structuredProperties/utils', () => ({
 
 vi.mock('@app/useEntityRegistry');
 
+type SetupOptions = {
+    selectedProperty?: unknown;
+};
+
+function setup({ selectedProperty }: SetupOptions = {}) {
+    const setFormValues = vi.fn();
+    const setCardinality = vi.fn();
+    const setSelectedValueType = vi.fn();
+
+    const { result } = renderHook(() =>
+        useStructuredProp({
+            selectedProperty: selectedProperty as StructuredPropertyEntity | undefined,
+            setFormValues,
+            setCardinality,
+            setSelectedValueType,
+        }),
+    );
+
+    // Every handler updates state through an updater function; applying it to a previous state is
+    // how we observe what the handler actually does.
+    const applyUpdate = (previousValues: StructuredProp = {}) => setFormValues.mock.calls[0][0](previousValues);
+
+    return { result, setFormValues, setCardinality, setSelectedValueType, applyUpdate };
+}
+
 describe('useStructuredProp', () => {
     beforeEach(() => {
-        (useEntityRegistry as Mock).mockReturnValue({
-            getEntityName: vi.fn(),
-        });
+        (useEntityRegistry as Mock).mockReturnValue({ getEntityName: vi.fn().mockReturnValue('Dataset') });
     });
 
     afterEach(() => {
         vi.clearAllMocks();
     });
 
-    it('should return correct initial values', () => {
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
+    describe('getEntitiesListOptions', () => {
+        it('maps entity types to label/value options', () => {
+            const { result } = setup();
 
-        expect(result.current.disabledEntityTypeValues).toEqual(undefined);
-        expect(result.current.disabledTypeQualifierValues).toEqual(undefined);
-    });
-
-    it('should return a list of entities', () => {
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        const entities = result.current.getEntitiesListOptions(['DATASET' as any]);
-        expect(entities.length).toEqual(1);
-    });
-
-    it('should update form values on select change', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleSelectChange('field', 'value');
-        expect(setFormValues).toHaveBeenCalled();
-    });
-
-    it('should update form values on select update change', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        entityTypes: [],
-                        typeQualifier: {
-                            allowedTypes: [],
-                        },
-                    },
-                } as any,
-            }),
-        );
-
-        result.current.handleSelectUpdateChange('field', []);
-        expect(setFormValues).toHaveBeenCalled();
-    });
-
-    it('should update form values on type update', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleTypeUpdate('type');
-        expect(setFormValues).toHaveBeenCalled();
-    });
-
-    it('should update form values on display setting change', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('field', true);
-        expect(setFormValues).toHaveBeenCalled();
-    });
-
-    it('should reset all settings when isHidden is true', () => {
-        const setFormValues = vi.fn();
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('isHidden', true);
-        expect(setFormValues).toHaveBeenCalledWith(expect.any(Function));
-        expect(setFieldValue).toHaveBeenCalledTimes(7);
-    });
-
-    it('should disable hideInAssetSummaryWhenEmpty when showInAssetSummary is false', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('showInAssetSummary', false);
-        expect(setFormValues).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    it('should return disabled entity type values', () => {
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        entityTypes: [{ urn: 'urn:li:entityType:DATASET' }],
-                    },
-                } as any,
-            }),
-        );
-
-        expect(result.current.disabledEntityTypeValues).toEqual(['urn:li:entityType:DATASET']);
-    });
-
-    it('should return disabled type qualifier values', () => {
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        typeQualifier: {
-                            allowedTypes: [{ urn: 'urn:li:entityType:DATASET' }],
-                        },
-                    },
-                } as any,
-            }),
-        );
-
-        expect(result.current.disabledTypeQualifierValues).toEqual(['urn:li:entityType:DATASET']);
-    });
-
-    it('should set cardinality to Multiple when type has multiple cardinality', () => {
-        const setCardinality = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues: vi.fn(),
-                setCardinality,
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleTypeUpdate('typeMultiple');
-        expect(setCardinality).toHaveBeenCalledWith('MULTIPLE');
-    });
-
-    it('should set cardinality to Single when type has single cardinality', () => {
-        const setCardinality = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues: vi.fn(),
-                setCardinality,
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleTypeUpdate('typeSingle');
-        expect(setCardinality).toHaveBeenCalledWith('SINGLE');
-    });
-
-    it('should handle typeQualifier in handleSelectChange', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleSelectChange('typeQualifier', ['value']);
-        expect(setFormValues).toHaveBeenCalled();
-    });
-
-    it('should handle entityTypes in handleSelectUpdateChange', () => {
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        entityTypes: [{ urn: 'urn1' }],
-                    },
-                } as any,
-            }),
-        );
-
-        result.current.handleSelectUpdateChange('entityTypes', ['urn2']);
-        expect(setFieldValue).toHaveBeenCalledWith('entityTypes', ['urn1', 'urn2']);
-    });
-
-    it('should handle typeQualifier in handleSelectUpdateChange', () => {
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        typeQualifier: {
-                            allowedTypes: [{ urn: 'urn1' }],
-                        },
-                    },
-                } as any,
-            }),
-        );
-
-        result.current.handleSelectUpdateChange('typeQualifier', ['urn2']);
-        expect(setFieldValue).toHaveBeenCalledWith('typeQualifier', ['urn1', 'urn2']);
-    });
-
-    it('should not reset settings when isHidden is false', () => {
-        const setFormValues = vi.fn();
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('isHidden', false);
-        expect(setFormValues).toHaveBeenCalledWith(expect.any(Function));
-        expect(setFieldValue).toHaveBeenCalledWith(['settings', 'isHidden'], false);
-        expect(setFieldValue).toHaveBeenCalledTimes(1);
-    });
-
-    it('should enable showInAssetSummary', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('showInAssetSummary', true);
-        expect(setFormValues).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    it('should handle display setting change with previous settings', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        // Set an initial value
-        result.current.handleDisplaySettingChange('showInSearchFilters', true);
-
-        // Update another value
-        result.current.handleDisplaySettingChange('showAsAssetBadge', true);
-
-        expect(setFormValues).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle null entity name in getEntitiesListOptions', () => {
-        (useEntityRegistry as Mock).mockReturnValue({
-            getEntityName: vi.fn().mockReturnValue(null),
+            expect(result.current.getEntitiesListOptions([EntityType.Dataset])).toEqual([
+                { label: 'Dataset', value: 'urn:li:entityType:DATASET' },
+            ]);
         });
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
 
-        const entities = result.current.getEntitiesListOptions(['DATASET' as any]);
-        expect(entities[0].label).toEqual('');
-    });
+        it('falls back to an empty label when the entity has no name', () => {
+            (useEntityRegistry as Mock).mockReturnValue({ getEntityName: vi.fn().mockReturnValue(null) });
+            const { result } = setup();
 
-    it('should correctly update form values using previous state', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleSelectChange('field', 'value');
-
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const newState = updaterFn({ existing: 'data' });
-        expect(newState).toEqual({ existing: 'data', field: 'value' });
-    });
-
-    it('should handle missing typeQualifier in handleSelectUpdateChange', () => {
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        entityTypes: [],
-                    },
-                } as any,
-            }),
-        );
-
-        result.current.handleSelectUpdateChange('typeQualifier', ['urn2']);
-        expect(setFieldValue).toHaveBeenCalledWith('typeQualifier', ['urn2']);
-    });
-
-    it('should default to single cardinality if type not found in handleTypeUpdate', () => {
-        const setCardinality = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues: vi.fn(),
-                setCardinality,
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleTypeUpdate('nonexistentType');
-        expect(setCardinality).toHaveBeenCalledWith('SINGLE');
-    });
-
-    it('should handle display setting change when previous settings are undefined', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('showInSearchFilters', true);
-
-        const updaterFn = setFormValues.mock.calls[0][0];
-        let newState = updaterFn(undefined);
-        expect(newState.settings.showInSearchFilters).toBe(true);
-
-        newState = updaterFn({ some: 'value' });
-        expect(newState.settings.showInSearchFilters).toBe(true);
-    });
-
-    it('should handle showInAssetSummary change when previous settings are undefined', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('showInAssetSummary', false);
-
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const newState = updaterFn(undefined);
-        expect(newState.settings.showInAssetSummary).toBe(false);
-        expect(newState.settings.hideInAssetSummaryWhenEmpty).toBe(false);
-    });
-
-    it('should correctly update settings when isHidden is true', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
-
-        result.current.handleDisplaySettingChange('isHidden', true);
-
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const newState = updaterFn({ existing: 'data' });
-        expect(newState).toEqual({
-            existing: 'data',
-            settings: {
-                isHidden: true,
-                showInSearchFilters: false,
-                showAsAssetBadge: false,
-                showInAssetSummary: false,
-                hideInAssetSummaryWhenEmpty: false,
-                showInColumnsTable: false,
-            },
+            expect(result.current.getEntitiesListOptions([EntityType.Dataset])?.[0].label).toEqual('');
         });
     });
 
-    it('should correctly update settings when showInAssetSummary is false', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
+    describe('handleSelectChange', () => {
+        it('sets the selected values on the named field', () => {
+            const { result, applyUpdate } = setup();
 
-        result.current.handleDisplaySettingChange('showInAssetSummary', false);
+            result.current.handleSelectChange('entityTypes', ['urn1']);
 
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const prevState = { settings: { showInAssetSummary: true, hideInAssetSummaryWhenEmpty: true, other: 'value' } };
-        const newState = updaterFn(prevState);
-        expect(newState).toEqual({
-            settings: {
-                showInAssetSummary: false,
-                hideInAssetSummaryWhenEmpty: false,
-                other: 'value',
-            },
+            expect(applyUpdate({ displayName: 'existing' })).toEqual({
+                displayName: 'existing',
+                entityTypes: ['urn1'],
+            });
+        });
+
+        it('nests allowed types under typeQualifier', () => {
+            const { result, applyUpdate } = setup();
+
+            result.current.handleSelectChange(['typeQualifier', 'allowedTypes'], ['urn1']);
+
+            expect(applyUpdate()).toEqual({ typeQualifier: { allowedTypes: ['urn1'] } });
         });
     });
 
-    it('should correctly update settings for other fields', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
+    describe('handleSelectUpdateChange', () => {
+        it('keeps values already saved on the property', () => {
+            const { result, applyUpdate } = setup({
+                selectedProperty: { definition: { entityTypes: [{ urn: 'urn1' }] } },
+            });
 
-        result.current.handleDisplaySettingChange('showAsAssetBadge', true);
+            result.current.handleSelectUpdateChange('entityTypes', ['urn2']);
 
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const prevState = { settings: { showInSearchFilters: true } };
-        const newState = updaterFn(prevState);
-        expect(newState).toEqual({
-            settings: {
-                showInSearchFilters: true,
-                showAsAssetBadge: true,
-            },
+            expect(applyUpdate()).toEqual({ entityTypes: ['urn1', 'urn2'] });
+        });
+
+        it('does not duplicate a value that is already saved', () => {
+            const { result, applyUpdate } = setup({
+                selectedProperty: { definition: { entityTypes: [{ urn: 'urn1' }] } },
+            });
+
+            result.current.handleSelectUpdateChange('entityTypes', ['urn1', 'urn2']);
+
+            expect(applyUpdate()).toEqual({ entityTypes: ['urn1', 'urn2'] });
+        });
+
+        it('keeps saved allowed platforms', () => {
+            const { result, applyUpdate } = setup({
+                selectedProperty: { definition: { allowedPlatforms: [{ urn: 'urn:li:dataPlatform:snowflake' }] } },
+            });
+
+            result.current.handleSelectUpdateChange('allowedPlatforms', ['urn:li:dataPlatform:bigquery']);
+
+            expect(applyUpdate()).toEqual({
+                allowedPlatforms: ['urn:li:dataPlatform:snowflake', 'urn:li:dataPlatform:bigquery'],
+            });
+        });
+
+        it('handles a property with nothing saved yet', () => {
+            const { result, applyUpdate } = setup({ selectedProperty: { definition: {} } });
+
+            result.current.handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], ['urn2']);
+
+            expect(applyUpdate()).toEqual({ typeQualifier: { allowedTypes: ['urn2'] } });
         });
     });
 
-    it('should return an empty array from getEntitiesListOptions when entitiesList is empty', () => {
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
+    describe('handleTypeUpdate', () => {
+        it('records the selected type and its cardinality', () => {
+            const { result, setCardinality, setSelectedValueType, applyUpdate } = setup();
 
-        const entities = result.current.getEntitiesListOptions([]);
-        expect(entities).toEqual([]);
-    });
+            result.current.handleTypeUpdate('typeMultiple');
 
-    it('should correctly map entity types in getEntitiesListOptions', () => {
-        (useEntityRegistry as Mock).mockReturnValue({
-            getEntityName: vi.fn().mockReturnValue('Dataset'),
+            expect(setSelectedValueType).toHaveBeenCalledWith('typeMultiple');
+            expect(setCardinality).toHaveBeenCalledWith('MULTIPLE');
+            expect(applyUpdate()).toEqual({ valueType: 'typeMultiple' });
         });
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: {} as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
 
-        const entities = result.current.getEntitiesListOptions(['DATASET' as any]);
-        expect(entities).toEqual([{ label: 'Dataset', value: 'urn:li:entityType:DATASET' }]);
+        it('defaults to single cardinality for an unknown type', () => {
+            const { result, setCardinality } = setup();
+
+            result.current.handleTypeUpdate('nonexistentType');
+
+            expect(setCardinality).toHaveBeenCalledWith('SINGLE');
+        });
     });
 
-    it('should update form values correctly for other fields in updateFormValues', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
+    describe('handleDisplaySettingChange', () => {
+        it('turns off every other display surface when the property is hidden', () => {
+            const { result, applyUpdate } = setup();
 
-        result.current.handleSelectChange('someField', 'someValue');
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const newState = updaterFn({ existing: 'data' });
-        expect(newState).toEqual({ existing: 'data', someField: 'someValue' });
-    });
+            result.current.handleDisplaySettingChange('isHidden', true);
 
-    it('should handle empty initial values in handleSelectUpdateChange', () => {
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    definition: {
-                        entityTypes: [],
-                        typeQualifier: { allowedTypes: [] },
+            expect(applyUpdate({ displayName: 'existing' })).toEqual({
+                displayName: 'existing',
+                settings: {
+                    isHidden: true,
+                    showInSearchFilters: false,
+                    showAsAssetBadge: false,
+                    showInAssetSummary: false,
+                    hideInAssetSummaryWhenEmpty: false,
+                    showInColumnsTable: false,
+                },
+            });
+        });
+
+        it('clears hideInAssetSummaryWhenEmpty when the asset sidebar is turned off', () => {
+            const { result, applyUpdate } = setup();
+
+            result.current.handleDisplaySettingChange('showInAssetSummary', false);
+
+            expect(
+                applyUpdate({
+                    settings: {
+                        isHidden: false,
+                        showInSearchFilters: false,
+                        showAsAssetBadge: false,
+                        showInAssetSummary: true,
+                        hideInAssetSummaryWhenEmpty: true,
+                        showInColumnsTable: false,
                     },
-                } as any,
-            }),
-        );
+                }),
+            ).toEqual({
+                settings: {
+                    isHidden: false,
+                    showInSearchFilters: false,
+                    showAsAssetBadge: false,
+                    showInAssetSummary: false,
+                    hideInAssetSummaryWhenEmpty: false,
+                    showInColumnsTable: false,
+                },
+            });
+        });
 
-        result.current.handleSelectUpdateChange('entityTypes', ['urn1']);
-        expect(setFieldValue).toHaveBeenCalledWith('entityTypes', ['urn1']);
+        it('leaves the other settings untouched when toggling one of them', () => {
+            const { result, applyUpdate } = setup();
 
-        result.current.handleSelectUpdateChange('typeQualifier', ['urn2']);
-        expect(setFieldValue).toHaveBeenCalledWith('typeQualifier', ['urn2']);
-    });
+            result.current.handleDisplaySettingChange('showAsAssetBadge', true);
 
-    it('should merge values without duplicates in handleSelectUpdateChange', () => {
-        const setFieldValue = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue } as any,
-                setFormValues: vi.fn(),
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-                selectedProperty: {
-                    entity: {
-                        definition: {
-                            entityTypes: [{ urn: 'urn1' }],
-                        },
+            expect(
+                applyUpdate({
+                    settings: {
+                        isHidden: false,
+                        showInSearchFilters: true,
+                        showAsAssetBadge: false,
+                        showInAssetSummary: false,
+                        hideInAssetSummaryWhenEmpty: false,
+                        showInColumnsTable: false,
                     },
-                } as any,
-            }),
-        );
+                }),
+            ).toEqual({
+                settings: {
+                    isHidden: false,
+                    showInSearchFilters: true,
+                    showAsAssetBadge: true,
+                    showInAssetSummary: false,
+                    hideInAssetSummaryWhenEmpty: false,
+                    showInColumnsTable: false,
+                },
+            });
+        });
 
-        result.current.handleSelectUpdateChange('entityTypes', ['urn1', 'urn2']);
-        expect(setFieldValue).toHaveBeenCalledWith('entityTypes', ['urn1', 'urn2']);
+        it('works when no settings have been set yet', () => {
+            const { result, applyUpdate } = setup();
+
+            result.current.handleDisplaySettingChange('showInSearchFilters', true);
+
+            expect(applyUpdate(undefined).settings.showInSearchFilters).toBe(true);
+        });
     });
 
-    it('should call setSelectedValueType and handleSelectChange in handleTypeUpdate', () => {
-        const setSelectedValueType = vi.fn();
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType,
-            }),
-        );
+    describe('disabled values', () => {
+        it('returns the entity types already saved on the property', () => {
+            const { result } = setup({
+                selectedProperty: { definition: { entityTypes: [{ urn: 'urn:li:entityType:DATASET' }] } },
+            });
 
-        result.current.handleTypeUpdate('typeSingle');
-        expect(setSelectedValueType).toHaveBeenCalledWith('typeSingle');
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const newState = updaterFn({});
-        expect(newState).toEqual({ valueType: 'typeSingle' });
-    });
+            expect(result.current.disabledEntityTypeValues).toEqual(['urn:li:entityType:DATASET']);
+        });
 
-    it('should handle undefined previous settings in handleDisplaySettingChange', () => {
-        const setFormValues = vi.fn();
-        const { result } = renderHook(() =>
-            useStructuredProp({
-                form: { setFieldValue: vi.fn() } as any,
-                setFormValues,
-                setCardinality: vi.fn(),
-                setSelectedValueType: vi.fn(),
-            }),
-        );
+        it('returns the allowed types already saved on the property', () => {
+            const { result } = setup({
+                selectedProperty: {
+                    definition: { typeQualifier: { allowedTypes: [{ urn: 'urn:li:entityType:DATASET' }] } },
+                },
+            });
 
-        result.current.handleDisplaySettingChange('showInSearchFilters', true);
-        const updaterFn = setFormValues.mock.calls[0][0];
-        const newState = updaterFn(undefined);
-        expect(newState.settings.showInSearchFilters).toBe(true);
+            expect(result.current.disabledTypeQualifierValues).toEqual(['urn:li:entityType:DATASET']);
+        });
+
+        it('returns undefined when nothing is saved on the property', () => {
+            const { result } = setup();
+
+            expect(result.current.disabledEntityTypeValues).toEqual(undefined);
+            expect(result.current.disabledTypeQualifierValues).toEqual(undefined);
+        });
     });
 });

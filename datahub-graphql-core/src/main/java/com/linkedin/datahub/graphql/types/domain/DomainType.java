@@ -83,19 +83,14 @@ public class DomainType
               new HashSet<>(domainUrns),
               aspectsToResolve);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
+      final List<DataFetcherResult<Domain>> results = new ArrayList<>(urns.size());
       for (Urn urn : domainUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
+        EntityResponse gmsResult = entities.get(urn);
+        Domain mapped = gmsResult == null ? null : DomainMapper.map(context, gmsResult);
+        results.add(
+            mapped == null ? null : DataFetcherResult.<Domain>newResult().data(mapped).build());
       }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Domain>newResult()
-                          .data(DomainMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return results;
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Domains", e);
     }

@@ -956,7 +956,6 @@
     "img_path": "img/logos/platforms/microsoft-fabric.svg"
   },
   "montecarlo": {
-    "api_connector": true,
     "platform_type": "Data Quality",
     "support_status": "Alpha",
     "title": "Monte Carlo",

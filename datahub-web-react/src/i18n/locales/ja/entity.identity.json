@@ -117,6 +117,7 @@
     "users.columns.name": "名前",
     "users.columns.role": "ロール",
     "users.columns.status": "状態",
+    "users.copyUrn": "URNをコピー",
     "users.deleteUser": "ユーザーを削除",
     "users.emptyTitle": "ユーザーがいません!",
     "users.groups.overflowTitle": "グループ",
@@ -145,5 +146,6 @@
     "users.statusFilter.placeholder": "状態",
     "users.statusFilter.suspended": "停止中",
     "users.statusInactive": "非アクティブ",
-    "users.statusNoUrn": "URNなし"
+    "users.statusNoUrn": "URNなし",
+    "users.urnCopied": "URNをクリップボードにコピーしました"
 }

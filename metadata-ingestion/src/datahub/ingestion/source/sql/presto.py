@@ -1,12 +1,11 @@
 import functools
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic.fields import Field
-from pyhive.sqlalchemy_presto import PrestoDialect
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
-from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.base import Connection, Engine
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
@@ -18,6 +17,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+
+# pyhive is SQLAlchemy-1.4-era; importing via _pyhive_compat applies its SA 2.0 patches.
+from datahub.ingestion.source.sql._pyhive_compat import PrestoDialect
 from datahub.ingestion.source.sql.trino import (
     TrinoConfig,
     TrinoSource,
@@ -28,8 +30,10 @@ from datahub.ingestion.source.sql.trino import (
 
 
 # On Presto the information_schema.views does not return views but the tables table returns
-@reflection.cache  # type: ignore
-def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
+@reflection.cache
+def get_view_names(
+    self: Any, connection: Connection, schema: Optional[str] = None, **kw: Any
+) -> List[str]:
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
         raise exc.NoSuchTableError("schema is required")
@@ -40,12 +44,12 @@ def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
         WHERE "table_schema" = :schema and "table_type" = 'VIEW'
     """
     ).strip()
-    res = connection.execute(sql.text(query), schema=schema)
+    res = connection.execute(sql.text(query), {"schema": schema})
     return [row.table_name for row in res]
 
 
 # The pyhive presto driver doesn't return view definitions, so we have to query it
-@reflection.cache  # type: ignore
+@reflection.cache
 def get_view_definition(self, connection, view_name, schema=None, **kw):
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
@@ -63,8 +67,8 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     return next(res)[0]
 
 
-def _get_full_table(  # type: ignore
-    self, table_name: str, schema: Optional[str] = None, quote: bool = True
+def _get_full_table(
+    self: Any, table_name: str, schema: Optional[str] = None, quote: bool = True
 ) -> str:
     table_part = (
         self.identifier_preparer.quote_identifier(table_name) if quote else table_name
@@ -130,5 +134,6 @@ def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
         FROM "system"."metadata"."catalogs"
         """
     ).strip()
-    res = engine.execute(sql.text(query))
-    return {row.catalog_name: "" for row in res}
+    with engine.connect() as conn:
+        res = conn.execute(sql.text(query))
+        return {row.catalog_name: "" for row in res}

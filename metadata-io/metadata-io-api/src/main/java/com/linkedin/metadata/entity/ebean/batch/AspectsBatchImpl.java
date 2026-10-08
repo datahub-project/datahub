@@ -20,6 +20,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -300,11 +301,16 @@ public class AspectsBatchImpl implements AspectsBatch {
       this.nonRepeatedItems = filterRepeats(this.items);
 
       // operationContext serves dual roles here: OperationFingerprint for routing (1st arg)
-      // and AuthorizationSession for per-user auth checks (4th arg). OperationContext
-      // implements both interfaces; this matches pre-refactor behaviour.
+      // and AuthorizationSession for per-user auth checks (4th arg). Validation reads are pinned
+      // to primary so a lagging replica cannot reject a write for an entity that was just created.
+      // The auth session stays on the caller context.
+      OperationFingerprint validationContext =
+          operationContext == null
+              ? null
+              : operationContext.withReadPreference(ReadPreference.PRIMARY);
       ValidationExceptionCollection exceptions =
           AspectsBatch.validateProposed(
-              operationContext, this.nonRepeatedItems, this.retrieverContext, operationContext);
+              validationContext, this.nonRepeatedItems, this.retrieverContext, operationContext);
       if (!exceptions.isEmpty()) {
         throw new ValidationException(exceptions);
       }
@@ -314,6 +320,19 @@ public class AspectsBatchImpl implements AspectsBatch {
 
     private AspectsBatchImpl build() {
       return null;
+    }
+
+    /**
+     * Constructor to be used in lieu of {@link #build()} to skip build-time validations. Used to
+     * avoid redundant validations on items that are known to have been already validated or if
+     * caller handles validations.
+     */
+    public AspectsBatchImpl buildWithoutValidation() {
+      if (this.items == null) {
+        this.items = Collections.emptyList();
+      }
+      this.nonRepeatedItems = filterRepeats(this.items);
+      return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
     }
   }
 
