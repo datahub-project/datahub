@@ -92,8 +92,8 @@ class DBTCoreConfig(DBTCommonConfig):
         "Glob patterns are supported for S3, GCS, and local paths "
         "(e.g. 's3://bucket/dbt-artifacts/*/manifest.json', 'gs://bucket/dbt-artifacts/*/manifest.json', "
         "or '/path/to/dbt-artifacts/*/manifest.json'), in which case every matched manifest is ingested as an "
-        "independent dbt project in a single run, and catalog.json and sources.json are resolved automatically "
-        "from each matched manifest's own directory.",
+        "independent dbt project in a single run, and catalog.json, sources.json and run_results files are resolved "
+        "from each matched manifest's own directory, and each project's platform_instance is its manifest's project_name.",
     )
     catalog_path: Optional[str] = Field(
         None,
@@ -119,6 +119,7 @@ class DBTCoreConfig(DBTCommonConfig):
         "Glob patterns are supported for S3, GCS, and local paths "
         "(e.g. 's3://bucket/results/*/run_results.json', 'gs://bucket/results/*/run_results.json', "
         "or '/path/to/results/*/run_results.json'). "
+        "When manifest_path is a glob, each matched run_results file is attached to the project whose manifest shares its directory. "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 

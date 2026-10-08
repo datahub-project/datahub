@@ -287,9 +287,15 @@ source:
     target_platform: postgres
 ```
 
-Each match is loaded as an independent dbt project. **`catalog.json` and `sources.json` are read automatically from the same directory as the matched `manifest.json` and must not be configured separately** — setting `catalog_path` or `sources_path` alongside a globbed `manifest_path` is a configuration error. A project directory missing its catalog or sources file is only affected for that artifact (with a warning); it does not fail the project. A sibling `catalog.json` that exists but is corrupt, however, skips that project entirely — deliberately, since a reported failure also suppresses soft-deletion, so nothing is wrongly deleted — which means a non-atomic CI upload costs that project all of its models rather than just its schemas.
+Each match is loaded and ingested as an independent dbt project:
 
-A broken manifest in one project is reported as a failure for that project only, so every other matched project still ingests fully.
+- **`catalog.json` and `sources.json` are read from the same directory as the matched `manifest.json`** and must not be configured separately. Setting `catalog_path` or `sources_path` alongside a globbed `manifest_path` is a configuration error. A project missing its catalog or sources file is only affected for that artifact (with a warning). A sibling `catalog.json` that exists but is corrupt skips that project.
+- **`run_results` files are matched to the project whose manifest shares their directory.** A matched run_results file in a directory with no manifest is reported with a warning and attached to nothing.
+- **Each project's dbt `platform_instance` is its manifest's `project_name`.** `platform_instance` must not be set in the recipe when `manifest_path` is a glob. This keeps every dbt URN, assertion and semantic model distinct per project, even when two projects install the same dbt package or materialize the same table, and it matches the one-recipe-per-project setup described under "Multiple dbt projects". If you migrate from one recipe per project with `platform_instance` set to the project name, every URN stays the same. If those recipes used a different instance or none, the glob recipe mints new URNs and stale-entity removal retires the old ones.
+- **A `source()` in one project that points at another project's model** connects through the shared warehouse dataset, exactly as it does with separate recipes.
+- **Semantic models and metrics** are emitted per project under that project's name. `semantic_model_project_name` must not be set with a glob.
+
+A broken manifest in one project is reported as a failure for that project only, so every other matched project still ingests fully. A manifest without `metadata.project_name`, or two matched manifests that carry the same `project_name`, are reported the same way.
 
 :::caution Point the glob at a stable artifact location
 
@@ -301,18 +307,9 @@ The number of manifests actually matched is reported as `manifests_loaded`, and 
 
 :::
 
-##### Cross-project identity collisions
+:::note A project that fails to load suppresses stale-entity removal for the run
 
-dbt guarantees identities are unique within a single project, but that guarantee doesn't extend across independently-developed projects combined by a glob:
-
-- **Same target table**: two projects that materialize to the same `database.schema.table` would resolve to the same dataset URN and silently overwrite each other's metadata.
-- **Same dbt `unique_id`**: two projects that share a dbt package name (for example, both scaffolded from the same template and never renamed) produce identical `unique_id`s for their models and exposures. Since `unique_id` is also the key used to resolve lineage between dbt nodes, an undetected collision doesn't just lose metadata — it can point one project's lineage at another project's model.
-
-Both are reported as a failure, and none of the colliding models or exposures are emitted, controlled by `fail_on_cross_project_collisions` (default `true`). Set it to `false` to instead keep one of them deterministically and emit a warning.
-
-:::note Failures suppress stale-entity removal for the whole run
-
-A reported failure — from either collision above, or from any other project failing to load — disables stale-entity soft-deletion for the **entire run**, across every project, not just the one that failed. This is deliberately the safe direction: a run with a reported problem should not delete metadata. If a persistent naming collision between two projects is blocking stale-entity cleanup for every other project, either fix the colliding dbt project(s), or set `fail_on_cross_project_collisions: false` as an explicit escape hatch.
+Any reported failure disables stale-entity soft-deletion for the entire run, across every project. This is deliberately the safe direction: a run with a reported problem should not delete metadata. Fix the failing project to restore cleanup for the others.
 
 :::
 
