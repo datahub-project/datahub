@@ -654,27 +654,17 @@ class UnityCatalogUsageExtractor:
     @staticmethod
     def _make_allowed_table_predicate(
         locally_discovered: Set[str],
-        resolver: SchemaResolver,
-    ) -> Optional[Callable[[str], bool]]:
+    ) -> Callable[[str], bool]:
         """Build the is_allowed_table predicate for the usage aggregator.
 
-        Locally-discovered tables pass via fast set membership. When the schema
-        resolver has a graph, tables that exist in DataHub but were not discovered
-        by this recipe are also allowed — so queries referencing tables from other
-        catalogs produce query entities instead of being silently dropped.
+        Only tables this run ingested are allowed, so usage statistics and
+        operations are never written for datasets another recipe owns. Tables from
+        other catalogs still reach the aggregator, as query subjects. An empty set
+        allows nothing: the aggregator treats a missing predicate as allow-all.
         """
-        if not locally_discovered:
-            return None
 
         def _is_allowed_table(name: str) -> bool:
-            if name.lower() in locally_discovered:
-                return True
-            if resolver.graph is not None:
-                urn, schema_info = resolver.resolve_table_parts(
-                    database=None, db_schema=None, table=name
-                )
-                return schema_info is not None
-            return False
+            return name.lower() in locally_discovered
 
         return _is_allowed_table
 
@@ -687,9 +677,7 @@ class UnityCatalogUsageExtractor:
         # form, so we use it directly — using DatasetUrn.name here would include the
         # platform_instance prefix when one is configured, causing a mismatch.
         locally_discovered = {ref.qualified_table_name.lower() for ref in table_refs}
-        is_allowed_table = self._make_allowed_table_predicate(
-            locally_discovered, self.schema_resolver
-        )
+        is_allowed_table = self._make_allowed_table_predicate(locally_discovered)
 
         # Databricks query history has no per-query session catalog/schema (unlike
         # Snowflake), so we can't derive a per-query default_db.  When the recipe
