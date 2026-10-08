@@ -29,7 +29,9 @@ import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubPolicy> {
 
   public static final DataHubPolicyMapper INSTANCE = new DataHubPolicyMapper();
@@ -56,9 +58,10 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       @Nullable QueryContext context, @Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
     DataHubPolicyInfo policyInfo = new DataHubPolicyInfo(dataMap);
     policy.setDescription(policyInfo.getDescription());
-    // Careful - we assume no other Policy types or states have been ingested using a backdoor.
-    policy.setPolicyType(PolicyType.valueOf(policyInfo.getType()));
-    policy.setState(PolicyState.valueOf(policyInfo.getState()));
+    // Type/state are free-form strings; a value this version doesn't know (ingested via the API, or
+    // written by a newer version before a rollback) falls back, as in PolicyInfoPolicyMapper.
+    policy.setPolicyType(safeValueOf(PolicyType.class, policyInfo.getType(), PolicyType.METADATA));
+    policy.setState(safeValueOf(PolicyState.class, policyInfo.getState(), PolicyState.INACTIVE));
     policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
     policy.setPrivileges(policyInfo.getPrivileges());
     policy.setActors(mapActors(policyInfo.getActors()));
@@ -158,5 +161,20 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     result.setPropertyUrn(value.getPropertyUrn().toString());
     result.setValues(value.getValues());
     return result;
+  }
+
+  @Nonnull
+  private static <T extends Enum<T>> T safeValueOf(
+      @Nonnull final Class<T> enumClass, @Nullable final String value, @Nonnull final T fallback) {
+    try {
+      return Enum.valueOf(enumClass, value);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      log.warn(
+          "Unrecognized {} value '{}' on policy; defaulting to {}",
+          enumClass.getSimpleName(),
+          value,
+          fallback);
+      return fallback;
+    }
   }
 }

@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import java.util.ArrayList;
@@ -75,7 +76,14 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     if (gmsFormInfo.hasPrompts()) {
       gmsFormInfo
           .getPrompts()
-          .forEach(FormPrompt -> formPrompts.add(mapFormPrompt(FormPrompt, formUrn)));
+          .forEach(
+              FormPrompt -> {
+                // Prompt types only a newer version knows (e.g. after a rollback) are skipped.
+                if (PdlEnumMapper.mapDefaultNull(FormPromptType.class, FormPrompt.getType())
+                    != null) {
+                  formPrompts.add(mapFormPrompt(FormPrompt, formUrn));
+                }
+              });
     }
     return formPrompts;
   }

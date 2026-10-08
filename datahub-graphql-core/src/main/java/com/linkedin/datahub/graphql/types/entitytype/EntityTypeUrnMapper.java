@@ -110,6 +110,16 @@ public class EntityTypeUrnMapper {
     return EntityTypeMapper.getType(entityName);
   }
 
+  /**
+   * Like {@link #getEntityType}, but returns {@link EntityType#OTHER} for an entity type urn this
+   * build does not know. Use it when mapping stored data, which after a version rollback can name
+   * entity types only a newer build registered.
+   */
+  @Nonnull
+  public static EntityType getEntityTypeOrOther(String entityTypeUrn) {
+    return isValidEntityType(entityTypeUrn) ? getEntityType(entityTypeUrn) : EntityType.OTHER;
+  }
+
   @Nonnull
   public static String getEntityTypeUrn(String name) {
     if (!ENTITY_NAME_TO_ENTITY_TYPE_URN.containsKey(name)) {

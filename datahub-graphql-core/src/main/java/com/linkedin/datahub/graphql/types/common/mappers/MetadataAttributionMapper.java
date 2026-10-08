@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.MetadataAttribution;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
@@ -21,9 +22,15 @@ public class MetadataAttributionMapper
   public MetadataAttribution apply(
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.MetadataAttribution input) {
+    final Entity actor = UrnToEntityMapper.map(context, input.getActor());
+    if (actor == null) {
+      // MetadataAttribution.actor is non-null; an actor of an entity type GraphQL can't map (e.g.
+      // added by a newer version before a rollback) leaves the attribution out.
+      return null;
+    }
     final MetadataAttribution result = new MetadataAttribution();
     result.setTime(input.getTime());
-    result.setActor(UrnToEntityMapper.map(context, input.getActor()));
+    result.setActor(actor);
     if (input.getSource() != null) {
       result.setSource(UrnToEntityMapper.map(context, input.getSource()));
     }

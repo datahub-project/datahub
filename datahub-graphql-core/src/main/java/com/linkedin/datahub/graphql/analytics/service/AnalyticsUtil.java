@@ -56,6 +56,11 @@ public class AnalyticsUtil {
     result.setValue(urn);
     try {
       Entity entity = UrnToEntityMapper.map(null, Urn.createFromString(urn));
+      if (entity == null) {
+        // An entity type GraphQL can't map (e.g. added by a newer version before a rollback):
+        // show the urn as plain text without a link.
+        return result;
+      }
       result.setEntity(entity);
       result.setLinkParams(
           LinkParams.builder()

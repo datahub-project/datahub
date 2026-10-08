@@ -223,4 +223,24 @@ public class AspectResourceTest {
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
   }
+
+  @Test
+  public void testKeyOnlyProposalOfUnknownEntityTypeIsBadRequest() throws URISyntaxException {
+    // A key-only proposal (no urn) for an entity type this registry doesn't know, e.g. sent by a
+    // client built for a newer version: a 400, not a 500.
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType("entityFromNewerBuild");
+    mcp.setAspectName("status");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    RestLiServiceException error =
+        org.testng.Assert.expectThrows(
+            RestLiServiceException.class, () -> aspectResource.ingestProposal(mcp, "false"));
+
+    org.testng.Assert.assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+  }
 }
