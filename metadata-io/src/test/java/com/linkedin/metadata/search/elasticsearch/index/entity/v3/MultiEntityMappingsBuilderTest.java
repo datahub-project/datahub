@@ -74,6 +74,7 @@ public class MultiEntityMappingsBuilderTest {
 
     // Setup mock entity registry and specs
     mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
     mockEntitySpec = createMockEntitySpec();
     stubEntitySpecs(mockEntitySpec);
 
@@ -799,6 +800,26 @@ public class MultiEntityMappingsBuilderTest {
 
     assertNotNull(mappings, "Mappings should not be null");
     assertFalse(mappings.isEmpty(), "Should have mappings for new structured property");
+  }
+
+  @Test
+  public void testNewStructuredPropertySkipsEntityTypesUnknownToRegistry() {
+    // A property listing an entity type only a newer version registered (edited after a rollback)
+    // still gets its mapping update for the known types instead of failing as a whole.
+    when(mockEntityRegistry.getEntitySpec("entityFromNewerBuild"))
+        .thenThrow(new IllegalArgumentException("Failed to find entity with name"));
+    StructuredPropertyDefinition property = createMockStructuredProperty();
+    when(property.getEntityTypes())
+        .thenReturn(
+            new UrnArray(
+                UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"),
+                UrnUtils.getUrn("urn:li:entityType:datahub.testEntity")));
+
+    Collection<IndexMapping> mappings =
+        mappingsBuilder.getIndexMappingsWithNewStructuredProperty(
+            operationContext, UrnUtils.getUrn("urn:li:structuredProperty:test:property"), property);
+
+    assertFalse(mappings.isEmpty(), "Known entity types still get the mapping update");
   }
 
   @Test

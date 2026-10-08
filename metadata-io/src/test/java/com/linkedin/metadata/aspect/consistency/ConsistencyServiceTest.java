@@ -25,6 +25,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -215,6 +216,9 @@ public class ConsistencyServiceTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
+    // Tests not about unknown entity types run against a registry that knows every type.
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.findEntitySpec(any())).thenReturn(Optional.of(mockEntitySpec));
 
     // Create check registry with test checks
     List<ConsistencyCheck> checks =
@@ -1288,6 +1292,49 @@ public class ConsistencyServiceTest {
 
     assertEquals(orphans.size(), 1);
     assertTrue(orphans.contains(urn2));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsSkipsUnknownEntityTypes() {
+    // Index documents of an entity type only a newer version registered (read after a rollback)
+    // are reported missing by exists(), but belong to that version: they are not orphans.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn known = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Urn unknownType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(known, unknownType));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    Set<Urn> orphans = consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs);
+
+    assertEquals(orphans, Set.of(known));
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckSkipsUnknownEntityType() {
+    // exists() reports an entity type only a newer version registered as missing; the orphan check
+    // must not turn that into a delete of the newer version's index documents.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn unknownType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(unknownType)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService,
+            mockEsSystemMetadataDAO,
+            null,
+            new ConsistencyCheckRegistry(
+                List.of(
+                    new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck())),
+            fixRegistry);
+
+    assertTrue(
+        serviceWithOrphanCheck
+            .discoverIssue(mockOpContext, unknownType, "orphan-index-document")
+            .isEmpty());
   }
 
   @Test

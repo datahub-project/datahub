@@ -1,16 +1,22 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -132,6 +138,69 @@ public class EntityUtilsTest {
     var result =
         EntityUtils.toSystemAspect(opContext, opContext.getRetrieverContext(), null, false);
     assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testToSystemAspects_SkipsRowsUnknownToRegistry() {
+    String datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)";
+    EntityAspect known = aspectRow(datasetUrn, STATUS_ASPECT_NAME, "{\"removed\":false}");
+    EntityAspect unknownAspect = aspectRow(datasetUrn, "aspectFromNewerBuild", "{\"a\":1}");
+    EntityAspect unknownEntity =
+        aspectRow("urn:li:entityFromNewerBuild:abc", STATUS_ASPECT_NAME, "{\"removed\":false}");
+
+    List<SystemAspect> result =
+        EntityUtils.toSystemAspects(
+            opContext,
+            opContext.getRetrieverContext(),
+            List.of(unknownAspect, known, unknownEntity));
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getUrn().toString(), datasetUrn);
+    assertEquals(result.get(0).getAspectName(), STATUS_ASPECT_NAME);
+    assertFalse(((Status) result.get(0).getRecordTemplate()).isRemoved());
+  }
+
+  @Test
+  public void testToSystemAspects_StripsReferencesToUnknownEntityTypes() {
+    String dataset = "urn:li:dataset:(urn:li:dataPlatform:hive,db.t,PROD)";
+    EntityAspect row =
+        aspectRow(
+            "urn:li:dataProduct:dp",
+            DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+            "{\"assets\":[{\"destinationUrn\":\""
+                + dataset
+                + "\"},{\"destinationUrn\":\"urn:li:entityFromNewerBuild:x\"}]}");
+
+    List<SystemAspect> result =
+        EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(row));
+
+    DataProductProperties properties = (DataProductProperties) result.get(0).getRecordTemplate();
+    assertEquals(properties.getAssets().size(), 1);
+    assertEquals(properties.getAssets().get(0).getDestinationUrn().toString(), dataset);
+  }
+
+  @Test
+  public void testToSystemAspect_UnknownAspectIsEmpty() {
+    EntityAspect unknownAspect =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",
+            "aspectFromNewerBuild",
+            "{\"a\":1}");
+
+    assertTrue(
+        EntityUtils.toSystemAspect(opContext, opContext.getRetrieverContext(), unknownAspect)
+            .isEmpty());
+  }
+
+  private static EntityAspect aspectRow(String urn, String aspectName, String metadata) {
+    EntityAspect row = new EntityAspect();
+    row.setUrn(urn);
+    row.setAspect(aspectName);
+    row.setVersion(0L);
+    row.setMetadata(metadata);
+    row.setCreatedOn(new Timestamp(1_700_000_000_000L));
+    row.setCreatedBy("urn:li:corpuser:datahub");
+    return row;
   }
 
   @Test

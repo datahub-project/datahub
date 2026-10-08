@@ -103,6 +103,21 @@ public class InvalidEnumCheckTest {
         "hardDeleteUrns should be null for DELETE_ASPECT (uses batchItems)");
   }
 
+  /** An enum symbol written under a newer schema version is drift, not corruption. */
+  @Test
+  public void testInvalidEnumWrittenByNewerSchema_NoIssue() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:newerSchemaEnumTest");
+    EntityResponse response = createAssertionWithRawType(assertionUrn, "TYPE_FROM_NEWER_BUILD");
+    response
+        .getAspects()
+        .get(ASSERTION_INFO_ASPECT_NAME)
+        .setSystemMetadata(new com.linkedin.mxe.SystemMetadata().setSchemaVersion(1_000_000L));
+
+    List<ConsistencyIssue> issues = check.check(buildContext(), Map.of(assertionUrn, response));
+
+    assertTrue(issues.isEmpty(), "Enum values from a newer schema must not be deleted");
+  }
+
   /** Test that a valid enum value produces no issues. */
   @Test
   public void testValidEnumValue_NoIssue() {

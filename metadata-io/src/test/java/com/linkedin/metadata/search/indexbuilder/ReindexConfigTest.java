@@ -202,6 +202,73 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testNestedFieldsOnlyInCurrentMappingDoNotRequireReindex() {
+    // After a rollback the live index was built by a newer version whose mapping is a superset,
+    // e.g. extra aspects under a nested object such as _aspects. They need no reindex here.
+    Map<String, Object> target =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of("status", Map.of("type", "keyword")))));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of(
+                        "status", Map.of("type", "keyword"),
+                        "aspectFromNewerBuild", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testRemovedFieldParameterStillRequiresReindex() {
+    // Only whole field definitions missing from the target are ignored; a parameter removed from
+    // a field both have is still a change.
+    Map<String, Object> target =
+        Map.of(PROPERTIES_KEY, Map.of("existing_field", Map.of("type", "keyword")));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of("existing_field", Map.of("type", "keyword", IGNORE_ABOVE_KEY, 256)));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
   void testMappingsModification() {
     // Arrange
     Map<String, Object> currentMappings = createBasicMappings();

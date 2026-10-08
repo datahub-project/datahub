@@ -105,6 +105,31 @@ public class RollbackServiceTest {
   }
 
   @Test
+  public void testDryRunDoesNotCountRowsUnknownToRegistry() throws AuthenticationException {
+    // Rows a newer version wrote (entity type unknown here, after a rollback) are skipped by the
+    // rollback, so the response must not count them as deleted entities or reverted aspects.
+    List<AspectRowSummary> rows = new ArrayList<>(createTestAspectRows(true));
+    AspectRowSummary unknownKey = new AspectRowSummary();
+    unknownKey.setUrn("urn:li:entityFromNewerBuild:x");
+    unknownKey.setAspectName("entityFromNewerBuildKey");
+    unknownKey.setRunId(TEST_RUN_ID);
+    unknownKey.setKeyAspect(true);
+    rows.add(unknownKey);
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(rows);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, true, false, null);
+
+    assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(response.getEntitiesAffected(), 2);
+  }
+
+  @Test
   public void testRollbackIngestion_DryRun() throws AuthenticationException {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
@@ -318,6 +343,94 @@ public class RollbackServiceTest {
 
     // Verify we processed all rollback results
     assertEquals(firstRollbackResults.size() + secondRollbackResults.size(), 3);
+  }
+
+  @Test(timeOut = 60_000)
+  public void testRollbackIngestion_PagesPastRowsUnknownToRegistry()
+      throws AuthenticationException {
+    // A full page of rows this build cannot roll back stays in system metadata. Re-reading from
+    // offset 0 would return the same page forever, so the loop must page past it.
+    List<AspectRowSummary> unknownPage = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      unknownPage.add(
+          new AspectRowSummary()
+              .setUrn("urn:li:entityFromNewerBuild:e" + i)
+              .setAspectName("status")
+              .setRunId(TEST_RUN_ID)
+              .setKeyAspect(false));
+    }
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unknownPage);
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            eq(MAX_SEARCH_RESULTS),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenAnswer(
+            invocation -> new RollbackRunResult(new ArrayList<>(), 0, Collections.emptyList()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
+
+    verify(mockSystemMetadataService)
+        .findByRunId(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            eq(MAX_SEARCH_RESULTS),
+            eq(MAX_SEARCH_RESULTS));
+    assertEquals(response.getAspectsReverted(), 0);
+  }
+
+  @Test
+  public void testRollbackIngestion_MixedPageKeepsOffset() throws AuthenticationException {
+    // Known rows drop out of system metadata once rolled back, so a page that still had some
+    // known rows is re-read from the same offset.
+    List<AspectRowSummary> firstPage = createTestAspectRows(true); // 4 known rows
+    firstPage.add(
+        new AspectRowSummary()
+            .setUrn("urn:li:entityFromNewerBuild:e0")
+            .setAspectName("status")
+            .setRunId(TEST_RUN_ID)
+            .setKeyAspect(false));
+    List<AspectRowSummary> remaining = new ArrayList<>(firstPage.subList(4, 5));
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(firstPage)
+        .thenReturn(remaining);
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(firstPage.subList(0, 4)), 0, List.of()))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, List.of()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+
+    rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
+
+    verify(mockSystemMetadataService, times(2))
+        .findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS));
+    verify(mockSystemMetadataService, never())
+        .findByRunId(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            eq(MAX_SEARCH_RESULTS),
+            eq(MAX_SEARCH_RESULTS));
   }
 
   @Test
