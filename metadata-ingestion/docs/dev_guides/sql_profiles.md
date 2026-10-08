@@ -98,9 +98,19 @@ For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowf
 
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
 
+#### `limit` is not a sample, and sampling wins
+
+`profiling.limit` and `profiling.sample_size` answer the same question — how to profile a big table cheaply — with opposite trade-offs. A `limit` takes the first N rows the platform hands back: cheap, but biased by storage order, and without an `ORDER BY` not even stable between runs. A sample draws randomly: it costs more, and the statistics are valid for the whole table.
+
+The two do not compose. Sampling an already-limited table draws randomly from an arbitrary slice, which pays sampling's cost and loses the only thing it buys, so they are mutually exclusive and **sampling takes precedence**: while `use_sampling` is on, `limit` and `offset` are dropped with a warning. Turn `use_sampling` off to bound the profile by row count instead.
+
+An `offset` with no `limit` bounds nothing — it profiles every row after the offset, which costs more than profiling the whole table, not less — so it is warned about too.
+
+Only BigQuery, Dremio and Snowflake apply `limit`/`offset` at all. Elsewhere the profiler warns and profiles the full table, and the profile stays labelled `FULL_TABLE` rather than claiming a bound that was never applied.
+
 #### `rowCount` and the column statistics are measured over different things
 
-A profile whose `partitionSpec.type` is not `FULL_TABLE` — which covers both a sampled profile and a partitioned one — carries two kinds of number that do **not** come from the same set of rows:
+A profile whose `partitionSpec.type` is not `FULL_TABLE` — a sampled, limited or partitioned profile — carries two kinds of number that do **not** come from the same set of rows:
 
 | field                                                                              | measured over                                   |
 | ---------------------------------------------------------------------------------- | ----------------------------------------------- |

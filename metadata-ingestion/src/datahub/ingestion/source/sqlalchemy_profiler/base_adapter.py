@@ -330,6 +330,23 @@ class PlatformAdapter(ABC):
         return sa.func.avg(sa.column(column) * 1.0)
 
     # =========================================================================
+    # Optional Capabilities
+    # =========================================================================
+
+    def supports_limit_offset(self) -> bool:
+        """
+        Whether `setup_profiling` bounds the profiled rows by `limit`/`offset`.
+
+        `limit` is not a sample: it takes the first N rows in whatever order the
+        storage returns them. Adapters that cannot apply it leave this False, and
+        the profiler then warns and refrains from labelling the profile as limited.
+
+        Returns:
+            True if the adapter honours config.limit and config.offset
+        """
+        return False
+
+    # =========================================================================
     # Row Count Estimation
     # =========================================================================
 

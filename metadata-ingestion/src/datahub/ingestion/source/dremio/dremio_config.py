@@ -119,6 +119,12 @@ class ProfileConfig(ProfilingConfig):
         # Hidden because median causes a number of issues in Dremio.
         default=False,
     )
+    use_sampling: HiddenFromDocs[bool] = Field(
+        # Dremio has no sampling, so leaving the shared default of true would
+        # strip profiling.limit/offset (which Dremio does support) in exchange
+        # for a sample that never happens.
+        default=False,
+    )
 
 
 class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigModel):

@@ -1,7 +1,8 @@
 """Unit tests for platform adapters."""
 
+import contextlib
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Iterator
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -50,6 +51,29 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 # =============================================================================
 # SQL Assertion Helpers
 # =============================================================================
+
+
+@contextlib.contextmanager
+def mock_temp_table_reflection(adapter: Any) -> Iterator[None]:
+    """Fake reflecting a temp table while leaving plain `sa.Table` construction real.
+
+    A temp table cannot be reflected through a mock connection, but the SQL under
+    test is built from a real `sa.Table`, so only the autoloading call is faked.
+    """
+    real_table = sa.Table
+
+    def table_factory(*args: Any, **kwargs: Any) -> Any:
+        if "autoload_with" in kwargs:
+            return MagicMock()
+        return real_table(*args, **kwargs)
+
+    with (
+        patch("sqlalchemy.Table", side_effect=table_factory),
+        patch.object(
+            adapter, "_use_stored_column_names", side_effect=lambda table, _: table
+        ),
+    ):
+        yield
 
 
 def compile_expr_to_sql(expr: sa.sql.expression.ClauseElement, dialect: Dialect) -> str:
@@ -799,9 +823,13 @@ class TestSnowflakeAdapter:
         assert not result.is_sampled
         mock_create.assert_called_once()
 
-    def test_setup_profiling_with_limit_skips_sampling(self, adapter, config):
-        """When config.limit is set, skip sampling and profile directly."""
-        config.use_sampling = True
+    def test_setup_profiling_materializes_the_limit(self, adapter, config):
+        """With sampling off, a limit is materialized into a temp table.
+
+        The config drops limit/offset whenever sampling is on, so this is the
+        only combination an adapter can see.
+        """
+        config.use_sampling = False
         config.limit = 100
         adapter.config = config
 
@@ -810,13 +838,59 @@ class TestSnowflakeAdapter:
         )
         mock_conn = MagicMock()
 
-        with patch.object(
-            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
-        ) as mock_create:
+        with (
+            patch.object(adapter, "_create_sampled_temp_table") as mock_sample,
+            patch.object(
+                adapter, "_create_fixed_size_sampled_temp_table"
+            ) as mock_fixed_size,
+            patch.object(adapter, "_get_row_count_from_metadata") as mock_row_count,
+            mock_temp_table_reflection(adapter),
+        ):
             result = adapter.setup_profiling(context, mock_conn)
 
+        mock_conn.execute.assert_called_once()
+        assert "LIMIT 100" in str(mock_conn.execute.call_args[0][0])
+        assert result.temp_table is not None
+        # A limit is not a sample.
         assert not result.is_sampled
-        mock_create.assert_called_once()
+        mock_sample.assert_not_called()
+        mock_fixed_size.assert_not_called()
+        # A limit needs no denominator, so no INFORMATION_SCHEMA round-trip.
+        mock_row_count.assert_not_called()
+
+    def test_supports_limit_offset(self, adapter):
+        assert adapter.supports_limit_offset()
+
+    @pytest.mark.parametrize(
+        "limit,offset,expected_clause",
+        [
+            (100, None, "LIMIT 100"),
+            (100, 25, "LIMIT 100 OFFSET 25"),
+            # Snowflake rejects a bare OFFSET; LIMIT NULL means "no limit".
+            (None, 25, "LIMIT NULL OFFSET 25"),
+        ],
+    )
+    def test_limited_temp_table_sql(
+        self, adapter, config, limit, offset, expected_clause
+    ):
+        """LIMIT/OFFSET is materialized into a temp table via CTAS."""
+        config.limit = limit
+        config.offset = offset
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with mock_temp_table_reflection(adapter):
+            adapter._create_limited_temp_table(context, mock_conn)
+
+        executed_sql = " ".join(str(mock_conn.execute.call_args[0][0]).split())
+        assert "CREATE OR REPLACE TEMPORARY TABLE dh_limit_" in executed_sql
+        assert '"MY_SCHEMA"."MY_TABLE"' in executed_sql
+        assert expected_clause in executed_sql
+        assert "TABLESAMPLE" not in executed_sql
 
     def test_setup_profiling_uses_context_row_count(self, adapter, config):
         """When context.row_count is pre-populated, skip INFORMATION_SCHEMA query."""
@@ -866,6 +940,20 @@ class TestSnowflakeAdapter:
         mock_conn = MagicMock()
 
         with pytest.raises(AssertionError, match="custom_sql is not supported"):
+            adapter.setup_profiling(context, mock_conn)
+
+    def test_setup_profiling_rejects_limit_with_sampling(self, adapter, config):
+        """The config nulls limit/offset when sampling is on; both set is a bug."""
+        config.use_sampling = True
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with pytest.raises(AssertionError, match="sampling enabled"):
             adapter.setup_profiling(context, mock_conn)
 
     # =========================================================================
@@ -1169,6 +1257,25 @@ class TestBigQueryAdapter:
 
             # The pooled raw connection must be returned to the pool.
             mock_raw_conn.close.assert_called_once()
+
+    def test_supports_limit_offset(self, adapter):
+        assert adapter.supports_limit_offset()
+
+    def test_setup_profiling_rejects_sampling_with_limit(self, adapter, config):
+        """The config nulls limit/offset when sampling is on; both set is a bug."""
+        config.use_sampling = True
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with (
+            patch.object(adapter, "_create_temp_table_for_query", return_value=context),
+            pytest.raises(AssertionError, match="limit/offset set"),
+        ):
+            adapter.setup_profiling(context, MagicMock())
 
     def test_create_temp_table_includes_limit_and_offset(
         self, adapter, mock_bigquery_engine, config
@@ -1743,41 +1850,9 @@ class TestClickHouseAdapter:
         assert result.sql_table is not None
         assert any("ignored" in w.title.lower() for w in report.warnings)
 
-    def test_setup_profiling_warns_on_limit_or_offset(self, adapter, report, config):
-        """limit/offset are unsupported on the ClickHouse SQLAlchemy path; warn and proceed."""
-        config.limit = 500
-        adapter.config = config
-        context = ProfilingContext(
-            schema="test_schema",
-            table="test_table",
-            pretty_name="test_table",
-        )
-        with patch("sqlalchemy.Table") as mock_table_class:
-            mock_table_class.return_value = MagicMock()
-            mock_conn = MagicMock()
-            result = adapter.setup_profiling(context, mock_conn)
-
-        assert result.sql_table is not None
-        assert any("ignored" in w.title.lower() for w in report.warnings)
-
-    def test_setup_profiling_warns_on_offset_without_limit(
-        self, adapter, report, config
-    ):
-        """offset alone (no limit) is also unsupported; warn and proceed."""
-        config.offset = 100
-        adapter.config = config
-        context = ProfilingContext(
-            schema="test_schema",
-            table="test_table",
-            pretty_name="test_table",
-        )
-        with patch("sqlalchemy.Table") as mock_table_class:
-            mock_table_class.return_value = MagicMock()
-            mock_conn = MagicMock()
-            result = adapter.setup_profiling(context, mock_conn)
-
-        assert result.sql_table is not None
-        assert any("ignored" in w.title.lower() for w in report.warnings)
+    def test_supports_limit_offset_is_false(self, adapter):
+        # limit/offset is reported centrally by the profiler, not here.
+        assert not adapter.supports_limit_offset()
 
     def test_setup_profiling_no_warning_for_normal_table(self, adapter, report):
         """Normal full-table profiling produces no warning."""

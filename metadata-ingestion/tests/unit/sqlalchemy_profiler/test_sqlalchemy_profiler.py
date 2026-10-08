@@ -1,5 +1,6 @@
 """Unit tests for SQLAlchemyProfiler."""
 
+import json
 import logging
 import sqlite3
 from datetime import date, datetime
@@ -1604,3 +1605,101 @@ class TestSampledPartitionSpec:
 
         assert spec.type == PartitionTypeClass.PARTITION
         assert spec.partition == "20230906 SAMPLE"
+
+
+class TestLimitOffsetContract:
+    """A profile is labelled as limited only when the adapter applied the limit.
+
+    Sampling is off throughout: the config drops limit/offset whenever it is on.
+    """
+
+    @staticmethod
+    def _profile(
+        profiler: SQLAlchemyProfiler,
+        sqlite_engine: sa.engine.Engine,
+        supports_limit_offset: bool,
+    ) -> Optional[DatasetProfileClass]:
+        request = ProfilerRequest(
+            pretty_name="test.test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+        context = ProfilingContext(
+            schema=None, table="test_table", pretty_name="test.test_table"
+        )
+        context.sql_table = sa.Table(
+            "test_table", sa.MetaData(), sa.Column("id", sa.Integer)
+        )
+
+        adapter = MagicMock()
+        adapter.supports_limit_offset.return_value = supports_limit_offset
+        adapter.setup_profiling.return_value = context
+
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            # Stop after the table-level stage; the partition spec is set by then.
+            patch.object(profiler, "_profile_row_count", return_value=0),
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter",
+                return_value=adapter,
+            ),
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            _, profile = profiler._generate_profile_from_request(MagicMock(), request)
+        return profile
+
+    @staticmethod
+    def _limit_warnings(mock_report: Any) -> List[Any]:
+        return [
+            call
+            for call in mock_report.warning.call_args_list
+            if call.kwargs["title"]
+            == "Profiling: limit/offset not supported on this platform"
+        ]
+
+    def test_unsupported_limit_warns_and_is_not_labelled(
+        self, profiler, profiler_config, sqlite_engine, mock_report
+    ):
+        profiler_config.use_sampling = False
+        profiler_config.limit = 100
+
+        profile = self._profile(profiler, sqlite_engine, supports_limit_offset=False)
+
+        assert profile is not None
+        assert profile.partitionSpec is not None
+        # Not labelled as a bounded query: nothing bounded it.
+        assert profile.partitionSpec.type == PartitionTypeClass.FULL_TABLE
+        assert len(self._limit_warnings(mock_report)) == 1
+
+    def test_unsupported_limit_logs_once_across_tables(
+        self, profiler, profiler_config, sqlite_engine, mock_report
+    ):
+        profiler_config.use_sampling = False
+        profiler_config.limit = 100
+
+        self._profile(profiler, sqlite_engine, supports_limit_offset=False)
+        self._profile(profiler, sqlite_engine, supports_limit_offset=False)
+
+        assert [call.kwargs["log"] for call in self._limit_warnings(mock_report)] == [
+            True,
+            False,
+        ]
+
+    @pytest.mark.parametrize("limit,offset", [(100, None), (100, 25), (None, 25)])
+    def test_supported_limit_is_labelled_as_a_bounded_query(
+        self, profiler, profiler_config, sqlite_engine, mock_report, limit, offset
+    ):
+        profiler_config.use_sampling = False
+        profiler_config.limit = limit
+        profiler_config.offset = offset
+
+        profile = self._profile(profiler, sqlite_engine, supports_limit_offset=True)
+
+        assert profile is not None
+        assert profile.partitionSpec is not None
+        assert profile.partitionSpec.type == PartitionTypeClass.QUERY
+        assert json.loads(profile.partitionSpec.partition) == {
+            "limit": limit,
+            "offset": offset,
+        }
+        assert self._limit_warnings(mock_report) == []

@@ -49,13 +49,20 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         default_factory=OperationConfig,
         description="Experimental feature. To specify operation configs.",
     )
-    limit: Optional[int] = Field(
+    limit: Annotated[
+        Optional[int], SupportedSources(["bigquery", "dremio", "snowflake"])
+    ] = Field(
         default=None,
-        description="Max number of documents to profile. By default, profiles all documents.",
+        description="Max number of rows to profile, taken in storage order — not a random "
+        "sample, use `sample_size` for that. Ignored when `use_sampling` is enabled. "
+        "Only BigQuery, Dremio and Snowflake support this. By default, profiles all rows.",
     )
-    offset: Optional[int] = Field(
+    offset: Annotated[
+        Optional[int], SupportedSources(["bigquery", "dremio", "snowflake"])
+    ] = Field(
         default=None,
-        description="Offset in documents to profile. By default, uses no offset.",
+        description="Number of rows to skip before profiling. Ignored when `use_sampling` "
+        "is enabled. Only BigQuery, Dremio and Snowflake support this. By default, uses no offset.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -269,13 +276,17 @@ class ProfilingConfig(ProfilingBaseConfig):
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
-    use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
+    use_sampling: Annotated[
+        bool, SupportedSources(["bigquery", "excel", "snowflake"])
+    ] = Field(
         default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
+        description="Whether to profile column level stats on sample of table. Only BigQuery, Excel and Snowflake support this. "
         "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
     )
 
-    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake"])] = Field(
+    sample_size: Annotated[
+        int, SupportedSources(["bigquery", "excel", "kafka", "snowflake"])
+    ] = Field(
         default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",
@@ -308,6 +319,40 @@ class ProfilingConfig(ProfilingBaseConfig):
         "Lower values prevent recursion errors but may truncate deeply nested data. "
         "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
     )
+
+    @model_validator(mode="after")
+    def drop_limit_offset_when_sampling(self) -> "ProfilingConfig":
+        # limit/offset and sampling are two answers to the same question -- how to
+        # profile a big table cheaply. limit/offset is cheap and biased (storage
+        # order, and without an ORDER BY not even stable between runs); sampling
+        # costs more and is statistically valid. Composing them samples randomly
+        # from an arbitrary subset, which pays for sampling and loses the only
+        # thing it buys, so they are mutually exclusive and sampling wins.
+        # Nulling them here means no adapter has to know this rule. Warn rather
+        # than raise: a recipe carrying a leftover limit should keep profiling.
+        if self.use_sampling and (self.limit is not None or self.offset is not None):
+            logger.warning(
+                "profiling.limit and profiling.offset are ignored while "
+                "profiling.use_sampling is enabled: they bound a profile to an "
+                "arbitrary slice of the table, which defeats the random sample. "
+                "Set use_sampling to false to apply them instead, on a source "
+                "that supports them."
+            )
+            self.limit = None
+            self.offset = None
+        return self
+
+    @model_validator(mode="after")
+    def warn_if_offset_without_limit(self) -> "ProfilingConfig":
+        # An offset with no limit profiles the whole table minus its first rows,
+        # which costs more than leaving it unset rather than less.
+        if self.offset is not None and self.limit is None:
+            logger.warning(
+                "profiling.offset is set without profiling.limit, so it bounds "
+                "nothing: every row after the offset is profiled, which costs "
+                "more than profiling the whole table, not less."
+            )
+        return self
 
     @model_validator(mode="after")
     def warn_if_flatten_without_query_combiner(self) -> "ProfilingConfig":

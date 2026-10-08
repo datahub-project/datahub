@@ -297,6 +297,8 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
+        # Same, for a limit/offset the platform adapter cannot apply.
+        self._limit_unsupported_warning_logged = False
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -1509,6 +1511,19 @@ class SQLAlchemyProfiler:
         # Get platform-specific adapter
         adapter = self._thread_adapter(platform)
 
+        limit_requested = bool(self.config.limit or self.config.offset)
+        limit_applied = limit_requested and adapter.supports_limit_offset()
+        if limit_requested and not limit_applied:
+            self.report.warning(
+                title="Profiling: limit/offset not supported on this platform",
+                message="This platform's profiler cannot bound the rows it reads, "
+                "so the whole table is profiled and the profile is not labelled "
+                "as limited.",
+                context=f"Asset: {pretty_name}; platform={platform}",
+                log=not self._limit_unsupported_warning_logged,
+            )
+            self._limit_unsupported_warning_logged = True
+
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
@@ -1601,7 +1616,7 @@ class SQLAlchemyProfiler:
                     # Handle partition spec
                     if partition:
                         profile.partitionSpec = PartitionSpecClass(partition=partition)
-                    elif self.config.limit:
+                    elif limit_applied:
                         profile.partitionSpec = PartitionSpecClass(
                             type=PartitionTypeClass.QUERY,
                             partition=json.dumps(
