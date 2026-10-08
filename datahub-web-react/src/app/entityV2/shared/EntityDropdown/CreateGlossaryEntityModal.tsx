@@ -56,7 +56,6 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
-    // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     isCloning?: boolean;
 }
