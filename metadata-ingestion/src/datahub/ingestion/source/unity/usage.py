@@ -192,6 +192,19 @@ class UnityCatalogUsageExtractor:
         return self._use_system_tables_join() and query.has_system_table_lineage
 
     @staticmethod
+    def _is_system_tables_only(query: Query) -> bool:
+        names = [*query.source_table_full_names, *query.target_table_full_names]
+        if not names:
+            return False
+        for name in names:
+            parts = split_databricks_identifier(name)
+            if parts is None or len(parts) != 3:
+                return False
+            if not _is_system_table(parts[0], parts[1]):
+                return False
+        return True
+
+    @staticmethod
     def _statement_type_label(query: Query) -> str:
         if query.statement_type is None:
             return "unknown"
@@ -396,8 +409,22 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
-            # System-table lineage was present but produced no resolvable
-            # dataset URNs. For redacted queries we can't run sqlglot either,
+            # Lineage that names only system / information_schema tables this run
+            # did not ingest is a metadata read: there is nothing to attribute usage
+            # to, and sqlglot would find the same tables.
+            if self._is_system_tables_only(query):
+                self.report.num_queries_skipped_system_tables_only += 1
+                logger.debug(
+                    "Usage query skipped: system-table lineage names only system "
+                    "tables (statement_id=%s lineage_sources=%s lineage_targets=%s)",
+                    query.query_id,
+                    query.source_table_full_names,
+                    query.target_table_full_names,
+                )
+                return
+
+            # System-table lineage was present but produced no usable dataset
+            # URNs. For redacted queries we can't run sqlglot either,
             # so drop silently — bumping num_queries_preparsed_fallback_to_sqlglot
             # would produce a "parsed with sqlglot" warning that isn't true.
             if query.is_query_text_redacted:

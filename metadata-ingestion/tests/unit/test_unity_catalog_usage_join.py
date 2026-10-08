@@ -2949,6 +2949,112 @@ def test_full_name_to_urn_keeps_ingested_system_table() -> None:
     assert ex.report.num_lineage_tables_system_skipped == 0
 
 
+def _system_tables_extractor() -> UnityCatalogUsageExtractor:
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    return _extractor(config, proxy)
+
+
+def test_lineage_naming_only_tables_not_ingested_stays_preparsed() -> None:
+    ex = _system_tables_extractor()
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "SELECT * FROM other_catalog.finance.invoices",
+            "s1",
+            sources=["other_catalog.finance.invoices"],
+        ),
+        default_db=None,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    preparsed = aggregator.add_preparsed_query.call_args.args[0]
+    assert preparsed.upstreams == [_NOT_INGESTED_URN]
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+
+
+def test_lineage_naming_only_system_tables_is_skipped() -> None:
+    ex = _system_tables_extractor()
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "SELECT * FROM main.information_schema.columns",
+            "s1",
+            sources=["main.information_schema.columns", "system.access.audit"],
+        ),
+        default_db=None,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_skipped_system_tables_only == 1
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+
+
+def test_lineage_with_ingested_system_table_stays_preparsed() -> None:
+    ex = _system_tables_extractor()
+    _register_tables(ex, ["system.access.audit"])
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "SELECT 1",
+            "s1",
+            sources=["system.access.audit", "main.information_schema.columns"],
+        ),
+        default_db=None,
+    )
+
+    preparsed = aggregator.add_preparsed_query.call_args.args[0]
+    assert preparsed.upstreams == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,system.access.audit,PROD)"
+    ]
+    assert ex.report.num_queries_skipped_system_tables_only == 0
+
+
+def test_lineage_with_system_and_malformed_names_falls_back_to_sqlglot() -> None:
+    ex = _system_tables_extractor()
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "SELECT 1", "s1", sources=["system.access.audit", "not_a_valid_name"]
+        ),
+        default_db=None,
+    )
+
+    assert aggregator.add_observed_query.call_count == 1
+    assert ex.report.num_queries_skipped_system_tables_only == 0
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 1
+
+
+def test_redacted_query_naming_tables_not_ingested_stays_preparsed() -> None:
+    ex = _system_tables_extractor()
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "<REDACTED>", "s1", sources=["other_catalog.finance.invoices"]
+        ),
+        default_db=None,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    preparsed = aggregator.add_preparsed_query.call_args.args[0]
+    assert preparsed.redacted_query_text
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+
+
 def test_preparsed_fingerprint_falls_back_to_statement_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
