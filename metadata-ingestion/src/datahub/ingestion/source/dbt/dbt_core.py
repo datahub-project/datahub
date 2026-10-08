@@ -217,6 +217,18 @@ class DBTCoreConfig(DBTCommonConfig):
         return self
 
 
+def _artifact_directory(path: str) -> str:
+    """Directory key used to pair run_results files with a manifest.
+
+    Local paths are normalised so `./dbt/a` and `dbt/a` pair; object-store
+    URIs are left alone, since normpath would mangle the scheme.
+    """
+    directory = os.path.dirname(path)
+    if "://" in path:
+        return directory
+    return os.path.normpath(directory)
+
+
 def get_columns(
     dbt_name: str,
     catalog_node: Optional[dict],
@@ -1119,7 +1131,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # within a directory.
         grouped: Dict[str, List[str]] = {}
         for path in paths:
-            grouped.setdefault(os.path.dirname(path), []).append(path)
+            grouped.setdefault(_artifact_directory(path), []).append(path)
         return grouped
 
     def load_projects(self) -> Iterator[DBTProject]:
@@ -1165,7 +1177,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 )
                 # A run_results file belongs to the project whose manifest
                 # shares its directory, dbt's own target/ layout.
-                run_results = run_results_by_dir.pop(os.path.dirname(manifest_path), [])
+                run_results = run_results_by_dir.pop(
+                    _artifact_directory(manifest_path), []
+                )
             else:
                 catalog_path = self.config.catalog_path
                 sources_path = self.config.sources_path
@@ -1217,7 +1231,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     multi_project=multi_project,
                 )
                 if multi_project:
-                    if project.project_name is None:
+                    if not project.project_name:
                         raise ValueError(
                             "manifest has no metadata.project_name, which names this "
                             "project's platform instance; multi-project ingestion needs "

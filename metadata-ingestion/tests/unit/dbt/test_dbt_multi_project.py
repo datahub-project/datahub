@@ -429,8 +429,8 @@ def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> 
 def test_manifest_path_is_a_project_field_not_a_custom_property(
     tmp_path: pathlib.Path, glob_mode: bool
 ) -> None:
-    """manifest_path is internal provenance, used to name the originating project in
-    a collision report. It must never reach customProperties: it would publish
+    """manifest_path is internal provenance, names the other manifest in the
+    duplicate-project_name failure. It must never reach customProperties: it would publish
     bucket names and prefix layout to every catalog user, and a prefix carrying a
     run id or timestamp would churn a new datasetProperties version every run."""
     _write_project(
@@ -605,7 +605,7 @@ def test_glob_attributes_catalog_generated_at_per_project(
 ) -> None:
     """catalog_generated_at used to live on the report - one slot, so under fan-out
     the last-loaded project's timestamp silently applied to every node's dataset
-    profile. It must now be attributed per-node to that node's own project."""
+    profile. It must now be attributed per project."""
     _write_project(
         tmp_path,
         "project_a",
@@ -655,7 +655,7 @@ def test_glob_query_timestamps_come_from_each_projects_own_manifest(
     timestamps = {}
     for project in _load_projects(source):
         source._current_project = project
-        timestamps[project.project_name] = source._get_query_timestamp(project.nodes[0])
+        timestamps[project.project_name] = source._get_query_timestamp()
     source._current_project = None
     ts_a = timestamps["project_a"]
     ts_b = timestamps["project_b"]
@@ -684,10 +684,10 @@ def test_query_timestamp_falls_back_to_report_manifest_info(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
-    node = _load_nodes(source)[0]
+    _load_nodes(source)
     source._current_project = _project(manifest_generated_at=None)
 
-    assert source._get_query_timestamp(node) == datetime_to_ts_millis(
+    assert source._get_query_timestamp() == datetime_to_ts_millis(
         dateutil.parser.parse("2018-07-08T09:10:11.000000Z")
     )
     assert source.report.query_timestamps_fallback_used is False
@@ -715,7 +715,7 @@ def test_unparseable_manifest_timestamps_share_one_fallback(
     timestamps: Set[int] = set()
     for project in _load_projects(source):
         source._current_project = project
-        timestamps.update(source._get_query_timestamp(n) for n in project.nodes)
+        timestamps.update(source._get_query_timestamp() for _ in project.nodes)
     source._current_project = None
 
     assert len(timestamps) == 1
@@ -755,6 +755,29 @@ def test_corrupt_manifest_is_a_failure_and_other_projects_still_load(
     assert any(
         broken_manifest_path in entry for entry in source.report.failures[0].context
     )
+
+
+def test_corrupt_run_results_fails_only_its_project(tmp_path: pathlib.Path) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "b"}]
+    )
+    _write_run_results(
+        tmp_path / "project_a" / "run_results.json", "model.project_a.orders", "inv-a"
+    )
+    (tmp_path / "project_b" / "run_results.json").write_text("{not json")
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        run_results_paths=[f"{tmp_path}/*/run_results.json"],
+    )
+    projects = _load_projects(source)
+
+    assert [p.project_name for p in projects] == ["project_a"]
+    assert source.report.manifests_failed == 1
+    assert [f.title for f in source.report.failures] == ["Failed to load dbt project"]
 
 
 def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
@@ -837,7 +860,7 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
     Every other fan-out test uses local paths. Here glob expansion returns two
     object-store manifests and read_file_as_bytes serves bytes by URI, pinning that
     sibling artifacts are derived as URIs beside each manifest, that the prefetch
-    pool rather than the main thread performs every read (_load_artifact_json
+    pool rather than the main thread performs every read (ArtifactReader.load_json
     silently falls back to a direct read for a URI that was not prefetched, so a
     node-set comparison alone cannot tell), and that a missing-key error code is
     reported as definite absence rather than an ambiguous failure.
@@ -1086,9 +1109,9 @@ def _semantic_model(
     """One manifest semantic_models entry.
 
     A dbt semantic model's node_relation is the relation of the model it wraps, so
-    database/schema come from that model - which is why a semantic model shares a
-    get_db_fqn() with its own project's model when dbt's naming convention gives
-    them the same name.
+    database/schema come from that model - so this helper writes a semantic model wrapping
+    the named model. It gets its own dataset urn (get_db_fqn() returns its
+    unique_id).
     """
     return {
         "name": name,
@@ -1108,7 +1131,7 @@ def test_artifact_read_concurrency_matches_sequential_results_off_the_main_threa
 ) -> None:
     """Prefetch must not change what is loaded, and it must actually do the reading.
 
-    _load_artifact_json falls back to a direct read for any URI that was not
+    ArtifactReader.load_json falls back to a direct read for any URI that was not
     prefetched, so a prefetch that silently served nothing would still produce
     identical nodes. The thread check closes that hole: with prefetch active no
     artifact - manifest, sibling or run_results - may be read on the main thread.
@@ -1460,6 +1483,34 @@ def test_run_results_match_the_project_in_their_directory(
     ]
     assert len(stray) == 1
     assert any("stray" in c for c in stray[0].context)
+
+
+def test_run_results_pair_with_manifests_despite_dot_slash_prefix(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`./dbt/a` and `dbt/a` are the same directory and must pair."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    _write_run_results(
+        tmp_path / "project_a" / "run_results.json", "model.project_a.orders", "inv-a"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    source = _make_source(
+        manifest_path="./*/manifest.json",
+        run_results_paths=["*/run_results.json"],
+    )
+    projects = _load_projects(source)
+
+    assert [perf.run_id for perf in projects[0].nodes[0].model_performances] == [
+        "inv-a"
+    ]
+    assert not [
+        w
+        for w in source.report.warnings
+        if w.title == "run_results files matched no project"
+    ]
 
 
 def test_a_manifest_without_project_name_is_a_failure_for_that_project(

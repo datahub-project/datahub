@@ -2072,7 +2072,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # AutoIncrementalLineageProcessor on top of that causes double-processing.
         return [AutoIncrementalLineageProcessor]
 
-    def _get_query_timestamp(self, node: DBTNode) -> int:
+    def _get_query_timestamp(self) -> int:
         """Timestamp for Query entities, taken from the current project's manifest.
 
         Per-project rather than per-run: under a globbed manifest_path each project has
@@ -3645,8 +3645,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             queries = queries[:max_queries]
 
-        # Timestamp from this node's own manifest, cached for reproducibility
-        query_timestamp = self._get_query_timestamp(node)
+        # Timestamp from the current project's manifest, cached for reproducibility
+        query_timestamp = self._get_query_timestamp()
 
         seen_urns: Dict[str, str] = {}
 
