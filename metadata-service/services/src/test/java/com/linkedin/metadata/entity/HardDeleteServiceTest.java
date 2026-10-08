@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -13,7 +12,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -21,10 +19,8 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RelatedAspectArray;
@@ -58,19 +54,9 @@ public class HardDeleteServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.other,PROD)");
   private static final DeleteCeiling CAPTURED =
       new DeleteCeiling(Map.of("datasetKey", 1L, "datasetProperties", 3L), 7L);
-  private static final DeleteCeiling GIVEN =
-      new DeleteCeiling(Map.of("datasetKey", 1L, "datasetProperties", 2L), 7L);
   private static final List<String> ASPECTS = List.of("datasetProfile");
   private static final long START = 10L;
   private static final long END = 20L;
-  private static final List<RelatedEntities> REFERRERS =
-      List.of(
-          new RelatedEntities(
-              "DownstreamOf",
-              OTHER.toString(),
-              URN.toString(),
-              RelationshipDirection.INCOMING,
-              null));
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -94,9 +80,6 @@ public class HardDeleteServiceTest {
         .thenReturn(keyDeleted(URN, 5));
     when(entityService.deleteUrn(any(), eq(URN))).thenReturn(keyDeleted(URN, 6));
     when(deleteEntityService.deleteReferencesTo(any(), eq(URN), anyBoolean()))
-        .thenReturn(referencesDeleted);
-    when(deleteEntityService.getGraphReferrers(any(), eq(URN))).thenReturn(REFERRERS);
-    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), anyList()))
         .thenReturn(referencesDeleted);
     when(timeseriesAspectService.deleteAspectValues(any(), anyString(), anyString(), any()))
         .thenReturn(new DeleteAspectValuesResult().setNumDocsDeleted(4L));
@@ -202,7 +185,6 @@ public class HardDeleteServiceTest {
     verifyNoInteractions(deleteEntityService);
     references.run();
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
-    verifyGraphReferrersNotReadAhead();
   }
 
   @Test
@@ -211,7 +193,6 @@ public class HardDeleteServiceTest {
 
     verify(entityService).deleteUrn(any(), eq(URN));
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
-    verifyGraphReferrersNotReadAhead();
   }
 
   @Test
@@ -244,7 +225,6 @@ public class HardDeleteServiceTest {
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(URN, CAPTURED));
     verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
-    verifyGraphReferrersNotReadAhead();
     assertEquals(ranBy, List.of("caller"));
   }
 
@@ -368,7 +348,6 @@ public class HardDeleteServiceTest {
   public void deleteReferencesWithoutDispatcherRunsTodaysCode() {
     assertSame(service(true, null).deleteReferences(opContext, URN), referencesDeleted);
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
-    verifyGraphReferrersNotReadAhead();
   }
 
   @Test
@@ -412,120 +391,6 @@ public class HardDeleteServiceTest {
     verifyNoInteractions(deleteEntityService);
   }
 
-  // ---- the overloads that take versions: never offered
-
-  /** Bounded by the versions given, though the entity has other versions now. */
-  @Test
-  public void deleteEntityWithVersionsAndTheFlagOnIsBoundedByThemAndNeverOffered() {
-    assertTrue(service(true, dispatcher).deleteEntity(opContext, URN, GIVEN));
-
-    verify(entityService).deleteUrn(any(), eq(URN), eq(GIVEN));
-    verify(entityService, never()).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    verifyNoInteractions(dispatcher);
-  }
-
-  @Test
-  public void deleteEntityWithVersionsAndTheFlagOffIsUnbounded() {
-    assertTrue(service(false, dispatcher).deleteEntity(opContext, URN, GIVEN));
-
-    verify(entityService).deleteUrn(any(), eq(URN));
-    verify(entityService, never()).deleteUrn(any(), any(), any(DeleteCeiling.class));
-    verifyNoInteractions(dispatcher);
-  }
-
-  @Test
-  public void deleteEntityWithVersionsReportsPartialWithoutThrowing() {
-    when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
-        .thenReturn(aspectDeleted(URN));
-
-    assertFalse(service(true, null).deleteEntity(opContext, URN, GIVEN));
-  }
-
-  /** A repeat after the entity is gone deletes nothing again. */
-  @Test
-  public void deleteEntityWithVersionsOfAGoneEntityDeletesNothing() {
-    when(entityService.captureDeleteCeiling(any(), eq(URN))).thenReturn(Optional.empty());
-
-    assertTrue(service(true, null).deleteEntity(opContext, URN, GIVEN));
-
-    verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
-  }
-
-  /**
-   * The entity is deleted, then the graph referrers the caller read before it are cleaned; the
-   * graph is not read again (once the key delete is processed it has no edges of the entity).
-   */
-  @Test
-  public void deleteEntityThenReferencesWithVersionsDeletesThenCleansTheGivenReferrers() {
-    assertTrue(
-        service(true, dispatcher).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
-
-    final InOrder inOrder = inOrder(deleteEntityService, entityService);
-    inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(GIVEN));
-    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
-    verify(deleteEntityService, never()).getGraphReferrers(any(), any());
-    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
-    verifyNoInteractions(dispatcher);
-  }
-
-  @Test
-  public void deleteEntityThenReferencesWithVersionsAndTheFlagOffCleansTheGivenReferrersToo() {
-    assertTrue(service(false, null).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
-
-    final InOrder inOrder = inOrder(deleteEntityService, entityService);
-    inOrder.verify(entityService).deleteUrn(any(), eq(URN));
-    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
-  }
-
-  /** PARTIAL: the entity stays, nothing is cleaned. */
-  @Test
-  public void deleteEntityThenReferencesWithVersionsPartialSkipsTheReferences() {
-    when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
-        .thenReturn(aspectDeleted(URN));
-
-    assertFalse(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
-
-    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
-    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
-  }
-
-  /**
-   * Run again once the entity is gone (the first run failed after its delete): nothing is deleted
-   * again and the referrers read before the first delete are still cleaned.
-   */
-  @Test
-  public void deleteEntityThenReferencesWithVersionsOfAGoneEntityCleansTheGivenReferrers() {
-    when(entityService.captureDeleteCeiling(any(), eq(URN))).thenReturn(Optional.empty());
-
-    assertTrue(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
-
-    verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
-  }
-
-  @Test
-  public void deleteEntityAndTimeseriesWithVersionsDeletesTheWindow() {
-    assertTrue(
-        service(true, dispatcher)
-            .deleteEntityAndTimeseries(opContext, URN, GIVEN, ASPECTS, START, END));
-
-    verify(entityService).deleteUrn(any(), eq(URN), eq(GIVEN));
-    verify(timeseriesAspectService)
-        .deleteAspectValues(any(), eq("dataset"), eq("datasetProfile"), eq(windowFilter()));
-    verifyNoInteractions(dispatcher);
-  }
-
-  @Test
-  public void deleteEntityAndTimeseriesWithVersionsPartialSkipsTheTimeseries() {
-    when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
-        .thenReturn(aspectDeleted(URN));
-
-    assertFalse(
-        service(true, null).deleteEntityAndTimeseries(opContext, URN, GIVEN, ASPECTS, START, END));
-
-    verifyNoInteractions(timeseriesAspectService);
-  }
-
   private HardDeleteService service(
       final boolean reliableHardDelete, final HardDeleteDispatcher hardDeleteDispatcher) {
     return new HardDeleteService(
@@ -534,12 +399,6 @@ public class HardDeleteServiceTest {
         timeseriesAspectService,
         new ReliableHardDelete(entityService, reliableHardDelete),
         hardDeleteDispatcher);
-  }
-
-  /** Today's cleanup: the graph is read when the cleanup runs, not before the delete. */
-  private void verifyGraphReferrersNotReadAhead() {
-    verify(deleteEntityService, never()).getGraphReferrers(any(), any());
-    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
   }
 
   private void verifyNoDelete() {

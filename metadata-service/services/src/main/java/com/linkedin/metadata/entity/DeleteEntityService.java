@@ -22,7 +22,6 @@ import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
@@ -137,68 +136,6 @@ public class DeleteEntityService {
    */
   public DeleteReferencesResponse deleteReferencesTo(
       @Nonnull OperationContext opContext, final Urn urn, final boolean dryRun) {
-    return deleteReferencesTo(opContext, urn, dryRun, null);
-  }
-
-  /**
-   * {@link #deleteReferencesTo(OperationContext, Urn, boolean)}, not a dry run, with the graph
-   * references removed from {@code graphReferrers} instead of the graph as it is now. Every other
-   * reference is found and removed as there.
-   *
-   * @param graphReferrers what {@link #getGraphReferrers(OperationContext, Urn)} read, before the
-   *     entity was deleted
-   */
-  public DeleteReferencesResponse deleteReferencesTo(
-      @Nonnull OperationContext opContext,
-      final Urn urn,
-      @Nonnull final List<RelatedEntities> graphReferrers) {
-    return deleteReferencesTo(opContext, urn, false, graphReferrers);
-  }
-
-  /**
-   * The entities holding a graph reference to {@code urn}, with the relationship of each: what
-   * {@link #deleteReferencesTo(OperationContext, Urn, boolean)} visits in the graph, every page
-   * read now. Reads only.
-   *
-   * <p>Once the delete of the entity's key is processed, the graph no longer has these edges; a
-   * caller that deletes the entity and then its references reads them first and passes them to
-   * {@link #deleteReferencesTo(OperationContext, Urn, List)}.
-   *
-   * <p>Each item keeps only what removing the reference needs: the referring urn and the
-   * relationship name (the deleted urn is one shared string), roughly 200-300 bytes each, so
-   * 100,000 referrers hold about 25 MB.
-   */
-  @Nonnull
-  public List<RelatedEntities> getGraphReferrers(
-      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
-    final String deletedUrn = urn.toString();
-    final List<RelatedEntities> referrers = new ArrayList<>();
-    String scrollId = null;
-    do {
-      final RelatedEntitiesScrollResult page = scrollGraphReferrers(opContext, urn, scrollId);
-      page.getEntities()
-          .forEach(
-              referrer ->
-                  referrers.add(
-                      new RelatedEntities(
-                          referrer.getRelationshipType(),
-                          referrer.getUrn(),
-                          deletedUrn,
-                          RelationshipDirection.INCOMING,
-                          null)));
-      scrollId = page.getScrollId();
-    } while (scrollId != null);
-    return referrers;
-  }
-
-  /**
-   * @param graphReferrers the graph references to remove; null reads them from the graph
-   */
-  private DeleteReferencesResponse deleteReferencesTo(
-      @Nonnull OperationContext opContext,
-      final Urn urn,
-      final boolean dryRun,
-      @Nullable final List<RelatedEntities> graphReferrers) {
     // TODO: update DeleteReferencesResponse to have searchAspects and provide more helpful comment
     // in CLI
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
@@ -218,14 +155,20 @@ public class DeleteEntityService {
 
       // Phase 3: Delete graph-based references (scroll all incoming relationships)
       RelatedEntitiesScrollResult scrollResult =
-          graphReferrers != null
-              ? RelatedEntitiesScrollResult.builder()
-                  .numResults(graphReferrers.size())
-                  .pageSize(graphReferrers.size())
-                  .scrollId(null)
-                  .entities(graphReferrers)
-                  .build()
-              : scrollGraphReferrers(opContext, urn, null);
+          _graphService.scrollRelatedEntities(
+              opContext,
+              null,
+              newFilter("urn", urn.toString()),
+              null,
+              EMPTY_FILTER,
+              ImmutableSet.of(),
+              newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+              Edge.EDGE_SORT_CRITERION,
+              null,
+              SCROLL_KEEP_ALIVE,
+              BATCH_SIZE,
+              null,
+              null);
 
       final List<RelatedAspect> relatedAspects =
           scrollResult.getEntities().stream()
@@ -265,31 +208,26 @@ public class DeleteEntityService {
           break;
         }
 
-        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId);
+        scrollResult =
+            _graphService.scrollRelatedEntities(
+                opContext,
+                null,
+                newFilter("urn", urn.toString()),
+                null,
+                EMPTY_FILTER,
+                ImmutableSet.of(),
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+                Edge.EDGE_SORT_CRITERION,
+                nextScrollId,
+                SCROLL_KEEP_ALIVE,
+                BATCH_SIZE,
+                null,
+                null);
       } while (true);
       log.info("Reference cleanup complete for {}: {} references processed", urn, totalProcessed);
     }
 
     return result;
-  }
-
-  /** A page of the entities holding a graph reference to {@code urn}. */
-  private RelatedEntitiesScrollResult scrollGraphReferrers(
-      @Nonnull OperationContext opContext, final Urn urn, @Nullable final String scrollId) {
-    return _graphService.scrollRelatedEntities(
-        opContext,
-        null,
-        newFilter("urn", urn.toString()),
-        null,
-        EMPTY_FILTER,
-        ImmutableSet.of(),
-        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-        Edge.EDGE_SORT_CRITERION,
-        scrollId,
-        SCROLL_KEEP_ALIVE,
-        BATCH_SIZE,
-        null,
-        null);
   }
 
   /**
@@ -301,7 +239,21 @@ public class DeleteEntityService {
     int totalFileCount = deleteFileReferences(opContext, urn, true, null);
     int totalSearchAssetCount = deleteSearchReferences(opContext, urn, true, null);
 
-    RelatedEntitiesScrollResult scrollResult = scrollGraphReferrers(opContext, urn, null);
+    RelatedEntitiesScrollResult scrollResult =
+        _graphService.scrollRelatedEntities(
+            opContext,
+            null,
+            newFilter("urn", urn.toString()),
+            null,
+            EMPTY_FILTER,
+            ImmutableSet.of(),
+            newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+            Edge.EDGE_SORT_CRITERION,
+            null,
+            SCROLL_KEEP_ALIVE,
+            BATCH_SIZE,
+            null,
+            null);
 
     final List<RelatedAspect> relatedAspects =
         scrollResult.getEntities().stream()

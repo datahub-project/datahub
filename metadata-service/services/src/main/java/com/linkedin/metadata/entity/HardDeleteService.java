@@ -1,7 +1,6 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -40,11 +39,6 @@ import lombok.extern.slf4j.Slf4j;
  * is none, today's code runs here, unchanged: {@code featureFlags.reliableHardDelete} ({@link
  * ReliableHardDelete#isEnabled()}) picks the delete bounded by the versions or today's unbounded
  * {@code deleteUrn}. An entity that does not exist is not offered; today's code handles it.
- *
- * <p>The overloads that take the versions never offer: they run the delete here, bounded by the
- * versions given (never captured again) when the flag is on, and report an entity written to while
- * being deleted instead of throwing. They are for a process that runs a delete another process
- * captured.
  */
 @Slf4j
 public class HardDeleteService {
@@ -203,91 +197,6 @@ public class HardDeleteService {
       return new DeleteReferencesResponse().setTotal(0).setRelatedAspects(new RelatedAspectArray());
     }
     return runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false));
-  }
-
-  /**
-   * Hard-deletes the entity here, never offering it: bounded by {@code versions} when {@code
-   * reliableHardDelete} is on, else today's unbounded {@code deleteUrn}. An entity that is already
-   * gone is not deleted again.
-   *
-   * @param versions the aspect versions captured when the delete was requested
-   * @return false when the bounded delete left the entity because it was written to while being
-   *     deleted; nothing is thrown for it
-   */
-  public boolean deleteEntity(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull final DeleteCeiling versions) {
-    if (!reliableHardDelete.isEnabled()) {
-      entityService.deleteUrn(opContext, urn);
-      return true;
-    }
-    // Only checks the entity is still there; the delete is bounded by the versions given.
-    if (reliableHardDelete.capture(opContext, urn).isEmpty()) {
-      return true;
-    }
-    return reliableHardDelete.deleteBounded(opContext, urn, versions).outcome()
-        != ConditionalDeleteOutcome.PARTIAL;
-  }
-
-  /**
-   * The entities holding a graph reference to {@code urn}, read from the graph as it is now. Pass
-   * them to {@link #deleteEntityThenReferences(OperationContext, Urn, DeleteCeiling, List)}, read
-   * before the entity is deleted: processing the delete of its key removes every graph edge of the
-   * entity, and a process whose first graph read comes after that (a cold search client takes about
-   * a second) would find no references to remove.
-   */
-  @Nonnull
-  public List<RelatedEntities> getGraphReferrers(
-      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
-    return deleteEntityService.getGraphReferrers(opContext, urn);
-  }
-
-  /**
-   * {@link #deleteEntity(OperationContext, Urn, DeleteCeiling)}, then the references other entities
-   * hold to it, never offering either. The references are left alone when the entity stays.
-   *
-   * <p>The graph references removed are {@code graphReferrers}, read with {@link
-   * #getGraphReferrers(OperationContext, Urn)} before the entity was deleted; every other kind of
-   * reference is found as today. A caller that runs this again after the entity is gone passes the
-   * list it read the first time, since the graph no longer has those edges.
-   *
-   * @return false when the entity stays (and the references were left alone)
-   */
-  public boolean deleteEntityThenReferences(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull final DeleteCeiling versions,
-      @Nonnull final List<RelatedEntities> graphReferrers) {
-    if (!deleteEntity(opContext, urn, versions)) {
-      return false;
-    }
-    deleteEntityService.deleteReferencesTo(opContext, urn, graphReferrers);
-    return true;
-  }
-
-  /**
-   * {@link #deleteEntity(OperationContext, Urn, DeleteCeiling)}, then the entity's timeseries
-   * values as {@link #deleteEntityAndTimeseries(OperationContext, OperationContext, Urn, List,
-   * Long, Long)} deletes them, never offering either. The values are left alone when the entity
-   * stays.
-   *
-   * @return false when the entity stays (and the timeseries values were left alone)
-   */
-  public boolean deleteEntityAndTimeseries(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull final DeleteCeiling versions,
-      @Nonnull final List<String> timeseriesAspects,
-      @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis) {
-    if (!deleteEntity(opContext, urn, versions)) {
-      return false;
-    }
-    final long numTimeseriesDocsDeleted =
-        deleteTimeseriesAspects(opContext, urn, timeseriesAspects, startTimeMillis, endTimeMillis);
-    log.info("Total number of timeseries aspect docs deleted: {}", numTimeseriesDocsDeleted);
-    return true;
   }
 
   /**

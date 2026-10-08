@@ -117,32 +117,6 @@ public class ReliableHardDeleteTest {
     expectThrows(IllegalArgumentException.class, () -> reliableHardDelete.delete(opContext, URN));
   }
 
-  /** The bounded delete reports an entity written to while being deleted instead of throwing. */
-  @Test
-  public void theBoundedDeleteReportsPartialWithoutThrowing() {
-    when(entityService.deleteUrn(any(), eq(URN), eq(CEILING)))
-        .thenReturn(new RollbackRunResult(List.of(), 0, List.of(deleted("tagProperties", false))));
-
-    final DeleteEntityReport report = reliableHardDelete.deleteBounded(opContext, URN, CEILING);
-
-    assertEquals(report.outcome(), ConditionalDeleteOutcome.PARTIAL);
-    assertEquals(report.rowsDeleted(), 1L);
-  }
-
-  /** The bounded delete uses the bound it is given, not the versions the entity has now. */
-  @Test
-  public void theBoundedDeleteUsesTheGivenCeiling() {
-    final DeleteCeiling given = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
-    when(entityService.deleteUrn(any(), eq(URN), eq(given)))
-        .thenReturn(new RollbackRunResult(List.of(), 2, List.of(deleted("tagKey", true))));
-
-    final DeleteEntityReport report = reliableHardDelete.deleteBounded(opContext, URN, given);
-
-    verify(entityService).deleteUrn(any(), eq(URN), eq(given));
-    verify(entityService, never()).deleteUrn(any(), eq(URN), eq(CEILING));
-    assertEquals(report.outcome(), ConditionalDeleteOutcome.DELETED);
-  }
-
   private static RollbackResult deleted(final String aspectName, final boolean keyAspect) {
     return new RollbackResult(
         URN, "tag", aspectName, null, null, null, null, ChangeType.DELETE, keyAspect, 0);
