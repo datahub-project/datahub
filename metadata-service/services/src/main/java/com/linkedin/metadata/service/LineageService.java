@@ -210,6 +210,12 @@ public class LineageService {
         .collect(Collectors.toList());
   }
 
+  private static List<Urn> filterOutRepositoryUrns(@Nonnull final List<Urn> urns) {
+    return urns.stream()
+        .filter(urn -> !Constants.REPOSITORY_ENTITY_NAME.equals(urn.getEntityType()))
+        .collect(Collectors.toList());
+  }
+
   /**
    * Metric upstreams are stored on {@code upstreamMetrics}, not on the consumer's chart/dashboard
    * /dataset lineage aspect. Peel them off here so GraphQL can keep a generic type switch.
@@ -662,9 +668,11 @@ public class LineageService {
 
   /**
    * Updates DataJob lineage by building and ingesting an MCP based on inputs. Repository-typed
-   * upstream urns are split out and written to the separate repositoryLineage aspect -- the
-   * existing DataJobInputOutput proposal below already ignores any urn that isn't a dataset or
-   * dataJob, so passing the full mixed list through unchanged is safe.
+   * upstream urns are split out and written to the separate repositoryLineage aspect. The
+   * dataJobInputOutput aspect is only touched when a dataset or dataJob upstream is involved, the
+   * same way dataset lineage leaves its own aspect alone for a metrics-only edit: a repository-only
+   * edit must not rewrite job IO, create an empty dataJobInputOutput where none existed, or let an
+   * IO ingest failure block the repositoryLineage write.
    */
   public void updateDataJobUpstreamLineage(
       @Nonnull OperationContext opContext,
@@ -677,14 +685,18 @@ public class LineageService {
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
-    try {
-      MetadataChangeProposal changeProposal =
-          buildDataJobUpstreamLineageProposal(
-              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
-    } catch (Exception e) {
-      throw new RuntimeException(
-          String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
+    final List<Urn> remainingToAdd = filterOutRepositoryUrns(upstreamUrnsToAdd);
+    final List<Urn> remainingToRemove = filterOutRepositoryUrns(upstreamUrnsToRemove);
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      try {
+        MetadataChangeProposal changeProposal =
+            buildDataJobUpstreamLineageProposal(
+                opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+        _entityClient.ingestProposal(opContext, changeProposal, false);
+      } catch (Exception e) {
+        throw new RuntimeException(
+            String.format("Failed to update dataJob lineage for urn %s", downstreamUrn), e);
+      }
     }
 
     updateRepositoryLineageIfPresent(

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -835,6 +836,53 @@ public class LineageServiceTest {
 
   // No repository urn involved at all -- the repositoryLineage aspect should never be read or
   // written, only the existing DataJobInputOutput path should run.
+  @Test
+  public void testUpdateDataJobUpstreamLineageRepositoryOnlyLeavesInputOutputAlone()
+      throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(repositoryUrn1)))
+        .thenReturn(true);
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME))))
+        .thenReturn(null);
+
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext,
+        datajobUrn1,
+        Collections.singletonList(repositoryUrn1),
+        Collections.emptyList(),
+        actorUrn);
+
+    // A repository-only edit must not read or rewrite dataJobInputOutput at all.
+    Mockito.verify(_mockClient, Mockito.never())
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.DATA_JOB_ENTITY_NAME),
+            eq(datajobUrn1),
+            eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)));
+    Mockito.verify(_mockClient, Mockito.never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal ->
+                    Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME.equals(proposal.getAspectName())),
+            eq(false));
+
+    final RepositoryLineage expectedRepositoryLineage =
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1));
+    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
+    repositoryProposal.setEntityUrn(datajobUrn1);
+    repositoryProposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
+    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
+    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expectedRepositoryLineage));
+    repositoryProposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
+  }
+
   @Test
   public void testUpdateDataJobUpstreamLineageSkipsRepositoryWriteWhenNoRepositoryInvolved()
       throws Exception {
