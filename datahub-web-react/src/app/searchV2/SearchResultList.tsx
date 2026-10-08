@@ -121,11 +121,13 @@ function useSearchKeyboardControls(
             let newIndex: number | null | undefined;
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
-                newIndex = prevIndex === null ? null : Math.min(prevIndex + 1, searchResults.length - 1);
+                if (searchResults.length === 0) return null;
+                newIndex = prevIndex === null ? 0 : Math.min(prevIndex + 1, searchResults.length - 1);
                 setHighlightedByKeyboardIndex([newIndex]);
             } else if (event.key === 'ArrowUp') {
                 event.preventDefault();
-                newIndex = prevIndex === null ? null : Math.max(prevIndex - 1, 0);
+                if (searchResults.length === 0) return null;
+                newIndex = prevIndex === null ? searchResults.length - 1 : Math.max(prevIndex - 1, 0);
                 setHighlightedByKeyboardIndex([newIndex]);
             } else if (event.key === 'Escape') {
                 newIndex = null;
@@ -262,8 +264,10 @@ export const SearchResultList = ({
                                 selected={highlightedIndex === index}
                                 areMatchesExpanded={!!expandedSection}
                                 onClick={() => onClickResult(item, index)}
+                                onMouseEnter={() => setHighlightedIndex(index)}
                                 ref={refs[index]}
                                 isFullViewCard={isFullViewCard}
+                                data-testid="search-result"
                                 $isShowNavBarRedesign={isShowNavBarRedesign}
                             >
                                 <ListItem

@@ -187,8 +187,8 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
-    // For vertical sidebar
-    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
+    // Stay closed until hover, click, or keyboard so result 0's profile is not loaded on mount.
+    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const {
