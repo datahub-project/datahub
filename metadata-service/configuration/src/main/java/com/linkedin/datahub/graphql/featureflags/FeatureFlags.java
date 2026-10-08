@@ -107,6 +107,10 @@ public class FeatureFlags {
   // only the aspects required by the selected fields. When false, every loader falls back to
   // fetching its full default aspect set (legacy behavior). Default ON.
   private boolean graphQLAspectOptimizationEnabled = true;
+  // Kill switch for the reliable hard delete. When true, whole-entity hard deletes delete only what
+  // existed when the request arrived; false restores the previous delete behavior. The default is
+  // set in application.yaml (featureFlags.reliableHardDelete).
+  private boolean reliableHardDelete;
 
   /** Per-operation read: the operation's resolved value, else the bound one. */
   public boolean isMetricsEnabled(@Nonnull final OperationFingerprint operation) {

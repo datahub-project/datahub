@@ -1,4 +1,3 @@
-import Icon from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -47,7 +46,7 @@ export default function TableauViewsSection() {
     return (
         <>
             <HeaderTitle>
-                <Icon component={TableauViewIcon} />
+                <TableauViewIcon />
                 {t('container.viewsCountTitle', { count: views.length })}
             </HeaderTitle>
             <HorizontalList>

@@ -46,6 +46,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -103,6 +104,12 @@ public abstract class GenericEntitiesController<
   @Autowired protected SearchService searchService;
   @Autowired protected EntityService<?> entityService;
   @Autowired protected TimeseriesAspectService timeseriesAspectService;
+
+  // Optional: absent in applications that do not build the reliable hard delete.
+  @Autowired(required = false)
+  @Nullable
+  protected ReliableHardDelete reliableHardDelete;
+
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
 
@@ -566,7 +573,11 @@ public abstract class GenericEntitiesController<
     }
 
     if (aspects == null || aspects.isEmpty() || aspects.contains(entitySpec.getKeyAspectName())) {
-      entityService.deleteUrn(opContext, urn);
+      if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
+        reliableHardDelete.delete(opContext, urn);
+      } else {
+        entityService.deleteUrn(opContext, urn);
+      }
     } else {
       aspects.stream()
           .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())

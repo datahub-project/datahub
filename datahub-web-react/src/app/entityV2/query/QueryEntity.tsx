@@ -1,4 +1,4 @@
-import { FileOutlined } from '@ant-design/icons';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { FileSql } from '@phosphor-icons/react/dist/csr/FileSql';
 import i18next from 'i18next';
 import * as React from 'react';
@@ -62,7 +62,7 @@ export class QueryEntity implements Entity<Query> {
                     {
                         name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
-                        icon: FileOutlined,
+                        icon: File,
                     },
                 ]}
                 sidebarSections={[
