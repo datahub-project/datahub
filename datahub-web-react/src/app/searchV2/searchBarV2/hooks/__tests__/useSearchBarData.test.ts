@@ -5,9 +5,10 @@ import { SearchBarDataOptions, useSearchBarData } from '@app/searchV2/searchBarV
 import { useAppConfig } from '@app/useAppConfig';
 import { SearchBarApi } from '@src/types.generated';
 
-const { search, autocomplete } = vi.hoisted(() => ({
+const { search, autocomplete, selectedViewState } = vi.hoisted(() => ({
     search: vi.fn(),
     autocomplete: vi.fn(),
+    selectedViewState: { urn: undefined as string | null | undefined },
 }));
 
 vi.mock('@src/graphql/search.generated', () => ({
@@ -20,7 +21,7 @@ vi.mock('@app/useAppConfig', () => ({
 }));
 
 vi.mock('@app/searchV2/searchBarV2/hooks/useSelectedView', () => ({
-    default: () => ({ selectedView: undefined }),
+    default: () => ({ selectedView: selectedViewState.urn }),
 }));
 
 const useAppConfigMock = vi.mocked(useAppConfig);
@@ -49,6 +50,7 @@ describe('useSearchBarData', () => {
         vi.useFakeTimers();
         search.mockClear();
         autocomplete.mockClear();
+        selectedViewState.urn = undefined;
         useAppConfigMock.mockReturnValue({
             config: {
                 searchBarConfig: { apiVariant: SearchBarApi.SearchAcrossEntities },
@@ -167,6 +169,41 @@ describe('useSearchBarData', () => {
                     input: expect.objectContaining({
                         query: PAGE_QUERY,
                         orFilters: [{ and: [{ field: 'platform', values: ['hive'] }] }],
+                    }),
+                }),
+            }),
+        );
+    });
+
+    it('fetches on the next focus after the view changes while the bar is inactive', () => {
+        const { rerender } = renderSearchBarData({
+            query: PAGE_QUERY,
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+        expect(search).not.toHaveBeenCalled();
+
+        selectedViewState.urn = 'urn:li:dataHubView:team';
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+        expect(search).not.toHaveBeenCalled();
+
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        expect(search).toHaveBeenCalledTimes(1);
+        expect(search).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({
+                        query: PAGE_QUERY,
+                        viewUrn: 'urn:li:dataHubView:team',
                     }),
                 }),
             }),

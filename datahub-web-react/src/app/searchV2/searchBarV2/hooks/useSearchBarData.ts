@@ -176,38 +176,24 @@ export const useSearchBarData = (
         pageOpenFiltersRef.current = orFilters;
     }
     const pageOpenQueryRef = useRef(initialQuery);
-    // View can resolve in the background. Snapshot it when the bar becomes active so that
-    // focusing the page-open query does not fetch, while a view change during use still does.
-    const viewAtActivationRef = useRef<string | null | undefined>(undefined);
-    const hasActivatedRef = useRef(false);
+    // Same baseline as filters: the view present when the bar mounted. A later change,
+    // including one made while the input is blurred, fetches on the next focus.
+    const pageOpenViewRef = useRef(selectedView);
     const lastFetchedRef = useRef<SearchBarFetchInputs | null>(null);
 
     useEffect(() => {
-        if (!isActive) {
-            hasActivatedRef.current = false;
-            viewAtActivationRef.current = undefined;
-            return;
-        }
-
-        if (!hasActivatedRef.current) {
-            hasActivatedRef.current = true;
-            viewAtActivationRef.current = selectedView;
-        }
+        if (!isActive) return;
 
         // Hold the request until the debounced query matches the current input.
         if (debouncedQuery !== query) return;
 
         const inputs: SearchBarFetchInputs = { query: debouncedQuery, orFilters, viewUrn: selectedView };
         const filtersChanged = !isEqual(orFilters, pageOpenFiltersRef.current);
-        const viewChangedWhileActive = !isEqual(selectedView, viewAtActivationRef.current);
+        const viewChanged = !isEqual(selectedView, pageOpenViewRef.current);
         const queryDiffersFromPageOpen = debouncedQuery !== pageOpenQueryRef.current;
         const inputsChangedSinceFetch = lastFetchedRef.current !== null && !isEqual(inputs, lastFetchedRef.current);
         const shouldFetch =
-            hasUserTyped ||
-            queryDiffersFromPageOpen ||
-            filtersChanged ||
-            viewChangedWhileActive ||
-            inputsChangedSinceFetch;
+            hasUserTyped || queryDiffersFromPageOpen || filtersChanged || viewChanged || inputsChangedSinceFetch;
 
         if (!shouldFetch || isEqual(inputs, lastFetchedRef.current)) return;
 
