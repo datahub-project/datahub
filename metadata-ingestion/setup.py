@@ -615,6 +615,8 @@ plugins: Dict[str, Set[str]] = {
     },
     # Misc plugins.
     "sql-parser": sqlglot_lib,
+    # PathSpec matching without a storage source's SDKs (used by the Airflow plugin).
+    "path-spec": path_spec_common,
     # Source plugins
     "aerospike": {"aerospike>=15.0.0,<20.0.0"},
     # sqlalchemy-bigquery is included here since it provides an implementation of

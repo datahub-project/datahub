@@ -23,7 +23,7 @@ _self_pin = (
 
 
 base_requirements = {
-    f"acryl-datahub[sql-parser,datahub-rest]{_self_pin}",
+    f"acryl-datahub[sql-parser,datahub-rest,path-spec]{_self_pin}",
     "pydantic>=2.4.0",
     # Airflow 3.0+. The only 3.0-vs-3.1 API gap we hit is BaseHook: it moved into
     # the Task SDK (airflow.sdk.bases.hook) in 3.1, but is still importable from

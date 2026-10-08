@@ -12,7 +12,7 @@ import subprocess
 import sys
 import textwrap
 import time
-from typing import Any, Iterator, Optional, Sequence
+from typing import Any, Dict, Iterator, Optional, Sequence
 
 import pytest
 import requests
@@ -273,7 +273,7 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
     cluster: Optional[str] = None,
-    dataset_pattern: Optional[str] = None,
+    datahub_config: Optional[Dict[str, str]] = None,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -403,8 +403,8 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     if cluster:
         environment["AIRFLOW__DATAHUB__CLUSTER"] = cluster
 
-    if dataset_pattern:
-        environment["AIRFLOW__DATAHUB__DATASET_PATTERN"] = dataset_pattern
+    for key, value in (datahub_config or {}).items():
+        environment[f"AIRFLOW__DATAHUB__{key.upper()}"] = value
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -636,7 +636,9 @@ class DagTestCase:
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
     cluster: Optional[str] = None
-    dataset_pattern: Optional[str] = None
+
+    # Extra [datahub] plugin options, e.g. {"path_specs_str": "[...]"}.
+    datahub_config: Dict[str, str] = dataclasses.field(default_factory=dict)
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
@@ -662,10 +664,32 @@ test_cases = [
     DagTestCase(
         "basic_iolets",
         platform_instance=PLATFORM_INSTANCE,
-        dataset_pattern='{"deny": ["snowflake:mydb.schema.tableA", "snowflake:mydb.schema.tableE"]}',
         test_variant="_dataset_pattern",
+        datahub_config={
+            "dataset_pattern": json.dumps(
+                {
+                    "deny": [
+                        "snowflake:mydb.schema.tableA",
+                        "snowflake:mydb.schema.tableE",
+                    ]
+                }
+            )
+        },
     ),
     DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase(
+        "airflow_asset_iolets",
+        platform_instance=PLATFORM_INSTANCE,
+        test_variant="_path_specs",
+        datahub_config={
+            "path_specs_str": json.dumps(
+                [
+                    {"include": "s3://my-bucket/{table}/*.parquet"},
+                    {"include": "gs://analytics-bucket/{table}"},
+                ]
+            )
+        },
+    ),
     DagTestCase("decorated_asset_producer", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("decorated_asset_with_file", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("consume_decorated_assets", platform_instance=PLATFORM_INSTANCE),
@@ -739,7 +763,7 @@ def test_airflow_plugin(
                 platform_instance=test_case.platform_instance,
                 enable_datajob_lineage=test_case.enable_datajob_lineage,
                 cluster=test_case.cluster,
-                dataset_pattern=test_case.dataset_pattern,
+                datahub_config=test_case.datahub_config,
             ) as airflow_instance:
                 print(f"Running DAG {dag_id} (attempt {attempt}/{max_attempts})...")
                 _wait_for_dag_to_load(airflow_instance, dag_id)
