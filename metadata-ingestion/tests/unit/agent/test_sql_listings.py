@@ -7,22 +7,28 @@ Vertica could not do it at all, because sqlglot has no dialect for either and `s
 therefore fails closed.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Type
 
 import pytest
 
 from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodResult,
     ProbeMethodSpec,
     _iter_specs,
     config_class_for,
     probe_method,
+    run_probe_method,
 )
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.source.sql import sqlalchemy_probe
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 
 class _FakeInspector:
-    def __init__(self) -> None:
+    def __init__(self, materialized_views_fail: bool = False) -> None:
         self.asked_for: List[str] = []
+        self.materialized_views_fail = materialized_views_fail
 
     def get_schema_names(self) -> List[str]:
         return ["analytics", "information_schema"]
@@ -35,15 +41,25 @@ class _FakeInspector:
         self.asked_for.append(f"views:{schema}")
         return ["orders_v"] if schema == "analytics" else []
 
+    def get_materialized_view_names(self, schema: str) -> List[str]:
+        self.asked_for.append(f"materialized_views:{schema}")
+        if self.materialized_views_fail:
+            raise RuntimeError("permission denied for relation pg_class")
+        return ["orders_mv"] if schema == "analytics" else []
+
+
+def _sql_config_class(source_type: str) -> Type[SQLCommonConfig]:
+    config_cls = config_class_for(source_type)
+    assert config_cls is not None and issubclass(config_cls, SQLCommonConfig)
+    return config_cls
+
 
 def _probe(source_type: str = "postgres") -> SqlAlchemyMetadataProbe:
     # __new__ because __init__ builds an engine; these commands only touch the
     # Inspector, which is what ingestion enumerates through too.
     probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
     probe._insp = _FakeInspector()  # type: ignore[assignment]
-    probe.kind_overrides = {
-        "containers": str(config_class_for(source_type).probe_container_kind())
-    }
+    probe.container_kind = str(_sql_config_class(source_type).probe_container_kind())
     return probe
 
 
@@ -85,6 +101,67 @@ def test_tables_and_views_are_separate_listings():
     assert _spec("views").kind == "View"
 
 
+def _run_views(
+    monkeypatch: pytest.MonkeyPatch,
+    source_type: str,
+    config: Dict[str, object],
+    inspector: _FakeInspector,
+) -> ProbeMethodResult:
+    # for_config builds a real engine (over SQLite); the listing is then read
+    # through the fake Inspector, so only what the config wires in is tested.
+    monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda engine: inspector)
+    return run_probe_method(source_type, config, "views", {"schema": "analytics"})
+
+
+@pytest.mark.parametrize(
+    "source_type, config, views",
+    [
+        # PostgresSource._get_view_names ingests materialized views as views,
+        # judged by view_pattern.
+        (
+            "postgres",
+            {"host_port": "h:5432", "sqlalchemy_uri": "sqlite://"},
+            ["orders_v", "orders_mv"],
+        ),
+        # Ingestion lists get_view_names alone everywhere else, the generic
+        # source on a Postgres server included.
+        (
+            "sqlalchemy",
+            {"connect_uri": "sqlite://", "platform": "postgres"},
+            ["orders_v"],
+        ),
+        (
+            "mysql",
+            {"host_port": "h:3306", "sqlalchemy_uri": "sqlite://"},
+            ["orders_v"],
+        ),
+    ],
+)
+def test_views_lists_what_the_connectors_own_view_listing_ingests(
+    monkeypatch: pytest.MonkeyPatch,
+    source_type: str,
+    config: Dict[str, object],
+    views: List[str],
+) -> None:
+    result = _run_views(monkeypatch, source_type, config, _FakeInspector())
+    assert result.result == views
+    assert result.kind == "View"
+
+
+def test_a_materialized_view_listing_that_fails_warns_as_ingestion_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _run_views(
+        monkeypatch,
+        "postgres",
+        {"host_port": "h:5432", "sqlalchemy_uri": "sqlite://"},
+        _FakeInspector(materialized_views_fail=True),
+    )
+    assert result.result == ["orders_v"]
+    assert any("materialized views" in w.lower() for w in result.warnings)
+    assert not any("pg_class" in w for w in result.warnings)
+
+
 def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():
     """get_schema_names() means different things per tier, and the pattern differs too.
 
@@ -94,7 +171,7 @@ def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():
     declaration -- it comes from the config.
     """
     kinds: Dict[str, str] = {
-        source_type: str(config_class_for(source_type).probe_container_kind())
+        source_type: str(_sql_config_class(source_type).probe_container_kind())
         for source_type in ("postgres", "mssql", "snowflake", "mysql", "hive")
     }
     assert kinds["postgres"] == "Schema"
@@ -104,11 +181,32 @@ def test_containers_are_reported_as_the_kind_the_recipes_tier_makes_them():
     assert kinds["hive"] == "Database"
 
 
-def test_the_provider_reports_the_runtime_kind_for_containers():
-    assert _probe("postgres").kind_overrides["containers"] == "Schema"
-    assert _probe("mysql").kind_overrides["containers"] == "Database"
-    # The spec itself declares none, because the class cannot know it.
+def test_the_config_class_declares_the_kind_containers_reports():
+    assert _sql_config_class("postgres").probe_kind_overrides() == {
+        "containers": "Schema"
+    }
+    assert _sql_config_class("mysql").probe_kind_overrides() == {
+        "containers": "Database"
+    }
+    # The spec itself declares none, because the provider class cannot know it.
     assert _spec("containers").kind is None
+
+
+def test_a_two_tier_provider_names_its_containers_databases():
+    from datahub.ingestion.source.sql.mysql import MySQLConfig
+
+    # An in-memory engine: for_config builds a real one, and only the kind
+    # the config declares is under test.
+    config = MySQLConfig.model_validate(
+        {"host_port": "h:3306", "sqlalchemy_uri": "sqlite://"}
+    )
+    probe = SqlAlchemyMetadataProbe.for_config(config)
+    try:
+        assert probe.container_kind == "Database"
+        with pytest.raises(ProbeArgumentError, match="no database named"):
+            probe.tables("nope")
+    finally:
+        probe.__exit__(None, None, None)
 
 
 def test_a_denied_container_is_still_listed():
@@ -132,7 +230,7 @@ def test_every_sql_connector_can_now_enumerate_without_a_query():
         commands = {
             c
             for c, _ in _iter_specs(
-                config_class_for(source_type).probe_provider_class()
+                _sql_config_class(source_type).probe_provider_class()
             )
         }
         assert {"containers", "tables", "views"} <= commands, source_type
@@ -355,3 +453,17 @@ def test_doris_reports_the_database_spelling_ingestion_matches():
     assert _container_normalizer(plain)("sales") == "sales"
     # A name that merely starts with something dotted is left alone.
     assert _container_normalizer(config)("other_catalog.sales") == "other_catalog.sales"
+
+
+def test_closing_the_probe_disposes_the_engine_then_runs_the_base_closers() -> None:
+    events: List[str] = []
+
+    class _Engine:
+        def dispose(self) -> None:
+            events.append("dispose")
+
+    probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
+    probe._engine = _Engine()  # type: ignore[assignment]
+    probe._on_exit(lambda: events.append("closer"))
+    probe.__exit__(None, None, None)
+    assert events == ["dispose", "closer"]

@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { ChartLineUp } from '@phosphor-icons/react/dist/csr/ChartLineUp';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -62,7 +62,7 @@ export default function useUsageStatsRenderer(
                     }
                 >
                     <IconWrapper hasStats={!!fieldProfile} isFieldSelected={isFieldSelected}>
-                        <QueryStatsOutlinedIcon />
+                        <ChartLineUp />
                     </IconWrapper>
                 </Tooltip>
             </IconsContainer>

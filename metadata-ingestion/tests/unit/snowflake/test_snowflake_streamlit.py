@@ -1,6 +1,18 @@
 from datetime import datetime, timezone
+from typing import Optional
+from unittest.mock import MagicMock
 
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeStreamlitApp
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
+)
+from datahub.metadata.schema_classes import DashboardInfoClass
 
 
 def test_streamlit_app_processing():
@@ -134,3 +146,64 @@ def test_streamlit_optional_fields():
 
     # Verify comment is not included when None
     assert "comment" not in custom_properties
+
+
+def _build_generator() -> SnowflakeSchemaGenerator:
+    config = SnowflakeV2Config.parse_obj(
+        {"account_id": "test_account", "include_streamlits": True}
+    )
+    report = SnowflakeV2Report()
+    identifiers = SnowflakeIdentifierBuilder(config, report)
+    return SnowflakeSchemaGenerator(
+        config=config,
+        report=report,
+        connection=MagicMock(),
+        filters=SnowflakeFilter(config, report),
+        identifiers=identifiers,
+        domain_registry=None,
+        profiler=None,
+        aggregator=None,
+        snowsight_url_builder=None,
+    )
+
+
+def _streamlit_app(title: Optional[str]) -> SnowflakeStreamlitApp:
+    return SnowflakeStreamlitApp(
+        name="MY_APP",
+        created=datetime(2023, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
+        owner="OWNER",
+        database_name="MY_DB",
+        schema_name="MY_SCHEMA",
+        title=title,
+        comment=None,
+        url_id="abc123",
+        owner_role_type="ROLE",
+    )
+
+
+def _emitted_dashboard_title(app: SnowflakeStreamlitApp) -> str:
+    for wu in _build_generator()._process_streamlit_app(app):
+        info = wu.get_aspect_of_type(DashboardInfoClass)
+        if info is not None:
+            return info.title
+    raise AssertionError("no DashboardInfo aspect emitted")
+
+
+def test_streamlit_title_uses_configured_title():
+    """A configured (non-empty) title is used verbatim as the dashboard title."""
+    assert _emitted_dashboard_title(_streamlit_app("My App")) == "My App"
+
+
+def test_streamlit_blank_title_falls_back_to_name():
+    """A blank title falls back to the app name, not the db.schema.url_id identifier."""
+    assert _emitted_dashboard_title(_streamlit_app("")) == "MY_APP"
+
+
+def test_streamlit_none_title_falls_back_to_name():
+    """A NULL title (Snowflake returns None) falls back to the app name."""
+    assert _emitted_dashboard_title(_streamlit_app(None)) == "MY_APP"
+
+
+def test_streamlit_whitespace_title_falls_back_to_name():
+    """A whitespace-only title is treated as blank and falls back to the app name."""
+    assert _emitted_dashboard_title(_streamlit_app("   ")) == "MY_APP"

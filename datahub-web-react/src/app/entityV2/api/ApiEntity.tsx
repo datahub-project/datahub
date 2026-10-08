@@ -1,5 +1,8 @@
-import { ApiOutlined, FileOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import i18next from 'i18next';
 import * as React from 'react';
@@ -88,27 +91,27 @@ export class ApiEntity implements Entity<Api> {
                     id: EntityProfileTab.SUMMARY_TAB,
                     name: i18next.t('entity.types:tab.summary'),
                     component: ApiSummaryTab,
-                    icon: ReadOutlined,
+                    icon: BookOpen,
                 },
                 {
                     name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
-                    icon: FileOutlined,
+                    icon: File,
                 },
                 {
                     name: i18next.t('entity.types:tab.signature'),
                     component: SignatureTab,
-                    icon: ApiOutlined,
+                    icon: Plugs,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
-                    icon: PartitionOutlined,
+                    icon: TreeStructure,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
-                    icon: UnorderedListOutlined,
+                    icon: ListBullets,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
