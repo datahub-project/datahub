@@ -19,6 +19,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
+    RelativeOrAbsoluteDatetime,
 )
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.ingestion.source.qualytics.constants import get_known_data_platforms
@@ -103,7 +104,10 @@ class QualyticsAssertionResultsConfig(BaseTimeWindowConfig):
     check has been stable.
     """
 
-    start_time: datetime = Field(
+    # RelativeOrAbsoluteDatetime, as the base class declares it: a bare datetime
+    # advertises only date-time in the JSON schema, and schema-driven validation
+    # would then reject the '-7 days' the description promises.
+    start_time: RelativeOrAbsoluteDatetime = Field(
         default_factory=_thirty_days_ago,
         description="Earliest anomaly to ingest as an assertion result. Accepts an "
         "absolute timestamp or a relative string such as '-7 days'. Day granularity: "

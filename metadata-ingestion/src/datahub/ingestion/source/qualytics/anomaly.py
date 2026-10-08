@@ -100,7 +100,9 @@ class AnomalyMapper:
         """
         timestamp = parse_timestamp_millis(anomaly.created)
         if timestamp is None:
-            self.report.assertion_results_undated += 1
+            # One per event it would have produced, so the counter reconciles with
+            # assertion_results_emitted, which also counts per failed check.
+            self.report.assertion_results_undated += len(anomaly.failed_checks) or 1
             return
 
         for failed in anomaly.failed_checks:

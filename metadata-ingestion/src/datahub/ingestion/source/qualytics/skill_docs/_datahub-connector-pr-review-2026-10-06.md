@@ -26,7 +26,7 @@ summarised under [History](#history).
 | Category      | Status | Issues                                                       |
 | ------------- | ------ | ------------------------------------------------------------ |
 | Architecture  | ✅     | 2 blockers fixed (duplicate stale removal, casing processor) |
-| Code Quality  | ✅     | 1 blocker, 7 warnings fixed                                  |
+| Code Quality  | ✅     | 2 blockers, 7 warnings fixed                                 |
 | Performance   | ✅     | 1 warning fixed; batching measured and declined              |
 | Test Quality  | ✅     | 1 blocker, 5 warnings fixed                                  |
 | Documentation | ✅     | Stale comments and descriptions corrected                    |

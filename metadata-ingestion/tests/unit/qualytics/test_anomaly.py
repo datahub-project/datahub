@@ -17,6 +17,8 @@ from datahub.metadata.schema_classes import AssertionResultClass, AssertionRunEv
 DATASET = "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES.PUBLIC.ORDERS,PROD)"
 ASSERTION = "urn:li:assertion:abc123"
 ASSERTION_B = "urn:li:assertion:def456"
+# 2026-09-08T10:00:00Z, the time every dated fixture below reports.
+REPORTED_AT_MILLIS = 1788861600000
 
 
 def _event(wu: MetadataWorkUnit) -> AssertionRunEventClass:
@@ -76,6 +78,30 @@ def test_a_passing_check_produces_a_success_event() -> None:
 
     assert _result(wu).type == "SUCCESS"
     assert _event(wu).asserteeUrn == DATASET
+    # Dated when Qualytics asserted it, not when this run happened.
+    assert _event(wu).timestampMillis == REPORTED_AT_MILLIS
+
+
+def test_a_failing_check_produces_a_failure_event_with_its_active_anomalies() -> None:
+    mapper, _ = _mapper()
+
+    [wu] = mapper.check_state_workunits(
+        _check(
+            is_passing=False,
+            last_asserted="2026-09-08T10:00:00Z",
+            active_anomaly_count=3,
+        ),
+        ASSERTION,
+        DATASET,
+    )
+
+    result = _result(wu)
+    assert result.type == "FAILURE"
+    assert result.nativeResults == {
+        "qualytics_check_id": "100",
+        "active_anomaly_count": "3",
+    }
+    assert _event(wu).timestampMillis == REPORTED_AT_MILLIS
 
 
 def test_a_never_evaluated_check_produces_no_verdict() -> None:
@@ -163,19 +189,23 @@ def test_an_anomaly_naming_a_check_with_no_assertion_is_counted_not_guessed() ->
     assert report.anomalies_without_assertion == 1
 
 
-def test_an_undated_anomaly_emits_nothing_and_is_counted() -> None:
+def test_an_undated_anomaly_emits_nothing_and_is_counted_per_failed_check() -> None:
+    # Per check, as assertion_results_emitted counts, so the two reconcile.
     mapper, report = _mapper()
     anomaly = _anomaly(
         created="not a date",
         failed_checks=[
-            {"quality_check": {"id": 100, "rule_type": "notNull"}, "message": "m"}
+            {"quality_check": {"id": 100, "rule_type": "notNull"}, "message": "m"},
+            {"quality_check": {"id": 101, "rule_type": "unique"}, "message": "m"},
         ],
     )
 
-    events = list(mapper.anomaly_workunits(anomaly, {100: ASSERTION}, DATASET))
+    events = list(
+        mapper.anomaly_workunits(anomaly, {100: ASSERTION, 101: ASSERTION_B}, DATASET)
+    )
 
     assert events == []
-    assert report.assertion_results_undated == 1
+    assert report.assertion_results_undated == 2
 
 
 def test_the_qualytics_message_survives_onto_the_result() -> None:
@@ -193,6 +223,7 @@ def test_the_qualytics_message_survives_onto_the_result() -> None:
 
     event = next(iter(mapper.anomaly_workunits(anomaly, {100: ASSERTION}, DATASET)))
 
+    assert _event(event).timestampMillis == REPORTED_AT_MILLIS
     native = _result(event).nativeResults or {}
     assert native["message"] == "17 rows had a null AMOUNT"
     assert native["suggested_value"] == "0"

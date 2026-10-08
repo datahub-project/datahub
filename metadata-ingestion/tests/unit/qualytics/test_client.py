@@ -279,13 +279,32 @@ def test_detect_api_root_path_reads_it_from_the_deployment_spec(
     assert _client().detect_api_root_path() == "/gateway"
 
 
-def test_detect_api_root_path_gives_up_when_paths_disagree(
+def test_detect_api_root_path_handles_a_multi_segment_root(
     requests_mock: Mocker,
 ) -> None:
     requests_mock.get(
         f"{BASE}/openapi.json",
-        json={"paths": {"/api/datastores": {}, "/other/containers": {}}},
+        json={"paths": {"/gateway/api/datastores": {}, "/gateway/api/containers": {}}},
     )
+
+    assert _client().detect_api_root_path() == "/gateway/api"
+
+
+def test_detect_api_root_path_is_not_thrown_by_a_stray_top_level_route(
+    requests_mock: Mocker,
+) -> None:
+    requests_mock.get(
+        f"{BASE}/openapi.json",
+        json={"paths": {"/health": {}, "/api/datastores": {}, "/api/containers": {}}},
+    )
+
+    assert _client().detect_api_root_path() == "/api"
+
+
+def test_detect_api_root_path_gives_up_without_a_datastores_path(
+    requests_mock: Mocker,
+) -> None:
+    requests_mock.get(f"{BASE}/openapi.json", json={"paths": {"/api/other": {}}})
 
     assert _client().detect_api_root_path() is None
 

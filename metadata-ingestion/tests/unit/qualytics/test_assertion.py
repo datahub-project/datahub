@@ -302,6 +302,22 @@ def test_checks_without_bounds_omit_parameters_entirely() -> None:
     assert _custom(info).parameters is None
 
 
+@pytest.mark.parametrize(
+    ("rule_type", "implied"),
+    [("unique", "1"), ("positive", "0"), ("notNegative", "0")],
+)
+def test_a_rule_type_with_an_implied_bound_carries_it(
+    rule_type: str, implied: str
+) -> None:
+    # These checks carry no bound in their properties; without the implied one the
+    # assertion reads "unique proportion equals" with nothing after it.
+    mapper, _ = _mapper()
+
+    info = mapper.assertion_info(_check(rule_type=rule_type), URN)
+
+    assert _value(info).value == implied
+
+
 def test_an_expression_check_carries_its_sql_in_logic() -> None:
     # Without this the assertion says "satisfiesExpression" and nothing about what.
     mapper, _ = _mapper()
@@ -378,7 +394,10 @@ def test_a_huge_value_list_is_capped_and_says_how_big_it_was() -> None:
         _check(rule_type="expectedValues", properties={"list": members}), URN
     )
 
-    assert _value(info).value.split(",") == members[:MAX_LIST_PARAMETER_ITEMS]
+    # Kept out of the typed parameter, which has no way to say it is partial.
+    assert _custom(info).parameters is None
+    assert f"'v{MAX_LIST_PARAMETER_ITEMS - 1}'" in _native(info)["list"]
+    assert f"'v{MAX_LIST_PARAMETER_ITEMS}'" not in _native(info)["list"]
     assert _native(info)["list_total_count"] == str(len(members))
     assert report.assertion_parameters_truncated == 1
 

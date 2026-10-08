@@ -17,9 +17,13 @@ def derive_ui_base_url(api_base_url: str) -> str:
     A default Qualytics deployment serves its UI from the scheme and host of its API:
     ``https://acme.qualytics.io/api`` serves its UI from ``https://acme.qualytics.io``.
     Deployments that split the two can override this with ``ui_base_url``.
+
+    Any userinfo is dropped: these links are stored in DataHub for anyone who can see
+    the assertion, and credentials in ``base_url`` must not ride along.
     """
     parts = urlsplit(api_base_url)
-    return urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    netloc = parts.netloc.rsplit("@", 1)[-1]
+    return urlunsplit((parts.scheme, netloc, "", "", ""))
 
 
 def container_url(ui_base_url: str, datastore_id: int, container_id: int) -> str:

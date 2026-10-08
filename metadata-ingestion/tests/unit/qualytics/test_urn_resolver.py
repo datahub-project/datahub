@@ -135,7 +135,12 @@ def test_dfs_connection_types_infer_the_right_platform(
 
 @pytest.mark.parametrize(
     ("qualytics_type", "expected_platform"),
-    [("databricks_native", "databricks"), ("hive_native", "hive")],
+    [
+        ("databricks_native", "databricks"),
+        ("unity_native", "databricks"),
+        ("hive_native", "hive"),
+        ("glue_native", "glue"),
+    ],
 )
 def test_native_connection_types_drop_the_native_suffix(
     qualytics_type: str, expected_platform: str
@@ -207,6 +212,42 @@ def test_native_dataset_name_is_catalog_schema_table() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("qualytics_type", "expected_urn"),
+    [
+        (
+            "hive_native",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,gold.customers,PROD)",
+        ),
+        (
+            "glue_native",
+            "urn:li:dataset:(urn:li:dataPlatform:glue,gold.customers,PROD)",
+        ),
+    ],
+)
+def test_hive_and_glue_dataset_names_leave_out_the_spark_catalog(
+    qualytics_type: str, expected_urn: str
+) -> None:
+    # Qualytics derives a catalog name for these only because Spark needs one. The
+    # Hive and Glue sources name datasets database.table, so including it would put
+    # every assertion on a dataset that does not exist.
+    resolver, _ = _resolver()
+    ds, _ = parse_datastore(
+        {
+            "id": 3,
+            "name": "metastore",
+            "store_type": "native",
+            "type": qualytics_type,
+            "catalog": "hive_metastore_1a2b",
+            "schema": "gold",
+        }
+    )
+
+    urn = resolver.dataset_urn(ds, _table("customers"))
+
+    assert urn == expected_urn
+
+
 def test_dfs_dataset_name_strips_the_scheme_and_joins_the_path() -> None:
     # Mirrors what DataHub's s3 source emits: the table path minus the URI scheme,
     # slash-trimmed.
@@ -263,6 +304,25 @@ def test_dfs_resolutions_are_counted_as_path_reconstructions() -> None:
     assert report.urns_resolved_by_path_reconstruction == 1
 
 
+def test_mapped_dfs_resolutions_are_still_counted_as_path_reconstructions() -> None:
+    # The map pins the platform; the object path is reconstructed either way.
+    resolver, report = _resolver(datastore_to_platform_map={"lake": {"platform": "s3"}})
+    ds, _ = parse_datastore(
+        {
+            "id": 2,
+            "name": "lake",
+            "store_type": "dfs",
+            "type": "s3",
+            "uri": "s3://b",
+            "root_path": "/",
+        }
+    )
+
+    resolver.dataset_urn(ds, _table("f.parquet"))
+
+    assert report.urns_resolved_by_path_reconstruction == 1
+
+
 def test_jdbc_resolutions_are_not_counted_as_path_reconstructions() -> None:
     resolver, report = _resolver()
 
@@ -304,8 +364,9 @@ def test_explicit_map_can_be_keyed_by_datastore_id() -> None:
 
     urn = resolver.dataset_urn(_jdbc("postgresql"), _table("orders"))
 
-    assert urn is not None
-    assert "dataPlatform:redshift" in urn
+    assert (
+        urn == "urn:li:dataset:(urn:li:dataPlatform:redshift,SALES.PUBLIC.orders,PROD)"
+    )
 
 
 def test_name_takes_precedence_over_id_when_both_are_mapped() -> None:
@@ -403,6 +464,17 @@ def test_unmappable_connection_type_is_skipped_and_reported() -> None:
     assert urn is None
     assert report.datastores_unresolved == 1
     assert "warehouse" in list(report.unresolved_datastores)
+
+
+def test_an_unknown_connection_type_is_skipped_rather_than_used_as_a_platform() -> None:
+    # Passing an unknown type through as a platform name once turned glue_native
+    # datastores into urn:li:dataPlatform:glue_native, which no source emits.
+    resolver, report = _resolver()
+
+    urn = resolver.dataset_urn(_jdbc("newdb"), _table())
+
+    assert urn is None
+    assert report.datastores_unresolved == 1
 
 
 def test_inference_disabled_means_unmapped_datastores_are_skipped() -> None:

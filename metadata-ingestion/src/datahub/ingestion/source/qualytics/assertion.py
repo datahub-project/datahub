@@ -71,6 +71,9 @@ class RuleMapping:
     scope: str
     operator: str
     aggregation: str
+    # The bound the rule type implies when its properties carry none. Without it
+    # `unique` renders as "unique proportion equals" with nothing on the right.
+    implied_value: str | None = None
 
 
 # All 49 rule types in the captured spec, grouped by what they assert.
@@ -82,7 +85,7 @@ RULE_MAPPINGS: dict[str, RuleMapping] = {
     "anyNotNull": RuleMapping(_COLUMN, _OP.NOT_NULL, _AGG.IDENTITY),
     "notEmpty": RuleMapping(_COLUMN, _OP.NOT_EQUAL_TO, _AGG.IDENTITY),
     # Uniqueness
-    "unique": RuleMapping(_COLUMN, _OP.EQUAL_TO, _AGG.UNIQUE_PROPORTION),
+    "unique": RuleMapping(_COLUMN, _OP.EQUAL_TO, _AGG.UNIQUE_PROPORTION, "1"),
     "distinctCount": RuleMapping(_COLUMN, _OP.EQUAL_TO, _AGG.UNIQUE_COUNT),
     # Numeric range and aggregate
     "between": RuleMapping(_COLUMN, _OP.BETWEEN, _AGG.IDENTITY),
@@ -90,8 +93,10 @@ RULE_MAPPINGS: dict[str, RuleMapping] = {
     "maxValue": RuleMapping(_COLUMN, _OP.LESS_THAN_OR_EQUAL_TO, _AGG.MAX),
     "greaterThan": RuleMapping(_COLUMN, _OP.GREATER_THAN, _AGG.IDENTITY),
     "lessThan": RuleMapping(_COLUMN, _OP.LESS_THAN, _AGG.IDENTITY),
-    "positive": RuleMapping(_COLUMN, _OP.GREATER_THAN, _AGG.IDENTITY),
-    "notNegative": RuleMapping(_COLUMN, _OP.GREATER_THAN_OR_EQUAL_TO, _AGG.IDENTITY),
+    "positive": RuleMapping(_COLUMN, _OP.GREATER_THAN, _AGG.IDENTITY, "0"),
+    "notNegative": RuleMapping(
+        _COLUMN, _OP.GREATER_THAN_OR_EQUAL_TO, _AGG.IDENTITY, "0"
+    ),
     "sum": RuleMapping(_COLUMN, _OP.EQUAL_TO, _AGG.SUM),
     # Pattern and PII detection
     "matchesPattern": RuleMapping(_COLUMN, _OP.REGEX_MATCH, _AGG.IDENTITY),
@@ -218,6 +223,21 @@ def _as_logic(value: object) -> str | None:
     return None if value is None else str(value)
 
 
+def _value_parameter(properties: dict[str, Any]) -> AssertionStdParameterClass | None:
+    """The comparison value, unless it is a list _cap_lists trimmed.
+
+    A trimmed list is left out of the typed parameter, which carries no sign that it
+    is partial; ``nativeParameters`` keeps it, with its ``_total_count``.
+    """
+    for key in _VALUE_KEYS:
+        value = properties.get(key)
+        if value is not None:
+            if f"{key}_total_count" in properties:
+                return None
+            return _parameter(value)
+    return None
+
+
 def _cap_lists(properties: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     """Trim list-valued properties to MAX_LIST_PARAMETER_ITEMS.
 
@@ -310,8 +330,14 @@ class AssertionMapper:
         return _UNKNOWN_RULE
 
     @staticmethod
-    def _parameters(properties: dict[str, Any]) -> AssertionStdParametersClass | None:
-        value = _parameter(_first_present(properties, _VALUE_KEYS))
+    def _parameters(
+        properties: dict[str, Any], mapping: RuleMapping
+    ) -> AssertionStdParametersClass | None:
+        value = _value_parameter(properties)
+        if value is None and mapping.implied_value is not None:
+            value = AssertionStdParameterClass(
+                value=mapping.implied_value, type=AssertionStdParameterTypeClass.NUMBER
+            )
         min_value = _parameter(_first_present(properties, _MIN_KEYS))
         max_value = _parameter(_first_present(properties, _MAX_KEYS))
         if value is None and min_value is None and max_value is None:
@@ -374,7 +400,7 @@ class AssertionMapper:
                 scope=mapping.scope,
                 operator=mapping.operator,
                 aggregation=mapping.aggregation,
-                parameters=self._parameters(properties),
+                parameters=self._parameters(properties, mapping),
                 nativeType=check.rule_type,
                 nativeParameters=_string_map(properties) or None,
                 logic=_as_logic(_first_present(properties, _LOGIC_KEYS)),

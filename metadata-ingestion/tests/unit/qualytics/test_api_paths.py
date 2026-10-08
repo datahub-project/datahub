@@ -32,15 +32,21 @@ def spec() -> dict[str, Any]:
     return loaded
 
 
-def test_spec_paths_all_carry_the_api_root_path(spec: dict[str, Any]) -> None:
+def test_spec_paths_are_the_consumed_paths_under_the_api_root(
+    spec: dict[str, Any],
+) -> None:
     # The spec's keys include the deployment's API_ROOT_PATH, while our constants are
     # relative to `base_url` (which already ends in it). If this ever stops holding,
     # every path constant needs revisiting -- so assert the assumption rather than
     # letting it rot silently.
-    offenders = [
-        p for p in spec["paths"] if not p.startswith(f"{DEFAULT_API_ROOT_PATH}/")
-    ]
-    assert offenders == [], offenders
+    # Compared as a set, not path by path: the fixture is trimmed to exactly these
+    # keys, so a capture under a different root would leave it empty and a
+    # per-path check would pass vacuously.
+    wanted = {f"{DEFAULT_API_ROOT_PATH}{p}" for p in CONSUMED_PATHS}
+    assert set(spec["paths"]) == wanted, (
+        f"spec paths {sorted(set(spec['paths']) ^ wanted)} do not match "
+        f"{DEFAULT_API_ROOT_PATH} + CONSUMED_PATHS; check the deployment's API root path"
+    )
 
 
 @pytest.mark.parametrize("path", CONSUMED_PATHS)

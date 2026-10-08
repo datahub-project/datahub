@@ -10,7 +10,7 @@ per-deployment release versions:
 1. ``extra="ignore"`` everywhere. A newer deployment adding fields must not break an
    older connector.
 2. Never stricter than the spec. A field the spec leaves optional or nullable is
-   optional or nullable here; ``tests/unit/test_model_spec_alignment.py`` enforces
+   optional or nullable here; ``tests/unit/qualytics/test_model_spec_alignment.py`` enforces
    both. Lists the spec allows to be null are read as empty.
 3. Open-ended enums are typed ``str``, not ``Enum``. A rule type or status this build
    has never seen has to reach the mapper so it can degrade to a custom assertion and

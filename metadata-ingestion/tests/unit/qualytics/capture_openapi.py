@@ -25,7 +25,6 @@ skim the diff before committing: example values can carry a tenant hostname.
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -81,8 +80,13 @@ def trim(spec: dict[str, Any]) -> dict[str, Any]:
     wanted = {f"{DEFAULT_API_ROOT_PATH}{p}" for p in CONSUMED_PATHS}
     missing = sorted(wanted - set(spec.get("paths", {})))
     if missing:
-        # Not fatal here: test_api_paths.py reports it with context. Say so anyway.
-        print(f"Paths not in this spec: {missing}", file=sys.stderr)
+        # Fatal, and before anything is written: a partial fixture would be committed
+        # as the contract and only caught later, as a misleading "endpoint moved".
+        raise SystemExit(
+            f"Paths not in this spec: {missing}. If the deployment serves its API "
+            f"under a root other than {DEFAULT_API_ROOT_PATH}, capture from one that "
+            f"does not; otherwise the endpoints have moved."
+        )
     paths = {p: op for p, op in spec.get("paths", {}).items() if p in wanted}
 
     all_schemas: dict[str, Any] = spec.get("components", {}).get("schemas", {})

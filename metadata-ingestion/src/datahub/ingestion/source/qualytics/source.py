@@ -157,6 +157,25 @@ class QualyticsSource(StatefulIngestionSourceBase, TestableSource):
                 "report does not record which Qualytics build it talked to.",
             )
 
+        # Same shape as _process_datastore, one level up: the pager raises lazily, so
+        # the handler has to enclose the whole walk to catch a failure on page 3 of 7.
+        try:
+            yield from self._walk_datastores()
+        except QualyticsAuthError:
+            raise
+        except QualyticsApiError as e:
+            self.report.failure(
+                title="Failed to list datastores",
+                message="Datastores after the failure are skipped, and stale-assertion "
+                "removal is skipped for this run so their assertions are not deleted.",
+                exc=e,
+            )
+            # Not _report_unmatched_map_keys: an unlisted datastore is not a typo.
+            return
+
+        self._report_unmatched_map_keys()
+
+    def _walk_datastores(self) -> Iterable[MetadataWorkUnit]:
         for payload in self.client.list_datastores():
             parsed = self._parse(parse_datastore, payload, "datastore", incomplete=True)
             if parsed is None:
@@ -186,8 +205,6 @@ class QualyticsSource(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             yield from self._process_datastore(datastore)
-
-        self._report_unmatched_map_keys()
 
     def _report_unmatched_map_keys(self) -> None:
         """Warn once per datastore_to_platform_map key that matched no datastore.

@@ -52,11 +52,19 @@ def _empty_page() -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    ("path", "call"),
+    ("path", "call", "expected"),
     [
-        ("/datastores", lambda c: list(c.list_datastores())),
-        ("/containers", lambda c: list(c.list_containers(datastore_id=1))),
-        ("/quality-checks", lambda c: list(c.list_quality_checks(container_id=10))),
+        ("/datastores", lambda c: list(c.list_datastores()), set()),
+        (
+            "/containers",
+            lambda c: list(c.list_containers(datastore_id=1)),
+            {"datastore"},
+        ),
+        (
+            "/quality-checks",
+            lambda c: list(c.list_quality_checks(container_id=10)),
+            {"container"},
+        ),
         (
             "/anomalies",
             lambda c: list(
@@ -64,10 +72,13 @@ def _empty_page() -> dict[str, Any]:
                     container_id=10, start_date="2026-08-01", end_date="2026-09-09"
                 )
             ),
+            {"container", "start_date", "end_date"},
         ),
     ],
 )
-def test_outgoing_query_params_exist_in_the_spec(path: str, call: Any) -> None:
+def test_outgoing_query_params_exist_in_the_spec(
+    path: str, call: Any, expected: set[str]
+) -> None:
     declared = _spec_params(path)
 
     with Mocker() as m:
@@ -79,6 +90,9 @@ def test_outgoing_query_params_exist_in_the_spec(path: str, call: Any) -> None:
     assert unknown == set(), (
         f"{path} sent parameters the spec does not declare: {sorted(unknown)}"
     )
+    # And nothing dropped: a listing that loses its filter returns every container's
+    # checks for each container, and still passes the check above.
+    assert set(sent) >= {"page", "size", *expected}
 
 
 @pytest.mark.parametrize(

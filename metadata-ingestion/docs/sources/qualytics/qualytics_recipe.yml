@@ -68,6 +68,7 @@ source:
 
     # Datastores absent from the map are resolved from their Qualytics connection
     # type (postgresql -> postgres, sqlserver -> mssql, abfs -> abs, and so on).
+    # A connection type this build does not know is skipped with a warning.
     # Set to false to ingest ONLY the datastores you have mapped explicitly.
     infer_source_platform: true
 
@@ -77,9 +78,9 @@ source:
     # default_source_platform_instance: "prod-sf"
     # default_source_env: PROD
 
-    # Leave this unset. Setting it -- even to false -- forces one casing onto every
-    # datastore and switches off the per-platform default described above, which is
-    # what a mixed Snowflake + Postgres estate needs.
+    # Leave this unset: the per-platform default described above is what a mixed
+    # Snowflake + Postgres estate needs. Setting it -- even to false -- forces one
+    # casing onto every datastore and switches that default off.
     # convert_urns_to_lowercase: false
 
     # ========================================================================

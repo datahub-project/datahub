@@ -222,9 +222,11 @@ class QualyticsClient:
         """Read the deployment's API root path out of its own spec.
 
         Each deployment configures its own API root path, so `/api` is a default
-        rather than a guarantee. The spec's path keys carry it, so the shortest key's
-        first segment is the answer. Returns None when the spec is unavailable or its
-        paths disagree.
+        rather than a guarantee, and it may be more than one segment behind a gateway.
+        The spec's path keys carry it: whatever precedes the datastores path is the
+        root. Anchoring on a path the connector calls, rather than on what the keys
+        have in common, keeps one stray top-level route from hiding the answer.
+        Returns None when the spec is unavailable or has no datastores path.
         """
         try:
             spec = self.get_openapi_spec()
@@ -237,12 +239,14 @@ class QualyticsClient:
         if not isinstance(paths, dict) or not paths:
             return None
 
-        roots = {
-            f"/{p.lstrip('/').split('/', 1)[0]}" for p in paths if p.startswith("/")
-        }
-        if len(roots) != 1:
+        roots = [
+            p[: -len(DATASTORES_PATH)]
+            for p in paths
+            if isinstance(p, str) and p.endswith(DATASTORES_PATH)
+        ]
+        if not roots:
             return None
-        return roots.pop()
+        return min(roots, key=len).rstrip("/")
 
     def check_base_url_root_path(self) -> str | None:
         """Return a human-readable problem with `base_url`'s root path, or None.
@@ -300,7 +304,9 @@ class QualyticsClient:
                 f"{CONTAINER_PROFILE_PATH.format(id=container_id)} returned "
                 f"{type(payload).__name__}, not a profile object"
             )
-        return payload or None
+        # An empty object is returned as-is, not as None: only the 404 above means
+        # "never profiled", and a malformed body should fail validation visibly.
+        return payload
 
     def list_container_field_profiles(
         self, container_id: int

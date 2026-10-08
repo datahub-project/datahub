@@ -66,6 +66,9 @@ dataset-existence check — are **warnings**, and the run otherwise completes no
 - **Object-store dataset names are a reconstruction.** DataHub names an S3/GCS/ABS
   dataset after its table path, and your `path_spec` decides where that boundary sits.
   These resolutions are counted separately as `urns_resolved_by_path_reconstruction`.
+- **Hive and Glue datasets are named `database.table`**, as those sources name them
+  by default. A Hive metastore source run with `include_catalog_name_in_ids` emits
+  `catalog.database.table`, which this connector does not reconstruct.
 - **Field histograms are capped** at 100 buckets, most frequent first. Truncations are
   counted as `profile_histograms_truncated`.
 - **Not yet emitted:** tags, ownership, lineage, incidents, structured properties, and

@@ -83,8 +83,12 @@ ways:
    Supply the `platform`, `platform_instance` and `env` your warehouse source used.
 2. **Inference** (`infer_source_platform`, default `true`). The Qualytics connection
    type maps to a DataHub platform — mostly one-to-one, with a few renames
-   (`postgresql` → `postgres`, `sqlserver` → `mssql`, `abfs` → `abs`). Inferred URNs use
-   `default_source_platform_instance` and `default_source_env`, which default to unset.
+   (`postgresql` → `postgres`, `sqlserver` → `mssql`, `abfs` → `abs`, `glue_native` →
+   `glue`). A connection type this build does not know is skipped with a warning
+   rather than guessed at. Inferred URNs use `default_source_platform_instance`, unset
+   by default, and `default_source_env`, which falls back to the recipe's top-level
+   `env` (`PROD` by default). If your warehouse source used another env, set one of
+   them here too.
 
 Datastores that resolve to nothing are skipped with a warning naming the datastore, and
 counted in the report as `datastores_unresolved`. The connector deliberately skips

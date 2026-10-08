@@ -147,6 +147,30 @@ def test_a_failed_listing_deletes_nothing(tmp_path: Path) -> None:
     )
 
 
+def test_a_datastore_listing_that_fails_part_way_deletes_nothing(
+    tmp_path: Path,
+) -> None:
+    with Mocker() as m:
+        _deploy(m)
+        _run(tmp_path, 1).raise_from_status()
+
+    with Mocker() as m:
+        _deploy(m)
+        # Page 1 says there is a page 2, which fails. requests_mock tries the most
+        # recently registered matcher first.
+        m.get(
+            f"{BASE}/datastores?page=1",
+            json={**_page([DATASTORE]), "pages": 2, "total": 2},
+        )
+        m.get(f"{BASE}/datastores?page=2", status_code=500, text="boom")
+        second = _run(tmp_path, 2)
+
+    assert _soft_deleted(tmp_path, 2) == []
+    assert any(
+        "datastores" in str(f).lower() for f in second.source.get_report().failures
+    )
+
+
 def test_an_unparseable_check_deletes_nothing(tmp_path: Path) -> None:
     with Mocker() as m:
         _deploy(m)

@@ -116,12 +116,12 @@ source-side equivalent.
 | Datastore                     | `GET /datastores`                     | _(not emitted)_                                       | Mode A: the resolution key that maps containers onto the source platform. Discriminated on `store_type` ∈ jdbc / dfs / native.                                    |
 | Container (table, view, file) | `GET /containers`                     | **Dataset** — resolved to the _source platform's_ URN | Discriminated on `container_type`. `subTypes` from `table_type`.                                                                                                  |
 | Field                         | `GET /containers/{id}/fields`         | ~~`schemaMetadata`~~ — **dropped from v1**, see below | Field-level signal still reaches DataHub via field profiles and schemaField-scoped tags.                                                                          |
-| Container profile             | `GET /containers/{id}/profile`        | `datasetProfile`                                      | `records_count` → `rowCount`, `field_profiles_count` → `columnCount`.                                                                                             |
+| Container profile             | `GET /containers/{id}/profile`        | `datasetProfile`                                      | `records_count` → `rowCount`. No `columnCount`: Qualytics omits excluded, masked and missing fields.                                                              |
 | Field profile                 | `GET /containers/{id}/field-profiles` | `datasetFieldProfile`                                 | min/max/mean/median/std_dev/q1/q3, `approximate_distinct_values` → `uniqueCount`, `completeness` → null counts, `histogram_buckets` → `distinctValueFrequencies`. |
 | Quality check                 | `GET /quality-checks`                 | **Assertion** + `assertionInfo`                       | One assertion per check. See rule-type mapping.                                                                                                                   |
 | Anomaly / check result        | `GET /anomalies` (windowed)           | `assertionRunEvent`                                   | SUCCESS/FAILURE, `anomalous_records_count` → `rowCount`, Qualytics `message` in `nativeResults`.                                                                  |
-| Quality score + 8 dimensions  | on container/field                    | **Structured properties**                             | Reuse the push integration's `qualifiedName`s verbatim.                                                                                                           |
-| Global tag                    | `GET /global-tags`                    | `globalTags`                                          | Optional (`emit_tags`, default on).                                                                                                                               |
+| Quality score + 8 dimensions  | on container/field                    | ~~Structured properties~~ — **not in v1**             | Owned by the push integration; see the Phase 9 correction.                                                                                                        |
+| Global tag                    | `GET /global-tags`                    | ~~`globalTags`~~ — **not in v1**                      | `emit_tags` removed with the other dead toggles; see the Phase 9 correction.                                                                                      |
 | —                             | —                                     | `dataPlatformInstance`                                | Required on **every** entity. SDK V2 emits it.                                                                                                                    |
 
 ### Correction, recorded during Phase 5: no `schemaMetadata` in Mode A
@@ -257,14 +257,13 @@ Additions for v1:
 | `TEST_CONNECTION`                 | ✅       | Connectivity, then each capability separately                              |
 | `DATA_PROFILING`                  | ✅       | Container + field profiles                                                 |
 | `SCHEMA_METADATA`                 | ❌       | Dropped — the warehouse source owns the schema; see the Phase 5 correction |
-| `TAGS`                            | ✅       | `emit_tags`, default on                                                    |
 | `DESCRIPTIONS`                    | ✅       | Check descriptions → assertion descriptions                                |
 | `DELETION_DETECTION`              | ✅       | Stateful ingestion                                                         |
 | `LINEAGE_COARSE` / `LINEAGE_FINE` | ❌ v2    | Endpoints exist and are mapped; deferred                                   |
 | `OWNERSHIP`                       | ❌ v2    | Deferred                                                                   |
 | `USAGE_STATS`                     | ❌ never | Qualytics has no query log; not its job                                    |
 
-Support status: `SupportStatus.ALPHA` (the enum has ALPHA/BETA/GA/UNKNOWN — the docs
+Support status: `SupportStatus.BETA` (the enum has ALPHA/BETA/GA/UNKNOWN — the docs
 template's "Testing" badge does not exist in code).
 
 ---
@@ -328,8 +327,8 @@ returning a `TestConnectionReport`. Unit tests on `requests_mock`.
 tests across snowflake / bigquery / databricks / postgres / redshift / s3 / iceberg, plus
 the unresolvable case. Riskiest unit; do it before any mapper.
 
-**Phase 5 — schema + profile mappers.** `schemaMetadata` incl. nested `parent_field_id`
-paths; `datasetProfile` / `datasetFieldProfile`. First golden files.
+**Phase 5 — profile mappers.** `datasetProfile` / `datasetFieldProfile`. First golden
+files. (`schemaMetadata` was dropped from v1; see the Phase 5 correction.)
 
 **Phase 6 — assertion mapper — ✅ DONE.** All 49 rule types, table-driven, with the
 spec-enumerated coverage test.
@@ -377,11 +376,11 @@ occur. `tests/unit/test_docs.py` parses the shipped recipe against the real conf
 class and fails if a capability or an emit toggle is undocumented, so the docs cannot
 drift silently.
 
-**Golden files — ✅ DONE.** `tests/unit/qualytics/golden/qualytics_mces_golden.json`: 27 events, 32KB,
-three platforms, generated from a deliberately broad synthetic deployment
+**Golden files — ✅ DONE.** `tests/unit/qualytics/golden/qualytics_mces_golden.json`: 56 events, 53KB,
+four platforms, generated from a deliberately broad synthetic deployment
 (`tests/unit/qualytics/fixtures/golden_deployment.json`) covering all three store types, tables/views/
 files, mapped and inferred platforms, passing and failing checks, a mapped and an
-unmapped rule type, and a never-profiled container. Deterministic across runs.
+unmapped rule type. Deterministic across runs.
 
 ### Correction, recorded during Phase 9: five toggles that did nothing
 

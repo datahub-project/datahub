@@ -31,33 +31,61 @@ from datahub.ingestion.source.qualytics.models import (
 )
 from datahub.ingestion.source.qualytics.report import QualyticsSourceReport
 
-# Qualytics connection type -> DataHub platform.
-#
-# Qualytics supports 25 connection types: 20 JDBC, 3 DFS and 2 native. Every
-# target below was checked against DataHub's own data-platforms.yaml (129 platforms);
-# only entries whose names differ are listed, everything else maps to itself.
+# Qualytics connection type -> DataHub platform, for every connection type Qualytics
+# supports: 20 JDBC, 3 DFS and 4 native. Every target was checked against DataHub's
+# own data-platforms.yaml. The list is closed on purpose: a connection type missing
+# from it is skipped with a warning rather than passed through as a platform name,
+# because a type DataHub does not know (glue_native, say) produces URNs that match no
+# dataset. A new Qualytics connection type therefore needs a line here.
 PLATFORM_MAP: dict[str, str] = {
+    # JDBC. Most names are DataHub's own.
+    "athena": "athena",
+    "bigquery": "bigquery",
+    "databricks": "databricks",
+    "db2": "db2",
+    "dremio": "dremio",
+    "hana": "hana",
+    "hive": "hive",
+    # mariadb deliberately maps to itself. DataHub ships a dedicated mariadb source
+    # that emits mariadb URNs; mapping to mysql would attach assertions to a URN a
+    # MariaDB-sourced DataHub never emitted.
+    "mariadb": "mariadb",
+    "mysql": "mysql",
+    "oracle": "oracle",
     # DataHub registers "postgres", not "postgresql".
     "postgresql": "postgres",
+    "presto": "presto",
+    "redshift": "redshift",
+    "snowflake": "snowflake",
     # DataHub registers "mssql", not "sqlserver".
     "sqlserver": "mssql",
     # No "synapse" platform in DataHub. Synapse dedicated SQL pools speak the SQL
     # Server dialect and there is no Synapse ingestion source, so nothing would ever
     # emit synapse URNs to match against.
     "synapse": "mssql",
+    "teradata": "teradata",
     # TimescaleDB is a Postgres extension; DataHub has no separate platform, and the
     # postgres source is what would have ingested it.
     "timescale": "postgres",
-    # DataHub registers Azure Blob Storage as "abs".
+    "trino": "trino",
+    # DFS. DataHub registers Azure Blob Storage as "abs".
     "abfs": "abs",
+    "gcs": "gcs",
+    "s3": "s3",
     # Native connectors carry a _native suffix that is a Qualytics implementation
-    # detail; the platform is the same.
+    # detail; the platform is the one the matching DataHub source emits.
     "databricks_native": "databricks",
+    "unity_native": "databricks",
     "hive_native": "hive",
-    # NB: mariadb deliberately maps to itself. DataHub ships a dedicated mariadb
-    # source that emits mariadb URNs; mapping to mysql would attach assertions to a
-    # URN a MariaDB-sourced DataHub never emitted.
+    "glue_native": "glue",
 }
+
+# Native connection types whose Qualytics "catalog" exists only because Spark routes
+# identifiers through one. Hive and Glue namespaces are two levels, database and
+# table, and their DataHub sources name datasets ``database.table``; the catalog name
+# Qualytics derives would put every URN on a dataset that does not exist. Unity
+# Catalog's catalog, by contrast, is real, and the Databricks source includes it.
+DERIVED_CATALOG_TYPES: frozenset[str] = frozenset({"hive_native", "glue_native"})
 
 # Qualytics connection types with no DataHub equivalent. Listed explicitly so the
 # warning can say "unsupported" rather than "unknown", and so a future DataHub release
@@ -152,6 +180,9 @@ class UrnResolver:
             lowercase_urns=self._lowercase(
                 detail.platform, detail.convert_urns_to_lowercase
             ),
+            # The map pins the platform, not the name: an object-store name is still
+            # reconstructed from the path, and is no more certain for being mapped.
+            confident=datastore.store_type != "dfs",
         )
 
     def _lowercase(self, platform: str, override: bool | None = None) -> bool:
@@ -179,7 +210,15 @@ class UrnResolver:
             )
             return None
 
-        platform = PLATFORM_MAP.get(qualytics_type, qualytics_type)
+        platform = PLATFORM_MAP.get(qualytics_type)
+        if platform is None:
+            self._unresolved(
+                datastore,
+                f"Qualytics connection type '{qualytics_type}' is not one this build "
+                f"of the connector knows; set an explicit datastore_to_platform_map "
+                f"entry naming the DataHub platform it was ingested under",
+            )
+            return None
 
         # Deliberately NOT config.platform_instance: that identifies the *Qualytics*
         # deployment, and pushing it into a Snowflake dataset URN would target
@@ -220,8 +259,12 @@ class UrnResolver:
             return ".".join(p for p in parts if p) or None
 
         if isinstance(datastore, NativeDatastore):
-            # Iceberg REST / Unity Catalog: catalog.schema.table.
-            parts = [datastore.catalog, datastore.schema_, container.name]
+            # Unity Catalog: catalog.schema.table. Hive and Glue: database.table,
+            # since their catalog is a Spark artefact; see DERIVED_CATALOG_TYPES.
+            catalog = (
+                None if datastore.type in DERIVED_CATALOG_TYPES else datastore.catalog
+            )
+            parts = [catalog, datastore.schema_, container.name]
             return ".".join(p for p in parts if p) or None
 
         if isinstance(datastore, DfsDatastore):

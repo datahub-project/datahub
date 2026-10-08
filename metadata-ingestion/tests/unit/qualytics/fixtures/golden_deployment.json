@@ -9,7 +9,6 @@
     "  - table, view and file containers",
     "  - a passing check and a failing check with an anomaly",
     "  - a mapped rule type and one this build has never seen",
-    "  - a container that has never been profiled",
     "Values are invented, not captured from any real deployment.",
     "Extended so the golden file exercises views, expression logic, range parameters and multiple anomalies -- see the note in test_golden.py."
   ],

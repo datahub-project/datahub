@@ -622,6 +622,8 @@ def test_a_rejected_token_during_a_profile_fetch_ends_the_run() -> None:
         {"status_code": 404, "json": {"detail": "Not Found"}},
         # A shape we cannot read.
         {"json": [{"records_count": 1}]},
+        # An empty object: only the 404 means "never profiled".
+        {"json": {}},
     ],
 )
 def test_a_profile_response_that_is_not_never_profiled_is_a_failed_profile(

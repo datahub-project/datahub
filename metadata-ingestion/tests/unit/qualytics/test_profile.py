@@ -116,6 +116,19 @@ def test_unique_proportion_is_derived_and_clamped_to_one() -> None:
     assert fp.uniqueProportion == 1.0
 
 
+def test_unique_proportion_is_over_non_null_rows() -> None:
+    # As DataHub's own profilers compute it: 400 distinct values among the 800
+    # populated rows of 1000 is 0.5, not 0.4.
+    mapper, _ = _mapper()
+
+    fp = mapper.field_profile(
+        _field_profile(approximate_distinct_values=400, completeness=0.8),
+        row_count=1000,
+    )
+
+    assert fp.uniqueProportion == pytest.approx(0.5)
+
+
 def test_unique_proportion_is_skipped_when_the_row_count_is_zero() -> None:
     # Guards a division by zero on an empty table.
     mapper, _ = _mapper()
@@ -238,6 +251,10 @@ def test_a_histogram_at_the_limit_is_left_intact_and_unreported() -> None:
         "2026-09-09T12:00:00Z",
         "2026-09-09T12:00:00+00:00",
         "2026-09-09T12:00:00",  # naive: treated as UTC
+        # Fractions of any length: 3.10 accepts only three or six digits.
+        "2026-09-09T12:00:00.0Z",
+        "2026-09-09T12:00:00.0000001Z",
+        "2026-09-09T12:00:00.000000123+00:00",
     ],
 )
 def test_timestamps_parse_across_the_forms_qualytics_emits(value: str) -> None:
@@ -267,7 +284,7 @@ def test_an_unparseable_timestamp_skips_the_profile_with_a_warning() -> None:
 # --- the dataset profile -----------------------------------------------------------
 
 
-def test_dataset_profile_carries_row_count_column_count_and_field_profiles() -> None:
+def test_dataset_profile_carries_row_count_and_field_profiles() -> None:
     mapper, report = _mapper()
     fields = [_field_profile(name="amount"), _field_profile(id=2, name="country")]
 
@@ -275,7 +292,9 @@ def test_dataset_profile_carries_row_count_column_count_and_field_profiles() -> 
 
     aspect = _profile(wu)
     assert aspect.rowCount == 1000
-    assert aspect.columnCount == 2
+    # Qualytics omits excluded, missing and masked fields, so the number of field
+    # profiles is not the table's column count.
+    assert aspect.columnCount is None
     assert aspect.timestampMillis == 1788955200000
     assert [fp.fieldPath for fp in aspect.fieldProfiles or []] == ["amount", "country"]
     assert report.profiles_emitted == 1

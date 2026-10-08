@@ -18,7 +18,7 @@ calendar boundary the moment the anomalies mock began honouring date params.
 
 Regenerate with:
 
-    uv run pytest tests/unit/test_golden.py --update-golden-files
+    pytest tests/unit/qualytics/test_golden.py --update-golden-files
 """
 
 import json

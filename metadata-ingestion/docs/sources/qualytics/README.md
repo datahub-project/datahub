@@ -4,16 +4,14 @@
 datastores, infers and enforces quality checks against them, and records the anomalies
 those checks produce.
 
-This connector brings that signal into DataHub. Quality checks become **assertions**,
-anomalies and check results become **assertion run events**, and Qualytics profiles
-become **dataset and field profiles** — so the Validation and Stats tabs on a dataset
-your team already browses reflect Qualytics' coverage and history.
-
-Qualytics profiles tables your DataHub already catalogues from Snowflake, BigQuery,
-Databricks, S3 and similar. This connector therefore attaches its metadata to **those
-existing datasets**, reconstructing each dataset URN from the Qualytics datastore's
-connection metadata. It does not create a parallel Qualytics catalog, and it does not
-emit schemas — the warehouse source owns those.
+This connector brings that signal onto the datasets your DataHub already catalogues
+from Snowflake, BigQuery, Databricks, S3 and similar. Quality checks become
+**assertions**, anomalies and check results become **assertion run events**, and
+Qualytics profiles become **dataset and field profiles**, all attached to **those
+existing datasets** by reconstructing each dataset URN from the Qualytics datastore's
+connection metadata. It creates no parallel Qualytics catalog and emits no schemas,
+which the warehouse source owns. Stateful ingestion removes assertions whose checks
+were deleted in Qualytics.
 
 ## Concept Mapping
 
@@ -24,7 +22,7 @@ emit schemas — the warehouse source owns those.
 | Quality check                 | [Assertion](https://docs.datahub.com/docs/generated/metamodel/entities/assertion/)        | One `CUSTOM` assertion per check, with the Qualytics rule type in `nativeType` and its configuration in `nativeParameters`. All 49 rule types are mapped; see below.                                                    |
 | Check result (`is_passing`)   | Assertion Run Event                                                                       | The current verdict, and the only source of _passes_ — Qualytics records anomalies, not successes.                                                                                                                      |
 | Anomaly                       | Assertion Run Event                                                                       | A failure, with Qualytics' message and the count of offending records in `unexpectedCount`. Windowed; 30 days by default.                                                                                               |
-| Container profile             | Dataset Profile                                                                           | Row count and column count from the latest profile operation.                                                                                                                                                           |
+| Container profile             | Dataset Profile                                                                           | Row count from the latest profile operation.                                                                                                                                                                            |
 | Field profile                 | Dataset Field Profile                                                                     | Min, max, mean, median, quartiles, standard deviation, distinct and null counts, value histogram.                                                                                                                       |
 | Field                         | —                                                                                         | No `schemaMetadata` is emitted; see Limitations. Field-level signal reaches DataHub through field profiles and the `schemaField` URNs on assertions.                                                                    |
 | Global tag                    | —                                                                                         | Not emitted yet. `globalTags` replaces the whole aspect, so writing ours onto a dataset the warehouse source owns would wipe its other tags. Likely to arrive as tags on the assertions, which this connector does own. |

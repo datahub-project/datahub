@@ -12,7 +12,6 @@
                 "type": "FULL_TABLE"
             },
             "rowCount": 125000,
-            "columnCount": 3,
             "fieldProfiles": [
                 {
                     "fieldPath": "order_id",
@@ -26,7 +25,7 @@
                 {
                     "fieldPath": "amount",
                     "uniqueCount": 98211,
-                    "uniqueProportion": 0.785688,
+                    "uniqueProportion": 0.7991131000813669,
                     "nullCount": 2100,
                     "nullProportion": 0.016800000000000037,
                     "min": "0.01",
@@ -638,7 +637,6 @@
                 "type": "FULL_TABLE"
             },
             "rowCount": 125000,
-            "columnCount": 2,
             "fieldProfiles": [
                 {
                     "fieldPath": "order_key",
@@ -650,7 +648,7 @@
                 {
                     "fieldPath": "email",
                     "uniqueCount": 119400,
-                    "uniqueProportion": 0.9552,
+                    "uniqueProportion": 0.9584587597832631,
                     "nullCount": 425,
                     "nullProportion": 0.0033999999999999586
                 }
@@ -690,6 +688,12 @@
                 "scope": "DATASET_COLUMN",
                 "aggregation": "UNIQUE_PROPORTION",
                 "operator": "EQUAL_TO",
+                "parameters": {
+                    "value": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
                 "nativeType": "unique"
             },
             "source": {
@@ -898,7 +902,6 @@
                 "type": "FULL_TABLE"
             },
             "rowCount": 8400000,
-            "columnCount": 1,
             "fieldProfiles": [
                 {
                     "fieldPath": "event_ts",
@@ -1118,7 +1121,6 @@
                 "type": "FULL_TABLE"
             },
             "rowCount": 365,
-            "columnCount": 1,
             "fieldProfiles": [
                 {
                     "fieldPath": "report_date",
@@ -1237,7 +1239,6 @@
                 "type": "FULL_TABLE"
             },
             "rowCount": 51230,
-            "columnCount": 1,
             "fieldProfiles": [
                 {
                     "fieldPath": "customer_id",
@@ -1282,6 +1283,12 @@
                 "scope": "DATASET_COLUMN",
                 "aggregation": "UNIQUE_PROPORTION",
                 "operator": "EQUAL_TO",
+                "parameters": {
+                    "value": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
                 "nativeType": "unique"
             },
             "source": {

@@ -5,6 +5,8 @@ SecretStr masking, nested model parsing -- belongs to pydantic's test suite, and
 DataHub treats connector tests that assert it as an automatic PR rejection.
 """
 
+import re
+
 import pytest
 from pydantic import ValidationError
 
@@ -46,3 +48,15 @@ def test_base_url_without_a_scheme_is_rejected_with_an_example() -> None:
     assert "must include a scheme" in message
     # The error has to show the fix, not just name the problem.
     assert "https://acme.qualytics.io/api" in message
+
+
+def test_the_schema_accepts_the_relative_start_time_the_docs_promise() -> None:
+    # Schema-driven validation (the ingestion UI, IDEs) reads the JSON schema, not the
+    # runtime validator; a bare datetime field advertised date-time only.
+    schema = QualyticsSourceConfig.model_json_schema()
+    start_time = schema["$defs"]["QualyticsAssertionResultsConfig"]["properties"][
+        "start_time"
+    ]
+
+    patterns = [s.get("pattern", "") for s in start_time.get("anyOf", [])]
+    assert any(re.match(p, "-7 days") for p in patterns if p)

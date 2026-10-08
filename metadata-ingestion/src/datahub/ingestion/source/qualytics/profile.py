@@ -81,9 +81,16 @@ class ProfileMapper:
         unique_count = (
             int(distinct) if distinct is not None and math.isfinite(distinct) else None
         )
+        # Over non-null rows, as DataHub's own profilers compute it, so the figure
+        # means the same here as on a table profiled by the warehouse source.
+        non_null_count = (
+            row_count - null_count
+            if row_count is not None and null_count is not None
+            else row_count
+        )
         unique_proportion: float | None = None
-        if unique_count is not None and row_count:
-            unique_proportion = min(1.0, unique_count / row_count)
+        if unique_count is not None and non_null_count:
+            unique_proportion = min(1.0, unique_count / non_null_count)
 
         return DatasetFieldProfileClass(
             fieldPath=profile.name,
@@ -149,7 +156,9 @@ class ProfileMapper:
         return DatasetProfileClass(
             timestampMillis=timestamp,
             rowCount=row_count,
-            columnCount=len(field_profiles) or None,
+            # Not len(field_profiles): Qualytics leaves out excluded, missing and
+            # masked fields, so that is a count of profiled columns, not of columns.
+            columnCount=None,
             fieldProfiles=[self.field_profile(fp, row_count) for fp in field_profiles]
             or None,
         )

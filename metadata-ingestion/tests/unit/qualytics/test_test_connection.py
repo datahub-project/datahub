@@ -38,6 +38,11 @@ def test_a_healthy_deployment_reports_connectivity_and_every_capability() -> Non
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
     assert report.capability_report is not None
+    # The keys, not only their values: all() over an empty report is vacuously true.
+    assert set(report.capability_report) == {
+        SourceCapability.DESCRIPTIONS,
+        SourceCapability.DATA_PROFILING,
+    }
     assert all(c.capable for c in report.capability_report.values())
 
 
