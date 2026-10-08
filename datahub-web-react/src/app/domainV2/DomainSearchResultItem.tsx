@@ -74,7 +74,7 @@ function DomainSearchResultItem({ entity, entityRegistry, query, matchedOwnerNam
                 </Highlight>
                 <ParentEntities hideIcon parentEntities={getParentDomains(entity, entityRegistry)} />
                 {matchedOwnerName && (
-                    <MatchReason>
+                    <MatchReason data-testid="domain-search-owner-match">
                         <Highlight matchStyle={highlightMatchStyle} search={query}>
                             {t('search.ownedBy', { name: matchedOwnerName })}
                         </Highlight>

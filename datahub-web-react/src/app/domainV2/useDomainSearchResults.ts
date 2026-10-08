@@ -7,7 +7,10 @@ import { useGetAutoCompleteMultipleResultsQuery, useGetAutoCompleteResultsQuery 
 import { Domain, Entity, EntityType } from '@types';
 
 const OWNER_ENTITY_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
-const MAX_MATCHED_OWNERS = 5;
+// Applied per owner entity type by autoCompleteForMultiple, so up to this many users and this many
+// groups can each contribute. No global cap is applied afterwards; otherwise five matching users
+// would silently discard every matching group.
+const MAX_MATCHED_OWNERS_PER_TYPE = 5;
 const MAX_OWNED_DOMAINS = 10;
 
 export interface DomainSearchResult {
@@ -31,15 +34,12 @@ export default function useDomainSearchResults(query: string): { results: Domain
     });
 
     const { data: ownerData, loading: ownersLoading } = useGetAutoCompleteMultipleResultsQuery({
-        variables: { input: { types: OWNER_ENTITY_TYPES, query, limit: MAX_MATCHED_OWNERS } },
+        variables: { input: { types: OWNER_ENTITY_TYPES, query, limit: MAX_MATCHED_OWNERS_PER_TYPE } },
         skip,
     });
 
     const matchedOwners = useMemo(
-        () =>
-            (ownerData?.autoCompleteForMultiple?.suggestions || [])
-                .flatMap((suggestion) => suggestion.entities)
-                .slice(0, MAX_MATCHED_OWNERS),
+        () => (ownerData?.autoCompleteForMultiple?.suggestions || []).flatMap((suggestion) => suggestion.entities),
         [ownerData],
     );
     const matchedOwnerUrns = useMemo(() => matchedOwners.map((owner) => owner.urn), [matchedOwners]);
@@ -64,8 +64,12 @@ export default function useDomainSearchResults(query: string): { results: Domain
         const seenUrns = new Set(nameMatches.map((result) => result.entity.urn));
         const ownersByUrn = new Map(matchedOwners.map((owner) => [owner.urn, owner]));
 
+        // Apollo keeps the previous result when the owned-domains query flips back to `skip`, so a
+        // query with no matching owners must not merge in stale domains from the last one that had.
+        const ownedResults = matchedOwners.length > 0 ? ownedData?.searchAcrossEntities?.searchResults || [] : [];
+
         const ownerMatches: DomainSearchResult[] = [];
-        (ownedData?.searchAcrossEntities?.searchResults || []).forEach(({ entity }) => {
+        ownedResults.forEach(({ entity }) => {
             if (seenUrns.has(entity.urn)) return;
             seenUrns.add(entity.urn);
             const matchedOwner = ((entity as Domain).ownership?.owners || [])
@@ -77,5 +81,9 @@ export default function useDomainSearchResults(query: string): { results: Domain
         return [...nameMatches, ...ownerMatches];
     }, [domainData, ownedData, matchedOwners]);
 
-    return { results, loading: domainsLoading || ownersLoading || ownedLoading };
+    // Name matches arrive before the owner-backed lookup, which depends on a second round trip.
+    // Only report loading while there is nothing to show, so the dropdown is not blanked out while
+    // owner matches are still being appended.
+    const anyLoading = domainsLoading || ownersLoading || ownedLoading;
+    return { results, loading: anyLoading && results.length === 0 };
 }
