@@ -1,4 +1,4 @@
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from databricks.sdk.service.catalog import TableType
@@ -123,6 +123,28 @@ class TestUnityCatalogSource:
             usage_data_source=config_with_page_size.usage_data_source,
             databricks_api_page_size=75,  # Custom value
         )
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_sql_parser_schema_resolver_never_queries_graph(
+        self, mock_hive_proxy, mock_unity_proxy, minimal_config
+    ):
+        """Table names the run did not ingest must never cost a DataHub call, however
+        many distinct names the query log contains."""
+        graph = MagicMock()
+        source = UnityCatalogSource.create(
+            minimal_config, PipelineContext(run_id="test_run", graph=graph)
+        )
+
+        resolver = source.sql_parser_schema_resolver
+        assert resolver.graph is None
+        for i in range(1000):
+            _, schema_info = resolver.resolve_table_parts(
+                database="other_catalog", db_schema="staging", table=f"t_{i}"
+            )
+            assert schema_info is None
+        graph.get_entities.assert_not_called()
+        graph.get_aspect.assert_not_called()
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
