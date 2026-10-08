@@ -207,7 +207,7 @@
     "nameStep.saveAndRunTooltip": "Сохранить и начать синхронизацию источника данных",
     "recipeBuilder.detailsTitle": "Детали {{displayName}}",
     "recipeBuilder.fixLine": "Исправьте строку {{line}} в вашем рецепте",
-    "recipeBuilder.fixRecipe": "Пожалуйста, исправьте ваш рецепт",
+    "recipeBuilder.fixRecipe": "Исправьте рецепт",
     "recipeBuilder.formView": "Форма",
     "recipeBuilder.invalidYaml": "Обнаружен некорректный YAML. {{messageText}}, чтобы переключить вид.",
     "recipeBuilder.yamlView": "YAML",

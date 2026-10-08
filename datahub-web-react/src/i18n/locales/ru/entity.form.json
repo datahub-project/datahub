@@ -2,7 +2,7 @@
     "completedBy": "Заполнено <name>{{completedByName}}</name>",
     "fieldLabel": "Поле: {{fieldPath}}",
     "fieldLevelRequirementsTitle": "Требования на уровне поля",
-    "introDescription": "Пожалуйста, заполните следующую информацию для {{entityName}}, чтобы мы могли отслеживать статус ассета",
+    "introDescription": "Заполните сведения ниже по объекту типа «{{entityName}}», чтобы мы могли отслеживать его статус",
     "notAssignedTooltip": "Вам не назначен просмотр или редактирование этой формы",
     "optionalResponsesRemaining_one": "Осталось {{count}} необязательный ответ",
     "optionalResponsesRemaining_few": "Осталось {{count}} необязательных ответа",
@@ -32,7 +32,7 @@
     "statusComplete": "Завершено",
     "statusVerified": "Подтверждено",
     "submitError": "Неизвестная ошибка при отправке ответа формы",
-    "verificationComplete": "Все вопросы для проверки заполнены. Пожалуйста, подтвердите ваши ответы.",
+    "verificationComplete": "Все вопросы для проверки заполнены. Подтвердите ответы.",
     "verify": "Подтвердить",
     "verifyError": "Ошибка при подтверждении ответов формы",
     "verifyResponses": "Подтвердить ответы"

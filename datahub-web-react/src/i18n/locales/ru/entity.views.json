@@ -97,7 +97,7 @@
     "viewForm.nameHelp": "Дайте название новому представлению.",
     "viewForm.nameLabel": "Название",
     "viewForm.namePlaceholder": "Аналитик данных",
-    "viewForm.nameRequired": "Пожалуйста, введите название представления.",
+    "viewForm.nameRequired": "Введите название представления.",
     "viewForm.typeHelp": "Выберите тип нового представления.",
     "viewForm.typeLabel": "Тип",
     "viewSelect.createNewView": "Создать представление",

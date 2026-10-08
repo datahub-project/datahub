@@ -5,7 +5,7 @@
     "customIcon.alt": "Иконка",
     "entityCountCard.viewCountTooltip": "Просмотреть {{formattedCount}} {{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
-    "multiStepForm.disabledNextTooltip": "Пожалуйста, заполните все обязательные поля перед переходом к следующему шагу",
+    "multiStepForm.disabledNextTooltip": "Чтобы перейти к следующему шагу, заполните все обязательные поля",
     "noEntityFound.subtitle": "К сожалению, не удалось найти этот объект в DataHub",
     "noEntityFound.title": "Не найдено",
     "noPageFound.backToHome": "На главную",

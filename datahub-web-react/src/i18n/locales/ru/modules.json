@@ -1,7 +1,7 @@
 {
     "details.nameLabel": "Название",
     "details.namePlaceholder": "Выберите название для вашего модуля",
-    "details.nameValidation": "Пожалуйста, введите название",
+    "details.nameValidation": "Введите название",
     "error.largeDescription": "Что-то пошло не по плану с этим модулем. Попробуйте обновить страницу или обратиться к администратору DataHub",
     "error.oopsTitle": "Ой!",
     "error.refreshLink": "Обновить",
