@@ -29,8 +29,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * {@link ReliableHardDeleteFactory}'s hard-delete service: where hard deletes run is decided only by
- * whether a dispatcher bean exists.
+ * {@link ReliableHardDeleteFactory}'s hard-delete service: where hard deletes run is decided only
+ * by whether a dispatcher bean exists.
  */
 public class ReliableHardDeleteFactoryHardDeleteServiceTest {
   private static final Urn URN = UrnUtils.getUrn("urn:li:tag:wired");

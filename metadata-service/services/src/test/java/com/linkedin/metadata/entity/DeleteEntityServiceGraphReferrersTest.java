@@ -54,8 +54,7 @@ import org.testng.annotations.Test;
 public class DeleteEntityServiceGraphReferrersTest {
   private static final TagUrn DELETED_TAG = new TagUrn("deleted");
   private static final TagUrn KEPT_TAG = new TagUrn("kept");
-  private static final Urn DATASET =
-      UrnUtils.toDatasetUrn("snowflake", "graph_referrers", "PROD");
+  private static final Urn DATASET = UrnUtils.toDatasetUrn("snowflake", "graph_referrers", "PROD");
   private static final Urn OTHER_DATASET =
       UrnUtils.toDatasetUrn("snowflake", "graph_referrers_other", "PROD");
   private static final Urn CHART = UrnUtils.getUrn("urn:li:chart:(looker,graph_referrers)");
