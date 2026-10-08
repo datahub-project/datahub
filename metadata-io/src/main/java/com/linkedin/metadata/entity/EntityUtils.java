@@ -29,6 +29,7 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -50,6 +51,8 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityUtils {
   private static final UnknownDataGuard UNKNOWN_DATA =
       UnknownDataGuard.forSite(EntityUtils.class, "stored aspect of");
+  private static final UnknownDataGuard UNKNOWN_REFERENCES =
+      UnknownDataGuard.forSite(EntityUtils.class, "references to unknown entity types in");
 
   private EntityUtils() {}
 
@@ -268,6 +271,10 @@ public class EntityUtils {
       @Nonnull final RetrieverContext retrieverContext,
       @Nonnull Collection<EntityAspect> rawAspects) {
     EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
+    final Optional<MetricUtils> metrics =
+        operationContext instanceof OperationContext opContext
+            ? opContext.getMetricUtils()
+            : Optional.empty();
 
     // Build — skip rows whose entity or aspect is not in the current registry
     // (can happen after a rollback when the older build encounters rows written by the newer one)
@@ -278,11 +285,7 @@ public class EntityUtils {
                   Urn urn = UrnUtils.getUrn(raw.getUrn());
 
                   if (!UNKNOWN_DATA.admit(
-                      entityRegistry,
-                      Optional.empty(),
-                      urn.getEntityType(),
-                      raw.getAspect(),
-                      urn)) {
+                      entityRegistry, metrics, urn.getEntityType(), raw.getAspect(), urn)) {
                     return null;
                   }
 
@@ -297,7 +300,15 @@ public class EntityUtils {
     systemAspects.forEach(
         systemAspect -> {
           if (systemAspect.getRecordTemplate() != null) {
-            UnknownEntityUrnStripper.strip(systemAspect.getRecordTemplate(), entityRegistry);
+            final int removed =
+                UnknownEntityUrnStripper.strip(systemAspect.getRecordTemplate(), entityRegistry);
+            if (removed > 0) {
+              UNKNOWN_REFERENCES.skippedBecause(
+                  metrics,
+                  systemAspect.getAspectName(),
+                  removed + " removed on read from " + systemAspect.getAspectName(),
+                  systemAspect.getUrn());
+            }
           }
         });
 

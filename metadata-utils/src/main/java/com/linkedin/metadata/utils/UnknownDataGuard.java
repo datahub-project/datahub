@@ -1,15 +1,16 @@
 package com.linkedin.metadata.utils;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryFit;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -31,10 +32,11 @@ import org.slf4j.LoggerFactory;
  * }
  * }</pre>
  *
- * <p>Every skip is counted in {@link #SKIPPED_METRIC}. After a rollback a skip can happen for every
- * event in a backlog or every row read, so the WARN is logged at most once per minute per site and
- * key, with the number of skips since. Malformed input is admitted, so existing validation still
- * reports it as an error.
+ * <p>Every skip is counted in {@link #SKIPPED_METRIC} when the caller has metrics. After a rollback
+ * a skip can happen for every event in a backlog or every row read, so the WARN is logged at most
+ * once per minute per site, kind of data and key, with the number of skips since the last report.
+ * Keys come from data, so the windows are kept in a bounded cache that forgets idle keys. Malformed
+ * input is admitted, so existing validation still reports it as an error.
  */
 public final class UnknownDataGuard {
 
@@ -42,21 +44,25 @@ public final class UnknownDataGuard {
 
   private static final long LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
-  // Keys come from data (entity type / aspect names), so they are capped; past the cap every key
-  // of a site shares one window.
-  private static final int MAX_KEYS = 1_000;
-
-  private static final ConcurrentMap<String, Window> WINDOWS = new ConcurrentHashMap<>();
+  // Shared by every guard in the process. Keys come from data (entity type / aspect names), so the
+  // cache is bounded and drops windows nobody has hit for a while.
+  private static final Cache<String, Window> WINDOWS =
+      CacheBuilder.newBuilder().maximumSize(10_000).expireAfterAccess(10, TimeUnit.MINUTES).build();
 
   private final Class<?> site;
   private final String what;
   private final Logger log;
+  private final LongSupplier nanoClock;
 
   private UnknownDataGuard(
-      @Nonnull final Class<?> site, @Nonnull final String what, @Nonnull final Logger log) {
+      @Nonnull final Class<?> site,
+      @Nonnull final String what,
+      @Nonnull final Logger log,
+      @Nonnull final LongSupplier nanoClock) {
     this.site = site;
     this.what = what;
     this.log = log;
+    this.nanoClock = nanoClock;
   }
 
   /**
@@ -65,13 +71,16 @@ public final class UnknownDataGuard {
    */
   @Nonnull
   public static UnknownDataGuard forSite(@Nonnull final Class<?> site, @Nonnull final String what) {
-    return new UnknownDataGuard(site, what, LoggerFactory.getLogger(site));
+    return new UnknownDataGuard(site, what, LoggerFactory.getLogger(site), System::nanoTime);
   }
 
   @VisibleForTesting
   static UnknownDataGuard forSite(
-      @Nonnull final Class<?> site, @Nonnull final String what, @Nonnull final Logger log) {
-    return new UnknownDataGuard(site, what, log);
+      @Nonnull final Class<?> site,
+      @Nonnull final String what,
+      @Nonnull final Logger log,
+      @Nonnull final LongSupplier nanoClock) {
+    return new UnknownDataGuard(site, what, log, nanoClock);
   }
 
   /**
@@ -99,7 +108,7 @@ public final class UnknownDataGuard {
       @Nullable final String urn,
       @Nullable final String aspectName) {
     final RegistryFit fit = RegistryKnowledge.classifyUrn(registry, urn, aspectName);
-    return admit(fit, metricUtils, entityTypeOf(urn), aspectName, urn);
+    return admit(fit, metricUtils, RegistryKnowledge.entityTypeOf(urn), aspectName, urn);
   }
 
   /**
@@ -152,12 +161,17 @@ public final class UnknownDataGuard {
       @Nonnull final String reason,
       @Nullable final Object subject) {
     metricUtils.ifPresent(m -> m.increment(site, SKIPPED_METRIC, 1));
-    final long suppressed = window(key).tryAcquire(System.nanoTime());
+    final long now = nanoClock.getAsLong();
+    final long suppressed =
+        WINDOWS
+            .asMap()
+            .computeIfAbsent(site.getName() + '|' + what + '|' + key, k -> new Window(now))
+            .tryAcquire(now);
     if (suppressed == 0) {
       log.warn("Skipping {} {}: {}", what, subject, reason);
     } else if (suppressed > 0) {
       log.warn(
-          "Skipping {} {}: {} ({} more skipped in the last minute)",
+          "Skipping {} {}: {} ({} more skipped since the last report)",
           what,
           subject,
           reason,
@@ -165,39 +179,26 @@ public final class UnknownDataGuard {
     }
   }
 
-  @Nonnull
-  private Window window(@Nonnull final String key) {
-    final String windowKey = site.getName() + '|' + key;
-    return WINDOWS.size() < MAX_KEYS || WINDOWS.containsKey(windowKey)
-        ? WINDOWS.computeIfAbsent(windowKey, k -> new Window())
-        : WINDOWS.computeIfAbsent(site.getName(), k -> new Window());
-  }
-
-  @Nullable
-  private static String entityTypeOf(@Nullable final String urn) {
-    if (urn == null || !urn.startsWith("urn:li:")) {
-      return null;
-    }
-    final int end = urn.indexOf(':', "urn:li:".length());
-    return end < 0 ? null : urn.substring("urn:li:".length(), end);
-  }
-
   @VisibleForTesting
   static void resetLogWindows() {
-    WINDOWS.clear();
+    WINDOWS.invalidateAll();
   }
 
+  /** Allows one log per interval; counts the calls in between. */
   private static final class Window {
-    private final AtomicLong nextLogNanos = new AtomicLong();
+    private final AtomicLong nextLogNanos;
     private final AtomicLong suppressed = new AtomicLong();
-    private volatile boolean logged;
+
+    private Window(final long createdNanos) {
+      // Due immediately, so the first skip of a key is always logged.
+      this.nextLogNanos = new AtomicLong(createdNanos);
+    }
 
     /** The skips to report if this call should log, otherwise -1. */
     private long tryAcquire(final long now) {
       final long next = nextLogNanos.get();
-      if ((!logged || now - next >= 0)
-          && nextLogNanos.compareAndSet(next, now + LOG_INTERVAL_NANOS)) {
-        logged = true;
+      // Subtraction keeps the comparison correct across nanoTime overflow.
+      if (now - next >= 0 && nextLogNanos.compareAndSet(next, now + LOG_INTERVAL_NANOS)) {
         return suppressed.getAndSet(0);
       }
       suppressed.incrementAndGet();
