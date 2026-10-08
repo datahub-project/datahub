@@ -176,10 +176,13 @@ def expand_glob_path(
             connection_field="gcs_connection",
         )
     elif is_http_uri(path):
+        # A presigned URL carries its signature in the query string; name the URL
+        # without it so the report never records a credential.
+        parsed = urlparse(path)
         report.warning(
             title="Glob patterns not supported for HTTP(S) URIs",
             message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
-            context=path,
+            context=f"{parsed.scheme}://{parsed.netloc}{parsed.path}",
         )
         return []
     else:

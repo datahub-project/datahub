@@ -66,7 +66,9 @@ def run_ingestion(
         workunits, peak_memory = workunit_sink(source.get_workunits())
     report = source.report
     return RunResult(
-        seconds=timer.elapsed_seconds(digits=2),
+        # Full precision here; print_results rounds for display, so a short run's
+        # workunits-per-second is not computed from a rounded denominator.
+        seconds=timer.elapsed_seconds(),
         workunits=workunits,
         peak_memory_delta=peak_memory - pre_memory,
         manifests_loaded=report.manifests_loaded,

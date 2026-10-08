@@ -136,11 +136,24 @@ def clean(target: str, *, profile: Optional[str] = None) -> None:
                 {"Key": obj["Key"]} for obj in page.get("Contents", [])
             ]
             if keys:
-                client.delete_objects(Bucket=bucket, Delete={"Objects": keys})
+                response = client.delete_objects(
+                    Bucket=bucket, Delete={"Objects": keys}
+                )
+                # DeleteObjects returns 200 with per-key errors; a key that stays
+                # behind would silently survive into the next seed.
+                errors = response.get("Errors", [])
+                if errors:
+                    raise RuntimeError(
+                        f"Failed to delete {len(errors)} objects under {target}: "
+                        f"{errors[:3]}"
+                    )
                 deleted += len(keys)
         logger.info(f"Deleted {deleted} objects under {target}")
     else:
-        shutil.rmtree(target, ignore_errors=True)
+        try:
+            shutil.rmtree(target)
+        except FileNotFoundError:
+            pass
         logger.info(f"Removed {target}")
 
 

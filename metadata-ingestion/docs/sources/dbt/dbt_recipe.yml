@@ -28,7 +28,7 @@ source:
     #     hmac_access_id: "${GCS_HMAC_ACCESS_ID}"
     #     hmac_access_secret: "${GCS_HMAC_ACCESS_SECRET}"
 
-    # For multi-project ingestion, manifest_path can be a glob matching many dbt
+    # For multi-project ingestion (dbt 1.6+ artifacts), manifest_path can be a glob matching many dbt
     # projects in one run. catalog.json, sources.json and run_results.json are
     # read from each matched manifest's own directory, and each project's
     # platform_instance is its manifest's project_name, so platform_instance,

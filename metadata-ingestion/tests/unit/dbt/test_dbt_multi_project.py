@@ -82,6 +82,38 @@ def test_http_url_with_a_globbed_path_still_warns() -> None:
     ]
 
 
+def test_http_glob_warning_keeps_the_query_string_out_of_the_report() -> None:
+    """A presigned URL carries its signature in the query string; the warning names
+    the URL without it so the report never records a credential."""
+    source = _make_source()
+
+    source._expand_glob_path("https://host/*/manifest.json?X-Amz-Signature=secret")
+
+    (warning,) = source.report.warnings
+    assert "https://host/*/manifest.json" in " ".join(warning.context)
+    assert "secret" not in " ".join(warning.context)
+
+
+def test_refused_cloud_listing_is_reported_once(tmp_path: pathlib.Path) -> None:
+    """A listing the store refuses (bad credentials, missing bucket, throttling) is
+    reported by the expander; the loader must not add a second "matched no files"
+    failure that points the operator at the wrong cause."""
+    source = _make_source(
+        manifest_path="s3://bucket/*/manifest.json",
+        aws_connection={"aws_region": "us-east-1"},
+    )
+
+    with mock.patch.object(
+        dbt_artifacts_module,
+        "expand_object_store_glob",
+        side_effect=ValueError("InvalidAccessKeyId: key is not valid"),
+    ):
+        projects = _load_projects(source)
+
+    assert projects == []
+    assert [f.title for f in source.report.failures] == ["Cloud glob expansion failed"]
+
+
 def test_literal_local_path_containing_glob_characters_is_read_literally(
     tmp_path: pathlib.Path,
 ) -> None:

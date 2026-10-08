@@ -1136,10 +1136,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     def load_projects(self) -> Iterator[DBTProject]:
         multi_project = is_glob_pattern(self.config.manifest_path)
+        failures_before = len(self.report.failures)
         manifest_paths = sorted(self._expand_glob_path(self.config.manifest_path))
         if multi_project:
             self.report.manifest_paths_expanded = manifest_paths
             if not manifest_paths:
+                if len(self.report.failures) > failures_before:
+                    # Expansion already reported why (a refused listing, a missing
+                    # connection); a second "matched no files" failure would send
+                    # the operator looking at the pattern instead of the cause.
+                    return
                 # The manifest is the one mandatory dbt artifact - a missing literal
                 # manifest_path already raises - so a pattern that matches none of
                 # them is a failure, matching test_connection on the same recipe. As
