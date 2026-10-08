@@ -1,0 +1,13 @@
+# Grafana alone, for test_grafana_probe_integration.py: the probe reads only
+# folders and dashboards, which the test creates over the API. An ephemeral
+# host port and its own container name keep it clear of the ingestion suite.
+services:
+  grafana_probe:
+    image: grafana/grafana:latest
+    container_name: grafana_probe
+    ports:
+      - "3000"
+    # The test signs in as Grafana's default first-run admin.
+    environment:
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false

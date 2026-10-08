@@ -63,6 +63,27 @@ source:
 - **Email suffix control**: Configure how user email addresses are converted to DataHub user URNs via `remove_email_suffix`
 - **Disable ownership**: Set `ingest_owners: false` to skip ownership extraction entirely
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against Grafana without running ingestion. It offers
+`folders` and `dashboards`:
+
+```shell
+datahub recipe probe methods --recipe grafana_recipe.yml
+datahub recipe probe run folders --recipe grafana_recipe.yml
+datahub recipe probe run dashboards --recipe grafana_recipe.yml --report-to dashboards.json
+datahub recipe probe filter --recipe grafana_recipe.yml --from-run dashboards.json
+```
+
+The probe signs in with the recipe's `service_account_token` and `verify_ssl`, as ingestion does,
+and reads the same endpoints: `/api/folders` for top-level folders and `/api/search` for
+dashboards. A Viewer service account is enough. Both listings include what the recipe would
+exclude, so `probe filter` can say why. `folder_pattern` and `dashboard_pattern` are matched on
+titles. A dashboard is judged on its own title only: one inside a folder that `folder_pattern`
+excludes is still ingested. With `basic_mode`, ingestion emits no folders, and its untyped
+`/api/search` returns folders too, which it emits as dashboards; the probe lists the same results.
+The probe never reads dashboard JSON, so it sees no panel queries.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

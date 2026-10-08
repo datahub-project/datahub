@@ -6,7 +6,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+from typing import (
+    Annotated,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 from urllib.parse import urljoin
 
 import requests
@@ -21,12 +31,17 @@ from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Filters,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -41,6 +56,13 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
+from datahub.ingestion.source.nifi_selection import (
+    ANCESTORS_ATTRIBUTE,
+    PROCESS_GROUP_PATTERN,
+    decode_ancestors,
+    excluding_ancestor,
+    process_group_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -107,7 +129,9 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         default=7,
         description="time window to analyze provenance events for external datasets",
     )  # Fetch provenance events for past 1 week
-    process_group_pattern: AllowDenyPattern = Field(
+    process_group_pattern: Annotated[
+        AllowDenyPattern, Filters(JobContainerSubTypes.NIFI_PROCESS_GROUP)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for filtering process groups",
     )
@@ -202,6 +226,56 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
             site_url = site_url + "nifi/"
 
         return site_url
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: nifi_probe imports this module, and ingestion never
+        # needs the probe.
+        from datahub.ingestion.source.nifi_probe import NifiMetadataProbe
+
+        return NifiMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """A process group sits in a process group: the walk stops at an
+        excluded one, so `--parent` groups (root first) are judged in turn."""
+        if kind == JobContainerSubTypes.NIFI_PROCESS_GROUP:
+            return (str(JobContainerSubTypes.NIFI_PROCESS_GROUP),)
+        return None
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """A process group listed by `probe run process_groups` carries its
+        ancestors, which nifi_selection judges as ingestion's walk does. A
+        bare name leaves them to the --parent groups, judged by the
+        framework one level at a time."""
+        if ctx.kind != JobContainerSubTypes.NIFI_PROCESS_GROUP:
+            return None
+        raw = ctx.attributes.get(ANCESTORS_ATTRIBUTE)
+        if raw is None:
+            return None
+        ancestors = decode_ancestors(raw)
+        if ancestors is None:
+            ctx.warn(
+                f"the '{ANCESTORS_ATTRIBUTE}' attribute is not the JSON list of "
+                f"names `probe run process_groups` writes, so the groups above "
+                f"were not judged"
+            )
+            return None
+        blocking = excluding_ancestor(self, ancestors)
+        if blocking is not None:
+            ctx.warn(
+                f"process group '{blocking}' is excluded by "
+                f"{PROCESS_GROUP_PATTERN}, so ingestion never walks the groups "
+                f"inside it"
+            )
+        return process_group_verdict(self, ctx.target, ancestors)
+
+
+def nifi_session(config: NifiSourceConfig) -> requests.Session:
+    """The session NifiSource authenticates on, before authentication."""
+    session = requests.Session()
+    if config.ca_file is not None:
+        session.verify = config.ca_file
+    return session
 
 
 class BidirectionalComponentGraph:
@@ -479,10 +553,7 @@ class NifiSource(StatefulIngestionSourceBase):
         self.config = config
         self.ctx = ctx
         self.report = NifiSourceReport()
-        self.session = requests.Session()
-
-        if self.config.ca_file is not None:
-            self.session.verify = self.config.ca_file
+        self.session = nifi_session(self.config)
 
         # To keep track of process groups (containers) which have already been ingested
         # Required, as we do not ingest all process groups but only those that have known ingress/egress processors
@@ -509,7 +580,7 @@ class NifiSource(StatefulIngestionSourceBase):
             pg_flow_dto.get("parentGroupId"),
         )
         self.nifi_flow.processGroups[nifi_pg.id] = nifi_pg
-        if not self.config.process_group_pattern.allowed(nifi_pg.name):
+        if not process_group_verdict(self.config, nifi_pg.name).included:
             self.report.report_dropped(f"{nifi_pg.name}.*")
             return
 

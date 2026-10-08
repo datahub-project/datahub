@@ -32,6 +32,10 @@ from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.grafana_config import (
     GrafanaSourceConfig,
 )
+from datahub.ingestion.source.grafana.grafana_selection import (
+    dashboard_verdict,
+    folder_verdict,
+)
 from datahub.ingestion.source.grafana.lineage import LineageExtractor
 from datahub.ingestion.source.grafana.models import (
     Dashboard,
@@ -160,7 +164,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             dashboards = response.json()
 
             for item in dashboards:
-                if not self.config.dashboard_pattern.allowed(item.get("title", "")):
+                if not dashboard_verdict(self.config, item.get("title", "")).included:
                     continue
 
                 uid = item["uid"]
@@ -216,14 +220,14 @@ class GrafanaSource(StatefulIngestionSourceBase):
         # Process folders first
         with self.report.new_stage(GRAFANA_FOLDER_EXTRACTION):
             for folder in self.api_client.get_folders():
-                if self.config.folder_pattern.allowed(folder.title):
+                if folder_verdict(self.config, folder.title).included:
                     self.report.report_folder_scanned()
                     yield from self._process_folder(folder)
 
         # Process dashboards
         with self.report.new_stage(GRAFANA_DASHBOARD_EXTRACTION):
             for dashboard in self.api_client.get_dashboards():
-                if self.config.dashboard_pattern.allowed(dashboard.title):
+                if dashboard_verdict(self.config, dashboard.title).included:
                     self.report.report_dashboard_scanned()
                     yield from self._process_dashboard(dashboard)
 
