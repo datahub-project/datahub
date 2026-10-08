@@ -45,6 +45,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -424,6 +425,32 @@ public class CriterionFilterAspectsBlockingStepTest {
     assertEquals(result.getProperties().get(APP_SOURCE), SYSTEM_UPDATE_SOURCE);
     // The original input must not be mutated.
     assertNull(input.getProperties().get(APP_SOURCE));
+  }
+
+  @Test
+  public void testStoredValueFailingValidationIsSkippedNotFatal() {
+    // A stored value this version can't validate (e.g. written by a newer version before a
+    // rollback) must not fail this blocking step; that row is left as it is.
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,criterion.skip,PROD)");
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation()
+            .setDeprecated(true)
+            .setNote("moved")
+            .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"));
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.getUrn()).thenReturn(datasetUrn);
+    when(stored.getEntitySpec())
+        .thenReturn(OP_CONTEXT.getEntityRegistry().getEntitySpec("dataset"));
+    when(stored.getAspectName()).thenReturn("deprecation");
+    when(stored.getAspectSpec())
+        .thenReturn(
+            OP_CONTEXT.getEntityRegistry().getEntitySpec("dataset").getAspectSpec("deprecation"));
+    when(stored.getRecordTemplate()).thenReturn(deprecation);
+    when(stored.getAuditStamp()).thenReturn(AuditStampUtils.createDefaultAuditStamp());
+    when(stored.getSystemMetadata()).thenReturn(new SystemMetadata());
+
+    assertNull(buildStep().toChangeItem(OP_CONTEXT, stored));
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

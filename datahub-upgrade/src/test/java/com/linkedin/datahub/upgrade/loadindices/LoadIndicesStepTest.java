@@ -88,12 +88,16 @@ public class LoadIndicesStepTest {
     AspectSpec containerAspectSpec = mock(AspectSpec.class);
     AspectSpec ownershipAspectSpec = mock(AspectSpec.class);
     when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(defaultEntitySpec);
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
+    when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
     when(defaultEntitySpec.getAspectSpec("container")).thenReturn(containerAspectSpec);
     when(defaultEntitySpec.getAspectSpec("ownership")).thenReturn(ownershipAspectSpec);
     when(containerAspectSpec.getDataTemplateClass())
         .thenReturn((Class) com.linkedin.container.Container.class);
     when(ownershipAspectSpec.getDataTemplateClass())
         .thenReturn((Class) com.linkedin.common.Ownership.class);
+
+    stubUnconvertibleAspect("invalidAspect");
 
     // Mock authentication context
     com.datahub.authentication.Authentication mockAuth =
@@ -454,8 +458,9 @@ public class LoadIndicesStepTest {
 
   @Test
   public void testProcessAllDataDirectlySkipsConversionErrorsWhenEnabled() throws Exception {
-    // "status" has no stubbed AspectSpec, so convertToMetadataChangeLog throws when it tries to
-    // resolve the data-template class - a stand-in for a corrupt/unconvertible aspect.
+    // "status" resolves to a spec whose data-template class cannot be loaded, so
+    // convertToMetadataChangeLog throws - a stand-in for a corrupt/unconvertible aspect.
+    stubUnconvertibleAspect("status");
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleBadAspect,PROD)",
         "status",
@@ -483,6 +488,7 @@ public class LoadIndicesStepTest {
 
   @Test
   public void testProcessAllDataDirectlyFailsHardOnConversionErrorByDefault() throws Exception {
+    stubUnconvertibleAspect("status");
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleBadAspect,PROD)",
         "status",
@@ -522,6 +528,51 @@ public class LoadIndicesStepTest {
     when(mockUpgradeContext.parsedArgs()).thenReturn(parsedArgs);
     LoadIndicesArgs enabled = (LoadIndicesArgs) method.invoke(loadIndicesStep, mockUpgradeContext);
     assertTrue(enabled.skipConversionErrors);
+  }
+
+  /**
+   * Registers an aspect whose data-template class cannot be resolved, so conversion fails. An
+   * aspect missing from the registry is skipped instead (rows written by a newer version).
+   */
+  private void stubUnconvertibleAspect(String aspectName) {
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getDataTemplateClass()).thenThrow(new IllegalStateException("unconvertible"));
+    when(mockEntityRegistry.getEntitySpec("dataset").getAspectSpec(aspectName))
+        .thenReturn(aspectSpec);
+  }
+
+  @Test
+  public void testProcessAllDataDirectlySkipsRowsUnknownToRegistry() throws Exception {
+    // Rows written by a newer version: an aspect unknown on a known entity type, and a shared
+    // aspect name on an entity type this registry does not know. Neither may fail the run, even
+    // with skipConversionErrors off.
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleFuture,PROD)",
+        "futureAspect",
+        0,
+        Instant.now(),
+        "testUser");
+    insertTestRow("urn:li:futureEntity:fe1", "ownership", 0, Instant.now(), "testUser");
+    when(mockEntityRegistry.getEntitySpec("futureEntity"))
+        .thenThrow(new IllegalArgumentException("Failed to find entity with name futureEntity"));
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container", "ownership", "futureAspect");
+
+    LoadIndicesResult result =
+        loader.load(
+            mockOperationContext,
+            args,
+            msg -> null,
+            null,
+            mockUpdateIndicesService::handleChangeEvents);
+
+    assertEquals(result.unknownToRegistrySkipped, 2L);
+    assertEquals(result.conversionErrorsSkipped, 0L);
+  }
   }
 
   @Test

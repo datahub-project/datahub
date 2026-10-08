@@ -60,7 +60,7 @@ public class MCLBatchKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
-    return MCLKafkaListener.shouldSkipMcl(event, aspectsToDrop);
+    return MCLKafkaListener.shouldSkipMcl(event, aspectsToDrop, systemOperationContext);
   }
 
   @Override

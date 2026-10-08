@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -52,6 +53,8 @@ public class AspectIndexLoader {
 
   /** Rows per partition when materialising the tail of one entity; far above any aspect count. */
   private static final int REST_OF_ENTITY_PARTITION = 1000;
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(AspectIndexLoader.class, "row (left unindexed)");
 
   /** Receives each written batch: its last URN and the cumulative counts for this run. */
   @FunctionalInterface
@@ -195,6 +198,17 @@ public class AspectIndexLoader {
         for (EbeanAspectV2 aspect : page) {
           final boolean completeEntity =
               wholeEntities && (lastEntityComplete || !lastUrn.equals(aspect.getKey().getUrn()));
+          // Rows written by a newer version (entity type or aspect this registry does not know,
+          // e.g. after a rollback) cannot be indexed here. They are left in the database for the
+          // newer version to index.
+          if (!UNKNOWN_DATA.admitUrn(
+              opContext.getEntityRegistry(),
+              opContext.getMetricUtils(),
+              aspect.getKey().getUrn(),
+              aspect.getKey().getAspect())) {
+            result.unknownToRegistrySkipped++;
+            continue;
+          }
           try {
             mclBatch.add(convertToMetadataChangeLog(opContext, aspect, args, completeEntity));
           } catch (Exception e) {
@@ -306,6 +320,13 @@ public class AspectIndexLoader {
               "WARNING: skipConversionErrors skipped %d aspect(s) that failed MCL conversion; those"
                   + " documents are missing from the rebuilt index until re-ingested or repaired.",
               result.conversionErrorsSkipped));
+    }
+    if (result.unknownToRegistrySkipped > 0) {
+      reportFunction.apply(
+          String.format(
+              "Skipped %d aspect(s) whose entity type or aspect is not in the entity registry"
+                  + " (written by a newer version)",
+              result.unknownToRegistrySkipped));
     }
     return result;
   }
