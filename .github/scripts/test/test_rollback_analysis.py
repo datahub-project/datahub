@@ -647,7 +647,7 @@ class TestRenderRollbackReport:
         md = report.render_rollback_report(
             findings, "v2.0", "v1.0", "abc1234567", "def1234567"
         )
-        assert "Not recommended" in md
+        assert "## Verdict: 🛑 Not feasible until blockers are fixed" in md
         assert "## Blockers" in md
         assert "testAspect" in md
 
@@ -662,7 +662,7 @@ class TestRenderRollbackReport:
         md = report.render_rollback_report(
             findings, "v2.0", "v1.0", "abc1234567", "def1234567"
         )
-        assert "manual intervention" in md
+        assert "## Verdict: ⚠️ Feasible after review" in md
         assert "## Requires Attention" in md
 
     def test_safe_changes_in_details_block(self):
@@ -719,7 +719,7 @@ class TestRenderRollbackReport:
                      summary="New file in N — absent in N-1 (N-1 rejects writes to it)"),
         ]
         md = report.render_rollback_report(findings, "v2.0", "v1.0", "abc1234567", "def1234567")
-        assert "## Verdict: ✅ Feasible; N's new-feature data is lost" in md
+        assert "## Verdict: ✅ Feasible, with expected loss" in md
         assert "- `a`: enum value `E.V`, field `Rec.f`, `chart` targets on `entities`" in md
         assert "- `newAspect`: the whole aspect" in md
         assert "## Schema Version Gaps" not in md

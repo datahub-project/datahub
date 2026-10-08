@@ -28,9 +28,9 @@ VERDICT_NOT_RECOMMENDED = "not_recommended"
 
 VERDICT_LABELS = {
     VERDICT_FEASIBLE: "✅ Feasible as-is",
-    VERDICT_EXPECTED_LOSS: "✅ Feasible; N's new-feature data is lost",
-    VERDICT_MANUAL: "⚠️ Feasible with manual intervention",
-    VERDICT_NOT_RECOMMENDED: "\U0001f6d1 Not recommended",
+    VERDICT_EXPECTED_LOSS: "✅ Feasible, with expected loss",
+    VERDICT_MANUAL: "⚠️ Feasible after review",
+    VERDICT_NOT_RECOMMENDED: "\U0001f6d1 Not feasible until blockers are fixed",
 }
 
 # Lead-ins to the per-risk breakdown the report prints under the verdict.
