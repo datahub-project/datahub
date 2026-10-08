@@ -43,7 +43,7 @@ export class ViewSelectPage extends BasePage {
     this.menuItemSetDefault = page.getByTestId('menu-item-set-default');
     this.menuItemRemoveDefault = page.getByTestId('menu-item-remove-default');
     this.menuItemDelete = page.getByTestId('menu-item-delete');
-    this.confirmDeleteYes = page.getByTestId('modal-confirm-button');
+    this.confirmDeleteYes = page.getByRole('dialog').getByTestId('modal-confirm-button');
     this.viewsButton = page.getByTestId('views-button');
     this.viewSelectItem = page.getByTestId('view-select-item');
     this.closeIcon = page.getByTestId('views-clear-button');
@@ -173,6 +173,10 @@ export class ViewSelectPage extends BasePage {
 
   async verifyResultsCount(count: number): Promise<void> {
     await this.expectTextVisible(`of ${count} results`);
+  }
+
+  async verifyViewNotApplied(viewName: string): Promise<void> {
+    await expect(this.viewsButton).not.toContainText(viewName);
   }
 
   async verifyDatasetVisible(datasetName: string): Promise<void> {
