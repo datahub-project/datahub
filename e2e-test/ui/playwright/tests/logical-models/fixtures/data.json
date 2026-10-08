@@ -1,7 +1,7 @@
 [
   {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -30,7 +30,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -54,7 +54,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -78,7 +78,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -102,7 +102,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -126,7 +126,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -150,7 +150,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -174,7 +174,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -198,7 +198,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -222,7 +222,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -246,7 +246,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -270,7 +270,7 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
         }
       }
     }
@@ -294,7 +294,60 @@
     "aspect": {
       "json": {
         "parent": {
-          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)"
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:petshop-owner",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "displayName": "Petshop Owner",
+        "fullName": "Petshop Owner"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_01.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:petshop-owner",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,petshop_warehouse.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:petshop-owner",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:datahub"
         }
       }
     }

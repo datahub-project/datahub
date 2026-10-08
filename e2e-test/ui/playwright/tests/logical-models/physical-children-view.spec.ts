@@ -2,17 +2,20 @@ import type { Page } from '@playwright/test';
 
 import { expect, test } from '../../fixtures/base-test';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
+import { ViewSelectPage } from '../../pages/views/view-select.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
 
 /**
- * "View All Physical Children" applies the view selected in the search bar, with the All / view
- * switcher, as other embedded lists do.
+ * Embedded lists ("View All Physical Children", a user's "Owner Of" tab) apply the view selected in
+ * the search bar, with the All / view switcher, as other embedded lists do.
  */
 
 test.use({ featureName: 'logical-models' });
 
-const LOGICAL_PARENT_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,petshop.pet_orders,PROD)';
+const LOGICAL_PARENT_URN = 'urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)';
+const OWNER_URN = 'urn:li:corpuser:petshop-owner';
+const INCLUDED_CHILD_NAME = 'petshop_store_01.pet_orders';
 const EXCLUDED_CHILD_NAME = 'petshop_warehouse.pet_orders';
 const TOTAL_CHILDREN = 12;
 const POSTGRES_CHILDREN = 11;
@@ -40,9 +43,8 @@ const CREATE_VIEW = `
   }
 `;
 
-// Creates a postgres-only view, waits for the view picker to list it, and selects it on the logical
-// parent's page.
-async function selectStoreDatabasesView(page: Page, track: (urn: string) => void): Promise<string> {
+// Creates a postgres-only view and waits for the view picker to list it.
+async function createStoreDatabasesView(page: Page, track: (urn: string) => void): Promise<string> {
   const viewName = withRandomSuffix('StoreDatabases');
   const graphql = new GraphQLHelper(page);
   const created = (await graphql.executeQuery(CREATE_VIEW, {
@@ -75,18 +77,14 @@ async function selectStoreDatabasesView(page: Page, track: (urn: string) => void
     )
     .toBe(true);
 
-  await page.goto(`/dataset/${encodeURIComponent(LOGICAL_PARENT_URN)}`);
-  await page.getByTestId('views-button').click();
-  // Other views may push this one out of the visible row, so narrow the list first.
-  await page.getByTestId('views-popover').getByPlaceholder('Search views...').fill(viewName);
-  await page.getByTestId('views-popover').getByTestId('view-select-item').filter({ hasText: viewName }).click();
-  await expect(page.getByTestId('views-button')).toContainText(viewName);
   return viewName;
 }
 
-test.describe('Physical children modal', () => {
-  test('applies the search bar view, with the All / view switcher', async ({ page, cleanup }) => {
-    const viewName = await selectStoreDatabasesView(page, (urn) => cleanup.track(urn));
+test.describe('Embedded lists apply the search bar view', () => {
+  test('View All Physical Children', async ({ page, cleanup }) => {
+    const viewName = await createStoreDatabasesView(page, (urn) => cleanup.track(urn));
+    await page.goto(`/dataset/${encodeURIComponent(LOGICAL_PARENT_URN)}`);
+    await new ViewSelectPage(page).selectView(viewName);
 
     await page
       .getByTestId('physical-children-list')
@@ -94,21 +92,45 @@ test.describe('Physical children modal', () => {
       .click();
     const modal = page.getByRole('dialog').filter({ hasText: 'View All Physical Children' });
     const pagination = modal.getByTestId('embedded-list-search-pagination');
+    const search = modal.getByPlaceholder('Search entities...');
 
     // The view is offered and applied: the Snowflake child is filtered out.
     await expect(modal.getByText(`Only showing entities in the ${viewName} view.`)).toBeVisible();
     await expect(pagination.getByText(resultRange(POSTGRES_CHILDREN))).toBeVisible({ timeout: TIMEOUTS.LONG });
 
-    // Searching within the view does not find the excluded child.
-    await modal.getByPlaceholder('Search entities...').fill('warehouse');
+    // Searching within the view finds a child in the view, and not the excluded one.
+    await search.fill('store_01');
     await page.keyboard.press('Enter');
-    await expect(modal.getByText(EXCLUDED_CHILD_NAME, { exact: true })).toHaveCount(0);
+    await expect(modal.getByText(INCLUDED_CHILD_NAME, { exact: true })).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await search.fill('warehouse');
+    await page.keyboard.press('Enter');
+    await expect(modal.getByText('No results found')).toBeVisible({ timeout: TIMEOUTS.LONG });
 
     // "All" lists every child, the excluded one included.
     await modal.getByText('All', { exact: true }).click();
     await expect(modal.getByText(EXCLUDED_CHILD_NAME, { exact: true })).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await modal.getByPlaceholder('Search entities...').fill('');
+    await search.fill('');
     await page.keyboard.press('Enter');
     await expect(pagination.getByText(resultRange(TOTAL_CHILDREN))).toBeVisible({ timeout: TIMEOUTS.LONG });
+  });
+
+  test("a user's Owner Of tab", async ({ page, cleanup }) => {
+    const viewName = await createStoreDatabasesView(page, (urn) => cleanup.track(urn));
+    await page.goto(`/user/${encodeURIComponent(OWNER_URN)}/owner of`);
+    await new ViewSelectPage(page).selectView(viewName);
+    // The profile sidebar has its own Owner Of preview, which ignores views; check the tab's results.
+    const results = page.getByTestId('embedded-list-search-results');
+
+    // The user owns one postgres child and the Snowflake child; the view lists only the first.
+    await expect(page.getByText(`Only showing entities in the ${viewName} view.`)).toBeVisible({
+      timeout: TIMEOUTS.LONG,
+    });
+    await expect(results.getByText(INCLUDED_CHILD_NAME, { exact: true })).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(results.getByText(EXCLUDED_CHILD_NAME, { exact: true })).toHaveCount(0);
+
+    // "All" lists both.
+    await page.getByText('All', { exact: true }).click();
+    await expect(results.getByText(EXCLUDED_CHILD_NAME, { exact: true })).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(results.getByText(INCLUDED_CHILD_NAME, { exact: true })).toBeVisible();
   });
 });

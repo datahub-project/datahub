@@ -193,6 +193,15 @@ export class ViewSelectPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  async selectView(viewName: string): Promise<void> {
+    await this.viewsButton.click();
+    await this.waitForPopoverOpen();
+    // Other views may push this one out of the visible list, so narrow it first.
+    await this.viewsPopover.getByPlaceholder('Search views...').fill(viewName);
+    await this.viewSelectItem.filter({ hasText: viewName }).click();
+    await expect(this.viewsButton).toContainText(viewName);
+  }
+
   async openViewDropdown(viewName: string): Promise<void> {
     await this.viewsButton.click();
     await this.waitForPopoverOpen();

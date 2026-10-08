@@ -254,11 +254,20 @@ export const EmbeddedListSearch = ({
                 },
             },
             fetchPolicy: skipCache ? undefined : 'cache-first',
+            // The counts are only shown on the view switcher, which a list that ignores the view lacks.
+            skip: !applyView,
         });
     };
 
     const { total: allSearchCount, refetch: refetchAllSearchCount } = useGetViewSearchData(undefined);
     const { total: defaultViewCount, refetch: refetchDefaultViewCount } = useGetViewSearchData(defaultViewUrn);
+
+    const refetchViewCounts = () => {
+        if (!applyView) return;
+        refetchAllSearchCount?.();
+        if (defaultViewUrn) refetchDefaultViewCount?.();
+    };
+
     const { data: viewData } = useGetViewQuery({
         variables: {
             urn: defaultViewUrn || '',
@@ -275,8 +284,7 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             resetShouldRefetch();
-            refetchAllSearchCount?.();
-            if (defaultViewUrn) refetchDefaultViewCount?.();
+            refetchViewCounts();
         }
     });
 
@@ -286,8 +294,7 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             setShouldRefetchEmbeddedListSearch?.(false);
-            refetchAllSearchCount?.();
-            if (defaultViewUrn) refetchDefaultViewCount?.();
+            refetchViewCounts();
         }
     });
 

@@ -58,7 +58,13 @@ describe('EmbeddedListSearchResults view row', () => {
     it('keeps the All / view switcher for lists that apply the selected view', () => {
         renderResults({ applyView: true, view: VIEW });
 
-        // The view pill and the "Only showing entities in the … view" notice both name it.
-        expect(screen.getAllByText('Store databases')).toHaveLength(2);
+        expect(screen.getByText('View')).toBeInTheDocument();
+        expect(screen.getByText('All').parentElement).toHaveTextContent('All12');
+        expect(screen.getByText('Store databases', { selector: 'span' }).parentElement).toHaveTextContent(
+            'Store databases8',
+        );
+        expect(screen.getByText(/Only showing entities in the/)).toHaveTextContent(
+            'Only showing entities in the Store databases view.',
+        );
     });
 });

@@ -9,14 +9,24 @@ const SELECTED_VIEW_URN = 'urn:li:dataHubView:store-databases';
 
 const searchResultsQueryMock = vi.fn();
 const viewQueryMock = vi.fn();
+const countQueryMock = vi.fn();
+const countRefetchMock = vi.fn();
 const resultsPropsMock = vi.fn();
 
 vi.mock('@graphql/search.generated', () => ({
     useGetSearchResultsForMultipleQuery: (options: unknown) => {
         searchResultsQueryMock(options);
-        return { data: undefined, loading: false, error: undefined, refetch: vi.fn() };
+        return {
+            data: undefined,
+            loading: false,
+            error: undefined,
+            refetch: vi.fn(() => Promise.resolve({ data: {} })),
+        };
     },
-    useGetSearchCountQuery: () => ({ data: undefined, loading: false, error: undefined, refetch: vi.fn() }),
+    useGetSearchCountQuery: (options: { skip?: boolean }) => {
+        countQueryMock(options);
+        return { data: undefined, loading: false, error: undefined, refetch: countRefetchMock };
+    },
 }));
 vi.mock('@graphql/view.generated', () => ({
     useGetViewQuery: (options: { skip?: boolean }) => {
@@ -29,8 +39,12 @@ vi.mock('@graphql/view.generated', () => ({
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: () => ({ localState: { selectedViewUrn: SELECTED_VIEW_URN } }),
 }));
+let entityAsksToRefetch = false;
 vi.mock('@app/entity/shared/EntityContext', () => ({
-    useEntityContext: () => ({}),
+    useEntityContext: () => ({
+        shouldRefetchEmbeddedListSearch: entityAsksToRefetch,
+        setShouldRefetchEmbeddedListSearch: vi.fn(),
+    }),
 }));
 vi.mock('@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults', () => ({
     useDownloadScrollAcrossEntitiesSearchResults: () => ({ refetch: vi.fn() }),
@@ -45,7 +59,7 @@ vi.mock('@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults
     },
 }));
 
-function renderSearch(applyView?: boolean) {
+function renderSearch(applyView?: boolean, shouldRefetch = false) {
     render(
         <EmbeddedListSearch
             query=""
@@ -57,6 +71,8 @@ function renderSearch(applyView?: boolean) {
             onChangePage={vi.fn()}
             onChangeUnionType={vi.fn()}
             applyView={applyView}
+            shouldRefetch={shouldRefetch}
+            resetShouldRefetch={vi.fn()}
         />,
     );
 }
@@ -68,6 +84,7 @@ function lastSearchViewUrn() {
 describe('EmbeddedListSearch selected view', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        entityAsksToRefetch = false;
     });
 
     it('ignores the search bar view by default and does not load it', () => {
@@ -88,5 +105,30 @@ describe('EmbeddedListSearch selected view', () => {
         expect(resultsPropsMock).toHaveBeenLastCalledWith(
             expect.objectContaining({ applyView: true, view: expect.objectContaining({ urn: SELECTED_VIEW_URN }) }),
         );
+    });
+
+    it("skips and never refetches the view switcher's counts when the list ignores the view", () => {
+        renderSearch(false, true);
+
+        expect(countQueryMock).toHaveBeenCalled();
+        countQueryMock.mock.calls.forEach(([options]) => expect(options.skip).toBe(true));
+        expect(countRefetchMock).not.toHaveBeenCalled();
+    });
+
+    it("loads and refetches the view switcher's counts when the list applies the view", () => {
+        renderSearch(true, true);
+
+        countQueryMock.mock.calls.forEach(([options]) => expect(options.skip).toBe(false));
+        expect(countRefetchMock).toHaveBeenCalled();
+    });
+
+    it.each([
+        [true, 'refetches'],
+        [false, 'does not refetch'],
+    ])("when the entity page asks its lists to refetch, applyView=%s %s the view switcher's counts", (applyView) => {
+        entityAsksToRefetch = true;
+        renderSearch(applyView);
+
+        expect(countRefetchMock.mock.calls.length > 0).toBe(applyView);
     });
 });
