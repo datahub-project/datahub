@@ -16,7 +16,6 @@ from typing import (
     Literal,
     Mapping,
     Optional,
-    Sequence,
     Set,
     Tuple,
     Type,
@@ -411,14 +410,6 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
-
-    # Cross-project identity collisions (fan-out only; impossible within a single dbt
-    # project since dbt itself enforces uniqueness there). Counts colliding entities,
-    # not colliding keys, so a three-way collision reads as 3. Left as None until the
-    # corresponding pass runs, matching the duplicate_sources_* counters above.
-    duplicate_models_detected: Optional[int] = None
-    duplicate_node_unique_ids_detected: Optional[int] = None
-    duplicate_exposure_unique_ids_detected: Optional[int] = None
 
     # Query entity emission statistics
     num_queries_emitted: int = 0
@@ -884,23 +875,6 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, drops sources that have the same name in the target platform as a model. "
         "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
-    )
-
-    fail_on_cross_project_collisions: bool = Field(
-        default=True,
-        description="When enabled, a cross-project identity collision is reported as a failure and none of the "
-        "colliding entities are emitted. This covers two cases that normally only arise when ingesting multiple "
-        "dbt projects together (see manifest_path), since dbt guarantees uniqueness within a single project: (1) a "
-        "model that resolves to the same target-platform table as a model in another project, and (2) a node or "
-        "exposure whose dbt-assigned unique_id collides with another one, typically because two projects share a "
-        "dbt package name. A single project can still hit case (1) when URN building folds distinct relations "
-        "into one, for example with convert_urns_to_lowercase or include_database_name: false. Note that a "
-        "reported failure also suppresses stale-entity soft-deletion for the "
-        "entire run, across all projects, since the stale-entity-removal handler skips soft-deletion whenever "
-        "the source reports any failure. That is deliberately the safe direction - nothing gets wrongly deleted "
-        "- and it applies pressure to fix the underlying dbt naming collision. Set to False to instead keep one "
-        "entity deterministically and emit a warning, if permanent soft-deletion suppression is worse for your "
-        "use case than the collision.",
     )
 
     @field_validator("target_platform", mode="after")
@@ -1864,12 +1838,6 @@ class DBTMetricsParse:
     unreadable: List[Tuple[str, Exception]] = field(default_factory=list)
 
 
-# Entities keyed by a dbt-assigned unique_id, and so subject to cross-project
-# unique_id collisions. Both carry manifest_path, which is how a collision report
-# names the projects to go fix.
-_DBTIdentity = Union[DBTNode, DBTExposure]
-
-
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     # initialize custom properties to node's meta props
     # (dbt-native node properties)
@@ -2621,22 +2589,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         all_nodes = self.load_nodes()
 
-        # Must run before all_nodes_map is built below: a duplicate dbt_name here
-        # would otherwise collapse silently (last-one-wins) into that map, both
-        # losing a node without a trace and corrupting lineage resolution for every
-        # other node whose upstream_nodes references the collapsed dbt_name.
-        all_nodes, self._exposures = self._check_duplicate_unique_ids(
-            all_nodes, self.load_exposures()
-        )
-
         if self.config.convert_urns_to_lowercase:
             for node in all_nodes:
                 node.convert_urns_to_lowercase = True
-
-        # Must run after the lowercasing flag is set (it groups on the URN, which
-        # folds case) and before all_nodes_map is built and column lineage is
-        # inferred - see _check_duplicate_models for why both matter.
-        all_nodes = self._check_duplicate_models(all_nodes)
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
 
@@ -2988,292 +2943,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.report.duplicate_sources_references_updated += 1
 
         return nodes
-
-    @staticmethod
-    def _is_same_project_semantic_alias(
-        node: DBTNode, contenders: List[DBTNode]
-    ) -> bool:
-        """Whether `node` is a semantic model that merely aliases a node of its own project.
-
-        A dbt semantic model's node_relation is the relation of the model it wraps,
-        and dbt's own convention names the semantic model after that model - so
-        semantic_model.<pkg>.orders and model.<pkg>.orders legitimately resolve to
-        one database.schema.name, and therefore one URN, inside a single project.
-        That is expected aliasing rather than the cross-project clobber this check
-        exists to catch, and treating it as a collision would hard-fail a correct
-        single-project configuration.
-
-        The same-manifest sibling has to be non-semantic, because the rationale is
-        that a semantic model wraps a *model*. Two semantic models in one manifest
-        alias no one; letting them exempt each other would hide a collision in
-        which they overwrite each other's aspects.
-
-        This exempts an alias from deciding *whether* a URN is contested, not from
-        the consequences once it is - see _check_duplicate_models.
-        """
-        return node.node_type == "semantic_model" and any(
-            other is not node
-            and other.manifest_path == node.manifest_path
-            and other.node_type != "semantic_model"
-            for other in contenders
-        )
-
-    def _check_duplicate_models(self, nodes: List[DBTNode]) -> List[DBTNode]:
-        """Detect nodes from different dbt projects that resolve to the same dataset URN.
-
-        Covers models, seeds, snapshots, and semantic models - every node type that
-        exists_in_target_platform routes to a get_db_fqn()-derived dataset URN.
-
-        The URN is derived from get_db_fqn() -> database.schema.name, and dbt's
-        unique_id (which carries the project name) is not part of it. dbt guarantees
-        uniqueness within a single project, so this can only arise under multi-project
-        fan-out, where two projects that materialize the same relation would otherwise
-        silently overwrite each other's aspects. Sources are excluded: two projects
-        legitimately declaring the same upstream raw table is normal and must not
-        fail a correct configuration.
-
-        Grouping is on the URN itself rather than on the raw fqn, because
-        convert_urns_to_lowercase folds case when the URN is built - two projects whose
-        manifests differ only in the case of a relation name still land on one URN, and
-        grouping on the raw fqn would miss exactly that collision.
-
-        Must run before all_nodes_map is built, for two reasons. Contenders left in
-        that map are resolved as upstreams of downstream nodes, so an
-        upstreamLineage edge would be emitted to a URN that is itself never emitted,
-        materializing a key-only stub dataset for the very relation the projects were
-        fighting over. And _infer_schemas_and_update_cll keys its schema resolver on
-        the target-platform URN, which contenders share by definition, so leaving them
-        in place lets one project's schema drive the other project's inferred column
-        lineage.
-
-        Tie-break when fail_on_cross_project_collisions is disabled: the contender with the
-        lowest-sorting dbt_name wins, and only nodes from that winner's manifest are
-        kept. That is independent of manifest load order, so the surviving entities
-        are stable across runs.
-        """
-        by_urn: Dict[str, List[DBTNode]] = defaultdict(list)
-        for node in nodes:
-            if (
-                node.node_type in {"model", "seed", "snapshot", "semantic_model"}
-                and node.exists_in_target_platform
-                # Restricted to entities that can actually be emitted, so a collision
-                # between two nodes the user has excluded never fails the run.
-                and self._is_allowed_node(node)
-            ):
-                by_urn[
-                    node.get_urn(
-                        DBT_PLATFORM, self.config.env, self.config.platform_instance
-                    )
-                ].append(node)
-
-        self.report.duplicate_models_detected = 0
-        drop: Set[str] = set()
-        rewire: Dict[str, str] = {}  # loser dbt_name -> winner dbt_name
-        # Only contested URNs need a deterministic order; sorting every URN would
-        # make a single-project estate, which has none, pay for it on every run.
-        for urn, group in sorted(
-            (urn, group) for urn, group in by_urn.items() if len(group) >= 2
-        ):
-            # Sorted so neither the winner nor the reported order depends on
-            # manifest load order.
-            group.sort(key=lambda node: node.dbt_name)
-            # Same-project semantic aliases decide nothing about whether the URN is
-            # contested - only genuinely competing nodes do.
-            real_contenders = [
-                node
-                for node in group
-                if not self._is_same_project_semantic_alias(node, group)
-            ]
-            if len(real_contenders) < 2:
-                continue
-
-            # The URN is contested, so every node grouped on it is in scope: an
-            # alias emits to this same URN, so exempting it from the outcome would
-            # perform the very overwrite this check exists to prevent.
-            self.report.duplicate_models_detected += len(group)
-            context = f"{urn} is claimed by " + ", ".join(
-                node.dbt_name for node in group
-            )
-
-            if self.config.fail_on_cross_project_collisions:
-                self.report.failure(
-                    title="Duplicate model names across dbt projects",
-                    message="Multiple dbt nodes materialize to the same table in "
-                    "the target platform, so they would share one "
-                    "URN and overwrite each other. None of them were emitted, and "
-                    "nodes downstream of them lose that upstream lineage edge for "
-                    "this run. Fix the dbt projects so that each materializes to a "
-                    "distinct relation.",
-                    context=context,
-                )
-                drop.update(node.dbt_name for node in group)
-            else:
-                winner = real_contenders[0]
-                # The winner's own same-project aliases are legitimate aliasing of
-                # the node that won the URN, so they stay with it. Everything from a
-                # losing manifest goes, aliases included.
-                kept = [winner] + [
-                    node
-                    for node in group
-                    if node is not winner
-                    and node.manifest_path == winner.manifest_path
-                    and self._is_same_project_semantic_alias(node, group)
-                ]
-                kept_names = {node.dbt_name for node in kept}
-                self.report.warning(
-                    title="Duplicate model names across dbt projects",
-                    message="Multiple dbt nodes materialize to the same table. "
-                    "Keeping the ones from a single project and dropping the rest; "
-                    "their metadata will be lost.",
-                    context=f"{context}; keeping "
-                    + ", ".join(node.dbt_name for node in kept),
-                )
-                for node in group:
-                    if node.dbt_name in kept_names:
-                        continue
-                    drop.add(node.dbt_name)
-                    # The URNs are identical, so pointing at the winner preserves
-                    # the lineage edge exactly.
-                    rewire[node.dbt_name] = winner.dbt_name
-
-        if not drop:
-            return nodes
-
-        kept = [node for node in nodes if node.dbt_name not in drop]
-        if rewire:
-            for node in kept:
-                for i, upstream in enumerate(node.upstream_nodes):
-                    if upstream in rewire:
-                        node.upstream_nodes[i] = rewire[upstream]
-            # DBTExposure.depends_on holds the same dbt_name keys and is resolved
-            # through the same map to build exposure lineage, so an exposure
-            # depending on a dropped contender must follow the survivor too or it
-            # silently loses that edge. The URNs are identical, so the edge is
-            # preserved exactly.
-            for exposure in self._exposures:
-                for i, upstream in enumerate(exposure.depends_on):
-                    if upstream in rewire:
-                        exposure.depends_on[i] = rewire[upstream]
-        return kept
-
-    def _check_duplicate_unique_ids(
-        self, nodes: List[DBTNode], exposures: List[DBTExposure]
-    ) -> Tuple[List[DBTNode], List[DBTExposure]]:
-        """Detect dbt nodes or exposures whose dbt-assigned unique_id collides across projects.
-
-        get_workunits_internal collapses `nodes` into all_nodes_map keyed by
-        dbt_name (dbt's unique_id), and every upstream_nodes reference is resolved
-        through that same map. Two projects that share a package name - e.g.
-        scaffolded from the same template and never renamed - produce identical
-        unique_ids for their models. Left undetected, the dict comprehension would
-        silently keep whichever node loaded last, and any other node's
-        upstream_nodes entry pointing at that dbt_name would then resolve to the
-        wrong project's data rather than simply losing the edge. DBTExposure.get_urn
-        is built from unique_id the same way, so exposures collide for the same
-        reason.
-
-        Must run before all_nodes_map is built (and operate on the raw node list,
-        not that map), or the collision has already collapsed by the time it's
-        detected.
-
-        Since all contenders in one collision share an identical dbt_name/unique_id,
-        that string can't tell an operator which projects to go fix - the failure
-        and warning context instead names each contender's originating manifest path.
-
-        Tie-break when fail_on_cross_project_collisions is disabled: the first contender
-        loaded wins, which - because manifests are expanded in sorted path order - is
-        the one from the lowest-sorting manifest path.
-        """
-        # Deliberately NOT restricted to _is_allowed_node, unlike the exposure pass
-        # below. all_nodes_map is built later from the unfiltered node list (it must
-        # be, since a filtered node's metadata may still be used by an unfiltered
-        # one), and it's the lookup that resolves every node's upstream_nodes. An
-        # excluded contender sharing a unique_id would still collapse last-wins into
-        # that map, silently corrupting lineage resolution for an emitted node in a
-        # different project. Restricting detection here would hide that corruption
-        # instead of preventing it.
-        by_node_id: Dict[str, List[DBTNode]] = defaultdict(list)
-        for node in nodes:
-            by_node_id[node.dbt_name].append(node)
-        (
-            drop_nodes,
-            self.report.duplicate_node_unique_ids_detected,
-        ) = self._find_unique_id_collisions(by_node_id, "node")
-
-        if drop_nodes and not self.config.fail_on_cross_project_collisions:
-            # load_run_results runs inside load_nodes, before this pass, and attaches
-            # test results and model performances through its own local node map -
-            # which collapses colliding unique_ids last-wins, so results can land on
-            # a contender that is dropped here. When unique_ids collide the results
-            # cannot be attributed to a specific project, so they are merged onto the
-            # survivor rather than silently discarded with the dropped contenders.
-            for contenders in by_node_id.values():
-                if len(contenders) < 2:
-                    continue
-                winner, *losers = contenders
-                for loser in losers:
-                    winner.test_results.extend(loser.test_results)
-                    winner.model_performances.extend(loser.model_performances)
-
-        drop_exposures: Set[int] = set()
-        if self.config.entities_enabled.can_emit_exposures:
-            by_exposure_id: Dict[str, List[DBTExposure]] = defaultdict(list)
-            for exposure in exposures:
-                by_exposure_id[exposure.unique_id].append(exposure)
-            (
-                drop_exposures,
-                self.report.duplicate_exposure_unique_ids_detected,
-            ) = self._find_unique_id_collisions(by_exposure_id, "exposure")
-
-        kept_nodes = (
-            [node for node in nodes if id(node) not in drop_nodes]
-            if drop_nodes
-            else nodes
-        )
-        kept_exposures = (
-            [exposure for exposure in exposures if id(exposure) not in drop_exposures]
-            if drop_exposures
-            else exposures
-        )
-        return kept_nodes, kept_exposures
-
-    def _find_unique_id_collisions(
-        self, by_unique_id: Mapping[str, Sequence[_DBTIdentity]], kind: str
-    ) -> Tuple[Set[int], int]:
-        """Report every unique_id claimed more than once.
-
-        Returns the ids of the entities to drop (by `id()`, since colliding entities
-        are indistinguishable by their own key) and how many entities collided.
-        """
-        drop: Set[int] = set()
-        colliding = 0
-        for unique_id, contenders in sorted(
-            (uid, items) for uid, items in by_unique_id.items() if len(items) >= 2
-        ):
-            colliding += len(contenders)
-            paths = [item.manifest_path or "<unknown manifest>" for item in contenders]
-            context = f"{unique_id} is claimed by {kind}s from: " + ", ".join(paths)
-            if self.config.fail_on_cross_project_collisions:
-                self.report.failure(
-                    title="Duplicate dbt unique_id across projects",
-                    message="Multiple dbt entities share one dbt-assigned "
-                    "unique_id, which is also the key used to resolve lineage "
-                    "between dbt projects. None of them were emitted, and nodes "
-                    "downstream of them lose that upstream lineage edge for this "
-                    "run. Fix the dbt projects so each package name is unique.",
-                    context=context,
-                )
-                drop.update(id(item) for item in contenders)
-            else:
-                self.report.warning(
-                    title="Duplicate dbt unique_id across projects",
-                    message="Multiple dbt entities share one dbt-assigned "
-                    "unique_id. Keeping the first one loaded and dropping the "
-                    "rest; their metadata will be lost.",
-                    context=f"{context}; keeping {paths[0]}",
-                )
-                drop.update(id(item) for item in contenders[1:])
-        return drop, colliding
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:

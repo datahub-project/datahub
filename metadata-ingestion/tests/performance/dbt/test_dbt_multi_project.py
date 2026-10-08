@@ -47,7 +47,6 @@ class RunResult:
     peak_memory_delta: int
     manifests_loaded: int
     manifests_failed: int
-    duplicates: int
 
 
 def run_ingestion(
@@ -66,21 +65,12 @@ def run_ingestion(
     with PerfTimer() as timer:
         workunits, peak_memory = workunit_sink(source.get_workunits())
     report = source.report
-    duplicates = sum(
-        counter or 0
-        for counter in (
-            report.duplicate_models_detected,
-            report.duplicate_node_unique_ids_detected,
-            report.duplicate_exposure_unique_ids_detected,
-        )
-    )
     return RunResult(
         seconds=timer.elapsed_seconds(digits=2),
         workunits=workunits,
         peak_memory_delta=peak_memory - pre_memory,
         manifests_loaded=report.manifests_loaded,
         manifests_failed=report.manifests_failed,
-        duplicates=duplicates,
     )
 
 
@@ -103,7 +93,6 @@ def run_moto_sweep(
             # Every sweep run doubles as a correctness check of the glob fan-out.
             assert result.manifests_loaded == size, result
             assert result.manifests_failed == 0, result
-            assert result.duplicates == 0, result
             assert result.workunits > 0, result
             results.append((f"n{size}", result))
     return results
@@ -143,14 +132,14 @@ sink:
 
 def print_results(results: List[Tuple[str, RunResult]]) -> None:
     print(
-        f"{'run':>8} {'projects':>9} {'failed':>7} {'dups':>5}"
+        f"{'run':>8} {'projects':>9} {'failed':>7}"
         f" {'workunits':>10} {'seconds':>8} {'wu/s':>8} {'peak mem':>10}"
     )
     for label, r in results:
         wu_per_sec = r.workunits / r.seconds if r.seconds else 0.0
         print(
             f"{label:>8} {r.manifests_loaded:>9} {r.manifests_failed:>7}"
-            f" {r.duplicates:>5} {r.workunits:>10} {r.seconds:>8.2f}"
+            f" {r.workunits:>10} {r.seconds:>8.2f}"
             f" {wu_per_sec:>8.1f} {humanfriendly.format_size(r.peak_memory_delta):>10}"
         )
 
