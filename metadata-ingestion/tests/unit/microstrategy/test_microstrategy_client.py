@@ -295,6 +295,101 @@ def test_list_datasources_reads_datasource_management_response(
     assert datasources[0].database_type == "snow_flake"
 
 
+def test_get_predefined_folders_reads_shared_reports_response(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured_path: Optional[str] = None
+    captured_params: Optional[Dict[str, Any]] = None
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        nonlocal captured_path, captured_params
+        captured_path = path
+        captured_params = params
+        assert project_id == "project-1"
+        # Real response captured live from GET /api/folders/preDefined?folderType=7.
+        return {
+            "preDefined": [
+                {
+                    "name": "Reports",
+                    "id": "AB12CD34EF56AB78CD90EF12AB34CD56",
+                    "type": 8,
+                    "subtype": 2048,
+                    "folderType": 7,
+                    "owner": {
+                        "name": "Administrator",
+                        "id": "00112233445566778899AABBCCDDEEFF",
+                        "expired": False,
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    folders = client.get_predefined_folders("project-1", [7])
+
+    assert captured_path == "/api/folders/preDefined"
+    assert captured_params == {"folderType": "7"}
+    assert len(folders) == 1
+    assert folders[0].id == "AB12CD34EF56AB78CD90EF12AB34CD56"
+    assert folders[0].name == "Reports"
+    assert folders[0].folder_type == 7
+
+
+def test_get_predefined_folders_joins_multiple_folder_types(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured_params: Optional[Dict[str, Any]] = None
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        nonlocal captured_params
+        captured_params = params
+        return {"preDefined": []}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_predefined_folders("project-1", [7, 20])
+
+    assert captured_params == {"folderType": "7,20"}
+
+
+def test_get_predefined_folders_skips_malformed_entries(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+
+    monkeypatch.setattr(
+        client,
+        "_get_json",
+        lambda path, project_id=None, params=None: {
+            "preDefined": [{"name": "no id here"}]
+        },
+    )
+
+    folders = client.get_predefined_folders("project-1", [7])
+
+    assert folders == []
+
+
 def test_list_project_datasources_uses_project_scoped_endpoint(
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -558,6 +653,33 @@ def test_sql_view_and_instance_calls_use_a_single_attempt(
     assert report.api_errors == 2
 
 
+@pytest.mark.parametrize(
+    "status, expected_calls",
+    [(500, 1), (503, 4), (429, 4)],
+)
+def test_metric_model_does_not_retry_500(
+    monkeypatch: MonkeyPatch, status: int, expected_calls: int
+) -> None:
+    # The Modeling service answers 500 for every metric it cannot model, so
+    # retrying it only adds backoff; throttling and gateway errors still retry.
+    client, report = _make_client({"max_retries": 3})
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        return StatusResponse(status)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError) as error:
+        client.get_metric_model("project-1", "metric-1")
+
+    assert call_count == expected_calls
+    assert error.value.status_code == status
+    assert report.api_errors == 1
+
+
 def test_request_fails_fast_on_non_retryable_404(monkeypatch: MonkeyPatch) -> None:
     client, report = _make_client()
     call_count = 0
@@ -575,6 +697,23 @@ def test_request_fails_fast_on_non_retryable_404(monkeypatch: MonkeyPatch) -> No
     assert call_count == 1
     assert fake_sleep.call_count == 0
     assert report.api_errors == 1
+
+
+def test_http_error_carries_status_and_url_for_swallowing_callers(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _report = _make_client()
+    monkeypatch.setattr(client.session, "request", lambda **kwargs: StatusResponse(403))
+
+    with pytest.raises(MicroStrategyAPIError) as excinfo:
+        client._request("GET", "/api/model/reports/abc")
+
+    error = excinfo.value
+    assert error.status_code == 403
+    assert error.url == f"{client.base_url}/api/model/reports/abc"
+    assert error.summary().startswith("HTTP 403: ")
+    # Plain (non-HTTP) failures have no status and summarize to the message.
+    assert MicroStrategyAPIError("no token").summary() == "no token"
 
 
 def _reauth_client(
@@ -772,6 +911,7 @@ def test_search_dashboards_skips_malformed_objects(monkeypatch: MonkeyPatch) -> 
         "create_dossier_instance",
         "create_document_instance",
         "create_report_instance",
+        "create_model_report_instance",
     ],
 )
 def test_instance_creation_without_instance_id_raises(
@@ -783,3 +923,132 @@ def test_instance_creation_without_instance_id_raises(
 
     with pytest.raises(MicroStrategyAPIError):
         getattr(client, method_name)("project-1", "object-1")
+
+
+def test_model_report_sends_instance_header_only_when_given(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # The Modeling endpoint's X-MSTR-MS-Instance header is documented as the
+    # report instance id. Reading the definition statically must stay the
+    # default, so the header is absent unless an instance is supplied.
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    calls: list[Dict[str, Any]] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        method: str = "GET",
+        json: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        calls.append({"path": path, "headers": headers})
+        return {}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_model_report("project-1", "report-1")
+    client.get_model_report("project-1", "report-1", instance_id="instance-9")
+
+    assert calls[0]["headers"] is None
+    assert calls[1]["headers"] == {"X-MSTR-MS-Instance": "instance-9"}
+    assert [call["path"] for call in calls] == [
+        "/api/model/reports/report-1",
+        "/api/model/reports/report-1",
+    ]
+
+
+def test_model_document_sends_instance_header_only_when_given(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    calls: list[Dict[str, Any]] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        method: str = "GET",
+        json: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        calls.append({"path": path, "headers": headers})
+        return {}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_model_document("project-1", "doc-1")
+    client.get_model_document("project-1", "doc-1", instance_id="dinst-7")
+
+    assert calls[0]["headers"] is None
+    assert calls[1]["headers"] == {"X-MSTR-MS-Instance": "dinst-7"}
+    assert [call["path"] for call in calls] == [
+        "/api/model/documents/doc-1",
+        "/api/model/documents/doc-1",
+    ]
+
+
+def test_model_report_instance_uses_the_modeling_service_endpoints(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # GET /api/model/reports/{id} rejects an /api/v2 execution instance with
+    # 400; only an instance from ms-createReportInstance is accepted, and it is
+    # released with ms-deleteReportInstance, which names it by header.
+    client, report = _make_client()
+    calls: list[Dict[str, Any]] = []
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        calls.append(kwargs)
+        if kwargs["method"] == "POST":
+            return StatusResponse(201, payload={"id": "ms-inst-1"})
+        return StatusResponse(204)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    instance_id = client.create_model_report_instance("project-1", "report-1")
+    deleted = client.delete_model_report_instance("project-1", "report-1", instance_id)
+
+    assert instance_id == "ms-inst-1"
+    assert deleted is True
+    assert [
+        (c["method"], c["url"].split("/MicroStrategyLibrary")[-1]) for c in calls
+    ] == [
+        ("POST", "/api/model/reports/report-1/instances"),
+        ("DELETE", "/api/model/reports/report-1/instances"),
+    ]
+    assert "params" not in calls[0] or not calls[0]["params"]
+    assert calls[0]["headers"]["X-MSTR-ProjectID"] == "project-1"
+    assert calls[1]["headers"]["X-MSTR-MS-Instance"] == "ms-inst-1"
+    assert report.api_errors == 0
+
+
+@pytest.mark.parametrize(
+    "method_name", ["create_dossier_instance", "create_document_instance"]
+)
+@pytest.mark.parametrize("resolve_only", [False, True])
+def test_dashboard_instance_body_follows_resolve_only(
+    monkeypatch: MonkeyPatch,
+    method_name: str,
+    resolve_only: bool,
+) -> None:
+    client, _report = _make_client({"dashboard_instance_resolve_only": resolve_only})
+    bodies: list[Any] = []
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        bodies.append(kwargs.get("json"))
+        return StatusResponse(200, payload={"mid": "inst-1"})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    assert getattr(client, method_name)("project-1", "dash-1") == "inst-1"
+    assert bodies == [{"resolveOnly": True} if resolve_only else {}]

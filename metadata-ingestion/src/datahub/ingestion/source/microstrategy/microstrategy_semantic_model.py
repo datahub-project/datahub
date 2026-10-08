@@ -19,11 +19,11 @@ from datahub.ingestion.source.microstrategy.lineage import (
     metric_consolidation_ids_from_model,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
-    normalize_object_id,
     object_id,
     parse_attribute_relationships,
     physical_table_name,
 )
+from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     ContainerClass,

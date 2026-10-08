@@ -1,9 +1,20 @@
-import json
 import logging
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
+import requests
 from pydantic import ValidationError
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -28,8 +39,20 @@ from datahub.ingestion.source.microstrategy.client import (
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_CUBE_SUBTYPES,
+    MSTR_DEFINITION_ENDPOINT_METRIC_MODEL,
+    MSTR_DEFINITION_ENDPOINT_MODEL,
+    MSTR_DEFINITION_ENDPOINT_V2,
+    MSTR_DERIVED_DEBUG_LOG_PREFIX,
+    MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
+    MSTR_FOLDER_TYPE_PROFILE_REPORTS,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
+    MSTR_OBJECT_TYPE_FOLDER,
     MSTR_OBJECT_TYPE_REPORT,
+    MSTR_PERSONAL_FOLDER_NAMES,
+    MSTR_PERSONAL_FOLDER_TYPES,
+    MSTR_PREDEFINED_FOLDER_LABELS,
+    MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     USAGE_TARGET_CHART,
     USAGE_TARGET_DASHBOARD,
 )
@@ -37,6 +60,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
+    ensure_sql_lineage_dependencies,
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
@@ -58,10 +82,22 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     MetricEnrichment,
     MicroStrategyObject,
+    PersonalFolderResolution,
+    PredefinedFolderResolution,
     Project,
     ProjectKey,
     ReportDefinition,
+    ReportDerivedMetric,
     Visualization,
+    extract_document_derived_metric_definitions,
+    extract_embedded_metric_definitions,
+    extract_folder_parts,
+    first_derived_node_skeleton,
+    is_personal_folder_object,
+    metric_enrichment_from_expression,
+    normalize_object_id,
+    payload_key_skeleton,
+    payload_type_vocabulary,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import (
@@ -76,6 +112,8 @@ from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
 
 logger = logging.getLogger(__name__)
 
+_ERROR_SUMMARY_MAX_CHARS = 300
+
 
 @platform_name("MicroStrategy")
 @config_class(MicroStrategyConfig)
@@ -84,7 +122,10 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.CONTAINERS, "Projects and folders emit as containers")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.TAGS, "Metric, attribute, and temporal field tags")
+@capability(
+    SourceCapability.TAGS,
+    "Metric, attribute, temporal, and derived-metric field tags",
+)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default via `ingest_owner`")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -114,8 +155,57 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client = MicroStrategyClient(config, self.report)
         self.mapper = MicroStrategyMapper(config, self.report)
         self.lineage = self.mapper.lineage
+        if self.config.extract_lineage and (
+            self.config.extract_warehouse_lineage
+            or self.config.extract_report_sql_lineage
+        ):
+            # Fail at construction, not per SQL view: a missing parser module
+            # would otherwise be swallowed into per-statement parse warnings
+            # and the run would report SUCCESS with zero warehouse lineage.
+            ensure_sql_lineage_dependencies()
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
+        self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
+        self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
+        # (project id, dataset object id) -> object info, or None once a lookup
+        # failed so the same dataset is never re-fetched for another dossier.
+        self._dataset_object_cache: Dict[
+            Tuple[str, str], Optional[MicroStrategyObject]
+        ] = {}
+        # (project id, report id) -> derived metric definitions, or None once
+        # every definition endpoint failed for it.
+        self._report_derived_metric_cache: Dict[
+            Tuple[str, str], Optional[List[ReportDerivedMetric]]
+        ] = {}
+        # Projects already warned about the Modeling report definition
+        # endpoint failing (one structured warning per project, not per
+        # report), and projects whose v2 payload shape was already logged.
+        self._model_definition_warned_projects: Set[str] = set()
+        # Dashboard id -> its one instance (an execution), shared by the
+        # visualization-detail and SQL-view consumers, or the error that
+        # creating it raised so a timed-out execution is never repeated.
+        self._dashboard_instances: Dict[str, Union[str, MicroStrategyAPIError]] = {}
+        # Project id -> consecutive instance-creation timeouts, and projects
+        # where max_consecutive_execution_timeouts tripped.
+        self._consecutive_execution_timeouts: Dict[str, int] = {}
+        self._execution_limited_projects: Set[str] = set()
+        self._v2_definition_logged_projects: Set[str] = set()
+        self._model_empty_logged_projects: Set[str] = set()
+        if self.config.extract_derived_metrics and not (
+            self.config.extract_lineage and self.config.extract_visualization_details
+        ):
+            # Not an error: the flag defaults on and its inputs are simply
+            # absent. Make the no-op observable so operators aren't left
+            # wondering why no derived fields appeared.
+            self.report.info(
+                title="Derived metric extraction has no input",
+                message=(
+                    "extract_derived_metrics is enabled but extract_lineage "
+                    "and/or extract_visualization_details are disabled, so no "
+                    "runtime grids are fetched and no derived metrics can be "
+                    "extracted."
+                ),
+            )
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
@@ -186,6 +276,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     )
                     auth_lost = True
                     break
+                except ConfigurationError:
+                    # Environmental (e.g. a missing parser dependency): every
+                    # remaining project would fail identically, so surface it
+                    # as a run failure instead of per-project noise.
+                    raise
                 except Exception as error:
                     self.report.failure(
                         title="Failed to Process Project",
@@ -199,7 +294,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if self.config.extract_usage_statistics and not auth_lost:
                 yield from self._process_usage_statistics(projects)
         finally:
+            self._warn_if_every_sql_view_failed()
             self.client.close()
+
+    def _warn_if_every_sql_view_failed(self) -> None:
+        """SQL-view lineage that fails on every single statement is almost
+        never a per-statement problem (an unsupported dialect, a missing
+        dependency, a broken warehouse context); make that pattern obvious in
+        the report instead of leaving N identical parse warnings to be read."""
+        parsed = self.report.sql_views_parsed
+        failed = self.report.sql_parse_failure_count
+        if parsed == 0 or failed < parsed:
+            return
+        first_failure = next(iter(self.report.sql_parse_failures), "")
+        self.report.warning(
+            title="Every MicroStrategy SQL view failed to parse",
+            message=(
+                f"All {parsed} SQL views submitted for warehouse lineage failed to "
+                "parse, so no dataset-to-warehouse lineage was emitted this run. "
+                "This usually indicates an environment problem rather than bad "
+                "SQL; see the first failure for the cause."
+            ),
+            context=f"first_failure={first_failure}",
+        )
 
     def _process_usage_statistics(
         self,
@@ -421,6 +538,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
                 self.report.filtered_dashboards.append(dashboard_object.name)
                 continue
+            if self._skip_personal_object(project_id, dashboard_object):
+                continue
             # Progress before the expensive per-dashboard work so the log never goes silent.
             logger.info(
                 "Processing dashboard %r (%s) in project %s",
@@ -435,7 +554,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     lineage_context,
                     linked_report_ids,
                 )
-            except MicroStrategyAuthError:
+            except (MicroStrategyAuthError, ConfigurationError):
                 # Not a per-dashboard problem; must abort the whole run.
                 raise
             except Exception as error:
@@ -453,6 +572,171 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     exc=error,
                 )
 
+    def _predefined_folders(self, project_id: str) -> PredefinedFolderResolution:
+        """Predefined-folder resolution for a project: MicroStrategy-assigned
+        labels (e.g. 'Shared Reports') plus the system containers Strategy Web
+        never shows (project root folder, 'Public Objects'), cached per project
+        since folder containers are (re)built once per dashboard/report."""
+        if not self.config.use_predefined_folder_names:
+            return PredefinedFolderResolution.empty()
+        if project_id in self._predefined_folder_cache:
+            return self._predefined_folder_cache[project_id]
+
+        labels: Dict[str, str] = {}
+        hidden_ids: Set[str] = set()
+        try:
+            folders = self.client.get_predefined_folders(
+                project_id,
+                sorted(
+                    set(MSTR_PREDEFINED_FOLDER_LABELS)
+                    | MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES
+                ),
+            )
+        except Exception as error:
+            # Folder browsing is an optional enhancement layered on top of the
+            # raw ancestor walk -- any failure here (unsupported on an older
+            # MicroStrategy version, insufficient privilege, transport error)
+            # must never take down dashboard/report processing. Remember the
+            # failure instead of re-attempting it for every dashboard/report
+            # in the project.
+            self.report.warning(
+                title="Predefined folder lookup unavailable",
+                message=(
+                    "Could not resolve MicroStrategy's predefined folder labels "
+                    "for this project; folder containers will use MicroStrategy's "
+                    "raw metadata folder names instead. With "
+                    "use_predefined_folder_names enabled this changes folder "
+                    "container URNs relative to a run where resolution "
+                    "succeeded."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
+            )
+            folders = []
+
+        for folder in folders:
+            if folder.folder_type is None:
+                continue
+            if folder.folder_type in MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES:
+                hidden_ids.add(normalize_object_id(folder.id))
+                continue
+            label = MSTR_PREDEFINED_FOLDER_LABELS.get(folder.folder_type)
+            if label:
+                labels[normalize_object_id(folder.id)] = label
+        if labels or hidden_ids:
+            self.report.report_predefined_folder_labels_resolved(
+                len(labels) + len(hidden_ids)
+            )
+        resolution = PredefinedFolderResolution(labels=labels, hidden_ids=hidden_ids)
+        self._predefined_folder_cache[project_id] = resolution
+        return resolution
+
+    def _personal_folders(self, project_id: str) -> PersonalFolderResolution:
+        """How to recognise personal (per-user profile) content in a project,
+        resolved once per project. By id when possible: the predefined-folder
+        call names the logged-in principal's own profile folder (type 19) and
+        My Reports (type 20); the profile folder's immediate parent is the
+        project's Profiles system folder, under which every user's profile
+        folder lives. Any failure falls back to matching ancestor folder
+        names, which is exact but breaks on localized or renamed folders."""
+        if project_id in self._personal_folder_cache:
+            return self._personal_folder_cache[project_id]
+
+        root_ids: Set[str] = set()
+        names: Set[str] = set(MSTR_PERSONAL_FOLDER_NAMES)
+        try:
+            folders = self.client.get_predefined_folders(
+                project_id, list(MSTR_PERSONAL_FOLDER_TYPES)
+            )
+            for folder in folders:
+                if folder.folder_type not in MSTR_PERSONAL_FOLDER_TYPES:
+                    continue
+                root_ids.add(normalize_object_id(folder.id))
+                if folder.folder_type == MSTR_FOLDER_TYPE_PROFILE_REPORTS:
+                    names.add(folder.name.strip().lower())
+                if folder.folder_type == MSTR_FOLDER_TYPE_PROFILE_OBJECTS:
+                    root_ids.update(self._profiles_root_ids(project_id, folder.id))
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            root_ids.clear()
+            self.report.info(
+                title="Personal folder root not resolved",
+                message=(
+                    "Could not resolve the project's Profiles folder by id; "
+                    "personal folders are recognised by ancestor folder name "
+                    "('Profiles' / 'My Reports', case-insensitive) instead."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
+            )
+        if root_ids:
+            self.report.report_personal_folder_root_resolved()
+        resolution = PersonalFolderResolution(root_ids=root_ids, names=names)
+        self._personal_folder_cache[project_id] = resolution
+        return resolution
+
+    def _profiles_root_ids(self, project_id: str, profile_folder_id: str) -> Set[str]:
+        """The Profiles system folder: the immediate parent of the principal's
+        own profile folder, read from that folder's ancestors. System
+        containers hidden from the browse hierarchy (project root, Public
+        Objects) are never it, so a profile folder parented directly under
+        one of those yields nothing rather than a wrong root."""
+        profile_folder = self.client.get_object_info(
+            project_id, profile_folder_id, MSTR_OBJECT_TYPE_FOLDER
+        )
+        if profile_folder is None:
+            return set()
+        hidden_ids = self._predefined_folders(project_id).hidden_ids
+        parents = [
+            normalize_object_id(part.id)
+            for part in extract_folder_parts(profile_folder.model_dump())
+            if part.id
+        ]
+        if not parents or parents[-1] in hidden_ids:
+            return set()
+        return {parents[-1]}
+
+    def _is_personal_object(
+        self, project_id: str, mstr_object: MicroStrategyObject
+    ) -> bool:
+        if self.config.include_personal_folders:
+            return False
+        return is_personal_folder_object(
+            mstr_object.model_dump(), self._personal_folders(project_id)
+        )
+
+    def _skip_personal_object(
+        self, project_id: str, mstr_object: MicroStrategyObject
+    ) -> bool:
+        """Decide before any definition is fetched, so a skipped personal
+        object costs no further API calls. Stateful ingestion soft-deletes
+        previously ingested personal content on its own."""
+        if not self._is_personal_object(project_id, mstr_object):
+            return False
+        self.report.report_personal_folder_object_skipped(mstr_object.name)
+        logger.debug(
+            "Skipping %r (%s) in project %s: filed under a personal folder",
+            mstr_object.name,
+            mstr_object.id,
+            project_id,
+        )
+        return True
+
+    def _folder_object(
+        self, project_id: str, dataset_object: Optional[MicroStrategyObject]
+    ) -> Optional[MicroStrategyObject]:
+        """The object whose folder ancestry a dataset is filed under: its own,
+        unless that ancestry is personal -- then None, so no container under
+        Profiles is emitted and the dataset falls back to the folder of the
+        dossier/report that embeds it (the same degradation as a failed
+        object lookup)."""
+        if dataset_object is None or not self._is_personal_object(
+            project_id, dataset_object
+        ):
+            return dataset_object
+        return None
+
     def _process_dashboard_object(
         self,
         project_id: str,
@@ -460,29 +744,42 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from self.mapper.gen_folder_containers(project_id, dashboard_object)
+        predefined_folders = self._predefined_folders(project_id)
+        yield from self.mapper.gen_folder_containers(
+            project_id, dashboard_object, predefined_folders
+        )
         parent_key = self.mapper.folder_container_for_dashboard(
-            project_id, dashboard_object
+            project_id, dashboard_object, predefined_folders
         )
-        dashboard = self._get_dashboard_definition(project_id, dashboard_object)
-        if dashboard is None:
-            return
         model_lineage_index = lineage_context.model_lineage_index
-        needs_sql_view_context = (
-            self.config.extract_warehouse_lineage or model_lineage_index is not None
-        )
-        has_warehouse_context = lineage_context.warehouse_context or any(
-            dataset.source_warehouse for dataset in dashboard.datasets
-        )
-        if needs_sql_view_context and has_warehouse_context:
-            self._enrich_warehouse_lineage(
-                project_id=project_id,
-                dashboard_object=dashboard_object,
-                dashboard=dashboard,
-                context=lineage_context.warehouse_context,
+        try:
+            dashboard = self._get_dashboard_definition(project_id, dashboard_object)
+            if dashboard is None:
+                return
+            needs_sql_view_context = (
+                self.config.extract_warehouse_lineage or model_lineage_index is not None
             )
+            has_warehouse_context = lineage_context.warehouse_context or any(
+                dataset.source_warehouse for dataset in dashboard.datasets
+            )
+            if needs_sql_view_context and has_warehouse_context:
+                self._enrich_warehouse_lineage(
+                    project_id=project_id,
+                    dashboard_object=dashboard_object,
+                    dashboard=dashboard,
+                    context=lineage_context.warehouse_context,
+                )
+        finally:
+            # Last consumer of the shared instance is done.
+            self._release_dashboard_instance(project_id, dashboard_object)
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
+        if self.config.extract_derived_metrics:
+            self.mapper.attach_derived_metrics(dashboard)
+            self._enrich_report_derived_metrics(project_id, dashboard)
+            self._enrich_document_derived_metrics(
+                project_id, dashboard_object, dashboard
+            )
         if linked_report_ids is not None:
             linked_report_ids.update(
                 dependency.id.upper()
@@ -501,6 +798,380 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dashboard,
             parent_key,
             extra_chart_urns=extra_chart_urns,
+            predefined_folders=predefined_folders,
+        )
+
+    def _dataset_object_info(
+        self,
+        project_id: str,
+        dataset_id: str,
+    ) -> Optional[MicroStrategyObject]:
+        """Object info (subtype + folder ancestors) for a dataset backing a
+        dossier or report, fetched once per distinct dataset per project.
+        Reports and cubes share object type 3, so one lookup covers both. Any
+        failure degrades to the pre-lookup behaviour (dataset parented under
+        the dossier's folder, linking to the dossier) and is counted."""
+        cache_key = (project_id, normalize_object_id(dataset_id))
+        if cache_key in self._dataset_object_cache:
+            return self._dataset_object_cache[cache_key]
+        dataset_object: Optional[MicroStrategyObject] = None
+        try:
+            dataset_object = self.client.get_object_info(
+                project_id, dataset_id, MSTR_OBJECT_TYPE_REPORT
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_dataset_object_lookup_failure()
+            self.report.warning(
+                title="Dataset object info unavailable",
+                message=(
+                    "Could not fetch a dataset's own object info, so its browse "
+                    "path and external URL fall back to the dossier/report that "
+                    "embeds it."
+                ),
+                context=f"project_id={project_id}, dataset_id={dataset_id}",
+                exc=error,
+                log=False,
+            )
+        else:
+            self.report.report_dataset_object_lookup()
+            if dataset_object is None:
+                self.report.report_dataset_object_lookup_failure()
+        self._dataset_object_cache[cache_key] = dataset_object
+        return dataset_object
+
+    def _enrich_report_derived_metrics(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        """Upgrade grid-derived metrics with their report definitions. A dossier
+        dataset that is a report can define report-level derived metrics; the
+        grid only shows them as `derived: true` elements, but the report's
+        definition carries their object names and formulas. Cubes cannot
+        define derived metrics and are skipped; a dataset whose type is
+        unknown is only consulted when a grid actually showed derived metrics
+        for it, so the extra calls stay proportional to the evidence."""
+        for dataset in dashboard.datasets:
+            dataset_object = self._dataset_object_info(project_id, dataset.id)
+            subtype = (dataset_object.subtype or "").strip() if dataset_object else ""
+            if subtype in MSTR_CUBE_SUBTYPES:
+                continue
+            if dataset_object is None and not dataset.derived_metrics:
+                continue
+            definitions = self._report_derived_metric_definitions(
+                project_id, dataset.id
+            )
+            if definitions:
+                self.mapper.attach_report_derived_metrics(dataset, definitions)
+
+    def _enrich_document_derived_metrics(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        """Document/dossier-level derived metrics - defined in the dashboard on
+        top of a dataset rather than in the dataset's report - live only in the
+        Modeling document definition, which the report path never reads. Read
+        it and attach each definition to the dataset that defines it. Opt-in
+        with resolve_report_metrics_via_instance, alongside the report-level
+        instance read: the endpoint is undocumented. It is read statically -
+        the Modeling service has no document instance endpoint, and it rejects
+        a dashboard execution instance with 400."""
+        if not self.config.resolve_report_metrics_via_instance:
+            return
+        if not dashboard.datasets:
+            return
+        try:
+            model_document = self.client.get_model_document(project_id, dashboard.id)
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_document_model_definition_failure()
+            self.report.warning(
+                title="Modeling document definition unavailable",
+                message=(
+                    "GET /api/model/documents/{id} failed, so document-level "
+                    "derived metrics were not read for this dashboard."
+                ),
+                context=f"project_id={project_id}, dashboard_id={dashboard.id}",
+                exc=error,
+            )
+            return
+
+        by_dataset = extract_document_derived_metric_definitions(model_document)
+        found = sum(len(definitions) for definitions in by_dataset.values())
+        with_expression = sum(
+            1
+            for definitions in by_dataset.values()
+            for definition in definitions
+            if definition.has_expression
+        )
+        self.report.report_document_derived_metric_definitions(found, with_expression)
+        if logger.isEnabledFor(logging.DEBUG):
+            # The endpoint is undocumented; the payload shape is what tells a
+            # negative result (no expression) from a key the walker missed.
+            logger.debug(
+                "%s Modeling document definition project_id=%s dashboard_id=%s "
+                "derived_metrics=%d with_expression=%d; payload skeleton: %s",
+                MSTR_DERIVED_DEBUG_LOG_PREFIX,
+                project_id,
+                dashboard.id,
+                found,
+                with_expression,
+                payload_key_skeleton(model_document),
+            )
+        for dataset in dashboard.datasets:
+            definitions = by_dataset.get(normalize_object_id(dataset.id))
+            if definitions:
+                self.mapper.attach_report_derived_metrics(dataset, definitions)
+
+    def _report_derived_metric_definitions(
+        self,
+        project_id: str,
+        report_id: str,
+    ) -> Optional[List[ReportDerivedMetric]]:
+        """Derived metric definitions of one report, fetched once per project.
+        The Modeling endpoint (GET /api/model/reports/{id}) is preferred because
+        it carries expressions; the v2 definition (GET /api/v2/reports/{id})
+        is the fallback and may name derived metrics without a formula. None
+        means both failed (counted in report_definition_failures)."""
+        cache_key = (project_id, normalize_object_id(report_id))
+        if cache_key in self._report_derived_metric_cache:
+            return self._report_derived_metric_cache[cache_key]
+
+        definitions: List[ReportDerivedMetric] = []
+        model_error: Optional[Exception] = None
+        v2_error: Optional[Exception] = None
+        instance_id = self._report_model_instance(project_id, report_id)
+        try:
+            model_payload = self.client.get_model_report(
+                project_id, report_id, instance_id=instance_id
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            model_error = error
+        else:
+            definitions = extract_embedded_metric_definitions(
+                model_payload, endpoint=MSTR_DEFINITION_ENDPOINT_MODEL
+            )
+            if definitions and not any(d.has_expression for d in definitions):
+                self._debug_model_definition_without_expressions(
+                    project_id, report_id, model_payload, len(definitions)
+                )
+            elif not definitions:
+                self._debug_model_definition_empty(project_id, report_id, model_payload)
+        if not definitions:
+            try:
+                v2_payload = self.client.get_report_definition(project_id, report_id)
+            except MicroStrategyAuthError:
+                raise
+            except Exception as error:
+                v2_error = error
+            else:
+                definitions = extract_embedded_metric_definitions(
+                    v2_payload, endpoint=MSTR_DEFINITION_ENDPOINT_V2
+                )
+                if model_error is not None:
+                    self._record_model_definition_failure(
+                        project_id, report_id, model_error
+                    )
+                if definitions:
+                    self._debug_v2_definition_payload(project_id, report_id, v2_payload)
+
+        if instance_id:
+            self._delete_model_report_instance(project_id, report_id, instance_id)
+
+        if definitions and self.config.extract_metric_expressions:
+            self._resolve_embedded_metric_formulas(project_id, definitions)
+
+        result: Optional[List[ReportDerivedMetric]] = definitions
+        if model_error is not None and v2_error is not None:
+            result = None
+            self.report.report_report_definition_failure()
+            self.report.warning(
+                title="Report definition unavailable for derived metrics",
+                message=(
+                    "Neither the Modeling nor the v2 report definition endpoint "
+                    "returned this dataset's report, so its derived metrics keep "
+                    "only grid-level provenance (no report object name or "
+                    "formula)."
+                ),
+                context=f"project_id={project_id}, report_id={report_id}",
+                exc=v2_error,
+                log=False,
+            )
+        elif definitions:
+            self.report.report_report_derived_metrics_extracted(len(definitions))
+        self._report_derived_metric_cache[cache_key] = result
+        return result
+
+    def _resolve_embedded_metric_formulas(
+        self,
+        project_id: str,
+        definitions: List[ReportDerivedMetric],
+    ) -> None:
+        """The report definition endpoints name a report-level derived metric
+        (Modeling marks it isEmbedded, v2 lists it) but carry no formula. The
+        metric has a real object id, so ask the metric model endpoint for it,
+        exactly as catalog metrics are enriched; the fetch is cached per
+        metric and a refusal is aggregated into the existing metric-model
+        warning and failed_metric_model_ids, never fatal."""
+        for definition in definitions:
+            if definition.has_expression:
+                continue
+            model = self._get_metric_model(project_id, definition.id)
+            if not model:
+                continue
+            enrichment = _metric_expression_summary(model)
+            if enrichment is None:
+                continue
+            definition.expression_text = enrichment.expression_text
+            definition.expression_tokens = enrichment.expression_tokens
+            definition.endpoint = MSTR_DEFINITION_ENDPOINT_METRIC_MODEL
+            self.report.report_report_derived_metric_model_resolved()
+
+    def _report_model_instance(
+        self,
+        project_id: str,
+        report_id: str,
+    ) -> Optional[str]:
+        """Open a Modeling-service report instance so the Modeling definition
+        can be read against it, per Strategy support's guidance that metric
+        expressions resolve only that way. Returns None when the option is off
+        or the instance could not be created - the caller then reads the
+        definition statically, which is the long-standing behaviour."""
+        if not self.config.resolve_report_metrics_via_instance:
+            return None
+        try:
+            instance_id = self.client.create_model_report_instance(
+                project_id, report_id
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_report_model_instance_failure(
+                f"{report_id}: {_error_summary(error)}"
+            )
+            return None
+        self.report.report_report_model_instance_created()
+        return instance_id
+
+    def _record_model_definition_failure(
+        self,
+        project_id: str,
+        report_id: str,
+        error: Exception,
+    ) -> None:
+        """The Modeling report definition failed but the v2 definition
+        answered: derived metrics keep their report names but have no
+        formula. Counted per report (with the HTTP status when the failure
+        was an error response) and warned once per project, since the cause
+        (privilege, an older server without the Modeling service) is
+        project-wide."""
+        self.report.report_report_model_definition_failure(
+            f"{report_id}: {_error_summary(error)}"
+        )
+        if project_id in self._model_definition_warned_projects:
+            return
+        self._model_definition_warned_projects.add(project_id)
+        self.report.warning(
+            title="Modeling report definition unavailable; derived metric formulas omitted",
+            message=(
+                "GET /api/model/reports/{id} failed, so report derived metrics "
+                "were taken from the v2 report definition, which names them "
+                "but does not expose their formulas. Check the principal's "
+                "Modeling service access and the MicroStrategy version (the "
+                "endpoint needs 2021 Update 7 or later)."
+            ),
+            context=f"project_id={project_id}, first_report_id={report_id}",
+            exc=error,
+        )
+
+    def _debug_model_definition_without_expressions(
+        self,
+        project_id: str,
+        report_id: str,
+        payload: Dict[str, object],
+        definition_count: int,
+    ) -> None:
+        """The Modeling endpoint answered and named derived metrics, but none
+        carried an expression under a key the walker reads. Count it and log
+        the payload's key skeleton (keys, list lengths and value types only;
+        no names or values) so the actual shape can be read from a debug
+        execution log."""
+        self.report.report_report_definition_without_expressions()
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s Modeling report definition project_id=%s report_id=%s named %d "
+            "derived metrics but none carried an expression; payload skeleton: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            definition_count,
+            payload_key_skeleton(payload),
+        )
+        logger.debug(
+            "%s first derived-flagged node project_id=%s report_id=%s: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            first_derived_node_skeleton(payload),
+        )
+
+    def _debug_model_definition_empty(
+        self,
+        project_id: str,
+        report_id: str,
+        payload: Dict[str, object],
+    ) -> None:
+        """The Modeling endpoint answered but the walker found no derived
+        metric definition in the payload at all, so the v2 definition will
+        supply names only. This is the case a live run hit: it is invisible
+        in the counters unless recorded here, and the payload shape is the
+        only way to learn which key the derived metrics live under. Count it
+        per report; log the key skeleton once per project."""
+        self.report.report_report_model_definition_empty()
+        if project_id in self._model_empty_logged_projects:
+            return
+        self._model_empty_logged_projects.add(project_id)
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s Modeling report definition project_id=%s report_id=%s returned "
+            "no derived metric definitions; type/subType vocabulary: %s; "
+            "payload skeleton: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            payload_type_vocabulary(payload),
+            payload_key_skeleton(payload),
+        )
+
+    def _debug_v2_definition_payload(
+        self,
+        project_id: str,
+        report_id: str,
+        payload: Dict[str, object],
+    ) -> None:
+        """Key skeleton of the v2 report definition that supplied derived
+        metric names, once per project."""
+        if project_id in self._v2_definition_logged_projects:
+            return
+        self._v2_definition_logged_projects.add(project_id)
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s v2 report definition project_id=%s report_id=%s supplied derived "
+            "metric names; payload skeleton: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            payload_key_skeleton(payload),
         )
 
     def _process_project_reports(
@@ -539,6 +1210,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
                 continue
+            if self._skip_personal_object(project_id, report_object):
+                continue
             yield from self._process_report_with_boundary(
                 project_id,
                 report_object,
@@ -573,6 +1246,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
                 continue
+            if self._skip_personal_object(project_id, report_object):
+                continue
             yield from self._process_report_with_boundary(
                 project_id,
                 report_object,
@@ -603,7 +1278,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object,
                 lineage_context,
             )
-        except MicroStrategyAuthError:
+        except (MicroStrategyAuthError, ConfigurationError):
             # Not a per-report problem; must abort the whole run.
             raise
         except Exception as error:
@@ -626,10 +1301,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        yield from self.mapper.gen_folder_containers(project_id, report_object)
+        predefined_folders = self._predefined_folders(project_id)
+        yield from self.mapper.gen_folder_containers(
+            project_id, report_object, predefined_folders
+        )
         parent_key = self.mapper.folder_container_for_dashboard(
             project_id,
             report_object,
+            predefined_folders,
         )
         report_definition = self._get_report_definition(project_id, report_object)
         source_dataset = self._report_source_dataset(
@@ -656,11 +1335,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     source_dataset,
                     model_lineage_index,
                 )
+            dataset_object = self._dataset_object_info(project_id, source_dataset.id)
+            folder_object = self._folder_object(project_id, dataset_object)
+            if folder_object is not None:
+                yield from self.mapper.gen_folder_containers(
+                    project_id, folder_object, predefined_folders
+                )
             yield from self.mapper.gen_report_source_dataset_workunits(
                 project_id,
                 report_object,
                 source_dataset,
-                parent_key,
+                self.mapper.dataset_folder_parent_key(
+                    project_id, folder_object, parent_key, predefined_folders
+                ),
+                dataset_object=dataset_object,
             )
         yield from self.mapper.gen_report_workunits(
             project_id,
@@ -979,9 +1667,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return model
         try:
             model = self.client.get_metric_model(project_id, metric_id)
-        except MicroStrategyAPIError:
+        except MicroStrategyAPIError as error:
             self.report.report_metric_expression_api_failure()
-            self.report.report_failed_metric_model(metric_id)
+            self.report.report_failed_metric_model(
+                f"{metric_id} (HTTP {getattr(error, 'status_code', None)})"
+            )
             # Aggregated under one title (log=False avoids one line per metric) so
             # operators see that some metric models were skipped -- most often
             # because the metric lives in another project or the principal lacks
@@ -1038,12 +1728,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if not dashboard.visualizations:
             return
+        if self._execution_limit_reached(project_id):
+            return
         try:
-            instance_id = self._create_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-            )
+            instance_id = self._dashboard_instance(project_id, dashboard_object)
         except MicroStrategyAPIError as error:
             self.report.warning(
                 title="Failed to Create Dashboard Instance",
@@ -1056,71 +1744,63 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        try:
-            enriched = []
-            for visualization in dashboard.visualizations:
-                if not visualization.chapter_key:
-                    enriched.append(visualization)
-                    continue
-                try:
-                    detail = self.client.get_dossier_visualization(
-                        project_id=project_id,
-                        dossier_id=dashboard.id,
-                        instance_id=instance_id,
-                        chapter_key=visualization.chapter_key,
-                        visualization_key=visualization.key,
-                    )
-                except MicroStrategyAPIError as error:
-                    self.report.warning(
-                        title="Failed to Fetch Visualization Definition",
-                        message=(
-                            "Keeping visualization without runtime lineage enrichment."
-                        ),
-                        context=(
-                            f"project_id={project_id}, dashboard_id={dashboard.id}, "
-                            f"visualization_key={visualization.key}"
-                        ),
-                        exc=error,
-                    )
-                    enriched.append(visualization)
-                    continue
+        enriched = []
+        for visualization in dashboard.visualizations:
+            if not visualization.chapter_key:
+                enriched.append(visualization)
+                continue
+            try:
+                detail = self.client.get_dossier_visualization(
+                    project_id=project_id,
+                    dossier_id=dashboard.id,
+                    instance_id=instance_id,
+                    chapter_key=visualization.chapter_key,
+                    visualization_key=visualization.key,
+                )
+            except MicroStrategyAPIError as error:
+                self.report.warning(
+                    title="Failed to Fetch Visualization Definition",
+                    message=(
+                        "Keeping visualization without runtime lineage enrichment."
+                    ),
+                    context=(
+                        f"project_id={project_id}, dashboard_id={dashboard.id}, "
+                        f"visualization_key={visualization.key}"
+                    ),
+                    exc=error,
+                )
+                enriched.append(visualization)
+                continue
 
-                try:
-                    enriched.append(
-                        Visualization.model_validate(
-                            {
-                                **visualization.raw,
-                                "chapterKey": visualization.chapter_key,
-                                "pageKey": visualization.page_key,
-                                "runtimeDefinition": detail,
-                            }
-                        )
+            try:
+                enriched.append(
+                    Visualization.model_validate(
+                        {
+                            **visualization.raw,
+                            "chapterKey": visualization.chapter_key,
+                            "pageKey": visualization.page_key,
+                            "pageName": visualization.page_name,
+                            "runtimeDefinition": detail,
+                        }
                     )
-                except ValidationError as error:
-                    self.report.report_malformed_object(
-                        f"visualization runtime detail key={visualization.key}"
-                    )
-                    self.report.warning(
-                        title="Skipped malformed visualization runtime detail",
-                        message=(
-                            "Keeping the visualization without runtime lineage "
-                            "enrichment."
-                        ),
-                        context=(
-                            f"project_id={project_id}, dashboard_id={dashboard.id}, "
-                            f"visualization_key={visualization.key}"
-                        ),
-                        exc=error,
-                    )
-                    enriched.append(visualization)
-            dashboard.visualizations = enriched
-        finally:
-            self._delete_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-                instance_id,
-            )
+                )
+            except ValidationError as error:
+                self.report.report_malformed_object(
+                    f"visualization runtime detail key={visualization.key}"
+                )
+                self.report.warning(
+                    title="Skipped malformed visualization runtime detail",
+                    message=(
+                        "Keeping the visualization without runtime lineage enrichment."
+                    ),
+                    context=(
+                        f"project_id={project_id}, dashboard_id={dashboard.id}, "
+                        f"visualization_key={visualization.key}"
+                    ),
+                    exc=error,
+                )
+                enriched.append(visualization)
+        dashboard.visualizations = enriched
 
     def _enrich_warehouse_lineage(
         self,
@@ -1131,12 +1811,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if not dashboard.datasets:
             return
+        if self._execution_limit_reached(project_id):
+            return
         try:
-            instance_id = self._create_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-            )
+            instance_id = self._dashboard_instance(project_id, dashboard_object)
         except MicroStrategyAPIError as error:
             self.report.report_warehouse_lineage_api_failure()
             self.report.warning(
@@ -1162,13 +1840,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
             return
-        finally:
-            self._delete_dashboard_instance(
-                project_id,
-                dashboard_object,
-                dashboard.id,
-                instance_id,
-            )
 
         self.report.report_warehouse_lineage_sql_views_scanned(len(sql_view_rows))
         self._attach_dataset_warehouse_upstreams(sql_view_rows, dashboard, context)
@@ -1249,12 +1920,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset: DatasetObject,
         context: WarehouseLineageContext,
     ) -> None:
+        if self._execution_limit_reached(project_id):
+            return
         try:
             instance_id = self.client.create_report_instance(
                 project_id,
                 report_object.id,
             )
         except MicroStrategyAPIError as error:
+            self._record_execution(project_id, error)
             self.report.report_report_sql_view_api_failure()
             self.report.warning(
                 title="Failed to Create Report Instance for Warehouse Lineage",
@@ -1263,6 +1937,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
             return
+
+        self._record_execution(project_id, None)
 
         try:
             sql_view = self.client.get_report_sql_view(
@@ -1289,6 +1965,87 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
         self.report.report_warehouse_lineage_sql_views_scanned(1)
         self._attach_sql_view_lineage(sql_statement, dataset, context)
+
+    def _dashboard_instance(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+    ) -> str:
+        """The dashboard's one instance, created on first use. Visualization
+        details and SQL-view lineage both read from an instance, and creating
+        one executes the dashboard, so they share it; a failed creation is
+        remembered and re-raised rather than retried, so a dashboard that
+        timed out once is not executed (and waited on) a second time."""
+        cached = self._dashboard_instances.get(dashboard_object.id)
+        if isinstance(cached, MicroStrategyAPIError):
+            raise cached
+        if cached is not None:
+            self.report.report_dashboard_instance_reused()
+            return cached
+        try:
+            instance_id = self._create_dashboard_instance(
+                project_id, dashboard_object, dashboard_object.id
+            )
+        except MicroStrategyAPIError as error:
+            self._record_execution(project_id, error)
+            self._dashboard_instances[dashboard_object.id] = error
+            raise
+        self._record_execution(project_id, None)
+        self._dashboard_instances[dashboard_object.id] = instance_id
+        return instance_id
+
+    def _release_dashboard_instance(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+    ) -> None:
+        cached = self._dashboard_instances.pop(dashboard_object.id, None)
+        if isinstance(cached, str):
+            self._delete_dashboard_instance(
+                project_id, dashboard_object, dashboard_object.id, cached
+            )
+
+    def _execution_limit_reached(self, project_id: str) -> bool:
+        """True once max_consecutive_execution_timeouts tripped for the
+        project; the caller then skips its execution and counts the skip."""
+        if project_id not in self._execution_limited_projects:
+            return False
+        self.report.report_execution_skipped_after_timeouts()
+        return True
+
+    def _record_execution(
+        self,
+        project_id: str,
+        error: Optional[MicroStrategyAPIError],
+    ) -> None:
+        """Track consecutive execution timeouts per project. A success resets
+        the run; any other failure (a fast 4xx/5xx) costs no wait and neither
+        counts nor resets."""
+        if error is None:
+            self._consecutive_execution_timeouts[project_id] = 0
+            return
+        if not isinstance(error.__cause__, requests.Timeout):
+            return
+        self.report.report_execution_timeout()
+        count = self._consecutive_execution_timeouts.get(project_id, 0) + 1
+        self._consecutive_execution_timeouts[project_id] = count
+        limit = self.config.max_consecutive_execution_timeouts
+        if not limit or count < limit:
+            return
+        if project_id in self._execution_limited_projects:
+            return
+        self._execution_limited_projects.add(project_id)
+        self.report.report_execution_timeout_limit_reached(project_id)
+        self.report.warning(
+            title="Stopped executing content after repeated timeouts",
+            message=(
+                "Instance creation timed out max_consecutive_execution_timeouts "
+                "times in a row, so the rest of this project's dashboards and "
+                "reports are ingested without visualization runtime details or "
+                "SQL-view warehouse lineage."
+            ),
+            context=f"project_id={project_id}, consecutive_timeouts={count}",
+        )
 
     def _create_dashboard_instance(
         self,
@@ -1336,6 +2093,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc_info=True,
             )
 
+    def _delete_model_report_instance(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> None:
+        try:
+            self.client.delete_model_report_instance(project_id, report_id, instance_id)
+        except MicroStrategyAPIError:
+            logger.debug(
+                "MicroStrategy Modeling report instance cleanup failed",
+                exc_info=True,
+            )
+
     def _dashboard_report_chart_urns(
         self,
         project_id: str,
@@ -1364,11 +2135,26 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.extract_cubes:
             for dataset in dashboard.datasets:
+                # A dataset is its own catalog object (report or cube) with its
+                # own folder, which is usually not the dossier's folder.
+                dataset_object = self._dataset_object_info(project_id, dataset.id)
+                folder_object = self._folder_object(project_id, dataset_object)
+                if folder_object is not None:
+                    yield from self.mapper.gen_folder_containers(
+                        project_id, folder_object, predefined_folders
+                    )
                 yield from self.mapper.gen_dataset_workunits(
-                    project_id, dashboard, dataset, parent_key
+                    project_id,
+                    dashboard,
+                    dataset,
+                    self.mapper.dataset_folder_parent_key(
+                        project_id, folder_object, parent_key, predefined_folders
+                    ),
+                    dataset_object=dataset_object,
                 )
 
         if self.config.extract_charts:
@@ -1468,46 +2254,19 @@ def _is_report_dependency(dependency: MicroStrategyObject) -> bool:
     return (dependency.type or "").strip() == str(MSTR_OBJECT_TYPE_REPORT)
 
 
+def _error_summary(error: Exception) -> str:
+    """One-line error for report samples: HTTP status first when the client
+    recorded one, then the message, bounded so a long server body cannot
+    bloat the report."""
+    if isinstance(error, MicroStrategyAPIError):
+        text = error.summary()
+    else:
+        text = f"{type(error).__name__}: {error}"
+    return text[:_ERROR_SUMMARY_MAX_CHARS]
+
+
 def _metric_expression_summary(model: Dict[str, object]) -> Optional[MetricEnrichment]:
     expression = model.get("expression")
     if not isinstance(expression, dict):
         return None
-    expression_text: Optional[str] = None
-    expression_tokens: Optional[str] = None
-    text = expression.get("text") or expression.get("tree")
-    if text:
-        expression_text = str(text)
-    tokens = expression.get("tokens")
-    if isinstance(tokens, list):
-        object_tokens = []
-        for token in tokens:
-            if not isinstance(token, dict):
-                continue
-            # Object references may nest under target/value or sit directly on
-            # the token, depending on the MicroStrategy version.
-            reference = token.get("target") or token.get("value")
-            if not isinstance(reference, dict):
-                reference = token
-            token_id = reference.get("objectId") or reference.get("id")
-            token_name = reference.get("name")
-            token_type = reference.get("type")
-            if token_id or token_name:
-                object_tokens.append(
-                    {
-                        key: str(value)
-                        for key, value in {
-                            "id": token_id,
-                            "name": token_name,
-                            "type": token_type,
-                        }.items()
-                        if value is not None
-                    }
-                )
-        if object_tokens:
-            expression_tokens = json.dumps(object_tokens, sort_keys=True)
-    if expression_text is None and expression_tokens is None:
-        return None
-    return MetricEnrichment(
-        expression_text=expression_text,
-        expression_tokens=expression_tokens,
-    )
+    return metric_enrichment_from_expression(expression)
