@@ -302,7 +302,7 @@
     "shared.chartsCount_few": "<bold>{{formattedCount}}</bold> графика",
     "shared.chartsCount_many": "<bold>{{formattedCount}}</bold> графиков",
     "shared.chartsCount_other": "<bold>{{formattedCount}}</bold> графиков",
-    "shared.createdBy": "Создал(а)",
+    "shared.createdBy": "Автор",
     "shared.createdOnDate": "Создано {{date}}.",
     "shared.dataSources": "Источники данных",
     "shared.dataSourcesCount": "Источники данных ({{count}})",

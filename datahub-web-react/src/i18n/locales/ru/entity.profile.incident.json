@@ -5,7 +5,7 @@
     "activity.title": "Активность",
     "column.assets": "Ассеты",
     "column.opened": "Открыт",
-    "details.raisedBy": "Создал(а)",
+    "details.raisedBy": "Вызван проверкой",
     "drawer.createTitle": "Создать новый инцидент",
     "drawer.editTooltip": "Изменить инцидент",
     "drawer.exitConfirmation": "Вы уверены, что хотите выйти из редактора представления? Все изменения будут потеряны",

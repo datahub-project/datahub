@@ -23,6 +23,6 @@
     "sidebar.moreCount": "+ ещё {{count}}",
     "sidebar.ownerOfTitle": "Владелец",
     "summary.addDocumentation": "Добавить документацию",
-    "summary.createdByTitle": "Создано",
+    "summary.createdByTitle": "Автор",
     "summary.documentationTitle": "Документация"
 }

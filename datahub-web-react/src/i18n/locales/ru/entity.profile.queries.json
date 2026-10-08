@@ -22,7 +22,7 @@
     "queryBuilderModal.formLabelTitle": "Заголовок",
     "queryBuilderModal.newTitle": "Новый запрос",
     "queryBuilderModal.titlePlaceholder": "Объединение таблиц Transactions и Users",
-    "queryCard.columnCreatedBy": "Создал(а)",
+    "queryCard.columnCreatedBy": "Автор",
     "queryCard.columnDateCreated": "Дата создания",
     "queryCard.columnDescription": "Описание",
     "queryCard.columnPowers": "Используется в",
