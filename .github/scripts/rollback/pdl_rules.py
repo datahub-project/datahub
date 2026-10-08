@@ -419,6 +419,28 @@ def classify_pdl_for_rollback(
     origin = model.Origin(path, aspect_name, pr, author)
 
     if current_content and not target_content:
+        new_entities = _new_entity_types(aspect_name, current, target, read)
+        if new_entities:
+            names = ", ".join(f"`{e}`" for e in new_entities)
+            findings.append(
+                _finding(
+                    origin,
+                    model.EXPECTED_LOSS,
+                    model.impact(model.RESTORE_FAILS, model.FAILS, model.LOSS_NO),
+                    "New file in N",
+                    f"part of {names}, an entity type new in N",
+                    subject=new_entities[0],
+                    detail=(
+                        f"{names} is new in N, so N-1 can't read, write or index these "
+                        "entities at all: its APIs return not found or unknown "
+                        "entity, and GraphQL returns null. N-1's restore-indices "
+                        "skips the whole batch these rows are in, valid rows "
+                        "included, without reporting an error, unless N-1 itself "
+                        "has a fix that ignores unknown aspects."
+                    ),
+                )
+            )
+            return findings
         findings.append(
             _finding(
                 origin,
@@ -483,24 +505,44 @@ def classify_pdl_for_rollback(
     return findings
 
 
+def _new_entity_types(
+    aspect_name: str, current: str, target: str, read: repo.Reader
+) -> list[str]:
+    """Entity types holding `aspect_name` in N, when none of them exist in N-1.
+    Empty if the aspect belongs to an existing entity or a registry is missing."""
+    reg_n = pdl_parser.entity_registry(read(current, pdl_parser.ENTITY_REGISTRY) or "")
+    reg_t = pdl_parser.entity_registry(read(target, pdl_parser.ENTITY_REGISTRY) or "")
+    owners = sorted(e for e, aspects in reg_n.items() if aspect_name in aspects)
+    if not reg_t or not owners or any(e in reg_t for e in owners):
+        return []
+    return owners
+
+
 def aspects_using(
-    changed_fqns: set[str], contents: dict[str, str]
+    changed_fqns: set[str], contents: dict[str, str], events: bool = False
 ) -> dict[str, set[str]]:
     """For each changed record, the aspect names that reach it through field
-    types or `includes`, directly or through other records."""
+    types or `includes`, directly or through other records. With `events`,
+    the Kafka event schemas that reach it instead (the record itself counts
+    when it is one)."""
     reverse: dict[str, set[str]] = {}
     aspect_of: dict[str, str] = {}
     for path, content in contents.items():
         own = pdl_parser.fqn_of_path(path)
-        meta = pdl_parser.parse(content).aspect
-        if meta and meta.get("name"):
-            aspect_of[own] = meta["name"]
+        if events:
+            if pdl_parser.is_event_root(own) and pdl_parser.parse(content).main_record:
+                aspect_of[own] = own.rsplit(".", 1)[-1]
+        else:
+            meta = pdl_parser.parse(content).aspect
+            if meta and meta.get("name"):
+                aspect_of[own] = meta["name"]
         for dep in bsv.resolve_dependencies(content):
             if dep != own:
                 reverse.setdefault(dep, set()).add(own)
     result: dict[str, set[str]] = {}
     for fqn in changed_fqns:
-        seen, queue, aspects = {fqn}, [fqn], set()
+        seen, queue = {fqn}, [fqn]
+        aspects = {aspect_of[fqn]} if events and fqn in aspect_of else set()
         while queue:
             node = queue.pop()
             for parent in reverse.get(node, ()):
@@ -513,8 +555,7 @@ def aspects_using(
     return result
 
 
-def _aspects_using_at(ref: str, fqns: set[str]) -> dict[str, set[str]]:
-    """`_aspects_using` over every PDL file at `ref`."""
+def _all_pdls_at(ref: str) -> dict[str, str]:
     all_paths = [
         p
         for p in repo.git(
@@ -522,7 +563,12 @@ def _aspects_using_at(ref: str, fqns: set[str]) -> dict[str, set[str]]:
         ).split()
         if p.endswith(".pdl")
     ]
-    return aspects_using(fqns, repo.read_files_at(ref, all_paths))
+    return repo.read_files_at(ref, all_paths)
+
+
+def _aspects_using_at(ref: str, fqns: set[str]) -> dict[str, set[str]]:
+    """`aspects_using` over every PDL file at `ref`."""
+    return aspects_using(fqns, _all_pdls_at(ref))
 
 
 def typeref_findings(
@@ -613,7 +659,9 @@ def analyze_nested_changes(
             changed[pdl_parser.fqn_of_path(path)] = (cur, tgt)
     if not changed:
         return []
-    users = _aspects_using_at(current, set(changed))
+    contents = _all_pdls_at(current)
+    users = aspects_using(set(changed), contents)
+    event_users = aspects_using(set(changed), contents, events=True)
     covered = _include_closures_of_changed_aspects(current, pdl_paths, read)
 
     findings: list[model.RollbackFinding] = []
@@ -625,7 +673,8 @@ def analyze_nested_changes(
         # *fields* through its `includes` (see pdl_parser.effective_fields). Enum values
         # and unparseable files aren't covered that way, so they still count.
         field_aspects = [a for a in aspects if fqn not in covered.get(a, ())]
-        if not aspects:
+        events = sorted(event_users.get(fqn, ()))
+        if not aspects and not events:
             continue
         path = pdl_parser.path_of_fqn(fqn)
         pr = repo.first_pr(current, path, target)
@@ -690,6 +739,11 @@ def analyze_nested_changes(
                 author,
             )
         )
+        if not aspects:
+            findings.extend(
+                _as_event_findings(record_findings + field_findings, events)
+            )
+            continue
         for group, users_of in (
             (record_findings, aspects),
             (field_findings, field_aspects),
@@ -706,6 +760,27 @@ def analyze_nested_changes(
                 f.detail = f"{f.detail} {used_by}" if f.detail else used_by
             findings.extend(group)
     return findings
+
+
+def _as_event_findings(
+    group: list[model.RollbackFinding], events: list[str]
+) -> list[model.RollbackFinding]:
+    """Changes to a type only Kafka events use. Stored data isn't affected and
+    this tool can't see the events' consumers, so they're reported for review
+    rather than classified."""
+    names = ", ".join(f"`{e}`" for e in events)
+    for f in group:
+        f.dimension = model.DIM_EVENT_SCHEMA
+        f.risk = model.REQUIRES_ATTENTION
+        f.aspect_name = ", ".join(f"{e} (event)" for e in events)
+        f.read_impact = f.write_impact = f.data_loss = model.NOT_ANALYSED
+        f.detail = (
+            f"Used by the Kafka event {names}, not by a stored aspect, so this tool "
+            "doesn't analyse it. N may have sent events with this change; check "
+            f"that N-1's consumers of {names} handle it (for example, enum values "
+            "they don't know)."
+        )
+    return group
 
 
 def attribute_embedded_aspect_changes(

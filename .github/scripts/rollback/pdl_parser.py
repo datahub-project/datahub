@@ -166,6 +166,44 @@ def record_fields(rdef: dict) -> dict[str, dict]:
     }
 
 
+ENTITY_REGISTRY = "metadata-models/src/main/resources/entity-registry.yml"
+# Namespaces of Kafka event schemas (MCP/MCL, platform and billing events).
+EVENT_NAMESPACES = ("com.linkedin.mxe.", "com.linkedin.platform.event.")
+
+
+@cache
+def entity_registry(content: str) -> dict[str, set[str]]:
+    """{entity name: its aspect names, key aspect included} from the
+    `entities:` section of entity-registry.yml, read line by line so the
+    script needs no YAML library."""
+    entities: dict[str, set[str]] = {}
+    section, entity, in_aspects = None, None, False
+    for line in content.splitlines():
+        top = re.match(r"^(\w+):", line)
+        if top:
+            section, entity, in_aspects = top.group(1), None, False
+            continue
+        if section != "entities":
+            continue
+        m = re.match(r"^  - name:\s*(\S+)", line)
+        if m:
+            entity, in_aspects = m.group(1), False
+            entities[entity] = set()
+        elif entity and (m := re.match(r"^    keyAspect:\s*(\S+)", line)):
+            entities[entity].add(m.group(1))
+        elif entity and re.match(r"^    aspects:\s*$", line):
+            in_aspects = True
+        elif in_aspects and (m := re.match(r"^      - (\S+)", line)):
+            entities[entity].add(m.group(1))
+        elif re.match(r"^    \S", line):
+            in_aspects = False
+    return entities
+
+
+def is_event_root(fqn: str) -> bool:
+    return fqn.startswith(EVENT_NAMESPACES)
+
+
 def path_of_fqn(fqn: str) -> str:
     return f"{rac.PDL_PREFIX}/{fqn.replace('.', '/')}.pdl"
 

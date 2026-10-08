@@ -18,6 +18,8 @@ DIM_MUTATOR = "mutator"
 DIM_UPGRADE_STEP = "upgrade_step"
 DIM_REINDEX = "reindex"
 DIM_SCHEMA_VERSION = "schema_version"
+# A type used by Kafka events but by no stored aspect.
+DIM_EVENT_SCHEMA = "event_schema"
 
 VERDICT_FEASIBLE = "feasible_as_is"
 VERDICT_EXPECTED_LOSS = "feasible_with_expected_loss"

@@ -1765,3 +1765,70 @@ class TestRequiredFieldRemediation:
         assert [f.risk for f in flipped] == [model.REQUIRES_ATTENTION]
         for f in removed + flipped:
             assert "delete this aspect" in f.detail and "re-emit" in f.detail
+
+
+_REGISTRY_N1 = """entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - datasetProperties
+events:
+  - name: entityChangeEvent
+"""
+_REGISTRY_N = _REGISTRY_N1.replace("events:", """  - name: feedback
+    keyAspect: feedbackKey
+    aspects:
+      - feedbackInfo
+events:""").replace("      - datasetProperties", "      - datasetProperties\n      - newDatasetAspect")
+_REG = "metadata-models/src/main/resources/entity-registry.yml"
+
+
+class TestNewEntityTypes:
+    def test_registry_reads_only_the_entities_section(self):
+        reg = pdl_parser.entity_registry(_REGISTRY_N)
+        assert reg == {"dataset": {"datasetKey", "datasetProperties", "newDatasetAspect"},
+                       "feedback": {"feedbackKey", "feedbackInfo"}}
+
+    def _new_aspect(self, name):
+        pdl = f'namespace com.linkedin.test\n@Aspect = {{ "name": "{name}" }}\nrecord R {{\n  a: string\n}}\n'
+        files = {("N", "a.pdl"): pdl, ("N", _REG): _REGISTRY_N, ("N-1", _REG): _REGISTRY_N1}
+        with _mock_repo(files):
+            [f] = pdl_rules.classify_pdl_for_rollback("a.pdl", "N", "N-1")
+        return f
+
+    def test_aspect_of_a_new_entity_type_says_the_entity_is_new(self):
+        f = self._new_aspect("feedbackInfo")
+        assert f.risk == model.EXPECTED_LOSS and "`feedback`, an entity type new in N" in f.summary
+        assert "can't read, write or index these entities at all" in f.detail
+        assert report._removed_item(f) == "the whole `feedback` entity (new in N)"
+
+    def test_new_aspect_of_an_existing_entity_keeps_aspect_wording(self):
+        f = self._new_aspect("newDatasetAspect")
+        assert "entity type new in N" not in f.summary and "other aspects read normally" in f.detail
+
+
+_MXE = "metadata-models/src/main/pegasus/com/linkedin/mxe/"
+_EVT_TYPE_V1 = "namespace com.linkedin.mxe\nenum EvtType {\n  A\n}\n"
+_EVT = "namespace com.linkedin.mxe\nrecord Evt {\n  eventType: EvtType\n}\n"
+
+
+class TestEventSchemaChanges:
+    def test_type_used_only_by_an_event_is_reported_for_review(self):
+        t, e = _MXE + "EvtType.pdl", _MXE + "Evt.pdl"
+        files = {("N", t): _EVT_TYPE_V1.replace("A\n", "A\n  B\n"), ("N-1", t): _EVT_TYPE_V1,
+                 ("N", e): _EVT, ("N-1", e): _EVT}
+        with _mock_repo(files, (t, e)):
+            [f] = pdl_rules.analyze_nested_changes("N", "N-1", [t])
+        assert f.dimension == model.DIM_EVENT_SCHEMA and f.risk == model.REQUIRES_ATTENTION
+        assert f.summary.startswith("Enum `EvtType`: added value `B`")
+        assert f.aspect_name == "Evt (event)" and f.read_impact == model.NOT_ANALYSED
+        assert "Kafka event `Evt`" in f.detail
+
+    def test_type_also_used_by_an_aspect_stays_an_aspect_change(self):
+        t, e, asp = _MXE + "EvtType.pdl", _MXE + "Evt.pdl", _P + "UsesEvt.pdl"
+        aspect = 'namespace com.linkedin.test\nimport com.linkedin.mxe.EvtType\n@Aspect = { "name": "usesEvt" }\nrecord UsesEvt {\n  t: EvtType\n}\n'
+        files = {("N", t): _EVT_TYPE_V1.replace("A\n", "A\n  B\n"), ("N-1", t): _EVT_TYPE_V1,
+                 ("N", e): _EVT, ("N", asp): aspect}
+        with _mock_repo(files, (t, e, asp)):
+            [f] = pdl_rules.analyze_nested_changes("N", "N-1", [t])
+        assert f.dimension == model.DIM_PDL_SCHEMA and f.aspect_name == "usesEvt"

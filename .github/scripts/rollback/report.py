@@ -56,6 +56,7 @@ def _verdict_details(findings: list[model.RollbackFinding]) -> list[str]:
             model.DIM_MUTATOR: "mutator",
             model.DIM_UPGRADE_STEP: "upgrade step",
             model.DIM_SCHEMA_VERSION: "unexplained version bump",
+            model.DIM_EVENT_SCHEMA: "Kafka event schema change",
         }
         parts = []
         for dim, label in kinds.items():
@@ -85,6 +86,8 @@ def _removed_item(f: model.RollbackFinding) -> str:
     body = f.change.split(": ", 1)[1] if f.record else f.change
     qualified = f"{f.record}.{f.subject}" if f.record else f.subject
     if body.startswith("New file in N"):
+        if "entity type new in N" in f.summary:
+            return f"the whole `{f.subject}` entity (new in N)"
         return "the whole aspect"
     if body.startswith("Added field"):
         return f"field `{qualified}`"
