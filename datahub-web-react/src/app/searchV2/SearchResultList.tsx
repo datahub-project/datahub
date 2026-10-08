@@ -264,7 +264,6 @@ export const SearchResultList = ({
                                 selected={highlightedIndex === index}
                                 areMatchesExpanded={!!expandedSection}
                                 onClick={() => onClickResult(item, index)}
-                                onMouseEnter={() => setHighlightedIndex(index)}
                                 ref={refs[index]}
                                 isFullViewCard={isFullViewCard}
                                 data-testid="search-result"

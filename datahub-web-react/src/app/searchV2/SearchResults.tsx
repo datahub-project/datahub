@@ -187,7 +187,8 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
-    // Stay closed until hover, click, or keyboard so result 0's profile is not loaded on mount.
+    // Stay closed until click or keyboard. Hover would reflow the list under the pointer
+    // and mount a profile for every row the pointer crosses.
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];

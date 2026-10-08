@@ -86,15 +86,12 @@ describe('SearchResults profile sidebar', () => {
         Element.prototype.scrollIntoView = vi.fn();
     });
 
-    it('keeps the profile closed until hover, click, or ArrowDown', () => {
+    it('keeps the profile closed until click or ArrowDown', () => {
         renderResults();
 
         expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
 
         fireEvent.mouseEnter(screen.getAllByTestId('search-result')[0]);
-        expect(screen.getByTestId('search-result-profile')).toHaveTextContent(FIRST_URN);
-
-        fireEvent.keyDown(document.body, { key: 'Escape' });
         expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getAllByTestId('search-result')[1]);
