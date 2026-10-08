@@ -2,6 +2,7 @@ package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.test.TestEntityProfile;
@@ -63,6 +64,15 @@ public class RegistryKnowledgeTest {
     assertTrue(
         RegistryKnowledge.referencesUnknownEntityType(
             registry, UrnUtils.getUrn("urn:li:entityFromNewerBuild:x")));
+  }
+
+  @Test
+  public void testEntityTypeOfLeavesMalformedUrnsToValidation() {
+    assertEquals(RegistryKnowledge.entityTypeOf("urn:li:dataset:x"), "dataset");
+    // An empty type or key isn't a urn of an unknown type; validation rejects it instead.
+    assertNull(RegistryKnowledge.entityTypeOf("urn:li:entityFromNewerBuild:"));
+    assertNull(RegistryKnowledge.entityTypeOf("urn:li::x"));
+    assertNull(RegistryKnowledge.entityTypeOf("not-a-urn"));
   }
 
   @Test

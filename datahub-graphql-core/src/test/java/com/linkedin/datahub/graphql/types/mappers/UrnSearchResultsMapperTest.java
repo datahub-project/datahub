@@ -1,6 +1,12 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -15,8 +21,12 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Optional;
 import org.testng.annotations.Test;
 
 /** Tests for {@link UrnSearchResultsMapper}. */
@@ -95,5 +105,27 @@ public class UrnSearchResultsMapperTest {
         List.of(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),c1)",
             "urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/b,PROD)"));
+  }
+
+  @Test
+  public void testOnlyHitsUnknownToTheRegistryCountAsRollbackSkips() throws Exception {
+    // telemetry is in the registry but GraphQL doesn't model it: dropped and logged, but not
+    // counted in unknown_to_registry_skipped, which measures data from a newer version.
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext opContext = spy(TestOperationContexts.systemContextNoSearchAuthorization());
+    when(opContext.getMetricUtils()).thenReturn(Optional.of(metrics));
+    QueryContext context = mock(QueryContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    SearchEntityArray entities =
+        new SearchEntityArray(
+            hit("urn:li:telemetry:client"),
+            hit("urn:li:entityFromNewerBuild:x"),
+            hit("urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD)"));
+
+    SearchResults mapped = UrnSearchResultsMapper.map(context, backendResult(entities));
+
+    assertEquals(mapped.getSearchResults().size(), 1);
+    verify(metrics, times(1))
+        .increment(any(Class.class), eq(UnknownDataGuard.SKIPPED_METRIC), anyDouble());
   }
 }
