@@ -1,12 +1,14 @@
 import contextlib
 import hashlib
+import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import threading
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import (
@@ -24,7 +26,9 @@ from typing import (
 
 import grpc
 import grpc.experimental
+import grpc_tools
 import networkx as nx
+from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 from google.protobuf.descriptor import (
     Descriptor,
     DescriptorBase,
@@ -33,6 +37,7 @@ from google.protobuf.descriptor import (
     FileDescriptor,
     OneofDescriptor,
 )
+from google.protobuf.json_format import MessageToDict
 
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -57,6 +62,7 @@ _DESCRIPTOR_CACHE: Dict[str, Optional[FileDescriptor]] = {}
 # protobuf compilation registers symbols in a process-global descriptor pool, so
 # serialize cache access and compilation across profiling/schema-inference threads.
 _DESCRIPTOR_CACHE_LOCK = threading.Lock()
+_PROTOC_TIMEOUT_SECONDS = 60
 
 GOOGLE_TYPE_DEFINITIONS = {
     "google/type/date.proto": """
@@ -163,10 +169,70 @@ class ProtobufSchema:
     content: str
 
 
+@dataclass
+class ProtobufAnnotation:
+    """Comment and custom options authored on a message or a field."""
+
+    description: Optional[str] = None
+    # Custom option values keyed by the option's full name, nested on its dots:
+    # `option (acme.meta.event) = {owner: "x"}` becomes {"acme": {"meta": {"event": {"owner": "x"}}}}.
+    props: Dict[str, Any] = dataclass_field(default_factory=dict)
+
+
+@dataclass
+class ProtobufAnnotations:
+    # Keyed by message full name, and by (message full name, field name).
+    messages: Dict[str, ProtobufAnnotation] = dataclass_field(default_factory=dict)
+    fields: Dict[Tuple[str, str], ProtobufAnnotation] = dataclass_field(
+        default_factory=dict
+    )
+    # The first message of the main file: what Confluent serializers write by default.
+    main_message: Optional[str] = None
+
+
+def get_protobuf_annotations(
+    main_schema: ProtobufSchema, imported_schemas: Optional[List[ProtobufSchema]] = None
+) -> ProtobufAnnotations:
+    """Compile the schema with source info into an isolated descriptor pool and read the
+    comments and custom options that the generated-module path used for fields drops."""
+    try:
+        file_set = _compile_with_source_info(main_schema, imported_schemas or [])
+    except Exception as e:
+        logger.debug(f"Could not read annotations of {main_schema.name}: {e}")
+        return ProtobufAnnotations()
+
+    pool = descriptor_pool.DescriptorPool()
+    for file_proto in file_set.file:
+        pool.Add(file_proto)
+    # Builds a class for every message and registers every extension in this pool, so
+    # option messages re-parsed below expose custom options as extension fields.
+    message_factory.GetMessageClassesForFiles([f.name for f in file_set.file], pool)
+
+    annotations = ProtobufAnnotations()
+    main_file = next(f for f in file_set.file if f.name == main_schema.name)
+    if main_file.message_type:
+        annotations.main_message = _qualified(
+            main_file.package, main_file.message_type[0].name
+        )
+    comments = {
+        tuple(location.path): (
+            location.leading_comments or location.trailing_comments
+        ).strip()
+        for location in main_file.source_code_info.location
+        if location.leading_comments or location.trailing_comments
+    }
+    for index, message in enumerate(main_file.message_type):
+        _collect_message_annotations(
+            pool, annotations, comments, main_file.package, message, (4, index)
+        )
+    return annotations
+
+
 def protobuf_schema_to_mce_fields(
     main_schema: ProtobufSchema,
     imported_schemas: Optional[List[ProtobufSchema]] = None,
     is_key_schema: bool = False,
+    annotations: Optional[ProtobufAnnotations] = None,
 ) -> List[SchemaField]:
     """
     Converts a protobuf schema into a schema compatible with MCE
@@ -186,7 +252,7 @@ def protobuf_schema_to_mce_fields(
     graph: nx.DiGraph = _populate_graph(descriptor)
 
     if nx.is_directed_acyclic_graph(graph):
-        return _schema_fields_from_dag(graph, is_key_schema)
+        return _schema_fields_from_dag(graph, is_key_schema, annotations)
     else:
         logger.warning(
             f"Cyclic schema detected in {main_schema.name}, returning empty fields"
@@ -331,16 +397,121 @@ def _add_sys_path(*paths: str) -> Iterator[None]:
             sys.path.remove(path)
 
 
-def _create_schema_field(path: List[str], field: FieldDescriptor) -> _PathAndField:
+def _create_schema_field(
+    path: List[str],
+    field: FieldDescriptor,
+    annotations: Optional[ProtobufAnnotations] = None,
+) -> _PathAndField:
     field_path = ".".join(path)
+    annotation = (
+        annotations.fields.get((field.containing_type.full_name, field.name))
+        if annotations and field.containing_type
+        else None
+    )
     schema_field = SchemaField(
         fieldPath=".".join(path),
         nativeDataType=_get_simple_native_type(field),
         # Protobuf field are always nullable
         nullable=True,
         type=_get_column_type(field),
+        description=annotation.description if annotation else None,
+        jsonProps=json.dumps(annotation.props)
+        if annotation and annotation.props
+        else None,
     )
     return _PathAndField(field_path, schema_field)
+
+
+def _qualified(package: str, name: str) -> str:
+    return f"{package}.{name}" if package else name
+
+
+def _compile_with_source_info(
+    main_schema: ProtobufSchema, imported_schemas: List[ProtobufSchema]
+) -> descriptor_pb2.FileDescriptorSet:
+    well_known_types = os.path.join(os.path.dirname(grpc_tools.__file__), "_proto")
+    with TemporaryDirectory() as tmpdir:
+        for schema in [main_schema, *imported_schemas]:
+            if schema.name.startswith("google/protobuf/"):
+                continue  # shipped with grpc_tools
+            full_path = Path(tmpdir, schema.name)
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(schema.content)
+        out = Path(tmpdir, "descriptor_set.pb")
+        # A separate process: grpc_tools' in-process compiler keeps global import state,
+        # and running it here breaks the later grpc.protos() compile of the same files.
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "grpc_tools.protoc",
+                f"-I{tmpdir}",
+                f"-I{well_known_types}",
+                "--include_imports",
+                "--include_source_info",
+                f"--descriptor_set_out={out}",
+                main_schema.name,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_PROTOC_TIMEOUT_SECONDS,
+        )
+        if result.returncode != 0:
+            raise ValueError(f"protoc exited with {result.returncode}: {result.stderr}")
+        return descriptor_pb2.FileDescriptorSet.FromString(out.read_bytes())
+
+
+def _option_props(
+    pool: descriptor_pool.DescriptorPool, options_type: str, options: Any
+) -> Dict[str, Any]:
+    if not options.ByteSize():
+        return {}
+    options_class = message_factory.GetMessageClass(
+        pool.FindMessageTypeByName(options_type)
+    )
+    parsed = options_class.FromString(options.SerializeToString())
+    props: Dict[str, Any] = {}
+    for option_field, value in parsed.ListFields():
+        if not option_field.is_extension:
+            continue
+        if option_field.message_type is not None:
+            value = MessageToDict(value, preserving_proto_field_name=True)
+        *parents, leaf = option_field.full_name.split(".")
+        node = props
+        for part in parents:
+            node = node.setdefault(part, {})
+        node[leaf] = value
+    return props
+
+
+def _collect_message_annotations(
+    pool: descriptor_pool.DescriptorPool,
+    annotations: ProtobufAnnotations,
+    comments: Dict[Tuple[int, ...], str],
+    scope: str,
+    message: descriptor_pb2.DescriptorProto,
+    path: Tuple[int, ...],
+) -> None:
+    # SourceCodeInfo paths: 4 = FileDescriptorProto.message_type,
+    # 3 = DescriptorProto.nested_type, 2 = DescriptorProto.field.
+    full_name = _qualified(scope, message.name)
+    annotations.messages[full_name] = ProtobufAnnotation(
+        description=comments.get(path) or None,
+        props=_option_props(pool, "google.protobuf.MessageOptions", message.options),
+    )
+    for index, message_field in enumerate(message.field):
+        annotation = ProtobufAnnotation(
+            description=comments.get((*path, 2, index)) or None,
+            props=_option_props(
+                pool, "google.protobuf.FieldOptions", message_field.options
+            ),
+        )
+        if annotation.description or annotation.props:
+            annotations.fields[(full_name, message_field.name)] = annotation
+    for index, nested in enumerate(message.nested_type):
+        _collect_message_annotations(
+            pool, annotations, comments, full_name, nested, (*path, 3, index)
+        )
 
 
 def _from_protobuf_schema_to_descriptors(
@@ -543,7 +714,9 @@ def _sanitise_type(name: str) -> str:
 
 
 def _schema_fields_from_dag(
-    graph: nx.DiGraph, is_key_schema: bool
+    graph: nx.DiGraph,
+    is_key_schema: bool,
+    annotations: Optional[ProtobufAnnotations] = None,
 ) -> List[SchemaField]:
     generations: List = list(nx.algorithms.dag.topological_generations(graph))
     fields: Dict = {}
@@ -571,14 +744,17 @@ def _schema_fields_from_dag(
                                 nativeDataType="message",
                                 type=SchemaFieldDataType(type=RecordTypeClass()),
                             )
-                        for field in _traverse_path(graph, path, stack):
+                        for field in _traverse_path(graph, path, stack, annotations):
                             fields[field.path] = field.field
 
     return sorted(fields.values(), key=lambda sf: sf.fieldPath)
 
 
 def _traverse_path(
-    graph: nx.DiGraph, path: List[Tuple[str, str]], stack: List[str]
+    graph: nx.DiGraph,
+    path: List[Tuple[str, str]],
+    stack: List[str],
+    annotations: Optional[ProtobufAnnotations] = None,
 ) -> Generator[_PathAndField, None, None]:
     if path:
         src, dst = path[0]
@@ -586,5 +762,5 @@ def _traverse_path(
             copy_of_stack: List[str] = deepcopy(stack)
             type_ascription: str = _get_type_ascription(field)
             copy_of_stack.append(f"{type_ascription}.{field.name}")
-            yield _create_schema_field(copy_of_stack, field)
-            yield from _traverse_path(graph, path[1:], copy_of_stack)
+            yield _create_schema_field(copy_of_stack, field, annotations)
+            yield from _traverse_path(graph, path[1:], copy_of_stack, annotations)

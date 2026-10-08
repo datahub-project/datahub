@@ -183,6 +183,75 @@ class FieldPath:
             return ".".join(prefix)
 
 
+# Keywords defined by JSON Schema (draft-04 through 2020-12); anything else in a schema is
+# an annotation the author added.
+_JSON_SCHEMA_VOCABULARY = frozenset(
+    {
+        "$anchor",
+        "$comment",
+        "$defs",
+        "$dynamicAnchor",
+        "$dynamicRef",
+        "$id",
+        "$ref",
+        "$schema",
+        "$vocabulary",
+        "additionalItems",
+        "additionalProperties",
+        "allOf",
+        "anyOf",
+        "const",
+        "contains",
+        "contentEncoding",
+        "contentMediaType",
+        "contentSchema",
+        "default",
+        "definitions",
+        "dependencies",
+        "dependentRequired",
+        "dependentSchemas",
+        "deprecated",
+        "description",
+        "else",
+        "enum",
+        "examples",
+        "exclusiveMaximum",
+        "exclusiveMinimum",
+        "format",
+        "id",
+        "if",
+        "items",
+        "maxContains",
+        "maxItems",
+        "maxLength",
+        "maxProperties",
+        "maximum",
+        "minContains",
+        "minItems",
+        "minLength",
+        "minProperties",
+        "minimum",
+        "multipleOf",
+        "not",
+        "oneOf",
+        "pattern",
+        "patternProperties",
+        "prefixItems",
+        "properties",
+        "propertyNames",
+        "readOnly",
+        "required",
+        "then",
+        "title",
+        "type",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+        "uniqueItems",
+        "writeOnly",
+    }
+)
+
+
 class JsonSchemaTranslator:
     _INJECT_DEFAULTS_INTO_DESCRIPTION = True
 
@@ -354,6 +423,16 @@ class JsonSchemaTranslator:
             json_props["default"] = schema["default"]
         if required is not None:
             json_props["required"] = required
+        # Keep annotations outside the JSON Schema vocabulary (`x-owner`, `tags`, ...) the
+        # way Avro keeps its custom props, so field_meta_mapping can act on them.
+        for keyword, value in schema.items():
+            if keyword in _JSON_SCHEMA_VOCABULARY or keyword in json_props:
+                continue
+            try:
+                json.dumps(value)
+            except (TypeError, ValueError):
+                continue
+            json_props[keyword] = value
 
         return json.dumps(json_props) if json_props else None
 
