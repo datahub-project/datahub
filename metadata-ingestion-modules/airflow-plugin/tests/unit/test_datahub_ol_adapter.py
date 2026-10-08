@@ -264,7 +264,7 @@ class TestTranslateOlToDatahubUrn:
         )
         assert urn == (
             "urn:li:dataset:(urn:li:dataPlatform:s3,"
-            "2563508/mp_master_event/2024.11.30/data.json,PROD)"
+            "events-daily/2563508/mp_master_event/2024.11.30/data.json,PROD)"
         )
 
     def test_custom_env_propagated(self) -> None:
@@ -274,3 +274,67 @@ class TestTranslateOlToDatahubUrn:
         )
         assert urn.endswith(",DEV)")
         assert ".None." not in urn
+
+
+class TestObjectStorageNormalization:
+    """Path datasets must get the same URN the Java openlineage-converter (Spark
+    agent, GMS OpenLineage endpoint) and DataHub's S3/GCS sources produce."""
+
+    @pytest.mark.parametrize(
+        ("namespace", "name", "expected"),
+        [
+            # Same inputs as the Java HdfsPathDatasetTest cases.
+            ("s3://my-bucket", "foo/tests/bar.avro", "s3,my-bucket/foo/tests/bar.avro"),
+            (
+                "s3a://my-bucket",
+                "foo/tests/bar.avro",
+                "s3,my-bucket/foo/tests/bar.avro",
+            ),
+            (
+                "gs://my-bucket",
+                "foo/tests/bar.avro",
+                "gcs,my-bucket/foo/tests/bar.avro",
+            ),
+            ("gcs://my-bucket", "events", "gcs,my-bucket/events"),
+            # Leading and trailing slashes do not leak into the name.
+            ("gs://my-bucket", "/events/daily/", "gcs,my-bucket/events/daily"),
+            # A bucket-root reference ("/" in OL) is the bucket itself.
+            ("s3://athena-results", "/", "s3,athena-results"),
+            (
+                "abfss://container@account.dfs.core.windows.net",
+                "path/data",
+                "abs,container@account.dfs.core.windows.net/path/data",
+            ),
+            ("file:///", "tmp/data.csv", "file,/tmp/data.csv"),
+        ],
+    )
+    def test_matches_java_converter(
+        self, namespace: str, name: str, expected: str
+    ) -> None:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace=namespace, name=name), env="PROD"
+        )
+        assert urn == f"urn:li:dataset:(urn:li:dataPlatform:{expected},PROD)"
+
+    def test_bare_file_namespace_unchanged(self) -> None:
+        # Airflow providers mostly emit local paths as namespace "file" with no
+        # scheme separator; the Java converter leaves those untouched too.
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace="file", name="/tmp/tmpab12/out.csv")
+        )
+        assert (
+            urn == "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/out.csv,PROD)"
+        )
+
+    def test_hdfs_is_not_rewritten(self) -> None:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace="hdfs://namenode:8020", name="/warehouse/t")
+        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:hdfs,/warehouse/t,PROD)"
+
+    def test_disabled_keeps_legacy_urn(self) -> None:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace="gs://my-bucket", name="foo/bar.avro"),
+            normalize_object_storage=False,
+        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:gs,foo/bar.avro,PROD)"

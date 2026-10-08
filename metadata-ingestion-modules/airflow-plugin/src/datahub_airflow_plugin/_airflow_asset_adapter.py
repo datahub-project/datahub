@@ -10,20 +10,16 @@ from typing import Any, Iterable, List, Optional
 from urllib.parse import urlparse
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin._constants import OL_FS_SCHEME_TO_PLATFORM
 from datahub_airflow_plugin.entities import _Entity
 
 logger = logging.getLogger(__name__)
 
-# URI scheme to DataHub platform mapping
+# URI scheme to DataHub platform mapping. Filesystem schemes come from the table
+# shared with the OpenLineage adapter so Assets and OpenLineage agree on platforms.
 URI_SCHEME_TO_PLATFORM = {
-    "s3": "s3",
-    "s3a": "s3",
-    "gs": "gcs",
-    "gcs": "gcs",
-    "file": "file",
+    **OL_FS_SCHEME_TO_PLATFORM,
     "hdfs": "hdfs",
-    "abfs": "adls",
-    "abfss": "adls",
     "postgresql": "postgres",
     "mysql": "mysql",
     "bigquery": "bigquery",

@@ -58,32 +58,44 @@ No additional configuration is required to use the plugin. However, there are so
 enabled = True  # default
 ```
 
-| Name                               | Default value        | Description                                                                                                                                                                                                                 |
-| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| enabled                            | true                 | If the plugin should be enabled.                                                                                                                                                                                            |
-| conn_id                            | datahub_rest_default | The name of the datahub rest connection.                                                                                                                                                                                    |
-| cluster                            | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                                                                                                                |
-| platform_instance                  | None                 | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                                                                                                             |
-| capture_ownership_info             | true                 | Extract DAG ownership.                                                                                                                                                                                                      |
-| capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                                                                                                                |
-| capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                                                                                                           |
-| capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                                                                                                                    |
-| materialize_iolets                 | true                 | Create the datasets referenced by task inlets/outlets if they are missing from DataHub. See [Materializing lineage iolets](#materializing-lineage-iolets).                                                                  |
-| enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                                                                                                                        |
-| disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                                                                                                             |
-| enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.                                                                                             |
-| log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                                                                                                                   |
-| debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                    |
-| dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                              |
-| enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                            |
-| capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                            |
-| emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
+| Name                               | Default value        | Description                                                                                                                                                                                                                                       |
+| ---------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| enabled                            | true                 | If the plugin should be enabled.                                                                                                                                                                                                                  |
+| conn_id                            | datahub_rest_default | The name of the datahub rest connection.                                                                                                                                                                                                          |
+| cluster                            | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                                                                                                                                      |
+| platform_instance                  | None                 | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                                                                                                                                   |
+| capture_ownership_info             | true                 | Extract DAG ownership.                                                                                                                                                                                                                            |
+| capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                                                                                                                                      |
+| capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                                                                                                                                 |
+| capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                                                                                                                                          |
+| materialize_iolets                 | true                 | Create the datasets referenced by task inlets/outlets if they are missing from DataHub. See [Materializing lineage iolets](#materializing-lineage-iolets).                                                                                        |
+| enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                                                                                                                                              |
+| disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                                                                                                                                   |
+| enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.                                                                                                                   |
+| log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                                                                                                                                         |
+| debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                                          |
+| dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                                                    |
+| dataset_filter_str                 | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string matched against `<platform>:<name>` of every inlet and outlet. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).                                                                               |
+| normalize_object_storage_urns      | true                 | Map OpenLineage S3, GCS, Azure and DBFS paths to the `s3`, `gcs`, `abs` and `dbfs` platforms and keep the bucket in the name, so they match datasets from DataHub's storage sources and the Spark agent. Set to `false` to keep the pre-1.8 URNs. |
+| enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                                                  |
+| capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                                                  |
+| emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.                       |
 
 #### Materializing lineage iolets
 
 By default (`materialize_iolets = true`), the plugin creates the datasets referenced by a task's inlets and outlets if they don't exist in DataHub yet, and records a write operation on each outlet so the dataset shows when the pipeline last updated it. Datasets created this way are placeholders: they have a platform, name, and environment, but no schema or documentation until a source connector ingests the real asset.
 
 Set this to `false` when every table your DAGs touch is already ingested by a source connector (Snowflake, BigQuery, and so on). The plugin then stops creating placeholders, which is useful because SQL parsing can resolve to temporary or mistyped table names you don't want in your catalog. Lineage is emitted either way, but DataHub only renders a lineage edge once both ends exist, so an edge pointing at a dataset that no connector ingests stays hidden — it appears on its own once that dataset is ingested, with no need to re-run the DAG. When the plugin is configured with a DataHub REST connection, it logs a warning for each inlet and outlet that is missing from DataHub.
+
+#### Filtering inlets and outlets
+
+`dag_filter_str` drops whole DAGs. To drop individual datasets a task reads or writes, such as local scratch files or per-run temporary tables, set `dataset_filter_str`. Each pattern is a regular expression matched from the start of `<platform>:<name>`, for example `file:/tmp/tmpab12/out.csv` or `gcs:my-bucket/path/file`. Denied datasets are removed from the task's inlets and outlets, its runs, and its column-level lineage, and are never materialized.
+
+```ini title="airflow.cfg"
+[datahub]
+# Drop local files, one scratch bucket, and BigQuery tables in anonymous (underscore-prefixed) datasets.
+dataset_filter_str = { "deny": ["file:.*", "gcs:my-scratch-bucket/.*", "bigquery:[^.]+\\._.*"] }
+```
 
 ## Automatic lineage extraction
 
@@ -617,6 +629,13 @@ and picking the newest published version is always safe.
 
 Entries start at `1.3.1.5`. For anything earlier, and for the full migration detail behind the
 breaking changes below, see [Updating DataHub](../how/updating-datahub.md).
+
+### Next
+
+_Changes_
+
+- OpenLineage references to S3, GCS, Azure (`abfs`, `wasb`) and DBFS paths now use the same platform and name as DataHub's storage sources and the Spark agent: `gs://my-bucket` plus `path/file` becomes `urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/file,PROD)` instead of a `gs` dataset without the bucket. Set `normalize_object_storage_urns = false` to keep the old URNs. Airflow Assets on `abfs://` and `abfss://` now use the `abs` platform instead of `adls`. See [Updating DataHub](../how/updating-datahub.md).
+- New `dataset_filter_str` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 
 ### Versions 1.7.0 through 1.7.0.10
 

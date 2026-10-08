@@ -61,6 +61,7 @@ from datahub_airflow_plugin._airflow_asset_adapter import (
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
+from datahub_airflow_plugin._dataset_filter import apply_dataset_filter
 from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
@@ -737,7 +738,9 @@ class DataHubListener:
                 # Translate OpenLineage datasets to DataHub URNs
                 for ol_dataset in operator_lineage.inputs:
                     urn = translate_ol_to_datahub_urn(
-                        ol_dataset, env=self.config.cluster
+                        ol_dataset,
+                        env=self.config.cluster,
+                        normalize_object_storage=self.config.normalize_object_storage_urns,
                     )
                     input_urns.append(urn)
                     logger.debug(
@@ -746,7 +749,9 @@ class DataHubListener:
 
                 for ol_dataset in operator_lineage.outputs:
                     urn = translate_ol_to_datahub_urn(
-                        ol_dataset, env=self.config.cluster
+                        ol_dataset,
+                        env=self.config.cluster,
+                        normalize_object_storage=self.config.normalize_object_storage_urns,
                     )
                     output_urns.append(urn)
                     logger.debug(
@@ -1083,6 +1088,8 @@ class DataHubListener:
         datajob.upstream_urns = list(
             sorted(set(datajob.upstream_urns), key=lambda x: str(x))
         )
+
+        apply_dataset_filter(datajob, self.config.dataset_filter_pattern)
 
         # Write all other OL facets as DataHub properties
         if task_metadata:

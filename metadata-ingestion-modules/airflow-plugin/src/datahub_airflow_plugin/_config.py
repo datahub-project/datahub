@@ -86,6 +86,20 @@ class DatahubLineageConfig(ConfigModel):
         description="regex patterns for DAGs to ingest",
     )
 
+    # Regex patterns matched against `<platform>:<name>` of every inlet and
+    # outlet. Denied datasets are dropped from the DataJob, its runs and column
+    # lineage.
+    dataset_filter_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="regex patterns for inlet/outlet datasets, as <platform>:<name>, to keep",
+    )
+
+    # If true (default), OpenLineage S3/GCS references are mapped to the `s3`/`gcs`
+    # platforms with the bucket kept in the name, so they merge with datasets from
+    # DataHub's S3 and GCS sources. False restores the old `gs`-platform,
+    # bucket-less URNs.
+    normalize_object_storage_urns: bool = True
+
     log_level: Optional[str]
     debug_emitter: bool
 
@@ -187,6 +201,12 @@ def get_lineage_config() -> DatahubLineageConfig:
     dag_filter_pattern = AllowDenyPattern.model_validate_json(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
+    dataset_filter_pattern = AllowDenyPattern.model_validate_json(
+        conf.get("datahub", "dataset_filter_str", fallback='{"allow": [".*"]}')
+    )
+    normalize_object_storage_urns = conf.get(
+        "datahub", "normalize_object_storage_urns", fallback=True
+    )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
 
@@ -212,6 +232,8 @@ def get_lineage_config() -> DatahubLineageConfig:
         datajob_url_link=datajob_url_link,
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
+        dataset_filter_pattern=dataset_filter_pattern,
+        normalize_object_storage_urns=normalize_object_storage_urns,
         enable_datajob_lineage=enable_lineage,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
         emit_mode=emit_mode,

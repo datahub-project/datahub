@@ -166,24 +166,24 @@ class TestTranslateAirflowAssetToUrn:
             == "urn:li:dataset:(urn:li:dataPlatform:hdfs,namenode/path/to/data,PROD)"
         )
 
-    def test_adls_uri_abfs(self) -> None:
+    def test_abs_uri_abfs(self) -> None:
         class Asset:
             uri = "abfs://container@storage.dfs.core.windows.net/path"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net/path,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:abs,container@storage.dfs.core.windows.net/path,PROD)"
         )
 
-    def test_adls_uri_abfss(self) -> None:
+    def test_abs_uri_abfss(self) -> None:
         class Asset:
             uri = "abfss://container@storage.dfs.core.windows.net/path"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net/path,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:abs,container@storage.dfs.core.windows.net/path,PROD)"
         )
 
     def test_file_uri(self) -> None:
@@ -291,9 +291,9 @@ class TestUriSchemeToPlatform:
         assert URI_SCHEME_TO_PLATFORM["gs"] == "gcs"
         assert URI_SCHEME_TO_PLATFORM["gcs"] == "gcs"
 
-    def test_adls_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["abfs"] == "adls"
-        assert URI_SCHEME_TO_PLATFORM["abfss"] == "adls"
+    def test_abs_schemes(self) -> None:
+        assert URI_SCHEME_TO_PLATFORM["abfs"] == "abs"
+        assert URI_SCHEME_TO_PLATFORM["abfss"] == "abs"
 
     def test_database_schemes(self) -> None:
         assert URI_SCHEME_TO_PLATFORM["postgresql"] == "postgres"
