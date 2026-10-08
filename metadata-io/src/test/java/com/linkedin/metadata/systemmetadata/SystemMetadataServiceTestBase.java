@@ -19,6 +19,7 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -168,6 +169,40 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
+  }
+
+  @Test
+  public void testFindByRunIdAfterPagesInUrnAndAspectOrder() throws Exception {
+    SystemMetadata metadata = new SystemMetadata();
+    metadata.setRunId("run-paged");
+    metadata.setLastObserved(Long.valueOf(120L));
+
+    _client.insert(operationContext, metadata, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata, "urn:li:chart:1", "ownership");
+    _client.insert(operationContext, metadata, "urn:li:chart:1", "chartInfo");
+    _client.insert(operationContext, metadata, "urn:li:chart:2", "chartInfo");
+    _client.insert(operationContext, metadata, "urn:li:chart:1", "chartKey");
+
+    syncAfterWrite(getBulkProcessor());
+
+    List<String> seen = new ArrayList<>();
+    AspectRowSummary after = null;
+    List<AspectRowSummary> page;
+    do {
+      page = _client.findByRunIdAfter(operationContext, "run-paged", false, after, 2);
+      assertTrue(page.size() <= 2);
+      page.forEach(row -> seen.add(row.getUrn() + "/" + row.getAspectName()));
+      after = page.isEmpty() ? null : page.get(page.size() - 1);
+    } while (!page.isEmpty());
+
+    assertEquals(
+        seen,
+        List.of(
+            "urn:li:chart:1/chartInfo",
+            "urn:li:chart:1/chartKey",
+            "urn:li:chart:1/ownership",
+            "urn:li:chart:2/chartInfo",
+            "urn:li:chart:2/chartKey"));
   }
 
   @Test

@@ -20,6 +20,7 @@ import com.linkedin.metadata.kafka.config.CDCProcessorCondition;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -52,6 +53,8 @@ import org.springframework.stereotype.Component;
 })
 @RequiredArgsConstructor
 public class CDCProcessor {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(CDCProcessor.class, "CDC row");
 
   // Constants for CDC JSON field names
   private static final String CDC_PAYLOAD_FIELD = "payload";
@@ -207,11 +210,15 @@ public class CDCProcessor {
     // Step 5: Deserialize the "metadata" JSON strings to RecordTemplate objects
     Urn entityUrn = Urn.createFromString(urn);
     String entityType = entityUrn.getEntityType();
-    AspectSpec aspectSpec =
-        systemOperationContext
-            .getEntityRegistry()
-            .getEntitySpec(entityType)
-            .getAspectSpec(aspectName);
+    final Optional<AspectSpec> maybeAspectSpec =
+        systemOperationContext.getEntityRegistry().findAspectSpec(entityType, aspectName);
+    if (maybeAspectSpec.isEmpty()) {
+      // A row of an entity type or aspect this registry doesn't know (written by a newer version
+      // before a rollback): expected after a rollback, so skip it without an error.
+      UNKNOWN_DATA.skipped(systemOperationContext.getMetricUtils(), entityType, aspectName, urn);
+      return Optional.empty();
+    }
+    final AspectSpec aspectSpec = maybeAspectSpec.get();
 
     RecordTemplate oldValue = null;
     if (beforeMetadata != null) {

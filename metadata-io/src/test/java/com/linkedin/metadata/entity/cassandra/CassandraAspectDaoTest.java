@@ -169,13 +169,40 @@ public class CassandraAspectDaoTest {
     if (canWrite) {
       // When writable, should execute delete statements and return -1
       assertEquals(deletedCount, -1, "Should return -1 when writable (Cassandra limitation)");
-      // Should execute 2 deletes: one for non-key aspects, one for key aspect
-      verify(mockSession, times(2)).execute(any(SimpleStatement.class));
+      // Should look up the stored aspects, then execute 2 deletes: non-key aspects, key aspect
+      verify(mockSession, times(3)).execute(any(SimpleStatement.class));
     } else {
       // When not writable, delete should return 0
       assertEquals(deletedCount, 0, "Should return 0 when not writable");
       verify(mockSession, never()).execute(any(SimpleStatement.class));
     }
+  }
+
+  @Test
+  public void testDeleteUrnAlsoDeletesStoredAspectsUnknownToRegistry() throws Exception {
+    // A newer version can store aspects this registry doesn't know (read after a rollback); a hard
+    // delete must remove them too, or they come back after re-upgrading.
+    testDao.setWritable(true);
+    String urnString = "urn:li:corpuser:testDeleteUnknownAspect";
+    com.datastax.oss.driver.api.core.cql.Row storedRow =
+        mock(com.datastax.oss.driver.api.core.cql.Row.class);
+    when(storedRow.getString(CassandraAspect.ASPECT_COLUMN)).thenReturn("aspectFromNewerBuild");
+    ResultSet storedRows = mock(ResultSet.class);
+    when(storedRows.all()).thenReturn(List.of(storedRow));
+    ResultSet deleteResult = mock(ResultSet.class);
+    ExecutionInfo executionInfo = mock(ExecutionInfo.class);
+    when(executionInfo.getErrors()).thenReturn(Collections.emptyList());
+    when(deleteResult.getExecutionInfo()).thenReturn(executionInfo);
+    when(mockSession.execute(any(SimpleStatement.class))).thenReturn(storedRows, deleteResult);
+
+    testDao.deleteUrn(opContext, null, urnString);
+
+    org.mockito.ArgumentCaptor<SimpleStatement> statements =
+        org.mockito.ArgumentCaptor.forClass(SimpleStatement.class);
+    verify(mockSession, times(3)).execute(statements.capture());
+    assertTrue(
+        statements.getAllValues().get(1).getQuery().contains("aspectFromNewerBuild"),
+        "The non-key delete must include stored aspects the registry doesn't know");
   }
 
   @Test
@@ -368,8 +395,8 @@ public class CassandraAspectDaoTest {
 
     int deletedCount = testDao.deleteUrn(opContext, null, urnString);
 
-    // Should execute 2 deletes: one for non-key aspects (3 aspects), one for key aspect
-    verify(mockSession, times(2)).execute(any(SimpleStatement.class));
+    // Should look up the stored aspects, then execute 2 deletes: non-key aspects, key aspect
+    verify(mockSession, times(3)).execute(any(SimpleStatement.class));
     assertEquals(deletedCount, -1, "Should return -1 (Cassandra doesn't provide row counts)");
   }
 

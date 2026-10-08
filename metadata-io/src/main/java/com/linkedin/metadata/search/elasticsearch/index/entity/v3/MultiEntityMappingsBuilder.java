@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -282,11 +283,15 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         continue;
       }
 
-      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
-
-      if (entitySpec != null) {
-        String indexKey = V3IndexKeys.resolve(entitySpec);
-        searchGroupToEntitySpecs.computeIfAbsent(indexKey, k -> new ArrayList<>()).add(entitySpec);
+      // An entity type this registry doesn't know (e.g. added by a newer version before a
+      // rollback) is skipped, so the mapping is still updated for the property's known types.
+      final Optional<EntitySpec> entitySpec =
+          opContext.getEntityRegistry().findEntitySpec(entityTypeName);
+      if (entitySpec.isPresent()) {
+        String indexKey = V3IndexKeys.resolve(entitySpec.get());
+        searchGroupToEntitySpecs
+            .computeIfAbsent(indexKey, k -> new ArrayList<>())
+            .add(entitySpec.get());
       } else {
         log.warn("Missing entitySpec for entity type: {}", entityTypeName);
       }

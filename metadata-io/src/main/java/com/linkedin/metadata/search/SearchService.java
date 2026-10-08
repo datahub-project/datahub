@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -27,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SearchService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(SearchService.class, "search over");
   private final CachingEntitySearchService _cachingEntitySearchService;
   private final EntityDocCountCache _entityDocCountCache;
   private final SearchRanker _searchRanker;
@@ -193,7 +196,27 @@ public class SearchService {
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
 
-    return lowercaseEntities;
+    // Entity types this registry doesn't know (e.g. requested by a client built for a newer version
+    // after a rollback) can't be searched; drop them instead of failing the whole request. If none
+    // remain, callers return an empty result rather than searching every type.
+    final List<String> knownEntities =
+        lowercaseEntities.stream()
+            .filter(entity -> opContext.getEntityRegistry().findEntitySpec(entity).isPresent())
+            .collect(Collectors.toList());
+    if (knownEntities.size() < lowercaseEntities.size()) {
+      final List<String> unknownEntities =
+          lowercaseEntities.stream()
+              .filter(entity -> !knownEntities.contains(entity))
+              .collect(Collectors.toList());
+      // Request input can name anything (typos included), so it shares one log key and isn't
+      // counted as data skipped from a newer version.
+      UNKNOWN_DATA.skippedBecause(
+          Optional.empty(),
+          "requested-entity-types",
+          "entity types not in the entity registry",
+          unknownEntities);
+    }
+    return knownEntities;
   }
 
   /**
@@ -353,6 +376,19 @@ public class SearchService {
       }
     }
     return aggregationMetadata;
+  }
+
+  /**
+   * An empty page sized like a real one (the configured limit applies), e.g. when every requested
+   * entity type is unknown to the registry.
+   */
+  public SearchResult emptySearchResult(int from, @Nullable Integer size) {
+    return getEmptySearchResult(from, ConfigUtils.applyLimit(searchServiceConfig, size));
+  }
+
+  /** As {@link #emptySearchResult}, for a scroll. */
+  public ScrollResult emptyScrollResult(@Nullable Integer size) {
+    return getEmptyScrollResult(ConfigUtils.applyLimit(searchServiceConfig, size));
   }
 
   private static SearchResult getEmptySearchResult(int from, int size) {

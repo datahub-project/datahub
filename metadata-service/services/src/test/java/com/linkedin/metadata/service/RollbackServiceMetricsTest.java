@@ -2,10 +2,10 @@ package com.linkedin.metadata.service;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SYSTEM_METADATA_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -106,12 +106,8 @@ public class RollbackServiceMetricsTest {
     }
     List<AspectRowSummary> secondPage = createAspectRows(TEST_URN_1, TEST_URN_2, false);
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class),
-            eq(TEST_RUN_ID),
-            eq(true),
-            anyInt(),
-            eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), any(), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(firstPage)
         .thenReturn(secondPage)
         .thenReturn(new ArrayList<>());
@@ -178,8 +174,12 @@ public class RollbackServiceMetricsTest {
   @Test
   public void testDryRunTaggedSeparately() throws Exception {
     List<AspectRowSummary> aspects = createAspectRows(TEST_URN_1, TEST_URN_2, true);
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(false),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
         .thenReturn(aspects);
     when(mockSystemMetadataService.findByUrn(
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
@@ -218,8 +218,12 @@ public class RollbackServiceMetricsTest {
                     .build());
 
     List<AspectRowSummary> aspects = createAspectRows(TEST_URN_1, TEST_URN_2, true);
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
         .thenReturn(aspects)
         .thenReturn(new ArrayList<>());
     when(mockEntityService.rollbackRun(eq(noMetrics), anyList(), eq(TEST_RUN_ID), eq(true)))
@@ -241,8 +245,12 @@ public class RollbackServiceMetricsTest {
   @Test
   public void testUnexpectedFailureRecordsFailedDuration() throws Exception {
     List<AspectRowSummary> aspects = createAspectRows(TEST_URN_1, TEST_URN_2, true);
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
         .thenReturn(aspects);
     when(mockEntityService.rollbackRun(eq(opContext), anyList(), eq(TEST_RUN_ID), eq(true)))
         .thenThrow(new RuntimeException("boom"));

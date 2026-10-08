@@ -22,8 +22,11 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -141,8 +144,20 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
               result.getMessages()));
     }
 
+    final RecordTemplate storedSettings =
+        _entityService.getAspect(
+            systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
     final GlobalSettingsInfo existingSettings =
-        getExistingGlobalSettingsOrEmpty(systemOperationContext);
+        storedSettings != null ? (GlobalSettingsInfo) storedSettings : new GlobalSettingsInfo();
+
+    // Existing values win the merge, so if every default key is already set there is nothing to
+    // write. Re-ingesting would only re-validate stored values, which can fail after a rollback
+    // (e.g. a reference or enum value only a newer version knows) and block system-update.
+    if (storedSettings != null
+        && existingSettings.data().keySet().containsAll(defaultSettings.data().keySet())) {
+      log.info("Global settings already contain every default; nothing to ingest.");
+      return;
+    }
 
     final GlobalSettingsInfo newSettings =
         new GlobalSettingsInfo(mergeDataMaps(defaultSettings.data(), existingSettings.data()));
@@ -154,23 +169,44 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newSettings));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(
-        systemOperationContext,
-        proposal,
-        new AuditStamp()
-            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis()),
-        false);
+    try {
+      _entityService.ingestProposal(
+          systemOperationContext,
+          proposal,
+          new AuditStamp()
+              .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+              .setTime(System.currentTimeMillis()),
+          false);
+    } catch (ValidationException e) {
+      // Stored settings written by a newer version (read after a rollback) can hold values this
+      // version can't validate; leave them as they are rather than failing a blocking upgrade step.
+      // Any other validation failure fails the step as before.
+      if (!isFromNewerVersion(systemOperationContext)) {
+        throw e;
+      }
+      log.warn(
+          "Stored global settings from a newer version failed validation; leaving them unchanged"
+              + " and skipping the new defaults.",
+          e);
+      return;
+    }
 
     log.info("Successfully ingested default global settings.");
   }
 
-  private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty(
+  private static boolean isFromNewerVersion(
       @Nonnull final OperationContext systemOperationContext) {
-    RecordTemplate aspect =
-        _entityService.getAspect(
-            systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
-    return aspect != null ? (GlobalSettingsInfo) aspect : new GlobalSettingsInfo();
+    final SystemAspect stored =
+        systemOperationContext
+            .getAspectRetriever()
+            .getLatestSystemAspect(
+                systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    return stored != null
+        && UnknownEntityUrnStripper.isFromNewerVersion(
+            stored.getRecordTemplate(),
+            stored.getSystemMetadata(),
+            stored.getAspectSpec(),
+            systemOperationContext.getEntityRegistry());
   }
 
   private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {

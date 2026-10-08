@@ -13,9 +13,12 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
@@ -25,6 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ValidationApiUtils {
   public static final String STRICT_URN_VALIDATION_ENABLED = "STRICT_URN_VALIDATION_ENABLED";
+  private static final UnknownDataGuard UNKNOWN_REFERENCES =
+      UnknownDataGuard.forSite(ValidationApiUtils.class, "references to unknown entity types in");
+
   private static final Set<String> AUDIT_STAMP_FIELD_NAMES =
       Set.of("auditStamp", "created", "lastModified");
   private static final String TIME_FIELD_NAME = "time";
@@ -224,7 +230,21 @@ public class ValidationApiUtils {
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 
     if (aspect != null) {
+      // References to entity types this registry doesn't know (written by a newer version before
+      // a rollback) are dropped rather than stored or indexed, and don't fail the aspect.
+      reportStripped(UnknownEntityUrnStripper.strip(aspect, entityRegistry), aspect, urn);
       RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+    }
+  }
+
+  private static void reportStripped(
+      final int removed, @Nonnull final RecordTemplate aspect, @Nonnull final Urn urn) {
+    if (removed > 0) {
+      UNKNOWN_REFERENCES.skippedBecause(
+          Optional.empty(),
+          aspect.schema().getName(),
+          removed + " removed before writing " + aspect.schema().getName(),
+          urn);
     }
   }
 

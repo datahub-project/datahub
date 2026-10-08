@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -60,6 +61,8 @@ import org.opensearch.tasks.TaskInfo;
  */
 @Slf4j
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(IncrementalReindexCatchUpStep.class, "row (left unindexed)");
 
   public static final String UPGRADE_ID_PREFIX = IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX;
   public static final String LAST_URN_KEY = "lastUrn";
@@ -343,7 +346,17 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
               .partition(sqlPageSize)
               .forEach(
                   page -> {
-                    List<EbeanAspectV2> pageAspects = page.collect(Collectors.toList());
+                    // Drop rows the registry does not know (written by a newer version) up front
+                    // so pageAspects stays index-aligned with the converted systemAspects.
+                    List<EbeanAspectV2> pageAspects =
+                        page.filter(
+                                aspect ->
+                                    UNKNOWN_DATA.admitUrn(
+                                        opContext.getEntityRegistry(),
+                                        opContext.getMetricUtils(),
+                                        aspect.getUrn(),
+                                        aspect.getAspect()))
+                            .collect(Collectors.toList());
 
                     List<SystemAspect> systemAspects =
                         EntityUtils.toSystemAspectFromEbeanAspects(

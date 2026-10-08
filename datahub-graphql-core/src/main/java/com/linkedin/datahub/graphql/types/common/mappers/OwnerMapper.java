@@ -11,6 +11,9 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -20,9 +23,12 @@ import javax.annotation.Nullable;
  * <p>To be replaced by auto-generated mappers implementations
  */
 public class OwnerMapper {
+  private static final UnknownDataGuard UNKNOWN_OWNER =
+      UnknownDataGuard.forSite(OwnerMapper.class, "owner");
 
   public static final OwnerMapper INSTANCE = new OwnerMapper();
 
+  @Nullable
   public static Owner map(
       @Nullable QueryContext context,
       @Nonnull final com.linkedin.common.Owner owner,
@@ -30,16 +36,25 @@ public class OwnerMapper {
     return INSTANCE.apply(context, owner, entityUrn);
   }
 
+  @Nullable
   public Owner apply(
       @Nullable QueryContext context,
       @Nonnull final com.linkedin.common.Owner owner,
       @Nonnull final Urn entityUrn) {
+    if (!KnownEntities.isKnown(context, owner.getOwner())) {
+      // An owner of an entity type the registry doesn't know (e.g. added by a newer version before
+      // a rollback) can't be represented; skip it rather than nulling every owner of the asset.
+      UNKNOWN_OWNER.skipped(
+          KnownEntities.metrics(context), owner.getOwner().getEntityType(), null, owner.getOwner());
+      return null;
+    }
     final Owner result = new Owner();
-    // Deprecated
-    result.setType(Enum.valueOf(OwnershipType.class, owner.getType().toString()));
+    // Deprecated. An ownership type only a newer version knows falls back to CUSTOM.
+    final OwnershipType ownershipType =
+        PdlEnumMapper.map(OwnershipType.class, owner.getType(), OwnershipType.CUSTOM);
+    result.setType(ownershipType);
 
     if (owner.getTypeUrn() == null) {
-      OwnershipType ownershipType = OwnershipType.valueOf(owner.getType().toString());
       owner.setTypeUrn(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())));
     }
 

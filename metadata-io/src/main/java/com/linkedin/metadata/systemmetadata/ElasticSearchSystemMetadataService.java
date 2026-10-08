@@ -70,7 +70,7 @@ public class ElasticSearchSystemMetadataService
   public static final String FIELD_URN = "urn";
   public static final String FIELD_ASPECT = "aspect";
   public static final String FIELD_REMOVED = "removed";
-  private static final String FIELD_RUNID = "runId";
+  public static final String FIELD_RUNID = "runId";
   public static final String FIELD_LAST_UPDATED = "lastUpdated";
   private static final String FIELD_REGISTRY_NAME = "registryName";
   private static final String FIELD_REGISTRY_VERSION = "registryVersion";
@@ -190,6 +190,23 @@ public class ElasticSearchSystemMetadataService
       @Nullable Integer size) {
     return findByParams(
         opContext, Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
+  }
+
+  @Override
+  public List<AspectRowSummary> findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      @Nullable AspectRowSummary after,
+      int size) {
+    return toAspectRowSummary(
+        _esDAO.findByRunIdAfter(
+            opContext,
+            runId,
+            includeSoftDeleted,
+            after == null ? null : after.getUrn(),
+            after == null ? null : after.getAspectName(),
+            size));
   }
 
   @Override

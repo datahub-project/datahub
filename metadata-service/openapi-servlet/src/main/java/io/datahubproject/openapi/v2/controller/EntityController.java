@@ -40,6 +40,7 @@ import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
 import io.datahubproject.openapi.v2.models.GenericAspectV2;
@@ -177,10 +178,19 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          final boolean alternateValidation =
+              opContext.getValidationContext().isAlternateValidation();
+          // ProposedItem.build validates the aspect against the registry itself; the typed path
+          // needs the spec, so an unknown name is rejected with a 400 instead of a 500.
+          final AspectSpec aspectSpec =
+              alternateValidation
+                  ? lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null)
+                  : RequestInputUtil.requireAspectSpec(
+                      entityRegistry.findEntitySpec(entityUrn.getEntityType()).orElse(null),
+                      aspect.getKey());
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
-          if (opContext.getValidationContext().isAlternateValidation()) {
+          if (alternateValidation) {
             items.add(
                 ProposedItem.builder()
                     .build(

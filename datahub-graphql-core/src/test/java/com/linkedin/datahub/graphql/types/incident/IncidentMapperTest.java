@@ -71,7 +71,10 @@ public class IncidentMapperTest {
                     .setActor(UrnUtils.getUrn("urn:li:corpGroup:test2"))
                     .setAssignedAt(lastStatus))));
     // TODO: Support multiple entities per incident.
-    incidentInfo.setEntities(new com.linkedin.common.UrnArray(Collections.singletonList(urn)));
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            Collections.singletonList(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.incident,PROD)"))));
     Long incidentStartedAt = 10L;
     incidentInfo.setStartedAt(incidentStartedAt);
 
@@ -262,6 +265,66 @@ public class IncidentMapperTest {
 
   // --- Helper methods for creating a minimal base EntityResponse ---
 
+  @Test
+  public void testEntityOfUnknownTypeIsSkipped() throws Exception {
+    // Incident.entity is non-null: when the first linked entity is of a type only a newer version
+    // registered (read after a rollback), the first entity GraphQL can map is used instead.
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.t,PROD)");
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            ImmutableList.of(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"), dataset)));
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    Incident incident = IncidentMapper.map(null, entityResponse);
+
+    assertEquals(incident.getEntity().getUrn(), dataset.toString());
+  }
+
+  @Test
+  public void testIncidentWithOnlyUnknownEntityTypesIsSkipped() throws Exception {
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            ImmutableList.of(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"))));
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    assertNull(IncidentMapper.map(null, entityResponse));
+  }
+
+  @Test
+  public void testUnknownIncidentTypeStateAndStageFallBack() throws Exception {
+    // Values a newer version wrote (read after a rollback) don't fail the incident.
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    incidentInfo.data().put("type", "TYPE_FROM_NEWER_BUILD");
+    com.linkedin.incident.IncidentStatus status =
+        new com.linkedin.incident.IncidentStatus()
+            .setState(com.linkedin.incident.IncidentState.ACTIVE)
+            .setLastUpdated(incidentInfo.getCreated());
+    status.data().put("state", "STATE_FROM_NEWER_BUILD");
+    status.data().put("stage", "STAGE_FROM_NEWER_BUILD");
+    incidentInfo.setStatus(status);
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    Incident incident = IncidentMapper.map(null, entityResponse);
+
+    assertEquals(
+        incident.getIncidentType(), com.linkedin.datahub.graphql.generated.IncidentType.CUSTOM);
+    assertEquals(
+        incident.getIncidentStatus().getState(),
+        com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE);
+    assertNull(incident.getIncidentStatus().getStage());
+  }
+
   /** Creates a minimal EntityResponse with a basic IncidentInfo aspect. */
   private EntityResponse createBaseEntityResponse() throws Exception {
     EntityResponse entityResponse = new EntityResponse();
@@ -288,7 +351,10 @@ public class IncidentMapperTest {
                 new IncidentAssignee()
                     .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
                     .setAssignedAt(auditStamp))));
-    incidentInfo.setEntities(new com.linkedin.common.UrnArray(Collections.singletonList(urn)));
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            Collections.singletonList(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.incident,PROD)"))));
 
     envelopedIncidentInfo.setValue(new Aspect(incidentInfo.data()));
 

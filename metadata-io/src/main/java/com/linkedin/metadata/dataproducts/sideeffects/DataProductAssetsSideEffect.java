@@ -478,7 +478,7 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
       @Nonnull RetrieverContext retrieverContext) {
     final EntitySpec entitySpec =
         Optional.ofNullable(retrieverContext.getAspectRetriever().getEntityRegistry())
-            .map(registry -> registry.getEntitySpec(assetUrn.getEntityType()))
+            .flatMap(registry -> registry.findEntitySpec(assetUrn.getEntityType()))
             .orElse(null);
     if (entitySpec == null || entitySpec.getAspectSpec(DATA_PRODUCTS_ASPECT_NAME) == null) {
       log.warn(

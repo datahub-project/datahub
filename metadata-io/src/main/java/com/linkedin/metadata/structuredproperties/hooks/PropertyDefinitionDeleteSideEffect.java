@@ -121,6 +121,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
             .propertyUrn(propertyUrn)
             .definition(definition)
             .searchRetriever(retrieverContext.getSearchRetriever())
+            .entityRegistry(retrieverContext.getAspectRetriever().getEntityRegistry())
             .count(SEARCH_SCROLL_SIZE)
             .build();
 
@@ -133,6 +134,15 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
         .flatMap(
             scrollResult ->
                 scrollResult.getEntities().stream()
+                    // Skip hits of entity types unknown to this build (e.g. after a version
+                    // rollback); their properties cannot be patched here.
+                    .filter(
+                        entity ->
+                            retrieverContext
+                                .getAspectRetriever()
+                                .getEntityRegistry()
+                                .findEntitySpec(entity.getEntity().getEntityType())
+                                .isPresent())
                     .map(
                         entity -> {
                           GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();

@@ -553,6 +553,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
     log.debug("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
+    if (onlyUnknownEntityTypes(entities, entityList)) {
+      // Every requested type is unknown to the registry (e.g. named by a client built for a newer
+      // version, after a rollback). An empty list would otherwise mean "search every type".
+      return RestliUtils.toTask(
+          opContext,
+          () -> searchService.emptySearchResult(start, count),
+          "searchAcrossEntities");
+    }
     return RestliUtils.toTask(
         () -> {
           SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
@@ -652,6 +660,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         entityList,
         input,
         scrollId);
+    if (onlyUnknownEntityTypes(entities, entityList)) {
+      // See searchAcrossEntities: never widen a request for unknown types to every type.
+      return RestliUtils.toTask(
+          opContext,
+          () -> searchService.emptyScrollResult(count),
+          "scrollAcrossEntities");
+    }
 
     return RestliUtils.toTask(opContext,
         () -> {
@@ -1517,5 +1532,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                 .map(Urn::toString)
                 .toArray(String[]::new),
         MetricRegistry.name(this.getClass(), "filterExistingUrns"));
+  }
+
+  /** True when the caller named entity types but none of them is in the registry. */
+  private static boolean onlyUnknownEntityTypes(
+      @Nullable final String[] requested, @Nonnull final List<String> known) {
+    return requested != null && requested.length > 0 && known.isEmpty();
   }
 }

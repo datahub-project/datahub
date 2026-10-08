@@ -22,6 +22,16 @@ public class EntityTypeUrnMapperTest {
   }
 
   @Test
+  public void testGetEntityTypeOrOther() {
+    assertEquals(
+        EntityTypeUrnMapper.getEntityTypeOrOther("urn:li:entityType:datahub.dataset"),
+        EntityType.DATASET);
+    assertEquals(
+        EntityTypeUrnMapper.getEntityTypeOrOther("urn:li:entityType:datahub.entityFromNewerBuild"),
+        EntityType.OTHER);
+  }
+
+  @Test
   public void testGetEntityTypeUrn() throws Exception {
     assertEquals(
         EntityTypeUrnMapper.getEntityTypeUrn(Constants.DATASET_ENTITY_NAME),

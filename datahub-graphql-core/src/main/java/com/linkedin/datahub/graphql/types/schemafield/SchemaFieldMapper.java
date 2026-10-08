@@ -37,16 +37,23 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
 
   public static final SchemaFieldMapper INSTANCE = new SchemaFieldMapper();
 
+  @Nullable
   public static SchemaFieldEntity map(
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
+  @Nullable
   public SchemaFieldEntity apply(
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Urn entityUrn = entityResponse.getUrn();
     final SchemaFieldEntity result = this.mapSchemaFieldUrn(context, entityUrn);
+    if (result.getParent() == null) {
+      // SchemaFieldEntity.parent is non-null; a field whose parent is of an entity type GraphQL
+      // can't map (e.g. added by a newer version before a rollback) resolves to no entity.
+      return null;
+    }
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<SchemaFieldEntity> mappingHelper = new MappingHelper<>(aspectMap, result);

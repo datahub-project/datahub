@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
@@ -2314,6 +2315,101 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     verify(mockEntityService, times(0))
         .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testSingleAspectEndpointsRejectUnknownAspect() throws Exception {
+    // An aspect written by a newer version (e.g. before a rollback) is unknown here: every
+    // single-aspect endpoint must answer 400, not 500 and not a silent 200.
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+    String path =
+        "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(path + "/futureAspect")
+                .content("{\"value\":{\"x\":1}}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(path + "/futureAspect")
+                .content("{\"patch\":[{\"op\":\"add\",\"path\":\"/x\",\"value\":1}]}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(path + "/futureAspect")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(path)
+                // A known aspect next to the unknown one must not be deleted either.
+                .param("aspects", "status,futureAspect")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    verify(mockEntityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+    verify(mockEntityService, never())
+        .deleteAspect(any(), anyString(), any(), anyMap(), anyBoolean());
+    verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testDeleteKnownAspectDeletesIt() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/v3/entity/dataset/" + urn + "/status")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    verify(mockEntityService)
+        .deleteAspect(any(), eq(urn), eq(STATUS_ASPECT_NAME), anyMap(), eq(true));
+  }
+
+  @Test
+  public void testDeleteKnownTimeseriesAspectDeletesLatestValue() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService, mockTimeseriesAspectService);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    com.linkedin.metadata.aspect.EnvelopedAspect latest =
+        new com.linkedin.metadata.aspect.EnvelopedAspect()
+            .setAspect(
+                com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(
+                    new DatasetProfile().setTimestampMillis(1234L)));
+    when(mockTimeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(), eq(Set.of(urn)), eq(Set.of(DATASET_PROFILE_ASPECT_NAME)), any()))
+        .thenReturn(Map.of(urn, Map.of(DATASET_PROFILE_ASPECT_NAME, latest)));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    "/openapi/v3/entity/dataset/" + urn + "/" + DATASET_PROFILE_ASPECT_NAME)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    verify(mockTimeseriesAspectService)
+        .deleteAspectValues(
+            any(), eq(DATASET_ENTITY_NAME), eq(DATASET_PROFILE_ASPECT_NAME), any(Filter.class));
+    verify(mockEntityService, never())
+        .deleteAspect(any(), anyString(), anyString(), anyMap(), anyBoolean());
   }
 
   @Test

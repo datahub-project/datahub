@@ -23,6 +23,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -91,10 +92,13 @@ public class TimeseriesController {
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
 
-    AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+    AspectSpec aspectSpec =
+        RequestInputUtil.requireAspectSpec(entityRegistry.getEntitySpec(entityName), aspectName);
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
+    // The lookup is case-insensitive; use the registered name from here on.
+    final String canonicalAspectName = aspectSpec.getName();
 
     List<SortCriterion> sortCriteria =
         List.of(
@@ -105,7 +109,7 @@ public class TimeseriesController {
         timeseriesAspectService.scrollAspects(
             opContext,
             entityName,
-            aspectName,
+            canonicalAspectName,
             null,
             sortCriteria,
             scrollId,
@@ -118,7 +122,7 @@ public class TimeseriesController {
             .filter(
                 doc ->
                     TimeseriesAuthUtil.canReadAspect(
-                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, aspectName))
+                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, canonicalAspectName))
             .collect(Collectors.toList());
 
     return ResponseEntity.ok(
@@ -126,7 +130,7 @@ public class TimeseriesController {
             .scrollId(result.getScrollId())
             .results(
                 toGenericTimeseriesAspect(
-                    opContext, aspectName, authorizedDocs, withSystemMetadata))
+                    opContext, canonicalAspectName, authorizedDocs, withSystemMetadata))
             .build());
   }
 

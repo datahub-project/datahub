@@ -184,6 +184,19 @@ public class DataProductAssetsSideEffectTest {
   }
 
   @Test
+  public void testAssetOfUnknownEntityTypeIsSkipped() {
+    // After a version rollback a data product can list an asset of an entity type only a newer
+    // build knows; the known assets are still synced.
+    Urn unknownTypeAsset = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    ChangeItemImpl change = changeItem(propsWith(), ChangeType.UPSERT);
+    List<MCPItem> output = run(change, propsWith(DATASET_1, unknownTypeAsset));
+
+    assertEquals(output.size(), 1, "Expected a REMOVE patch for the known asset only: " + output);
+    assertEquals(
+        output.get(0), expectedAssetPatch(DATASET_1, PatchOperationType.REMOVE, false, change));
+  }
+
+  @Test
   public void testRemovedAssetGetsRemovePatch() {
     ChangeItemImpl change = changeItem(propsWith(DATASET_1), ChangeType.UPSERT);
     List<MCPItem> output = run(change, propsWith(DATASET_1, DATASET_2));

@@ -72,6 +72,20 @@ public class LoadIndicesStepTest {
     when(mockUpgradeContext.opContext()).thenReturn(mockOperationContext);
     when(mockOperationContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
     when(mockOperationContext.getActorContext()).thenReturn(mockActorContext);
+    EntitySpec defaultEntitySpec = mock(EntitySpec.class);
+    AspectSpec containerAspectSpec = mock(AspectSpec.class);
+    AspectSpec ownershipAspectSpec = mock(AspectSpec.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(defaultEntitySpec);
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
+    when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
+    when(defaultEntitySpec.getAspectSpec("container")).thenReturn(containerAspectSpec);
+    when(defaultEntitySpec.getAspectSpec("ownership")).thenReturn(ownershipAspectSpec);
+    when(containerAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.container.Container.class);
+    when(ownershipAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.common.Ownership.class);
+
+    stubUnconvertibleAspect("invalidAspect");
 
     // Mock authentication context
     com.datahub.authentication.Authentication mockAuth =
@@ -249,6 +263,91 @@ public class LoadIndicesStepTest {
     // Verify that updateIndicesService was called - it calls flush() instead of
     // handleChangeEvents()
     verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyDoesNotCountEventsTheWriteGaveUpOn() throws Exception {
+    // The three seeded rows convert, but every write fails: they are ignored, not processed.
+    doThrow(new RuntimeException("index unavailable"))
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container", "ownership");
+
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    LoadIndicesResult result =
+        (LoadIndicesResult)
+            method.invoke(
+                loadIndicesStep,
+                mockOperationContext,
+                args,
+                (java.util.function.Function<String, Void>) msg -> null);
+
+    verify(mockUpdateIndicesService, atLeastOnce()).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 3);
+    assertEquals(result.rowsProcessed, 0);
+  }
+
+  /**
+   * Registers an aspect whose data-template class cannot be resolved, so conversion fails. An
+   * aspect missing from the registry is skipped instead (rows written by a newer version).
+   */
+  private void stubUnconvertibleAspect(String aspectName) {
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getDataTemplateClass()).thenThrow(new IllegalStateException("unconvertible"));
+    when(mockEntityRegistry.getEntitySpec("dataset").getAspectSpec(aspectName))
+        .thenReturn(aspectSpec);
+  }
+
+  @Test
+  public void testProcessAllDataDirectlySkipsRowsUnknownToRegistry() throws Exception {
+    // Rows written by a newer version: an aspect unknown on a known entity type, and a shared
+    // aspect name on an entity type this registry does not know. Neither may fail the run, even
+    // with skipConversionErrors off.
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleFuture,PROD)",
+        "futureAspect",
+        0,
+        Instant.now(),
+        "testUser");
+    insertTestRow("urn:li:futureEntity:fe1", "ownership", 0, Instant.now(), "testUser");
+    when(mockEntityRegistry.getEntitySpec("futureEntity"))
+        .thenThrow(new IllegalArgumentException("Failed to find entity with name futureEntity"));
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container", "ownership", "futureAspect");
+
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    LoadIndicesResult result =
+        (LoadIndicesResult)
+            method.invoke(
+                loadIndicesStep,
+                mockOperationContext,
+                args,
+                (java.util.function.Function<String, Void>) msg -> null);
+
+    assertEquals(result.unknownToRegistrySkipped, 2L);
+    assertEquals(result.ignored, 0);
   }
 
   @Test
@@ -1331,20 +1430,20 @@ public class LoadIndicesStepTest {
     LoadIndicesArgs args = new LoadIndicesArgs();
     args.batchSize = 2; // Small batch size to trigger batch processing
     args.limit = 10;
-    args.aspectNames = java.util.List.of("container", "ownership");
+    args.aspectNames = java.util.List.of("invalidAspect");
 
-    // Add test rows with invalid metadata to cause conversion errors
+    // Rows of an aspect whose data-template class cannot be resolved, so conversion fails
     // This will create a batch that is not empty but all aspects fail conversion
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset1,PROD)",
-        "container",
+        "invalidAspect",
         0,
         Instant.now(),
         "testUser");
 
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset2,PROD)",
-        "ownership",
+        "invalidAspect",
         0,
         Instant.now(),
         "testUser");

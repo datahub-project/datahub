@@ -8,11 +8,12 @@ public class LoadIndicesResult {
   public int ignored = 0;
   public long timeSqlQueryMs = 0;
   public long timeElasticsearchWriteMs = 0;
+  public long unknownToRegistrySkipped = 0;
 
   @Override
   public String toString() {
     return String.format(
-        "LoadIndicesResult{rowsProcessed=%d, ignored=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d}",
-        rowsProcessed, ignored, timeSqlQueryMs, timeElasticsearchWriteMs);
+        "LoadIndicesResult{rowsProcessed=%d, ignored=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, unknownToRegistrySkipped=%d}",
+        rowsProcessed, ignored, timeSqlQueryMs, timeElasticsearchWriteMs, unknownToRegistrySkipped);
   }
 }

@@ -9,6 +9,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
@@ -16,6 +17,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.util.Pair;
 import java.util.*;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -434,10 +436,15 @@ public class ReindexConfig {
     public ReindexConfig build() {
       if (super.exists) {
         /* Consider mapping changes */
+        final Map<String, Object> targetProperties =
+            normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES)));
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES))),
-                normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES))));
+                withoutFieldsMissingFromTarget(
+                    normalizeMapForComparison(
+                        getOrDefault(super.currentMappings, List.of(PROPERTIES))),
+                    targetProperties),
+                targetProperties);
 
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
@@ -987,6 +994,43 @@ public class ReindexConfig {
      * @param targetMappings target mappings
      * @return difference map
      */
+    /**
+     * Drops field definitions (keys of a {@code properties} map, at any depth) that the live
+     * mapping has and the target doesn't. After a rollback the live index was built by a newer
+     * version whose mapping is a superset of this version's, e.g. fields of aspects only it knows.
+     * Those fields don't need this version's reindex; top-level ones were already ignored, and this
+     * applies the same rule to nested objects such as {@code _aspects}. Field parameters are not
+     * dropped, so removing one (e.g. {@code ignore_above}) still counts as a change.
+     */
+    @SuppressWarnings("unchecked")
+    @VisibleForTesting
+    static Map<String, Object> withoutFieldsMissingFromTarget(
+        @Nonnull Map<String, Object> currentProperties,
+        @Nonnull Map<String, Object> targetProperties) {
+      final Map<String, Object> result = new TreeMap<>();
+      for (Map.Entry<String, Object> field : currentProperties.entrySet()) {
+        final Object targetField = targetProperties.get(field.getKey());
+        if (targetField == null) {
+          continue;
+        }
+        Object currentField = field.getValue();
+        if (currentField instanceof Map
+            && targetField instanceof Map
+            && ((Map<String, Object>) currentField).get(PROPERTIES) instanceof Map
+            && ((Map<String, Object>) targetField).get(PROPERTIES) instanceof Map) {
+          final Map<String, Object> pruned = new TreeMap<>((Map<String, Object>) currentField);
+          pruned.put(
+              PROPERTIES,
+              withoutFieldsMissingFromTarget(
+                  (Map<String, Object>) ((Map<String, Object>) currentField).get(PROPERTIES),
+                  (Map<String, Object>) ((Map<String, Object>) targetField).get(PROPERTIES)));
+          currentField = pruned;
+        }
+        result.put(field.getKey(), currentField);
+      }
+      return result;
+    }
+
     private static MapDifference<String, Object> calculateMapDifference(
         Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
       // Identify dynamic fields in target (fields with dynamic=true) - recursively search all

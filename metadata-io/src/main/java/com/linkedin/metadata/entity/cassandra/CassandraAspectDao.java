@@ -45,6 +45,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -501,9 +502,21 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     String keyAspectName = opContext.getKeyAspectName(urnObj);
     String entityType = urnObj.getEntityType();
 
-    // Get all aspect names for this entity type
+    // Get all aspect names for this entity type, plus the ones actually stored for this urn: rows
+    // of aspects this registry doesn't know (written by a newer version before a rollback) must be
+    // deleted too, or they would come back after re-upgrading.
     Set<String> allAspectNames =
-        opContext.getEntityRegistryContext().getEntityAspectNames(entityType);
+        new HashSet<>(opContext.getEntityRegistryContext().getEntityAspectNames(entityType));
+    SimpleStatement storedAspects =
+        selectFrom(CassandraAspect.TABLE_NAME)
+            .column(CassandraAspect.ASPECT_COLUMN)
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isEqualTo(literal(urn))
+            .build();
+    _cqlSession
+        .execute(storedAspects)
+        .all()
+        .forEach(row -> allAspectNames.add(row.getString(CassandraAspect.ASPECT_COLUMN)));
 
     // Create list of non-key aspect names
     List<String> nonKeyAspectNames =

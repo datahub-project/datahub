@@ -8,6 +8,7 @@ import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Incident;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
@@ -20,6 +21,8 @@ import com.linkedin.datahub.graphql.generated.IncidentType;
 import com.linkedin.datahub.graphql.generated.OwnerType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -27,6 +30,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.incident.IncidentAssignee;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -35,7 +39,10 @@ import lombok.extern.slf4j.Slf4j;
 /** Maps a GMS {@link EntityResponse} to a GraphQL incident. */
 @Slf4j
 public class IncidentMapper {
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(IncidentMapper.class, "incident");
 
+  @Nullable
   public static Incident map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Incident result = new Incident();
     final Urn entityUrn = entityResponse.getUrn();
@@ -47,14 +54,28 @@ public class IncidentMapper {
     if (envelopedIncidentInfo != null) {
       final IncidentInfo info = new IncidentInfo(envelopedIncidentInfo.getValue().data());
       // Assumption alert! This assumes the incident type in GMS exactly equals that in GraphQL
-      result.setIncidentType(IncidentType.valueOf(info.getType().name()));
+      // A type only a newer version knows (e.g. after a rollback) shows as CUSTOM.
+      result.setIncidentType(
+          PdlEnumMapper.map(IncidentType.class, info.getType(), IncidentType.CUSTOM));
       result.setCustomType(info.getCustomType(GetMode.NULL));
       result.setTitle(info.getTitle(GetMode.NULL));
       result.setDescription(info.getDescription(GetMode.NULL));
       result.setPriority(mapPriority(info.getPriority(GetMode.NULL)));
       result.setAssignees(mapAssignees(info.getAssignees(GetMode.NULL)));
       // TODO: Support multiple entities per incident.
-      result.setEntity(UrnToEntityMapper.map(context, info.getEntities().get(0)));
+      // Incident.entity is non-null: use the first linked entity GraphQL can map, skipping entity
+      // types the registry doesn't know (e.g. after a rollback). With none left the incident can't
+      // be represented, so it is skipped rather than nulling the list or object that holds it.
+      final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
+      if (linkedEntity == null) {
+        UNREPRESENTABLE.skippedBecause(
+            KnownEntities.metrics(context),
+            "incident",
+            "none of its entities can be represented",
+            entityUrn);
+        return null;
+      }
+      result.setEntity(linkedEntity);
       if (info.hasStartedAt()) {
         result.setStartedAt(info.getStartedAt());
       }
@@ -83,11 +104,14 @@ public class IncidentMapper {
   private static IncidentStatus mapStatus(
       @Nullable QueryContext context, final com.linkedin.incident.IncidentStatus incidentStatus) {
     final IncidentStatus result = new IncidentStatus();
-    result.setState(IncidentState.valueOf(incidentStatus.getState().name()));
+    // A state only a newer version knows (e.g. after a rollback) shows as ACTIVE, so the incident
+    // stays visible as open rather than looking resolved.
+    result.setState(
+        PdlEnumMapper.map(IncidentState.class, incidentStatus.getState(), IncidentState.ACTIVE));
     result.setMessage(incidentStatus.getMessage(GetMode.NULL));
     result.setLastUpdated(AuditStampMapper.map(context, incidentStatus.getLastUpdated()));
     if (incidentStatus.hasStage()) {
-      result.setStage(IncidentStage.valueOf(incidentStatus.getStage().toString()));
+      result.setStage(PdlEnumMapper.mapDefaultNull(IncidentStage.class, incidentStatus.getStage()));
     }
     return result;
   }

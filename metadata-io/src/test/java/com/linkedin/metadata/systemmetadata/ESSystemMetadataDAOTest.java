@@ -20,6 +20,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import org.mockito.ArgumentCaptor;
@@ -73,6 +74,36 @@ public class ESSystemMetadataDAOTest {
     dao.upsertDocument(opContext, "doc-1", "{}");
     verify(mockBulkProcessor)
         .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+  }
+
+  @Test
+  public void findByRunIdAfterFailsInsteadOfReturningAnEmptyPage() throws IOException {
+    // An empty page would end a rollback's scan as if every row had been seen.
+    when(mockClient.search(any(OperationContext.class), any(SearchRequest.class), any()))
+        .thenThrow(new IOException("search unavailable"));
+    ESSystemMetadataDAO pagingDao =
+        new ESSystemMetadataDAO(
+            mockClient,
+            TEST_INDEX_CONVENTION,
+            mockBulkProcessor,
+            0,
+            SearchTestUtils.TEST_SYSTEM_METADATA_SERVICE_CONFIG);
+
+    expectThrows(
+        UncheckedIOException.class,
+        () ->
+            pagingDao.findByRunIdAfter(
+                opContext, "run-1", false, "urn:li:dataset:a", "status", 10));
+  }
+
+  @Test
+  public void findByRunIdAfterRejectsAPartialCursor() {
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> dao.findByRunIdAfter(opContext, "run-1", false, "urn:li:dataset:a", null, 10));
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> dao.findByRunIdAfter(opContext, "run-1", false, null, "status", 10));
   }
 
   @Test

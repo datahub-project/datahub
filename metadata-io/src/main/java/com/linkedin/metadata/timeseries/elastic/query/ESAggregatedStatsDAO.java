@@ -384,12 +384,12 @@ public class ESAggregatedStatsDAO {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     if (aspectSpec == null) {
-      new IllegalArgumentException(
-          String.format("Unrecognized aspect name {} for entity {}", aspectName, entityName));
+      throw new IllegalArgumentException(
+          String.format("Unrecognized aspect name %s for entity %s", aspectName, entityName));
     } else if (!aspectSpec.isTimeseries()) {
-      new IllegalArgumentException(
+      throw new IllegalArgumentException(
           String.format(
-              "aspect name {} for entity {} is not a timeseries aspect", aspectName, entityName));
+              "aspect name %s for entity %s is not a timeseries aspect", aspectName, entityName));
     }
 
     return aspectSpec;

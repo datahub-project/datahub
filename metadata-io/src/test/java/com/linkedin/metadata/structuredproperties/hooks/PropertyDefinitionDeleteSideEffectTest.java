@@ -212,6 +212,74 @@ public class PropertyDefinitionDeleteSideEffectTest {
     assertEquals(((PatchMCP) result.get(0)).getPatch(), expectedPatch);
   }
 
+  @Test
+  public void testDeletePropertyDefinitionSkipsEntityTypesUnknownToRegistry() throws Exception {
+    // After a version rollback a definition can list entity types only a newer build knows.
+    // Searching them would fail the whole scroll, so only known types are searched, and a hit of
+    // an unknown type is not patched.
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(
+                        UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                        UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"))));
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setPageSize(2);
+    scrollResult.setNumEntities(2);
+    scrollResult.setEntities(
+        new SearchEntityArray(
+            List.of(
+                new SearchEntity().setEntity(TEST_DATASET_URN),
+                new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")))));
+    when(mockSearchRetriever.scroll(
+            eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt()))
+        .thenReturn(scrollResult);
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    verify(mockSearchRetriever, times(1))
+        .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getUrn(), TEST_DATASET_URN);
+  }
+
+  @Test
+  public void testDeletePropertyDefinitionWithOnlyUnknownEntityTypesDoesNotScroll()
+      throws Exception {
+    // An empty type list must not reach the scroll, where it would search every entity type.
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"))));
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    assertEquals(result.size(), 0);
+    verify(mockSearchRetriever, times(0)).scroll(any(), any(), nullable(String.class), anyInt());
+  }
+
+  private List<MCPItem> runDefinitionDelete(StructuredPropertyDefinition definition) {
+    PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    return test.postMCPSideEffect(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCL.builder()
+                    .changeType(ChangeType.DELETE)
+                    .urn(TEST_PROPERTY_URN)
+                    .entitySpec(TEST_REGISTRY.getEntitySpec("structuredProperty"))
+                    .aspectSpec(
+                        TEST_REGISTRY
+                            .getEntitySpec("structuredProperty")
+                            .getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                    .previousRecordTemplate(definition)
+                    .build()),
+            retrieverContext)
+        .collect(Collectors.toList());
+  }
+
   private static Filter expectedFilter() {
     Filter propertyFilter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();

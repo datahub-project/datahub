@@ -28,10 +28,7 @@ public class UrnScrollResultsMapper<T extends RecordTemplate, E extends Entity> 
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    result.setSearchResults(
-        input.getEntities().stream()
-            .map(r -> MapperUtils.mapResult(context, r))
-            .collect(Collectors.toList()));
+    result.setSearchResults(UrnSearchResultsMapper.mapKnownResults(context, input.getEntities()));
     result.setFacets(
         searchResultMetadata.getAggregations().stream()
             .map(f -> MapperUtils.mapFacet(context, f))

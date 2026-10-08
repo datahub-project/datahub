@@ -47,6 +47,18 @@ public interface SystemMetadataService {
       int from,
       @Nullable Integer size);
 
+  /**
+   * Rows of a run sorted by urn and aspect, starting after {@code after} (or from the first row
+   * when null). Paging by position rather than offset is stable while rows are deleted and isn't
+   * bound by the search result window, so callers can page past rows that stay in the index.
+   */
+  List<AspectRowSummary> findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      @Nullable AspectRowSummary after,
+      int size);
+
   List<AspectRowSummary> findByUrn(
       @Nonnull OperationContext opContext,
       String urn,
