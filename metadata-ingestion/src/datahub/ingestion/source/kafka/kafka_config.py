@@ -19,6 +19,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     SCHEMA_REGISTRY_BASIC_AUTH_KEY,
     OffsetResetStrategy,
     SamplingStrategy,
+    WriteSemantics,
 )
 from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -117,7 +118,17 @@ class KafkaSourceConfig(
     )
     schema_tags_field: str = Field(
         default="tags",
-        description="The field name in the schema metadata that contains the tags to be added to the dataset.",
+        description="The field name in the schema metadata that contains the tags to be added to the dataset. "
+        "Read from Avro props, JSON Schema keywords and Protobuf custom options, at topic and field level. "
+        "A dotted path reaches into nested annotations, e.g. `acme.event.tags`.",
+    )
+    write_semantics: WriteSemantics = Field(
+        default=WriteSemantics.PATCH,
+        description="How topic-level tags, glossary terms, owners and structured properties from the schema "
+        "meet the ones already in DataHub. `PATCH` merges: edits made in the UI or by other sources are kept "
+        "and only owners this source added (and tags with `tag_prefix`, when set) are replaced. `OVERRIDE` "
+        "replaces them with the schema's. `PATCH` reads the current values from DataHub, so without a "
+        "DataHub connection (e.g. a file sink) the source falls back to `OVERRIDE`.",
     )
     enable_meta_mapping: bool = Field(
         default=True,

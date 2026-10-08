@@ -29,8 +29,10 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CONSUMER_TIMEOUT_SECONDS,
     OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS,
+    SCHEMA_RECORD_NAME_PROPERTY,
     SCHEMA_TYPE_AVRO,
     SamplingStrategy,
+    WriteSemantics,
 )
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
@@ -66,6 +68,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -85,6 +88,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.confluent.models import (
     BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES,
@@ -100,8 +104,15 @@ from datahub.ingestion.source.kafka.kafka_profiler import (
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
+    DocumentSchemaMeta,
     KafkaSchemaRegistryBase,
     SchemaAndFields,
+    get_schema_prop,
+)
+from datahub.ingestion.source.kafka.kafka_write_semantics import (
+    merge_owners,
+    merge_tags,
+    merge_terms,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -114,9 +125,13 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    StructuredPropertiesClass,
 )
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
@@ -395,6 +410,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 self.source_config.strip_user_ids_from_email,
                 match_nested_props=True,
             )
+            self.field_meta_processor = OperationProcessor(
+                self.source_config.field_meta_mapping,
+                self.source_config.tag_prefix,
+                OwnershipSourceTypeClass.SERVICE,
+                self.source_config.strip_user_ids_from_email,
+                match_nested_props=True,
+            )
+            self._warned_patch_without_graph = False
 
             catalog_config = self.source_config.confluent_catalog
             self.topic_catalog = self._create_topic_catalog(catalog_config)
@@ -1232,45 +1255,44 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         external_url: Optional[str] = None
         all_tags: List[str] = []
 
-        # In Kafka both documentSchema and keySchema contain a "doc" field; the
-        # dataset description maps to documentSchema's "doc".
-        if (
-            schema_metadata is not None
-            and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
-            and schema_metadata.platformSchema.documentSchemaType == SCHEMA_TYPE_AVRO
-        ):
-            avro_schema = avro.schema.parse(
-                schema_metadata.platformSchema.documentSchema,
-                validate_names=False,
-            )
-            description = getattr(avro_schema, "doc", None)
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+        )
+        patch_with_graph = self._patch_with_graph()
+        structured_properties: Optional[StructuredPropertiesClass] = None
 
-            try:
-                schema_tags = cast(
-                    Iterable[str],
-                    avro_schema.other_props.get(
-                        self.source_config.schema_tags_field, []
-                    ),
-                )
-                for tag in schema_tags:
-                    all_tags.append(self.source_config.tag_prefix + tag)
-            except TypeError as e:
-                self.report.warning(
-                    message="Unable to extract tags from schema field. Expected an array of strings.",
-                    context=f"{dataset_name} (field: {self.source_config.schema_tags_field})",
-                    title="Unable to extract tags from schema field",
-                    exc=e,
-                )
+        # In Kafka both documentSchema and keySchema carry annotations; the dataset's
+        # description, tags, owners and terms come from the value (document) schema.
+        document_meta = self._get_document_schema_meta(schema_metadata, dataset_name)
+        if document_meta is not None:
+            description = document_meta.description
+            if document_meta.name and not is_subject:
+                custom_props[SCHEMA_RECORD_NAME_PROPERTY] = document_meta.name
+            all_tags += self._schema_tags(document_meta.props, dataset_name)
 
             if self.source_config.enable_meta_mapping:
-                meta_aspects = self.meta_processor.process(avro_schema.other_props)
+                meta_aspects = self.meta_processor.process(document_meta.props)
 
                 meta_owners_aspect = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
                 if meta_owners_aspect:
+                    if patch_with_graph:
+                        meta_owners_aspect = merge_owners(
+                            patch_with_graph,
+                            dataset_urn,
+                            meta_owners_aspect,
+                            OwnershipSourceTypeClass.SERVICE,
+                        )
                     extra_aspects.append(meta_owners_aspect)
 
                 meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
                 if meta_terms_aspect:
+                    if patch_with_graph:
+                        meta_terms_aspect = merge_terms(
+                            patch_with_graph, dataset_urn, meta_terms_aspect
+                        )
                     extra_aspects.append(meta_terms_aspect)
 
                 meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
@@ -1279,6 +1301,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         tag_association.tag[len("urn:li:tag:") :]
                         for tag_association in meta_tags_aspect.tags
                     ]
+
+                structured_properties = meta_aspects.get(
+                    Constants.ADD_STRUCTURED_PROPERTY_OPERATION
+                )
 
         if not is_subject:
             self._apply_catalog_metadata(topic, all_tags, custom_props)
@@ -1298,6 +1324,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         tag_urns = (
             [make_tag_urn(tag) for tag in dict.fromkeys(all_tags)] if all_tags else None
         )
+        if tag_urns and patch_with_graph:
+            tag_urns = merge_tags(
+                patch_with_graph, dataset_urn, tag_urns, self.source_config.tag_prefix
+            )
+        yield from self._structured_property_workunits(
+            dataset_urn, structured_properties, patch_with_graph is not None
+        )
+        if schema_metadata is not None and self.source_config.enable_meta_mapping:
+            yield from self._field_structured_property_workunits(
+                dataset_urn, schema_metadata, patch_with_graph is not None
+            )
         yield Dataset(
             platform=self.platform,
             name=dataset_name,
@@ -1312,6 +1349,100 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             domain=domain_urn,
             extra_aspects=extra_aspects,
         )
+
+    def _patch_with_graph(self) -> Optional[DataHubGraph]:
+        """The graph to merge against under PATCH write semantics, else None (OVERRIDE)."""
+        if self.source_config.write_semantics != WriteSemantics.PATCH:
+            return None
+        if self.ctx.graph is None:
+            if not self._warned_patch_without_graph:
+                self._warned_patch_without_graph = True
+                self.report.info(
+                    title="write_semantics PATCH needs a DataHub connection",
+                    message="No DataHub graph is available (for example a file sink), so tags, "
+                    "terms, owners and structured properties from schemas replace existing ones "
+                    "(OVERRIDE).",
+                )
+            return None
+        return self.ctx.graph
+
+    def _get_document_schema_meta(
+        self, schema_metadata: Optional[SchemaMetadataClass], dataset_name: str
+    ) -> Optional[DocumentSchemaMeta]:
+        if schema_metadata is None:
+            return None
+        try:
+            return self.schema_registry_client.get_document_schema_meta(schema_metadata)
+        except Exception as e:
+            self.report.warning(
+                title="Unable to read schema-level metadata",
+                message="The topic is ingested without its schema description, tags, owners "
+                "and terms.",
+                context=dataset_name,
+                exc=e,
+            )
+            return None
+
+    def _schema_tags(self, props: Dict[str, Any], dataset_name: str) -> List[str]:
+        raw_tags = get_schema_prop(props, self.source_config.schema_tags_field)
+        if raw_tags is None:
+            return []
+        if isinstance(raw_tags, str):
+            raw_tags = [raw_tags]
+        if not isinstance(raw_tags, list) or not all(
+            isinstance(tag, str) for tag in raw_tags
+        ):
+            self.report.warning(
+                message="Unable to extract tags from schema field. Expected an array of strings.",
+                context=f"{dataset_name} (field: {self.source_config.schema_tags_field})",
+                title="Unable to extract tags from schema field",
+            )
+            return []
+        return [self.source_config.tag_prefix + tag for tag in raw_tags]
+
+    def _structured_property_workunits(
+        self,
+        entity_urn: str,
+        structured_properties: Optional[StructuredPropertiesClass],
+        patch: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        if structured_properties is None or not structured_properties.properties:
+            return
+        if not patch:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=entity_urn, aspect=structured_properties
+            ).as_workunit()
+            return
+        builder = HasStructuredPropertiesPatch(entity_urn)
+        for assignment in structured_properties.properties:
+            builder.set_structured_property(
+                assignment.propertyUrn, list(assignment.values)
+            )
+        for mcp in builder.build():
+            yield MetadataWorkUnit(
+                id=f"{entity_urn}-structuredProperties-patch", mcp_raw=mcp
+            )
+
+    def _field_structured_property_workunits(
+        self, dataset_urn: str, schema_metadata: SchemaMetadataClass, patch: bool
+    ) -> Iterable[MetadataWorkUnit]:
+        # Structured properties live on schemaField entities, not inside schemaMetadata,
+        # so they are emitted separately (as the dbt source does for columns).
+        for schema_field in schema_metadata.fields:
+            if not schema_field.jsonProps:
+                continue
+            try:
+                props = json.loads(schema_field.jsonProps)
+            except ValueError:
+                continue
+            if not isinstance(props, dict):
+                continue
+            field_aspects = self.field_meta_processor.process(props)
+            yield from self._structured_property_workunits(
+                make_schema_field_urn(dataset_urn, schema_field.fieldPath),
+                field_aspects.get(Constants.ADD_STRUCTURED_PROPERTY_OPERATION),
+                patch,
+            )
 
     def _apply_catalog_metadata(
         self, topic: str, all_tags: List[str], custom_props: Dict[str, str]

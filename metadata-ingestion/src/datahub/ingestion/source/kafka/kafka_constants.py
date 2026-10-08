@@ -36,6 +36,16 @@ SCHEMA_TYPE_AVRO = "AVRO"
 SCHEMA_TYPE_PROTOBUF = "PROTOBUF"
 SCHEMA_TYPE_JSON = "JSON"
 
+# Topic custom property naming the value schema's record / message / title.
+SCHEMA_RECORD_NAME_PROPERTY = "Schema Record Name"
+
+
+class WriteSemantics(StrEnum):
+    # Merge with what is already on the entity; replace only what this source wrote.
+    PATCH = "PATCH"
+    # Replace the tags, terms and owners on the entity with the schema's.
+    OVERRIDE = "OVERRIDE"
+
 
 # Coarse field categories the profiler assigns to each field. STRING doubles as
 # the "not yet determined" sentinel during type detection.

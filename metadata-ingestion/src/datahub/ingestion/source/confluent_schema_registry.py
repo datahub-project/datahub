@@ -16,21 +16,32 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.emitter import mce_builder
 from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
+from datahub.ingestion.source.kafka.kafka_constants import (
+    SCHEMA_TYPE_JSON,
+    SCHEMA_TYPE_PROTOBUF,
+)
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
+    DocumentSchemaMeta,
     KafkaSchemaRegistryBase,
     SchemaAndFields,
+    get_schema_prop,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import OwnershipSourceTypeClass
-from datahub.utilities.mapping import OperationProcessor
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    OwnershipSourceTypeClass,
+    TagAssociationClass,
+)
+from datahub.utilities.mapping import Constants, OperationProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +113,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             self.source_config.strip_user_ids_from_email,
             match_nested_props=True,
         )
+        # Protobuf value-schema annotations by schema text digest; `get_document_schema_meta`
+        # cannot recompute them because SchemaMetadata does not carry the references.
+        self._protobuf_document_meta: Dict[str, DocumentSchemaMeta] = {}
 
     @classmethod
     def create(
@@ -429,17 +443,32 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     self.get_schemas_from_confluent_ref_protobuf(schema)
                 )
                 base_name: str = topic.replace(".", "_")
-                fields = protobuf_util.protobuf_schema_to_mce_fields(
-                    ProtobufSchema(
-                        (
-                            f"{base_name}-key.proto"
-                            if is_key_schema
-                            else f"{base_name}-value.proto"
-                        ),
-                        schema.schema_str if schema.schema_str is not None else "",
+                main_schema = ProtobufSchema(
+                    (
+                        f"{base_name}-key.proto"
+                        if is_key_schema
+                        else f"{base_name}-value.proto"
                     ),
+                    schema.schema_str if schema.schema_str is not None else "",
+                )
+                annotations = protobuf_util.get_protobuf_annotations(
+                    main_schema, list(imported_schemas)
+                )
+                if not is_key_schema and annotations.main_message:
+                    main = annotations.messages.get(annotations.main_message)
+                    if main:
+                        self._protobuf_document_meta[
+                            md5(main_schema.content.encode()).hexdigest()
+                        ] = DocumentSchemaMeta(
+                            description=main.description,
+                            props=main.props,
+                            name=annotations.main_message,
+                        )
+                fields = protobuf_util.protobuf_schema_to_mce_fields(
+                    main_schema,
                     imported_schemas,
                     is_key_schema=is_key_schema,
+                    annotations=annotations,
                 )
                 # protobuf_schema_to_mce_fields returns [] (not raises) on compile
                 # failures like a duplicate symbol from a shared message type, so
@@ -480,7 +509,74 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 context=f"schema_type={schema.schema_type}, topic={topic}",
                 log=False,
             )
+        if schema.schema_type in (SCHEMA_TYPE_JSON, SCHEMA_TYPE_PROTOBUF):
+            # Avro applies these while it walks the schema; JSON Schema and Protobuf
+            # fields carry their annotations in jsonProps, so apply them here.
+            self._apply_field_annotations(fields)
         return fields
+
+    def _apply_field_annotations(self, fields: List[SchemaField]) -> None:
+        for schema_field in fields:
+            if not schema_field.jsonProps:
+                continue
+            try:
+                props = json.loads(schema_field.jsonProps)
+            except ValueError:
+                continue
+            if not isinstance(props, dict):
+                continue
+
+            tags: List[str] = []
+            if self.source_config.schema_tags_field:
+                raw_tags = get_schema_prop(props, self.source_config.schema_tags_field)
+                if isinstance(raw_tags, str):
+                    raw_tags = [raw_tags]
+                if isinstance(raw_tags, list):
+                    tags += [
+                        self.source_config.tag_prefix + tag
+                        for tag in raw_tags
+                        if isinstance(tag, str)
+                    ]
+            terms: List[str] = []
+            if self.source_config.enable_meta_mapping:
+                meta_aspects = self.field_meta_processor.process(props)
+                meta_tags = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+                if meta_tags:
+                    tags += [tag.tag[len("urn:li:tag:") :] for tag in meta_tags.tags]
+                meta_terms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
+                if meta_terms:
+                    terms += [term.urn for term in meta_terms.terms]
+
+            if tags:
+                existing = (
+                    schema_field.globalTags.tags if schema_field.globalTags else []
+                )
+                schema_field.globalTags = GlobalTagsClass(
+                    tags=existing
+                    + [
+                        TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
+                        for tag in dict.fromkeys(tags)
+                    ]
+                )
+            if terms:
+                schema_field.glossaryTerms = (
+                    mce_builder.make_glossary_terms_aspect_from_urn_list(
+                        list(dict.fromkeys(terms))
+                    )
+                )
+
+    def get_document_schema_meta(
+        self, schema_metadata: SchemaMetadata
+    ) -> Optional[DocumentSchemaMeta]:
+        platform_schema = schema_metadata.platformSchema
+        if (
+            isinstance(platform_schema, KafkaSchema)
+            and platform_schema.documentSchemaType == SCHEMA_TYPE_PROTOBUF
+        ):
+            return self._protobuf_document_meta.get(
+                md5(platform_schema.documentSchema.encode()).hexdigest()
+            )
+        return super().get_document_schema_meta(schema_metadata)
 
     def get_schema_metadata(
         self, topic: str, platform_urn: str, is_subject: bool
