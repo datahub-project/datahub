@@ -6,7 +6,19 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 
 from opensearchpy import OpenSearch
 from pydantic import field_validator
@@ -15,6 +27,8 @@ from pydantic.fields import Field
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
+    Enables,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
@@ -28,6 +42,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -39,6 +54,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.elastic_search_selection import (
+    index_template_verdict,
+    index_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -305,14 +324,18 @@ class ElasticsearchSourceConfig(
         default="",
         description="There are cases where an enterprise would have multiple elastic search clusters. One way for them to manage is to have a single endpoint for all the elastic search clusters and use url_prefix for routing requests to different clusters.",
     )
-    index_pattern: AllowDenyPattern = Field(
+    index_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.ELASTIC_INDEX)
+    ] = Field(
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*", "^ilm-history.*"]),
         description="regex patterns for indexes to filter in ingestion.",
     )
-    ingest_index_templates: bool = Field(
-        default=False, description="Ingests ES index templates if enabled."
-    )
-    index_template_pattern: AllowDenyPattern = Field(
+    ingest_index_templates: Annotated[
+        bool, Enables(DatasetSubTypes.ELASTIC_INDEX_TEMPLATE)
+    ] = Field(default=False, description="Ingests ES index templates if enabled.")
+    index_template_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.ELASTIC_INDEX_TEMPLATE)
+    ] = Field(
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
         description="The regex patterns for filtering index templates to ingest.",
     )
@@ -355,6 +378,43 @@ class ElasticsearchSourceConfig(
             )
         )
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: ingestion never loads the probe module.
+        from datahub.ingestion.source.elastic_search_probe import (
+            ElasticsearchMetadataProbe,
+        )
+
+        return ElasticsearchMetadataProbe
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind == DatasetSubTypes.ELASTIC_INDEX:
+            verdict_of = index_verdict
+        elif ctx.kind == DatasetSubTypes.ELASTIC_INDEX_TEMPLATE:
+            if ctx.structural is not None:
+                return ctx.structural
+            verdict_of = index_template_verdict
+        else:
+            return None
+        mapped = ctx.attributes.get("mapped_fields")
+        if mapped is None or not mapped.isdigit():
+            ctx.warn(
+                "judged on the pattern only: ingestion also skips an index or "
+                "template whose mappings hold no field, which only a listing "
+                "knows; judge `probe run` output with `probe filter --from-run` "
+                "to apply that rule too"
+            )
+            return verdict_of(self, ctx.target, None)
+        return verdict_of(self, ctx.target, int(mapped))
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        if kind in (
+            DatasetSubTypes.ELASTIC_INDEX,
+            DatasetSubTypes.ELASTIC_INDEX_TEMPLATE,
+        ):
+            return ()
+        return None
+
 
 def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
     # An (id, api_key) pair is base64-encoded as "id:api_key"; a plain string is passed
@@ -364,6 +424,30 @@ def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
     else:
         token = api_key
     return f"ApiKey {token}"
+
+
+def create_elasticsearch_client(config: ElasticsearchSourceConfig) -> OpenSearch:
+    """The client ingestion reads through."""
+    # opensearch-py has no api_key param and silently drops unknown kwargs, so it must be
+    # sent as an Authorization header instead.
+    extra_client_args: Dict[str, Any] = {}
+    if config.api_key is not None:
+        extra_client_args["headers"] = {
+            "Authorization": _api_key_authorization(config.api_key)
+        }
+    return OpenSearch(
+        config.host,
+        http_auth=config.http_auth,
+        use_ssl=config.use_ssl,
+        verify_certs=config.verify_certs,
+        ca_certs=config.ca_certs,
+        client_cert=config.client_cert,
+        client_key=config.client_key,
+        ssl_assert_hostname=config.ssl_assert_hostname,
+        ssl_assert_fingerprint=config.ssl_assert_fingerprint,
+        url_prefix=config.url_prefix,
+        **extra_client_args,
+    )
 
 
 @platform_name("Elasticsearch")
@@ -381,26 +465,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
-        # opensearch-py has no api_key param and silently drops unknown kwargs, so it must be
-        # sent as an Authorization header instead.
-        extra_client_args: Dict[str, Any] = {}
-        if self.source_config.api_key is not None:
-            extra_client_args["headers"] = {
-                "Authorization": _api_key_authorization(self.source_config.api_key)
-            }
-        self.client = OpenSearch(
-            self.source_config.host,
-            http_auth=self.source_config.http_auth,
-            use_ssl=self.source_config.use_ssl,
-            verify_certs=self.source_config.verify_certs,
-            ca_certs=self.source_config.ca_certs,
-            client_cert=self.source_config.client_cert,
-            client_key=self.source_config.client_key,
-            ssl_assert_hostname=self.source_config.ssl_assert_hostname,
-            ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
-            url_prefix=self.source_config.url_prefix,
-            **extra_client_args,
-        )
+        self.client = create_elasticsearch_client(self.source_config)
         self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
@@ -418,7 +483,9 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
         for index in indices:
             self.report.report_index_scanned(index)
 
-            if self.source_config.index_pattern.allowed(index):
+            # Matched against the concrete index, a data stream's backing index
+            # included; the stream name only replaces it in _extract_mcps.
+            if index_verdict(self.source_config, index, None).included:
                 for mcp in self._extract_mcps(index, is_index=True):
                     yield mcp.as_workunit()
             else:
@@ -430,7 +497,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             # Fetch legacy index templates
             legacy_templates = self.client.indices.get_template()
             for template in legacy_templates:
-                if self.source_config.index_template_pattern.allowed(template):
+                if index_template_verdict(self.source_config, template, None).included:
                     for mcp in self._extract_mcps(template, is_index=False):
                         yield mcp.as_workunit()
 
@@ -439,8 +506,11 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
                 composable_templates = self.client.indices.get_index_template()
                 for template_info in composable_templates.get("index_templates", []):
                     template = template_info.get("name")
-                    if template and self.source_config.index_template_pattern.allowed(
+                    if (
                         template
+                        and index_template_verdict(
+                            self.source_config, template, None
+                        ).included
                     ):
                         for mcp in self._extract_mcps(
                             template, is_index=False, is_composable_template=True
@@ -558,6 +628,8 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
         schema_fields = list(
             ElasticToSchemaFieldConverter.get_schema_fields(index_mappings)
         )
+        # elastic_search_selection.NO_MAPPED_FIELDS_RULE: the probe's verdicts
+        # count the same fields.
         if not schema_fields:
             return
 
