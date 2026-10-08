@@ -6,7 +6,7 @@
     "copyName.tooltip": "Копировать полное имя {{type}}",
     "copyUrn.label": "Копировать URN",
     "copyUrn.success": "URN скопирован",
-    "copyUrn.tooltip": "Копировать URN этого объекта ({{type}}). URN однозначно идентифицирует сущность в DataHub.",
+    "copyUrn.tooltip": "Копировать URN этого объекта ({{type}}). URN — уникальный идентификатор объекта в DataHub.",
     "email.body": "Посмотрите {{displayType}} в DataHub: {{linkText}}. Urn: {{urn}}",
     "email.label": "Эл. почта",
     "email.subject": "{{displayName}} | {{displayType}}",
