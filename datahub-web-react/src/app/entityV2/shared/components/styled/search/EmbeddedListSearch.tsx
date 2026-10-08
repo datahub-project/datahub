@@ -263,7 +263,8 @@ export const EmbeddedListSearch = ({
         variables: {
             urn: defaultViewUrn || '',
         },
-        skip: !defaultViewUrn,
+        // A list that ignores the view does not load it, so it shows no switcher for it.
+        skip: !applyView || !defaultViewUrn,
     });
 
     const view = (viewData?.view?.__typename === 'DataHubView' && viewData?.view) || undefined;
