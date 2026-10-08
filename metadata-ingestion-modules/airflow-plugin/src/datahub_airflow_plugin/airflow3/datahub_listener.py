@@ -12,6 +12,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Sequence,
     Tuple,
     TypeVar,
     cast,
@@ -22,6 +23,7 @@ import airflow
 from airflow.configuration import conf
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.sdk import Connection
+from openlineage.client.run import Dataset as OpenLineageDataset
 from openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
@@ -49,6 +51,7 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
     StatusClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
 
@@ -60,8 +63,12 @@ from datahub_airflow_plugin._airflow_asset_adapter import (
     is_airflow_asset_alias,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
-from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
-from datahub_airflow_plugin._dataset_filter import apply_dataset_filter
+from datahub_airflow_plugin._constants import (
+    DATAHUB_SQL_PARSING_RESULT_KEY,
+    FILE_PLATFORM,
+)
+from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
+from datahub_airflow_plugin._dataset_filter import DatasetFilter, apply_dataset_filter
 from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
@@ -421,6 +428,11 @@ class DataHubListener:
         # Cache initial datajob objects to merge with completion events
         self._datajob_holder: Dict[str, DataJob] = {}
 
+        self._dataset_filter = DatasetFilter(
+            pattern=config.dataset_filter_pattern,
+            bigquery_temp_table_dataset_prefix=config.bigquery_temp_table_dataset_prefix,
+        )
+
     def _get_emitter(self):
         """
         Lazy-load emitter on first use during task execution.
@@ -689,10 +701,6 @@ class DataHubListener:
         )
         logger.debug("Airflow 3.0+: Attempting to get lineage from OpenLineage")
         try:
-            from datahub_airflow_plugin._datahub_ol_adapter import (
-                translate_ol_to_datahub_urn,
-            )
-
             # Check if the operator has OpenLineage support
             facet_method_name = (
                 "get_openlineage_facets_on_complete"
@@ -736,27 +744,12 @@ class DataHubListener:
                 )
 
                 # Translate OpenLineage datasets to DataHub URNs
-                for ol_dataset in operator_lineage.inputs:
-                    urn = translate_ol_to_datahub_urn(
-                        ol_dataset,
-                        env=self.config.cluster,
-                        normalize_object_storage=self.config.normalize_object_storage_urns,
-                    )
-                    input_urns.append(urn)
-                    logger.debug(
-                        f"  Input: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
-                    )
-
-                for ol_dataset in operator_lineage.outputs:
-                    urn = translate_ol_to_datahub_urn(
-                        ol_dataset,
-                        env=self.config.cluster,
-                        normalize_object_storage=self.config.normalize_object_storage_urns,
-                    )
-                    output_urns.append(urn)
-                    logger.debug(
-                        f"  Output: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
-                    )
+                input_urns.extend(
+                    self._translate_ol_datasets(operator_lineage.inputs, "Input")
+                )
+                output_urns.extend(
+                    self._translate_ol_datasets(operator_lineage.outputs, "Output")
+                )
 
                 # Check if DataHub SQL parsing result is in run_facets (from our patch)
                 logger.debug(
@@ -801,6 +794,32 @@ class DataHubListener:
             )
 
         return input_urns, output_urns, sql_parsing_result
+
+    def _translate_ol_datasets(
+        self, ol_datasets: Sequence[OpenLineageDataset], direction: str
+    ) -> List[str]:
+        urns: List[str] = []
+        for ol_dataset in ol_datasets:
+            urn = translate_ol_to_datahub_urn(
+                ol_dataset,
+                env=self.config.cluster,
+                normalize_object_storage=self.config.normalize_object_storage_urns,
+            )
+            # Operators report local scratch files (`/tmp/tmpab12/...`) on the worker.
+            # They change every run and never link two tasks, so skip them unless asked.
+            # Files declared as Assets or manual inlets/outlets don't pass through here.
+            if (
+                not self.config.capture_ol_file_datasets
+                and DatasetUrn.from_string(urn).get_data_platform_urn().platform_name
+                == FILE_PLATFORM
+            ):
+                logger.debug(f"  Skipped local file {direction.lower()}: {urn}")
+                continue
+            urns.append(urn)
+            logger.debug(
+                f"  {direction}: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
+            )
+        return urns
 
     def _process_sql_parsing_result(
         self,
@@ -1089,7 +1108,7 @@ class DataHubListener:
             sorted(set(datajob.upstream_urns), key=lambda x: str(x))
         )
 
-        apply_dataset_filter(datajob, self.config.dataset_filter_pattern)
+        apply_dataset_filter(datajob, self._dataset_filter)
 
         # Write all other OL facets as DataHub properties
         if task_metadata:

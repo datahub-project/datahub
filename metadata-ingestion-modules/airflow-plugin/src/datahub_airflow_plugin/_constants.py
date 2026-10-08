@@ -7,6 +7,8 @@ Shared constants for the DataHub Airflow plugin.
 # DataHub listener can read it downstream.
 DATAHUB_SQL_PARSING_RESULT_KEY = "datahub_sql_parsing_result"
 
+FILE_PLATFORM = "file"
+
 # Filesystem/object-store schemes and the DataHub platform each maps to. Mirrors
 # HdfsPlatform in the Java openlineage-converter (used by the Spark agent and the
 # GMS OpenLineage endpoint) so Airflow and Spark produce the same URN for a path,
@@ -23,5 +25,5 @@ OL_FS_SCHEME_TO_PLATFORM = {
     "wasb": "abs",
     "wasbs": "abs",
     "dbfs": "dbfs",
-    "file": "file",
+    "file": FILE_PLATFORM,
 }

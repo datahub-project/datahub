@@ -8,14 +8,18 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
 )
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
-from datahub_airflow_plugin._dataset_filter import apply_dataset_filter
+from datahub_airflow_plugin._dataset_filter import DatasetFilter, apply_dataset_filter
 
 KEPT = DatasetUrn("bigquery", "my_project.my_dataset.events")
 TMP_FILE = DatasetUrn("file", "/tmp/tmpab12/out.csv")
 OUTPUT = DatasetUrn("bigquery", "my_project.my_dataset.daily")
 
-# Deny the local-file platform and any BigQuery table in an anonymous dataset.
-DENY = AllowDenyPattern(deny=[r"file:.*", r"bigquery:[^.]+\._.*"])
+# Deny local files and one scratch bucket; BigQuery hidden datasets are dropped
+# by the default "_" prefix without any pattern.
+DENY = DatasetFilter(
+    pattern=AllowDenyPattern(deny=[r"file:.*", r"gcs:my-scratch-bucket/.*"]),
+    bigquery_temp_table_dataset_prefix="_",
+)
 
 
 def _field(dataset: DatasetUrn, column: str) -> str:
@@ -79,7 +83,32 @@ def test_prunes_fine_grained_lineage_to_kept_datasets() -> None:
 def test_allow_all_leaves_datajob_untouched() -> None:
     datajob = _datajob(inlets=[KEPT, TMP_FILE], outlets=[OUTPUT])
 
-    apply_dataset_filter(datajob, AllowDenyPattern.allow_all())
+    apply_dataset_filter(
+        datajob,
+        DatasetFilter(
+            pattern=AllowDenyPattern.allow_all(), bigquery_temp_table_dataset_prefix=""
+        ),
+    )
 
     assert datajob.inlets == [KEPT, TMP_FILE]
     assert datajob.outlets == [OUTPUT]
+
+
+def test_bigquery_hidden_datasets_dropped_unless_prefix_cleared() -> None:
+    hidden = [
+        DatasetUrn("bigquery", "my_project._6f2a9c.anon"),
+        DatasetUrn("bigquery", "my_project._script7a1.tmp"),
+    ]
+    # A table whose own name starts with "_" is not in a hidden dataset.
+    named = DatasetUrn("bigquery", "my_project.my_dataset._staging")
+
+    datajob = _datajob(inlets=[*hidden, named, KEPT], outlets=[OUTPUT])
+    apply_dataset_filter(datajob, DENY)
+    assert datajob.inlets == [named, KEPT]
+
+    datajob = _datajob(inlets=[*hidden, KEPT], outlets=[OUTPUT])
+    keep_hidden = DatasetFilter(
+        pattern=AllowDenyPattern.allow_all(), bigquery_temp_table_dataset_prefix=""
+    )
+    apply_dataset_filter(datajob, keep_hidden)
+    assert datajob.inlets == [*hidden, KEPT]

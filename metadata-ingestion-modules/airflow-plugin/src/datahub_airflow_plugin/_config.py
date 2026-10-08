@@ -100,6 +100,16 @@ class DatahubLineageConfig(ConfigModel):
     # bucket-less URNs.
     normalize_object_storage_urns: bool = True
 
+    # If false (default), `file` datasets reported by operators through
+    # OpenLineage (worker-local scratch paths) are skipped. Files declared as
+    # Airflow Assets or manual inlets/outlets are always kept.
+    capture_ol_file_datasets: bool = False
+
+    # BigQuery datasets starting with this prefix are hidden or anonymous
+    # (query results, scripts, sessions) and are dropped, matching the BigQuery
+    # source's temp_table_dataset_prefix. Empty keeps them.
+    bigquery_temp_table_dataset_prefix: str = "_"
+
     log_level: Optional[str]
     debug_emitter: bool
 
@@ -207,6 +217,12 @@ def get_lineage_config() -> DatahubLineageConfig:
     normalize_object_storage_urns = conf.get(
         "datahub", "normalize_object_storage_urns", fallback=True
     )
+    capture_ol_file_datasets = conf.get(
+        "datahub", "capture_ol_file_datasets", fallback=False
+    )
+    bigquery_temp_table_dataset_prefix = conf.get(
+        "datahub", "bigquery_temp_table_dataset_prefix", fallback="_"
+    )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
 
@@ -234,6 +250,8 @@ def get_lineage_config() -> DatahubLineageConfig:
         dag_filter_pattern=dag_filter_pattern,
         dataset_filter_pattern=dataset_filter_pattern,
         normalize_object_storage_urns=normalize_object_storage_urns,
+        capture_ol_file_datasets=capture_ol_file_datasets,
+        bigquery_temp_table_dataset_prefix=bigquery_temp_table_dataset_prefix,
         enable_datajob_lineage=enable_lineage,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
         emit_mode=emit_mode,

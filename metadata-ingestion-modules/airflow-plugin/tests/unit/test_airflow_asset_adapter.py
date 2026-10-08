@@ -192,7 +192,7 @@ class TestTranslateAirflowAssetToUrn:
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:file,local/path/to/data,PROD)"
+            urn == "urn:li:dataset:(urn:li:dataPlatform:file,/local/path/to/data,PROD)"
         )
 
     def test_custom_env(self) -> None:
