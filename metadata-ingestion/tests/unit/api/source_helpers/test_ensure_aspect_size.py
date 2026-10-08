@@ -1731,6 +1731,7 @@ def test_chunk_limit_keeps_table_lineage_before_column_lineage(processor):
         all_operations
     ) - len(emitted)
     assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+    assert processor.report.num_upstream_lineage_patch_chunks_emitted == 1
     assert len(processor.ctx.source_report.warnings) == 1
 
 

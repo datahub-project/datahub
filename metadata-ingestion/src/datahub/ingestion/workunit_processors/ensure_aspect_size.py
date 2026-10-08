@@ -157,11 +157,13 @@ def _chunk_patch(
     )
 
 
-_KEYED_LINEAGE_PATH_PREFIXES = ("/upstreams/", "/fineGrainedLineages/")
+_TABLE_LINEAGE_PATH_PREFIX = "/upstreams/"
+_KEYED_LINEAGE_PATH_PREFIXES = (_TABLE_LINEAGE_PATH_PREFIX, "/fineGrainedLineages/")
 
 
 def _is_keyed_add_patch(operations: object) -> TypeGuard[List[JsonPatchOperation]]:
-    # Only per-entry adds commute; removes and whole-array adds must stay in order.
+    # Only per-entry adds are safe to reorder or drop: a dropped remove keeps lineage
+    # the source deleted, and a whole-array add replaces the entries before it.
     return isinstance(operations, list) and all(
         isinstance(operation, dict)
         and operation.get("op") == "add"
@@ -796,7 +798,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             operations = json.loads(mcp.aspect.value)
         except ValueError as e:
             self.ctx.source_report.warning(
-                title="Oversized upstream lineage patch emitted unchanged",
+                title="Oversized upstream lineage patch may be rejected by GMS",
                 message="Upstream lineage patch is not valid JSON",
                 context=urn,
                 exc=e,
@@ -804,7 +806,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             return [wu]
         if not _is_keyed_add_patch(operations):
             self.ctx.source_report.warning(
-                title="Oversized upstream lineage patch emitted unchanged",
+                title="Oversized upstream lineage patch may be rejected by GMS",
                 message="Upstream lineage patch contains operations other than adds of "
                 "individual lineage entries, which cannot be safely split or trimmed",
                 context=urn,
@@ -815,7 +817,9 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         # survive when the chunk limit trims column-level lineage.
         operations.sort(
             key=lambda operation: (
-                not str(operation.get("path", "")).startswith("/upstreams/")
+                not str(operation.get("path", "")).startswith(
+                    _TABLE_LINEAGE_PATH_PREFIX
+                )
             )
         )
         result = _chunk_patch(
@@ -823,7 +827,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         )
         if not result.chunks:
             self.ctx.source_report.warning(
-                title="Oversized upstream lineage patch emitted unchanged",
+                title="Oversized upstream lineage patch may be rejected by GMS",
                 message="No upstream lineage patch operation fits within the payload "
                 "size limit on its own",
                 context=urn,
@@ -832,8 +836,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         if len(result.chunks) > 1:
             self.report.num_upstream_lineage_patches_split += 1
-            self.report.num_upstream_lineage_patch_chunks_emitted += len(result.chunks)
-        self._warn_patch_operations_dropped(urn, result)
+        self.report.num_upstream_lineage_patch_chunks_emitted += len(result.chunks)
+        self._report_patch_operations_dropped(urn, result)
 
         workunits = []
         for index, chunk in enumerate(result.chunks, start=1):
@@ -846,7 +850,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             workunits.append(chunk_wu)
         return workunits
 
-    def _warn_patch_operations_dropped(self, urn: str, result: _PatchChunks) -> None:
+    def _report_patch_operations_dropped(self, urn: str, result: _PatchChunks) -> None:
         if result.num_operations_dropped:
             self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
         self.report.num_upstream_lineage_patch_operations_dropped += (
