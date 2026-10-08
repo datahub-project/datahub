@@ -123,9 +123,9 @@ function EntityActions(props: Props) {
             .catch((e) => {
                 toast.destroy();
                 const { content, duration } = handleBatchError(entityUrns, e, {
-                        content: t('addTermError', { error: e.message || '' }),
-                        duration: 3,
-                    });
+                    content: t('addTermError', { error: e.message || '' }),
+                    duration: 3,
+                });
                 toast.error(content, { duration });
             });
     };
@@ -169,9 +169,9 @@ function EntityActions(props: Props) {
             .catch((e) => {
                 toast.destroy();
                 const { content, duration } = handleBatchError(entityUrns, e, {
-                        content: t('addDomainError', { error: e.message || '' }),
-                        duration: 3,
-                    });
+                    content: t('addDomainError', { error: e.message || '' }),
+                    duration: 3,
+                });
                 toast.error(content, { duration });
             });
     };
@@ -210,9 +210,9 @@ function EntityActions(props: Props) {
             .catch((e) => {
                 toast.destroy();
                 const { content, duration } = handleBatchError(entityUrns, e, {
-                        content: t('addDataProductError'),
-                        duration: 3,
-                    });
+                    content: t('addDataProductError'),
+                    duration: 3,
+                });
                 toast.error(content, { duration });
             });
     };
@@ -240,9 +240,9 @@ function EntityActions(props: Props) {
             .catch((e) => {
                 toast.destroy();
                 const { content, duration } = handleBatchError(entityUrns, e, {
-                        content: t('addApplicationError'),
-                        duration: 3,
-                    });
+                    content: t('addApplicationError'),
+                    duration: 3,
+                });
                 toast.error(content, { duration });
             });
     };

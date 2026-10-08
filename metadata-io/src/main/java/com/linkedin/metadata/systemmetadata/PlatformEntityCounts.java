@@ -104,11 +104,9 @@ public class PlatformEntityCounts {
     boolean useV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     String indexName =
         EntitySearchIndexResolver.indexName(opContext, entityType, entityIndexConfiguration);
+    // V3 root fields carry the V2 .keyword subfield
     String aggField =
-        useV3
-            ? PLATFORM_FIELD
-            : ESUtils.toKeywordField(
-                opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
+        ESUtils.toKeywordField(opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
     QueryBuilder query = QueryBuilders.matchAllQuery();
     if (useV3) {
       QueryBuilder entityTypeQuery =

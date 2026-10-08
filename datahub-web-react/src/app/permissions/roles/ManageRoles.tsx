@@ -106,6 +106,12 @@ export const ManageRoles = () => {
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
+    useEffect(() => {
+        if (rolesError) {
+            toast.error(t('roles.loadError'), { duration: 3, key: 'manage-roles-load-error' });
+        }
+    }, [rolesError, t]);
+
     const totalRoles = rolesData?.listRoles?.total || 0;
     const roles = useMemo(() => rolesData?.listRoles?.roles || [], [rolesData]);
     const onViewRole = (role: DataHubRole) => {
@@ -285,7 +291,6 @@ export const ManageRoles = () => {
     return (
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
-            {rolesError && toast.error(t('roles.loadError'), { duration: 3 })}
             <SearchBar
                 placeholder={t('searchRolesPlaceholder')}
                 value={query || ''}

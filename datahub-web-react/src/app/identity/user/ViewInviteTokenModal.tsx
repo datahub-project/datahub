@@ -120,7 +120,12 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
             <ModalSection>
                 <InviteLinkDiv>
                     <InfoContainer>
-                        <SimpleSelectRole selectedRole={selectedRole} onRoleSelect={setSelectedRole} size="md" />
+                        <SimpleSelectRole
+                            selectedRole={selectedRole}
+                            onRoleSelect={setSelectedRole}
+                            placeholder={t('inviteToken.noRole')}
+                            size="md"
+                        />
                         <CopyText type="span">
                             <pre className="meticulous-ignore">{inviteLink}</pre>
                         </CopyText>

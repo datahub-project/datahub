@@ -1,5 +1,5 @@
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -51,14 +51,6 @@ const Wrapper = styled.div`
     &:hover ${ScrollButton} {
         display: flex;
     }
-`;
-
-const StyledNavigateBeforeOutlinedIcon = styled(NavigateBeforeOutlinedIcon)<{ buttonSize: number }>`
-    font-size: ${(props) => props.buttonSize}px !important;
-`;
-
-const StyledNavigateNextOutlinedIcon = styled(NavigateNextOutlinedIcon)<{ buttonSize: number }>`
-    font-size: ${(props) => props.buttonSize}px !important;
 `;
 
 type Props = {
@@ -137,7 +129,7 @@ const HorizontalScroller: React.FC<Props> = ({
                     offset={scrollButtonOffset}
                     left
                 >
-                    <StyledNavigateBeforeOutlinedIcon buttonSize={scrollButtonSize} />
+                    <CaretLeft size={scrollButtonSize} />
                 </ScrollButton>
             )}
             <ScrollContainerWrapper ref={contentRef} className={className}>
@@ -151,7 +143,7 @@ const HorizontalScroller: React.FC<Props> = ({
                     offset={scrollButtonOffset}
                     right
                 >
-                    <StyledNavigateNextOutlinedIcon buttonSize={scrollButtonSize} />
+                    <CaretRight size={scrollButtonSize} />
                 </ScrollButton>
             )}
         </Wrapper>

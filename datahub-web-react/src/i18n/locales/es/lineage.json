@@ -20,7 +20,7 @@
     "controls.filter.label": "Filtrar",
     "controls.filters.description": "Ocultar o mostrar activos en el gráfico.",
     "controls.filters.hideProcessInstances.label": "Ocultar Process Instances",
-    "controls.filters.hideProcessInstances.tooltip": "Ocultar las ejecuciones de tareas. No ocultará el nodo de inicio.",
+    "controls.filters.hideProcessInstances.tooltip": "Ocultar las ejecuciones de Tasks. No ocultará el nodo de inicio.",
     "controls.filters.hideTransformations.label": "Ocultar transformaciones",
     "controls.filters.hideTransformations.tooltip": "Ocultar consultas y transformaciones (nodos circulares). No ocultará el nodo de inicio.",
     "controls.filters.noTransformationsToHide.tooltip": "No hay transformaciones que ocultar",

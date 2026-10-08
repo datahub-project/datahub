@@ -10,6 +10,7 @@ import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit
 import { Button, Menu, toast } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
@@ -31,6 +32,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
     const { t } = useTranslation('entity.profile.tabs');
     const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const entityRegistry = useEntityRegistry();
     const { refetch: entityRefetch } = useEntityContext();
     const { entityType } = useEntityData();
 
@@ -125,7 +127,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                 handleConfirm={() => handleRemoveProperty()}
                 modalTitle={t('properties.confirmRemove.title')}
                 modalText={t('properties.confirmRemove.confirmation', {
-                    name: structuredProperty.definition.displayName,
+                    name: entityRegistry.getDisplayName(structuredProperty.type, structuredProperty),
                 })}
             />
         </>

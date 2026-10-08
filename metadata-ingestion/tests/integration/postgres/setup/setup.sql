@@ -37,6 +37,9 @@ insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, creat
 );
 
 create view metadata_aspect_view as select urn, aspect from metadata_aspect_v2 where version=0;
+-- SQLAlchemy 2.0 lists materialized views separately from views; this keeps
+-- them covered.
+create materialized view metadata_aspect_mview as select urn, aspect from metadata_aspect_v2 where version=0;
 -- To get estimate counts of table rows after analyze
 ANALYZE;
 

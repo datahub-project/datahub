@@ -1,20 +1,17 @@
-import {
-    CheckCircleOutlined,
-    CodeOutlined,
-    ConsoleSqlOutlined,
-    EyeOutlined,
-    FileOutlined,
-    FundOutlined,
-    LayoutOutlined,
-    PartitionOutlined,
-    UnlockOutlined,
-    UnorderedListOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
 import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { File } from '@phosphor-icons/react/dist/csr/File';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { LockOpen } from '@phosphor-icons/react/dist/csr/LockOpen';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { Terminal } from '@phosphor-icons/react/dist/csr/Terminal';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -77,8 +74,6 @@ import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/Go
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
-
-import GovernMenuIcon from '@images/governMenuIcon.svg?react';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -165,13 +160,13 @@ export class DatasetEntity implements Entity<Dataset> {
             {
                 name: i18next.t('common.labels:columns'),
                 component: SchemaTab,
-                icon: LayoutOutlined,
+                icon: Layout,
                 getCount: useGetColumnTabCount,
             },
             {
                 name: i18next.t('entity.types:dataset.viewDefinitionTab'),
                 component: ViewDefinitionTab,
-                icon: CodeOutlined,
+                icon: Code,
                 display: {
                     // Presence of viewProperties (not .logic) reflects whether this dataset is a
                     // view at all -- materialized/language are always populated when it is, but
@@ -191,14 +186,14 @@ export class DatasetEntity implements Entity<Dataset> {
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
             {
                 name: i18next.t('common.actions:preview'),
                 component: EmbedTab,
-                icon: EyeOutlined,
+                icon: Eye,
                 display: {
                     visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
                     enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
@@ -207,12 +202,12 @@ export class DatasetEntity implements Entity<Dataset> {
             {
                 name: i18next.t('entity.types:tab.lineage'),
                 component: LineageTab,
-                icon: PartitionOutlined,
+                icon: TreeStructure,
             },
             {
                 name: i18next.t('entity.types:shared.accessTab'),
                 component: AccessManagement,
-                icon: UnlockOutlined,
+                icon: LockOpen,
                 display: {
                     visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
                     enabled: (_, _2) => true,
@@ -221,7 +216,7 @@ export class DatasetEntity implements Entity<Dataset> {
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
                 getCount: (_, dataset: GetDatasetQuery) => {
                     const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
                     const visibleStructuredPropertiesCount =
@@ -235,7 +230,7 @@ export class DatasetEntity implements Entity<Dataset> {
             {
                 name: i18next.t('entity.types:tab.queries'),
                 component: QueriesTab,
-                icon: ConsoleSqlOutlined,
+                icon: Terminal,
                 display: {
                     visible: (_, _1) => true,
                     enabled: (_, _2) => true,
@@ -244,7 +239,7 @@ export class DatasetEntity implements Entity<Dataset> {
             {
                 name: i18next.t('entity.types:dataset.statsTab'),
                 component: StatsTabWrapper,
-                icon: FundOutlined,
+                icon: ChartLine,
                 display: {
                     visible: (_, _1) => true,
                     enabled: (_, dataset: GetDatasetQuery) =>
@@ -257,20 +252,11 @@ export class DatasetEntity implements Entity<Dataset> {
             {
                 name: getQualityTabName(),
                 component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
-                icon: CheckCircleOutlined,
+                icon: CheckCircle,
             },
             {
                 name: getGovernanceTabName(),
-                icon: () => (
-                    <span
-                        style={{
-                            marginRight: 6,
-                            verticalAlign: '-0.2em',
-                        }}
-                    >
-                        <GovernMenuIcon width={16} height={16} fill="currentColor" />
-                    </span>
-                ),
+                icon: ShieldCheck,
                 component: GovernanceTab,
                 getCount: (_, dataset) => {
                     const passingTests = dataset?.dataset?.testResults?.passing || [];
@@ -292,7 +278,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
-                icon: WarningOutlined,
+                icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dataset) => {
                     return dataset?.dataset?.activeIncidents?.total;

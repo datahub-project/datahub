@@ -1,96 +1,100 @@
-import { getCanEditName } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
+import { getCanEditEntityProperties } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
 import { platformPrivileges } from '@src/Mocks';
 
 import { EntityType } from '@types';
 
-describe('getCanEditName', () => {
+describe('getCanEditEntityProperties', () => {
     const entityDataWithManagePrivileges = { privileges: { canManageEntity: true } };
     const entityDataWithoutManagePrivileges = { privileges: { canManageEntity: false } };
 
     it('should return true for Terms if manageGlossaries privilege is true', () => {
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.GlossaryTerm,
             entityDataWithoutManagePrivileges,
             platformPrivileges,
         );
 
-        expect(canEditName).toBe(true);
+        expect(result).toBe(true);
     });
 
     it('should return false for Terms if manageGlossaries privilege and canManageEntity is false', () => {
         const privilegesWithoutGlossaries = { ...platformPrivileges, manageGlossaries: false };
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.GlossaryTerm,
             entityDataWithoutManagePrivileges,
             privilegesWithoutGlossaries,
         );
 
-        expect(canEditName).toBe(false);
+        expect(result).toBe(false);
     });
 
     it('should return true for Terms if manageGlossaries privilege is false but canManageEntity is true', () => {
         const privilegesWithoutGlossaries = { ...platformPrivileges, manageGlossaries: false };
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.GlossaryTerm,
             entityDataWithManagePrivileges,
             privilegesWithoutGlossaries,
         );
 
-        expect(canEditName).toBe(true);
+        expect(result).toBe(true);
     });
 
     it('should return true for Nodes if manageGlossaries privilege is true', () => {
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.GlossaryNode,
             entityDataWithoutManagePrivileges,
             platformPrivileges,
         );
 
-        expect(canEditName).toBe(true);
+        expect(result).toBe(true);
     });
 
     it('should return false for Nodes if manageGlossaries privilege and canManageEntity is false', () => {
         const privilegesWithoutGlossaries = { ...platformPrivileges, manageGlossaries: false };
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.GlossaryNode,
             entityDataWithoutManagePrivileges,
             privilegesWithoutGlossaries,
         );
 
-        expect(canEditName).toBe(false);
+        expect(result).toBe(false);
     });
 
     it('should return true for Nodes if manageGlossaries privilege is false but canManageEntity is true', () => {
         const privilegesWithoutGlossaries = { ...platformPrivileges, manageGlossaries: false };
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.GlossaryNode,
             entityDataWithManagePrivileges,
             privilegesWithoutGlossaries,
         );
 
-        expect(canEditName).toBe(true);
+        expect(result).toBe(true);
     });
 
     it('should return true for Domains if manageDomains privilege is true', () => {
-        const canEditName = getCanEditName(EntityType.Domain, entityDataWithoutManagePrivileges, platformPrivileges);
+        const result = getCanEditEntityProperties(
+            EntityType.Domain,
+            entityDataWithoutManagePrivileges,
+            platformPrivileges,
+        );
 
-        expect(canEditName).toBe(true);
+        expect(result).toBe(true);
     });
 
     it('should return false for Domains if manageDomains privilege is false', () => {
         const privilegesWithoutDomains = { ...platformPrivileges, manageDomains: false };
-        const canEditName = getCanEditName(
+        const result = getCanEditEntityProperties(
             EntityType.Domain,
             entityDataWithoutManagePrivileges,
             privilegesWithoutDomains,
         );
 
-        expect(canEditName).toBe(false);
+        expect(result).toBe(false);
     });
 
     it('should return false for an unsupported entity', () => {
-        const canEditName = getCanEditName(EntityType.Chart, entityDataWithManagePrivileges, platformPrivileges);
+        const result = getCanEditEntityProperties(EntityType.Chart, entityDataWithManagePrivileges, platformPrivileges);
 
-        expect(canEditName).toBe(false);
+        expect(result).toBe(false);
     });
 });

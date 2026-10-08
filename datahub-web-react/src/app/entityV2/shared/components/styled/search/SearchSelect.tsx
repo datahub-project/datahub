@@ -1,7 +1,7 @@
 import { Button, Text, toast } from '@components';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import debounce from 'lodash/debounce';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -118,6 +118,14 @@ export const SearchSelect = ({
         },
     });
 
+    useEffect(() => {
+        if (error) {
+            toast.error(t('embeddedSearch.searchError', { message: error?.message }), {
+                key: 'search-select-error',
+            });
+        }
+    }, [error, t]);
+
     const searchAcrossEntities = data?.searchAcrossEntities;
     const searchResultEntities =
         searchAcrossEntities?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) ||
@@ -167,7 +175,6 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && toast.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
                 <Button
                     variant="text"

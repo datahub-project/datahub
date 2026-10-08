@@ -40,18 +40,15 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
     }
 }
 
-query getDataset($urn: String!, $skipSiblingsSearch: Boolean = false) {
+query getDataset($urn: String!) {
     dataset(urn: $urn) {
+        urn
+        type
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...nonSiblingDatasetFields
-            }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {
@@ -69,10 +66,7 @@ fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
     exists
     deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
+        ...deprecationFields
     }
     globalTags {
         ...globalTagsFields
@@ -104,25 +98,6 @@ fragment nonSiblingDatasetFields on Dataset {
                 fieldName
                 count
             }
-        }
-    }
-    datasetProfiles(limit: 1) {
-        rowCount
-        columnCount
-        sizeInBytes
-        timestampMillis
-        fieldProfiles {
-            fieldPath
-            uniqueCount
-            uniqueProportion
-            nullCount
-            nullProportion
-            min
-            max
-            mean
-            median
-            stdev
-            sampleValues
         }
     }
     latestFullTableProfile: datasetProfiles(
@@ -173,6 +148,11 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     runs: runs(start: 0, count: 20, direction: OUTGOING) {
         count
@@ -361,14 +341,6 @@ fragment assertionsQuery on Dataset {
         total
         assertions {
             ...assertionDetailsWithRunEvents
-            runEvents(status: COMPLETE, limit: 1) {
-                total
-                failed
-                succeeded
-                runEvents {
-                    ...assertionRunEventDetails
-                }
-            }
         }
     }
 }
@@ -378,11 +350,6 @@ query getDatasetAssertions($urn: String!, $skipSiblingsSearch: Boolean = false) 
         ...assertionsQuery
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...assertionsQuery
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count

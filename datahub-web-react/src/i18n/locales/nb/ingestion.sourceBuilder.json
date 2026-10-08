@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Fortsett oppsettet",
     "multiStep.builder.discard.description": "Hvis du avslutter nå, blir konfigurasjonen forkastet. Du kan fortsette oppsettet, eller avslutte og starte på nytt senere",
     "multiStep.builder.discard.title": "Du har ulagrede endringer",
-    "multiStep.chat.placeholder": "Plassholder for AI-chat",
     "multiStep.connection.addOwners": "Legg til eiere",
     "multiStep.connection.advancedSettings": "Avanserte innstillinger",
     "multiStep.connection.cannotChangeSourceType": "Det er ikke mulig å endre kildetype for en eksisterende Ingestion-kilde",

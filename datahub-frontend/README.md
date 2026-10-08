@@ -78,6 +78,15 @@ WHZ-Authentication {
 The React app supports both JAAS as described above and separately OIDC authentication. To learn about configuring OIDC for React,
 see the [OIDC in React](../docs/authentication/guides/sso/configure-oidc-react.md) document.
 
+### Token ID response header
+
+Every response proxied to the Metadata Service carries an `X-DH-JTI` header holding the `jti` (JWT ID) claim of the
+access token or UI session token that made the request. The Metadata Service assigns a random UUID as the `jti` when it
+issues a token, so the value identifies the token but cannot be used to authenticate, and the caller already holds the
+token it was read from. A reverse proxy or service mesh in front of the frontend can log the header to attribute
+requests to a specific token (for example, to audit where a leaked token was used) and may strip it before responding to
+clients. The header is omitted when the request carries no JWT bearer token.
+
 ### API Debugging
 
 Most DataHub frontend API endpoints are protected using [Play Authentication](https://www.playframework.com/documentation/2.1.0/JavaGuide4), which means it requires authentication information stored in the cookie for the request to go through. This makes debugging using curl difficult. One option is to first make a curl call against the `/authenticate` endpoint and stores the authentication info in a cookie file like this
