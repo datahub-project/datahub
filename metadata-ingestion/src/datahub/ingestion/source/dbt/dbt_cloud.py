@@ -794,10 +794,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 f"Fetched {semantic_model_count} semantic models from dbt Cloud"
             )
 
-        artifact_props: Dict[str, str] = {"account_id": str(self.config.account_id)}
-        for node in nodes:
-            node.artifact_props = artifact_props
-
         return nodes, exposures
 
     def load_projects(self) -> Iterator[DBTProject]:

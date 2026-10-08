@@ -246,7 +246,7 @@ class ArtifactReader:
             except MemoryError:
                 # Exhausted memory is systemic, not a per-file failure to capture and
                 # replay: let it propagate so .result() re-raises it on the main thread
-                # and load_nodes fails instead of skipping the project. Groups already
+                # and load_projects fails instead of skipping the project. Groups already
                 # in flight still finish their reads (the executor waits for them on
                 # exit), but no further groups are started.
                 raise

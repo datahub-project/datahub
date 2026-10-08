@@ -426,7 +426,7 @@ def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> 
 
 
 @pytest.mark.parametrize("glob_mode", [True, False])
-def test_manifest_path_is_a_node_field_not_a_custom_property(
+def test_manifest_path_is_a_project_field_not_a_custom_property(
     tmp_path: pathlib.Path, glob_mode: bool
 ) -> None:
     """manifest_path is internal provenance, used to name the originating project in
@@ -441,18 +441,18 @@ def test_manifest_path_is_a_node_field_not_a_custom_property(
         manifest_path=f"{tmp_path}/*/manifest.json" if glob_mode else manifest_path
     )
 
-    nodes = _load_nodes(source)
+    project = _load_projects(source)[0]
 
-    assert nodes[0].manifest_path == manifest_path
-    assert "manifest_path" not in nodes[0].artifact_props
+    assert project.manifest_path == manifest_path
+    assert "manifest_path" not in project.artifact_props
 
 
-def test_glob_stamps_per_project_provenance_on_every_node(
+def test_glob_records_per_project_provenance(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Every node carries its own project's artifact provenance. Semantic models are
-    built on a separate code path from the manifest's semantic_models section, so
-    they are checked alongside a regular model."""
+    """Each project records its own artifact provenance. Semantic models are built on
+    a separate code path from the manifest's semantic_models section, so they are
+    checked alongside a regular model."""
     _write_project(
         tmp_path,
         "project_a",
@@ -463,12 +463,15 @@ def test_glob_stamps_per_project_provenance_on_every_node(
             )
         },
     )
-    nodes = _load_nodes(_make_source(manifest_path=f"{tmp_path}/*/manifest.json"))
+    projects = _load_projects(_make_source(manifest_path=f"{tmp_path}/*/manifest.json"))
 
-    assert {node.node_type for node in nodes} == {"model", "semantic_model"}
-    for node in nodes:
-        assert node.artifact_props["manifest_version"] == "1.8.0"
-        assert node.artifact_props["manifest_adapter"] == "postgres"
+    assert {node.node_type for p in projects for node in p.nodes} == {
+        "model",
+        "semantic_model",
+    }
+    for project in projects:
+        assert project.artifact_props["manifest_version"] == "1.8.0"
+        assert project.artifact_props["manifest_adapter"] == "postgres"
 
 
 def test_glob_missing_sibling_artifacts_warns_and_continues(
@@ -605,10 +608,10 @@ def test_glob_attributes_catalog_generated_at_per_project(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes_by_name = {node.dbt_name: node for node in _load_nodes(source)}
+    projects_by_name = {p.project_name: p for p in _load_projects(source)}
 
-    orders_generated_at = nodes_by_name["model.project_a.orders"].catalog_generated_at
-    events_generated_at = nodes_by_name["model.project_b.events"].catalog_generated_at
+    orders_generated_at = projects_by_name["project_a"].catalog_generated_at
+    events_generated_at = projects_by_name["project_b"].catalog_generated_at
     assert orders_generated_at is not None and orders_generated_at.year == 2020
     assert events_generated_at is not None and events_generated_at.year == 2021
 
@@ -637,10 +640,13 @@ def test_glob_query_timestamps_come_from_each_projects_own_manifest(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes_by_name = {node.dbt_name: node for node in _load_nodes(source)}
-
-    ts_a = source._get_query_timestamp(nodes_by_name["model.project_a.orders"])
-    ts_b = source._get_query_timestamp(nodes_by_name["model.project_b.events"])
+    timestamps = {}
+    for project in _load_projects(source):
+        source._current_project = project
+        timestamps[project.project_name] = source._get_query_timestamp(project.nodes[0])
+    source._current_project = None
+    ts_a = timestamps["project_a"]
+    ts_b = timestamps["project_b"]
 
     assert ts_a == datetime_to_ts_millis(
         dateutil.parser.parse("2020-01-01T00:00:00.000000Z")
@@ -667,7 +673,7 @@ def test_query_timestamp_falls_back_to_report_manifest_info(
 
     source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
     node = _load_nodes(source)[0]
-    node.manifest_generated_at = None
+    source._current_project = _project(manifest_generated_at=None)
 
     assert source._get_query_timestamp(node) == datetime_to_ts_millis(
         dateutil.parser.parse("2018-07-08T09:10:11.000000Z")
@@ -694,9 +700,13 @@ def test_unparseable_manifest_timestamps_share_one_fallback(
         generated_at="also-not-a-timestamp",
     )
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = _load_nodes(source)
+    timestamps: Set[int] = set()
+    for project in _load_projects(source):
+        source._current_project = project
+        timestamps.update(source._get_query_timestamp(n) for n in project.nodes)
+    source._current_project = None
 
-    assert len({source._get_query_timestamp(node) for node in nodes}) == 1
+    assert len(timestamps) == 1
     assert source.report.query_timestamps_fallback_used is True
 
 

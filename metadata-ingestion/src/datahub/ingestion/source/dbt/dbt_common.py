@@ -1555,36 +1555,7 @@ class DBTNode:
     row_count: Optional[int] = None
     size_in_bytes: Optional[int] = None
 
-    # generated_at timestamp from this node's own project's catalog.json. Per-node
-    # rather than per-source for the same reason as artifact_props: a multi-project
-    # run has one catalog.json (and one generated_at) per project.
-    catalog_generated_at: Optional[datetime] = None
-
-    # Raw generated_at string from this node's own project's manifest.json, used for
-    # Query entity timestamps. Per-node for the same reason as catalog_generated_at:
-    # report.manifest_info has one slot and is deliberately left unset in glob mode,
-    # since no single project may represent the whole run. Kept as the raw string so
-    # the single-project path parses byte-identically to before.
-    manifest_generated_at: Optional[str] = None
-
     convert_urns_to_lowercase: bool = False
-
-    # Provenance of the dbt artifacts this node was read from, merged into the
-    # dataset's customProperties. Per-node rather than per-source because one source
-    # run may span multiple dbt projects, each with its own dbt version and adapter.
-    # NOTE: all nodes from the same project share one dict instance (not a per-node
-    # copy, to avoid allocating one dict per node at scale). Nothing mutates it today,
-    # but a future per-node merge must replace the dict rather than mutate it in
-    # place, or it will silently corrupt every sibling node from that project.
-    artifact_props: Dict[str, str] = field(default_factory=dict)
-
-    # Path to the manifest.json this node was loaded from. Deliberately NOT part of
-    # artifact_props: it is internal diagnostic provenance, used to name the
-    # originating project in a cross-project collision report. Exposing it as a
-    # custom property would publish bucket names and prefix layout to every catalog
-    # user, and would churn a new datasetProperties version on every run for any
-    # prefix carrying a run id or timestamp.
-    manifest_path: Optional[str] = None
 
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
@@ -1737,13 +1708,6 @@ class DBTExposure:
     meta: Dict[str, Any] = field(default_factory=dict)
     dbt_package_name: Optional[str] = None
     dbt_file_path: Optional[str] = None
-
-    # Path to the manifest.json this exposure was loaded from. Per-exposure
-    # rather than per-source for the same reason as DBTNode.artifact_props: a
-    # multi-project run has many manifests, and this is what lets a
-    # cross-project unique_id collision report name the colliding projects
-    # instead of just a count.
-    manifest_path: Optional[str] = None
 
     def get_urn(
         self,
@@ -2109,18 +2073,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return [AutoIncrementalLineageProcessor]
 
     def _get_query_timestamp(self, node: DBTNode) -> int:
-        """Timestamp for Query entities, taken from this node's own manifest.
+        """Timestamp for Query entities, taken from the current project's manifest.
 
-        Per-node rather than per-run: under a globbed manifest_path each project has
+        Per-project rather than per-run: under a globbed manifest_path each project has
         its own manifest.json with its own generated_at, and report.manifest_info is
         deliberately unset there. Reading only that report field made every glob run
         fall back to now(), churning each query's created/lastModified on every
         ingest - the same aspect churn that moved manifest_path off customProperties.
 
-        The report field remains the fallback for sources that set it but not the
-        per-node value (dbt Cloud), so the single-project path is unchanged.
+        The report field remains the fallback for projects without a manifest
+        timestamp (dbt Cloud), so the single-project path is unchanged.
         """
-        generated_at = node.manifest_generated_at
+        generated_at = self._project.manifest_generated_at
         if generated_at is None:
             manifest_info = getattr(self.report, "manifest_info", None)
             if isinstance(manifest_info, dict):
@@ -2267,7 +2231,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     custom_props = {
                         "dbt_unique_id": node.dbt_name,
                         "dbt_test_upstream_unique_id": upstream_node_name,
-                        **node.artifact_props,
+                        **self._project.artifact_props,
                     }
 
                     if self.config.entities_enabled.can_emit_test_definitions:
@@ -2355,7 +2319,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 custom_props = {
                     "dbt_unique_id": node.dbt_name,
-                    **node.artifact_props,
+                    **self._project.artifact_props,
                 }
 
                 if self.config.entities_enabled.can_emit_test_definitions:
@@ -3542,8 +3506,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     if node.row_count is not None or node.size_in_bytes is not None:
                         # Use this node's own project's catalog generated_at timestamp
                         # if available, else fallback to now (UTC).
-                        profile_timestamp = node.catalog_generated_at or datetime.now(
-                            tz=timezone.utc
+                        profile_timestamp = (
+                            self._project.catalog_generated_at
+                            or datetime.now(tz=timezone.utc)
                         )
                         dataset_profile = DatasetProfileClass(
                             timestampMillis=int(profile_timestamp.timestamp() * 1000),
@@ -4356,7 +4321,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         custom_props = {
             **get_custom_properties(node),
-            **node.artifact_props,
+            **self._project.artifact_props,
         }
         dbt_properties = DatasetPropertiesClass(
             description=description,

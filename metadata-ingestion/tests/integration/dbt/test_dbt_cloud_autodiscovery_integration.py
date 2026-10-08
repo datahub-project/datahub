@@ -249,8 +249,8 @@ class TestAutoDiscoveryEndToEnd:
             )
 
         # Verify metadata contains account_id but not job_id (since multiple jobs)
-        assert all(node.artifact_props["account_id"] == "123456" for node in nodes)
-        assert all("job_id" not in node.artifact_props for node in nodes)
+        assert project.artifact_props["account_id"] == "123456"
+        assert "job_id" not in project.artifact_props
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
@@ -332,12 +332,13 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = next(source.load_projects()).nodes
+        project = next(source.load_projects())
+        nodes = project.nodes
 
         # mock_graphql_response fixture returns 1 model + 1 semantic model per job
         assert len(nodes) == 2
         assert {n.node_type for n in nodes} == {"model", "semantic_model"}
-        assert all(node.artifact_props["account_id"] == "123456" for node in nodes)
+        assert project.artifact_props["account_id"] == "123456"
 
         job_ids_queried = {
             call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
@@ -476,7 +477,7 @@ class TestExplicitModeComparison:
         ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
         source_explicit = DBTCloudSource(config_explicit, ctx)
 
-        nodes_explicit = next(source_explicit.load_projects()).nodes
+        project_explicit = next(source_explicit.load_projects())
 
         # Auto-discovery mode
         mock_get_envs.return_value = [
@@ -496,13 +497,13 @@ class TestExplicitModeComparison:
         )
         source_auto = DBTCloudSource(config_auto, ctx)
 
-        nodes_auto = next(source_auto.load_projects()).nodes
+        project_auto = next(source_auto.load_projects())
 
         # Verify metadata differences
         # Note: Based on the diff, job_id was removed from additional_metadata
         # This test verifies the current behavior
-        assert "account_id" in nodes_explicit[0].artifact_props
-        assert "account_id" in nodes_auto[0].artifact_props
+        assert "account_id" in project_explicit.artifact_props
+        assert "account_id" in project_auto.artifact_props
 
 
 class TestMetadataConsistency:
@@ -536,7 +537,8 @@ class TestMetadataConsistency:
         )
         ctx_explicit = PipelineContext(run_id="test-run-id", pipeline_name="test")
         source_explicit = DBTCloudSource(config_explicit, ctx_explicit)
-        nodes_explicit = next(source_explicit.load_projects()).nodes
+        project_explicit = next(source_explicit.load_projects())
+        nodes_explicit = project_explicit.nodes
 
         # Reset mock call count
         mock_graphql.reset_mock()
@@ -559,7 +561,8 @@ class TestMetadataConsistency:
         )
         ctx_auto = PipelineContext(run_id="test-run-id", pipeline_name="test")
         source_auto = DBTCloudSource(config_auto, ctx_auto)
-        nodes_auto = next(source_auto.load_projects()).nodes
+        project_auto = next(source_auto.load_projects())
+        nodes_auto = project_auto.nodes
 
         # Verify both modes produce the same nodes
         assert len(nodes_explicit) == len(nodes_auto)
@@ -586,8 +589,8 @@ class TestMetadataConsistency:
 
         # Additional metadata should contain account_id in both cases
         assert (
-            node_explicit.artifact_props["account_id"]
-            == node_auto.artifact_props["account_id"]
+            project_explicit.artifact_props["account_id"]
+            == project_auto.artifact_props["account_id"]
         )
 
 

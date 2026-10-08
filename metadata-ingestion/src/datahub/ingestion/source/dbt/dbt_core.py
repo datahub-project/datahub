@@ -517,7 +517,6 @@ def extract_dbt_entities(
 def extract_dbt_exposures(
     manifest_exposures: Dict[str, Dict[str, Any]],
     tag_prefix: str,
-    manifest_path: Optional[str] = None,
 ) -> List[DBTExposure]:
     """Extract dbt exposures from the manifest.json exposures section."""
     exposures = []
@@ -557,7 +556,6 @@ def extract_dbt_exposures(
                 meta=exposure_node.get("meta", {}),
                 dbt_package_name=exposure_node.get("package_name"),
                 dbt_file_path=exposure_node.get("original_file_path"),
-                manifest_path=manifest_path,
             )
         )
     return exposures
@@ -1425,7 +1423,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         project_exposures = extract_dbt_exposures(
             manifest_exposures=manifest_exposures,
             tag_prefix=self.config.tag_prefix,
-            manifest_path=manifest_path,
         )
 
         # Extract metrics from manifest (dbt 1.6+). Unconditional: whether they
@@ -1454,16 +1451,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
                 )
 
-        # Stamp every node - regardless of which extractor produced it - with this
-        # project's artifact provenance, manifest path, and catalog timestamp in one
-        # place. This is the single authoritative site, so a future extractor can't
-        # silently ship provenance-less nodes the way extract_semantic_models once did.
         manifest_generated_at = dbt_manifest_metadata.get("generated_at")
-        for node in nodes:
-            node.artifact_props = artifact_props
-            node.manifest_path = manifest_path
-            node.catalog_generated_at = catalog_generated_at
-            node.manifest_generated_at = manifest_generated_at
 
         # If catalog_version is between 1.7.0 and 1.7.2, report a warning. This is
         # per-project because a multi-project run can mix dbt versions across projects.
