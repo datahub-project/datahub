@@ -287,7 +287,7 @@
     "sqlmesh.projectPath.label": "Путь к проекту",
     "sqlmesh.projectPath.tooltip": "Путь в файловой системе к каталогу проекта SQLMesh (папка, содержащая config.py/config.yaml и каталог models/). Должен быть доступен для чтения машине, выполняющей загрузку.",
     "sqlmesh.removeStaleMetadata.label": "Удалять устаревшие метаданные",
-    "sqlmesh.removeStaleMetadata.tooltip": "Мягко удалять объекты SQLMesh, которые пропали из проекта между запусками.",
+    "sqlmesh.removeStaleMetadata.tooltip": "Логически удалять объекты SQLMesh, которые пропали из проекта между запусками.",
     "sqlmesh.targetPlatform.helper": "Платформа хранилища данных, в которую пишет SQLMesh",
     "sqlmesh.targetPlatform.label": "Целевая платформа",
     "sqlmesh.targetPlatform.tooltip": "Платформа хранилища данных, в которую пишет SQLMesh (например, snowflake, bigquery, databricks). Если оставить пустым, определяется автоматически по подключению шлюза — указывайте вручную, только если автоопределение ошибается. Должна совпадать с платформой в рецепте вашего коннектора хранилища, чтобы связанные URN корректно сшивались.",

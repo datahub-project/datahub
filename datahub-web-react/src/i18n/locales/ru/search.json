@@ -56,7 +56,7 @@
     "fieldLabel.path": "Путь",
     "fieldLabel.platform": "Платформа",
     "fieldLabel.platformInstance": "Экземпляр платформы",
-    "fieldLabel.softDeleted": "Мягко удалён",
+    "fieldLabel.softDeleted": "Удалено (логически)",
     "fieldLabel.structuredProperty": "Структурированное свойство",
     "fieldLabel.subType": "Подтип",
     "fieldLabel.tag": "Тег",
