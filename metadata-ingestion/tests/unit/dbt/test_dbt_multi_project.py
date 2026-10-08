@@ -7,6 +7,7 @@ from unittest import mock
 import dateutil.parser
 import pytest
 
+import datahub.ingestion.source.dbt.dbt_artifacts as dbt_artifacts_module
 import datahub.ingestion.source.dbt.dbt_core as dbt_core_module
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
@@ -221,7 +222,7 @@ def test_test_connection_reports_object_store_failure_detail() -> None:
     over a prefix holding no manifests. Collapsing the first into the second sends
     an operator looking for a wrong prefix instead of at their credentials."""
     with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_core.expand_object_store_glob",
+        "datahub.ingestion.source.dbt.dbt_artifacts.expand_object_store_glob",
         side_effect=ValueError("InvalidAccessKeyId: key is not valid"),
     ):
         report = DBTCoreSource.test_connection(
@@ -771,79 +772,6 @@ def test_memory_error_propagates_instead_of_being_skipped(
     assert not source.report.failures
 
 
-def test_prefetch_reraises_worker_memory_error() -> None:
-    """A MemoryError inside a prefetch worker must fail fast, not be captured.
-
-    The worker catches Exception to hand ordinary read failures back for the main
-    thread to re-raise at the original call site, but MemoryError is an Exception
-    subclass: capturing it let the other workers keep reading objects into an
-    already-exhausted process. It must propagate through .result() instead.
-    """
-    source = _make_source()
-    groups = [["uri-0"], ["uri-1"]]
-
-    def fake_read(uri: str, *args: object, **kwargs: object) -> bytes:
-        if uri == "uri-0":
-            raise MemoryError("artifact too large to read")
-        return uri.encode()
-
-    with mock.patch.object(dbt_core_module, "read_file_as_bytes", fake_read):
-        with pytest.raises(MemoryError):
-            list(source._prefetch_in_order(groups, concurrency=2))
-
-
-def test_prefetch_windows_submission_when_an_early_group_is_slow() -> None:
-    """A slow next-in-order group must not let the whole run's bytes accumulate.
-
-    Submission is windowed to `concurrency` groups ahead of the consumer, so while
-    the first group blocks, only that many groups are ever started - the later
-    groups' bytes are not pre-fetched into an unbounded reorder buffer.
-    """
-    source = _make_source()
-    concurrency = 2
-    n = 6
-    groups = [[f"uri-{i}"] for i in range(n)]
-
-    release_first = threading.Event()
-    started: List[str] = []
-    started_lock = threading.Lock()
-    a_group_started = threading.Semaphore(0)
-
-    def fake_read(uri: str, *args: object, **kwargs: object) -> bytes:
-        with started_lock:
-            started.append(uri)
-        a_group_started.release()
-        if uri == "uri-0":
-            assert release_first.wait(timeout=5)
-        return uri.encode()
-
-    yielded: List[str] = []
-
-    def consume() -> None:
-        for fetched in source._prefetch_in_order(groups, concurrency):
-            for value in fetched.values():
-                assert isinstance(value, bytes)
-                yielded.append(value.decode())
-
-    with mock.patch.object(dbt_core_module, "read_file_as_bytes", fake_read):
-        consumer = threading.Thread(target=consume)
-        consumer.start()
-        try:
-            # The window starts exactly `concurrency` groups; a further start must
-            # not happen while the first group is still blocked.
-            for _ in range(concurrency):
-                assert a_group_started.acquire(timeout=5)
-            assert not a_group_started.acquire(timeout=0.3)
-            with started_lock:
-                assert len(started) == concurrency
-        finally:
-            release_first.set()
-        consumer.join(timeout=5)
-
-    assert not consumer.is_alive()
-    assert yielded == [f"uri-{i}" for i in range(n)]
-
-
 def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> None:
     """Drive the advertised s3:// shape through expansion, sibling URIs and prefetch.
 
@@ -887,14 +815,16 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
     )
     with (
         mock.patch.object(
-            dbt_core_module,
+            dbt_artifacts_module,
             "expand_object_store_glob",
             return_value=[
                 "s3://bucket/project_b/manifest.json",
                 "s3://bucket/project_a/manifest.json",
             ],
         ),
-        mock.patch.object(dbt_core_module, "read_file_as_bytes", side_effect=fake_read),
+        mock.patch.object(
+            dbt_artifacts_module, "read_file_as_bytes", side_effect=fake_read
+        ),
     ):
         nodes = source.load_nodes()
 
@@ -912,45 +842,6 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
     titles = {w.title for w in source.report.warnings}
     assert "No catalog file found for project" in titles
     assert "Could not read catalog file for project" not in titles
-
-
-def _object_store_error(
-    code: Optional[str] = None,
-    status: Optional[int] = None,
-    with_response: bool = True,
-) -> ValueError:
-    """Mimic read_file_as_bytes: a generic ValueError whose __cause__ is the client error."""
-    cause = Exception("client error")
-    if with_response:
-        response: Dict[str, Any] = {}
-        if code is not None:
-            response["Error"] = {"Code": code}
-        if status is not None:
-            response["ResponseMetadata"] = {"HTTPStatusCode": status}
-        cause.response = response  # type: ignore[attr-defined]
-    err = ValueError("Failed to read s3://bucket/key from object store")
-    err.__cause__ = cause
-    return err
-
-
-@pytest.mark.parametrize(
-    "err, missing",
-    [
-        (FileNotFoundError(2, "No such file or directory"), True),
-        (_object_store_error(code="NoSuchKey"), True),
-        (_object_store_error(code="NotFound"), True),
-        # S3-compatible stores may report only the status, with no error code.
-        (_object_store_error(status=404), True),
-        (_object_store_error(code="AccessDenied", status=403), False),
-        (_object_store_error(with_response=False), False),
-        (ValueError("no cause at all"), False),
-        (None, False),
-    ],
-)
-def test_is_missing_file_error_classification(
-    err: Optional[BaseException], missing: bool
-) -> None:
-    assert dbt_core_module._is_missing_file_error(err) is missing
 
 
 def test_ambiguous_sibling_read_failure_does_not_assert_absence(
@@ -976,7 +867,7 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
         side_effect=fake_read,
     ):
         nodes = source.load_nodes()
@@ -1118,7 +1009,7 @@ def test_object_store_not_found_code_reported_as_definite_absence(
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
         side_effect=fake_read,
     ):
         source.load_nodes()
@@ -1694,7 +1585,7 @@ def test_artifact_read_concurrency_matches_sequential_results_off_the_main_threa
     sequential = _make_source(**config, artifact_read_concurrency=1).load_nodes()
 
     parallel_source = _make_source(**config, artifact_read_concurrency=4)
-    real_read = dbt_core_module.read_file_as_bytes
+    real_read = dbt_artifacts_module.read_file_as_bytes
     reader_threads: Set[str] = set()
 
     def recording_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
@@ -1702,7 +1593,7 @@ def test_artifact_read_concurrency_matches_sequential_results_off_the_main_threa
         return real_read(uri, *args, **kwargs)
 
     with mock.patch.object(
-        dbt_core_module, "read_file_as_bytes", side_effect=recording_read
+        dbt_artifacts_module, "read_file_as_bytes", side_effect=recording_read
     ):
         parallel = parallel_source.load_nodes()
 
@@ -1772,4 +1663,4 @@ def test_prefetched_bytes_are_released_when_a_project_fails(
     source.load_nodes()
 
     assert source.report.manifests_failed == 1
-    assert source._prefetched_artifacts == {}
+    assert source._artifacts.prefetched == {}

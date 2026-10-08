@@ -11,6 +11,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
+from datahub.ingestion.source.dbt.dbt_artifacts import load_file_as_json
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
@@ -3114,9 +3115,7 @@ def test_load_file_as_json_s3():
         "Body": mock.MagicMock(read=mock.MagicMock(return_value=b'{"key": "value"}'))
     }
 
-    result = DBTCoreSource.load_file_as_json(
-        "s3://my-bucket/path/to/manifest.json", mock_aws
-    )
+    result = load_file_as_json("s3://my-bucket/path/to/manifest.json", mock_aws)
     assert result == {"key": "value"}
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="my-bucket", Key="path/to/manifest.json"
@@ -3178,7 +3177,7 @@ def test_load_file_as_json_gcs():
         "get_s3_client",
         return_value=mock_s3_client,
     ):
-        result = DBTCoreSource.load_file_as_json(
+        result = load_file_as_json(
             "gs://my-gcs-bucket/path/to/manifest.json",
             None,
             gcs_conn,
@@ -4815,12 +4814,12 @@ def test_load_file_as_json_handles_utf8_bom():
     # object-store extraction must keep parsing it rather than choking on the BOM.
     payload = b"\xef\xbb\xbf" + b'{"nodes": {}}'
     with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
         return_value=payload,
     ):
-        assert DBTCoreSource.load_file_as_json(
-            "https://example.com/manifest.json", None
-        ) == {"nodes": {}}
+        assert load_file_as_json("https://example.com/manifest.json", None) == {
+            "nodes": {}
+        }
 
 
 def test_dbt_source_patching_dedupes_existing_owners():
