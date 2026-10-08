@@ -14,10 +14,6 @@ public class LoadIndicesResult {
   public String toString() {
     return String.format(
         "LoadIndicesResult{rowsProcessed=%d, ignored=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, unknownToRegistrySkipped=%d}",
-        rowsProcessed,
-        ignored,
-        timeSqlQueryMs,
-        timeElasticsearchWriteMs,
-        unknownToRegistrySkipped);
+        rowsProcessed, ignored, timeSqlQueryMs, timeElasticsearchWriteMs, unknownToRegistrySkipped);
   }
 }

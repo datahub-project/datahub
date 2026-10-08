@@ -285,7 +285,6 @@ public class UpdateIndicesServiceTest {
     // event
     verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
   }
-  }
 
   @Test
   public void testHandleChangeEvents_SkipsEventsUnknownToRegistry() {

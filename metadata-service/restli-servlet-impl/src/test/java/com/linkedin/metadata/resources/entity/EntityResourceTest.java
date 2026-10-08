@@ -148,7 +148,7 @@ public class EntityResourceTest {
 
     Task<SearchResult> task =
         entityResource.searchAcrossEntities(
-            new String[] {"entityFromNewerBuild"}, "*", null, null, null, 0, 10, null, null);
+            new String[] {"entityFromNewerBuild"}, "*", null, null, null, 0, 10, null);
 
     assertNotNull(task);
     verify(searchService, never())

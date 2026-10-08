@@ -10,7 +10,6 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
-import com.linkedin.metadata.search.utils.SearchV3ReadRoutingUtil;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -223,10 +222,9 @@ public class SearchService {
 
   private static boolean isKnownEntityType(
       @Nonnull final OperationContext opContext, @Nonnull final String entity) {
+    // Mirrors ESUtils, which resolves "data_product" to dataProduct by dropping underscores.
     return opContext.getEntityRegistry().findEntitySpec(entity).isPresent()
-        || SearchV3ReadRoutingUtil.canonicalEntityNames(opContext, List.of(entity)).stream()
-            .anyMatch(
-                canonical -> opContext.getEntityRegistry().findEntitySpec(canonical).isPresent());
+        || opContext.getEntityRegistry().findEntitySpec(entity.replace("_", "")).isPresent();
   }
 
   /**

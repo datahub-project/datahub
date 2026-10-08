@@ -76,16 +76,16 @@ public class UrnSearchResultsMapperTest {
 
   @Test
   public void testHitReferencingUnknownEntityTypeIsDropped() throws Exception {
-    // After a rollback, a monitor can watch an entity type only the newer version registered. The
-    // monitor itself is a known type, but GraphQL can't map its target (Monitor.entity is
-    // non-null), so the hit is skipped like an unmappable one instead of failing the page.
+    // After a rollback, a schema field can belong to an entity type only the newer version
+    // registered. The schema field itself is a known type, but its parent can't be represented, so
+    // the hit is skipped like an unmappable one instead of failing the page.
     QueryContext context = mock(QueryContext.class);
     when(context.getOperationContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     SearchEntityArray entities =
         new SearchEntityArray(
-            hit("urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),m1)"),
-            hit("urn:li:monitor:(urn:li:entityFromNewerBuild:x,m2)"),
+            hit("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),c1)"),
+            hit("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,c2)"),
             hit("urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/b,PROD)"));
 
     SearchResults mapped = UrnSearchResultsMapper.map(context, backendResult(entities));
@@ -93,7 +93,7 @@ public class UrnSearchResultsMapperTest {
     assertEquals(
         mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
         List.of(
-            "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),m1)",
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),c1)",
             "urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/b,PROD)"));
   }
 }

@@ -316,7 +316,6 @@ public class LoadIndicesStepTest {
     assertEquals(result.unknownToRegistrySkipped, 2L);
     assertEquals(result.ignored, 0);
   }
-  }
 
   @Test
   public void testGetDefaultAspectNames() throws Exception {
@@ -1398,20 +1397,20 @@ public class LoadIndicesStepTest {
     LoadIndicesArgs args = new LoadIndicesArgs();
     args.batchSize = 2; // Small batch size to trigger batch processing
     args.limit = 10;
-    args.aspectNames = java.util.List.of("container", "ownership");
+    args.aspectNames = java.util.List.of("invalidAspect");
 
-    // Add test rows with invalid metadata to cause conversion errors
+    // Rows of an aspect whose data-template class cannot be resolved, so conversion fails
     // This will create a batch that is not empty but all aspects fail conversion
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset1,PROD)",
-        "container",
+        "invalidAspect",
         0,
         Instant.now(),
         "testUser");
 
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset2,PROD)",
-        "ownership",
+        "invalidAspect",
         0,
         Instant.now(),
         "testUser");
