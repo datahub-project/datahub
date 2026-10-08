@@ -823,9 +823,13 @@ class TestSnowflakeAdapter:
         assert not result.is_sampled
         mock_create.assert_called_once()
 
-    def test_setup_profiling_with_limit_skips_sampling(self, adapter, config):
-        """When config.limit is set, the limit is materialized and sampling is skipped."""
-        config.use_sampling = True
+    def test_setup_profiling_materializes_the_limit(self, adapter, config):
+        """With sampling off, a limit is materialized into a temp table.
+
+        The config drops limit/offset whenever sampling is on, so this is the
+        only combination an adapter can see.
+        """
+        config.use_sampling = False
         config.limit = 100
         adapter.config = config
 
@@ -936,6 +940,20 @@ class TestSnowflakeAdapter:
         mock_conn = MagicMock()
 
         with pytest.raises(AssertionError, match="custom_sql is not supported"):
+            adapter.setup_profiling(context, mock_conn)
+
+    def test_setup_profiling_rejects_limit_with_sampling(self, adapter, config):
+        """The config nulls limit/offset when sampling is on; both set is a bug."""
+        config.use_sampling = True
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with pytest.raises(AssertionError, match="sampling enabled"):
             adapter.setup_profiling(context, mock_conn)
 
     # =========================================================================
@@ -1242,6 +1260,22 @@ class TestBigQueryAdapter:
 
     def test_supports_limit_offset(self, adapter):
         assert adapter.supports_limit_offset()
+
+    def test_setup_profiling_rejects_sampling_with_limit(self, adapter, config):
+        """The config nulls limit/offset when sampling is on; both set is a bug."""
+        config.use_sampling = True
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with (
+            patch.object(adapter, "_create_temp_table_for_query", return_value=context),
+            pytest.raises(AssertionError, match="limit/offset set"),
+        ):
+            adapter.setup_profiling(context, MagicMock())
 
     def test_create_temp_table_includes_limit_and_offset(
         self, adapter, mock_bigquery_engine, config

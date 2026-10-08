@@ -145,6 +145,39 @@ def test_flatten_without_query_combiner_warns_but_does_not_raise(
     assert any("has no effect" in r.message for r in caplog.records)
 
 
+def test_sampling_takes_precedence_over_limit_and_offset(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Bounding a sample to an arbitrary slice of the table pays sampling's cost
+    # and loses what it buys, so the config drops the bound and says so.
+    with caplog.at_level(logging.WARNING):
+        config = ProfilingConfig.model_validate(
+            {"use_sampling": True, "limit": 100, "offset": 25}
+        )
+
+    assert config.limit is None
+    assert config.offset is None
+    assert any("use_sampling is enabled" in r.message for r in caplog.records)
+
+
+def test_limit_and_offset_survive_when_sampling_is_off() -> None:
+    config = ProfilingConfig.model_validate(
+        {"use_sampling": False, "limit": 100, "offset": 25}
+    )
+
+    assert config.limit == 100
+    assert config.offset == 25
+
+
+def test_offset_without_limit_warns(caplog: pytest.LogCaptureFixture) -> None:
+    # An offset alone profiles everything after it, costing more than no offset.
+    with caplog.at_level(logging.WARNING):
+        config = ProfilingConfig.model_validate({"use_sampling": False, "offset": 25})
+
+    assert config.offset == 25
+    assert any("bounds nothing" in r.message for r in caplog.records)
+
+
 def test_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
     # kafka, cassandra, and excel configs import the profiling config at module
     # scope, and none of those extras ship sqlalchemy. Importing either module

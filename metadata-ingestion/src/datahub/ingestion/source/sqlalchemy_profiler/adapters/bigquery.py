@@ -55,8 +55,12 @@ class BigQueryAdapter(PlatformAdapter):
             context = self._create_temp_table_for_query(context)
 
         # Step 2: Sample large tables (and large partitions) into a temp table.
-        # Skip when a LIMIT is configured — the row set is already bounded.
-        if self.config.use_sampling and not self.config.limit:
+        # The ProfilingConfig validators drop limit/offset whenever sampling is on.
+        if self.config.use_sampling:
+            assert not (self.config.limit or self.config.offset), (
+                f"sampling reached the adapter with limit/offset set "
+                f"(table: {context.pretty_name})"
+            )
             context = self._setup_sampling(context, conn)
 
         # Step 3: Create SQLAlchemy table object

@@ -1608,7 +1608,10 @@ class TestSampledPartitionSpec:
 
 
 class TestLimitOffsetContract:
-    """A profile is labelled as limited only when the adapter applied the limit."""
+    """A profile is labelled as limited only when the adapter applied the limit.
+
+    Sampling is off throughout: the config drops limit/offset whenever it is on.
+    """
 
     @staticmethod
     def _profile(
@@ -1657,6 +1660,7 @@ class TestLimitOffsetContract:
     def test_unsupported_limit_warns_and_is_not_labelled(
         self, profiler, profiler_config, sqlite_engine, mock_report
     ):
+        profiler_config.use_sampling = False
         profiler_config.limit = 100
 
         profile = self._profile(profiler, sqlite_engine, supports_limit_offset=False)
@@ -1670,6 +1674,7 @@ class TestLimitOffsetContract:
     def test_unsupported_limit_logs_once_across_tables(
         self, profiler, profiler_config, sqlite_engine, mock_report
     ):
+        profiler_config.use_sampling = False
         profiler_config.limit = 100
 
         self._profile(profiler, sqlite_engine, supports_limit_offset=False)
@@ -1684,6 +1689,7 @@ class TestLimitOffsetContract:
     def test_supported_limit_is_labelled_as_a_bounded_query(
         self, profiler, profiler_config, sqlite_engine, mock_report, limit, offset
     ):
+        profiler_config.use_sampling = False
         profiler_config.limit = limit
         profiler_config.offset = offset
 

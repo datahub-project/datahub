@@ -62,9 +62,14 @@ class SnowflakeAdapter(PlatformAdapter):
             f"(table: {context.pretty_name})"
         )
 
-        # limit/offset bounds the row set already, so it suppresses sampling —
-        # and it needs no row count, so it short-circuits the metadata lookup.
+        # The ProfilingConfig validators drop limit/offset whenever sampling is
+        # on. A bound needs no denominator, so this also short-circuits the
+        # row-count lookup below.
         if self.config.limit or self.config.offset:
+            assert not self.config.use_sampling, (
+                f"limit/offset reached the adapter with sampling enabled "
+                f"(table: {context.pretty_name})"
+            )
             return self._create_limited_temp_table(context, conn)
 
         # Prefer the row count already on the context (from the schema crawl)
