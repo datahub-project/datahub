@@ -10,6 +10,7 @@ import SemanticModelPreview from '@app/entityV2/semanticModel/preview/SemanticMo
 import { DefinitionTab } from '@app/entityV2/semanticModel/profile/DefinitionTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -114,6 +115,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
     getProfileTabs = (): EntityTab[] => {
         return [
             {
+                id: SUMMARY_TAB_ID,
                 name: i18next.t('entity.types:tab.summary'),
                 component: SummaryTab,
                 properties: {

@@ -224,13 +224,17 @@ export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.Glossa
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
 
-// only values for Domain Entity for custom configurable default tab
+// Tab ids are the URL segment for a tab, so they stay fixed while tab names are translated.
 export enum EntityProfileTab {
-    DOMAIN_ENTITIES_TAB = 'DOMAIN_ENTITIES_TAB',
-    DOCUMENTATION_TAB = 'DOCUMENTATION_TAB',
-    DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
-    SUMMARY_TAB = 'SUMMARY_TAB',
+    DOMAIN_ENTITIES_TAB = 'Assets',
+    DOCUMENTATION_TAB = 'Documentation',
+    DATA_PRODUCTS_TAB = 'Data Products',
+    SUMMARY_TAB = 'Summary',
 }
+
+export const SUMMARY_TAB_ID = EntityProfileTab.SUMMARY_TAB;
+export const DOCUMENTATION_TAB_ID = EntityProfileTab.DOCUMENTATION_TAB;
+export const INCIDENTS_TAB_ID = 'Incidents';
 
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 

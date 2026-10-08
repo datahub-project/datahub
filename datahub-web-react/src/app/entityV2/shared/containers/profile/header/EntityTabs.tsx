@@ -21,6 +21,8 @@ const TabContent = styled.div`
     height: 100%;
 `;
 
+const getTabKey = (tab: EntityTab) => tab.id ?? tab.name;
+
 export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
     const { entityData, loading } = useEntityData();
     const routeToTab = useRouteToTab();
@@ -31,12 +33,12 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
 
     useEffect(() => {
         if (!loading && !selectedTab && enabledTabs[0]) {
-            routeToTab({ tabName: enabledTabs[0].name, method: 'replace' });
+            routeToTab({ tabName: getTabKey(enabledTabs[0]), method: 'replace' });
         }
     }, [loading, enabledTabs, selectedTab, routeToTab]);
 
     const finalTabs: Tab[] = tabs.map((t) => ({
-        key: t.name,
+        key: getTabKey(t),
         name: t.name,
         component: (
             <TabContent>
@@ -55,7 +57,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
     return (
         <Tabs
             onChange={(t) => routeToTab({ tabName: t })}
-            selectedTab={selectedTab?.name}
+            selectedTab={selectedTab && getTabKey(selectedTab)}
             tabs={finalTabs}
             hideTabsHeader={isTabFullsize}
             addPaddingLeft

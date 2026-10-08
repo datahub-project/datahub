@@ -45,6 +45,7 @@ import {
 import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/LinkAssetVersionModal';
 import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
+import { INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
@@ -58,9 +59,6 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, EntityType } from '@types';
-
-// Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
-const INCIDENTS_TAB_NAME = 'Incidents';
 
 interface Options {
     hideDeleteMessage?: boolean;
@@ -588,7 +586,7 @@ const EntityDropdown = (props: Props) => {
                                     entityRegistryV2,
                                     false,
                                     isHideSiblingMode,
-                                    INCIDENTS_TAB_NAME,
+                                    INCIDENTS_TAB_ID,
                                 )}`,
                             );
                         }, 3000);

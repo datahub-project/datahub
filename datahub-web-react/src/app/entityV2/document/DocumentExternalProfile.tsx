@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import ExternalDocumentInlineSummaryTab from '@app/entityV2/document/ExternalDocumentInlineSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -34,6 +35,7 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
+                    id: SUMMARY_TAB_ID,
                     name: t('tab.summary'),
                     component: ExternalDocumentInlineSummaryTab,
                     display: {

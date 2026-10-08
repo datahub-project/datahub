@@ -16,6 +16,7 @@ import { ChartStatsSummarySubHeader } from '@app/entityV2/chart/profile/stats/Ch
 import ChartSummaryTab from '@app/entityV2/chart/summary/ChartSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID, SUMMARY_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -122,6 +123,7 @@ export class ChartEntity implements Entity<Chart> {
 
         return [
             {
+                id: SUMMARY_TAB_ID,
                 name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : ChartSummaryTab,
                 icon: SUMMARY_TAB_ICON,
@@ -138,6 +140,7 @@ export class ChartEntity implements Entity<Chart> {
             ...(!showSummaryTab
                 ? [
                       {
+                          id: DOCUMENTATION_TAB_ID,
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: File,
@@ -190,6 +193,7 @@ export class ChartEntity implements Entity<Chart> {
                 },
             },
             {
+                id: INCIDENTS_TAB_ID,
                 name: i18next.t('entity.types:tab.incidents'),
                 getCount: (_, chart, loading) => {
                     return !loading ? chart?.chart?.activeIncidents?.total : undefined;
