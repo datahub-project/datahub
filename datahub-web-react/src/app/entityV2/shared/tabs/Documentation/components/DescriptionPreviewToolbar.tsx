@@ -1,4 +1,4 @@
-import { EditOutlined } from '@ant-design/icons';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,7 @@ export const DescriptionPreviewToolbar = ({ onEdit }: DescriptionPreviewToolbarP
     return (
         <TabToolbar>
             <Button type="text" onClick={onEdit}>
-                <EditOutlined /> {tc('edit')}
+                <PencilSimple /> {tc('edit')}
             </Button>
         </TabToolbar>
     );

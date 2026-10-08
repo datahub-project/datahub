@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Select } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,17 +16,6 @@ const EntitySelect = styled(Select)`
 
     .ant-select-selector {
         padding: 4px;
-    }
-`;
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 24px;
-        width: 24px;
     }
 `;
 
@@ -66,13 +55,7 @@ export default function UrnInput({ structuredProperty, selectedValues, updateSel
             tagRender={tagRender}
             value={selectedEntities.map((e) => e.urn)}
             loading={loading}
-            notFoundContent={
-                loading ? (
-                    <LoadingWrapper>
-                        <LoadingOutlined />
-                    </LoadingWrapper>
-                ) : undefined
-            }
+            notFoundContent={loading ? <Loader size="sm" padding={8} /> : undefined}
         >
             {searchResults?.map((searchResult) => (
                 <Select.Option value={searchResult.urn} key={searchResult.urn}>

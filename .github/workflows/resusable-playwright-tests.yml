@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       test_runner_type:
-        description: "Runner type (e.g. depot-ubuntu-24.04-4 or ubuntu-latest)"
+        description: "Runner type (e.g. depot-ubuntu-24.04-4 or ubuntu-24.04)"
         required: true
         type: string
       depot_build_id:

@@ -12,6 +12,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -302,6 +303,7 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
             (request, real) -> {
               if ((request.getMethod() + " " + request.getEndpoint())
                       .equals("PUT /" + index + "/_settings")
+                  && requestBody(request).contains("\"index.blocks.write\"")
                   && lifts.incrementAndGet() == 1) {
                 throw new IOException("injected: lifting the write block failed");
               }
@@ -611,6 +613,16 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
         .asText();
   }
 
+  private static String requestBody(Request request) throws IOException {
+    if (request.getEntity() == null) {
+      return "";
+    }
+    String body =
+        new String(request.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+    request.setJsonEntity(body);
+    return body;
+  }
+
   @FunctionalInterface
   private interface Interceptor {
     Object handle(Request request, Callable<Object> real) throws Exception;
@@ -674,6 +686,8 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     Mockito.when(indexConfig.getFinalPrefix()).thenReturn(prefix);
     Mockito.when(indexConfig.getNumShards()).thenReturn(1);
     Mockito.when(indexConfig.getNumReplicas()).thenReturn(0);
+    Mockito.when(indexConfig.getRefreshIntervals())
+        .thenReturn(RefreshIntervals.builder().usageSeconds(1).build());
     ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
     Mockito.when(config.getIndex()).thenReturn(indexConfig);
     BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components =

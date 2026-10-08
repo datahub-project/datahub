@@ -131,7 +131,7 @@
         "start": "yarn run generate && vite",
         "start:https": "yarn run generate && REACT_APP_HTTPS=true vite",
         "ec2-dev": "yarn run generate && CI=true vite",
-        "build": "yarn run generate && CI=false NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' vite build",
+        "build": "yarn run generate && CI=false NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' vite build",
         "buildWithSourceMap": "yarn run generate && CI=false NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' vite build --sourcemap",
         "preview": "vite preview",
         "test": "NODE_OPTIONS='--max-old-space-size=5120' vitest",
@@ -148,6 +148,7 @@
         "type-check": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
         "check-translations": "node scripts/check-translations.mjs",
         "check-i18n-parity": "node scripts/check-i18n-parity.mjs",
+        "check-i18n-flat-keys": "node scripts/check-i18n-flat-keys.mjs",
         "type-watch": "NODE_OPTIONS=--max-old-space-size=8192 tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"

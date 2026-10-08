@@ -22,4 +22,20 @@ public class SearchFlagsInputMapperTest {
         SearchFlagsInputMapper.map(null, new SearchFlags());
     assertFalse(result.hasMinScore());
   }
+
+  @Test
+  public void testExplainAndSearchTypeMappedThrough() {
+    SearchFlags input = new SearchFlags();
+    input.setIncludeExplain(true);
+    input.setSearchType("DFS_QUERY_THEN_FETCH");
+    com.linkedin.metadata.query.SearchFlags result = SearchFlagsInputMapper.map(null, input);
+    assertEquals(result.isIncludeExplain(), Boolean.TRUE);
+    assertEquals(result.getSearchType(), "DFS_QUERY_THEN_FETCH");
+
+    // Unset flags stay unset, so the schema defaults apply
+    com.linkedin.metadata.query.SearchFlags defaults =
+        SearchFlagsInputMapper.map(null, new SearchFlags());
+    assertFalse(defaults.hasIncludeExplain());
+    assertFalse(defaults.hasSearchType());
+  }
 }

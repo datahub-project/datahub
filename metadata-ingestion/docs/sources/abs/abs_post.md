@@ -209,6 +209,12 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
+#### File type detection
+
+The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types above. For files compressed with `.gz`, `.gzip`, or `.bz2` (when `enable_compression` is enabled on the path_spec, which is the default), the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON). Extension matching is case-insensitive.
+
+File names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. When compression is enabled, such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise; when compression is disabled, compressed files are skipped. When `default_extension` is set, any other file whose format cannot be inferred from its name is parsed as that format, including stray files such as `.crc` checksums or `.txt` manifests; use the path_spec `exclude` patterns to filter those out.
+
 #### Compatibility
 
 Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and does not require Spark, Hadoop, PyDeequ, or any JVM. There is nothing extra to install beyond the `abs` extra. Distinct counts and quantiles/histograms are approximate (DataSketches), matching the precision the previous Spark/Deequ profiler provided.

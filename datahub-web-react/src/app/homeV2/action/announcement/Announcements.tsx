@@ -1,5 +1,6 @@
-import { CloseOutlined, NotificationOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,13 +38,13 @@ const Title = styled.div`
     justify-content: start;
 `;
 
-const Icon = styled(NotificationOutlined)`
+const Icon = styled(Bell)`
     margin-right: 8px;
     color: ${(props) => props.theme.colors.textSuccess};
     font-size: 16px;
 `;
 
-const StyledCloseOutlined = styled(CloseOutlined)`
+const StyledCloseOutlined = styled(X)`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;

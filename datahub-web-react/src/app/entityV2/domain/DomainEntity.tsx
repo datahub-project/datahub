@@ -1,6 +1,8 @@
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { File } from '@phosphor-icons/react/dist/csr/File';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -154,7 +156,7 @@ export class DomainEntity implements Entity<Domain> {
                     return entityData?.entities?.total;
                 },
                 component: DomainEntitiesTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             ...(!showSummaryTab
                 ? [
@@ -162,7 +164,7 @@ export class DomainEntity implements Entity<Domain> {
                           id: EntityProfileTab.DOCUMENTATION_TAB,
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
@@ -173,12 +175,12 @@ export class DomainEntity implements Entity<Domain> {
                     return entityData?.dataProducts?.total;
                 },
                 component: DataProductsTab,
-                icon: FileDoneOutlined,
+                icon: FileText,
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };

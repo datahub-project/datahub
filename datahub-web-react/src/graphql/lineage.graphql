@@ -305,6 +305,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         exists
@@ -349,6 +352,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModel {
@@ -405,6 +411,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLFeatureTable {
@@ -546,6 +555,27 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
     }
+    ... on Api {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+    }
     ... on Restricted {
         urn
         type
@@ -561,14 +591,6 @@ fragment lineageFields on EntityWithRelationships {
     ... on Dataset {
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                }
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -687,14 +709,6 @@ fragment entityLineage on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                }
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -864,6 +878,11 @@ fragment entityLineageV2 on Entity {
             ...platformFields
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+    }
     ... on DataProcessInstance {
         ...dataProcessInstanceFields
     }
@@ -991,6 +1010,25 @@ query getLineageCounts(
             ) @skip(if: $excludeDownstream) {
                 filtered
                 total
+            }
+        }
+    }
+}
+
+# Counts only, for the URNs already on screen. Search results render from a query that skips
+# lineage; this runs afterward so the page is not blocked on a lookup per card. `count: 100`
+# matches the search fragment so ghost entities are filtered the same way.
+query getSearchResultLineageCounts($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        ... on EntityWithRelationships {
+            upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
+            }
+            downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
             }
         }
     }

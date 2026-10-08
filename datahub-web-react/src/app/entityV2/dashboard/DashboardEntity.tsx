@@ -1,16 +1,12 @@
-import {
-    AppstoreOutlined,
-    EyeOutlined,
-    FileOutlined,
-    PartitionOutlined,
-    TableOutlined,
-    UnlockOutlined,
-    UnorderedListOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { LockOpen } from '@phosphor-icons/react/dist/csr/LockOpen';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -138,7 +134,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             {
                 name: i18next.t('entity.types:tab.contents'),
                 component: DashboardChartsTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
                 display: {
                     visible: (_, dashboard: GetDashboardQuery) =>
                         (dashboard?.dashboard?.charts?.total || 0) > 0 ||
@@ -149,7 +145,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             {
                 name: i18next.t('entity.types:dataset.namePlural'),
                 component: DashboardDatasetsTab,
-                icon: TableOutlined,
+                icon: Table,
                 display: {
                     visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
                     enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
@@ -160,14 +156,14 @@ export class DashboardEntity implements Entity<Dashboard> {
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
             {
                 name: i18next.t('entity.types:shared.accessTab'),
                 component: AccessManagement,
-                icon: UnlockOutlined,
+                icon: LockOpen,
                 display: {
                     visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
                     enabled: (_, _2) => true,
@@ -176,7 +172,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             {
                 name: i18next.t('common.actions:preview'),
                 component: EmbedTab,
-                icon: EyeOutlined,
+                icon: Eye,
                 display: {
                     visible: (_, dashboard: GetDashboardQuery) =>
                         !!dashboard?.dashboard?.embed?.renderUrl &&
@@ -189,7 +185,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             {
                 name: i18next.t('entity.types:tab.lineage'),
                 component: LineageTab,
-                icon: PartitionOutlined,
+                icon: TreeStructure,
                 properties: {
                     defaultDirection: LineageDirection.Upstream,
                 },
@@ -198,11 +194,11 @@ export class DashboardEntity implements Entity<Dashboard> {
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
-                icon: WarningOutlined,
+                icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dashboard) => {
                     return dashboard?.dashboard?.activeIncidents?.total;
@@ -304,7 +300,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 subtype={getFirstSubType(data)}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -337,7 +333,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
@@ -379,6 +375,10 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     displayName = (data: Dashboard) => {
         return data.properties?.name || data.urn;
+    };
+
+    createdTime = (data: Dashboard) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
     };
 
     getGenericEntityProperties = (data: Dashboard) => {

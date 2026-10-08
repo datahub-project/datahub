@@ -1,26 +1,38 @@
 """Each dialect's catalog surface, as its own connector declares it.
 
-The gate used to hold this centrally and got it wrong: Oracle and Teradata have no
-`information_schema` at all, so both advertised a `sql` command whose every
-legitimate query was refused. The cases below are drawn from what our own ingestion
+Declared per connector, not held centrally by the gate: Oracle and Teradata have no
+`information_schema` at all, so a central default refuses every legitimate query
+their `sql` command could take. The cases below are drawn from what our own ingestion
 code reads -- DBC.TablesV, DBA_TABLES, sys.tables -- and from the query-text
 surfaces sitting beside them in the same schemas.
 """
 
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple, Type
 
 import pytest
 
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.probe_methods import _provider_class, config_class_for
+from datahub.ingestion.agent.probe_methods import (
+    _provider_class,
+    config_class_for,
+    run_probe_method,
+)
 from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
+    SESSION_TEXT_RELATIONS,
     CatalogScope,
     SqlScopeError,
     check_query_scope,
 )
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.source.sql.sqlalchemy_probe import sqlglot_dialect_for
+from datahub.ingestion.source.sql import sqlalchemy_probe
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
+from datahub.ingestion.source.sql.sqlalchemy_probe import (
+    SqlAlchemyMetadataProbe,
+    sqlglot_dialect_for,
+)
 
 # (source_type, sqlglot platform, query, should the gate permit it)
 PERMITTED: List[Tuple[str, str, str]] = [
@@ -267,6 +279,12 @@ REFUSED_USER_DATA: List[Tuple[str, str, str]] = [
 ]
 
 
+def _sql_config_class(source_type: str) -> Type[SQLCommonConfig]:
+    config_cls = config_class_for(source_type)
+    assert config_cls is not None and issubclass(config_cls, SQLCommonConfig)
+    return config_cls
+
+
 def _scope(source_type: str) -> CatalogScope:
     """Resolve the scope the way _enforce_gates does, which is off the provider.
 
@@ -283,7 +301,7 @@ def _scope(source_type: str) -> CatalogScope:
     declared = provider.__dict__.get("catalog_scope") if provider else None
     if isinstance(declared, CatalogScope):
         return declared
-    return config_class_for(source_type).probe_catalog_scope()
+    return _sql_config_class(source_type).probe_catalog_scope()
 
 
 @pytest.mark.parametrize("source_type,platform,query", PERMITTED)
@@ -337,8 +355,10 @@ def test_cockroachdb_is_parsed_as_postgres_because_that_is_what_it_speaks():
     )
 
 
-# Sources reviewed as safe on the bare default scope -- a schema-level allow of
-# information_schema and nothing else. Safe here means: this dialect's
+# Sources reviewed as safe on a default scope -- a schema-level allow of
+# information_schema: the framework's bare CatalogScope(), or the SQL family's
+# (SQLCommonConfig.probe_catalog_scope); both withhold the MySQL protocol's
+# processlist and innodb_trx. Safe here means: this dialect's
 # information_schema holds schema shape only, with no view carrying the text of
 # user queries.
 #
@@ -397,7 +417,7 @@ def _declared_scopes() -> Iterator[Tuple[str, CatalogScope]]:
         scope = provider.__dict__.get("catalog_scope")
         if not isinstance(scope, CatalogScope):
             try:
-                scope = config_class_for(source_type).probe_catalog_scope()
+                scope = _sql_config_class(source_type).probe_catalog_scope()
             except Exception:
                 continue
         if isinstance(scope, CatalogScope):
@@ -405,7 +425,7 @@ def _declared_scopes() -> Iterator[Tuple[str, CatalogScope]]:
 
 
 def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
-    """Force a decision when a connector inherits the bare default.
+    """Force a decision when a connector inherits a default scope.
 
     Follows the pattern this repo already uses for sensitive config properties:
     rather than guess, require the classification to be explicit, and fail with
@@ -414,16 +434,24 @@ def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
     A named-relation allowlist is safe by construction -- nothing arrives
     permitted. A schema-level allow is a denylist, so somebody has to have looked
     at that dialect's information_schema and confirmed it carries no query text.
+    Both defaults are that denylist: a SQL config inherits the family's, and a
+    provider of its own may declare the framework's bare one.
     """
-    default = CatalogScope()
+    defaults = {CatalogScope(), SQLCommonConfig.probe_catalog_scope()}
     unreviewed: List[str] = []
+    on_a_default: List[str] = []
     scanned = 0
     for source_type, scope in _declared_scopes():
         scanned += 1
-        if scope == default and source_type not in _DEFAULT_SCOPE_REVIEWED:
-            unreviewed.append(source_type)
+        if scope in defaults:
+            on_a_default.append(source_type)
+            if source_type not in _DEFAULT_SCOPE_REVIEWED:
+                unreviewed.append(source_type)
 
     assert scanned, "scanned no scopes at all, so this proved nothing"
+    # mysql inherits the SQL family's default: were it not found on a default,
+    # the comparison would match nothing and wave every source through.
+    assert "mysql" in on_a_default, "compared against no source's real default"
     assert "mysql" in _DEFAULT_SCOPE_REVIEWED, "the sanity anchor went missing"
     assert not unreviewed, (
         "these sources inherit the bare information_schema default without having "
@@ -490,7 +518,7 @@ def test_every_declared_relation_does_work():
 def test_the_postgres_declaration_is_inherited_by_its_derivatives():
     # One declaration covers three connectors; CockroachDB and TimescaleDB extend
     # PostgresConfig rather than restating it. Asserted on the named relations
-    # and on what they withhold, since pg_catalog is no longer allowed at schema
+    # and on what they withhold, since pg_catalog is not allowed at schema
     # level -- the derivatives must inherit the narrowing, not just the allowing.
     for source_type in ("postgres", "cockroachdb", "timescaledb"):
         scope = _scope(source_type)
@@ -501,11 +529,118 @@ def test_the_postgres_declaration_is_inherited_by_its_derivatives():
 
 
 def test_the_default_is_information_schema_and_nothing_else():
-    # What a connector that declares nothing gets: safe everywhere, and enough for a
-    # standard dialect.
+    # What a connector that declares nothing gets: enough for a standard
+    # dialect, minus the MySQL protocol's session-text views, so a provider
+    # outside the SQL family on a MySQL-protocol server cannot read them.
     scope = CatalogScope()
     assert scope.schemas == frozenset({INFORMATION_SCHEMA})
     assert scope.relations == frozenset()
+    assert scope.excluded_relations == SESSION_TEXT_RELATIONS
+    assert not scope.permits_path([INFORMATION_SCHEMA, "processlist"])
+    assert not scope.permits_path([INFORMATION_SCHEMA, "INNODB_TRX"])
+    assert scope.permits_path([INFORMATION_SCHEMA, "tables"])
+    assert not scope.split_dotted_identifiers
+
+
+# Reviewed to split a dotted identifier slot into path parts: the dialect's
+# parser leaves a path's dots inside one slot, and its identifiers cannot
+# contain a dot. Anywhere else the split turns a quoted user table named
+# "information_schema.tables" into a permitted path.
+_SPLITS_DOTTED_IDENTIFIERS_REVIEWED = frozenset({"bigquery"})
+
+
+def test_only_a_reviewed_source_splits_dotted_identifiers():
+    splitting = {
+        source_type
+        for source_type, scope in _declared_scopes()
+        if scope.split_dotted_identifiers
+    }
+    assert "bigquery" in splitting, "BigQuery's catalog queries would be refused"
+    assert splitting <= _SPLITS_DOTTED_IDENTIFIERS_REVIEWED, (
+        "these sources split dotted identifiers without review. Declare "
+        "split_dotted_identifiers only where the dialect's identifiers cannot "
+        "contain a dot, then add the source to "
+        f"_SPLITS_DOTTED_IDENTIFIERS_REVIEWED: "
+        f"{sorted(splitting - _SPLITS_DOTTED_IDENTIFIERS_REVIEWED)}"
+    )
+
+
+_SESSION_TEXT_QUERIES = [
+    "SELECT info FROM information_schema.processlist",
+    "SELECT trx_query FROM information_schema.INNODB_TRX",
+]
+
+
+def test_every_config_on_the_sql_familys_default_withholds_session_text():
+    """The MySQL protocol keeps other sessions' SQL text in processlist and
+    innodb_trx. The SQL family's default withholds them, so every config
+    inheriting it does, whichever dialect its URL names. A provider declaring
+    its own scope (Snowflake, BigQuery) is not on it, whatever its config
+    inherits."""
+    inheriting: List[str] = []
+    for source_type, scope in _declared_scopes():
+        if scope != SQLCommonConfig.probe_catalog_scope():
+            continue
+        inheriting.append(source_type)
+        for query in _SESSION_TEXT_QUERIES:
+            with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
+                check_query_scope(query, platform="mysql", scope=scope)
+    assert {"mysql", "mariadb", "sqlalchemy"} <= set(inheriting)
+
+
+@pytest.mark.parametrize(
+    "source_type, config_cls, config",
+    [
+        (
+            "mysql",
+            MySQLConfig,
+            {"host_port": "localhost:3306", "username": "u", "password": "p"},
+        ),
+        (
+            "sqlalchemy",
+            SQLAlchemyGenericConfig,
+            {"platform": "mysql", "connect_uri": "mysql+pymysql://u:p@localhost/db"},
+        ),
+    ],
+)
+@pytest.mark.parametrize("query", _SESSION_TEXT_QUERIES)
+def test_a_mysql_protocol_probe_refuses_session_text(
+    monkeypatch: pytest.MonkeyPatch,
+    source_type: str,
+    config_cls: Type[SQLCommonConfig],
+    config: Dict[str, Any],
+    query: str,
+) -> None:
+    """Through the provider the probe builds (for_config), the generic
+    source on a mysql:// URL included."""
+    # The Inspector connects as it is built; the gate refuses before any query.
+    monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda target: object())
+    probe = SqlAlchemyMetadataProbe.for_config(config_cls.model_validate(config))
+    assert probe.sql_dialect == "mysql"
+    with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
+        run_probe_method(source_type, config, "sql", {"query": query})
+
+
+# Not redshift: its provider dials host_port through redshift_connector, as
+# ingestion does, and never the sqlalchemy_uri.
+@pytest.mark.parametrize("source_type", ["postgres", "mssql", "clickhouse"])
+def test_a_config_declaring_its_own_scope_withholds_session_text_on_a_mysql_url(
+    monkeypatch: pytest.MonkeyPatch, source_type: str
+) -> None:
+    """These configs declare their own scope, with information_schema whole,
+    and their own dialects keep no session text there. But a config's URL can
+    name a MySQL-protocol server whatever its type, so the SQL family withholds
+    the session-text relations from every scope it builds the provider with."""
+    monkeypatch.setattr(sqlalchemy_probe, "inspect", lambda target: object())
+    config: Dict[str, object] = {
+        "host_port": "probe-test.invalid:3306",
+        "username": "u",
+        "password": "p",
+        "sqlalchemy_uri": "mysql+pymysql://u:p@probe-test.invalid/db",
+    }
+    for query in _SESSION_TEXT_QUERIES:
+        with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
+            run_probe_method(source_type, config, "sql", {"query": query})
 
 
 def test_a_relation_outside_a_permitted_schema_needs_naming_individually():
@@ -569,11 +704,11 @@ def test_declared_scopes_carry_no_user_schema():
 def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
     """`target` must be what the pattern was matched against, or it misleads.
 
-    Redshift matches "database.schema" once match_fully_qualified_names is on, and
-    the probe used to report the bare name regardless. A caller then saw
-    target='analytics' excluded by a pattern of '^analytics$' -- a verdict that
-    contradicts its own explanation -- and would "fix" the pattern in the wrong
-    direction. `target` is the one field probe filter exists to get right.
+    Redshift matches "database.schema" once match_fully_qualified_names is on.
+    Reported as the bare name, target='analytics' excluded by '^analytics$'
+    contradicts its own explanation, and a caller would "fix" the pattern in
+    the wrong direction. `target` is the one field probe filter exists to get
+    right.
     """
 
     base: Dict[str, Any] = {
