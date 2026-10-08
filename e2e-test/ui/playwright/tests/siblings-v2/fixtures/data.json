@@ -120,16 +120,6 @@
             "com.linkedin.pegasus2avro.common.Status": {
               "removed": false
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-              "upstreams": [
-                {
-                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.raw_orders,PROD)",
-                  "type": "TRANSFORMED"
-                }
-              ]
-            }
           }
         ]
       }

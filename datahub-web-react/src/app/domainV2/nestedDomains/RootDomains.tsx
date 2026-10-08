@@ -1,4 +1,4 @@
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -47,7 +47,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
             {error && <Message type="error" content={t('list.loadError')} />}
             {hasInitialized && domains.length === 0 && (
                 <EmptyDomainsSection
-                    icon={<ReadOutlined />}
+                    icon={<BookOpen />}
                     title={t('empty.organizeTitle')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}

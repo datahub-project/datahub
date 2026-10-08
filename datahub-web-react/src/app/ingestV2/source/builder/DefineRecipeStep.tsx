@@ -38,13 +38,6 @@ const ControlsContainer = styled.div`
     margin-top: 8px;
 `;
 
-const BannerActions = styled.div`
-    display: flex;
-    width: 100%;
-    justify-content: center;
-    margin-top: 12px;
-`;
-
 /**
  * The step for defining a recipe
  */
@@ -143,15 +136,9 @@ export const DefineRecipeStep = ({
                 {showLookerBanner && (
                     <Alert
                         variant="warning"
-                        title={
+                        title={t('defineRecipe.lookerBanner.acknowledge')}
+                        description={
                             <>
-                                <big>
-                                    <i>
-                                        <b>{t('defineRecipe.lookerBanner.acknowledge')}</b>
-                                    </i>
-                                </big>
-                                <br />
-                                <br />
                                 <Trans
                                     t={t}
                                     i18nKey="defineRecipe.lookerBanner.integration"
@@ -171,13 +158,12 @@ export const DefineRecipeStep = ({
                                     i18nKey="defineRecipe.lookerBanner.uiUnsupported"
                                     components={{ bold: <b /> }}
                                 />
-                                <BannerActions>
-                                    <Button variant="text" onClick={() => setShowLookerBanner(false)}>
-                                        {t('defineRecipe.lookerBanner.acknowledgeButton')}
-                                    </Button>
-                                </BannerActions>
                             </>
                         }
+                        action={{
+                            label: t('defineRecipe.lookerBanner.acknowledgeButton'),
+                            onClick: () => setShowLookerBanner(false),
+                        }}
                         onClose={() => setShowLookerBanner(false)}
                     />
                 )}

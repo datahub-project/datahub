@@ -3,7 +3,11 @@ from typing import Dict, List
 import pytest
 
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
-from datahub.ingestion.agent.verdicts import UNFILTERED, pattern_verdict
+from datahub.ingestion.agent.verdicts import (
+    UNFILTERED,
+    ProbeInternalError,
+    pattern_verdict,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -111,6 +115,36 @@ def test_a_kind_with_no_filter_reports_every_name_included():
     assert result.warnings == []
 
 
+@pytest.mark.parametrize(
+    ("source_type", "config_dict", "kind", "filtering"),
+    [
+        ("mode", MODE_CONFIG, "Dataset", "unfiltered"),
+        ("mysql", MYSQL_CONFIG, "NoSuchKind", "unresolved"),
+    ],
+)
+def test_try_patterns_on_a_kind_with_no_pattern_are_ignored_with_a_warning(
+    source_type: str, config_dict: Dict[str, object], kind: str, filtering: str
+) -> None:
+    """There is no allow/deny list to replace, so a hypothetical one judged
+    the names against a filter ingestion has no field for -- and reported
+    exclusions ingestion can never make."""
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=kind,
+        parent_path=[],
+        names=["a", "b"],
+        try_deny=["^a$"],
+        try_allow=["^z$"],
+    )
+    assert result.filtering == filtering
+    assert result.tried is None
+    assert [v.included for v in result.results] == [True, True]
+    assert any(
+        "--try-allow and --try-deny were ignored" in w for w in result.warnings
+    ), result.warnings
+
+
 def test_an_unknown_kind_still_answers_but_says_it_is_unrecognised():
     """A misspelling is more likely than a level without a filter, and answering
     "all included" for one silently would be a wrong answer delivered
@@ -129,6 +163,29 @@ def test_an_unknown_kind_still_answers_but_says_it_is_unrecognised():
     assert "no kind 'Nonsense'" in result.warnings[0]
     # And it must name the kinds that would have worked.
     assert "Table" in result.warnings[0]
+
+
+class _ConfiglessSource:
+    """A registered source that declares no config class."""
+
+
+def test_a_source_without_a_config_class_is_the_connectors_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The type resolved, so the caller named it right: a TypeError (exit 1),
+    # not the "unknown source type" a caller would go and fix.
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda _st: _ConfiglessSource,
+    )
+    with pytest.raises(TypeError, match="config class"):
+        check_filters(
+            source_type="fake",
+            config_dict={},
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=[],
+            names=["orders"],
+        )
 
 
 def test_a_table_with_no_parent_is_judged_on_its_bare_name_with_a_warning():
@@ -264,21 +321,9 @@ def test_describe_does_not_advertise_a_field_for_a_kind_declared_unfiltered(
 
 
 def test_a_source_whose_unfiltered_declaration_raises_is_not_read_as_silence():
-    """An indistinguishable empty answer is the bug this hook exists to fix.
-
-    Mode's probe_unfiltered_kinds docstring says why the declaration is
-    there: it is how you tell "this level is reported whole" apart from "the
-    Filters annotation was dropped" -- which is what happened to Teradata's
-    database_pattern, and nothing noticed because the two look identical
-    from outside.
-
-    `except Exception: return set()` turned a broken hook into exactly that
-    indistinguishable silence. pattern_field_for_config would go on to
-    resolve a pattern field by convention and answer by_pattern, contradicting
-    what the connector meant to say, with nothing in the output to show for
-    it. There is no warn channel here to surface it either, so propagating is
-    the only way it can be seen.
-    """
+    """A broken probe_unfiltered_kinds is the connector's defect, reported:
+    read as an empty answer, a field matched by convention would answer
+    by_pattern against what the connector meant to declare."""
     from datahub.ingestion.agent.introspect import pattern_field_for_config
 
     class _BrokenDeclaration:
@@ -286,8 +331,12 @@ def test_a_source_whose_unfiltered_declaration_raises_is_not_read_as_silence():
         def probe_unfiltered_kinds(cls):
             raise RuntimeError("this connector's hook is broken")
 
-    with pytest.raises(RuntimeError, match="hook is broken"):
+    with pytest.raises(ProbeInternalError) as info:
         pattern_field_for_config(_BrokenDeclaration(), "Dataset")
+    assert str(info.value) == (
+        "the connector is defective: _BrokenDeclaration.probe_unfiltered_kinds "
+        "failed (RuntimeError)"
+    )
 
 
 def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
@@ -299,44 +348,6 @@ def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
     v = pattern_verdict(object(), UNFILTERED, "anything")
     assert v.included
     assert v.excluded_by is None
-
-
-def test_soft_on_status_degrades_only_the_statuses_it_was_given():
-    """The empty-vs-unread primitive, which had no test at all.
-
-    The load-bearing branch is the one that does NOT degrade: if an unlisted
-    status became a ProbeSoftError, a 500 or a dropped connection would be
-    reported as "this space has no datasets" plus a warning, at exit 2 -- the
-    exact confusion this interface exists to prevent, arriving as the caller's
-    fault.
-    """
-    import pytest
-
-    from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
-
-    class _Resp:
-        def __init__(self, code):
-            self.status_code = code
-
-    class _HttpError(Exception):
-        def __init__(self, code):
-            self.response = _Resp(code)
-
-    # A listed status is expected absence.
-    with pytest.raises(ProbeSoftError, match="404"):
-        with soft_on_status(403, 404, context="listing datasets"):
-            raise _HttpError(404)
-
-    # An unlisted status is a real failure and must propagate unchanged.
-    with pytest.raises(_HttpError):
-        with soft_on_status(403, 404, context="listing datasets"):
-            raise _HttpError(500)
-
-    # No .response at all -- a connection error or exhausted retries. The
-    # duck-typed getattr chain must fall through to a re-raise, not swallow.
-    with pytest.raises(ConnectionError):
-        with soft_on_status(403, 404, context="listing datasets"):
-            raise ConnectionError("connection reset")
 
 
 # --- the container override is told which container ---------------------------
@@ -364,7 +375,7 @@ def _verdicts(payload):
 
 
 def test_a_multi_project_recipe_is_answerable_with_a_parent():
-    """The reason probe_schema_verdict_override receives the parent at all.
+    """Why probe_verdict_override is told the parent.
 
     BigQuery matches dataset_pattern against "project.dataset", and a recipe may
     name several projects. Without knowing which one the caller means, the
@@ -439,12 +450,9 @@ def test_the_warning_is_absent_when_the_override_could_answer():
 def test_redshift_ignores_the_parent_and_uses_its_own_database():
     """A Redshift recipe connects to one database, so `database` is the only
     qualifier ingestion ever uses. Honouring a different parent would answer
-    about a database this recipe does not read.
-
-    This used to call RedshiftConfig.probe_schema_verdict_override directly.
-    That override is gone -- the convention it implemented now lives in
-    filter_check._qualified_schema_match -- but the behaviour it protected is
-    per-connector and survives, so the test drives the whole path instead.
+    about a database this recipe does not read. Its `database` field is an
+    authoritative Qualifier, which sql_structural_verdict reads; driven
+    through check_filters, the whole path.
     """
     result = check_filters(
         source_type="redshift",
@@ -466,13 +474,9 @@ def test_redshift_ignores_the_parent_and_uses_its_own_database():
 
 @pytest.mark.parametrize("source_type", ["postgres", "mssql"])
 def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_type):
-    """The two connectors overriding probe_schema_verdict_override were the only
-    ones any Schema-kind test touched, so widening the hook's signature broke
-    every source that inherits the base and nothing noticed.
-
-    It surfaced as exit 2 -- TypeError is in recipe_cli._USER_ERRORS -- telling
-    the caller their input was wrong about a framework bug, which is the exact
-    misdirection the exit-code contract exists to prevent.
+    """Schema verdicts on sources that inherit SQLCommonConfig's
+    probe_verdict_override rather than overriding it: a hook signature that
+    drifts on the base breaks every such source at once.
     """
     configs: Dict[str, Dict[str, object]] = {
         "postgres": {
@@ -612,12 +616,10 @@ def test_the_flag_defaults_to_on_so_ordinary_recipes_are_unaffected():
 
 
 def test_try_allow_reaches_a_source_that_decides_structurally():
-    """`structural or (...)` short-circuited the pattern branch, and the
-    structural rule reads the pattern off the config itself -- so --try-allow
-    was ignored by every source declaring probe_schema_verdict_override.
-    On BigQuery that is every schema query, since match_fully_qualified_names
-    defaults True. `tried` still echoed the hypothetical, so the result
-    claimed to have applied what it ignored."""
+    """A structural rule reads the pattern off the config itself, so the
+    --try-allow hypothetical must be on the config the rule is given, or
+    `tried` would echo a pattern the verdict never applied. On BigQuery that
+    is every schema query, since match_fully_qualified_names defaults True."""
     config = {
         "host_port": "h:5439",
         "database": "dev",
@@ -649,14 +651,13 @@ def test_try_allow_reaches_a_source_that_decides_structurally():
 
 
 def test_a_crashing_validator_is_not_reported_as_a_rejected_pattern(monkeypatch):
-    """Two different answers used to share one message.
+    """A rejected pattern and a crashed validator get different messages.
 
     --try-allow re-validates the hypothetical because some connectors
     normalize a pattern in an after-validator. A connector that REJECTS the
     pattern is answering the caller's question, and the warning says so. A
-    connector whose validator CRASHES has answered nothing -- but
-    `except Exception` gave it the same text, sending the caller to fix a
-    pattern that was never judged.
+    connector whose validator CRASHES has answered nothing, and the same text
+    would send the caller to fix a pattern that was never judged.
 
     Still a degrade rather than a hard failure: `probe filter` is a
     diagnostic and a caveated answer beats no answer. Only the attribution
@@ -704,6 +705,8 @@ def test_a_crashing_validator_is_not_reported_as_a_rejected_pattern(monkeypatch)
     )
     assert blamed_the_connector, result.warnings
     assert "RuntimeError" in blamed_the_connector[0]
+    # Named, never quoted: a validator's message can carry config values.
+    assert "boom inside" not in blamed_the_connector[0]
     # And it still answers, rather than failing the command outright.
     assert result.results[0].included
 
@@ -740,6 +743,32 @@ def test_try_allow_alone_keeps_the_recipes_deny_list():
     by_name = {v.name: v for v in result.results}
     assert not by_name["secret_db"].included
     assert by_name["analytics"].included
+
+
+def test_try_allow_keeps_the_recipes_case_sensitivity():
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "table_pattern": {"ignoreCase": False}},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["information_schema"],
+        names=["orders"],
+        try_allow=["^information_schema\\.ORDERS$"],
+    )
+    assert not result.results[0].included
+
+
+def test_a_trial_pattern_keeps_the_recipes_fields_and_none_of_its_matches():
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.agent.filter_check import _trial_pattern
+
+    recipe_pattern = AllowDenyPattern(allow=["^a"], deny=["^ax"], ignoreCase=False)
+    # Compiles and caches the recipe's own regexes on the instance.
+    assert recipe_pattern.allowed("abc")
+    trial = _trial_pattern(recipe_pattern, try_allow=["^b"], try_deny=[])
+    assert (trial.allow, trial.deny, trial.ignoreCase) == (["^b"], ["^ax"], False)
+    assert trial.allowed("bcd")
+    assert not trial.allowed("abc")
+    assert not trial.allowed("BCD")
 
 
 # --- one spelling of --kind ------------------------------------------------
@@ -880,40 +909,6 @@ def test_a_source_that_does_not_rewrite_the_pattern_says_nothing_about_it():
 
     assert result.tried == {"allow": ["^public$"], "deny": ["information_schema"]}
     assert not [w for w in result.warnings if "normalized" in w]
-
-
-def test_an_explicit_schema_override_beats_the_shared_convention():
-    """Specific beats general, which is what the hook's own docstring promises.
-
-    `probe_schema_verdict_override` is documented as "checked before the
-    generic check", and the code ran _qualified_schema_match first and only
-    consulted the override when that returned None -- so a connector that
-    declared an override AND enabled match_fully_qualified_names would never
-    have its override called. The shared convention would answer first and
-    the connector's own statement about its matching would be dead.
-
-    Inert today, because only the base class defines the hook and it returns
-    None. Pinned now so the contract is true before a connector relies on it,
-    and because the rest of this module already layers this way --
-    _hinted_pattern_field wins over the name convention "because it is exact
-    by construction".
-    """
-    from datahub.ingestion.agent.verdicts import SchemaMatch
-    from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
-
-    def _override(self, schema, parent_path=()):
-        return SchemaMatch(included=True, target=f"override::{schema}")
-
-    original = BigQueryV2Config.probe_schema_verdict_override
-    BigQueryV2Config.probe_schema_verdict_override = _override  # type: ignore[method-assign]
-    try:
-        # match_fully_qualified_names defaults True here, so the shared
-        # convention has an answer and would win under the old order.
-        verdicts = _verdicts(_bq([], projects=("proj_a",), allow="^analytics$"))
-    finally:
-        BigQueryV2Config.probe_schema_verdict_override = original  # type: ignore[method-assign]
-
-    assert verdicts["analytics"] == (True, "override::analytics")
 
 
 @pytest.mark.parametrize(

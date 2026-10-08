@@ -852,6 +852,11 @@ def _parse_test_result(
     dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
 ) -> Optional[DBTTestResult]:
+    # A skipped test never executed (e.g. an upstream node failed during
+    # `dbt build`), so there is no verdict to report. dbt Cloud drops skipped
+    # nodes the same way.
+    if run_result.status == "skipped":
+        return None
     if not run_result.has_success_status():
         native_results = {"message": run_result.message or ""}
         if run_result.failures:

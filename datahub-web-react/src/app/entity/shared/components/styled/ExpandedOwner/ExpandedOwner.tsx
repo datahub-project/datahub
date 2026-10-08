@@ -12,7 +12,7 @@ import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkP
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
-import { EntityType, Owner } from '@types';
+import { Owner } from '@types';
 
 const OwnerTag = styled(Tag)`
     margin: 0;
@@ -39,21 +39,15 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
-    let name = '';
     let ownershipTypeName = '';
-    if (owner.owner.__typename === 'CorpGroup') {
-        name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
-    }
-    if (owner.owner.__typename === 'CorpUser') {
-        name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
-    }
+    const name = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
     if (owner.ownershipType && owner.ownershipType.info) {
         ownershipTypeName = owner.ownershipType.info.name;
     } else if (owner.type) {
         ownershipTypeName = getNameFromType(owner.type);
     }
     const pictureLink =
-        (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
+        ('editableProperties' in owner.owner && owner.owner.editableProperties?.pictureLink) || undefined;
     const onDelete = async () => {
         if (!entityUrn) {
             return;
@@ -99,7 +93,11 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     };
 
     return (
-        <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
+        <OwnerTag
+            onClose={onClose}
+            closable={!!entityUrn && !readOnly}
+            data-testid={`owner-tag-for-${owner.owner.urn}`}
+        >
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
                 <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`} {...linkProps}>

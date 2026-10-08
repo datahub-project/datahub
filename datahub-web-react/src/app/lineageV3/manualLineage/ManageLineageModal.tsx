@@ -226,6 +226,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     count: entitiesToAdd.length + entitiesToRemove.length,
                 })}
                 confirmButtonText={tcAction('yes')}
+                zIndex={2100} // Above ManageLineageModal (zIndex 2000)
             />
         </ClickOutside>
     );

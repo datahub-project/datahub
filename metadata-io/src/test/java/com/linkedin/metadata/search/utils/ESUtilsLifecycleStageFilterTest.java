@@ -6,7 +6,6 @@ import static com.linkedin.metadata.search.utils.ESUtils.REMOVED;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
@@ -148,9 +147,9 @@ public class ESUtilsLifecycleStageFilterTest {
     assertTrue(query.toString().contains("dataset"));
   }
 
-  /** V3 entity indices keep lifecycleStage at the root, without a .keyword subfield. */
+  /** V3 entity indices map the V2 .keyword subfield, so hidden stages filter on it as on V2. */
   @Test
-  public void testV3HiddenStagesExcludedOnRootField() {
+  public void testV3HiddenStagesExcludedOnKeywordSubfield() {
     OperationContext opContext = mockOpContext(new SearchFlags().setIncludeSoftDeleted(true));
     EntityIndexConfiguration entityIndex =
         EntityIndexConfiguration.builder()
@@ -163,8 +162,7 @@ public class ESUtilsLifecycleStageFilterTest {
         opContext, List.of("dataset"), null, query, Set.of(PROPOSED_URN), entityIndex);
 
     assertEquals(query.mustNot().size(), 1);
-    assertMustNotContainsTerm(query, LIFECYCLE_STAGE, PROPOSED_URN);
-    assertFalse(query.toString().contains(LIFECYCLE_STAGE + KEYWORD_SUFFIX), query.toString());
+    assertMustNotContainsTerm(query, LIFECYCLE_STAGE + KEYWORD_SUFFIX, PROPOSED_URN);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

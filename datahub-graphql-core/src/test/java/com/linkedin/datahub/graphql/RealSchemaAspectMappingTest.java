@@ -66,7 +66,8 @@ public class RealSchemaAspectMappingTest {
     "metrics.graphql",
     "runs.graphql",
     "lifecycle.graphql",
-    "dataProduct.graphql"
+    "dataProduct.graphql",
+    "api.graphql"
   };
 
   private AspectMappingRegistry registry;

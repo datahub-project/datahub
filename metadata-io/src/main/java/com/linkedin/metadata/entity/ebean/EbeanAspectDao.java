@@ -876,6 +876,22 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nonnull Map<String, Set<String>> urnAspects,
       boolean forUpdate) {
+    return getLatestAspects(opContext, urnAspects, forUpdate, false);
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, Map<String, SystemAspect>> getLatestAspectsLocked(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    return getLatestAspects(opContext, urnAspects, true, true);
+  }
+
+  @Nonnull
+  private Map<String, Map<String, SystemAspect>> getLatestAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<String, Set<String>> urnAspects,
+      boolean forUpdate,
+      boolean lockEvenIfOptimistic) {
     validateConnection();
 
     return txnFactory.runInScope(
@@ -895,7 +911,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
           // (range_optimizer_max_mem_size)
           final List<EbeanAspectV2> results =
-              batchGet(opContext, keys, queryKeysCount, forUpdate && canWrite);
+              batchGet(
+                  opContext, keys, queryKeysCount, forUpdate && canWrite, lockEvenIfOptimistic);
           return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
         });
   }
@@ -983,6 +1000,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
+    return deleteUrnExcept(opContext, txContext, urn, Set.of());
+  }
+
+  @Override
+  public int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -1042,11 +1068,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             // matched
             // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
             // locks.
-            server
-                .find(EbeanAspectV2.class)
-                .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
-                .where()
-                .eq(EbeanAspectV2.URN_COLUMN, urn)
+            exceptAspects(
+                    server
+                        .find(EbeanAspectV2.class)
+                        .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
+                        .where()
+                        .eq(EbeanAspectV2.URN_COLUMN, urn),
+                    keptAspectNames)
                 .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
                 .forUpdate()
                 .findList();
@@ -1054,24 +1082,36 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
           // First, delete all non-key aspects
           int nonKeyCount =
-              server
-                  .createQuery(EbeanAspectV2.class)
-                  .where()
-                  .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+              exceptAspects(
+                      server
+                          .createQuery(EbeanAspectV2.class)
+                          .where()
+                          .eq(EbeanAspectV2.URN_COLUMN, urn)
+                          .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName),
+                      keptAspectNames)
                   .delete();
 
           // Then, delete the key aspect
           int keyCount =
-              server
-                  .createQuery(EbeanAspectV2.class)
-                  .where()
-                  .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+              exceptAspects(
+                      server
+                          .createQuery(EbeanAspectV2.class)
+                          .where()
+                          .eq(EbeanAspectV2.URN_COLUMN, urn)
+                          .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName),
+                      keptAspectNames)
                   .delete();
 
           return nonKeyCount + keyCount;
         });
+  }
+
+  @Nonnull
+  private static ExpressionList<EbeanAspectV2> exceptAspects(
+      @Nonnull ExpressionList<EbeanAspectV2> where, @Nonnull Set<String> keptAspectNames) {
+    return keptAspectNames.isEmpty()
+        ? where
+        : where.notIn(EbeanAspectV2.ASPECT_COLUMN, keptAspectNames);
   }
 
   @Override
@@ -1120,6 +1160,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       boolean forUpdate) {
+    return batchGet(opContext, keys, keysCount, forUpdate, false);
+  }
+
+  /**
+   * @param lockEvenIfOptimistic take the row locks under optimistic locking too
+   */
+  @Nonnull
+  private List<EbeanAspectV2> batchGet(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      boolean forUpdate,
+      boolean lockEvenIfOptimistic) {
     if (keys.isEmpty()) {
       return Collections.emptyList();
     }
@@ -1128,7 +1181,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     int position = 0;
 
     List<EbeanAspectV2.PrimaryKey> keyList = new ArrayList<>(keys);
-    boolean lockRows = forUpdate && canWrite && !optimisticLocking;
+    boolean lockRows = forUpdate && canWrite && (!optimisticLocking || lockEvenIfOptimistic);
     // Only when we actually take row locks: sort by primary key so all transactions acquire locks
     // in the same (urn, aspect, version) order. Unordered keys under FOR UPDATE cause lock-order
     // deadlocks between concurrent writers ("Deadlock found when trying to get lock"). Non-locking
@@ -1141,12 +1194,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
-        batchGetSelectString(opContext, keyList, keysCount, position, forUpdate);
+        batchGetSelectString(opContext, keyList, keysCount, position, lockRows, forUpdate);
 
     while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
       position += keysCount;
       final List<EbeanAspectV2> oneStatementResult =
-          batchGetSelectString(opContext, keyList, keysCount, position, forUpdate);
+          batchGetSelectString(opContext, keyList, keysCount, position, lockRows, forUpdate);
       finalResult.addAll(oneStatementResult);
     }
 

@@ -22,6 +22,12 @@ dependencies {
   runtimeOnly externalDependency.jjwtImpl
   runtimeOnly externalDependency.jjwtJackson
 
+  compileOnly(externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
+  testImplementation(externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 

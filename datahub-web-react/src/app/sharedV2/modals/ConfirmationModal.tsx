@@ -35,6 +35,7 @@ interface Props {
     confirmButtonText?: string;
     isDeleteModal?: boolean;
     closeOnPrimaryAction?: boolean;
+    zIndex?: number;
 }
 
 export const ConfirmationModal = ({
@@ -48,6 +49,7 @@ export const ConfirmationModal = ({
     confirmButtonText,
     isDeleteModal,
     closeOnPrimaryAction,
+    zIndex,
 }: Props) => {
     const { t } = useTranslation('shared.misc');
     const { t: tc } = useTranslation('common.actions');
@@ -56,6 +58,7 @@ export const ConfirmationModal = ({
             open={isOpen}
             onCancel={closeOnPrimaryAction ? handleConfirm : handleClose}
             centered
+            zIndex={zIndex}
             buttons={[
                 {
                     variant: 'text',

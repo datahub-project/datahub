@@ -12,6 +12,7 @@ import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngesti
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
+import { pollingContext } from '@src/apolloPolling';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -93,9 +94,11 @@ function TestConnectionButton({
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
                 () =>
-                    getIngestionExecutionRequest({
-                        variables: { urn: requestData.createTestConnectionRequest as string },
-                    }),
+                    getIngestionExecutionRequest(
+                        pollingContext({
+                            variables: { urn: requestData.createTestConnectionRequest as string },
+                        }),
+                    ),
                 2000,
             );
             setIsLoading(true);

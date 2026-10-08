@@ -35,7 +35,9 @@ exposed the value. Treat the warning as a prompt to externalize the secret to `$
 
 **Redaction can over-mask.** Any string equal to a secret is blanked, so if a password
 happens to match a real identifier (a database also named `datahub`), that identifier reports
-as `***` everywhere. If a name comes back masked, that is why; it is not a probe failure.
+as `***` everywhere. `probe filter` cannot judge a name it cannot see, so it refuses a `--name`
+or `--parent` holding `***` (exit 2), and `--from-run` skips masked entries with a warning. Do not
+guess the real name; ask the operator, or change the secret so it no longer equals an identifier.
 
 ## Workflow
 
@@ -70,6 +72,15 @@ as `***` everywhere. If a name comes back masked, that is why; it is not a probe
    fine; an unresolvable reference is reported by name. The plaintext-secret warning covers
    nested config too, including free-form dicts like Kafka's `consumer_config`.
 
+   References resolve exactly as `datahub ingest` resolves them: `${X}`, a `$X` that starts the
+   value, `${X:-default}` and `${X:=default}`; `$$` is kept as written. Two differences matter:
+
+   - A dotted name such as `${gms.server}` is **not** a path into `~/.datahubenv`. It reads as
+     `${gms}` and becomes an empty string; `validate` warns. Use `${DATAHUB_GMS_URL}` and
+     `${DATAHUB_GMS_TOKEN}`.
+   - A reference that takes **part** of a value (`${X:0:8}`, `${X:8}`, `${#X}`) is refused
+     (exit 2): only whole values can be masked. Reference the whole value.
+
 5. **Explore** — see what is actually in the source (below).
 
 6. **Check filters** — see what your patterns would keep (below).
@@ -96,6 +107,10 @@ lists schemas, and `columns(schema, table)` under that. Call one with:
 ```bash
 datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
 ```
+
+Per-object commands (`columns`, `foreign_keys`, ...) accept only a schema and a table, view or
+materialized view that the source's own listings return, spelled as listed. Anything else is
+refused (exit 2), with the listed spelling as a hint when only the case differs.
 
 **SQL sources list their objects with `containers`, `tables` and `views`** — prefer these over
 writing a catalog query. They come from the connector's own inspector, so `tables` excludes views
@@ -134,8 +149,11 @@ what this source does permit:
 ```
 
 Refusals you should expect, and not try to work around: user tables, unqualified table names,
-multiple statements, non-SELECT statements, and vendor-specific functions (`pg_read_file`,
-`dblink`, `load_file`). **A write hidden inside a query** is refused too, however read-only the
+multiple statements, non-SELECT statements, vendor-specific functions (`pg_read_file`,
+`dblink`, `load_file`), and **any comment or optimizer hint** (`--`, `/* */`, `/*+ */`), since
+some engines run text inside comments. A query the database itself rejects as wrong
+(SQLSTATE class 42: a misspelled column, a missing relation, no grant) also exits 2: fix the
+query. **A write hidden inside a query** is refused too, however read-only the
 outer statement looks:
 
 ```sql
@@ -287,11 +305,16 @@ never got a say.
 
 **`filtering` says why `pattern_field` is null**, which the null alone cannot:
 
-| value        | meaning                                                                 |
-| ------------ | ----------------------------------------------------------------------- |
-| `by_pattern` | a field decided; `pattern_field` names it                               |
-| `unfiltered` | the source declares nothing filters this level — every name is included |
-| `unresolved` | no field could be found and none was declared absent                    |
+| value        | meaning                                                                           |
+| ------------ | --------------------------------------------------------------------------------- |
+| `by_pattern` | a field decided; `pattern_field` names it                                         |
+| `by_rule`    | rules that are not a pattern decide (`path_specs`, say); `excluded_by` says which |
+| `unfiltered` | the source declares nothing filters this level — every name is included           |
+| `unresolved` | no field could be found and none was declared absent                              |
+
+`pattern_field` can be a dotted path (`filter_config.entries.pattern`) when the pattern sits in a
+nested block; edit that path in the recipe. A `by_rule` kind ignores `--try-allow`/`--try-deny`
+with a warning: edit the rules in the recipe to test a change.
 
 `unresolved` is the one to act on: it usually means the kind is wrong for this source rather
 than that the source filters nothing. The warning beside it lists the kinds the source does
@@ -307,7 +330,11 @@ datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
   --name orders --name users --try-allow '^public\.ord.*'
 ```
 
-`probe filter` needs no connection: it judges names you already have.
+`probe filter` needs no connection: it judges names you already have. To judge a whole listing,
+save it with `probe run ... --report-to run.json` and pass `--from-run run.json` instead of
+`--name`: the kind, the parent and each record's facts come from the file unless you pass
+`--kind` or `--parent`. A file that is not a `probe run` listing, or over 50 MB, is refused
+(exit 2).
 
 ## Boundary Rules
 
@@ -324,14 +351,39 @@ datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
 
 ## Error Handling
 
-Branch on exit codes, not on message text:
+Branch on exit codes, not on message text. The code says who has to act:
 
-| code | meaning                                                         |
-| ---- | --------------------------------------------------------------- |
-| 0    | success                                                         |
-| 1    | internal error                                                  |
-| 2    | your input was wrong — bad recipe, bad parameter, refused query |
-| 3    | the source could not be reached                                 |
+| code | meaning                                                                                                    |
+| ---- | ---------------------------------------------------------------------------------------------------------- |
+| 0    | success                                                                                                    |
+| 1    | a defect in DataHub or the connector, or a missing Python package (the error names it): not fixable by you |
+| 2    | your input was wrong — bad recipe or URL, bad parameter, a name the source does not list, a refused query  |
+| 3    | the source could not be reached or read, or recorded a failure (`failures` is non-empty)                   |
+
+Do not retry a 2 unchanged; change what you ask for. A 3 may be transient, or the credential may
+lack a grant.
+
+An error from a driver, an SDK or the connector shows its class and at most one code, never its
+text, which is where connection strings and query literals leak from:
+`'tables' failed (ProgrammingError; SQLSTATE 42P01)`. The operator can see the full text by
+running the same command with `DATAHUB_PROBE_VERBOSE_LOGS=1`; **never set it yourself**, since it
+also turns log scrubbing off. stderr carries the connector's log lines (INFO and above, scrubbed,
+tracebacks dropped) before the final `{"error": ...}` line; read that line, not the whole
+stream.
+
+When the source cannot be opened because of the network, the label is followed by a reason and a
+fixed hint: `opening source 'mysql' failed (OperationalError; errno 2003): ConnectionRefused - ...`.
+The reason comes from the exception's type, never its text. Act on it before touching credentials:
+
+| reason              | what to do                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `HostNotResolved`   | fix the host's spelling, or ask the user about DNS or VPN                           |
+| `ConnectionRefused` | check the port, and that the server is running                                      |
+| `Timeout`           | ask the user about a firewall, allowlist or private network; retrying will not help |
+| `HostUnreachable`   | the host is on a network this machine cannot route to; ask the user                 |
+| `TlsVerifyFailed`   | fix the recipe's CA or TLS settings                                                 |
+
+No reason means the network was not the cause, or the driver did not say (Postgres never does).
 
 ## Common Recipes
 

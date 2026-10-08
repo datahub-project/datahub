@@ -1406,6 +1406,11 @@ enum EntityType {
   APPLICATION
 
   """
+  An API — a named callable with a typed input and output schema (MCP tool, REST endpoint, gRPC method, function, etc.)
+  """
+  API
+
+  """
   A Knowledge Article
   """
   DOCUMENT
@@ -2214,6 +2219,10 @@ enum IconLibrary {
   Icons from the Material UI icon library
   """
   MATERIAL
+  """
+  Icons from the Phosphor icon library
+  """
+  PHOSPHOR
 }
 
 type FineGrainedLineage {
@@ -12247,6 +12256,21 @@ type ParentDomainsResult {
 }
 
 """
+The full chain of parent applications for a single Application through all of its ancestors
+"""
+type ParentApplicationsResult {
+  """
+  The number of parent applications bubbling up for this entity
+  """
+  count: Int!
+
+  """
+  A list of parent applications in order from direct parent, to parent's parent etc. If there are no parents, return an empty list
+  """
+  applications: [Application!]!
+}
+
+"""
 Properties about a domain
 """
 type DomainProperties {
@@ -14071,6 +14095,20 @@ type Application implements Entity {
   """
   properties: ApplicationProperties
     @aspectMapping(aspects: ["applicationProperties"])
+
+  """
+  The parent application that contains this one (app-of-apps hierarchy).
+  Resolved from the ApplicationPartOf relationship.
+  """
+  parentApplication: Application
+    @aspectMapping(aspects: ["applicationProperties"])
+
+  """
+  The full chain of parent applications for this Application, ordered from the direct
+  parent up through its ancestors (app-of-apps hierarchy). Resolved by walking the
+  ApplicationPartOf relationship.
+  """
+  parentApplications: ParentApplicationsResult @noAspects
 
   """
   Ownership metadata of the Application

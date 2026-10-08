@@ -16,7 +16,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 /** pgQueue Postgres stacks omit Kafka; blocking upgrades must not include {@link KafkaSetup}. */
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     args = {"-u", "SystemUpdateBlocking"},

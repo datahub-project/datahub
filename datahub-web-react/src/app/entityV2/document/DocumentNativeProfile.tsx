@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -70,6 +70,9 @@ const ContentCard = styled.div`
 const MainContent = styled.div`
     flex: 1;
     overflow-y: auto;
+    /* Always reserve space for the scrollbar so content doesn't shift when it appears/disappears
+       (e.g. when expanding a section makes the page taller). */
+    scrollbar-gutter: stable;
     padding: 0 20px 20px 20px;
 `;
 
@@ -213,7 +216,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 <ContentCard>
                                     {loading ? (
                                         <LoadingWrapper>
-                                            <LoadingOutlined />
+                                            <Loader size="sm" />
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>

@@ -19,6 +19,8 @@ const CreateButton = styled(Button)`
     &:hover {
         color: ${(props) => props.theme.colors.textHover};
     }
+
+    gap: 5px;
 `;
 
 interface Props {

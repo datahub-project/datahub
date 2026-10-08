@@ -302,6 +302,36 @@ def test_allowed_with_default_extension() -> None:
         assert path_spec.allowed(f"s3://bucket/table/file.{compression}")
 
 
+def test_allowed_with_default_extension_and_compression_disabled() -> None:
+    """default_extension must not admit compressed files when compression is off.
+
+    With ``enable_compression=False`` a ``.gz`` file cannot be decompressed to read
+    its inner format, so it must be skipped rather than parsed as the default type.
+    Ordinary unknown suffixes / no-extension files still fall back to the default.
+    """
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*",
+        file_types=["csv"],
+        default_extension="csv",
+        enable_compression=False,
+    )
+
+    # Compression suffix while compression is disabled: rejected despite the default.
+    for compression in SUPPORTED_COMPRESSIONS:
+        assert path_spec.allowed(f"s3://bucket/table/file.{compression}") is False, (
+            compression
+        )
+        assert (
+            path_spec.allowed(f"s3://bucket/table/file.json.{compression}") is False
+        ), compression
+
+    # Fallback still works for genuinely unknown / missing extensions.
+    assert path_spec.allowed("s3://bucket/table/file") is True
+    assert path_spec.allowed("s3://bucket/table/events.account.update-abc123") is True
+    # A recognised, wanted format is still admitted.
+    assert path_spec.allowed("s3://bucket/table/file.csv") is True
+
+
 def test_allowed_ignore_extension() -> None:
     """Test allowed method with ignore_ext=True."""
     path_spec = PathSpec(include="s3://bucket/{table}/*", file_types=["csv"])

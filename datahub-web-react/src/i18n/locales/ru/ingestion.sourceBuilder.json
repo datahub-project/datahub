@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Продолжить настройку",
     "multiStep.builder.discard.description": "Если сейчас выйти, конфигурация будет потеряна. Можно продолжить настройку или выйти и начать заново позже",
     "multiStep.builder.discard.title": "У вас есть несохранённые изменения",
-    "multiStep.chat.placeholder": "Плейсхолдер AI-чата",
     "multiStep.connection.addOwners": "Добавить владельцев",
     "multiStep.connection.advancedSettings": "Расширенные настройки",
     "multiStep.connection.cannotChangeSourceType": "Изменить тип источника для существующего источника загрузки нельзя",

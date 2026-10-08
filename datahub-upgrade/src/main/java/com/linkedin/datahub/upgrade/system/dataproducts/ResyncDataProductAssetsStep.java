@@ -1,193 +1,100 @@
 package com.linkedin.datahub.upgrade.system.dataproducts;
 
+import static com.linkedin.datahub.upgrade.system.AbstractMCLStep.LAST_URN_KEY;
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
-import com.google.common.collect.ImmutableList;
-import com.linkedin.common.AuditStamp;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.dataproduct.DataProductProperties;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Reprocess step: scrolls Data Products, batch-fetches {@code dataProductProperties}, and emits
- * UPSERT proposals tagged as system-update so {@link
- * com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect} re-mirrors membership
- * onto assets (missing ADDs and stale REMOVEs).
+ * Scans stored {@code dataProductProperties} and invokes {@code DataProductAssetsSideEffect} via
+ * RESTATE MCLItems + post-MCP side effects (not a no-op parent upsert) so each member asset gets a
+ * denormalized {@code dataProducts} aspect for search filtering and faceting.
+ *
+ * <p>Uses a versioned upgrade id so a prior marker from the old re-UPSERT implementation cannot
+ * suppress this sweep. Skip once {@code SUCCEEDED}/{@code ABORTED} unless {@code
+ * REPROCESS_DATA_PRODUCT_ASSETS=true}.
  */
 @Slf4j
 public class ResyncDataProductAssetsStep implements UpgradeStep {
 
-  private static final String UPGRADE_ID = "ResyncDataProductAssetsStep";
-  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
+  static final String UPGRADE_ID = "data-product-assets-from-properties-v1";
+
+  private static final List<String> REQUIRED_ASPECTS = List.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
 
   private final OperationContext opContext;
   private final EntityService<?> entityService;
-  private final SearchService searchService;
+  private final AspectDao aspectDao;
+  private final int batchSize;
+  private final int batchDelayMs;
+  private final int limit;
   private final boolean reprocessEnabled;
-  private final Integer batchSize;
 
   public ResyncDataProductAssetsStep(
       OperationContext opContext,
       EntityService<?> entityService,
-      SearchService searchService,
-      boolean reprocessEnabled,
-      Integer batchSize) {
+      AspectDao aspectDao,
+      Integer batchSize,
+      Integer batchDelayMs,
+      Integer limit,
+      boolean reprocessEnabled) {
     this.opContext = opContext;
     this.entityService = entityService;
-    this.searchService = searchService;
-    this.reprocessEnabled = reprocessEnabled;
+    this.aspectDao = aspectDao;
     this.batchSize = batchSize;
-  }
-
-  @Override
-  public Function<UpgradeContext, UpgradeStepResult> executable() {
-    return (context) -> {
-      final AuditStamp auditStamp =
-          new AuditStamp()
-              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-              .setTime(System.currentTimeMillis());
-
-      String scrollId = null;
-      int migratedCount = 0;
-      int failureCount = 0;
-      do {
-        log.info(
-            "Resyncing dataProducts membership via dataProductProperties UPSERT, batch {}-{}",
-            migratedCount,
-            migratedCount + batchSize);
-        ResyncBatchResult batchResult = resyncBatch(auditStamp, scrollId);
-        failureCount += batchResult.failureCount();
-        scrollId = batchResult.scrollId();
-        migratedCount += batchSize;
-      } while (scrollId != null);
-
-      if (failureCount > 0) {
-        log.error(
-            "{} completed with {} failure(s); upgrade result not recorded so a later run can retry",
-            id(),
-            failureCount);
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-      }
-
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
-    };
-  }
-
-  private ResyncBatchResult resyncBatch(AuditStamp auditStamp, String scrollId) {
-    final ScrollResult scrollResult =
-        searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    flags
-                        .setFulltext(true)
-                        .setSkipCache(true)
-                        .setSkipHighlighting(true)
-                        .setSkipAggregates(true)),
-            ImmutableList.of(DATA_PRODUCT_ENTITY_NAME),
-            "*",
-            null,
-            null,
-            scrollId,
-            null,
-            batchSize,
-            null);
-
-    if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().isEmpty()) {
-      return new ResyncBatchResult(null, 0);
-    }
-
-    Set<Urn> dataProductUrns =
-        scrollResult.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toCollection(HashSet::new));
-
-    int failureCount = 0;
-    try {
-      Map<Urn, EntityResponse> responses =
-          entityService.getEntitiesV2(
-              opContext,
-              DATA_PRODUCT_ENTITY_NAME,
-              dataProductUrns,
-              Collections.singleton(DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
-
-      for (Urn dataProductUrn : dataProductUrns) {
-        try {
-          resyncDataProduct(dataProductUrn, responses.get(dataProductUrn), auditStamp);
-        } catch (Exception e) {
-          failureCount++;
-          log.error("Error resyncing dataProducts for members of {}", dataProductUrn, e);
-        }
-      }
-    } catch (Exception e) {
-      failureCount += dataProductUrns.size();
-      log.error("Error batch-fetching dataProductProperties for resync", e);
-    }
-
-    return new ResyncBatchResult(scrollResult.getScrollId(), failureCount);
-  }
-
-  private void resyncDataProduct(Urn dataProductUrn, EntityResponse response, AuditStamp auditStamp)
-      throws Exception {
-    if (response == null
-        || !response.getAspects().containsKey(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)) {
-      return;
-    }
-
-    EnvelopedAspect enveloped = response.getAspects().get(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
-    DataMap dataMap = enveloped.getValue().data();
-    DataProductProperties properties = new DataProductProperties(dataMap);
-
-    SystemMetadata systemMetadata = createDefaultSystemMetadata();
-    StringMap props =
-        systemMetadata.getProperties() != null
-            ? new StringMap(systemMetadata.getProperties().data())
-            : new StringMap();
-    props.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
-    systemMetadata.setProperties(props);
-
-    MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(dataProductUrn);
-    proposal.setEntityType(DATA_PRODUCT_ENTITY_NAME);
-    proposal.setAspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
-    proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(systemMetadata);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(properties));
-
-    entityService.ingestProposal(opContext, proposal, auditStamp, true);
+    this.batchDelayMs = batchDelayMs;
+    this.limit = limit;
+    this.reprocessEnabled = reprocessEnabled;
+    log.info(
+        "ResyncDataProductAssetsStep initialized (id={}, reprocessEnabled={})",
+        UPGRADE_ID,
+        reprocessEnabled);
   }
 
   @Override
   public String id() {
     return UPGRADE_ID;
+  }
+
+  @VisibleForTesting
+  @Nullable
+  public String getUrnLike() {
+    return "urn:li:" + DATA_PRODUCT_ENTITY_NAME + ":%";
   }
 
   @Override
@@ -197,21 +104,250 @@ public class ResyncDataProductAssetsStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    // Reprocess escape hatch: always run when enabled via application.yaml.
     if (reprocessEnabled) {
-      log.info("{} reprocess enabled; running resync.", id());
+      log.info("{}: Reprocess enabled, not skipping.", getUpgradeIdUrn());
       return false;
     }
 
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    // Without reprocess, this step is a no-op — first-time fill is MigrateAspects / ZDU.
-    return true;
+    Optional<DataHubUpgradeResult> prevResult =
+        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
+
+    return prevResult
+        .filter(
+            result ->
+                DataHubUpgradeState.SUCCEEDED.equals(result.getState())
+                    || DataHubUpgradeState.ABORTED.equals(result.getState()))
+        .isPresent();
   }
 
-  private record ResyncBatchResult(String scrollId, int failureCount) {}
+  @VisibleForTesting
+  Urn getUpgradeIdUrn() {
+    return BootstrapStep.getUpgradeUrn(id());
+  }
+
+  /**
+   * URN to resume from when a prior run of this step is still {@code IN_PROGRESS} and recorded
+   * {@code lastUrn}. Null when there is no resumable checkpoint.
+   */
+  @Nullable
+  private String resumeFrom(UpgradeContext context) {
+    String resumeUrn =
+        context
+            .upgrade()
+            .getUpgradeResult(opContext, getUpgradeIdUrn(), entityService)
+            .filter(
+                result ->
+                    DataHubUpgradeState.IN_PROGRESS.equals(result.getState())
+                        && result.getResult() != null
+                        && result.getResult().containsKey(LAST_URN_KEY))
+            .map(result -> result.getResult().get(LAST_URN_KEY))
+            .orElse(null);
+    if (resumeUrn != null) {
+      log.info("{}: Resuming from URN: {}", getUpgradeIdUrn(), resumeUrn);
+    }
+    return resumeUrn;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    log.info("Starting ResyncDataProductAssetsStep ({})", id());
+    return (context) -> {
+      String resumeUrn = resumeFrom(context);
+
+      RestoreIndicesArgs argsBuilder =
+          new RestoreIndicesArgs()
+              .aspectNames(REQUIRED_ASPECTS)
+              .batchSize(batchSize)
+              .lastUrn(resumeUrn)
+              .urnBasedPagination(resumeUrn != null)
+              .limit(limit);
+
+      if (getUrnLike() != null) {
+        argsBuilder = argsBuilder.urnLike(getUrnLike());
+      }
+      final RestoreIndicesArgs args = argsBuilder;
+
+      aspectDao.streamAspectBatches(
+          context.opContext(),
+          args,
+          stream -> {
+            stream
+                .partition(args.batchSize)
+                .forEach(
+                    batch -> {
+                      log.info("Processing batch of size {}.", batchSize);
+
+                      List<SystemAspect> systemAspects =
+                          batch
+                              .flatMap(
+                                  ebeanAspectV2 ->
+                                      EntityUtils.toSystemAspectFromEbeanAspects(
+                                          opContext,
+                                          opContext.getRetrieverContext(),
+                                          Set.of(ebeanAspectV2))
+                                          .stream())
+                              .collect(Collectors.toList());
+
+                      List<MCLItem> restateMclItems = toRestateMclItems(systemAspects);
+
+                      // Force DataProductAssetsSideEffect without a no-op parent upsert: RESTATE
+                      // MCLItems + post-MCP side effects → async ingestProposal.
+                      ingestSideEffectProposals(buildSideEffectProposals(restateMclItems));
+
+                      Urn lastUrn =
+                          restateMclItems.stream()
+                              .map(MCLItem::getUrn)
+                              .reduce((a, b) -> b)
+                              .orElse(null);
+                      if (lastUrn != null) {
+                        log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
+                        Map<String, String> progress = new HashMap<>();
+                        progress.put(LAST_URN_KEY, lastUrn.toString());
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                progress);
+                      }
+
+                      if (batchDelayMs > 0) {
+                        log.info("Sleeping for {} ms", batchDelayMs);
+                        try {
+                          Thread.sleep(batchDelayMs);
+                        } catch (InterruptedException e) {
+                          Thread.currentThread().interrupt();
+                          throw new RuntimeException(e);
+                        }
+                      }
+                    });
+            return null;
+          });
+
+      BootstrapStep.setUpgradeResult(
+          opContext, getUpgradeIdUrn(), entityService, DataHubUpgradeState.SUCCEEDED, Map.of());
+      context.report().addLine("State updated: " + getUpgradeIdUrn());
+
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+    };
+  }
+
+  /**
+   * Builds RESTATE {@link MCLItem}s stamped with {@code APP_SOURCE=SYSTEM_UPDATE}. {@code
+   * ChangeItemImpl} cannot carry RESTATE, so we construct {@link MetadataChangeLog}s directly.
+   */
+  @VisibleForTesting
+  List<MCLItem> toRestateMclItems(List<SystemAspect> systemAspects) {
+    return systemAspects.stream()
+        .map(
+            systemAspect -> {
+              SystemMetadata systemMetadata = withAppSource(systemAspect.getSystemMetadata());
+              GenericAspect serialized =
+                  GenericRecordUtils.serializeAspect(systemAspect.getRecordTemplate());
+              MetadataChangeLog mcl =
+                  new MetadataChangeLog()
+                      .setEntityUrn(systemAspect.getUrn())
+                      .setEntityType(systemAspect.getUrn().getEntityType())
+                      .setChangeType(ChangeType.RESTATE)
+                      .setAspectName(systemAspect.getAspectName())
+                      .setAspect(serialized)
+                      // Unchanged restate: previous == current. Required so sibling plugins on this
+                      // aspect (DataProductUnsetSideEffect) see an empty delta instead of treating
+                      // every member as a new add and unsetting it from other Data Products.
+                      .setPreviousAspectValue(serialized)
+                      .setSystemMetadata(systemMetadata)
+                      .setCreated(systemAspect.getAuditStamp());
+              return MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever());
+            })
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Runs registered post-MCP side effects (including {@code DataProductAssetsSideEffect}) on
+   * RESTATE MCLItems without requiring a successful parent aspect upsert/MCL emit.
+   */
+  @VisibleForTesting
+  List<MCPItem> buildSideEffectProposals(List<MCLItem> mclItems) {
+    if (mclItems.isEmpty()) {
+      return List.of();
+    }
+    try (Stream<MCPItem> sideEffects =
+        AspectsBatch.applyPostMCPSideEffects(
+            opContext, mclItems, opContext.getRetrieverContext())) {
+      return sideEffects.collect(Collectors.toList());
+    }
+  }
+
+  /**
+   * Ingests side-effect MCPs via async {@code ingestProposal}. Matching plugins emit {@code PATCH}
+   * (JSON add/remove), not MCP {@code DELETE}. Chunks by {@code batchSize}, sleeping {@code
+   * batchDelayMs} between chunks (not after the last).
+   */
+  @VisibleForTesting
+  void ingestSideEffectProposals(List<MCPItem> proposals) {
+    if (proposals.isEmpty()) {
+      return;
+    }
+
+    int chunkSize = Math.max(1, batchSize);
+    List<List<MCPItem>> chunks = partition(proposals, chunkSize);
+    log.info(
+        "Ingesting {} dataProducts side-effect MCPs in {} async chunk(s) of ≤{}",
+        proposals.size(),
+        chunks.size(),
+        chunkSize);
+    for (int i = 0; i < chunks.size(); i++) {
+      List<MCPItem> chunk = chunks.get(i);
+      AspectsBatch proposalBatch =
+          AspectsBatchImpl.builder()
+              .retrieverContext(opContext.getRetrieverContext())
+              .items(chunk)
+              .build(opContext);
+      entityService.ingestProposal(opContext, proposalBatch, true);
+      if (i < chunks.size() - 1 && batchDelayMs > 0) {
+        log.info("Sleeping for {} ms between side-effect MCP chunks", batchDelayMs);
+        try {
+          Thread.sleep(batchDelayMs);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
+
+  @VisibleForTesting
+  static <T> List<List<T>> partition(List<T> items, int size) {
+    if (items.isEmpty()) {
+      return List.of();
+    }
+    if (size < 1) {
+      throw new IllegalArgumentException("partition size must be >= 1");
+    }
+    List<List<T>> chunks = new ArrayList<>((items.size() + size - 1) / size);
+    for (int i = 0; i < items.size(); i += size) {
+      chunks.add(List.copyOf(items.subList(i, Math.min(i + size, items.size()))));
+    }
+    return chunks;
+  }
+
+  private static SystemMetadata withAppSource(@Nullable SystemMetadata systemMetadata) {
+    SystemMetadata withAppSourceSystemMetadata;
+    try {
+      withAppSourceSystemMetadata =
+          systemMetadata != null
+              ? new SystemMetadata(systemMetadata.copy().data())
+              : new SystemMetadata();
+    } catch (CloneNotSupportedException e) {
+      throw new RuntimeException(e);
+    }
+    StringMap properties = withAppSourceSystemMetadata.getProperties();
+    StringMap map = properties != null ? new StringMap(properties.data()) : new StringMap();
+    map.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+
+    withAppSourceSystemMetadata.setProperties(map);
+    return withAppSourceSystemMetadata;
+  }
 }

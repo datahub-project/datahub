@@ -40,6 +40,9 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+# application-mae.yaml holds the port, health checks, entity client, and cache defaults.
+# An explicit SPRING_PROFILES_ACTIVE still overrides this image default.
+ENV SPRING_PROFILES_ACTIVE=mae
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
     OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=16777215 \
     OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \
