@@ -1,5 +1,6 @@
 import dataclasses
 import io
+import zipfile
 from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock, patch
@@ -14,6 +15,7 @@ from moto import mock_aws
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.profiling.profiler import FileProfiler
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -235,6 +237,64 @@ def test_profiles_local_tsv_and_json_files(tmp_path: Path) -> None:
             )
         )
         assert get_profile(work_units[0]).rowCount == 2
+
+
+def _write_zip(path: Path, entries: dict) -> None:
+    with zipfile.ZipFile(path, "w") as zf:
+        for name, data in entries.items():
+            zf.writestr(name, data)
+
+
+def test_profiles_zip_archive_first_supported_entry(tmp_path: Path) -> None:
+    # A .zip containing a CSV is profiled by extracting the inner entry when
+    # compression is enabled on the PathSpec.
+    path = tmp_path / "data.csv.zip"
+    _write_zip(path, {"data.csv": "id,name\n1,a\n2,b\n"})
+    path_spec = PathSpec(include=f"{tmp_path}/*.zip", enable_compression=True)
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
+
+
+def test_profiles_zip_archive_with_jsonl_entry(tmp_path: Path) -> None:
+    # jsonl is profilable but not in SUPPORTED_FILE_TYPES; the profiler's zip
+    # reader must still pick it up.
+    path = tmp_path / "data.jsonl.zip"
+    _write_zip(path, {"data.jsonl": '{"id": 1}\n{"id": 2}\n'})
+    path_spec = PathSpec(include=f"{tmp_path}/*.zip", enable_compression=True)
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
+
+
+def test_zip_archive_skipped_when_compression_disabled(tmp_path: Path) -> None:
+    # With compression disabled the .zip is handed to the reader untouched, which
+    # rejects the .zip extension and skips the file.
+    path = tmp_path / "data.csv.zip"
+    _write_zip(path, {"data.csv": "id,name\n1,a\n"})
+    path_spec = PathSpec(include=f"{tmp_path}/*.zip", enable_compression=False)
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert work_units == []
+    assert report_of(profiler).warnings.total_elements > 0
 
 
 def test_corrupt_file_with_valid_extension_reports_warning(tmp_path: Path) -> None:

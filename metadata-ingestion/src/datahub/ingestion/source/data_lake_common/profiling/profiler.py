@@ -1,5 +1,8 @@
 import logging
 import os
+import shutil
+import tempfile
+from contextlib import ExitStack
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -34,6 +37,10 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_container_relative_path,
     is_abs_uri,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_FILE_TYPES,
+    PathSpec,
+)
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
     ColumnStats,
     TableAccumulator,
@@ -45,6 +52,9 @@ from datahub.ingestion.source.data_lake_common.profiling.readers import (
     read_csv,
     read_json,
     read_parquet,
+)
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    read_first_supported_zip_entry,
 )
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -65,6 +75,14 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 NUM_SAMPLE_ROWS = 20
+
+# Suffixes the profiler can read out of a zip archive. Mirrors _read_source, so
+# it adds jsonl (which SUPPORTED_FILE_TYPES omits) to the connector file types.
+ZIP_PROFILABLE_SUFFIXES: List[str] = [*SUPPORTED_FILE_TYPES, "jsonl"]
+
+# Buffer staged zip archives in memory up to this size, spilling to a temp file
+# beyond it so a large archive cannot exhaust the profiling worker's memory.
+ZIP_STAGING_SPOOL_MAX_BYTES = 64 * 1024 * 1024  # 64 MiB
 
 
 class TableDataLike(Protocol):
@@ -301,7 +319,10 @@ class FileProfiler:
         return field_profile
 
     def get_table_profile(
-        self, table_data: TableDataLike, dataset_urn: str
+        self,
+        table_data: TableDataLike,
+        dataset_urn: str,
+        path_spec: Optional[PathSpec] = None,
     ) -> Iterable[MetadataWorkUnit]:
         config = self.profiling_config
         extension = os.path.splitext(table_data.full_path)[1]
@@ -331,8 +352,64 @@ class FileProfiler:
 
             for path in paths:
                 try:
-                    with self._open_file(path) as file_obj:
-                        source = self._read_source(file_obj, extension)
+                    with self._open_file(path) as file_obj, ExitStack() as path_stack:
+                        read_stream: IO[bytes] = file_obj
+                        read_extension = extension
+                        if (
+                            path_spec is not None
+                            and path_spec.enable_compression
+                            and path.lower().endswith(".zip")
+                        ):
+                            # zipfile needs random access (seek+tell). A seekable
+                            # reader (smart_open S3/ABS and local files are all
+                            # seekable) lets zipfile pull only the central directory
+                            # and the chosen entry via range reads; only a
+                            # non-seekable stream is staged to a spooled temp file
+                            # (spills to disk) so a large archive is never copied to
+                            # EOF in memory.
+                            if file_obj.seekable():
+                                zip_source: IO[bytes] = file_obj
+                            else:
+                                staged = path_stack.enter_context(
+                                    tempfile.SpooledTemporaryFile(
+                                        max_size=ZIP_STAGING_SPOOL_MAX_BYTES
+                                    )
+                                )
+                                shutil.copyfileobj(file_obj, staged)
+                                staged.seek(0)
+                                zip_source = staged
+                            entry = read_first_supported_zip_entry(
+                                zip_source,
+                                context=path,
+                                report=self.report,
+                                supported_suffixes=[
+                                    f".{ext}" for ext in ZIP_PROFILABLE_SUFFIXES
+                                ],
+                                max_entry_size=path_spec.max_zip_entry_size,
+                            )
+                            if entry is None:
+                                # read_first_supported_zip_entry already reported why.
+                                continue
+                            # Back the extracted entry with a spooled temp file that
+                            # is released once _read_source finishes (via path_stack),
+                            # rather than a BytesIO that pins the whole entry in
+                            # memory for the duration of profiling.
+                            staged_entry = path_stack.enter_context(
+                                tempfile.SpooledTemporaryFile(
+                                    max_size=ZIP_STAGING_SPOOL_MAX_BYTES
+                                )
+                            )
+                            staged_entry.write(entry.data)
+                            staged_entry.seek(0)
+                            read_stream = staged_entry
+                            read_extension = entry.suffix
+                            # Drop the in-memory copy now that it is staged, so
+                            # the spooled file is the only retained buffer for the
+                            # rest of the profiling pass rather than pinning up to
+                            # max_zip_entry_size bytes alongside it.
+                            del entry
+
+                        source = self._read_source(read_stream, read_extension)
                         if source is None:
                             self.report.warning(
                                 title="Skipped file with unsupported extension during profiling",
