@@ -399,7 +399,8 @@ public class SearchService {
     return aggregationMetadata;
   }
 
-  private static SearchResult getEmptySearchResult(int from, int size) {
+  /** An empty page, e.g. when every requested entity type is unknown to the registry. */
+  public static SearchResult getEmptySearchResult(int from, int size) {
     return new SearchResult()
         .setEntities(new SearchEntityArray())
         .setNumEntities(0)
@@ -408,7 +409,8 @@ public class SearchService {
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 
-  private static ScrollResult getEmptyScrollResult(int size) {
+  /** An empty scroll page, e.g. when every requested entity type is unknown to the registry. */
+  public static ScrollResult getEmptyScrollResult(int size) {
     return new ScrollResult()
         .setEntities(new SearchEntityArray())
         .setNumEntities(0)
