@@ -62,4 +62,25 @@ describe('getLazyIcon', () => {
         const inner2 = (el2 as React.ReactElement).props.children as React.ReactElement;
         expect(inner1.type).toBe(inner2.type);
     });
+
+    it('forwards size/color/weight props to the resolved icon and sizes the Suspense fallback', async () => {
+        const PropsCapture = (props: { size?: number; color?: string; weight?: string }) => (
+            <div data-testid="props-icon" data-size={props.size} data-color={props.color} data-weight={props.weight} />
+        );
+        loadIconMock.mockImplementation(async () => ({ default: PropsCapture }));
+
+        await act(async () => {
+            render(getLazyIcon('PropsIcon', { size: 28, color: '#123456', weight: 'regular' }));
+        });
+        await waitFor(() => screen.getByTestId('props-icon'));
+        const el = screen.getByTestId('props-icon');
+        expect(el).toHaveAttribute('data-size', '28');
+        expect(el).toHaveAttribute('data-color', '#123456');
+        expect(el).toHaveAttribute('data-weight', 'regular');
+
+        // Fallback sizing: string sizes that coerce to numbers should not collapse to 16.
+        const tree = getLazyIcon('PropsIcon', { size: '24' }) as React.ReactElement;
+        const { fallback } = tree.props as { fallback: React.ReactElement };
+        expect(fallback.props.size).toBe('24');
+    });
 });

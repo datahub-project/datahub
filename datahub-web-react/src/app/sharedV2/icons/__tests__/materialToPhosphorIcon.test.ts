@@ -22,13 +22,16 @@ describe('resolvePhosphorIconName', () => {
         expect(resolvePhosphorIconName('Fullscreen')).toBe('CornersOut');
     });
 
-    it('passes through Phosphor names unchanged', () => {
-        expect(resolvePhosphorIconName('UserCircle')).toBe('UserCircle');
-        expect(resolvePhosphorIconName('Shapes')).toBe('Shapes');
-        expect(resolvePhosphorIconName('SealCheck')).toBe('SealCheck');
+    it('falls back to the default for unmapped Material / legacy names', () => {
+        expect(resolvePhosphorIconName('TotallyFakeIconOutlined')).toBe(DEFAULT_PHOSPHOR_ICON);
+        expect(resolvePhosphorIconName('TotallyFakeIcon')).toBe(DEFAULT_PHOSPHOR_ICON);
+        // Phosphor names without a Material synonym are not pass-through here —
+        // resolveDisplayIconName short-circuits true Phosphor-library values first.
+        expect(resolvePhosphorIconName('UserCircle')).toBe(DEFAULT_PHOSPHOR_ICON);
     });
 
-    it('falls back to the default for Material-style names without a synonym', () => {
-        expect(resolvePhosphorIconName('TotallyFakeIconOutlined')).toBe(DEFAULT_PHOSPHOR_ICON);
+    it('keeps ChangeHistory mapped to ClockCounterClockwise', () => {
+        expect(resolvePhosphorIconName('ChangeHistory')).toBe('ClockCounterClockwise');
+        expect(resolvePhosphorIconName('ChangeHistoryOutlined')).toBe('ClockCounterClockwise');
     });
 });

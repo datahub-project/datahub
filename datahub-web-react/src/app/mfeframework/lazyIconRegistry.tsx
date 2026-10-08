@@ -1,3 +1,4 @@
+import type { IconProps } from '@phosphor-icons/react';
 import React, { Suspense } from 'react';
 
 // Resolves Phosphor icons by name for admin-configured features (e.g. MFE nav, custom pages).
@@ -24,14 +25,10 @@ function getCachedLazyIcon(name: string): React.LazyExoticComponent<AnyComponent
     return iconCache.get(name)!;
 }
 
-type LazyIconProps = React.ComponentPropsWithoutRef<'svg'> & {
-    weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
-    size?: string | number;
-    color?: string;
-};
+type LazyIconProps = IconProps;
 
 function IconFallback({ size }: { size?: string | number }): JSX.Element {
-    const dimension = typeof size === 'number' ? size : 16;
+    const dimension = typeof size === 'number' ? size : Number(size) || 16;
     return (
         <span
             aria-hidden

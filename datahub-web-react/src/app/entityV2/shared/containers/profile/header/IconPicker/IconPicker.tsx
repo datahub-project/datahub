@@ -12,6 +12,7 @@ import {
     PhosphorIconsModule,
     loadPhosphorIcons,
 } from '@app/entityV2/shared/containers/profile/header/IconPicker/loadPhosphorIcons';
+import { coloredIconBackground, coloredIconForeground } from '@app/sharedV2/icons/coloredIconMix';
 
 const ICON_SIZE = 24;
 const CELL_SIZE = 32;
@@ -32,12 +33,6 @@ type Props = {
     selectedIcon?: string | null;
 };
 
-// Match DomainColoredIcon: tinted surface + readable icon from the staged hex.
-const domainIconColor = (hex: string, theme: { colors: { text: string } }) =>
-    `color-mix(in srgb, ${hex} 75%, ${theme.colors.text})`;
-const domainIconBackground = (hex: string, theme: { colors: { bg: string } }) =>
-    `color-mix(in srgb, ${hex} 12%, ${theme.colors.bg})`;
-
 // react-window owns the outer slot (CELL_SIZE + CELL_GAP). Half-gap padding here
 // keeps spacing even so the visible hit-target stays CELL_SIZE and is centered.
 const CellSlot = styled.div`
@@ -57,17 +52,17 @@ const CellContainer = styled.div<{ $color?: string; selected?: boolean }>`
     width: 100%;
     height: 100%;
     flex-shrink: 0;
-    color: ${({ $color, theme }) => ($color ? domainIconColor($color, theme) : theme.colors.icon)};
+    color: ${({ $color, theme }) => ($color ? coloredIconForeground($color, theme.colors.text) : theme.colors.icon)};
     border-radius: 6px;
     /* Inset border (not outline) so the top row isn't clipped by the scroll container. */
     border: 1px solid
         ${({ selected, $color, theme }) => {
             if (!selected) return 'transparent';
-            if ($color) return domainIconColor($color, theme);
+            if ($color) return coloredIconForeground($color, theme.colors.text);
             return theme.colors.borderBrand;
         }};
     background: ${({ selected, $color, theme }) => {
-        if (selected && $color) return domainIconBackground($color, theme);
+        if (selected && $color) return coloredIconBackground($color, theme.colors.bg);
         if (selected) return theme.colors.bgSurface;
         return 'transparent';
     }};
@@ -75,7 +70,8 @@ const CellContainer = styled.div<{ $color?: string; selected?: boolean }>`
     cursor: pointer;
 
     &:hover {
-        background: ${({ $color, theme }) => ($color ? domainIconBackground($color, theme) : theme.colors.bgSurface)};
+        background: ${({ $color, theme }) =>
+            $color ? coloredIconBackground($color, theme.colors.bg) : theme.colors.bgSurface};
     }
 `;
 
@@ -103,8 +99,8 @@ const Cell = ({
         icons: PhosphorIconsModule;
         columnCount: number;
         onIconPick: (icon: string) => void;
-        selectedIcon: string;
-        setSelectedIcon: (icon: string) => void;
+        selectedIcon: string | null;
+        setSelectedIcon: (icon: string | null) => void;
         color?: string | null;
     };
 }) => {
@@ -160,7 +156,7 @@ export const ChatIconPicker = ({ onIconPick, color, selectedIcon: selectedIconPr
     const containerRef = useRef<HTMLDivElement>(null);
     const [gridWidth, setGridWidth] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedIcon, setSelectedIcon] = useState<string>(selectedIconProp || '');
+    const [selectedIcon, setSelectedIcon] = useState<string | null>(selectedIconProp ?? null);
     const [filteredIcons, setFilteredIcons] = useState<string[]>(PHOSPHOR_ICONS);
     const [icons, setIcons] = useState<PhosphorIconsModule | null>(null);
     const [loadError, setLoadError] = useState(false);
@@ -206,9 +202,7 @@ export const ChatIconPicker = ({ onIconPick, color, selectedIcon: selectedIconPr
     }, [icons]);
 
     useEffect(() => {
-        if (selectedIconProp) {
-            setSelectedIcon(selectedIconProp);
-        }
+        setSelectedIcon(selectedIconProp ?? null);
     }, [selectedIconProp]);
 
     useEffect(() => {

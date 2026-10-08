@@ -1265,11 +1265,8 @@ export function resolvePhosphorIconName(storedName: string | null | undefined): 
     if (mappedBase) {
         return mappedBase;
     }
-    // Material icons often end with a style suffix (Outlined, etc.). Prefer a stable
-    // fallback glyph over attempting to load e.g. "FooOutlined" as a Phosphor icon.
-    if (base !== name) {
-        return DEFAULT_PHOSPHOR_ICON;
-    }
-    // Assume Phosphor (or other) PascalCase name and let the lazy loader resolve it.
-    return name;
+    // Unmapped Material / legacy names (with or without a style suffix) should not be
+    // handed to the Phosphor lazy loader — they render as missing glyphs. Phosphor library
+    // values never reach this helper (see resolveDisplayIconName).
+    return DEFAULT_PHOSPHOR_ICON;
 }
