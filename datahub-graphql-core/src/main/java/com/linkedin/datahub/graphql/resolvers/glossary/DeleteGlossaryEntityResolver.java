@@ -38,14 +38,15 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
             }
 
             try {
-              _entityClient.deleteEntity(context.getOperationContext(), entityUrn);
+              final var references =
+                  _entityClient.deleteEntityThenReferences(
+                      context.getOperationContext(), entityUrn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(
-                          context.getOperationContext(), entityUrn);
+                      references.run();
                     } catch (Exception e) {
                       log.error(
                           String.format(

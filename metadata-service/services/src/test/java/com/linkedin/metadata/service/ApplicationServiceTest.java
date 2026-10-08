@@ -204,6 +204,20 @@ public class ApplicationServiceTest {
   }
 
   @Test
+  public void testDeleteApplicationThenReferencesReturnsTheReferencesForTheCaller()
+      throws Exception {
+    final EntityClient.ReferencesCleanup references = mock(EntityClient.ReferencesCleanup.class);
+    when(_entityClient.deleteEntityThenReferences(_opContext, TEST_APPLICATION_URN))
+        .thenReturn(references);
+
+    assertSame(
+        _applicationService.deleteApplicationThenReferences(_opContext, TEST_APPLICATION_URN),
+        references);
+    verify(_entityClient, times(1))
+        .deleteEntityThenReferences(eq(_opContext), eq(TEST_APPLICATION_URN));
+  }
+
+  @Test
   public void testSetDomain() throws Exception {
     ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);

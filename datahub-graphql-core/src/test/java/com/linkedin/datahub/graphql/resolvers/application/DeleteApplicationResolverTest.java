@@ -41,17 +41,22 @@ public class DeleteApplicationResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    // ApplicationService.deleteApplication does not return a value, so no need to mock a return.
-    // It will throw an exception if the delete fails or if the app doesn't exist.
+    // ApplicationService.deleteApplicationThenReferences returns the cleanup of the references,
+    // which the
+    // resolver runs in the background. It will throw an exception if the delete fails.
     Mockito.when(mockApplicationService.verifyEntityExists(any(), eq(TEST_APPLICATION_URN)))
         .thenReturn(true);
+    EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(
+            mockApplicationService.deleteApplicationThenReferences(any(), eq(TEST_APPLICATION_URN)))
+        .thenReturn(references);
     // The deleteApplication method in the service will handle the asset check internally.
     // For a success case, we assume it passes this internal check.
 
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockApplicationService, Mockito.times(1))
-        .deleteApplication(any(), eq(TEST_APPLICATION_URN));
+        .deleteApplicationThenReferences(any(), eq(TEST_APPLICATION_URN));
   }
 
   @Test
@@ -61,12 +66,12 @@ public class DeleteApplicationResolverTest {
     // Mock deleteApplication to throw IllegalStateException as the service would if assets exist.
     Mockito.doThrow(new IllegalStateException("Application has assets and cannot be deleted."))
         .when(mockApplicationService)
-        .deleteApplication(any(), eq(TEST_APPLICATION_URN));
+        .deleteApplicationThenReferences(any(), eq(TEST_APPLICATION_URN));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     // deleteApplication should be called by the resolver, which then throws the exception.
     Mockito.verify(mockApplicationService, Mockito.times(1))
-        .deleteApplication(any(), eq(TEST_APPLICATION_URN));
+        .deleteApplicationThenReferences(any(), eq(TEST_APPLICATION_URN));
   }
 
   @Test
@@ -77,14 +82,14 @@ public class DeleteApplicationResolverTest {
     // We can mock deleteApplication to throw an error like the service would.
     Mockito.doThrow(new RuntimeException("Application does not exist"))
         .when(mockApplicationService)
-        .deleteApplication(any(), eq(TEST_APPLICATION_URN));
+        .deleteApplicationThenReferences(any(), eq(TEST_APPLICATION_URN));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     // verifyEntityExists would be called by the resolver first.
     Mockito.verify(mockApplicationService, Mockito.times(1))
         .verifyEntityExists(any(), eq(TEST_APPLICATION_URN));
     Mockito.verify(mockApplicationService, Mockito.never())
-        .deleteApplication(any(), eq(TEST_APPLICATION_URN));
+        .deleteApplicationThenReferences(any(), eq(TEST_APPLICATION_URN));
   }
 
   @Test
@@ -93,6 +98,7 @@ public class DeleteApplicationResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockDenyContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockApplicationService, Mockito.never()).deleteApplication(any(), any());
+    Mockito.verify(mockApplicationService, Mockito.never())
+        .deleteApplicationThenReferences(any(), any());
   }
 }

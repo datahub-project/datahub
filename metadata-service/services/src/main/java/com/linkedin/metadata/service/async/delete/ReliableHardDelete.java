@@ -73,7 +73,28 @@ public class ReliableHardDelete {
       return DeleteEntityReport.alreadyDeleted(urn);
     }
 
-    final RollbackRunResult deleted = entityService.deleteUrn(opContext, urn, ceiling.get());
+    final DeleteEntityReport report = deleteBounded(opContext, urn, ceiling.get());
+    if (report.outcome() == ConditionalDeleteOutcome.PARTIAL) {
+      throw new IllegalStateException(
+          String.format(
+              "Hard delete of %s did not complete: it was written to while being deleted; try the"
+                  + " delete again",
+              urn));
+    }
+    return report;
+  }
+
+  /**
+   * {@link #delete(OperationContext, Urn, Optional)} of an entity bounded by {@code ceiling}, as
+   * given (never captured again), that reports an entity written to while being deleted as {@link
+   * ConditionalDeleteOutcome#PARTIAL} instead of throwing.
+   */
+  @Nonnull
+  public DeleteEntityReport deleteBounded(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final DeleteCeiling ceiling) {
+    final RollbackRunResult deleted = entityService.deleteUrn(opContext, urn, ceiling);
     final boolean keyDeleted =
         deleted.getRollbackResults().stream()
             .map(RollbackResult::getKeyAffected)
@@ -87,11 +108,7 @@ public class ReliableHardDelete {
       // Not deleted by this request, but gone: a concurrent request deleted it.
       outcome = ConditionalDeleteOutcome.ALREADY_DELETED;
     } else {
-      throw new IllegalStateException(
-          String.format(
-              "Hard delete of %s did not complete: it was written to while being deleted; try the"
-                  + " delete again",
-              urn));
+      outcome = ConditionalDeleteOutcome.PARTIAL;
     }
     return new DeleteEntityReport(
         urn.toString(), outcome, (keyRows == null ? 0 : keyRows) + otherRows, deleted);

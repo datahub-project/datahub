@@ -28,6 +28,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -38,6 +39,7 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -47,7 +49,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
-import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -102,7 +103,7 @@ public class JavaEntityClient implements EntityClient {
   private final EntityClientConfig entityClientConfig;
   private final MetricUtils metricUtils;
   // Null for the system client and where ReliableHardDeleteFactory is not scanned.
-  @Nullable private final ReliableHardDelete reliableHardDelete;
+  @Nullable private final HardDeleteService hardDeleteService;
 
   public JavaEntityClient(
       final EntityService<?> entityService,
@@ -664,8 +665,8 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
-    if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
-      reliableHardDelete.delete(opContext, urn);
+    if (hardDeleteService != null) {
+      hardDeleteService.deleteEntity(opContext, urn);
       return;
     }
     entityService.deleteUrn(opContext, urn);
@@ -674,9 +675,32 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntityReferences(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {
+    if (hardDeleteService != null) {
+      hardDeleteService.deleteReferences(opContext, urn, this::referencesCleanupAsToday);
+      return;
+    }
     withRetry(
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, false),
         "deleteEntityReferences");
+  }
+
+  @Override
+  @Nonnull
+  public ReferencesCleanup deleteEntityThenReferences(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) throws RemoteInvocationException {
+    if (hardDeleteService == null) {
+      return EntityClient.super.deleteEntityThenReferences(opContext, urn);
+    }
+    final Runnable references =
+        hardDeleteService.deleteEntityThenReferences(
+            opContext, urn, this::referencesCleanupAsToday);
+    return references::run;
+  }
+
+  /** The reference cleanup run as {@link #deleteEntityReferences} runs it without the service. */
+  private DeleteReferencesResponse referencesCleanupAsToday(
+      @Nonnull final Supplier<DeleteReferencesResponse> cleanup) {
+    return withRetry(cleanup, "deleteEntityReferences");
   }
 
   @Override

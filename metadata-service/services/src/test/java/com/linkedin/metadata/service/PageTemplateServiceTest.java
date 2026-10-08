@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 
 public class PageTemplateServiceTest {
   private EntityClient mockEntityClient;
+  private EntityClient.ReferencesCleanup references;
   private PageTemplateService service;
   private OperationContext mockOpContext;
   private Urn templateUrn;
@@ -49,6 +50,8 @@ public class PageTemplateServiceTest {
   @BeforeMethod
   public void setup() throws Exception {
     mockEntityClient = mock(EntityClient.class);
+    references = mock(EntityClient.ReferencesCleanup.class);
+    when(mockEntityClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     service = new PageTemplateService(mockEntityClient);
     mockOpContext = mock(OperationContext.class);
     key = new DataHubPageTemplateKey().setId("test-id");
@@ -337,7 +340,7 @@ public class PageTemplateServiceTest {
       spyService.deletePageTemplate(mockOpContext, templateUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntity(mockOpContext, templateUrn);
+      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, templateUrn);
     }
   }
 
@@ -348,7 +351,7 @@ public class PageTemplateServiceTest {
 
     doThrow(new RuntimeException("Test exception"))
         .when(mockEntityClient)
-        .deleteEntity(any(), any());
+        .deleteEntityThenReferences(any(), any());
 
     // Act & Assert
     assertThrows(
@@ -497,7 +500,7 @@ public class PageTemplateServiceTest {
       spyService.deletePageTemplate(mockOpContext, templateUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntity(mockOpContext, templateUrn);
+      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, templateUrn);
     }
   }
 

@@ -53,12 +53,13 @@ public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<
           }
 
           try {
-            applicationService.deleteApplication(context.getOperationContext(), applicationUrn);
+            final var references =
+                applicationService.deleteApplicationThenReferences(
+                    context.getOperationContext(), applicationUrn);
             CompletableFuture.runAsync(
                 () -> {
                   try {
-                    this.entityClient.deleteEntityReferences(
-                        context.getOperationContext(), applicationUrn);
+                    references.run();
                   } catch (Exception e) {
                     log.error(
                         String.format(
