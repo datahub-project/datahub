@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class DeleteEntityServiceTest {
@@ -620,10 +621,15 @@ public class DeleteEntityServiceTest {
             Mockito.anyBoolean());
   }
 
-  @Test
-  public void testReferrerOfUnknownEntityTypeIsSkipped() throws URISyntaxException {
+  @DataProvider(name = "dryRun")
+  public static Object[][] dryRun() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "dryRun")
+  public void testReferrerOfUnknownEntityTypeIsSkipped(boolean dryRun) throws URISyntaxException {
     // After a version rollback the graph can hold a reference from an entity type only a newer
-    // build knows. The reference cleanup (here its dry-run preview) skips it instead of failing.
+    // build knows. The reference cleanup and its dry-run preview skip it instead of failing.
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
@@ -672,7 +678,7 @@ public class DeleteEntityServiceTest {
         .thenReturn(emptyScrollResult);
 
     final DeleteReferencesResponse response =
-        deleteEntityService.deleteReferencesTo(opContext, tag, true);
+        deleteEntityService.deleteReferencesTo(opContext, tag, dryRun);
 
     assertEquals(2, (int) response.getTotal());
     // The unknown-type referrer is never looked up; the known one still is.
@@ -682,7 +688,7 @@ public class DeleteEntityServiceTest {
             Mockito.anyString(),
             eq(unknownTypeReferrer),
             Mockito.anySet());
-    Mockito.verify(mockEntityService)
+    Mockito.verify(mockEntityService, Mockito.atLeastOnce())
         .getEntityV2(
             any(OperationContext.class), Mockito.anyString(), eq(knownReferrer), Mockito.anySet());
   }
