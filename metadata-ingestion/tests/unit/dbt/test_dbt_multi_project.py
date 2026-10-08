@@ -438,13 +438,25 @@ def test_manifest_path_is_a_project_field_not_a_custom_property(
     )
     manifest_path = f"{tmp_path}/project_a/manifest.json"
     source = _make_source(
-        manifest_path=f"{tmp_path}/*/manifest.json" if glob_mode else manifest_path
+        manifest_path=f"{tmp_path}/*/manifest.json" if glob_mode else manifest_path,
+        write_semantics="OVERRIDE",
     )
 
     project = _load_projects(source)[0]
 
     assert project.manifest_path == manifest_path
     assert "manifest_path" not in project.artifact_props
+
+    properties = [
+        wu.get_aspect_of_type(DatasetPropertiesClass)
+        for wu in source.get_workunits()
+        if isinstance(wu, MetadataWorkUnit)
+        and wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    ]
+    assert properties
+    assert all(
+        p is not None and "manifest_path" not in p.customProperties for p in properties
+    )
 
 
 def test_glob_records_per_project_provenance(
