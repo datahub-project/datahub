@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,7 +35,9 @@ def _item(table_id: str, table_type: str) -> TableListItem:
     )
 
 
-def _discovered(recipe: Dict[str, Any]) -> Set[str]:
+def _discovered(
+    recipe: Dict[str, Any], objects: Optional[List[Tuple[str, str]]] = None
+) -> Set[str]:
     """Run _process_schema on one dataset and return the table ids in table_refs.
 
     The full table/view/snapshot processors are fed empty results, so every ref
@@ -50,7 +52,7 @@ def _discovered(recipe: Dict[str, Any]) -> Set[str]:
     schema_gen = source.bq_schema_extractor
 
     schema_api = MagicMock()
-    schema_api.list_tables.return_value = [_item(*o) for o in OBJECTS]
+    schema_api.list_tables.return_value = [_item(*o) for o in objects or OBJECTS]
     schema_api.get_columns_for_dataset.return_value = {}
     schema_api.get_views_for_dataset.return_value = []
     schema_api.get_snapshots_for_dataset.return_value = []
@@ -118,3 +120,10 @@ def test_discovered_tables_still_honour_table_pattern() -> None:
     assert _discovered({"include_tables": False, "table_pattern": {"deny": deny}}) == {
         "orders"
     }
+
+
+def test_date_sharded_tables_collapse_to_one_ref() -> None:
+    # Daily shards are one table to lineage, stored under the base name the
+    # query log is matched against.
+    shards = [(f"events_2026010{day}", "TABLE") for day in (1, 3, 2)]
+    assert _discovered({"include_tables": False}, objects=shards) == {"events"}
