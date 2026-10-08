@@ -118,6 +118,8 @@ public class ESUtils {
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
   public static final String LIFECYCLE_STAGE = "lifecycleStage";
+  public static final String ORIGIN_FIELD = "origin";
+  public static final String ENV_FIELD = "env";
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -219,8 +221,8 @@ public class ESUtils {
           put(
               "businessAttribute",
               ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
-          put("origin", ImmutableList.of("origin", "env"));
-          put("env", ImmutableList.of("env", "origin"));
+          put(ORIGIN_FIELD, ImmutableList.of(ORIGIN_FIELD, ENV_FIELD));
+          put(ENV_FIELD, ImmutableList.of(ENV_FIELD, ORIGIN_FIELD));
         }
       };
 
