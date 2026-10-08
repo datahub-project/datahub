@@ -308,7 +308,7 @@
     "shared.dataSourcesCount": "Источники данных ({{count}})",
     "shared.durationColumn": "Длительность",
     "shared.editProfileTitle": "Изменить профиль",
-    "shared.emailLabel": "Эл. почта",
+    "shared.emailLabel": "Email",
     "shared.fetchingRuns": "Загрузка запусков...",
     "shared.filterAssetsPlaceholder": "Фильтр ассетов...",
     "shared.filterEntitiesPlaceholder": "Фильтр объектов...",
