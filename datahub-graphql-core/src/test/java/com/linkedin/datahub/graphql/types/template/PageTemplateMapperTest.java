@@ -176,6 +176,11 @@ public class PageTemplateMapperTest {
     structuredPropertyElement.setStructuredPropertyUrn(structuredPropertyUrn);
     summaryElements.add(structuredPropertyElement);
 
+    // An element type only a newer version knows (read after a rollback) is left out.
+    com.linkedin.template.SummaryElement newerElement = new com.linkedin.template.SummaryElement();
+    newerElement.data().put("elementType", "ELEMENT_FROM_NEWER_BUILD");
+    summaryElements.add(newerElement);
+
     gmsAssetSummary.setSummaryElements(summaryElements);
     gmsProperties.setAssetSummary(gmsAssetSummary);
 

@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.MatchedFieldArray;
@@ -12,6 +15,8 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import org.testng.annotations.Test;
 
 /** Tests for {@link UrnSearchResultsMapper}. */
@@ -67,5 +72,28 @@ public class UrnSearchResultsMapperTest {
 
     assertEquals(mapped.getSearchResults().size(), 2);
     assertEquals(mapped.getTotal(), 2);
+  }
+
+  @Test
+  public void testHitReferencingUnknownEntityTypeIsDropped() throws Exception {
+    // After a rollback, a monitor can watch an entity type only the newer version registered. The
+    // monitor itself is a known type, but GraphQL can't map its target (Monitor.entity is
+    // non-null), so the hit is skipped like an unmappable one instead of failing the page.
+    QueryContext context = mock(QueryContext.class);
+    when(context.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    SearchEntityArray entities =
+        new SearchEntityArray(
+            hit("urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),m1)"),
+            hit("urn:li:monitor:(urn:li:entityFromNewerBuild:x,m2)"),
+            hit("urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/b,PROD)"));
+
+    SearchResults mapped = UrnSearchResultsMapper.map(context, backendResult(entities));
+
+    assertEquals(
+        mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
+        List.of(
+            "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD),m1)",
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/b,PROD)"));
   }
 }
