@@ -23,6 +23,33 @@
         <classes>
             <!-- Container-free; its package otherwise runs only in the unwired es8 suite. -->
             <class name="com.linkedin.metadata.search.elasticsearch.query.ESSearchDAOHybridTest"/>
+            <!-- Container-free (mocked AspectDao / EventProducer / search services) unit tests for
+                 entity reads, MCL production, index updates, tracing, rollback and consistency
+                 checks, including the unknown entity/aspect tolerance used after a version
+                 rollback. Their packages are otherwise only covered by the
+                 unwired testOther suite. -->
+            <class name="com.linkedin.metadata.entity.EntityServiceImplTest"/>
+            <class name="com.linkedin.metadata.entity.EntityUtilsTest"/>
+            <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest"/>
+            <class name="com.linkedin.metadata.trace.TraceServiceImplTest"/>
+            <class name="com.linkedin.metadata.aspect.consistency.ConsistencyServiceTest"/>
+            <class name="com.linkedin.metadata.aspect.validation.UrnAnnotationValidatorTest"/>
+            <class name="com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidatorTest"/>
+            <class name="com.linkedin.metadata.search.SearchServiceUnknownEntityTypeTest"/>
+            <!-- Container-free tests of the unknown entity/aspect tolerance (rollback) in consistency
+                 checks, side effects, deletes, Cassandra, versioning, index mappings and timeseries.
+                 Their packages are otherwise only covered by unwired suites. -->
+            <class name="com.linkedin.metadata.aspect.consistency.check.InvalidEnumCheckTest"/>
+            <class name="com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffectTest"/>
+            <class name="com.linkedin.metadata.entity.DeleteEntityServiceTest"/>
+            <class name="com.linkedin.metadata.entity.cassandra.CassandraAspectDaoTest"/>
+            <class name="com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidatorTest"/>
+            <class name="com.linkedin.metadata.search.indexbuilder.ReindexConfigTest"/>
+            <class name="com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffectTest"/>
+            <class name="com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceUnitTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilderTest"/>
+            <!-- Ratchet against new getEntitySpec(<urn>.getEntityType()) lookups. -->
+            <class name="com.linkedin.metadata.lint.UrnDerivedRegistryLookupLintTest"/>
         </classes>
     </test>
 </suite>
