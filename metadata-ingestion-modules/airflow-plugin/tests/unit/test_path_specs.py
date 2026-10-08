@@ -133,3 +133,33 @@ def test_apply_dedupes_collapsed_iolets_and_rewrites_column_lineage() -> None:
 def test_rejects_unusable_path_specs(include: str) -> None:
     with pytest.raises(ValueError):
         _mapper(include)
+
+
+def test_apply_merges_column_edges_that_collapse_to_the_same_table() -> None:
+    files = [
+        DatasetUrn("gcs", f"my-bucket/events/run_{i}/part-0.json", "PROD")
+        for i in range(2)
+    ]
+    output = DatasetUrn("bigquery", "my_project.my_dataset.daily", "PROD")
+    datajob = DataJob(
+        id="my_task",
+        flow_urn=DataFlowUrn("airflow", "my_dag", "prod"),
+        inlets=list(files),
+        outlets=[output],
+        # One edge per input file, same column: identical once both files collapse.
+        fine_grained_lineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[_field(f, "a")],
+                downstreams=[_field(output, "a")],
+            )
+            for f in files
+        ],
+    )
+
+    _mapper("gs://my-bucket/{table}").apply(datajob)
+
+    table = DatasetUrn("gcs", "my-bucket/events", "PROD")
+    assert len(datajob.fine_grained_lineages) == 1
+    assert datajob.fine_grained_lineages[0].upstreams == [_field(table, "a")]

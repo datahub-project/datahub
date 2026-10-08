@@ -1,11 +1,15 @@
 import logging
-from typing import Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 from wcmatch import pathlib
 
 from datahub.api.entities.datajob import DataJob
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.metadata.schema_classes import FineGrainedLineageClass
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+)
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub_airflow_plugin._constants import FILE_PLATFORM
@@ -24,6 +28,13 @@ PLATFORM_URI_PREFIX: Dict[str, str] = {
 TABLE_MARKER = "{table}"
 
 _T = TypeVar("_T")
+# (upstreams, downstreams, upstreamType, downstreamType)
+_FglKey = Tuple[
+    Tuple[str, ...],
+    Tuple[str, ...],
+    Union[str, FineGrainedLineageUpstreamTypeClass],
+    Union[str, FineGrainedLineageDownstreamTypeClass],
+]
 
 
 def _platform_of(path_spec: PathSpec) -> str:
@@ -125,14 +136,22 @@ class DatasetPathMapper:
         datajob.inlets = _dedupe([self.map_urn(u) for u in datajob.inlets])
         datajob.outlets = _dedupe([self.map_urn(u) for u in datajob.outlets])
 
-        fine_grained: List[FineGrainedLineageClass] = []
+        # Edges from different files of one table become identical once both are
+        # mapped, so dedupe whole edges too, keyed like the listener's own dedupe.
+        fine_grained: Dict[_FglKey, FineGrainedLineageClass] = {}
         for fgl in datajob.fine_grained_lineages:
             if fgl.upstreams:
                 fgl.upstreams = _dedupe([self._map_field(u) for u in fgl.upstreams])
             if fgl.downstreams:
                 fgl.downstreams = _dedupe([self._map_field(u) for u in fgl.downstreams])
-            fine_grained.append(fgl)
-        datajob.fine_grained_lineages = fine_grained
+            key = (
+                tuple(sorted(fgl.upstreams or [])),
+                tuple(sorted(fgl.downstreams or [])),
+                fgl.upstreamType,
+                fgl.downstreamType,
+            )
+            fine_grained.setdefault(key, fgl)
+        datajob.fine_grained_lineages = list(fine_grained.values())
 
 
 def _dedupe(items: List[_T]) -> List[_T]:
