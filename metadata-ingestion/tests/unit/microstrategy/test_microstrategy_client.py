@@ -653,6 +653,33 @@ def test_sql_view_and_instance_calls_use_a_single_attempt(
     assert report.api_errors == 2
 
 
+@pytest.mark.parametrize(
+    "status, expected_calls",
+    [(500, 1), (503, 4), (429, 4)],
+)
+def test_metric_model_does_not_retry_500(
+    monkeypatch: MonkeyPatch, status: int, expected_calls: int
+) -> None:
+    # The Modeling service answers 500 for every metric it cannot model, so
+    # retrying it only adds backoff; throttling and gateway errors still retry.
+    client, report = _make_client({"max_retries": 3})
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        return StatusResponse(status)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError) as error:
+        client.get_metric_model("project-1", "metric-1")
+
+    assert call_count == expected_calls
+    assert error.value.status_code == status
+    assert report.api_errors == 1
+
+
 def test_request_fails_fast_on_non_retryable_404(monkeypatch: MonkeyPatch) -> None:
     client, report = _make_client()
     call_count = 0

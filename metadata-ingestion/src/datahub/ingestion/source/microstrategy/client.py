@@ -57,6 +57,11 @@ _ModelT = TypeVar("_ModelT", bound=BaseModel)
 # credentials or missing objects are not re-hammered max_retries times.
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
+# Modeling-service metric reads return a deterministic 500 for metrics the
+# service cannot model (over a thousand in one retail project), so retrying
+# 500 there only adds backoff; throttling and gateway errors still retry.
+_METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
+
 # Cap backoff so a hostile Retry-After header or large max_retries cannot
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
@@ -361,6 +366,7 @@ class MicroStrategyClient:
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
+            retry_statuses=_METRIC_MODEL_RETRYABLE_STATUS_CODES,
         )
 
     def get_attribute_relationships(
@@ -894,6 +900,7 @@ class MicroStrategyClient:
         timeout_seconds: Optional[int] = None,
         max_attempts: Optional[int] = None,
         headers: Optional[Dict[str, str]] = None,
+        retry_statuses: Optional[Set[int]] = None,
     ) -> Dict[str, Any]:
         response = self._request(
             method,
@@ -903,6 +910,7 @@ class MicroStrategyClient:
             json=json,
             timeout_seconds=timeout_seconds,
             max_attempts=max_attempts,
+            retry_statuses=retry_statuses,
             headers=dict(headers) if headers else {},
         )
         if not response.content:
@@ -952,6 +960,9 @@ class MicroStrategyClient:
             headers["X-MSTR-ProjectID"] = project_id
         timeout_seconds = kwargs.pop("timeout_seconds", None)
         max_attempts = kwargs.pop("max_attempts", None)
+        retry_statuses = kwargs.pop("retry_statuses", None)
+        if retry_statuses is None:
+            retry_statuses = _RETRYABLE_STATUS_CODES
 
         attempts = max_attempts or self.config.max_retries + 1
         last_error: Optional[Exception] = None
@@ -995,10 +1006,7 @@ class MicroStrategyClient:
                 self._reauthenticate_or_die(method, path, reauth_attempted)
                 reauth_attempted = True
                 continue
-            if (
-                response.status_code in _RETRYABLE_STATUS_CODES
-                and attempt < attempts - 1
-            ):
+            if response.status_code in retry_statuses and attempt < attempts - 1:
                 time.sleep(self._retry_delay(response, attempt))
                 attempt += 1
                 continue
