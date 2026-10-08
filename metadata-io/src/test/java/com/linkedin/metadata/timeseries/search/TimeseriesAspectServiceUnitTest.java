@@ -141,6 +141,23 @@ public class TimeseriesAspectServiceUnitTest {
   }
 
   @Test
+  public void testAggregatedStatsRejectsUnknownAspect() {
+    // An aspect added by a newer version (e.g. requested after a rollback) is not in the registry:
+    // the request must fail as a bad argument instead of a NullPointerException.
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _timeseriesAspectService.getAggregatedStats(
+                opContext, "dataset", "futureAspect", new AggregationSpec[0], null, null));
+    // A known aspect that is not timeseries is rejected the same way.
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _timeseriesAspectService.getAggregatedStats(
+                opContext, "dataset", "status", new AggregationSpec[0], null, null));
+  }
+
+  @Test
   public void testSearchQueryFailure() throws IOException {
     // setup mock
     when(indexConvention.getTimeseriesAspectIndexName(

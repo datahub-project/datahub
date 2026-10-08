@@ -100,6 +100,14 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
 
+      if (versionSetProperties.getVersioningScheme() == VersioningScheme.$UNKNOWN) {
+        // Written by a newer version (e.g. read after a rollback); say so instead of the generic
+        // message below.
+        throw new IllegalArgumentException(
+            String.format(
+                "Version set %s uses a versioning scheme this version doesn't support",
+                versionSet));
+      }
       if (versionSetProperties.getVersioningScheme()
           != VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB) {
         throw new IllegalArgumentException(

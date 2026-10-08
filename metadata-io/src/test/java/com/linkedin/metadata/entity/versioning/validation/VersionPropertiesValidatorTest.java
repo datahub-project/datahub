@@ -42,6 +42,8 @@ public class VersionPropertiesValidatorTest {
       UrnUtils.getUrn("urn:li:versionSet:(managed,dataset)");
   private static final Urn LEXICOGRAPHIC_VERSION_SET_URN =
       UrnUtils.getUrn("urn:li:versionSet:(lexicographic,dataset)");
+  private static final Urn NEWER_SCHEME_VERSION_SET_URN =
+      UrnUtils.getUrn("urn:li:versionSet:(newerScheme,dataset)");
   private static final Urn ML_MODEL_VERSION_SET_URN =
       UrnUtils.getUrn("urn:li:versionSet:(managed,mlModel)");
   private static final Urn TEST_ENTITY_URN =
@@ -78,6 +80,11 @@ public class VersionPropertiesValidatorTest {
         Arrays.asList(
             new VersionSetKey().setEntityType(ML_MODEL_ENTITY_NAME),
             new VersionSetProperties().setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)));
+    VersionSetProperties newerScheme = new VersionSetProperties();
+    newerScheme.data().put("versioningScheme", "SCHEME_FROM_NEWER_BUILD");
+    data.put(
+        NEWER_SCHEME_VERSION_SET_URN,
+        Arrays.asList(new VersionSetKey().setEntityType(DATASET_ENTITY_NAME), newerScheme));
     mockAspectRetriever = new MockAspectRetriever(data);
     mockAspectRetriever.setEntityRegistry(new TestEntityRegistry());
 
@@ -140,6 +147,27 @@ public class VersionPropertiesValidatorTest {
             retrieverContext);
 
     var exceptions = validationResult.findAny();
+    Assert.assertTrue(
+        exceptions.isEmpty(), exceptions.map(AspectValidationException::getMessage).orElse(null));
+  }
+
+  @Test
+  public void testVersionSetWithSchemeFromNewerVersionIsNotRejected() {
+    // A version set a newer version created with a scheme this version doesn't know (read after a
+    // rollback): scheme validation is skipped rather than rejecting every new version.
+    VersionProperties properties = new VersionProperties();
+    properties.setVersionSet(NEWER_SCHEME_VERSION_SET_URN);
+    properties.setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING);
+    properties.setSortId("123");
+    properties.setVersion(new VersionTag().setVersionTag("123"));
+
+    var exceptions =
+        VersionPropertiesValidator.validatePropertiesUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
+                retrieverContext)
+            .findAny();
+
     Assert.assertTrue(
         exceptions.isEmpty(), exceptions.map(AspectValidationException::getMessage).orElse(null));
   }

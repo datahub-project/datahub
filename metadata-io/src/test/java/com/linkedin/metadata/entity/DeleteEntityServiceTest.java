@@ -620,6 +620,73 @@ public class DeleteEntityServiceTest {
             Mockito.anyBoolean());
   }
 
+  @Test
+  public void testReferrerOfUnknownEntityTypeIsSkipped() throws URISyntaxException {
+    // After a version rollback the graph can hold a reference from an entity type only a newer
+    // build knows. The reference cleanup (here its dry-run preview) skips it instead of failing.
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
+
+    final Urn tag = UrnUtils.getUrn("urn:li:tag:pii");
+    final Urn unknownTypeReferrer = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    final Urn knownReferrer = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s,t1,PROD)");
+    RelatedEntitiesScrollResult page =
+        scrollGraphResult(
+            2,
+            null,
+            ImmutableList.of(
+                incomingRelation("TaggedWith", unknownTypeReferrer.toString(), tag.toString()),
+                incomingRelation("TaggedWith", knownReferrer.toString(), tag.toString())));
+    Mockito.when(
+            mockGraphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", tag.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(page);
+    ScrollResult emptyScrollResult = new ScrollResult();
+    emptyScrollResult.setEntities(new SearchEntityArray());
+    emptyScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyInt()))
+        .thenReturn(emptyScrollResult);
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, tag, true);
+
+    assertEquals(2, (int) response.getTotal());
+    // The unknown-type referrer is never looked up; the known one still is.
+    Mockito.verify(mockEntityService, Mockito.never())
+        .getEntityV2(
+            any(OperationContext.class),
+            Mockito.anyString(),
+            eq(unknownTypeReferrer),
+            Mockito.anySet());
+    Mockito.verify(mockEntityService)
+        .getEntityV2(
+            any(OperationContext.class), Mockito.anyString(), eq(knownReferrer), Mockito.anySet());
+  }
+
   /** Test that file cleanup is triggered when deleting an entity with files */
   @Test
   public void testDeleteFileReferences() {
