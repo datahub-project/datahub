@@ -26,13 +26,11 @@ public class DeleteApplicationResolverTest {
   private DeleteApplicationResolver resolver;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
-  private EntityClient mockEntityClient;
 
   @BeforeMethod
   public void setupTest() {
     mockApplicationService = Mockito.mock(ApplicationService.class);
-    mockEntityClient = Mockito.mock(EntityClient.class);
-    resolver = new DeleteApplicationResolver(mockEntityClient, mockApplicationService);
+    resolver = new DeleteApplicationResolver(mockApplicationService);
     mockContext = getMockAllowContext(TEST_ACTOR_URN.toString());
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

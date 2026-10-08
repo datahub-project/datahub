@@ -451,76 +451,56 @@ public class HardDeleteServiceTest {
     verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
   }
 
-  /** The graph referrers are read, then the entity is deleted, then those referrers cleaned. */
+  /**
+   * The entity is deleted, then the graph referrers the caller read before it are cleaned; the
+   * graph is not read again (once the key delete is processed it has no edges of the entity).
+   */
   @Test
-  public void deleteEntityThenReferencesWithVersionsReadsTheReferrersThenDeletesThenCleans() {
-    assertTrue(service(true, dispatcher).deleteEntityThenReferences(opContext, URN, GIVEN));
+  public void deleteEntityThenReferencesWithVersionsDeletesThenCleansTheGivenReferrers() {
+    assertTrue(
+        service(true, dispatcher).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
 
     final InOrder inOrder = inOrder(deleteEntityService, entityService);
-    inOrder.verify(deleteEntityService).getGraphReferrers(opContext, URN);
     inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(GIVEN));
     inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
+    verify(deleteEntityService, never()).getGraphReferrers(any(), any());
     verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
     verifyNoInteractions(dispatcher);
   }
 
-  /**
-   * Deleting the entity removes its edges from the graph (simulated: the graph has none once the
-   * delete ran); the referrers read before it are still cleaned.
-   */
   @Test
-  public void deleteEntityThenReferencesWithVersionsCleansReferrersTheDeleteRemoved() {
-    final boolean[] deleted = {false};
-    when(deleteEntityService.getGraphReferrers(any(), eq(URN)))
-        .thenAnswer(invocation -> deleted[0] ? List.<RelatedEntities>of() : REFERRERS);
-    when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
-        .thenAnswer(
-            invocation -> {
-              deleted[0] = true;
-              return keyDeleted(URN, 5);
-            });
-
-    assertTrue(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN));
-
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
-  }
-
-  @Test
-  public void deleteEntityThenReferencesWithVersionsAndTheFlagOffReadsTheReferrersFirstToo() {
-    assertTrue(service(false, null).deleteEntityThenReferences(opContext, URN, GIVEN));
+  public void deleteEntityThenReferencesWithVersionsAndTheFlagOffCleansTheGivenReferrersToo() {
+    assertTrue(service(false, null).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
 
     final InOrder inOrder = inOrder(deleteEntityService, entityService);
-    inOrder.verify(deleteEntityService).getGraphReferrers(opContext, URN);
     inOrder.verify(entityService).deleteUrn(any(), eq(URN));
     inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
   }
 
-  /** PARTIAL: the referrers were read, nothing is cleaned. */
+  /** PARTIAL: the entity stays, nothing is cleaned. */
   @Test
   public void deleteEntityThenReferencesWithVersionsPartialSkipsTheReferences() {
     when(entityService.deleteUrn(any(), eq(URN), any(DeleteCeiling.class)))
         .thenReturn(aspectDeleted(URN));
 
-    assertFalse(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN));
+    assertFalse(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
 
-    verify(deleteEntityService).getGraphReferrers(opContext, URN);
     verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyList());
     verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
   }
 
   /**
-   * Known limit: run again once the entity is gone, the graph has no edges left, so the cleanup
-   * gets an empty list; the other kinds of references are still cleaned.
+   * Run again once the entity is gone (the first run failed after its delete): nothing is deleted
+   * again and the referrers read before the first delete are still cleaned.
    */
   @Test
-  public void deleteEntityThenReferencesWithVersionsOfAGoneEntityCleansWhatTheGraphStillHas() {
+  public void deleteEntityThenReferencesWithVersionsOfAGoneEntityCleansTheGivenReferrers() {
     when(entityService.captureDeleteCeiling(any(), eq(URN))).thenReturn(Optional.empty());
-    when(deleteEntityService.getGraphReferrers(any(), eq(URN))).thenReturn(List.of());
 
-    assertTrue(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN));
+    assertTrue(service(true, null).deleteEntityThenReferences(opContext, URN, GIVEN, REFERRERS));
 
     verify(entityService, never()).deleteUrn(any(), eq(URN), any(DeleteCeiling.class));
-    verify(deleteEntityService).deleteReferencesTo(opContext, URN, List.of());
+    verify(deleteEntityService).deleteReferencesTo(opContext, URN, REFERRERS);
   }
 
   @Test

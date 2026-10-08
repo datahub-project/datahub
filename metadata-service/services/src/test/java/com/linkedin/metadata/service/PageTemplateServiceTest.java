@@ -348,17 +348,25 @@ public class PageTemplateServiceTest {
   public void testDeletePageTemplateFailure() throws Exception {
     // Arrange
     Urn templateUrn = UrnUtils.getUrn("urn:li:dataHubPageTemplate:test");
+    // The permission check has to pass for the delete to be reached
+    PageTemplateService spyService = org.mockito.Mockito.spy(service);
+    org.mockito.Mockito.doReturn(createTestTemplateProperties())
+        .when(spyService)
+        .getPageTemplateProperties(mockOpContext, templateUrn);
+    Authentication mockSessionAuth = org.mockito.Mockito.mock(Authentication.class);
+    org.mockito.Mockito.when(mockOpContext.getSessionAuthentication()).thenReturn(mockSessionAuth);
+    org.mockito.Mockito.when(mockSessionAuth.getActor())
+        .thenReturn(new Actor(ActorType.USER, "test-user"));
 
-    doThrow(new RuntimeException("Test exception"))
-        .when(mockEntityClient)
-        .deleteEntityThenReferences(any(), any());
+    RuntimeException deleteFailure = new RuntimeException("Test exception");
+    doThrow(deleteFailure).when(mockEntityClient).deleteEntityThenReferences(any(), any());
 
     // Act & Assert
-    assertThrows(
-        RuntimeException.class,
-        () -> {
-          service.deletePageTemplate(mockOpContext, templateUrn);
-        });
+    RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class,
+            () -> spyService.deletePageTemplate(mockOpContext, templateUrn));
+    assertSame(thrown.getCause(), deleteFailure);
   }
 
   @Test

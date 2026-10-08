@@ -231,26 +231,34 @@ public class HardDeleteService {
   }
 
   /**
+   * The entities holding a graph reference to {@code urn}, read from the graph as it is now. Pass
+   * them to {@link #deleteEntityThenReferences(OperationContext, Urn, DeleteCeiling, List)}, read
+   * before the entity is deleted: processing the delete of its key removes every graph edge of the
+   * entity, and a process whose first graph read comes after that (a cold search client takes about
+   * a second) would find no references to remove.
+   */
+  @Nonnull
+  public List<RelatedEntities> getGraphReferrers(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    return deleteEntityService.getGraphReferrers(opContext, urn);
+  }
+
+  /**
    * {@link #deleteEntity(OperationContext, Urn, DeleteCeiling)}, then the references other entities
    * hold to it, never offering either. The references are left alone when the entity stays.
    *
-   * <p>The entities holding a graph reference are read before the entity is deleted. Processing the
-   * delete of its key removes every graph edge of the entity, and a process whose first graph read
-   * comes after that (a cold search client takes about a second) would find no references to
-   * remove. Every other kind of reference is found as today.
-   *
-   * <p>Known limit: run again after the entity is gone (the first run failed after its delete), the
-   * graph no longer has those edges, so no graph references are found and they stay, as when a
-   * cleanup reads the graph after the edges are removed today.
+   * <p>The graph references removed are {@code graphReferrers}, read with {@link
+   * #getGraphReferrers(OperationContext, Urn)} before the entity was deleted; every other kind of
+   * reference is found as today. A caller that runs this again after the entity is gone passes the
+   * list it read the first time, since the graph no longer has those edges.
    *
    * @return false when the entity stays (and the references were left alone)
    */
   public boolean deleteEntityThenReferences(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
-      @Nonnull final DeleteCeiling versions) {
-    final List<RelatedEntities> graphReferrers =
-        deleteEntityService.getGraphReferrers(opContext, urn);
+      @Nonnull final DeleteCeiling versions,
+      @Nonnull final List<RelatedEntities> graphReferrers) {
     if (!deleteEntity(opContext, urn, versions)) {
       return false;
     }

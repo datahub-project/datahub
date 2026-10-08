@@ -218,6 +218,17 @@ public class ApplicationServiceTest {
   }
 
   @Test
+  public void testDeleteApplicationThenReferencesPropagatesEntityDeleteFailure() throws Exception {
+    when(_entityClient.deleteEntityThenReferences(_opContext, TEST_APPLICATION_URN))
+        .thenThrow(new RuntimeException("delete failed"));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.deleteApplicationThenReferences(_opContext, TEST_APPLICATION_URN));
+  }
+
+  @Test
   public void testSetDomain() throws Exception {
     ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);

@@ -13,7 +13,9 @@ public interface HardDeleteDispatcher {
   /**
    * Hands a hard delete to another process; the caller has already authorized it.
    *
-   * @return true when it was taken, false to run it here. Must not throw.
+   * @return true when it was taken, false to run it here
+   * @throws RuntimeException only when it cannot tell whether the delete was taken; the delete then
+   *     fails and is not run here
    */
   boolean dispatch(@Nonnull OperationContext opContext, @Nonnull HardDeleteRequest request);
 }

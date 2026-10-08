@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetcher;
@@ -24,7 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityClient entityClient;
   private final ApplicationService applicationService;
 
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =

@@ -265,21 +265,7 @@ public class DeleteEntityService {
           break;
         }
 
-        scrollResult =
-            _graphService.scrollRelatedEntities(
-                opContext,
-                null,
-                newFilter("urn", urn.toString()),
-                null,
-                EMPTY_FILTER,
-                ImmutableSet.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                Edge.EDGE_SORT_CRITERION,
-                nextScrollId,
-                SCROLL_KEEP_ALIVE,
-                BATCH_SIZE,
-                null,
-                null);
+        scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId);
       } while (true);
       log.info("Reference cleanup complete for {}: {} references processed", urn, totalProcessed);
     }
@@ -315,21 +301,7 @@ public class DeleteEntityService {
     int totalFileCount = deleteFileReferences(opContext, urn, true, null);
     int totalSearchAssetCount = deleteSearchReferences(opContext, urn, true, null);
 
-    RelatedEntitiesScrollResult scrollResult =
-        _graphService.scrollRelatedEntities(
-            opContext,
-            null,
-            newFilter("urn", urn.toString()),
-            null,
-            EMPTY_FILTER,
-            ImmutableSet.of(),
-            newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-            Edge.EDGE_SORT_CRITERION,
-            null,
-            SCROLL_KEEP_ALIVE,
-            BATCH_SIZE,
-            null,
-            null);
+    RelatedEntitiesScrollResult scrollResult = scrollGraphReferrers(opContext, urn, null);
 
     final List<RelatedAspect> relatedAspects =
         scrollResult.getEntities().stream()

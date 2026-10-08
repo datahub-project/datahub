@@ -133,6 +133,23 @@ public class JavaEntityClientTest {
     verify(_deleteEntityService).deleteReferencesTo(opContext, urn, false);
   }
 
+  /** Without the service the entity is deleted at once; the references wait for the cleanup. */
+  @Test
+  void testDeleteEntityThenReferencesWithoutTheServiceLeavesReferencesToTheCleanup()
+      throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:noServiceThenReferences");
+
+    EntityClient.ReferencesCleanup references =
+        getJavaEntityClient().deleteEntityThenReferences(opContext, urn);
+
+    verify(_entityService).deleteUrn(opContext, urn);
+    verifyNoInteractions(_deleteEntityService);
+
+    references.run();
+
+    verify(_deleteEntityService).deleteReferencesTo(opContext, urn, false);
+  }
+
   @Test
   void testDeleteEntityDelegatesToTheService() throws Exception {
     Urn urn = UrnUtils.getUrn("urn:li:tag:delegates");
