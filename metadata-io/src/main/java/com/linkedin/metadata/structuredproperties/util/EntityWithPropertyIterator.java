@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -27,6 +28,10 @@ public class EntityWithPropertyIterator implements Iterator<ScrollResult> {
   @Nonnull private final Urn propertyUrn;
   @Nullable private final StructuredPropertyDefinition definition;
   @Nonnull private final SearchRetriever searchRetriever;
+  // When set, entity types this build does not know are left out of the search. After a version
+  // rollback a definition can still list types only a newer build registered, and searching an
+  // unknown entity type fails the whole scroll.
+  @Nullable private final EntityRegistry entityRegistry;
   private int count;
   @Builder.Default private String scrollId = null;
   @Builder.Default private boolean started = false;
@@ -35,6 +40,9 @@ public class EntityWithPropertyIterator implements Iterator<ScrollResult> {
     if (definition != null && definition.getEntityTypes() != null) {
       return definition.getEntityTypes().stream()
           .map(StructuredPropertyUtils::getValueTypeId)
+          .filter(
+              entityType ->
+                  entityRegistry == null || entityRegistry.findEntitySpec(entityType).isPresent())
           .collect(Collectors.toList());
     } else {
       return Collections.emptyList();
@@ -63,6 +71,15 @@ public class EntityWithPropertyIterator implements Iterator<ScrollResult> {
 
   @Override
   public boolean hasNext() {
+    // Every listed type unknown to this build: nothing to scroll. An empty type list must not
+    // reach the scroll, where it would search every entity type.
+    if (!started
+        && definition != null
+        && definition.getEntityTypes() != null
+        && !definition.getEntityTypes().isEmpty()
+        && getEntities().isEmpty()) {
+      return false;
+    }
     return !started || scrollId != null;
   }
 

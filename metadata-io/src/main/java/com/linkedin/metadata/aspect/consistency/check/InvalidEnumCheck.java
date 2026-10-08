@@ -20,6 +20,7 @@ import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -162,6 +163,18 @@ public class InvalidEnumCheck extends AbstractEntityCheck {
       AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
       if (aspectSpec == null) {
         log.warn("Unknown aspect {} on entity {}, skipping", aspectName, urn);
+        continue;
+      }
+
+      // An aspect written under a newer schema version (e.g. by a newer version before a rollback)
+      // can hold enum symbols this version doesn't know; that is drift, not corruption, so it is
+      // never reported for deletion.
+      if (RegistryKnowledge.isWrittenByNewerSchema(
+          entry.getValue().getSystemMetadata(), aspectSpec)) {
+        log.debug(
+            "Aspect {} on entity {} was written under a newer schema version, skipping",
+            aspectName,
+            urn);
         continue;
       }
 
