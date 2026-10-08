@@ -580,7 +580,7 @@ public abstract class GenericEntitiesController<
       }
     } else {
       aspects.stream()
-          .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
+          .map(aspectName -> RequestInputUtil.requireAspectSpec(entitySpec, aspectName).getName())
           .forEach(
               aspectName ->
                   entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
@@ -657,32 +657,32 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
-    lookupAspectSpec(urn, aspectName)
-        .ifPresent(
-            aspectSpec -> {
-              if (aspectSpec.isTimeseries()) {
-                Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
-                    timeseriesAspectService.getLatestTimeseriesAspectValues(
-                        opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
-                com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
-                    latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
-                if (latestAspect != null) {
-                  Long latestTs =
-                      new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
-                          .getTimestampMillis();
-                  timeseriesAspectService.deleteAspectValues(
-                      opContext,
-                      urn.getEntityType(),
-                      aspectSpec.getName(),
-                      QueryUtils.newFilter(
-                          CriterionUtils.buildCriterion(
-                              TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
-                }
-              } else {
-                entityService.deleteAspect(
-                    opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
-              }
-            });
+    // An unknown aspect (e.g. one written by a newer version before a rollback) fails loudly:
+    // silently returning 200 would leave the row in place while telling the caller it is gone.
+    final AspectSpec aspectSpec =
+        RequestInputUtil.requireAspectSpec(
+            entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+    if (aspectSpec.isTimeseries()) {
+      Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
+          timeseriesAspectService.getLatestTimeseriesAspectValues(
+              opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
+      com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
+          latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
+      if (latestAspect != null) {
+        Long latestTs =
+            new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
+                .getTimestampMillis();
+        timeseriesAspectService.deleteAspectValues(
+            opContext,
+            urn.getEntityType(),
+            aspectSpec.getName(),
+            QueryUtils.newFilter(
+                CriterionUtils.buildCriterion(
+                    TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
+      }
+    } else {
+      entityService.deleteAspect(opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
+    }
   }
 
   @Tag(name = "Generic Aspects")
@@ -720,7 +720,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec = RequestInputUtil.requireAspectSpec(entitySpec, aspectName);
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().getAspectRetriever(),
@@ -794,7 +794,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec = RequestInputUtil.requireAspectSpec(entitySpec, aspectName);
 
     MetadataChangeProposal mcp =
         new MetadataChangeProposal()

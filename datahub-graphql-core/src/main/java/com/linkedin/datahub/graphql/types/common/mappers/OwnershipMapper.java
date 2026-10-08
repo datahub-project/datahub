@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Ownership;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +33,7 @@ public class OwnershipMapper {
     result.setOwners(
         ownership.getOwners().stream()
             .map(owner -> OwnerMapper.map(context, owner, entityUrn))
+            .filter(Objects::nonNull)
             .collect(Collectors.toList()));
     return result;
   }

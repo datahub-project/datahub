@@ -262,6 +262,55 @@ public class IncidentMapperTest {
 
   // --- Helper methods for creating a minimal base EntityResponse ---
 
+  @Test
+  public void testEntityOfUnknownTypeIsSkipped() throws Exception {
+    // Incident.entity is non-null: when the first linked entity is of a type only a newer version
+    // registered (read after a rollback), the first entity GraphQL can map is used instead.
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.t,PROD)");
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            ImmutableList.of(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"), dataset)));
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    Incident incident = IncidentMapper.map(null, entityResponse);
+
+    assertEquals(incident.getEntity().getUrn(), dataset.toString());
+  }
+
+  @Test
+  public void testIncidentWithOnlyUnknownEntityTypesIsSkipped() throws Exception {
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            ImmutableList.of(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"))));
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    assertNull(IncidentMapper.map(null, entityResponse));
+  }
+
+  @Test
+  public void testUnknownIncidentTypeAndStageFallBack() throws Exception {
+    // Values a newer version wrote (read after a rollback) don't fail the incident.
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    incidentInfo.data().put("type", "TYPE_FROM_NEWER_BUILD");
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    Incident incident = IncidentMapper.map(null, entityResponse);
+
+    assertEquals(
+        incident.getIncidentType(), com.linkedin.datahub.graphql.generated.IncidentType.CUSTOM);
+  }
+
   /** Creates a minimal EntityResponse with a basic IncidentInfo aspect. */
   private EntityResponse createBaseEntityResponse() throws Exception {
     EntityResponse entityResponse = new EntityResponse();

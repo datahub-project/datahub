@@ -37,7 +37,7 @@ public class EntityTypeEntityMapper implements ModelMapper<EntityResponse, Entit
     if (result.getInfo() != null) {
       result
           .getInfo()
-          .setType(EntityTypeUrnMapper.getEntityType(entityResponse.getUrn().toString()));
+          .setType(EntityTypeUrnMapper.getEntityTypeOrOther(entityResponse.getUrn().toString()));
     }
     return mappingHelper.getResult();
   }
