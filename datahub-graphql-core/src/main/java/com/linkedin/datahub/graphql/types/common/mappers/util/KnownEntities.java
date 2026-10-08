@@ -37,10 +37,14 @@ public final class KnownEntities {
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
     final List<Entity> entities = new ArrayList<>(urns.size());
     for (Urn urn : urns) {
-      final Entity entity = isKnown(context, urn) ? UrnToEntityMapper.map(context, urn) : null;
+      final boolean known = isKnown(context, urn);
+      final Entity entity = known ? UrnToEntityMapper.map(context, urn) : null;
       if (entity == null) {
         UNREPRESENTABLE.skippedBecause(
-            metrics(context), urn.getEntityType(), "GraphQL can't represent its entity type", urn);
+            skipMetrics(context, known),
+            urn.getEntityType(),
+            "GraphQL can't represent its entity type",
+            urn);
       } else {
         entities.add(entity);
       }
@@ -53,14 +57,29 @@ public final class KnownEntities {
   public static Entity mapFirst(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
     for (Urn urn : urns) {
-      final Entity entity = isKnown(context, urn) ? UrnToEntityMapper.map(context, urn) : null;
+      final boolean known = isKnown(context, urn);
+      final Entity entity = known ? UrnToEntityMapper.map(context, urn) : null;
       if (entity != null) {
         return entity;
       }
       UNREPRESENTABLE.skippedBecause(
-          metrics(context), urn.getEntityType(), "GraphQL can't represent its entity type", urn);
+          skipMetrics(context, known),
+          urn.getEntityType(),
+          "GraphQL can't represent its entity type",
+          urn);
     }
     return null;
+  }
+
+  /**
+   * Metrics for a reference GraphQL left out. Only references the registry doesn't know count
+   * toward {@code unknown_to_registry_skipped}; types it knows but GraphQL doesn't model (e.g.
+   * plugin entities) are only logged, so the metric keeps measuring data from a newer version.
+   */
+  @Nonnull
+  public static Optional<MetricUtils> skipMetrics(
+      @Nullable final QueryContext context, final boolean knownToRegistry) {
+    return knownToRegistry ? Optional.empty() : metrics(context);
   }
 
   /** Metrics of the request, for reporting skips. */

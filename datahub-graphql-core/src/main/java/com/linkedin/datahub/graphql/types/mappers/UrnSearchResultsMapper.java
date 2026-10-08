@@ -63,13 +63,11 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
       @Nullable final QueryContext context, @Nonnull final List<SearchEntity> hits) {
     final List<SearchResult> mappedResults = new ArrayList<>(hits.size());
     for (SearchEntity hit : hits) {
-      final SearchResult mapped =
-          KnownEntities.isKnown(context, hit.getEntity())
-              ? MapperUtils.mapResult(context, hit)
-              : null;
+      final boolean known = KnownEntities.isKnown(context, hit.getEntity());
+      final SearchResult mapped = known ? MapperUtils.mapResult(context, hit) : null;
       if (mapped == null || mapped.getEntity() == null) {
         UNREPRESENTABLE.skippedBecause(
-            KnownEntities.metrics(context),
+            KnownEntities.skipMetrics(context, known),
             hit.getEntity().getEntityType(),
             "GraphQL can't represent its entity type",
             hit.getEntity());
