@@ -10,6 +10,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.metadata.service.DocumentDeleteLimitException;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.SearchIndexMode;
 import com.linkedin.metadata.service.ServiceAuthorizationException;
@@ -91,5 +94,26 @@ public class DeleteDocumentResolverTest {
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     assertTrue(exception.getCause() instanceof AuthorizationException);
+  }
+
+  @Test
+  public void testDeleteDocumentOverCapIsBadRequest() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ARTICLE_URN);
+    doThrow(
+            new DocumentDeleteLimitException(
+                UrnUtils.getUrn(TEST_ARTICLE_URN), "live subtree exceeds 10000 descendants"))
+        .when(mockService)
+        .deleteDocument(any(OperationContext.class), any(Urn.class), eq(SearchIndexMode.SYNC));
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof DataHubGraphQLException);
+    final DataHubGraphQLException graphQLException = (DataHubGraphQLException) exception.getCause();
+    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    assertTrue(graphQLException.getMessage().contains("live subtree exceeds 10000 descendants"));
+    assertTrue(graphQLException.getCause() instanceof DocumentDeleteLimitException);
   }
 }

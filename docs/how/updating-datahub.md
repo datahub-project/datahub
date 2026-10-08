@@ -49,6 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / System Update / Documents)** On the first upgrade, live documents whose parent document is already gone are soft-deleted. This runs once. A document tree with more than 10,000 descendants, or more than 100 levels, is logged and left in place. **Action:** set `systemUpdate.deleteOrphanedDocumentChildren.enabled=false` to turn that cleanup off. To retry a tree that was left in place, delete nested documents until it is under those caps, set `SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_REPROCESS=true` for the next upgrade, then unset it afterward.
 - [#20278](https://github.com/datahub-project/datahub/pull/20278) **(Authorization / Documents)** The default Editor role no longer has the **Manage Documents** privilege. Editors can still create, edit, and move documents, but can only delete documents they own. A new default policy lets document owners delete their own documents. **Action:** if Editors need to delete any document, add **Manage Documents** or **Delete** for documents to a policy for the Editor role.
 - [#20111](https://github.com/datahub-project/datahub/pull/20111) **(Ingestion / CLI)** The `datahub recipe` commands (`probe`, `test-connection`, `validate`), first shipped in 1.7.0.14, now report more failures on the exit code that says who has to act: **2** your input, **3** the source, **1** DataHub, the connector or a missing package. Scripts and agents that branch on these codes will see these changes:
 
