@@ -99,7 +99,7 @@
     "deprecation.replacementColumnLabel": "Столбец",
     "deprecation.replacementColumnPlaceholder": "Выберите столбец",
     "deprecation.replacementParentPlaceholder": "Выберите {{entityName}}",
-    "dataProductSelect.notFound": "Продукты данных не найдены",
-    "dataProductSelect.placeholder": "Выберите родительский продукт данных",
-    "moveDataProduct.title": "Переместить продукт данных"
+    "dataProductSelect.notFound": "Дата-продукты не найдены",
+    "dataProductSelect.placeholder": "Выберите родительский дата-продукт",
+    "moveDataProduct.title": "Переместить дата-продукт"
 }

@@ -5,7 +5,7 @@
     "emptyMessages.containedBy.title": "Не содержится ни в одном термине глоссария",
     "emptyMessages.contains.description": "Термины могут содержать другие термины для отражения связи «часть целого».",
     "emptyMessages.contains.title": "Не содержит терминов глоссария",
-    "emptyMessages.dataProduct.description": "Группируйте связанные объекты по общим характеристикам, добавляя их в продукт данных.",
+    "emptyMessages.dataProduct.description": "Группируйте связанные объекты по общим характеристикам, добавляя их в дата-продукт.",
     "emptyMessages.dataProduct.title": "Пока нет продукта",
     "emptyMessages.documentation.title": "Документации пока нет",
     "emptyMessages.domain.description": "Группируйте связанные объекты в соответствии со структурой организации, добавляя их в домен.",
