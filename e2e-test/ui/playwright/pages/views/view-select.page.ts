@@ -215,15 +215,17 @@ export class ViewSelectPage extends BasePage {
     await dropdownTrigger.click();
   }
 
-  async editViewFromSelect(currentName: string, newName: string): Promise<void> {
-    await this.openViewDropdown(currentName);
+  async openViewEditor(viewName: string): Promise<void> {
+    await this.openViewDropdown(viewName);
     await this.menuItemEdit.click();
-
     await this.viewNameInput.waitFor({ state: 'visible' });
+    await this.waitForPopoverClose();
+  }
+
+  async renameAndSaveView(newName: string): Promise<void> {
     await this.viewNameInput.clear();
     await this.viewNameInput.fill(newName);
     await this.saveView();
-    await this.waitForPopoverClose();
   }
 
   async setViewAsDefault(viewName: string): Promise<void> {
@@ -231,14 +233,6 @@ export class ViewSelectPage extends BasePage {
     await this.menuItemSetDefault.click();
     await this.page.waitForLoadState('networkidle');
     await this.waitForPopoverClose();
-  }
-
-  async selectView(viewName: string): Promise<void> {
-    await this.viewsButton.click();
-    await this.waitForPopoverOpen();
-    await this.getSelectedViewItem(viewName).click();
-    await this.waitForPopoverClose();
-    await this.page.waitForLoadState('networkidle');
   }
 
   async removeViewAsDefault(viewName: string): Promise<void> {

@@ -39,10 +39,11 @@ test.describe('View Select', () => {
 
     // Edit view
     const editedViewName = `${viewName} - Edited`;
-    await viewSelectPage.editViewFromSelect(viewName, editedViewName);
-    // Menu actions like Edit must not apply the view
-    await viewSelectPage.verifyViewNotApplied(editedViewName);
-    await viewSelectPage.selectView(editedViewName);
+    await viewSelectPage.openViewEditor(viewName);
+    // Clicking a menu action (Edit) must not apply the view
+    await viewSelectPage.verifyViewNotApplied(viewName);
+    await viewSelectPage.renameAndSaveView(editedViewName);
+    // Saving applies the edited view
     await viewSelectPage.verifyDatasetVisible(TEST_DATA.EXPECTED_DATASET);
     await viewSelectPage.verifyResultsCount(TEST_DATA.EXPECTED_RESULT_COUNT);
 
