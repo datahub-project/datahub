@@ -10,8 +10,13 @@ import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/
 // already dropped javascript: URLs.
 const SAFE_HREF = /^(https?:|mailto:|\/(?!\/)|#)/i;
 
+/** Browsers treat `\` as `/` in URLs, so `/\host` is protocol-relative `//host`. */
+function normalizeHref(href: string): string {
+    return href.trim().replace(/\\/g, '/');
+}
+
 function isSafeHref(href: string): boolean {
-    return SAFE_HREF.test(href.trim());
+    return SAFE_HREF.test(normalizeHref(href));
 }
 
 /**
@@ -32,19 +37,22 @@ export function toReadOnlyHtml(markdown: string): string {
     });
 
     doc.querySelectorAll('span.file-node').forEach((node) => {
-        const url = node.getAttribute(FILE_ATTRS.url) ?? '';
+        const url = normalizeHref(node.getAttribute(FILE_ATTRS.url) ?? '');
         const name = node.getAttribute(FILE_ATTRS.name) || url;
         if (!isSafeHref(url)) {
             node.replaceWith(doc.createTextNode(name));
+            return;
         }
+        node.setAttribute(FILE_ATTRS.url, url);
     });
 
     doc.querySelectorAll('a[href]').forEach((anchor) => {
-        const href = anchor.getAttribute('href') ?? '';
+        const href = normalizeHref(anchor.getAttribute('href') ?? '');
         if (!isSafeHref(href)) {
             anchor.removeAttribute('href');
             return;
         }
+        anchor.setAttribute('href', href);
         anchor.setAttribute('target', '_blank');
         anchor.setAttribute('rel', 'noopener noreferrer');
     });

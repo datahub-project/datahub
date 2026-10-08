@@ -74,6 +74,7 @@ describe('read-only editor', () => {
         expect(mention).toHaveTextContent('@Alice');
 
         const fileNode = screen.getByTestId('file-node-report.pdf');
+        expect(fileNode.tagName).toBe('DIV');
         expect(fileNode).toHaveAttribute('data-file-url', '/openapi/v1/files/report.pdf');
         expect(fileNode).toHaveAttribute('data-file-name', 'report.pdf');
         expect(fileNode).toHaveTextContent('report.pdf');
@@ -84,6 +85,23 @@ describe('read-only editor', () => {
         const html = toReadOnlyHtml('[elsewhere](//example.com/path)');
         expect(html).not.toContain('href="//example.com/path"');
         expect(html).not.toContain("href='//example.com/path'");
+    });
+
+    it('does not treat a backslash path as a same-origin link', () => {
+        const html = toReadOnlyHtml('<a href="/\\example.com/path">elsewhere</a>');
+        expect(html).not.toContain('example.com');
+        expect(html).not.toContain('target="_blank"');
+        expect(html).toContain('elsewhere');
+    });
+
+    it('does not download a file url that a backslash turns into another host', () => {
+        const html = toReadOnlyHtml(
+            '<span class="file-node" data-file-url="/\\example.com/openapi/v1/files/secret.pdf" data-file-name="secret"></span>',
+        );
+        expect(html).not.toContain('file-node');
+        expect(html).not.toContain('data-file-url');
+        expect(html).not.toContain('example.com');
+        expect(html).toContain('secret');
     });
 
     it('keeps a same-origin path link', () => {

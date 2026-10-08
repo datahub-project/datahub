@@ -35,7 +35,7 @@ const REACT_ATTR_NAMES: Record<string, string> = {
     tabindex: 'tabIndex',
 };
 
-const FileCard = styled.span`
+const FileCard = styled.div`
     display: block;
     max-width: 100%;
 `;
