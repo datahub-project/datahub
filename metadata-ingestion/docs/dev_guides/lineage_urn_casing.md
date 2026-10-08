@@ -59,6 +59,10 @@ Only references **to** warehouse assets are modified. The entity the aspect is a
 downstream fields are never touched — the feature respects the casing the warehouse itself reported.
 Column-level casing is corrected the same way, using the schema DataHub stores for the resolved table
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
+The same precedence applies within a schema that holds two casings of one column: a column the
+reference names exactly is left as the source wrote it, a collision the reference matches neither
+of settles on the lowercase casing, and a collision with no lowercase casing is left alone —
+nothing says which of the two columns was meant.
 
 > **Entities without a schema.** A table-level reference is healed even when DataHub holds no
 > `schemaMetadata` for the entity. Column-level casing cannot be corrected in that case — there are no
@@ -218,6 +222,10 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   [Match types](#match-types).
 - **Column casing needs the table's schema.** A referenced table that exists without a `schemaMetadata`
   aspect is still healed at table level; only its column casing is left as the source reported it.
+- **Undecidable column collisions are left alone.** When the schema holds the referenced column under
+  two casings, the reference matches neither exactly, and neither is lowercase, the whole field
+  reference is left as emitted and flagged `UNRESOLVED` — counted under `num_columns_ambiguous`. The
+  table-level reference in the same aspect is still healed.
 - **Scope is by platform.** By default a reference is reconciled only if its platform is named in
   `upstream_platforms`; a reference to any other platform is never looked up, and is left unchanged and
   unstamped — no `matchType` verdict, counted under `num_refs_out_of_scope` and never `UNRESOLVED`,
