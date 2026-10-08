@@ -150,17 +150,18 @@ def _assignment(
 
 
 def test_upsert_manual_keys_on_property_urn_alone() -> None:
-    """upsert_structured_property_manual must patch /properties/<urn> as a plain JSON
-    Patch (no arrayPrimaryKeys), so the backend's default propertyUrn key replaces any
-    existing entry for the property, whatever its attribution source."""
+    """upsert_structured_property_manual must key /properties on propertyUrn alone, so
+    the patch replaces any existing entry for the property, whatever its attribution
+    source."""
     source = "urn:li:dataHubAction:test"
     builder = DatasetPatchBuilder(ENTITY_URN).upsert_structured_property_manual(
         _assignment(str(PROP_A), ["sensitive"], source)
     )
     mcps = list(builder.build())
     assert len(mcps) == 1
-    ops = _parse_mcp_aspect(mcps[0])
-    assert ops == [
+    payload = _parse_mcp_aspect(mcps[0])
+    assert payload["arrayPrimaryKeys"] == {"properties": ["propertyUrn"]}
+    assert payload["patch"] == [
         {
             "op": "add",
             "path": f"/properties/{PROP_A}",
@@ -201,8 +202,8 @@ def test_upsert_manual_differs_from_set_manual() -> None:
             .build()
         )[0]
     )
-    assert isinstance(upsert_payload, list)
-    assert upsert_payload[0]["path"] == f"/properties/{PROP_A}"
+    assert upsert_payload["arrayPrimaryKeys"] == {"properties": ["propertyUrn"]}
+    assert upsert_payload["patch"][0]["path"] == f"/properties/{PROP_A}"
 
 
 def test_upsert_manual_multiple_properties_and_no_attribution() -> None:
@@ -213,7 +214,7 @@ def test_upsert_manual_multiple_properties_and_no_attribution() -> None:
     )
     mcps = list(builder.build())
     assert len(mcps) == 1
-    ops = _parse_mcp_aspect(mcps[0])
+    ops = _parse_mcp_aspect(mcps[0])["patch"]
     assert [op["path"] for op in ops] == [
         f"/properties/{PROP_A}",
         f"/properties/{PROP_B}",

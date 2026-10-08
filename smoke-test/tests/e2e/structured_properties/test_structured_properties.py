@@ -572,6 +572,9 @@ def test_dataset_structured_property_patch_with_attribution_multiple_properties(
     action_urn = "urn:li:dataHubAction:smoke-test-sp-attribution"
     target_urn = dataset_urns[2]
 
+    # Registered before creation so the module fixture's teardown deletes both
+    # definitions even if an assertion below fails.
+    generated_urns.extend([existing_property_urn, new_property_urn])
     create_property_definition(existing_property_name, graph_client)
     create_property_definition(new_property_name, graph_client)
 
