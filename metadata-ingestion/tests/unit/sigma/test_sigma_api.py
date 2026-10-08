@@ -133,6 +133,76 @@ def _lineage_response(payload: dict) -> MagicMock:
 
 
 class TestGetElementUpstreamSources:
+    @pytest.mark.parametrize(
+        ("node_id", "dropped_node", "edge"),
+        [
+            ("bad_node", {"type": "formula", "name": "Future"}, None),
+            (
+                "bad_node",
+                {"type": "table", "nodeId": "not-an-inode", "name": "T"},
+                None,
+            ),
+            ("bad_node", {"type": "sheet", "name": "No Id"}, None),
+            ("/suffix", {"type": "data-model", "name": "No Url Id"}, None),
+            ("bad_node", None, {"target": "tgt_node"}),
+            # An edge from a node that `dependencies` does not describe.
+            ("bad_node", None, {"source": "ghost", "target": "tgt_node"}),
+            # Registered or not, a customSQL source is not in the list.
+            ("bad_node", {"type": "customSQL", "name": "Query"}, None),
+        ],
+        ids=[
+            "unknown-type",
+            "bad-table-node",
+            "sheet-without-id",
+            "dm-node-without-url-id",
+            "malformed-edge",
+            "node-missing-from-dependencies",
+            "customsql-source",
+        ],
+    )
+    def test_a_dropped_node_marks_the_upstreams_incomplete(
+        self, node_id: str, dropped_node: Optional[dict], edge: Optional[dict]
+    ) -> None:
+        """The good source is kept, but a partial list must not read as the
+        chart's full lineage."""
+        api = _create_sigma_api()
+        element = _make_element()
+        dependencies: dict = {
+            "tgt_node": {"elementId": "elem1", "name": "My Chart", "type": "sheet"},
+            "ds_node": {"name": "Orders", "type": "dataset"},
+        }
+        edges = [{"source": "ds_node", "target": "tgt_node"}]
+        if dropped_node is not None:
+            dependencies[node_id] = dropped_node
+            edges.append({"source": node_id, "target": "tgt_node"})
+        if edge is not None:
+            edges.append(edge)
+        response = _lineage_response({"dependencies": dependencies, "edges": edges})
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            result = api._get_element_upstream_sources(element, _make_workbook())
+
+        assert list(result) == ["ds_node"]
+        assert element.upstream_sources_complete is False
+
+    def test_a_clean_walk_is_complete(self) -> None:
+        api = _create_sigma_api()
+        element = _make_element()
+        response = _lineage_response(
+            {
+                "dependencies": {
+                    "tgt_node": {"elementId": "elem1", "name": "C", "type": "sheet"},
+                    "ds_node": {"name": "Orders", "type": "dataset"},
+                },
+                "edges": [{"source": "ds_node", "target": "tgt_node"}],
+            }
+        )
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            api._get_element_upstream_sources(element, _make_workbook())
+
+        assert element.upstream_sources_complete is True
+
     def test_sheet_node_missing_element_id_is_skipped_with_warning(self) -> None:
         api = _create_sigma_api()
         element = _make_element()
@@ -2403,6 +2473,62 @@ class TestDataModelElementOwner:
             )
         ]
         return dm
+
+    def test_a_join_elements_lineage_payload_lists_every_joined_table(self) -> None:
+        """The /lineage shape a Data Model join element has, from a test tenant:
+        a chained join A-B, B-C lists all three elements directly."""
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        elements = [
+            SigmaDataModelElement(elementId=eid, name=eid.upper(), type="table")
+            for eid in ("a", "b", "c", "j")
+        ]
+        lineage = [
+            {"type": "element", "elementId": "a", "sourceIds": ["inode-x"]},
+            {"type": "element", "elementId": "b", "sourceIds": ["inode-x"]},
+            {"type": "element", "elementId": "c", "sourceIds": ["inode-x"]},
+            {"type": "element", "elementId": "j", "sourceIds": ["a", "b", "c"]},
+            {"type": "table", "nodeId": "inode-x", "name": "T"},
+        ]
+        with (
+            patch.object(
+                source.sigma_api, "_get_data_model_elements", return_value=elements
+            ),
+            patch.object(source.sigma_api, "_get_data_model_columns", return_value=[]),
+            patch.object(
+                source.sigma_api,
+                "_get_data_model_lineage_entries",
+                return_value=lineage,
+            ),
+        ):
+            source.sigma_api._assemble_data_model(dm, None)
+        source._prepopulate_dm_bridge_maps(dm)
+
+        urn = {
+            e.elementId: source._gen_data_model_element_urn(dm, e) for e in dm.elements
+        }
+        assert source._dm_element_source_urns[urn["j"]] == {
+            urn["a"],
+            urn["b"],
+            urn["c"],
+        }
+
+    def test_a_join_elements_lineage_sources_are_recorded(self) -> None:
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        dm.elements = [
+            SigmaDataModelElement(elementId="a", name="A", type="table"),
+            SigmaDataModelElement(
+                elementId="j", name="J", type="table", source_ids=["a", "inode-x"]
+            ),
+        ]
+        a_urn = source._gen_data_model_element_urn(dm, dm.elements[0])
+        j_urn = source._gen_data_model_element_urn(dm, dm.elements[1])
+
+        source._prepopulate_dm_bridge_maps(dm)
+
+        assert source._dm_element_source_urns[j_urn] == {a_urn}
+        assert source._dm_element_source_urns[a_urn] == set()
 
     # None: a model that never went through assembly.
     @pytest.mark.parametrize("complete", [True, False, None])
