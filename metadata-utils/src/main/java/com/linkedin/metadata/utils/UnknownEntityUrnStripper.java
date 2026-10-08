@@ -9,13 +9,15 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
+import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
@@ -37,11 +39,6 @@ import javax.annotation.Nullable;
  */
 public final class UnknownEntityUrnStripper {
 
-  private static final UnknownDataGuard UNKNOWN_REFERENCES =
-      UnknownDataGuard.forSite(UnknownEntityUrnStripper.class, "references in aspect");
-
-  private static final String URN_PREFIX = "urn:li:";
-
   // Whether a schema can hold an urn at any depth. Keyed by schema identity: schemas are shared
   // singletons, and their equals/hashCode are deep.
   private static final Map<SchemaKey, Boolean> HOLDS_URN = new ConcurrentHashMap<>();
@@ -49,30 +46,55 @@ public final class UnknownEntityUrnStripper {
   private UnknownEntityUrnStripper() {}
 
   /**
+   * Removes the references in place. Callers report removals, since they know which entity the
+   * aspect belongs to.
+   *
    * @return the number of elements removed
    */
   public static int strip(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry entityRegistry) {
-    final Walk walk = new Walk(entityRegistry);
+    final Walk walk = new Walk(entityRegistry, true);
     walk.prune(aspect.data(), aspect.schema());
-    if (walk.removed > 0) {
-      UNKNOWN_REFERENCES.skippedBecause(
-          Optional.empty(),
-          aspect.schema().getName(),
-          walk.removed + " reference(s) to entity types not in the entity registry removed",
-          aspect.schema().getName());
-    }
     return walk.removed;
+  }
+
+  /**
+   * True if the aspect holds a reference to an entity type the registry doesn't know, anywhere
+   * (including ones {@link #strip} leaves in place because only required fields hold them). Does
+   * not modify the aspect.
+   */
+  public static boolean referencesUnknownEntityType(
+      @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry entityRegistry) {
+    final Walk walk = new Walk(entityRegistry, false);
+    walk.prune(aspect.data(), aspect.schema());
+    return walk.found;
+  }
+
+  /**
+   * True when an aspect that fails validation can be attributed to a newer version: it was written
+   * under a newer schema version, or it still references an entity type the registry doesn't know.
+   * Callers skip such aspects and treat any other validation failure as a real error.
+   */
+  public static boolean isFromNewerVersion(
+      @Nullable final RecordTemplate aspect,
+      @Nullable final SystemMetadata systemMetadata,
+      @Nullable final AspectSpec aspectSpec,
+      @Nonnull final EntityRegistry entityRegistry) {
+    return RegistryKnowledge.isWrittenByNewerSchema(systemMetadata, aspectSpec)
+        || (aspect != null && referencesUnknownEntityType(aspect, entityRegistry));
   }
 
   private static final class Walk {
     private final EntityRegistry entityRegistry;
+    private final boolean mutate;
     // Aspects repeat a few entity types many times (e.g. tags on every schema field).
     private final Map<String, Boolean> unknownByEntityType = new HashMap<>();
     private int removed;
+    private boolean found;
 
-    private Walk(@Nonnull final EntityRegistry entityRegistry) {
+    private Walk(@Nonnull final EntityRegistry entityRegistry, final boolean mutate) {
       this.entityRegistry = entityRegistry;
+      this.mutate = mutate;
     }
 
     /**
@@ -85,14 +107,20 @@ public final class UnknownEntityUrnStripper {
         return false;
       }
       if (schema instanceof TyperefDataSchema typeref) {
-        return isUrnTyperef(typeref)
-            ? value instanceof String urn && isUnknownEntityType(urn)
-            : prune(value, typeref.getRef());
+        if (!isUrnTyperef(typeref)) {
+          return prune(value, typeref.getRef());
+        }
+        final boolean unknown = value instanceof String urn && isUnknownEntityType(urn);
+        found |= unknown;
+        return unknown;
       }
       if (schema instanceof RecordDataSchema record && value instanceof DataMap map) {
         boolean containerMustGo = false;
         for (RecordDataSchema.Field field : record.getFields()) {
           if (prune(map.get(field.getName()), field.getType())) {
+            if (!mutate) {
+              continue;
+            }
             if (field.getOptional()) {
               map.remove(field.getName());
               removed++;
@@ -105,7 +133,7 @@ public final class UnknownEntityUrnStripper {
       }
       if (schema instanceof ArrayDataSchema array && value instanceof DataList list) {
         for (int i = list.size() - 1; i >= 0; i--) {
-          if (prune(list.get(i), array.getItems())) {
+          if (prune(list.get(i), array.getItems()) && mutate) {
             list.remove(i);
             removed++;
           }
@@ -114,7 +142,7 @@ public final class UnknownEntityUrnStripper {
       }
       if (schema instanceof MapDataSchema mapSchema && value instanceof DataMap map) {
         for (String key : new ArrayList<>(map.keySet())) {
-          if (prune(map.get(key), mapSchema.getValues())) {
+          if (prune(map.get(key), mapSchema.getValues()) && mutate) {
             map.remove(key);
             removed++;
           }
@@ -133,22 +161,12 @@ public final class UnknownEntityUrnStripper {
     }
 
     private boolean isUnknownEntityType(@Nonnull final String urn) {
-      final String entityType = entityTypeOf(urn);
+      final String entityType = RegistryKnowledge.entityTypeOf(urn);
       // Malformed urns (no entity type) are left for validation to reject.
       return entityType != null
           && unknownByEntityType.computeIfAbsent(
               entityType, type -> entityRegistry.findEntitySpec(type).isEmpty());
     }
-  }
-
-  /** The entity type of {@code urn:li:<type>:<key>}, without parsing the key; null if malformed. */
-  @Nullable
-  private static String entityTypeOf(@Nonnull final String urn) {
-    if (!urn.startsWith(URN_PREFIX)) {
-      return null;
-    }
-    final int end = urn.indexOf(':', URN_PREFIX.length());
-    return end <= URN_PREFIX.length() ? null : urn.substring(URN_PREFIX.length(), end);
   }
 
   private static boolean isUrnTyperef(@Nonnull final TyperefDataSchema typeref) {

@@ -25,6 +25,7 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -363,6 +364,19 @@ public class UpdateIndicesServiceTest {
         .setAspect(GenericRecordUtils.serializeAspect(aspect))
         .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
         .setCreated(AuditStampUtils.createDefaultAuditStamp());
+  }
+
+  @Test
+  public void testHandleChangeEvents_InvalidPayloadNotFromNewerVersionStillFails() {
+    // Only payloads a newer version wrote are dropped alone; other invalid data fails as before,
+    // so it can't silently go unindexed.
+    Deprecation invalid = new Deprecation().setDeprecated(true).setNote("n");
+    invalid.data().put("actor", "not-a-urn");
+    MetadataChangeLog event = datasetAspectEvent("invalid", DEPRECATION_ASPECT_NAME, invalid);
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
   }
 
   @Test

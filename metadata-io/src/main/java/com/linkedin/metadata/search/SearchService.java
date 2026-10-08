@@ -210,9 +210,11 @@ public class SearchService {
           lowercaseEntities.stream()
               .filter(entity -> !knownEntities.contains(entity))
               .collect(Collectors.toList());
+      // Request input can name anything (typos included), so it shares one log key and isn't
+      // counted as data skipped from a newer version.
       UNKNOWN_DATA.skippedBecause(
-          opContext.getMetricUtils(),
-          String.join(",", unknownEntities),
+          Optional.empty(),
+          "requested-entity-types",
           "entity types not in the entity registry",
           unknownEntities);
     }
@@ -220,7 +222,7 @@ public class SearchService {
   }
 
   private static boolean isKnownEntityType(
-      @Nonnull OperationContext opContext, @Nonnull String entity) {
+      @Nonnull final OperationContext opContext, @Nonnull final String entity) {
     return opContext.getEntityRegistry().findEntitySpec(entity).isPresent()
         || SearchV3ReadRoutingUtil.canonicalEntityNames(opContext, List.of(entity)).stream()
             .anyMatch(

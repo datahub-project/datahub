@@ -173,6 +173,8 @@ import org.apache.commons.lang3.StringUtils;
 public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private static final UnknownDataGuard UNKNOWN_MCL =
       UnknownDataGuard.forSite(EntityServiceImpl.class, "MCL");
+  private static final UnknownDataGuard UNKNOWN_READ =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "read of");
   private static final UnknownDataGuard UNKNOWN_ROLLBACK_ROW =
       UnknownDataGuard.forSite(EntityServiceImpl.class, "rollback row (left in place)");
 
@@ -459,8 +461,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       // Urns of entity types unknown to this build (after a version rollback) have no key spec,
       // so they keep an empty result instead of failing the whole batch.
       urnToAspects.keySet().stream()
-          .filter(
-              key -> opContext.getEntityRegistry().findEntitySpec(key.getEntityType()).isPresent())
+          .filter(key -> admitRead(opContext, key))
           .forEach(
               key -> {
                 final RecordTemplate keyAspect =
@@ -806,10 +807,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         dbKeys.stream()
             .filter(
                 dbKey ->
-                    opContext
-                        .getEntityRegistry()
-                        .findEntitySpec(UrnUtils.getUrn(dbKey.getUrn()).getEntityType())
-                        .isPresent())
+                    UNKNOWN_READ.admitUrn(
+                        opContext.getEntityRegistry(),
+                        opContext.getMetricUtils(),
+                        dbKey.getUrn(),
+                        null))
             .collect(Collectors.toSet());
 
     Set<Urn> urns =
@@ -1214,32 +1216,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    *
    * @param mcls mcls generated
    */
-  @VisibleForTesting
-  void processPostCommitMCLSideEffects(
+  private void processPostCommitMCLSideEffects(
       @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
     log.debug("Considering {} MCLs post commit side effects.", mcls.size());
-    // The write has already committed. A failing side effect must not turn it into an error for
-    // the caller, nor skip what the caller does next (deleteUrn emits the key-delete MCL after
-    // this returns). Same policy as post-commit retention above.
-    try {
-      List<MCLItem> batch =
-          mcls.stream()
-              .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
-              .collect(Collectors.toList());
+    List<MCLItem> batch =
+        mcls.stream()
+            .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
+            .collect(Collectors.toList());
 
-      try (Stream<MCPItem> sideEffectStream =
-          AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
-        applyPostCommitMcpSideEffects(opContext, sideEffectStream.collect(Collectors.toList()));
-      }
-    } catch (Exception e) {
-      log.error(
-          "Post-commit side effects failed for {} MCL(s); the write already committed.",
-          mcls.size(),
-          e);
-      opContext
-          .getMetricUtils()
-          .ifPresent(
-              m -> m.increment(EntityServiceImpl.class, "post_commit_side_effects_failed", 1));
+    try (Stream<MCPItem> sideEffectStream =
+        AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
+      applyPostCommitMcpSideEffects(opContext, sideEffectStream.collect(Collectors.toList()));
     }
   }
 
@@ -2943,7 +2930,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (entitySpec.isEmpty()) {
       // An entity type this registry doesn't know (e.g. added by a newer version before a
       // rollback) has no urns this version can list.
-      log.warn("listUrns for entity type {} that is not in the entity registry", entityName);
+      UNKNOWN_READ.skipped(opContext.getMetricUtils(), entityName, null, "listUrns");
       return new ListUrnsResult()
           .setStart(start)
           .setCount(0)
@@ -3319,12 +3306,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .stream()
         // A urn of an entity type this registry doesn't know (e.g. after a rollback) has no
         // snapshot; leave it out, as the V2 reads do, instead of failing the whole batch.
-        .filter(
-            entry ->
-                opContext
-                    .getEntityRegistry()
-                    .findEntitySpec(entry.getKey().getEntityType())
-                    .isPresent())
+        .filter(entry -> admitRead(opContext, entry.getKey()))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -3578,6 +3560,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         removedAspects, rowsDeletedFromEntityDeletion.get(), removedAspectResults);
   }
 
+  /** False, counted and logged, for a urn of an entity type the registry doesn't know. */
+  private static boolean admitRead(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    return UNKNOWN_READ.admit(
+        opContext.getEntityRegistry(), opContext.getMetricUtils(), urn.getEntityType(), null, urn);
+  }
+
   @Override
   public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
     return deleteUrn(opContext, urn, null);
@@ -3742,11 +3730,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // After a rollback, urns of entity types this build does not know (e.g. graph edges written by
     // a newer build) are reported as non-existent instead of failing the whole lookup.
     final List<Urn> knownUrns =
-        urns.stream()
-            .filter(
-                urn ->
-                    opContext.getEntityRegistry().findEntitySpec(urn.getEntityType()).isPresent())
-            .collect(Collectors.toList());
+        urns.stream().filter(urn -> admitRead(opContext, urn)).collect(Collectors.toList());
     if (knownUrns.isEmpty()) {
       return new HashSet<>();
     }

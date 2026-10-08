@@ -16,18 +16,21 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * The string values held by each item's currently stored aspect, loaded on first use per item.
+ * The string values held by each item's currently stored aspect, by field path, loaded on first use
+ * per entity and aspect.
  *
  * <p>A newer version can store values this version's validation rejects (read after a rollback). A
- * validator uses this to keep such a value when an aspect is rewritten with it unchanged, while
- * still rejecting newly added ones.
+ * validator uses this to keep such a value when an aspect is rewritten with it unchanged at the
+ * same field, while still rejecting newly added ones. Paths use the {@code UrnValidationUtil}
+ * format: {@code /a/b}, with {@code /*} for the records of a list.
  */
 final class StoredAspectValues {
 
   private final OperationFingerprint operationContext;
   private final RetrieverContext retrieverContext;
   private final BiPredicate<BatchItem, SystemAspect> applies;
-  private final Map<BatchItem, Set<String>> values = new HashMap<>();
+  // "urn|aspect" -> "path=value"
+  private final Map<String, Set<String>> values = new HashMap<>();
 
   private StoredAspectValues(
       @Nonnull final OperationFingerprint operationContext,
@@ -38,7 +41,11 @@ final class StoredAspectValues {
     this.applies = applies;
   }
 
-  /** Any stored value counts. */
+  /**
+   * Any stored value counts. For values whose validity is defined in code rather than in the schema
+   * (e.g. policy field types), where a newer version adding one doesn't bump the aspect's schema
+   * version.
+   */
   static StoredAspectValues any(
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
@@ -47,7 +54,8 @@ final class StoredAspectValues {
 
   /**
    * Only values of an aspect written under a newer schema version count, so invalid data this
-   * version or an older one wrote is not kept.
+   * version or an older one wrote is not kept. For rules the schema defines, such as {@code
+   * UrnValidation} entity types.
    */
   static StoredAspectValues writtenByNewerSchema(
       @Nonnull final OperationFingerprint operationContext,
@@ -60,34 +68,40 @@ final class StoredAspectValues {
                 stored.getSystemMetadata(), item.getAspectSpec()));
   }
 
-  boolean contains(@Nonnull final BatchItem item, @Nonnull final String value) {
-    return values.computeIfAbsent(item, this::load).contains(value);
+  /** True if the stored aspect holds {@code value} at {@code fieldPath}. */
+  boolean contains(
+      @Nonnull final BatchItem item, @Nonnull final String fieldPath, @Nonnull final String value) {
+    if (item.getUrn() == null || item.getAspectName() == null) {
+      return false;
+    }
+    return values
+        .computeIfAbsent(item.getUrn() + "|" + item.getAspectName(), key -> load(item))
+        .contains(fieldPath + "=" + value);
   }
 
   @Nonnull
   private Set<String> load(@Nonnull final BatchItem item) {
     final Set<String> found = new HashSet<>();
-    if (item.getUrn() == null || item.getAspectName() == null) {
-      return found;
-    }
     final SystemAspect stored =
         retrieverContext
             .getAspectRetriever()
             .getLatestSystemAspect(operationContext, item.getUrn(), item.getAspectName());
     if (stored != null && stored.getRecordTemplate() != null && applies.test(item, stored)) {
-      collectStrings(stored.getRecordTemplate().data(), found);
+      collect(stored.getRecordTemplate().data(), "", found);
     }
     return found;
   }
 
-  private static void collectStrings(
-      @Nullable final Object value, @Nonnull final Set<String> found) {
+  private static void collect(
+      @Nullable final Object value, @Nonnull final String path, @Nonnull final Set<String> found) {
     if (value instanceof String string) {
-      found.add(string);
+      found.add(path + "=" + string);
     } else if (value instanceof DataMap map) {
-      map.values().forEach(child -> collectStrings(child, found));
+      map.forEach((key, child) -> collect(child, path + "/" + key, found));
     } else if (value instanceof DataList list) {
-      list.forEach(child -> collectStrings(child, found));
+      for (Object item : list) {
+        collect(item, item instanceof DataMap ? path + "/*" : path, found);
+      }
     }
   }
 }

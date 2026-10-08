@@ -123,6 +123,41 @@ public class PolicyFieldTypeValidatorTest {
   }
 
   @Test
+  public void testUnknownFieldTypeStoredElsewhereInThePolicyIsRejected() {
+    // Only a value stored at the same criteria field counts; the same string in, e.g., the
+    // description doesn't let a new unknown field type through.
+    DataHubPolicyInfo storedInfo = createPolicyInfoWithFilter("TYPE", "x");
+    storedInfo.setDescription("FIELD_FROM_NEWER_BUILD");
+    com.linkedin.metadata.aspect.SystemAspect stored =
+        mock(com.linkedin.metadata.aspect.SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(storedInfo);
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(), eq(TEST_POLICY_URN), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
+        .thenReturn(stored);
+    DataHubPolicyInfo proposed = createPolicyInfoWithFilter("FIELD_FROM_NEWER_BUILD", "x");
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(proposed)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
+  }
+
+  @Test
   public void testValidFieldTypeInPrivilegeConstraints() {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("DOMAIN");
 

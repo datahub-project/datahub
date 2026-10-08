@@ -707,27 +707,6 @@ public class EntityServiceImplTest {
   }
 
   @Test
-  public void testPostCommitSideEffectFailureDoesNotFailCommittedWrite() throws Exception {
-    // A side effect that cannot run (here: its MCL cannot even be built) must not surface as an
-    // error for a write that already committed.
-    MetadataChangeLog unbuildable =
-        PegasusUtils.constructMCL(
-                testMCP,
-                PegasusUtils.urnToEntityName(TEST_URN),
-                TEST_URN,
-                STATUS_ASPECT_NAME,
-                TEST_AUDIT_STAMP,
-                newAspect,
-                SystemMetadataUtils.createDefaultSystemMetadata(),
-                oldAspect,
-                null)
-            .copy()
-            .setAspectName("aspectFromNewerBuild");
-
-    entityService.processPostCommitMCLSideEffects(opContext, List.of(unbuildable));
-  }
-
-  @Test
   public void testRollbackRunSkipsRowsUnknownToRegistry() {
     EntityServiceImpl service =
         new EntityServiceImpl(

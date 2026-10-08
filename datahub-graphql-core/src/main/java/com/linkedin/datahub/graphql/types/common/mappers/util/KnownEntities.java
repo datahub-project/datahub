@@ -6,12 +6,13 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -26,16 +27,26 @@ import javax.annotation.Nullable;
  */
 public final class KnownEntities {
 
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(KnownEntities.class, "reference");
+
   private KnownEntities() {}
 
   /** The entities for these urns, in order, without the ones GraphQL can't represent. */
   @Nonnull
   public static List<Entity> mapAll(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
-    return urns.stream()
-        .map(urn -> UrnToEntityMapper.map(context, urn))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+    final List<Entity> entities = new ArrayList<>(urns.size());
+    for (Urn urn : urns) {
+      final Entity entity = isKnown(context, urn) ? UrnToEntityMapper.map(context, urn) : null;
+      if (entity == null) {
+        UNREPRESENTABLE.skippedBecause(
+            metrics(context), urn.getEntityType(), "GraphQL can't represent its entity type", urn);
+      } else {
+        entities.add(entity);
+      }
+    }
+    return entities;
   }
 
   /** The first of these urns GraphQL can represent, or null if none. */

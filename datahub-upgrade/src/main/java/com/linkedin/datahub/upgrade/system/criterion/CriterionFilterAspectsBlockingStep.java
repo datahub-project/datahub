@@ -29,6 +29,7 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -297,13 +298,15 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
   }
 
   /**
-   * Builds the re-ingest item, or null when the stored value fails validation in this version (e.g.
-   * a value only a newer version knows, read after a rollback). That row is left as it is instead
-   * of failing this blocking step.
+   * Builds the re-ingest item, or null when the stored value was written by a newer version (read
+   * after a rollback) and fails validation in this one. That row is left as it is instead of
+   * failing this blocking step. Any other invalid value fails the step as before.
    */
   @Nullable
   @VisibleForTesting
-  ChangeItemImpl toChangeItem(@Nonnull OperationContext opContext, @Nonnull SystemAspect prepared) {
+  ChangeItemImpl toChangeItem(
+      @Nonnull OperationContext opContext, @Nonnull final SystemAspect prepared) {
+    final SystemMetadata systemMetadata = prepared.getSystemMetadata();
     try {
       return ChangeItemImpl.builder()
           .changeType(ChangeType.UPSERT)
@@ -313,12 +316,19 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
           .aspectSpec(prepared.getAspectSpec())
           .recordTemplate(prepared.getRecordTemplate())
           .auditStamp(prepared.getAuditStamp())
-          .systemMetadata(withAppSource(prepared.getSystemMetadata()))
-          .headers(versionHeaders(prepared.getSystemMetadata().getVersion()))
+          .systemMetadata(withAppSource(systemMetadata))
+          .headers(versionHeaders(systemMetadata != null ? systemMetadata.getVersion() : null))
           .build(opContext.getAspectRetriever());
     } catch (ValidationException e) {
+      if (!UnknownEntityUrnStripper.isFromNewerVersion(
+          prepared.getRecordTemplate(),
+          systemMetadata,
+          prepared.getAspectSpec(),
+          opContext.getEntityRegistry())) {
+        throw e;
+      }
       log.warn(
-          "{}: skipping {}/{}, its stored value fails validation in this version: {}",
+          "{}: skipping {}/{}, its stored value from a newer version fails validation here: {}",
           id(),
           prepared.getUrn(),
           prepared.getAspectName(),

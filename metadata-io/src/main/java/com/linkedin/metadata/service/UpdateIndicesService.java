@@ -22,7 +22,9 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -32,6 +34,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -178,11 +181,9 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
-   * Builds an MCLItem, dropping only this event when its payload fails validation. A newer version
-   * can write an aspect this registry knows whose payload references an entity type it does not
-   * (e.g. read after a rollback); failing the build would otherwise skip the whole batch. Any other
-   * invalid payload is dropped the same way, so each one is counted in {@link
-   * #INVALID_MCL_SKIPPED_METRIC} to make search drifting from primary storage visible.
+   * Builds an MCLItem. An event whose payload fails validation because a newer version wrote it
+   * (e.g. read after a rollback) is dropped on its own instead of failing the whole batch, and
+   * counted in {@link #INVALID_MCL_SKIPPED_METRIC}. Any other invalid payload fails as before.
    */
   @Nullable
   private static MCLItem buildValidMCLItem(
@@ -190,17 +191,38 @@ public class UpdateIndicesService implements SearchIndicesService {
     try {
       return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
     } catch (ValidationException e) {
+      if (!isFromNewerVersion(opContext, event)) {
+        throw e;
+      }
       opContext
           .getMetricUtils()
           .ifPresent(m -> m.increment(UpdateIndicesService.class, INVALID_MCL_SKIPPED_METRIC, 1));
-      log.warn(
-          "Skipping invalid MCL for '{}/{}' on {}: {}",
-          event.getEntityType(),
-          event.getAspectName(),
-          event.getEntityUrn(),
-          e.getMessage());
+      UNKNOWN_DATA.skippedBecause(
+          Optional.empty(),
+          "invalid:" + event.getEntityType() + "/" + event.getAspectName(),
+          "its payload from a newer version fails validation here: " + e.getMessage(),
+          event.getEntityUrn());
       return null;
     }
+  }
+
+  private static boolean isFromNewerVersion(
+      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    final EntityRegistry registry = opContext.getEntityRegistry();
+    final AspectSpec aspectSpec =
+        registry.findAspectSpec(event.getEntityType(), event.getAspectName()).orElse(null);
+    RecordTemplate aspect = null;
+    if (aspectSpec != null && event.hasAspect()) {
+      try {
+        aspect =
+            GenericRecordUtils.deserializeAspect(
+                event.getAspect().getValue(), event.getAspect().getContentType(), aspectSpec);
+      } catch (RuntimeException deserializationFailure) {
+        // Unreadable payloads aren't attributed to a newer version.
+      }
+    }
+    return UnknownEntityUrnStripper.isFromNewerVersion(
+        aspect, event.getSystemMetadata(), aspectSpec, registry);
   }
 
   /**
