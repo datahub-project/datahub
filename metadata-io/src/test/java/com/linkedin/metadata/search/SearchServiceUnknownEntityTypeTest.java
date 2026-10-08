@@ -38,11 +38,13 @@ public class SearchServiceUnknownEntityTypeTest {
   }
 
   @Test
-  public void testNonCanonicalNamesOfKnownTypesAreKept() {
-    // The search layer resolves "data_product" / "DATA_PRODUCT" to dataProduct.
+  public void testNamesMatchCaseInsensitivelyButUnderscoredAliasesAreUnknown() {
+    // ESSearchDAO resolves names with getEntitySpec, which ignores case but has no "data_product"
+    // alias; keeping the alias would fail the search downstream.
     assertEquals(
-        searchService.getEntitiesToSearch(opContext, List.of("data_product", "DATA_PRODUCT"), 10),
-        List.of("data_product", "data_product"));
+        searchService.getEntitiesToSearch(
+            opContext, List.of("dataProduct", "DATAPRODUCT", "data_product"), 10),
+        List.of("dataproduct", "dataproduct"));
   }
 
   @Test

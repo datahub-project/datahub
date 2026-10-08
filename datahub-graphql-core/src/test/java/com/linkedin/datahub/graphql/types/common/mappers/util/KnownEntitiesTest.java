@@ -36,6 +36,10 @@ public class KnownEntitiesTest {
         KnownEntities.mapFirst(context, List.of(FROM_NEWER_BUILD, DATASET)).getUrn(),
         DATASET.toString());
     assertNull(KnownEntities.mapFirst(context, List.of(FROM_NEWER_BUILD)));
+    // A known outer type whose key references an unknown type is passed over too.
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(" + FROM_NEWER_BUILD + ",col)");
+    assertEquals(
+        KnownEntities.mapFirst(context, List.of(nested, DATASET)).getUrn(), DATASET.toString());
   }
 
   @Test
