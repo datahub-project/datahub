@@ -107,7 +107,7 @@
     "contractMessage.noAssertionsRun": "Проверки контракта ещё не запускались",
     "contractMessage.pending": "Это может занять некоторое время. Загляните позже!",
     "contractSection.dataQuality": "КАЧЕСТВО ДАННЫХ",
-    "contractSection.freshness": "СВЕЖЕСТЬ",
+    "contractSection.freshness": "АКТУАЛЬНОСТЬ",
     "contractSection.properties": "СВОЙСТВА",
     "contractSection.schema": "СХЕМА",
     "contractStatus.action.viewDataQuality": "посмотреть проверки качества данных",
