@@ -245,7 +245,7 @@
     "sidebar.siblings.andMore": "и ещё {{count}}",
     "sidebar.siblings.composedOfTitle": "Состоит из",
     "sidebar.siblings.partOfTitle": "Часть",
-    "sidebar.siblings.viewAllTitle": "Показать все дубли",
+    "sidebar.siblings.viewAllTitle": "Показать всех двойников",
     "sidebar.stats.columnsLabel": "Столбцы",
     "sidebar.stats.lastUpdatedLabel": "Последнее обновление",
     "sidebar.stats.monthlyQueriesLabel": "Запросов в месяц",
