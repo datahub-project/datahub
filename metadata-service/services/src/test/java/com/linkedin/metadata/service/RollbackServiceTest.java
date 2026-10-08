@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SYSTEM_METADATA_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -176,8 +175,12 @@ public class RollbackServiceTest {
     unknownKey.setRunId(TEST_RUN_ID);
     unknownKey.setKeyAspect(true);
     rows.add(unknownKey);
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(false),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
         .thenReturn(rows);
     when(mockSystemMetadataService.findByUrn(
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
@@ -188,6 +191,35 @@ public class RollbackServiceTest {
 
     assertEquals(response.getEntitiesDeleted(), 2);
     assertEquals(response.getEntitiesAffected(), 2);
+  }
+
+  @Test
+  public void testHardDeleteDryRunDoesNotRevertRowsUnknownToRegistry()
+      throws AuthenticationException {
+    List<AspectRowSummary> rows = new ArrayList<>(createTestAspectRows(true));
+    AspectRowSummary unknownKey = new AspectRowSummary();
+    unknownKey.setUrn("urn:li:entityFromNewerBuild:x");
+    unknownKey.setAspectName("entityFromNewerBuildKey");
+    unknownKey.setRunId(TEST_RUN_ID);
+    unknownKey.setKeyAspect(true);
+    rows.add(unknownKey);
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(rows);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, true, true, null);
+
+    // The four known rows of two entities are reverted; the unknown key row stays in place.
+    assertEquals(response.getAspectsReverted(), 4);
+    assertEquals(response.getEntitiesDeleted(), 2);
   }
 
   @Test
@@ -398,8 +430,8 @@ public class RollbackServiceTest {
   @Test(timeOut = 60_000)
   public void testRollbackIngestion_PagesPastRowsUnknownToRegistry()
       throws AuthenticationException {
-    // A full page of rows this build cannot roll back stays in system metadata. Re-reading from
-    // offset 0 would return the same page forever, so the loop must page past it.
+    // A full page of rows this build cannot roll back stays in system metadata. Re-reading from the
+    // start would return the same page forever, so the next page starts after its last row.
     List<AspectRowSummary> unknownPage = new ArrayList<>();
     for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
       unknownPage.add(
@@ -409,14 +441,18 @@ public class RollbackServiceTest {
               .setRunId(TEST_RUN_ID)
               .setKeyAspect(false));
     }
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(unknownPage);
-    when(mockSystemMetadataService.findByRunId(
+    when(mockSystemMetadataService.findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
             eq(true),
-            eq(MAX_SEARCH_RESULTS),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unknownPage);
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            notNull(),
             eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
@@ -432,33 +468,49 @@ public class RollbackServiceTest {
         rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
 
     verify(mockSystemMetadataService)
-        .findByRunId(
+        .findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
             eq(true),
-            eq(MAX_SEARCH_RESULTS),
+            eq(unknownPage.get(MAX_SEARCH_RESULTS - 1)),
             eq(MAX_SEARCH_RESULTS));
     assertEquals(response.getAspectsReverted(), 0);
   }
 
   @Test
-  public void testRollbackIngestion_MixedPageKeepsOffset() throws AuthenticationException {
-    // Known rows drop out of system metadata once rolled back, so a page that still had some
-    // known rows is re-read from the same offset.
-    List<AspectRowSummary> firstPage = createTestAspectRows(true); // 4 known rows
-    firstPage.add(
-        new AspectRowSummary()
-            .setUrn("urn:li:entityFromNewerBuild:e0")
-            .setAspectName("status")
-            .setRunId(TEST_RUN_ID)
-            .setKeyAspect(false));
-    List<AspectRowSummary> remaining = new ArrayList<>(firstPage.subList(4, 5));
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(firstPage)
-        .thenReturn(remaining);
+  public void testRollbackIngestion_EachPageStartsAfterTheLastRowOfThePrevious()
+      throws AuthenticationException {
+    // Pages are read by position, not offset: rolled-back rows leave the index while rows of
+    // unknown types stay, and paging after the last row read covers both without re-reading or
+    // an offset that grows past the search result window.
+    List<AspectRowSummary> firstPage = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      firstPage.add(
+          new AspectRowSummary()
+              .setUrn(
+                  i % 2 == 0
+                      ? "urn:li:dataset:(urn:li:dataPlatform:hive,t" + i + ",PROD)"
+                      : "urn:li:entityFromNewerBuild:e" + i)
+              .setAspectName("status")
+              .setRunId(TEST_RUN_ID)
+              .setKeyAspect(false));
+    }
+    AspectRowSummary lastOfFirstPage = firstPage.get(MAX_SEARCH_RESULTS - 1);
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(firstPage);
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            eq(lastOfFirstPage),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
-        .thenReturn(new RollbackRunResult(new ArrayList<>(firstPage.subList(0, 4)), 0, List.of()))
         .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, List.of()));
     DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
     timeseriesResult.setNumDocsDeleted(0L);
@@ -471,15 +523,19 @@ public class RollbackServiceTest {
 
     rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
 
-    verify(mockSystemMetadataService, times(2))
-        .findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS));
-    verify(mockSystemMetadataService, never())
-        .findByRunId(
+    verify(mockSystemMetadataService)
+        .findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
             eq(true),
-            eq(MAX_SEARCH_RESULTS),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS));
+    verify(mockSystemMetadataService)
+        .findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            eq(lastOfFirstPage),
             eq(MAX_SEARCH_RESULTS));
   }
 

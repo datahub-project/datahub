@@ -300,17 +300,23 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                   .withUsageOperation(UsageOperation.METADATA_INGEST)
                   .withUsageQuantity(metadataChangeProposals.size()), _authorizer, authentication, true);
 
-    // Ingest Authorization Checks. Resolving a key-only proposal's urn fails for an entity type the
-    // registry doesn't know (e.g. sent by a client built for a newer version): a bad request, not 500.
-    final List<Pair<MetadataChangeProposal, Integer>> exceptions;
-    try {
-      exceptions = isAPIAuthorizedIngest(opContext,
-             opContext.getEntityRegistry(), metadataChangeProposals)
-             .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
-             .collect(Collectors.toList());
-    } catch (IllegalArgumentException e) {
-      throw new RestLiServiceException(HttpStatus.S_400_BAD_REQUEST, e.getMessage());
+    // A proposal for an entity type the registry doesn't know (e.g. sent by a client built for a
+    // newer version) is a bad request; resolving a key-only proposal's urn for it would fail with a
+    // 500 in the authorization checks below.
+    for (MetadataChangeProposal mcp : metadataChangeProposals) {
+      if (mcp.getEntityType() != null
+          && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {
+        throw new RestLiServiceException(
+            HttpStatus.S_400_BAD_REQUEST,
+            String.format("Unknown entity type %s", mcp.getEntityType()));
+      }
     }
+
+    // Ingest Authorization Checks
+    final List<Pair<MetadataChangeProposal, Integer>> exceptions =
+        isAPIAuthorizedIngest(opContext, opContext.getEntityRegistry(), metadataChangeProposals)
+            .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+            .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {
         String errorMessages = exceptions.stream()
                  .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))

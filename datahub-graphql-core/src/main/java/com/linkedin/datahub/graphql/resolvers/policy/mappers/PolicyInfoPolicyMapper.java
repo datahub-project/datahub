@@ -58,8 +58,9 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     return result;
   }
 
+  /** A policy type or state, or the fallback for a value this version doesn't know. */
   @Nonnull
-  private static <T extends Enum<T>> T safeValueOf(
+  public static <T extends Enum<T>> T safeValueOf(
       @Nonnull final Class<T> enumClass, @Nullable final String value, @Nonnull final T fallback) {
     try {
       return Enum.valueOf(enumClass, value);

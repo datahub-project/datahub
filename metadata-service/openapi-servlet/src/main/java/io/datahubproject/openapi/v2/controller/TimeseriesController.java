@@ -97,6 +97,8 @@ public class TimeseriesController {
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
+    // The lookup is case-insensitive; use the registered name from here on.
+    final String canonicalAspectName = aspectSpec.getName();
 
     List<SortCriterion> sortCriteria =
         List.of(
@@ -107,7 +109,7 @@ public class TimeseriesController {
         timeseriesAspectService.scrollAspects(
             opContext,
             entityName,
-            aspectName,
+            canonicalAspectName,
             null,
             sortCriteria,
             scrollId,
@@ -120,7 +122,7 @@ public class TimeseriesController {
             .filter(
                 doc ->
                     TimeseriesAuthUtil.canReadAspect(
-                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, aspectName))
+                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, canonicalAspectName))
             .collect(Collectors.toList());
 
     return ResponseEntity.ok(
@@ -128,7 +130,7 @@ public class TimeseriesController {
             .scrollId(result.getScrollId())
             .results(
                 toGenericTimeseriesAspect(
-                    opContext, aspectName, authorizedDocs, withSystemMetadata))
+                    opContext, canonicalAspectName, authorizedDocs, withSystemMetadata))
             .build());
   }
 

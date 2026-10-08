@@ -104,7 +104,10 @@ public class IncidentMapper {
   private static IncidentStatus mapStatus(
       @Nullable QueryContext context, final com.linkedin.incident.IncidentStatus incidentStatus) {
     final IncidentStatus result = new IncidentStatus();
-    result.setState(IncidentState.valueOf(incidentStatus.getState().name()));
+    // A state only a newer version knows (e.g. after a rollback) shows as ACTIVE, so the incident
+    // stays visible as open rather than looking resolved.
+    result.setState(
+        PdlEnumMapper.map(IncidentState.class, incidentStatus.getState(), IncidentState.ACTIVE));
     result.setMessage(incidentStatus.getMessage(GetMode.NULL));
     result.setLastUpdated(AuditStampMapper.map(context, incidentStatus.getLastUpdated()));
     if (incidentStatus.hasStage()) {

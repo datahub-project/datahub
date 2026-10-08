@@ -11,7 +11,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,11 +52,15 @@ public final class KnownEntities {
   @Nullable
   public static Entity mapFirst(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
-    return urns.stream()
-        .map(urn -> UrnToEntityMapper.map(context, urn))
-        .filter(Objects::nonNull)
-        .findFirst()
-        .orElse(null);
+    for (Urn urn : urns) {
+      final Entity entity = isKnown(context, urn) ? UrnToEntityMapper.map(context, urn) : null;
+      if (entity != null) {
+        return entity;
+      }
+      UNREPRESENTABLE.skippedBecause(
+          metrics(context), urn.getEntityType(), "GraphQL can't represent its entity type", urn);
+    }
+    return null;
   }
 
   /** Metrics of the request, for reporting skips. */

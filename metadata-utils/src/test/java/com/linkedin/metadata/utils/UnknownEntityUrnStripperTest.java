@@ -89,6 +89,24 @@ public class UnknownEntityUrnStripperTest {
     assertEquals(unknownNested.getDataMap("byName").size(), 1);
   }
 
+  @Test
+  public void testUrnNestingAnUnknownTypeInItsKeyIsRemoved() {
+    // A known outer type (here dataset) whose key references an entity type only a newer version
+    // has, e.g. a schema field or monitor of a new entity type.
+    String nestedUnknown = "urn:li:dataset:(" + UNKNOWN + ",col)";
+    String nestedKnown = "urn:li:dataset:(" + KNOWN + ",col)";
+    DataMap data =
+        new DataMap(
+            Map.of(
+                "owner",
+                KNOWN,
+                "byName",
+                new DataMap(Map.of("a", nestedKnown, "b", nestedUnknown))));
+
+    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 1);
+    assertEquals(data.getDataMap("byName"), new DataMap(Map.of("a", nestedKnown)));
+  }
+
   private static RecordTemplate record(DataMap data) {
     return new RecordTemplate(data, SCHEMA) {};
   }

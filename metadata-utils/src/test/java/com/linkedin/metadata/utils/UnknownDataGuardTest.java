@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -95,5 +96,28 @@ public class UnknownDataGuardTest {
     other.admit(registry, Optional.empty(), "dataset", "aspectFromNewerBuild", "a");
 
     verify(log, times(2)).warn(anyString(), any(), any(), any());
+  }
+
+  @Test
+  public void testAdmitEventSkipsUrnsWhoseKeyReferencesAnUnknownType() {
+    EntitySpec schemaField = mock(EntitySpec.class);
+    when(schemaField.getAspectSpec("status")).thenReturn(mock(AspectSpec.class));
+    when(registry.findEntitySpec("schemaField")).thenReturn(Optional.of(schemaField));
+
+    assertFalse(
+        guard.admitEvent(
+            registry,
+            Optional.of(metricUtils),
+            UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)"),
+            "schemaField",
+            "status"));
+    assertTrue(
+        guard.admitEvent(
+            registry,
+            Optional.of(metricUtils),
+            UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:d,col)"),
+            "schemaField",
+            "status"));
+    verify(metricUtils).increment(UnknownDataGuardTest.class, UnknownDataGuard.SKIPPED_METRIC, 1);
   }
 }
