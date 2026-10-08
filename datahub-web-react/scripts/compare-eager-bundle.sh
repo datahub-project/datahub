@@ -19,11 +19,15 @@ if [[ ! -x "$BIN/vite" ]]; then
     exit 1
 fi
 
+# Drop a snapshot left by an earlier run before the trap can restore it.
+rm -rf /tmp/src-post
+SNAPSHOT_READY=0
 restore_src() {
-    if [[ -d /tmp/src-post ]]; then
-        rm -rf "$ROOT/src"
-        cp -a /tmp/src-post "$ROOT/src"
+    if [[ "$SNAPSHOT_READY" != 1 || ! -d /tmp/src-post ]]; then
+        return
     fi
+    rm -rf "$ROOT/src"
+    cp -a /tmp/src-post "$ROOT/src"
 }
 trap restore_src EXIT
 
@@ -34,6 +38,7 @@ node scripts/generate-lazy-icon-stubs.js
 echo "== correctness: profile split + entity sidebar tests =="
 "$BIN/vitest" run \
     src/app/entityV2/__tests__/profileChunkSplit.test.ts \
+    src/app/entityV2/shared/__tests__/lazyEntityProfile.test.tsx \
     src/app/entityV2/glossaryTerm/__tests__/GlossaryTermEntity.test.tsx \
     src/app/entityV2/glossaryNode/__tests__/GlossaryNodeEntity.test.tsx \
     src/app/entityV2/shared/containers/profile/__tests__/utils.test.tsx \
@@ -42,6 +47,7 @@ echo "== correctness: profile split + entity sidebar tests =="
 echo "== snapshot post source, then measure pre ($BASE_COMMIT) =="
 rm -rf /tmp/src-post /tmp/src-pre
 cp -a "$ROOT/src" /tmp/src-post
+SNAPSHOT_READY=1
 mkdir -p /tmp/src-pre
 git -C "$REPO_ROOT" archive "$BASE_COMMIT" datahub-web-react/src \
     | tar -x -C /tmp/src-pre --strip-components=1

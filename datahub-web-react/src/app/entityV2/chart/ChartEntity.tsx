@@ -16,6 +16,28 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EmbedTab,
+    EmbeddedProfile,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { EntityTab } from '@app/entityV2/shared/types';
 import {
@@ -38,89 +60,14 @@ const ChartSummaryTab = lazyProfileComponent(
     () => import('@app/entityV2/chart/summary/ChartSummaryTab'),
 );
 
-const SummaryTab = lazyProfileComponent('SummaryTab', () => import('@app/entityV2/summary/SummaryTab'));
-
 const ChartStatsSummarySubHeader = lazyProfileComponent('ChartStatsSummarySubHeader', () =>
     import('@app/entityV2/chart/profile/stats/ChartStatsSummarySubHeader').then((module) => ({
         default: module.ChartStatsSummarySubHeader,
     })),
 );
-const EntityProfile = lazyProfileComponent('EntityProfile', () =>
-    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
-        default: module.EntityProfile,
-    })),
-);
-const SidebarAboutSection = lazyProfileComponent('SidebarAboutSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection').then((module) => ({
-        default: module.SidebarAboutSection,
-    })),
-);
-const SidebarApplicationSection = lazyProfileComponent('SidebarApplicationSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection').then((module) => ({
-        default: module.SidebarApplicationSection,
-    })),
-);
 const SidebarChartHeaderSection = lazyProfileComponent(
     'SidebarChartHeaderSection',
     () => import('@app/entityV2/shared/containers/profile/sidebar/Chart/Header/SidebarChartHeaderSection'),
-);
-const DataProductSection = lazyProfileComponent(
-    'DataProductSection',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection'),
-);
-const SidebarDomainSection = lazyProfileComponent('SidebarDomainSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection').then((module) => ({
-        default: module.SidebarDomainSection,
-    })),
-);
-const SidebarLineageSection = lazyProfileComponent(
-    'SidebarLineageSection',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection'),
-);
-const SidebarOwnerSection = lazyProfileComponent('SidebarOwnerSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection').then((module) => ({
-        default: module.SidebarOwnerSection,
-    })),
-);
-const SidebarEntityHeader = lazyProfileComponent(
-    'SidebarEntityHeader',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
-);
-const SidebarGlossaryTermsSection = lazyProfileComponent('SidebarGlossaryTermsSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection').then((module) => ({
-        default: module.SidebarGlossaryTermsSection,
-    })),
-);
-const SidebarTagsSection = lazyProfileComponent('SidebarTagsSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection').then((module) => ({
-        default: module.SidebarTagsSection,
-    })),
-);
-const StatusSection = lazyProfileComponent(
-    'StatusSection',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection'),
-);
-const EmbeddedProfile = lazyProfileComponent(
-    'EmbeddedProfile',
-    () => import('@app/entityV2/shared/embed/EmbeddedProfile'),
-);
-const SidebarNotesSection = lazyProfileComponent(
-    'SidebarNotesSection',
-    () => import('@app/entityV2/shared/sidebarSection/SidebarNotesSection'),
-);
-const SidebarStructuredProperties = lazyProfileComponent(
-    'SidebarStructuredProperties',
-    () => import('@app/entityV2/shared/sidebarSection/SidebarStructuredProperties'),
-);
-const DocumentationTab = lazyProfileComponent('DocumentationTab', () =>
-    import('@app/entityV2/shared/tabs/Documentation/DocumentationTab').then((module) => ({
-        default: module.DocumentationTab,
-    })),
-);
-const EmbedTab = lazyProfileComponent('EmbedTab', () =>
-    import('@app/entityV2/shared/tabs/Embed/EmbedTab').then((module) => ({
-        default: module.EmbedTab,
-    })),
 );
 const ChartDashboardsTab = lazyProfileComponent('ChartDashboardsTab', () =>
     import('@app/entityV2/shared/tabs/Entity/ChartDashboardsTab').then((module) => ({
@@ -130,21 +77,6 @@ const ChartDashboardsTab = lazyProfileComponent('ChartDashboardsTab', () =>
 const InputFieldsTab = lazyProfileComponent('InputFieldsTab', () =>
     import('@app/entityV2/shared/tabs/Entity/InputFieldsTab').then((module) => ({
         default: module.InputFieldsTab,
-    })),
-);
-const IncidentTab = lazyProfileComponent('IncidentTab', () =>
-    import('@app/entityV2/shared/tabs/Incident/IncidentTab').then((module) => ({
-        default: module.IncidentTab,
-    })),
-);
-const LineageTab = lazyProfileComponent('LineageTab', () =>
-    import('@app/entityV2/shared/tabs/Lineage/LineageTab').then((module) => ({
-        default: module.LineageTab,
-    })),
-);
-const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
-    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
-        default: module.PropertiesTab,
     })),
 );
 

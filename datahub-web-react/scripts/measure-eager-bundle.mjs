@@ -79,7 +79,9 @@ for (const key of closure) {
     for (const rel of [item.file, ...(item.css || [])]) {
         if (!rel) continue;
         const abs = join(root, 'dist', rel);
-        if (!existsSync(abs)) continue;
+        if (!existsSync(abs)) {
+            throw new Error(`Missing bundle artifact ${rel} referenced by ${key}`);
+        }
         files.push({ key, rel, gzip: gzipBytes(abs), bytes: readFileSync(abs).length });
     }
 }

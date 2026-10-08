@@ -15,6 +15,22 @@ import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DAGTab,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -32,21 +48,6 @@ const OutputPortsTab = lazyProfileComponent('OutputPortsTab', () =>
         default: module.OutputPortsTab,
     })),
 );
-const EntityProfile = lazyProfileComponent('EntityProfile', () =>
-    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
-        default: module.EntityProfile,
-    })),
-);
-const SidebarAboutSection = lazyProfileComponent('SidebarAboutSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection').then((module) => ({
-        default: module.SidebarAboutSection,
-    })),
-);
-const SidebarApplicationSection = lazyProfileComponent('SidebarApplicationSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection').then((module) => ({
-        default: module.SidebarApplicationSection,
-    })),
-);
 const SidebarViewDefinitionSection = lazyProfileComponent('SidebarViewDefinitionSection', () =>
     import('@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection').then(
         (module) => ({
@@ -54,53 +55,6 @@ const SidebarViewDefinitionSection = lazyProfileComponent('SidebarViewDefinition
         }),
     ),
 );
-const SidebarDomainSection = lazyProfileComponent('SidebarDomainSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection').then((module) => ({
-        default: module.SidebarDomainSection,
-    })),
-);
-const SidebarOwnerSection = lazyProfileComponent('SidebarOwnerSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection').then((module) => ({
-        default: module.SidebarOwnerSection,
-    })),
-);
-const SidebarEntityHeader = lazyProfileComponent(
-    'SidebarEntityHeader',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
-);
-const SidebarGlossaryTermsSection = lazyProfileComponent('SidebarGlossaryTermsSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection').then((module) => ({
-        default: module.SidebarGlossaryTermsSection,
-    })),
-);
-const SidebarTagsSection = lazyProfileComponent('SidebarTagsSection', () =>
-    import('@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection').then((module) => ({
-        default: module.SidebarTagsSection,
-    })),
-);
-const StatusSection = lazyProfileComponent(
-    'StatusSection',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection'),
-);
-const SidebarNotesSection = lazyProfileComponent(
-    'SidebarNotesSection',
-    () => import('@app/entityV2/shared/sidebarSection/SidebarNotesSection'),
-);
-const SidebarStructuredProperties = lazyProfileComponent(
-    'SidebarStructuredProperties',
-    () => import('@app/entityV2/shared/sidebarSection/SidebarStructuredProperties'),
-);
-const DAGTab = lazyProfileComponent('DAGTab', () =>
-    import('@app/entityV2/shared/tabs/Lineage/DAGTab').then((module) => ({
-        default: module.DAGTab,
-    })),
-);
-const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
-    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
-        default: module.PropertiesTab,
-    })),
-);
-const SummaryTab = lazyProfileComponent('SummaryTab', () => import('@app/entityV2/summary/SummaryTab'));
 
 const OutputPortsTabIcon = () => <Export size={14} />;
 

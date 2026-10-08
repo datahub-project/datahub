@@ -17,16 +17,34 @@ const ALIASES: Array<[string, string]> = [
 
 const EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
 
-// Profile UI. The eager shell may import the lazy wrapper, not these modules.
-const DEFERRED = [
-    'app/entityV2/shared/containers/profile/EntityProfile.tsx',
-    'app/entityV2/shared/tabs/Lineage/LineageTab.tsx',
-    'app/entityV2/shared/tabs/Dataset/Schema/SchemaTab.tsx',
-    'app/entityV2/shared/tabs/Documentation/DocumentationTab.tsx',
-    'app/entityV2/shared/embed/EmbeddedProfile.tsx',
-    'app/lineageV3/LineageGraph.tsx',
-    'app/entityV2/shared/containers/profile/utils.tsx',
+// Entity classes may import these. Everything else under a profile, tab, embed, or lineage
+// path has to stay behind a dynamic import, including files that are not in a fixed list.
+const PROFILE_IMPORT_ALLOWLIST = [
+    'entityData',
+    'lazyEntityProfile',
+    'profileChunks',
+    'RelatedTermTypes',
+    'useGetColumnTabCount',
+    'useGlossaryRelatedAssetsTabCount',
+    'lineageV3/types',
+    'lineageV3/utils/lineageUtils',
 ];
+
+const PROFILE_IMPORT_MARKERS = [
+    '/profile/',
+    '/containers/profile/',
+    '/shared/tabs/',
+    '/shared/embed/',
+    '/shared/sidebarSection/',
+    '/lineageV3/',
+];
+
+function isForbiddenProfileImport(spec: string): boolean {
+    if (PROFILE_IMPORT_ALLOWLIST.some((allowed) => spec.includes(allowed))) {
+        return false;
+    }
+    return PROFILE_IMPORT_MARKERS.some((marker) => spec.includes(marker));
+}
 
 function firstExisting(candidates: Array<string | undefined>): string | undefined {
     return candidates.find((candidate) => {
@@ -80,30 +98,17 @@ function staticImportSpecs(source: string): string[] {
     return specs;
 }
 
-function visitEager(file: string, seen: Set<string>): void {
-    if (seen.has(file)) {
-        return;
-    }
-    seen.add(file);
-    let source = '';
-    try {
-        source = readFileSync(file, 'utf8');
-    } catch {
-        return;
-    }
-    staticImportSpecs(source).forEach((spec) => {
-        const next = resolveImport(spec, file);
-        if (next) {
-            visitEager(next, seen);
-        }
-    });
-}
-
 describe('logged-in shell bundle', () => {
-    it('does not statically import entity profile UI', () => {
-        const seen = new Set<string>();
-        visitEager(join(srcRoot, 'index.tsx'), seen);
-        const relative = new Set([...seen].map((file) => file.slice(srcRoot.length + 1)));
-        expect(DEFERRED.filter((file) => relative.has(file))).toEqual([]);
+    it('does not statically import profile UI from entity definitions', () => {
+        const registryFile = join(srcRoot, 'app/buildEntityRegistryV2.ts');
+        const entityFiles = staticImportSpecs(readFileSync(registryFile, 'utf8'))
+            .map((spec) => resolveImport(spec, registryFile))
+            .filter((file): file is string => Boolean(file));
+        const leaked = entityFiles.flatMap((file) =>
+            staticImportSpecs(readFileSync(file, 'utf8'))
+                .filter(isForbiddenProfileImport)
+                .map((spec) => `${file.slice(srcRoot.length + 1)} imports ${spec}`),
+        );
+        expect(leaked).toEqual([]);
     });
 });

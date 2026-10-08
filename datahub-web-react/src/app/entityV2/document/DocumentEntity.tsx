@@ -8,6 +8,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import { EmbeddedProfile } from '@app/entityV2/shared/profileChunks';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
@@ -17,10 +18,6 @@ const DocumentProfile = lazyProfileComponent('DocumentProfile', () =>
     import('@app/entityV2/document/DocumentProfile').then((module) => ({
         default: module.DocumentProfile,
     })),
-);
-const EmbeddedProfile = lazyProfileComponent(
-    'EmbeddedProfile',
-    () => import('@app/entityV2/shared/embed/EmbeddedProfile'),
 );
 
 const headerDropdownItems = new Set([

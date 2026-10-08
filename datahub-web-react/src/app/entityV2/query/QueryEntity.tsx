@@ -8,15 +8,11 @@ import { Entity, IconStyleType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import { DocumentationTab, EntityProfile, SidebarQueryOperationsSection } from '@app/entityV2/shared/profileChunks';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
 
-const EntityProfile = lazyProfileComponent('EntityProfile', () =>
-    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
-        default: module.EntityProfile,
-    })),
-);
 const SidebarQueryDefinitionSection = lazyProfileComponent(
     'SidebarQueryDefinitionSection',
     () => import('@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection'),
@@ -25,10 +21,6 @@ const SidebarQueryDescriptionSection = lazyProfileComponent(
     'SidebarQueryDescriptionSection',
     () => import('@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection'),
 );
-const SidebarQueryOperationsSection = lazyProfileComponent(
-    'SidebarQueryOperationsSection',
-    () => import('@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection'),
-);
 const SidebarQueryUpdatedAtSection = lazyProfileComponent(
     'SidebarQueryUpdatedAtSection',
     () => import('@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection'),
@@ -36,11 +28,6 @@ const SidebarQueryUpdatedAtSection = lazyProfileComponent(
 const SidebarQueryLogicSection = lazyProfileComponent('SidebarQueryLogicSection', () =>
     import('@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection').then((module) => ({
         default: module.SidebarQueryLogicSection,
-    })),
-);
-const DocumentationTab = lazyProfileComponent('DocumentationTab', () =>
-    import('@app/entityV2/shared/tabs/Documentation/DocumentationTab').then((module) => ({
-        default: module.DocumentationTab,
     })),
 );
 
