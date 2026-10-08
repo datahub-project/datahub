@@ -36,6 +36,26 @@ include_table_item:
     ]
 ```
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against DynamoDB without running ingestion. It offers one
+command, `tables`:
+
+```shell
+datahub recipe probe methods --recipe dynamodb_recipe.yml
+datahub recipe probe run tables --recipe dynamodb_recipe.yml
+datahub recipe probe filter --recipe dynamodb_recipe.yml --kind Table --name us-west-2.Orders
+```
+
+`tables` lists the tables in the recipe's region with `ListTables`, the call ingestion makes, using
+the recipe's own AWS credentials, role, profile and endpoint. Each name is `region.table`, the string
+`table_pattern` is matched against, so `probe filter` gives ingestion's verdict. Ingestion reads one
+region per run (`aws_region`), and so does the probe: a table in another region is not listed. The
+probe never scans a table or reads its items, so it needs only `dynamodb:ListTables`.
+
+Where ingestion logs a failed `ListTables` and continues as if there were no tables, the probe fails
+with the AWS error code (exit 3), so a missing permission is not mistaken for an empty region.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
