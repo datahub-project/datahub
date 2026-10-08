@@ -10,6 +10,8 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192 --openssl-legacy-
 
 BIN="$ROOT/node_modules/.bin"
 OUT="${BUNDLE_OUT:-$ROOT/build/bundle-compare}"
+REPO_ROOT="$ROOT/.."
+BASE_COMMIT="${BUNDLE_BASE_COMMIT:-$(git -C "$REPO_ROOT" merge-base HEAD origin/master)}"
 mkdir -p "$OUT"
 
 if [[ ! -x "$BIN/vite" ]]; then
@@ -37,12 +39,16 @@ echo "== correctness: profile split + entity sidebar tests =="
     src/app/entityV2/shared/containers/profile/__tests__/utils.test.tsx \
     src/app/entityV2/__tests__/EntityRegistry.lineageVizConfig.test.ts
 
-echo "== snapshot post source, then measure pre (HEAD src) =="
-rm -rf /tmp/src-post
+echo "== snapshot post source, then measure pre ($BASE_COMMIT) =="
+rm -rf /tmp/src-post /tmp/src-pre
 cp -a "$ROOT/src" /tmp/src-post
-git -C "$ROOT/.." checkout HEAD -- datahub-web-react/src
-# Untracked files (this change, plus gitignored codegen output) stay on disk.
-# HEAD sources do not import the new modules, so they are absent from the pre build.
+mkdir -p /tmp/src-pre
+git -C "$REPO_ROOT" archive "$BASE_COMMIT" datahub-web-react/src \
+    | tar -x -C /tmp/src-pre --strip-components=1
+rm -rf "$ROOT/src"
+cp -a /tmp/src-pre/src "$ROOT/src"
+node scripts/generate-lazy-icon-stubs.js
+"$BIN/graphql-codegen" --config codegen.yml
 
 measure() {
     local label="$1"
