@@ -306,6 +306,12 @@ class TestObjectStorageNormalization:
                 "abs,container@account.dfs.core.windows.net/path/data",
             ),
             ("file:///", "tmp/data.csv", "file,/tmp/data.csv"),
+            # Separators on both sides are joined with one slash, not two.
+            ("s3://my-bucket/", "/key/a.csv", "s3,my-bucket/key/a.csv"),
+            # The filesystem root must not lose the scheme delimiter (used to crash).
+            ("file:///", "", "file,/"),
+            # Schemes are case-insensitive.
+            ("GS://my-bucket", "events", "gcs,my-bucket/events"),
         ],
     )
     def test_matches_java_converter(

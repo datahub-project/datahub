@@ -98,6 +98,8 @@ def test_bigquery_hidden_datasets_dropped_unless_prefix_cleared() -> None:
     hidden = [
         DatasetUrn("bigquery", "my_project._6f2a9c.anon"),
         DatasetUrn("bigquery", "my_project._script7a1.tmp"),
+        # Airflow Assets name BigQuery tables with slashes.
+        DatasetUrn("bigquery", "my_project/_6f2a9c/anon"),
     ]
     # A table whose own name starts with "_" is not in a hidden dataset.
     named = DatasetUrn("bigquery", "my_project.my_dataset._staging")
@@ -106,9 +108,12 @@ def test_bigquery_hidden_datasets_dropped_unless_prefix_cleared() -> None:
     apply_dataset_filter(datajob, DENY)
     assert datajob.inlets == [named, KEPT]
 
-    datajob = _datajob(inlets=[*hidden, KEPT], outlets=[OUTPUT])
+    # Clearing the prefix keeps hidden datasets. Use a real pattern so the
+    # filter actually runs instead of short-circuiting as a no-op.
+    datajob = _datajob(inlets=[*hidden, KEPT, TMP_FILE], outlets=[OUTPUT])
     keep_hidden = DatasetFilter(
-        pattern=AllowDenyPattern.allow_all(), bigquery_temp_table_dataset_prefix=""
+        pattern=AllowDenyPattern(deny=[r"file:.*"]),
+        bigquery_temp_table_dataset_prefix="",
     )
     apply_dataset_filter(datajob, keep_hidden)
     assert datajob.inlets == [*hidden, KEPT]

@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -40,8 +41,9 @@ class DatasetFilter:
             return False
         if dataset_urn.get_data_platform_urn().platform_name != BIGQUERY_PLATFORM:
             return False
-        # `<project>.<dataset>.<table>`
-        parts = dataset_urn.name.split(".")
+        # `<project>.<dataset>.<table>` from OpenLineage and SQL parsing, but
+        # `<project>/<dataset>/<table>` from `bigquery://` Airflow Assets.
+        parts = re.split(r"[./]", dataset_urn.name)
         return len(parts) >= 3 and parts[-2].startswith(prefix)
 
 
