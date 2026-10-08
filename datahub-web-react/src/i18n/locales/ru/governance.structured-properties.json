@@ -59,7 +59,7 @@
     "display.showInAssetSidebarTooltip": "Если включено, это свойство будет отображаться в боковой панели ассета",
     "display.showInColumnsTable": "Показывать в таблице столбцов",
     "display.showInColumnsTableDisabledTooltip": "Свойство должно применяться к столбцам, чтобы отображаться в таблице столбцов.",
-    "display.showInColumnsTableTooltip": "Если включено, это свойство будет отображаться как столбец в таблице столбцов наборов данных",
+    "display.showInColumnsTableTooltip": "Если включено, это свойство будет отображаться как столбец в таблице столбцов датасетов",
     "display.showInSearchFilters": "Показывать в фильтрах поиска",
     "display.showInSearchFiltersTooltip": "Если включено, это свойство будет отображаться в фильтрах поиска",
     "display.title": "Настройки отображения",

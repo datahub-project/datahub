@@ -18,7 +18,7 @@
     "emptyMessages.owners.title": "Владельцев пока нет",
     "emptyMessages.properties.description": "Свойства появятся здесь, если они есть в вашем источнике данных.",
     "emptyMessages.properties.title": "Свойств нет",
-    "emptyMessages.queries.description": "Создавайте, просматривайте и делитесь часто используемыми запросами для этого набора данных.",
+    "emptyMessages.queries.description": "Создавайте, просматривайте и делитесь часто используемыми запросами для этого датасета.",
     "emptyMessages.queries.title": "Запросов пока нет",
     "emptyMessages.structuredProps.title": "Значение не задано",
     "emptyMessages.tags.description": "Отмечайте объекты тегами, чтобы их было легче находить и выделять их важные свойства.",
