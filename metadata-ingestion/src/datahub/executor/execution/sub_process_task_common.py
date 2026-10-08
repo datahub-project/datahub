@@ -35,6 +35,12 @@ from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
 
+# Secret-masking switches only the executor's own environment may set. A recipe
+# setting them could turn masking off and leak secrets into reports and logs.
+_EXECUTOR_ONLY_ENV_VARS = frozenset(
+    {"DATAHUB_DISABLE_SECRET_MASKING", "DATAHUB_ENABLE_SECRET_MASKING"}
+)
+
 
 class SubProcessTaskUtil:
     MAX_LOG_LINES = 2000
@@ -312,6 +318,11 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
         # Filter out empty string values from extra_env_vars to prevent them from overriding
         # non-empty system environment variables with empty values
         filtered_extra_vars = {k: v for k, v in self.extra_env_vars.items() if v != ""}
+        for key in _EXECUTOR_ONLY_ENV_VARS.intersection(filtered_extra_vars):
+            logger.warning(
+                f"Ignoring {key} from recipe extra_env_vars; set it on the executor environment instead"
+            )
+            del filtered_extra_vars[key]
         combined = {
             **os.environ,  # System vars as base
             **filtered_extra_vars,  # User vars override (non-empty only)

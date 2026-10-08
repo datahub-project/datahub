@@ -476,3 +476,43 @@ class TestGetCombinedEnvVars:
         assert combined_env.get("TEST_VAR1") == "user_override1"
         assert combined_env.get("TEST_VAR2") == "user_override2"
         assert combined_env.get("NEW_VAR") == "new_value"
+
+    def test_recipe_cannot_set_secret_masking_switches(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Recipe-supplied masking switches are dropped; other overrides still apply."""
+        monkeypatch.delenv("DATAHUB_DISABLE_SECRET_MASKING", raising=False)
+        monkeypatch.delenv("DATAHUB_ENABLE_SECRET_MASKING", raising=False)
+        monkeypatch.setenv("TEST_VAR1", "system_value1")
+
+        args = SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "test"}}',
+            version="0.12.0",
+            extra_env_vars={
+                "DATAHUB_DISABLE_SECRET_MASKING": "true",
+                "DATAHUB_ENABLE_SECRET_MASKING": "false",
+                "TEST_VAR1": "user_override1",
+            },
+        )
+
+        combined_env = args.get_combined_env_vars()
+
+        assert "DATAHUB_DISABLE_SECRET_MASKING" not in combined_env
+        assert "DATAHUB_ENABLE_SECRET_MASKING" not in combined_env
+        assert combined_env.get("TEST_VAR1") == "user_override1"
+
+    def test_executor_env_secret_masking_switch_preserved(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An operator can still set the masking switch on the executor's own env."""
+        monkeypatch.setenv("DATAHUB_DISABLE_SECRET_MASKING", "true")
+
+        args = SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "test"}}',
+            version="0.12.0",
+            extra_env_vars={"DATAHUB_DISABLE_SECRET_MASKING": "false"},
+        )
+
+        combined_env = args.get_combined_env_vars()
+
+        assert combined_env.get("DATAHUB_DISABLE_SECRET_MASKING") == "true"
