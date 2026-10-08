@@ -65,6 +65,27 @@
       "unique_id": "model.project_a.orders_summary"
     }
   },
-  "sources": {},
+  "sources": {
+    "source.project_a.raw.customers_raw": {
+      "metadata": {
+        "type": "BASE TABLE",
+        "schema": "raw",
+        "name": "customers_raw",
+        "database": "analytics_db",
+        "comment": null,
+        "owner": null
+      },
+      "columns": {
+        "id": {
+          "type": "integer",
+          "index": 1,
+          "name": "id",
+          "comment": null
+        }
+      },
+      "stats": {},
+      "unique_id": "source.project_a.raw.customers_raw"
+    }
+  },
   "errors": null
 }

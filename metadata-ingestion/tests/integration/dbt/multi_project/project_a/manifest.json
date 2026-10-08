@@ -159,7 +159,35 @@
       }
     }
   },
-  "sources": {},
+  "sources": {
+    "source.project_a.raw.customers_raw": {
+      "database": "analytics_db",
+      "schema": "raw",
+      "name": "customers_raw",
+      "identifier": "customers_raw",
+      "source_name": "raw",
+      "unique_id": "source.project_a.raw.customers_raw",
+      "package_name": "project_a",
+      "resource_type": "source",
+      "description": "Raw customers as loaded",
+      "columns": {},
+      "meta": {},
+      "tags": [],
+      "loaded_at_field": null,
+      "freshness": null,
+      "config": {
+        "enabled": true
+      },
+      "original_file_path": "models/sources.yml",
+      "path": "models/sources.yml",
+      "fqn": [
+        "project_a",
+        "raw",
+        "customers_raw"
+      ],
+      "relation_name": "\"analytics_db\".\"raw\".\"customers_raw\""
+    }
+  },
   "macros": {},
   "docs": {},
   "exposures": {
@@ -188,12 +216,132 @@
       }
     }
   },
-  "metrics": {},
+  "metrics": {
+    "metric.project_a.revenue": {
+      "name": "revenue",
+      "resource_type": "metric",
+      "package_name": "project_a",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.project_a.revenue",
+      "fqn": [
+        "project_a",
+        "semantic_models",
+        "revenue"
+      ],
+      "description": "Revenue",
+      "label": "Revenue",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "order_total",
+          "filter": null,
+          "alias": null
+        },
+        "input_measures": [
+          {
+            "name": "order_total",
+            "filter": null,
+            "alias": null
+          }
+        ]
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "semantic_model.project_a.orders"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    }
+  },
   "groups": {},
   "selectors": {},
   "disabled": {},
   "parent_map": {},
   "child_map": {},
-  "semantic_models": {},
+  "semantic_models": {
+    "semantic_model.project_a.orders": {
+      "name": "orders",
+      "resource_type": "semantic_model",
+      "package_name": "project_a",
+      "path": "semantic_models/orders.yml",
+      "original_file_path": "models/semantic_models/orders.yml",
+      "unique_id": "semantic_model.project_a.orders",
+      "fqn": [
+        "project_a",
+        "semantic_models",
+        "orders"
+      ],
+      "model": "ref('orders')",
+      "node_relation": {
+        "alias": "orders",
+        "schema_name": "sales",
+        "database": "analytics_db",
+        "relation_name": null
+      },
+      "description": "Semantic model for orders",
+      "entities": [
+        {
+          "name": "order_id",
+          "type": "primary",
+          "description": "order_id key",
+          "expr": "order_id",
+          "role": null
+        }
+      ],
+      "measures": [
+        {
+          "name": "order_total",
+          "agg": "sum",
+          "description": "order_total",
+          "expr": "amount",
+          "create_metric": false,
+          "agg_time_dimension": null,
+          "non_additive_dimension": null,
+          "agg_params": null,
+          "label": null
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "order_status",
+          "type": "categorical",
+          "description": "order_status",
+          "expr": null,
+          "type_params": null,
+          "is_partition": false,
+          "metadata": null
+        }
+      ],
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.project_a.orders"
+        ]
+      },
+      "refs": [
+        {
+          "name": "orders",
+          "package": null,
+          "version": null
+        }
+      ],
+      "created_at": 1700000000.0,
+      "config": {
+        "enabled": true,
+        "meta": {}
+      }
+    }
+  },
   "saved_queries": {}
 }

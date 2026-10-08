@@ -103,18 +103,235 @@
         "name": "sha256",
         "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
       }
+    },
+    "model.project_b.order_rollup": {
+      "unique_id": "model.project_b.order_rollup",
+      "name": "order_rollup",
+      "alias": "order_rollup",
+      "database": "analytics_db",
+      "schema": "crm",
+      "resource_type": "model",
+      "package_name": "project_b",
+      "path": "order_rollup.sql",
+      "original_file_path": "models/order_rollup.sql",
+      "config": {
+        "materialized": "table",
+        "tags": [],
+        "meta": {}
+      },
+      "description": "Rollup of project_a orders.",
+      "columns": {
+        "n": {
+          "name": "n",
+          "description": "Order count.",
+          "data_type": "bigint",
+          "meta": {},
+          "tags": []
+        }
+      },
+      "meta": {},
+      "tags": [],
+      "depends_on": {
+        "nodes": [
+          "source.project_b.project_a_sales.orders"
+        ],
+        "macros": []
+      },
+      "compiled": true,
+      "compiled_code": "select count(*) as n from analytics_db.sales.orders",
+      "raw_code": "select count(*) as n from analytics_db.sales.orders",
+      "language": "sql",
+      "checksum": {
+        "name": "sha256",
+        "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   },
-  "sources": {},
+  "sources": {
+    "source.project_b.raw.customers_raw": {
+      "database": "analytics_db",
+      "schema": "raw",
+      "name": "customers_raw",
+      "identifier": "customers_raw",
+      "source_name": "raw",
+      "unique_id": "source.project_b.raw.customers_raw",
+      "package_name": "project_b",
+      "resource_type": "source",
+      "description": "Raw customers as loaded",
+      "columns": {},
+      "meta": {},
+      "tags": [],
+      "loaded_at_field": null,
+      "freshness": null,
+      "config": {
+        "enabled": true
+      },
+      "original_file_path": "models/sources.yml",
+      "path": "models/sources.yml",
+      "fqn": [
+        "project_b",
+        "raw",
+        "customers_raw"
+      ],
+      "relation_name": "\"analytics_db\".\"raw\".\"customers_raw\""
+    },
+    "source.project_b.project_a_sales.orders": {
+      "database": "analytics_db",
+      "schema": "sales",
+      "name": "orders",
+      "identifier": "orders",
+      "source_name": "project_a_sales",
+      "unique_id": "source.project_b.project_a_sales.orders",
+      "package_name": "project_b",
+      "resource_type": "source",
+      "description": "project_a's orders, consumed as a source",
+      "columns": {},
+      "meta": {},
+      "tags": [],
+      "loaded_at_field": null,
+      "freshness": null,
+      "config": {
+        "enabled": true
+      },
+      "original_file_path": "models/sources.yml",
+      "path": "models/sources.yml",
+      "fqn": [
+        "project_b",
+        "project_a_sales",
+        "orders"
+      ],
+      "relation_name": "\"analytics_db\".\"sales\".\"orders\""
+    }
+  },
   "macros": {},
   "docs": {},
   "exposures": {},
-  "metrics": {},
+  "metrics": {
+    "metric.project_b.customer_count": {
+      "name": "customer_count",
+      "resource_type": "metric",
+      "package_name": "project_b",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.project_b.customer_count",
+      "fqn": [
+        "project_b",
+        "semantic_models",
+        "customer_count"
+      ],
+      "description": "Customer Count",
+      "label": "Customer Count",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "customer_count",
+          "filter": null,
+          "alias": null
+        },
+        "input_measures": [
+          {
+            "name": "customer_count",
+            "filter": null,
+            "alias": null
+          }
+        ]
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "semantic_model.project_b.customers"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    }
+  },
   "groups": {},
   "selectors": {},
   "disabled": {},
   "parent_map": {},
   "child_map": {},
-  "semantic_models": {},
+  "semantic_models": {
+    "semantic_model.project_b.customers": {
+      "name": "customers",
+      "resource_type": "semantic_model",
+      "package_name": "project_b",
+      "path": "semantic_models/customers.yml",
+      "original_file_path": "models/semantic_models/customers.yml",
+      "unique_id": "semantic_model.project_b.customers",
+      "fqn": [
+        "project_b",
+        "semantic_models",
+        "customers"
+      ],
+      "model": "ref('customers')",
+      "node_relation": {
+        "alias": "customers",
+        "schema_name": "crm",
+        "database": "analytics_db",
+        "relation_name": null
+      },
+      "description": "Semantic model for customers",
+      "entities": [
+        {
+          "name": "customer_id",
+          "type": "primary",
+          "description": "customer_id key",
+          "expr": "customer_id",
+          "role": null
+        }
+      ],
+      "measures": [
+        {
+          "name": "customer_count",
+          "agg": "count",
+          "description": "customer_count",
+          "expr": "customer_id",
+          "create_metric": false,
+          "agg_time_dimension": null,
+          "non_additive_dimension": null,
+          "agg_params": null,
+          "label": null
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "customer_email",
+          "type": "categorical",
+          "description": "Email",
+          "expr": null,
+          "type_params": null,
+          "is_partition": false,
+          "metadata": null
+        }
+      ],
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.project_b.customers"
+        ]
+      },
+      "refs": [
+        {
+          "name": "customers",
+          "package": null,
+          "version": null
+        }
+      ],
+      "created_at": 1700000000.0,
+      "config": {
+        "enabled": true,
+        "meta": {}
+      }
+    }
+  },
   "saved_queries": {}
 }

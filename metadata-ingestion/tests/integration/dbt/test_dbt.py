@@ -428,14 +428,11 @@ def test_dbt_ingest(
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_multi_project_glob(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
-    # Two small hand-authored projects under multi_project/, on distinct package
-    # names and dbt versions. Distinct unique_id namespaces matter: nodes that share
-    # a unique_id are a cross-project collision, which the collision checks resolve
-    # by dropping contenders, so same-namespace fixtures would exercise collision
-    # handling here instead of fan-out. Kept deliberately small: this golden pins
-    # the multi-project facts (both projects in one run, per-project artifact
-    # provenance, sibling catalogs resolved beside each manifest) rather than
-    # re-pinning two full fixture projects that have their own goldens.
+    # Two small hand-authored projects under multi_project/, pinning the
+    # multi-project facts: both projects in one run, per-project platform
+    # instances derived from project_name, sibling catalogs resolved beside each
+    # manifest, a raw source declared by both projects, project_b consuming a
+    # project_a model as a source, and one semantic model + metric per project.
     config = DbtTestConfig(
         "dbt-multi-project-glob",
         "dbt_test_multi_project_glob.json",
@@ -444,6 +441,7 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
             "manifest_path": f"{test_resources_dir}/multi_project/*/manifest.json",
             "catalog_path": None,
             "sources_path": None,
+            "emit_semantic_model_entities": True,
         },
     )
     config.set_paths(

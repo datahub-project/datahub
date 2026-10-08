@@ -316,6 +316,291 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "semantic_model",
+                            "dbt_file_path": "models/semantic_models/orders.yml",
+                            "language": "yaml",
+                            "dbt_unique_id": "semantic_model.project_a.orders",
+                            "dbt_package_name": "project_a",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+                            "manifest_version": "1.8.0",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.8.0"
+                        },
+                        "name": "orders",
+                        "description": "Semantic model for orders",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "semantic_model.project_a.orders",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "order_id",
+                                "nullable": false,
+                                "description": "order_id key",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "entity:primary",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "order_status",
+                                "nullable": false,
+                                "description": "order_status",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "dimension:categorical",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "order_total",
+                                "nullable": false,
+                                "description": "order_total",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "measure:sum",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.raw.customers_raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.raw.customers_raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.raw.customers_raw,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "source",
+                            "dbt_file_path": "models/sources.yml",
+                            "catalog_type": "BASE TABLE",
+                            "language": "sql",
+                            "dbt_unique_id": "source.project_a.raw.customers_raw",
+                            "dbt_package_name": "project_a",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+                            "manifest_version": "1.8.0",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.8.0"
+                        },
+                        "name": "customers_raw",
+                        "description": "Raw customers as loaded",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "source.project_a.raw.customers_raw",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.raw.customers_raw,PROD)",
+                                "type": "COPY"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.raw.customers_raw,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.raw.customers_raw,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
@@ -577,6 +862,308 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_a,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_a,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_a,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelInfo",
+    "aspect": {
+        "json": {
+            "name": "project_a",
+            "datasets": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_a,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "project_a",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "orders",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_a,semantic_layer)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD),order_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "order_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD),order_status)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "orders.order_status"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD),order_total)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "MEASURE",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "amount"
+                    }
+                ]
+            },
+            "aggregationFunction": "sum"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Simple"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Revenue",
+            "description": "Revenue",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_a,semantic_layer)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "sum(orders.order_total)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_a,revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "project_a",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -878,6 +1465,560 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "model",
+                            "materialization": "table",
+                            "dbt_file_path": "models/order_rollup.sql",
+                            "catalog_type": "BASE TABLE",
+                            "language": "sql",
+                            "dbt_unique_id": "model.project_b.order_rollup",
+                            "dbt_package_name": "project_b",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                            "manifest_version": "1.7.3",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.7.3"
+                        },
+                        "name": "order_rollup",
+                        "description": "Rollup of project_a orders.",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "model.project_b.order_rollup",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "n",
+                                "nullable": false,
+                                "description": "Order count.",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "bigint",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.sales.orders,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "select count(*) as n from analytics_db.sales.orders",
+                        "formattedViewLogic": "SELECT\n  COUNT(*) AS n\nFROM analytics_db.sales.orders",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "semantic_model",
+                            "dbt_file_path": "models/semantic_models/customers.yml",
+                            "language": "yaml",
+                            "dbt_unique_id": "semantic_model.project_b.customers",
+                            "dbt_package_name": "project_b",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                            "manifest_version": "1.7.3",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.7.3"
+                        },
+                        "name": "customers",
+                        "description": "Semantic model for customers",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "semantic_model.project_b.customers",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "description": "customer_id key",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "entity:primary",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_email",
+                                "nullable": false,
+                                "description": "Email",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "dimension:categorical",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_count",
+                                "nullable": false,
+                                "description": "customer_count",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "measure:count",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.sales.orders,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "source",
+                            "dbt_file_path": "models/sources.yml",
+                            "catalog_type": "BASE TABLE",
+                            "language": "sql",
+                            "dbt_unique_id": "source.project_b.project_a_sales.orders",
+                            "dbt_package_name": "project_b",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                            "manifest_version": "1.7.3",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.7.3"
+                        },
+                        "name": "orders",
+                        "description": "project_a's orders, consumed as a source",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "source.project_b.project_a_sales.orders",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
+                                "type": "COPY"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.sales.orders,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.raw.customers_raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.raw.customers_raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.raw.customers_raw,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "source",
+                            "dbt_file_path": "models/sources.yml",
+                            "catalog_type": "BASE TABLE",
+                            "language": "sql",
+                            "dbt_unique_id": "source.project_b.raw.customers_raw",
+                            "dbt_package_name": "project_b",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                            "manifest_version": "1.7.3",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.7.3"
+                        },
+                        "name": "customers_raw",
+                        "description": "Raw customers as loaded",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "source.project_b.raw.customers_raw",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.raw.customers_raw,PROD)",
+                                "type": "COPY"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.raw.customers_raw,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.raw.customers_raw,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customer_stats,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
@@ -959,8 +2100,440 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.order_rollup,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.order_rollup,PROD),n)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD),n)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_b,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_b,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_b,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelInfo",
+    "aspect": {
+        "json": {
+            "name": "project_b",
+            "datasets": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_b,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "project_b",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "customers",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_b,semantic_layer)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD),customer_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "customer_id"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD),customer_email)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "customers.customer_email"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD),customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "MEASURE",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "customer_id"
+                    }
+                ]
+            },
+            "aggregationFunction": "count"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Simple"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Customer Count",
+            "description": "Customer Count",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,project_b,semantic_layer)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "count(customers.customer_count)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,project_b,customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "project_b",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:4326a48d808a7753924ab690208e54c3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD),order_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD),order_status)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.semantic_model.project_a.orders,PROD),order_total)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD),customer_count)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD),customer_email)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.semantic_model.project_b.customers,PROD),customer_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

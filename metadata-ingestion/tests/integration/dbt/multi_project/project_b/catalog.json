@@ -57,8 +57,69 @@
       },
       "stats": {},
       "unique_id": "model.project_b.customer_stats"
+    },
+    "model.project_b.order_rollup": {
+      "metadata": {
+        "type": "BASE TABLE",
+        "schema": "crm",
+        "name": "order_rollup",
+        "database": "analytics_db",
+        "comment": null,
+        "owner": null
+      },
+      "columns": {
+        "n": {
+          "type": "bigint",
+          "index": 1,
+          "name": "n",
+          "comment": null
+        }
+      },
+      "stats": {},
+      "unique_id": "model.project_b.order_rollup"
     }
   },
-  "sources": {},
+  "sources": {
+    "source.project_b.raw.customers_raw": {
+      "metadata": {
+        "type": "BASE TABLE",
+        "schema": "raw",
+        "name": "customers_raw",
+        "database": "analytics_db",
+        "comment": null,
+        "owner": null
+      },
+      "columns": {
+        "id": {
+          "type": "integer",
+          "index": 1,
+          "name": "id",
+          "comment": null
+        }
+      },
+      "stats": {},
+      "unique_id": "source.project_b.raw.customers_raw"
+    },
+    "source.project_b.project_a_sales.orders": {
+      "metadata": {
+        "type": "BASE TABLE",
+        "schema": "sales",
+        "name": "orders",
+        "database": "analytics_db",
+        "comment": null,
+        "owner": null
+      },
+      "columns": {
+        "id": {
+          "type": "integer",
+          "index": 1,
+          "name": "id",
+          "comment": null
+        }
+      },
+      "stats": {},
+      "unique_id": "source.project_b.project_a_sales.orders"
+    }
+  },
   "errors": null
 }
