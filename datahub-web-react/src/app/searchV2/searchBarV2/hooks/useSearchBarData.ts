@@ -1,5 +1,5 @@
 import isEqual from 'lodash/isEqual';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
@@ -8,7 +8,6 @@ import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
-import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -30,6 +29,21 @@ type SearchResponse = {
     entitiesWithMatchedFields?: EntityWithMatchedFields[];
     loading?: boolean;
     searchAPIVariant?: SearchBarApi;
+};
+
+export type SearchBarDataOptions = {
+    /** Input focused or the typeahead dropdown open. */
+    isActive: boolean;
+    /** Query present when the search bar mounted, usually the URL query. */
+    initialQuery: string;
+    /** True once the user has edited the query in this session. */
+    hasUserTyped: boolean;
+};
+
+type SearchBarFetchInputs = {
+    query: string;
+    orFilters: AndFilterInput[];
+    viewUrn: string | null | undefined;
 };
 
 const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
@@ -127,6 +141,7 @@ const useSearchAPI = (): APIResponse => {
 export const useSearchBarData = (
     query: string,
     appliedFilters: FieldToAppliedFieldFiltersMap | undefined,
+    { isActive, initialQuery, hasUserTyped }: SearchBarDataOptions,
 ): SearchResponse => {
     const { selectedView } = useSelectedView();
     const appConfig = useAppConfig();
@@ -155,16 +170,50 @@ export const useSearchBarData = (
     const convertedFilters = convertFiltersMapToFilters(appliedFilters);
     const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
 
-    const inputs = useMemo(
-        () => ({ debouncedQuery, orFilters, selectedView }),
-        [debouncedQuery, orFilters, selectedView],
-    );
-    const previousInputs = usePrevious(inputs);
+    // Filters applied when the bar mounted (typically from the URL). Later edits are user intent.
+    const pageOpenFiltersRef = useRef<AndFilterInput[] | null>(null);
+    if (pageOpenFiltersRef.current === null) {
+        pageOpenFiltersRef.current = orFilters;
+    }
+    const pageOpenQueryRef = useRef(initialQuery);
+    // View can resolve in the background. Snapshot it when the bar becomes active so that
+    // focusing the page-open query does not fetch, while a view change during use still does.
+    const viewAtActivationRef = useRef<string | null | undefined>(undefined);
+    const hasActivatedRef = useRef(false);
+    const lastFetchedRef = useRef<SearchBarFetchInputs | null>(null);
+
     useEffect(() => {
-        if (!isEqual(inputs, previousInputs)) {
-            updateData(debouncedQuery, orFilters, selectedView);
+        if (!isActive) {
+            hasActivatedRef.current = false;
+            viewAtActivationRef.current = undefined;
+            return;
         }
-    }, [updateData, debouncedQuery, orFilters, selectedView, inputs, previousInputs]);
+
+        if (!hasActivatedRef.current) {
+            hasActivatedRef.current = true;
+            viewAtActivationRef.current = selectedView;
+        }
+
+        // Hold the request until the debounced query matches the current input.
+        if (debouncedQuery !== query) return;
+
+        const inputs: SearchBarFetchInputs = { query: debouncedQuery, orFilters, viewUrn: selectedView };
+        const filtersChanged = !isEqual(orFilters, pageOpenFiltersRef.current);
+        const viewChangedWhileActive = !isEqual(selectedView, viewAtActivationRef.current);
+        const queryDiffersFromPageOpen = debouncedQuery !== pageOpenQueryRef.current;
+        const inputsChangedSinceFetch = lastFetchedRef.current !== null && !isEqual(inputs, lastFetchedRef.current);
+        const shouldFetch =
+            hasUserTyped ||
+            queryDiffersFromPageOpen ||
+            filtersChanged ||
+            viewChangedWhileActive ||
+            inputsChangedSinceFetch;
+
+        if (!shouldFetch || isEqual(inputs, lastFetchedRef.current)) return;
+
+        lastFetchedRef.current = inputs;
+        updateData(debouncedQuery, orFilters, selectedView);
+    }, [debouncedQuery, hasUserTyped, isActive, orFilters, query, selectedView, updateData]);
 
     return { entitiesWithMatchedFields, facets, loading, searchAPIVariant };
 };
