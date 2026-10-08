@@ -11,9 +11,11 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
 import com.linkedin.metadata.trace.TraceServiceImpl;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -33,6 +35,8 @@ public class MCLKafkaListener
     extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
 
   private static final String WILDCARD = "*";
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(MCLKafkaListener.class, "MCL");
 
   @Override
   public void consumeBatch(@Nonnull List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
@@ -62,20 +66,35 @@ public class MCLKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
-    return shouldSkipMcl(event, aspectsToDrop);
+    return shouldSkipMcl(event, aspectsToDrop, systemOperationContext);
   }
 
   /**
    * Shared filter: returns {@code true} when this MCL's entity-type + aspect matches the
-   * aspects-to-drop configuration. Used by both the Kafka listeners and the pgQueue batch handler.
+   * aspects-to-drop configuration, or its entity type is not in the registry. Used by both the
+   * Kafka listeners and the pgQueue batch handler.
    */
   public static boolean shouldSkipMcl(
-      MetadataChangeLog event, Map<String, Set<String>> aspectsToDrop) {
+      MetadataChangeLog event,
+      Map<String, Set<String>> aspectsToDrop,
+      @Nonnull OperationContext opContext) {
     String entityType = event.hasEntityType() ? event.getEntityType() : null;
     String aspectName = event.hasAspectName() ? event.getAspectName() : null;
 
-    return aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
-        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName);
+    if (aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
+        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName)) {
+      return true;
+    }
+
+    // After a rollback, MCLs written by the newer build can name entity types or aspects this build
+    // does not know. No hook can process them, and hooks that look up their specs would throw and
+    // skip the rest of their batch.
+    return !UNKNOWN_DATA.admit(
+        opContext.getEntityRegistry(),
+        opContext.getMetricUtils(),
+        entityType,
+        aspectName,
+        event.getEntityUrn());
   }
 
   @Override

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -615,5 +616,19 @@ public class CDCProcessorTest {
       // Exception expected due to mock limitations
       Assert.assertTrue(e.getMessage().contains("urn") || e.getMessage().contains("entity"));
     }
+  }
+
+  @Test
+  public void testRecordOfAspectUnknownToRegistryIsSkipped() throws Exception {
+    // A row a newer version wrote (read after a rollback) is skipped without an error.
+    JsonNode record =
+        OBJECT_MAPPER.readTree(
+            "{\"after\": {\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)\","
+                + " \"aspect\": \"aspectFromNewerBuild\", \"version\": 0, \"metadata\": \"{}\","
+                + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
+
+    assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
   }
 }

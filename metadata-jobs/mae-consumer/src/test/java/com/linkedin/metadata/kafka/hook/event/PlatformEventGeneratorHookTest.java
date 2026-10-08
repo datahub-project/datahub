@@ -152,6 +152,31 @@ public class PlatformEventGeneratorHookTest {
   }
 
   @Test
+  public void testAllowlistedAspectMissingFromKnownEntityTypeIsSkipped() throws Exception {
+    // After a version rollback a newer build may have attached an allowlisted aspect (globalTags)
+    // to an existing entity type that does not have it in this build. No change events, no NPE.
+    final String entityType = "entityWithoutGlobalTags";
+    Mockito.when(opContext.getEntityRegistry().getEntitySpec(entityType))
+        .thenReturn(Mockito.mock(EntitySpec.class));
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(entityType);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new GlobalTags()
+                .setTags(
+                    new TagAssociationArray(
+                        ImmutableList.of(new TagAssociation().setTag(new TagUrn("Test")))))));
+    event.setEntityUrn(Urn.createFromString("urn:li:" + entityType + ":abc"));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    _entityChangeEventHook.invoke(opContext, event);
+
+    Mockito.verifyNoInteractions(mockProducer);
+  }
+
+  @Test
   public void testInvokeEntityRemoveTagChange() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);
@@ -2353,6 +2378,10 @@ public class PlatformEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
+    // Safe lookups are interface default methods; let them delegate to the stubbed getEntitySpec.
+    Mockito.when(registry.findEntitySpec(Mockito.anyString())).thenCallRealMethod();
+    Mockito.when(registry.findAspectSpec(Mockito.anyString(), Mockito.anyString()))
+        .thenCallRealMethod();
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
 

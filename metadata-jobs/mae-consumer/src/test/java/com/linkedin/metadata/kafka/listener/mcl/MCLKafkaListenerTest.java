@@ -291,6 +291,21 @@ public class MCLKafkaListenerTest {
   }
 
   @Test
+  public void testShouldSkipProcessingUnknownEntityType() throws Exception {
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.setEntityType("entityFromNewerBuild");
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
+
+      listener.consume(mockConsumerRecord);
+
+      verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+      verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+    }
+  }
+
+  @Test
   public void testConversionFailure() throws Exception {
     // Given
     try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {

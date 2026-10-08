@@ -20,6 +20,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -40,6 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class LoadIndicesStep implements UpgradeStep {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(LoadIndicesStep.class, "row (left unindexed)");
 
   private final Database server;
   private final UpdateIndicesService updateIndicesService;
@@ -267,6 +270,17 @@ public class LoadIndicesStep implements UpgradeStep {
                       List<MetadataChangeLog> mclBatch = new ArrayList<>(aspects.size());
                       int conversionErrors = 0;
                       for (EbeanAspectV2 aspect : aspects) {
+                        // Rows written by a newer version (entity type or aspect this registry
+                        // does not know, e.g. after a rollback) cannot be indexed here. They are
+                        // left in the database for the newer version to index.
+                        if (!UNKNOWN_DATA.admitUrn(
+                            opContext.getEntityRegistry(),
+                            opContext.getMetricUtils(),
+                            aspect.getKey().getUrn(),
+                            aspect.getKey().getAspect())) {
+                          result.unknownToRegistrySkipped++;
+                          continue;
+                        }
                         try {
                           MetadataChangeLog mcl = convertToMetadataChangeLog(opContext, aspect);
                           mclBatch.add(mcl);
@@ -360,6 +374,13 @@ public class LoadIndicesStep implements UpgradeStep {
           String.format(
               "Processing completed: %d aspects processed, %d ignored - Final throughput: %.1f aspects/sec",
               result.rowsProcessed, result.ignored, finalThroughput));
+      if (result.unknownToRegistrySkipped > 0) {
+        reportFunction.apply(
+            String.format(
+                "Skipped %d aspect(s) whose entity type or aspect is not in the entity registry"
+                    + " (written by a newer version)",
+                result.unknownToRegistrySkipped));
+      }
 
     } catch (Exception e) {
       log.error("Error in processAllDataDirectly", e);
