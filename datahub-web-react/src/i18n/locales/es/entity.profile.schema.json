@@ -106,7 +106,7 @@
     "queriesSidebarTab.noQueriesFound": "No se encontraron consultas para esta columna",
     "queriesSidebarTab.sectionTitle": "Consultas",
     "queriesSidebarTab.seeAllQueries": "Ver todas las consultas",
-    "schemaTab.fullMetadataLoadError": "No se pudieron cargar los metadatos de los campos (Tags, términos y descripciones).",
+    "schemaTab.fullMetadataLoadError": "No se pudieron cargar los metadatos de los campos (tags, términos y descripciones).",
     "schemaTab.metadataUnavailable": "No disponible",
     "schemaTab.structuralLoadError": "No se pudo cargar el Schema.",
     "schemaTable.businessAttributeColumn": "Atributo de negocio",
