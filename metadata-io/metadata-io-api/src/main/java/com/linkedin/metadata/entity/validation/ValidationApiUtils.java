@@ -13,6 +13,7 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Objects;
@@ -224,6 +225,9 @@ public class ValidationApiUtils {
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 
     if (aspect != null) {
+      // References to entity types this registry doesn't know (written by a newer version before
+      // a rollback) are dropped rather than stored or indexed, and don't fail the aspect.
+      UnknownEntityUrnStripper.strip(aspect, entityRegistry);
       RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
     }
   }
