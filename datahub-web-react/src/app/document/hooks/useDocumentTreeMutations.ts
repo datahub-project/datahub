@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import analytics, { DocumentEditType, EventType } from '@app/analytics';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
+import { ErrorCodes } from '@app/shared/constants';
 
 import {
     useCreateDocumentMutation,
@@ -94,7 +95,7 @@ export function useCreateDocumentTreeMutation() {
                 return newUrn;
             } catch (error) {
                 console.error('Failed to create document:', error);
-                message.error(t('document.createError'));
+                message.error(badRequestMessage(error) ?? t('document.createError'));
 
                 // 4. Rollback - remove optimistic node
                 deleteNode(tempUrn);
@@ -212,7 +213,7 @@ export function useMoveDocumentTreeMutation() {
                 return true;
             } catch (error) {
                 console.error('Failed to move document:', error);
-                message.error(t('document.moveError'));
+                message.error(badRequestMessage(error) ?? t('document.moveError'));
 
                 // 3. Rollback on error
                 moveNode(urn, oldParentUrn);
@@ -263,7 +264,7 @@ export function useDeleteDocumentTreeMutation() {
                 return true;
             } catch (error) {
                 console.error('Failed to delete document:', error);
-                message.error(t('document.deleteError'));
+                message.error(badRequestMessage(error) ?? t('document.deleteError'));
 
                 // 3. Rollback on error (only if node was in tree)
                 if (node) {
@@ -277,4 +278,16 @@ export function useDeleteDocumentTreeMutation() {
     );
 
     return { deleteDocument };
+}
+
+function badRequestMessage(error: unknown): string | undefined {
+    if (typeof error !== 'object' || error === null || !('graphQLErrors' in error)) {
+        return undefined;
+    }
+    const { graphQLErrors } = error as { graphQLErrors?: { message?: string; extensions?: { code?: number } }[] };
+    const first = graphQLErrors?.[0];
+    if (first?.extensions?.code === ErrorCodes.BadRequest && first.message) {
+        return first.message;
+    }
+    return undefined;
 }
