@@ -127,12 +127,16 @@ public class SearchQueryBuilder {
 
   /**
    * Keyword subfields queried for exact-name matches on the V2.5 light path (see {@link
-   * #getLightweightExactMatchBoost}). Mirrors {@link #EXACT_NAME_BOOST_FIELDS}. {@code _entityName}
-   * is deliberately absent: it is an ES field alias to an analyzed text field, so a term query on
-   * it can never match a multi-token name.
+   * #getLightweightExactMatchBoost}). Derived from {@link #EXACT_NAME_BOOST_FIELDS} so the two
+   * paths cannot drift; sorted so the generated query is stable. {@code _entityName} is not in the
+   * base set on purpose: it is an ES field alias to an analyzed text field, so a term query on it
+   * can never match a multi-token name.
    */
   private static final List<String> EXACT_NAME_KEYWORD_FIELDS =
-      List.of("name.keyword", "title.keyword", "displayName.keyword", "fullName.keyword");
+      EXACT_NAME_BOOST_FIELDS.stream()
+          .sorted()
+          .map(field -> field + ".keyword")
+          .collect(Collectors.toUnmodifiableList());
 
   /**
    * Stage 1: fields the {@code *word*} contains-wildcard searches. A leading wildcard is costly,
@@ -1550,10 +1554,10 @@ public class SearchQueryBuilder {
   }
 
   /**
-   * Light path: minimal exact-match boost using only constant_score clauses on name.keyword and
-   * title.keyword. Keeps exact name matches above partial matches without the many clauses of the
-   * full exact/prefix query (term queries, phrase prefixes, synonyms and word grams on every core
-   * field).
+   * Light path: minimal exact-match boost using only constant_score clauses on the keyword
+   * subfields in {@link #EXACT_NAME_KEYWORD_FIELDS}. Keeps exact name matches above partial matches
+   * without the many clauses of the full exact/prefix query (term queries, phrase prefixes,
+   * synonyms and word grams on every core field).
    */
   @VisibleForTesting
   static Optional<QueryBuilder> getLightweightExactMatchBoost(
