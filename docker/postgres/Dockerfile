@@ -6,7 +6,9 @@ FROM postgres:${POSTGRES_VERSION}
 # (pgQueue / pgTimeseries time-partitioned retention + in-DB maintenance scheduling).
 # The PG_MAJOR environment variable is set by the base PostgreSQL image; packages come from the
 # same PGDG/Debian repos as the base image.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     postgresql-${PG_MAJOR}-pgrouting \
     postgresql-${PG_MAJOR}-postgis-3 \
     postgresql-${PG_MAJOR}-postgis-3-scripts \
