@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -19,12 +19,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:dbt"
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
         }
     },
     "systemMetadata": {
@@ -36,7 +37,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -145,7 +146,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -163,12 +164,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:dbt"
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
         }
     },
     "systemMetadata": {
@@ -180,7 +182,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -277,7 +279,7 @@
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD),customer_id)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD),customer_id)"
                                 ],
                                 "confidenceScore": 0.9
                             },
@@ -288,7 +290,7 @@
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD),total_amount)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD),total_amount)"
                                 ],
                                 "confidenceScore": 0.9
                             }
@@ -314,7 +316,278 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD),id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders_summary,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders_summary,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders_summary,PROD),total_amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD),total_amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4326a48d808a7753924ab690208e54c3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4326a48d808a7753924ab690208e54c3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "test.project_a.not_null_orders_id.abc123",
+                "dbt_test_upstream_unique_id": "model.project_a.orders",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+                "manifest_version": "1.8.0",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.8.0"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD),id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD),id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "not_null_orders_id",
+                "nativeParameters": {
+                    "column_name": "id",
+                    "model": "{{ get_where_subquery(ref('orders')) }}"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,project_a.exposure.project_a.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_a)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,project_a.exposure.project_a.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "exposure.project_a.orders_dashboard",
+                "exposure_type": "dashboard",
+                "maturity": "high",
+                "dbt_package_name": "project_a",
+                "dbt_file_path": "models/exposures.yml"
+            },
+            "externalUrl": "https://bi.example.com/dashboards/orders",
+            "title": "orders_dashboard",
+            "description": "Orders dashboard built on the summary model.",
+            "charts": [],
+            "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)"
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:dbt_ingestion"
+                },
+                "lastModified": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:dbt_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,project_a.exposure.project_a.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,project_a.exposure.project_a.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,project_a.exposure.project_a.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:sales-analytics@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-multi-project-glob",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -332,12 +605,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:dbt"
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
         }
     },
     "systemMetadata": {
@@ -349,7 +623,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -446,7 +720,7 @@
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD),customer_id)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD),customer_id)"
                                 ],
                                 "confidenceScore": 0.9
                             }
@@ -472,7 +746,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -490,12 +764,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:dbt"
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,project_b)"
         }
     },
     "systemMetadata": {
@@ -507,7 +782,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -603,95 +878,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD)",
-                "value": {
-                    "auditStamp": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD)",
-                    "type": "COPY"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD),id)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD),customer_id)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD),amount)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            }
-        ]
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders_summary,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD)",
-                "value": {
-                    "auditStamp": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD)",
-                    "type": "COPY"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders_summary,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD),customer_id)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders_summary,PROD),total_amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD),total_amount)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            }
-        ]
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customer_stats,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
@@ -699,26 +885,26 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customer_stats,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD),customer_id)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customer_stats,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD),customer_id)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customer_stats,PROD),order_count)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customer_stats,PROD),order_count)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customer_stats,PROD),order_count)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD),order_count)",
                 "value": {
                     "confidenceScore": 1.0
                 }
@@ -740,26 +926,26 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD),id)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD),id)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD),email)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.crm.customers,PROD),email)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD),email)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD),email)",
                 "value": {
                     "confidenceScore": 1.0
                 }
@@ -774,187 +960,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:51951d85e18f5f8da62e0b7dfc1f5912",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dbt"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:51951d85e18f5f8da62e0b7dfc1f5912",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "dbt_unique_id": "test.project_a.not_null_orders_id.abc123",
-                "dbt_test_upstream_unique_id": "model.project_a.orders",
-                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v12.json",
-                "manifest_version": "1.8.0",
-                "manifest_adapter": "postgres",
-                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "1.8.0"
-            },
-            "type": "CUSTOM",
-            "customAssertion": {
-                "type": "dbt",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD)",
-                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD),id)",
-                "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders,PROD),id)"
-                ],
-                "scope": "DATASET_COLUMN",
-                "aggregation": "IDENTITY",
-                "operator": "NOT_NULL",
-                "nativeType": "not_null_orders_id",
-                "nativeParameters": {
-                    "column_name": "id",
-                    "model": "{{ get_where_subquery(ref('orders')) }}"
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(dbt,exposure.project_a.orders_dashboard)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dbt"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(dbt,exposure.project_a.orders_dashboard)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "dbt_unique_id": "exposure.project_a.orders_dashboard",
-                "exposure_type": "dashboard",
-                "maturity": "high",
-                "dbt_package_name": "project_a",
-                "dbt_file_path": "models/exposures.yml"
-            },
-            "externalUrl": "https://bi.example.com/dashboards/orders",
-            "title": "orders_dashboard",
-            "description": "Orders dashboard built on the summary model.",
-            "charts": [],
-            "datasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics_db.sales.orders_summary,PROD)"
-            ],
-            "dashboards": [],
-            "lastModified": {
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:dbt_ingestion"
-                },
-                "lastModified": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:dbt_ingestion"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(dbt,exposure.project_a.orders_dashboard)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(dbt,exposure.project_a.orders_dashboard)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dashboard"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(dbt,exposure.project_a.orders_dashboard)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:sales-analytics@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-multi-project-glob",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:51951d85e18f5f8da62e0b7dfc1f5912",
+    "entityUrn": "urn:li:assertion:4326a48d808a7753924ab690208e54c3",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

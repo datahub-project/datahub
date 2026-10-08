@@ -9,13 +9,19 @@ import pytest
 
 import datahub.ingestion.source.dbt.dbt_artifacts as dbt_artifacts_module
 import datahub.ingestion.source.dbt.dbt_core as dbt_core_module
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt.dbt_common import DBTMetricsParse, DBTNode, DBTProject
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    UpstreamLineageClass,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 
 
@@ -29,6 +35,14 @@ def _make_source(**config_overrides: Any) -> DBTCoreSource:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-multi-project")
     ctx.graph = None
     return DBTCoreSource(DBTCoreConfig(**config), ctx)
+
+
+def _load_projects(source: DBTCoreSource) -> List[DBTProject]:
+    return list(source.load_projects())
+
+
+def _load_nodes(source: DBTCoreSource) -> List[DBTNode]:
+    return [node for project in source.load_projects() for node in project.nodes]
 
 
 def test_expand_glob_path_returns_sorted_local_matches(tmp_path: pathlib.Path) -> None:
@@ -137,7 +151,19 @@ def test_expand_run_results_paths_preserves_config_order(
             {"sources_path": "s3://bucket/project_a/sources.json"},
             False,
         ),
+        ("s3://bucket/*/manifest.json", {"platform_instance": "shared"}, False),
+        (
+            "s3://bucket/*/manifest.json",
+            {"semantic_model_project_name": "pinned"},
+            False,
+        ),
         ("s3://bucket/*/manifest.json", {}, True),
+        ("s3://bucket/project_a/manifest.json", {"platform_instance": "shared"}, True),
+        (
+            "s3://bucket/project_a/manifest.json",
+            {"semantic_model_project_name": "pinned"},
+            True,
+        ),
         (
             "/data/project_a/manifest.json",
             {"catalog_path": "/data/project_a/catalog.json"},
@@ -251,6 +277,7 @@ def _write_project(
     depends_on: Optional[Dict[str, List[str]]] = None,
     semantic_models: Optional[Dict[str, Dict[str, Any]]] = None,
     generated_at: str = "2026-01-01T00:00:00.000000Z",
+    project_name: Optional[str] = None,
 ) -> None:
     """Write a minimal dbt target/ directory for one project.
 
@@ -261,7 +288,9 @@ def _write_project(
     `models` may set "resource_type" (defaults to "model") to write a seed or
     snapshot node instead. semantic_models is written verbatim into the manifest's
     semantic_models section, and generated_at overrides the manifest's own
-    generated_at (which drives Query entity timestamps).
+    generated_at (which drives Query entity timestamps). project_name overrides
+    metadata.project_name (defaults to `project`), and a model may set
+    "package_name" to place it in an installed package.
     """
     project_dir = root / project
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -269,14 +298,15 @@ def _write_project(
     nodes: Dict[str, Any] = {}
     for model in models:
         resource_type = model.get("resource_type", "model")
-        unique_id = f"{resource_type}.{pkg}.{model['name']}"
+        pkg_for_model = model.get("package_name", pkg)
+        unique_id = f"{resource_type}.{pkg_for_model}.{model['name']}"
         nodes[unique_id] = {
             "unique_id": unique_id,
             "name": model["name"],
             "database": model["database"],
             "schema": model["schema"],
             "resource_type": resource_type,
-            "package_name": pkg,
+            "package_name": pkg_for_model,
             "config": {"materialized": "table"},
             "description": "",
             "columns": {},
@@ -296,7 +326,7 @@ def _write_project(
             "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
             "dbt_version": "1.8.0",
             "adapter_type": "postgres",
-            "project_name": project,
+            "project_name": project_name or project,
             "generated_at": generated_at,
             "invocation_id": f"invocation-{project}",
         },
@@ -363,7 +393,7 @@ def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {
         "model.project_a.orders",
@@ -384,7 +414,7 @@ def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> 
     """
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
 
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert nodes == []
     failures_by_title = {f.title: f for f in source.report.failures}
@@ -411,7 +441,7 @@ def test_manifest_path_is_a_node_field_not_a_custom_property(
         manifest_path=f"{tmp_path}/*/manifest.json" if glob_mode else manifest_path
     )
 
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert nodes[0].manifest_path == manifest_path
     assert "manifest_path" not in nodes[0].artifact_props
@@ -433,7 +463,7 @@ def test_glob_stamps_per_project_provenance_on_every_node(
             )
         },
     )
-    nodes = _make_source(manifest_path=f"{tmp_path}/*/manifest.json").load_nodes()
+    nodes = _load_nodes(_make_source(manifest_path=f"{tmp_path}/*/manifest.json"))
 
     assert {node.node_type for node in nodes} == {"model", "semantic_model"}
     for node in nodes:
@@ -453,7 +483,7 @@ def test_glob_missing_sibling_artifacts_warns_and_continues(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
     assert source.report.manifests_loaded == 1
@@ -472,10 +502,9 @@ def test_glob_missing_sibling_artifacts_warns_and_continues(
 
 
 def test_glob_accumulates_exposures_across_projects(tmp_path: pathlib.Path) -> None:
-    """loadManifestAndCatalog is called once per project under fan-out, and
-    self._exposures is read exactly once at emit time (load_exposures), so
-    overwriting it per project - instead of accumulating - would silently drop
-    every project's exposures but the alphabetically-last one."""
+    """Each project emits its own exposures, so the run-level counter must
+    accumulate across projects and each exposure urn must carry its own
+    project's platform instance."""
     _write_project(
         tmp_path,
         "project_a",
@@ -489,22 +518,30 @@ def test_glob_accumulates_exposures_across_projects(tmp_path: pathlib.Path) -> N
         exposures={"exposure.project_b.dashboard_b": {"name": "dashboard_b"}},
     )
 
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    source.load_nodes()
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", write_semantics="OVERRIDE"
+    )
+    workunits = list(source.get_workunits())
 
-    assert {e.name for e in source.load_exposures()} == {
-        "dashboard_a",
-        "dashboard_b",
+    assert source.report.num_exposures_emitted == 2
+    dashboard_urns = {
+        wu.get_urn()
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit)
+        and wu.get_urn().startswith("urn:li:dashboard:")
     }
+    # The instance prefix, not just the unique_id, which names the project anyway.
+    assert any("(dbt,project_a.exposure." in urn for urn in dashboard_urns)
+    assert any("(dbt,project_b.exposure." in urn for urn in dashboard_urns)
 
 
 def test_failed_project_contributes_no_exposures(tmp_path: pathlib.Path) -> None:
     """A project skipped by the per-project failure handler must contribute nothing.
 
-    Exposures were appended to self._exposures partway through
-    loadManifestAndCatalog, before semantic-model extraction ran. A project that
-    failed after that point was skipped for its nodes but its exposures were
-    already on self and still emitted, breaking the isolation guarantee.
+    Exposures used to be collected on the source partway through a project's
+    load, before semantic-model extraction ran. A project that failed after that
+    point was skipped for its nodes but its exposures were still emitted,
+    breaking the isolation guarantee.
     """
     for project in ["project_a", "project_b", "project_c"]:
         _write_project(
@@ -536,12 +573,13 @@ def test_failed_project_contributes_no_exposures(tmp_path: pathlib.Path) -> None
     with mock.patch.object(
         dbt_core_module, "extract_semantic_models", side_effect=fail_for_project_b
     ):
-        nodes = source.load_nodes()
+        projects = _load_projects(source)
 
+    nodes = [node for project in projects for node in project.nodes]
     assert source.report.manifests_loaded == 2
     assert source.report.manifests_failed == 1
     assert not any(node.dbt_name.endswith("orders_project_b") for node in nodes)
-    assert {e.name for e in source.load_exposures()} == {
+    assert {e.name for project in projects for e in project.exposures} == {
         "dashboard_project_a",
         "dashboard_project_c",
     }
@@ -567,7 +605,7 @@ def test_glob_attributes_catalog_generated_at_per_project(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes_by_name = {node.dbt_name: node for node in source.load_nodes()}
+    nodes_by_name = {node.dbt_name: node for node in _load_nodes(source)}
 
     orders_generated_at = nodes_by_name["model.project_a.orders"].catalog_generated_at
     events_generated_at = nodes_by_name["model.project_b.events"].catalog_generated_at
@@ -599,7 +637,7 @@ def test_glob_query_timestamps_come_from_each_projects_own_manifest(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes_by_name = {node.dbt_name: node for node in source.load_nodes()}
+    nodes_by_name = {node.dbt_name: node for node in _load_nodes(source)}
 
     ts_a = source._get_query_timestamp(nodes_by_name["model.project_a.orders"])
     ts_b = source._get_query_timestamp(nodes_by_name["model.project_b.events"])
@@ -628,7 +666,7 @@ def test_query_timestamp_falls_back_to_report_manifest_info(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
-    node = source.load_nodes()[0]
+    node = _load_nodes(source)[0]
     node.manifest_generated_at = None
 
     assert source._get_query_timestamp(node) == datetime_to_ts_millis(
@@ -656,7 +694,7 @@ def test_unparseable_manifest_timestamps_share_one_fallback(
         generated_at="also-not-a-timestamp",
     )
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert len({source._get_query_timestamp(node) for node in nodes}) == 1
     assert source.report.query_timestamps_fallback_used is True
@@ -677,7 +715,7 @@ def test_corrupt_manifest_is_a_failure_and_other_projects_still_load(
     (broken / "manifest.json").write_text("{ this is not valid json")
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {
         "model.project_a.orders",
@@ -711,7 +749,7 @@ def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
     source = _make_source(manifest_path=str(manifest_path))
 
     with pytest.raises(json.JSONDecodeError):
-        source.load_nodes()
+        _load_nodes(source)
 
     assert source.report.manifests_failed == 0
     assert not source.report.failures
@@ -732,7 +770,7 @@ def test_non_glob_missing_explicit_catalog_path_still_raises(
         catalog_path=f"{tmp_path}/project_a/nope.json",
     )
     with pytest.raises(FileNotFoundError):
-        source.load_nodes()
+        _load_nodes(source)
 
 
 def test_memory_error_propagates_instead_of_being_skipped(
@@ -761,9 +799,9 @@ def test_memory_error_propagates_instead_of_being_skipped(
         attempted.append(manifest_path)
         raise MemoryError("catalog too large to parse")
 
-    with mock.patch.object(source, "_load_project_nodes", _raise_memory_error):
+    with mock.patch.object(source, "_load_project", _raise_memory_error):
         with pytest.raises(MemoryError):
-            source.load_nodes()
+            _load_nodes(source)
 
     # Stopped at the first project instead of fetching the other two.
     assert len(attempted) == 1
@@ -825,7 +863,7 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
             dbt_artifacts_module, "read_file_as_bytes", side_effect=fake_read
         ),
     ):
-        nodes = source.load_nodes()
+        nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {
         "model.project_a.m_project_a",
@@ -869,7 +907,7 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
         "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
         side_effect=fake_read,
     ):
-        nodes = source.load_nodes()
+        nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
 
@@ -908,7 +946,7 @@ def test_local_os_error_on_sibling_catalog_only_warns(
     (tmp_path / "project_b" / "catalog.json").mkdir()
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {
         "model.project_a.orders",
@@ -958,7 +996,7 @@ def test_undecodable_sibling_catalog_is_corrupt_not_absent(
     )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     # project_a genuinely has no catalog.json, so that warning is expected for it -
     # what must not happen is project_b's undecodable file being described as absent
@@ -1011,7 +1049,7 @@ def test_object_store_not_found_code_reported_as_definite_absence(
         "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
         side_effect=fake_read,
     ):
-        source.load_nodes()
+        _load_nodes(source)
 
     titles = {w.title for w in source.report.warnings}
     assert "No catalog file found for project" in titles
@@ -1062,15 +1100,15 @@ def test_artifact_read_concurrency_matches_sequential_results_off_the_main_threa
         )
     for i in range(2):
         _write_run_results(
-            tmp_path / f"run_results_{i}.json",
+            tmp_path / f"project_{i}" / "run_results.json",
             f"model.project_{i}.model_{i}",
             f"invocation-{i}",
         )
     config: Dict[str, Any] = {
         "manifest_path": f"{tmp_path}/*/manifest.json",
-        "run_results_paths": [f"{tmp_path}/run_results_*.json"],
+        "run_results_paths": [f"{tmp_path}/*/run_results.json"],
     }
-    sequential = _make_source(**config, artifact_read_concurrency=1).load_nodes()
+    sequential = _load_nodes(_make_source(**config, artifact_read_concurrency=1))
 
     parallel_source = _make_source(**config, artifact_read_concurrency=4)
     real_read = dbt_artifacts_module.read_file_as_bytes
@@ -1083,7 +1121,7 @@ def test_artifact_read_concurrency_matches_sequential_results_off_the_main_threa
     with mock.patch.object(
         dbt_artifacts_module, "read_file_as_bytes", side_effect=recording_read
     ):
-        parallel = parallel_source.load_nodes()
+        parallel = _load_nodes(parallel_source)
 
     # Same nodes in the same order: prefetch must not reorder project processing.
     assert [node.dbt_name for node in parallel] == [
@@ -1120,7 +1158,7 @@ def test_artifact_read_concurrency_replays_fetch_errors_per_project(
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json", artifact_read_concurrency=4
     )
-    nodes = source.load_nodes()
+    nodes = _load_nodes(source)
 
     assert {node.dbt_name for node in nodes} == {
         "model.project_a.m_project_a",
@@ -1135,7 +1173,7 @@ def test_prefetched_bytes_are_released_when_a_project_fails(
 ) -> None:
     """A project that fails mid-load must not pin its unconsumed artifact bytes.
 
-    Prefetch hands load_nodes every artifact of a project before the manifest is
+    Prefetch hands load_projects every artifact of a project before the manifest is
     parsed. When the manifest fails, catalog.json - the largest dbt artifact - is
     never consumed, and its bytes would otherwise stay referenced for the source's
     lifetime, through the whole emit phase.
@@ -1148,7 +1186,7 @@ def test_prefetched_bytes_are_released_when_a_project_fails(
     (tmp_path / "project_b" / "catalog.json").write_text('{"nodes": {}}')
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    source.load_nodes()
+    _load_nodes(source)
 
     assert source.report.manifests_failed == 1
     assert source._artifacts.prefetched == {}
@@ -1269,3 +1307,226 @@ def test_assertion_urns_carry_the_current_projects_instance() -> None:
     b = assertion_urns("project_b")
     assert a and b
     assert a.isdisjoint(b)
+
+
+def test_each_project_gets_its_project_name_as_platform_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "sch"}]
+    )
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", write_semantics="OVERRIDE"
+    )
+
+    workunits = [
+        wu for wu in source.get_workunits() if isinstance(wu, MetadataWorkUnit)
+    ]
+    described = {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    }
+
+    # Same relation in both projects: distinct dbt urns, one shared warehouse urn
+    # (which carries lineage, not properties, so it is checked among all urns).
+    assert described >= {
+        make_dataset_urn_with_platform_instance(
+            "dbt", "db.sch.orders", "project_a", "PROD"
+        ),
+        make_dataset_urn_with_platform_instance(
+            "dbt", "db.sch.orders", "project_b", "PROD"
+        ),
+    }
+    assert make_dataset_urn("postgres", "db.sch.orders", "PROD") in {
+        wu.get_urn() for wu in workunits
+    }
+    assert source.report.failures == []
+
+
+def test_shared_package_models_are_distinct_per_project(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two projects installing one dbt package carry identical unique_ids.
+    Each must emit its own copy, with its own intra-project lineage."""
+    for project, schema in (("project_a", "sch_a"), ("project_b", "sch_b")):
+        _write_project(
+            tmp_path,
+            project,
+            [
+                {
+                    "name": "dim",
+                    "database": "db",
+                    "schema": f"{schema}_elem",
+                    "package_name": "elementary",
+                },
+                {"name": "report", "database": "db", "schema": schema},
+            ],
+            depends_on={"report": ["model.elementary.dim"]},
+        )
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", write_semantics="OVERRIDE"
+    )
+    workunits = [
+        wu for wu in source.get_workunits() if isinstance(wu, MetadataWorkUnit)
+    ]
+    described = {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    }
+    lineage = {
+        wu.get_urn(): wu.get_aspect_of_type(UpstreamLineageClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(UpstreamLineageClass) is not None
+    }
+
+    for project, schema in (("project_a", "sch_a"), ("project_b", "sch_b")):
+        dim = make_dataset_urn_with_platform_instance(
+            "dbt", f"db.{schema}_elem.dim", project, "PROD"
+        )
+        report = make_dataset_urn_with_platform_instance(
+            "dbt", f"db.{schema}.report", project, "PROD"
+        )
+        assert dim in described and report in described
+        report_lineage = lineage[report]
+        assert report_lineage is not None
+        assert {u.dataset for u in report_lineage.upstreams} == {
+            make_dataset_urn("postgres", f"db.{schema}_elem.dim", "PROD")
+        }
+    assert source.report.failures == []
+
+
+def test_run_results_match_the_project_in_their_directory(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "b"}]
+    )
+    _write_run_results(
+        tmp_path / "project_a" / "run_results.json", "model.project_a.orders", "inv-a"
+    )
+    _write_run_results(
+        tmp_path / "project_b" / "run_results.json", "model.project_b.orders", "inv-b"
+    )
+    (tmp_path / "stray").mkdir()
+    _write_run_results(
+        tmp_path / "stray" / "run_results.json", "model.project_a.orders", "inv-stray"
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        run_results_paths=[f"{tmp_path}/*/run_results.json"],
+    )
+    projects = {p.project_name: p for p in _load_projects(source)}
+
+    runs = {
+        name: [perf.run_id for perf in project.nodes[0].model_performances]
+        for name, project in projects.items()
+    }
+    assert runs == {"project_a": ["inv-a"], "project_b": ["inv-b"]}
+    stray = [
+        w
+        for w in source.report.warnings
+        if w.title == "run_results files matched no project"
+    ]
+    assert len(stray) == 1
+    assert any("stray" in c for c in stray[0].context)
+
+
+def test_a_manifest_without_project_name_is_a_failure_for_that_project(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "b"}]
+    )
+    manifest = tmp_path / "project_b" / "manifest.json"
+    data = json.loads(manifest.read_text())
+    del data["metadata"]["project_name"]
+    manifest.write_text(json.dumps(data))
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    projects = _load_projects(source)
+
+    assert [p.project_name for p in projects] == ["project_a"]
+    assert source.report.manifests_failed == 1
+    assert [f.title for f in source.report.failures] == ["Failed to load dbt project"]
+
+
+def test_two_manifests_with_one_project_name_fail_the_second(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path,
+        "dev",
+        [{"name": "orders", "database": "db", "schema": "a"}],
+        project_name="analytics",
+    )
+    _write_project(
+        tmp_path,
+        "prod",
+        [{"name": "orders", "database": "db", "schema": "a"}],
+        project_name="analytics",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    projects = _load_projects(source)
+
+    assert [p.manifest_path for p in projects] == [f"{tmp_path}/dev/manifest.json"]
+    assert source.report.manifests_failed == 1
+    failure = source.report.failures[0]
+    assert "analytics" in " ".join(failure.context)
+
+
+def test_single_manifest_keeps_the_configured_platform_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    source = _make_source(
+        manifest_path=f"{tmp_path}/project_a/manifest.json",
+        platform_instance="legacy_instance",
+        write_semantics="OVERRIDE",
+    )
+
+    assert make_dataset_urn_with_platform_instance(
+        "dbt", "db.a.orders", "legacy_instance", "PROD"
+    ) in _described_urns(source)
+
+
+def test_a_failed_project_does_not_leak_into_its_neighbours(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "a_first", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    _write_project(
+        tmp_path, "b_broken", [{"name": "orders", "database": "db", "schema": "b"}]
+    )
+    _write_project(
+        tmp_path, "c_last", [{"name": "orders", "database": "db", "schema": "c"}]
+    )
+    (tmp_path / "b_broken" / "manifest.json").write_text("{not json")
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", write_semantics="OVERRIDE"
+    )
+
+    assert _described_urns(source) >= {
+        make_dataset_urn_with_platform_instance(
+            "dbt", "db.a.orders", "a_first", "PROD"
+        ),
+        make_dataset_urn_with_platform_instance("dbt", "db.c.orders", "c_last", "PROD"),
+    }
+    assert source.report.manifests_failed == 1
+    assert source._current_project is None

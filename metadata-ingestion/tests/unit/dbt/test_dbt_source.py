@@ -920,15 +920,23 @@ def test_extract_dbt_entities() -> None:
         target_platform="dummy",
     )
     source = DBTCoreSource(config, ctx)
-    nodes = source.loadManifestAndCatalog(
-        config.manifest_path, config.catalog_path, config.sources_path
-    )[0]
+    nodes = source._load_project(
+        config.manifest_path,
+        config.catalog_path,
+        config.sources_path,
+        [],
+        multi_project=False,
+    ).nodes
     assert all(node.database is not None for node in nodes)
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
-    nodes = source.loadManifestAndCatalog(
-        config.manifest_path, config.catalog_path, config.sources_path
-    )[0]
+    nodes = source._load_project(
+        config.manifest_path,
+        config.catalog_path,
+        config.sources_path,
+        [],
+        multi_project=False,
+    ).nodes
     assert all(node.database is None for node in nodes)
 
 
@@ -2526,26 +2534,6 @@ def test_dbt_cloud_parse_into_dbt_exposure():
     assert exposure.tags == ["dbt:executive", "dbt:weekly"]
     assert exposure.meta == {"team": "analytics"}
     assert exposure.dbt_package_name == "my_project"
-
-
-def test_dbt_core_load_exposures():
-    # Test that DBTCoreSource properly loads exposures
-    ctx = PipelineContext(run_id="test-run-id")
-    config = DBTCoreConfig.model_validate(create_base_dbt_config())
-    source = DBTCoreSource(config, ctx)
-
-    # Manually set exposures to test load_exposures
-    source._exposures = [
-        DBTExposure(
-            name="test_exposure",
-            unique_id="exposure.test.test_exposure",
-            type="dashboard",
-        )
-    ]
-
-    exposures = source.load_exposures()
-    assert len(exposures) == 1
-    assert exposures[0].name == "test_exposure"
 
 
 def test_create_exposure_mcps_basic():

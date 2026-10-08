@@ -2069,14 +2069,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # Query entity timestamps, cached per manifest generated_at string (ensures
         # reproducible output). The None key holds the shared now() fallback.
         self._query_timestamp_cache: Dict[Optional[str], int] = {}
-        # Exposures loaded by subclass (manifest or dbt Cloud API)
-        self._exposures: List[DBTExposure] = []
-        # Top-level `metrics:` definitions, loaded by subclass. dbt Cloud
-        # leaves this empty - see report_metric_source_limitations.
-        self._metrics: DBTMetricsParse = DBTMetricsParse()
-        # dbt project name, part of the semanticModel/metric urns. Set by
-        # subclasses during load.
-        self._project_name: Optional[str] = None
         # Resolved once by _emit_semantic_model_entities; the report field of
         # the same meaning is descriptive only.
         self._emit_semantic_models: Optional[bool] = None
@@ -2450,42 +2442,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _dbt_platform_instance(self) -> Optional[str]:
         return self._project.platform_instance
 
+    @abstractmethod
     def load_projects(self) -> Iterator[DBTProject]:
-        """Yield each dbt project to emit, one at a time.
-
-        Default wraps the single-project load_nodes() hook; sources that can
-        load several projects override this directly.
-        """
-        nodes = self.load_nodes()
-        yield DBTProject(
-            nodes=nodes,
-            exposures=self.load_exposures(),
-            metrics=self.load_metrics(),
-            platform_instance=self.config.platform_instance,
-            project_name=self._project_name,
-            manifest_path=None,
-            artifact_props={},
-            catalog_generated_at=None,
-            manifest_generated_at=None,
-        )
-
-    def load_nodes(self) -> List[DBTNode]:
-        # return dbt nodes (including semantic models); each node carries its own
-        # artifact provenance in DBTNode.artifact_props
+        """Yield each dbt project to emit, one at a time."""
         raise NotImplementedError()
-
-    def load_exposures(self) -> List[DBTExposure]:
-        """Return dbt exposures. Subclasses populate self._exposures during load."""
-        return self._exposures
-
-    def load_metrics(self) -> DBTMetricsParse:
-        """Return dbt metrics. Subclasses populate self._metrics during load."""
-        return self._metrics
 
     def report_metric_source_limitations(self) -> None:
         """Report what this source cannot read from dbt's `metrics:` block.
 
-        Separate from `load_metrics` so the note is tied to a run that actually
+        Separate from loading so the note is tied to a run that actually
         emits semantic-model entities, rather than to the act of loading.
         """
 
@@ -2659,6 +2624,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 "Using dbt with skip_missing_upstreams_in_lineage=True"
             )
 
+        if (
+            not self.config.entities_enabled.can_emit_semantic_models
+            and self.config.emit_semantic_model_entities
+        ):
+            # Only when the recipe asked outright. An unset flag auto-enables
+            # on a capable server, so warning unconditionally would fire on
+            # every run of any recipe that turned semantic models off -
+            # including projects that have none.
+            self.report.warning(
+                title="emit_semantic_model_entities has no effect",
+                message="`entities_enabled.semantic_models` is not set to "
+                "YES, so no semanticModel or metric entities will be emitted "
+                "and no dataset will be annotated.",
+            )
+
         for project in self.load_projects():
             self._current_project = project
             try:
@@ -2729,17 +2709,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 yield from self._create_semantic_model_workunits(
                     project, semantic_model_nodes
                 )
-        elif self.config.emit_semantic_model_entities:
-            # Only when the recipe asked outright. An unset flag auto-enables
-            # on a capable server, so warning unconditionally would fire on
-            # every run of any recipe that turned semantic models off -
-            # including projects that have none.
-            self.report.warning(
-                title="emit_semantic_model_entities has no effect",
-                message="`entities_enabled.semantic_models` is not set to "
-                "YES, so no semanticModel or metric entities will be emitted "
-                "and no dataset will be annotated.",
-            )
 
     def _emit_semantic_model_entities(self) -> bool:
         """Resolve the tri-state semantic-model decision once, then cache it.
