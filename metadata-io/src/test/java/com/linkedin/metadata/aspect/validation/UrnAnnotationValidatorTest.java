@@ -9,12 +9,14 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -258,6 +260,65 @@ public class UrnAnnotationValidatorTest {
     assertTrue(message.contains("expected one of [dataset]"), message);
     assertTrue(message.contains("got corpuser"), message);
     assertTrue(message.contains(invalidUrn.toString()), message);
+  }
+
+  @Test
+  public void testValidateProposedAspects_EntityTypeMismatchStoredByNewerSchemaIsAccepted()
+      throws Exception {
+    // A newer version can allow an entity type this version's annotation doesn't (read after a
+    // rollback). A urn it already stored is kept on rewrite instead of failing the write; only
+    // newly added urns are validated.
+    assertTrue(validateRewriteOfStoredMismatch(2L).isEmpty());
+  }
+
+  @Test
+  public void testValidateProposedAspects_EntityTypeMismatchStoredBySameSchemaIsRejected()
+      throws Exception {
+    // Invalid data this version (or an older one) wrote is not grandfathered in on re-save.
+    assertEquals(validateRewriteOfStoredMismatch(1L).size(), 1);
+  }
+
+  private List<AspectValidationException> validateRewriteOfStoredMismatch(long storedSchemaVersion)
+      throws Exception {
+    Urn storedUrn = Urn.createFromString("urn:li:corpuser:johndoe");
+    DataMap dataMap = new DataMap();
+    dataMap.put("urn", storedUrn.toString());
+
+    UrnValidationAnnotation annotation = mock(UrnValidationAnnotation.class);
+    when(annotation.getEntityTypes()).thenReturn(Collections.singletonList("dataset"));
+    UrnValidationFieldSpec fieldSpec = mock(UrnValidationFieldSpec.class);
+    when(fieldSpec.getUrnValidationAnnotation()).thenReturn(annotation);
+    Map<String, UrnValidationFieldSpec> fieldSpecMap = new HashMap<>();
+    fieldSpecMap.put("/urn", fieldSpec);
+    when(mockAspectSpec.getUrnValidationFieldSpecMap()).thenReturn(fieldSpecMap);
+    when(mockAspectSpec.getSchemaVersion()).thenReturn(1L);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,Stored,PROD)");
+    when(mockBatchItem.getUrn()).thenReturn(entityUrn);
+    when(mockBatchItem.getAspectName()).thenReturn("someAspect");
+    when(mockBatchItem.getAspectSpec()).thenReturn(mockAspectSpec);
+    when(mockBatchItem.getRecordTemplate()).thenReturn(mockRecordTemplate);
+    when(mockRecordTemplate.data()).thenReturn(dataMap);
+    DataMap storedData = new DataMap();
+    storedData.put("urn", storedUrn.toString());
+    RecordTemplate storedRecord = mock(RecordTemplate.class);
+    when(storedRecord.data()).thenReturn(storedData);
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(storedRecord);
+    when(stored.getSystemMetadata())
+        .thenReturn(new SystemMetadata().setSchemaVersion(storedSchemaVersion));
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(OperationFingerprint.class), eq(entityUrn), eq("someAspect")))
+        .thenReturn(stored);
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
+
+    return validator
+        .validateProposedAspects(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext)
+        .collect(Collectors.toList());
   }
 
   @Test

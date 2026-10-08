@@ -15,9 +15,11 @@ import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,6 +71,8 @@ import org.opensearch.search.SearchHit;
 @Slf4j
 @ThreadSafe
 public class ConsistencyService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(ConsistencyService.class, "consistency check of");
 
   private final EntityService<?> entityService;
   private final ESSystemMetadataDAO esSystemMetadataDAO;
@@ -1041,6 +1045,11 @@ public class ConsistencyService {
 
     Set<Urn> orphans = new HashSet<>(urnsFromEs);
     orphans.removeAll(existingUrns);
+    // exists() reports urns of entity types this registry doesn't know (written by a newer version
+    // before a rollback) as missing; their index documents belong to that version, not to orphans.
+    orphans.removeIf(
+        urn ->
+            RegistryKnowledge.isUnknown(opContext.getEntityRegistry(), urn.getEntityType(), null));
     return orphans;
   }
 
@@ -1160,6 +1169,14 @@ public class ConsistencyService {
             .orElseThrow(() -> new IllegalArgumentException("Unknown check ID: " + checkId));
 
     String entityType = urn.getEntityType();
+    if (!UNKNOWN_DATA.admit(
+        opContext.getEntityRegistry(),
+        opContext.getMetricUtils(),
+        urn.getEntityType(),
+        null,
+        urn)) {
+      return java.util.Optional.empty();
+    }
 
     // Derive required aspects
     Set<String> requiredAspects = deriveRequiredAspects(List.of(check));

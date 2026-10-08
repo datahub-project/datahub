@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
-import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -28,6 +27,8 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -36,6 +37,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,6 +48,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EntityUtils {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(EntityUtils.class, "stored aspect of");
 
   private EntityUtils() {}
 
@@ -265,25 +269,37 @@ public class EntityUtils {
       @Nonnull Collection<EntityAspect> rawAspects) {
     EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
 
-    // Build
+    // Build — skip rows whose entity or aspect is not in the current registry
+    // (can happen after a rollback when the older build encounters rows written by the newer one)
     List<SystemAspect> systemAspects =
         rawAspects.stream()
             .map(
                 raw -> {
                   Urn urn = UrnUtils.getUrn(raw.getUrn());
-                  AspectSpec aspectSpec =
-                      entityRegistry
-                          .getEntitySpec(urn.getEntityType())
-                          .getAspectSpec(raw.getAspect());
 
-                  // TODO: aspectSpec can be null here
-                  Preconditions.checkState(
-                      aspectSpec != null,
-                      String.format("Aspect %s could not be found", raw.getAspect()));
+                  if (!UNKNOWN_DATA.admit(
+                      entityRegistry,
+                      Optional.empty(),
+                      urn.getEntityType(),
+                      raw.getAspect(),
+                      urn)) {
+                    return null;
+                  }
 
                   return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
                 })
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
+
+    // Read Strip: references to entity types this registry doesn't know (written by a newer version
+    // before a rollback) are removed on read as they are on write, so no reader (GraphQL, OpenAPI,
+    // Rest.li, hooks, read-modify-write) sees them.
+    systemAspects.forEach(
+        systemAspect -> {
+          if (systemAspect.getRecordTemplate() != null) {
+            UnknownEntityUrnStripper.strip(systemAspect.getRecordTemplate(), entityRegistry);
+          }
+        });
 
     // Read Mutate
     Map<Pair<EntitySpec, AspectSpec>, List<ReadItem>> grouped =

@@ -89,6 +89,40 @@ public class PolicyFieldTypeValidatorTest {
   }
 
   @Test
+  public void testUnknownFieldTypeAlreadyStoredIsAccepted() {
+    // A field type a newer version added (read after a rollback) that the policy already stores
+    // doesn't block re-saving the policy; a newly added unknown field type is still rejected.
+    DataHubPolicyInfo policyInfo = createPolicyInfoWithFilter("FIELD_FROM_NEWER_BUILD", "x");
+    com.linkedin.metadata.aspect.SystemAspect stored =
+        mock(com.linkedin.metadata.aspect.SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(policyInfo);
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(), eq(TEST_POLICY_URN), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
+        .thenReturn(stored);
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "A field type already stored must not block re-saving the policy");
+  }
+
+  @Test
   public void testValidFieldTypeInPrivilegeConstraints() {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("DOMAIN");
 

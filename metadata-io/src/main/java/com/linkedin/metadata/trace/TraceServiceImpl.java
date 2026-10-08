@@ -6,12 +6,13 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -44,6 +45,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 @Builder
 @Slf4j
 public class TraceServiceImpl implements TraceService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(TraceServiceImpl.class, "trace of");
   private final EntityRegistry entityRegistry;
   private final SystemMetadataService systemMetadataService;
   private final EntityService<?> entityService;
@@ -128,13 +131,22 @@ public class TraceServiceImpl implements TraceService {
 
     for (Map.Entry<Urn, List<String>> entry : aspectNames.entrySet()) {
       Urn urn = entry.getKey();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
+      if (!UNKNOWN_DATA.admit(
+          entityRegistry, opContext.getMetricUtils(), urn.getEntityType(), null, urn)) {
+        continue;
+      }
 
       Map<String, TraceStorageStatus> timeseriesStatuses = new LinkedHashMap<>();
       Set<String> remainingAspects = new HashSet<>();
 
       for (String aspectName : entry.getValue()) {
-        if (entitySpec.getAspectSpec(aspectName).isTimeseries()) {
+        Optional<AspectSpec> maybeAspectSpec =
+            entityRegistry.findAspectSpec(urn.getEntityType(), aspectName);
+        if (maybeAspectSpec.isEmpty()) {
+          UNKNOWN_DATA.skipped(opContext.getMetricUtils(), urn.getEntityType(), aspectName, urn);
+          continue;
+        }
+        if (maybeAspectSpec.get().isTimeseries()) {
           timeseriesStatuses.put(aspectName, TraceStorageStatus.NO_OP);
         } else {
           remainingAspects.add(aspectName);
@@ -246,7 +258,9 @@ public class TraceServiceImpl implements TraceService {
     for (Map.Entry<Urn, LinkedHashMap<String, TraceStorageStatus>> entry :
         finalResults.entrySet()) {
       Urn urn = entry.getKey();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
+      if (entityRegistry.findEntitySpec(urn.getEntityType()).isEmpty()) {
+        continue;
+      }
 
       /*
        * ERROR - to fetch exception
@@ -255,7 +269,12 @@ public class TraceServiceImpl implements TraceService {
        */
       List<String> aspectsToVerify =
           entry.getValue().entrySet().stream()
-              .filter(aspect -> !entitySpec.getAspectSpec(aspect.getKey()).isTimeseries())
+              .filter(
+                  aspect ->
+                      entityRegistry
+                          .findAspectSpec(urn.getEntityType(), aspect.getKey())
+                          .map(spec -> !spec.isTimeseries())
+                          .orElse(false))
               .filter(
                   aspect ->
                       Set.of(
@@ -328,7 +347,9 @@ public class TraceServiceImpl implements TraceService {
     // 1. Consider status of primary storage write
     for (Map.Entry<Urn, List<String>> entry : aspectNames.entrySet()) {
       Urn urn = entry.getKey();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
+      if (entityRegistry.findEntitySpec(urn.getEntityType()).isEmpty()) {
+        continue;
+      }
       LinkedHashMap<String, TraceStorageStatus> finalResponse = new LinkedHashMap<>();
       List<String> remaining = new ArrayList<>();
 
@@ -336,6 +357,10 @@ public class TraceServiceImpl implements TraceService {
           primaryStatuses.getOrDefault(urn, new LinkedHashMap<>());
 
       for (String aspectName : entry.getValue()) {
+        // Unknown aspects are skipped by tracePrimaryInParallel, so they have no primary status
+        if (entityRegistry.findAspectSpec(urn.getEntityType(), aspectName).isEmpty()) {
+          continue;
+        }
         TraceWriteStatus primaryStorageStatus = primaryStatus.get(aspectName).getWriteStatus();
         if (primaryStorageStatus == TraceWriteStatus.PENDING) {
           // If the primary storage write hasn't happened, then we don't expect the search write
@@ -343,7 +368,12 @@ public class TraceServiceImpl implements TraceService {
               aspectName,
               TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Pending primary storage write."));
         } else if (primaryStorageStatus == TraceWriteStatus.NO_OP) {
-          if (entitySpec.getAspectSpec(aspectName).isTimeseries()) {
+          boolean isTimeseries =
+              entityRegistry
+                  .findAspectSpec(urn.getEntityType(), aspectName)
+                  .map(AspectSpec::isTimeseries)
+                  .orElse(false);
+          if (isTimeseries) {
             finalResponse.put(
                 aspectName, TraceStorageStatus.ok(TraceWriteStatus.TRACE_NOT_IMPLEMENTED));
           } else {

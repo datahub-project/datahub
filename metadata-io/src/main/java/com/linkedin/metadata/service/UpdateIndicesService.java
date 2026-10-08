@@ -13,14 +13,17 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -30,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -41,6 +45,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(UpdateIndicesService.class, "MCL");
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
   private final ElasticSearchService elasticSearchService;
@@ -58,6 +64,7 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
   private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
+  private static final String INVALID_MCL_SKIPPED_METRIC = "invalid_mcl_skipped";
 
   public static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -169,15 +176,54 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Nonnull
   private LinkedHashMap<Urn, List<MCLItem>> groupForStrategies(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    // Skip MCLs with unknown entities/aspects (can happen after rollback when
+    // older build encounters rows written by the newer one).
+    EntityRegistry entityRegistry = opContext.getAspectRetriever().getEntityRegistry();
     List<MCLItem> mclItems =
         events.stream()
-            .map(event -> MCLItemImpl.builder().build(event, opContext.getAspectRetriever()))
+            .filter(
+                event -> {
+                  return UNKNOWN_DATA.admit(
+                      entityRegistry,
+                      opContext.getMetricUtils(),
+                      event.hasEntityType() ? event.getEntityType() : null,
+                      event.hasAspectName() ? event.getAspectName() : null,
+                      event.getEntityUrn());
+                })
+            .map(event -> buildValidMCLItem(opContext, event))
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     List<MCLItem> sideEffects =
         AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
             .collect(Collectors.toList());
     return UpdateIndicesUtil.groupEventsByUrn(
         Stream.concat(mclItems.stream(), sideEffects.stream()));
+  }
+
+  /**
+   * Builds an MCLItem, dropping only this event when its payload fails validation. A newer version
+   * can write an aspect this registry knows whose payload references an entity type it does not
+   * (e.g. read after a rollback); failing the build would otherwise skip the whole batch. Any other
+   * invalid payload is dropped the same way, so each one is counted in {@link
+   * #INVALID_MCL_SKIPPED_METRIC} to make search drifting from primary storage visible.
+   */
+  @Nullable
+  private static MCLItem buildValidMCLItem(
+      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    try {
+      return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      opContext
+          .getMetricUtils()
+          .ifPresent(m -> m.increment(UpdateIndicesService.class, INVALID_MCL_SKIPPED_METRIC, 1));
+      log.warn(
+          "Skipping invalid MCL for '{}/{}' on {}: {}",
+          event.getEntityType(),
+          event.getAspectName(),
+          event.getEntityUrn(),
+          e.getMessage());
+      return null;
+    }
   }
 
   /**

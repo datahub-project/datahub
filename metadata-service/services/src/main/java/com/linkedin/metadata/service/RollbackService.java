@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.key.ExecutionRequestKey;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
@@ -114,18 +115,24 @@ public class RollbackService {
 
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
+        // Rows of entity types or aspects this registry doesn't know (written by a newer version
+        // before a rollback) are skipped by the rollback, so they don't count as reverted.
+        final List<AspectRowSummary> revertibleRows =
+            aspectRowsToDelete.stream()
+                .filter(row -> !isUnknownToRegistry(opContext, row))
+                .collect(Collectors.toList());
 
         final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects =
-            aspectRowsToDelete.stream()
+            revertibleRows.stream()
                 .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
 
         final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
 
         long entitiesDeleted = keyAspects.size();
-        long aspectsReverted = aspectRowsToDelete.size();
+        long aspectsReverted = revertibleRows.size();
 
         final long affectedEntities =
-            aspectRowsToDelete.stream()
+            revertibleRows.stream()
                 .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                 .keySet()
                 .size();
@@ -214,7 +221,10 @@ public class RollbackService {
       // Accumulate key aspects across all pages. Master only kept the last page, which undercounted
       // entitiesDeleted and made affected/unsafe entity math depend on the final page only.
       final List<AspectRowSummary> allKeyAspects = new ArrayList<>();
-      aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).forEach(allKeyAspects::add);
+      // Key rows of types this registry doesn't know are skipped, so they aren't deleted entities.
+      aspectRowsToDelete.stream()
+          .filter(row -> row.isKeyAspect() && !isUnknownToRegistry(opContext, row))
+          .forEach(allKeyAspects::add);
 
       // Page through the run's rows once, in (urn, aspect) order, each page starting after the
       // last row of the one before. Rows left in place (an entity kept because others wrote to it)
@@ -236,7 +246,7 @@ public class RollbackService {
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
         aspectRowsToDelete.stream()
-            .filter(AspectRowSummary::isKeyAspect)
+            .filter(row -> row.isKeyAspect() && !isUnknownToRegistry(opContext, row))
             .forEach(allKeyAspects::add);
         recordRollbackPage(metrics, rollbackRunResult);
       }
@@ -408,6 +418,13 @@ public class RollbackService {
             .map(AspectRowSummary::getUrn)
             .map(UrnUtils::getUrn)
             .collect(Collectors.toSet()));
+  }
+
+  private static boolean isUnknownToRegistry(
+      @Nonnull OperationContext opContext, @Nonnull AspectRowSummary row) {
+    return RegistryKnowledge.classifyUrn(
+            opContext.getEntityRegistry(), row.getUrn(), row.getAspectName())
+        .isUnknown();
   }
 
   private String stringifyRowCount(int size) {

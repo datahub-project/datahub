@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -372,6 +373,9 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * @return true if the entity exists and is soft-deleted
    */
   protected boolean isReferencedEntitySoftDeleted(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    if (isUnknownEntityType(ctx, urn)) {
+      return false;
+    }
     // Check if entity exists including soft-deleted
     boolean existsIncludingSoftDeleted =
         ctx.getEntityService().exists(ctx.getOperationContext(), urn, true);
@@ -399,7 +403,20 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * @return true if the entity exists (even if soft-deleted)
    */
   protected boolean referencedEntityExists(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    if (isUnknownEntityType(ctx, urn)) {
+      return true;
+    }
     return ctx.getEntityService().exists(ctx.getOperationContext(), urn, true);
+  }
+
+  /**
+   * A reference to an entity type this registry doesn't know (written by a newer version before a
+   * rollback) can't be checked here: {@code exists()} reports such urns as missing. Treat it as
+   * present so no fix deletes data that version still uses.
+   */
+  protected static boolean isUnknownEntityType(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    return RegistryKnowledge.isUnknown(
+        ctx.getOperationContext().getEntityRegistry(), urn.getEntityType(), null);
   }
 
   // ============================================================================
