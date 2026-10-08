@@ -1,8 +1,11 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from datahub.configuration.env_vars import (
     get_rest_sink_default_tcp_keepalive,
+    get_upstream_lineage_patch_max_chunks,
     is_ci,
 )
 
@@ -97,3 +100,22 @@ def test_get_rest_sink_default_tcp_keepalive() -> None:
         assert get_rest_sink_default_tcp_keepalive() is False
     with patch.dict(os.environ, {}, clear=True):
         assert get_rest_sink_default_tcp_keepalive() is False
+
+
+def test_get_upstream_lineage_patch_max_chunks() -> None:
+    with patch.dict(os.environ, {}, clear=True):
+        assert get_upstream_lineage_patch_max_chunks() == 1
+    with patch.dict(
+        os.environ, {"DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS": "  8  "}, clear=True
+    ):
+        assert get_upstream_lineage_patch_max_chunks() == 8
+
+
+@pytest.mark.parametrize("value", ["0", "invalid"])
+def test_get_upstream_lineage_patch_max_chunks_falls_back_on_invalid_values(
+    value: str,
+) -> None:
+    with patch.dict(
+        os.environ, {"DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS": value}, clear=True
+    ):
+        assert get_upstream_lineage_patch_max_chunks() == 1
