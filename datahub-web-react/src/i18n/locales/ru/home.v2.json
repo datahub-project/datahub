@@ -5,7 +5,7 @@
     "dataProducts.title": "Дата-продукты",
     "documents.deleteConfirmButton": "Удалить",
     "documents.deleteText": "Вы уверены, что хотите удалить этот документ? Это также удалит все дочерние документы.",
-    "documents.deleteTitle": "Удалить документ(ы)",
+    "documents.deleteTitle": "Удалить документ",
     "documents.moveToRoot": "Переместить в корень",
     "documents.newDocumentTooltip": "Новый документ",
     "documents.searchPlaceholder": "Поиск по контексту...",
