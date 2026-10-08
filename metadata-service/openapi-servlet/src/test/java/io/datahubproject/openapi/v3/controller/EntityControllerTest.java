@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
