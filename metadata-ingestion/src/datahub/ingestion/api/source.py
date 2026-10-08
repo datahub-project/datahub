@@ -695,6 +695,13 @@ class Source(Closeable, metaclass=ABCMeta):
         allowed = self.get_allowed_workunit_processors()
         allowed_set = set(_to_name(p) for p in allowed) if allowed is not None else None
 
+        patch_step = AutoIncrementalLineageProcessor.__name__
+        lineage_patched = (
+            patch_step not in excluded
+            and (allowed_set is None or patch_step in allowed_set)
+            and AutoIncrementalLineageProcessor.should_enable(ctx)
+        )
+
         processors: List[WorkunitProcessor] = []
         for processor_class in _ALL_PROCESSOR_CLASSES:
             name = processor_class.__name__
@@ -703,6 +710,17 @@ class Source(Closeable, metaclass=ABCMeta):
                 continue
             if allowed_set is not None and name not in allowed_set:
                 logger.info(f"Workunit processor '{name}' not in allowed list")
+                continue
+            # A patch only adds, so a reference the resolver re-cases would land next to
+            # the old spelling instead of replacing it.
+            if processor_class is AutoResolveLineageUrnsProcessor and lineage_patched:
+                if ctx.pipeline_context.flags.auto_resolve_lineage_urns.enabled is True:
+                    ctx.source_report.warning(
+                        title="Lineage URN casing resolution skipped",
+                        message="This source sends lineage as patches, so lineage "
+                        "URN casing is left unchanged.",
+                    )
+                logger.info(f"Workunit processor '{name}' skipped: lineage is patched")
                 continue
             if processor_class.should_enable(ctx):
                 logger.info(f"Workunit processor '{name}' enabled")
