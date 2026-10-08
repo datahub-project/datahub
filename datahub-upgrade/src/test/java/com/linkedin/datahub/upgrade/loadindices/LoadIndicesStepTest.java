@@ -573,7 +573,6 @@ public class LoadIndicesStepTest {
     assertEquals(result.unknownToRegistrySkipped, 2L);
     assertEquals(result.conversionErrorsSkipped, 0L);
   }
-  }
 
   @Test
   public void testGetDefaultAspectNames() throws Exception {
@@ -1709,7 +1708,7 @@ public class LoadIndicesStepTest {
     args.limit = 10;
     args.aspectNames = java.util.List.of("invalidAspect");
 
-    // Add test rows with invalid metadata to cause conversion errors
+    // Rows of an aspect whose data-template class cannot be resolved, so conversion fails
     // This will create a batch that is not empty but all aspects fail conversion
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset1,PROD)",

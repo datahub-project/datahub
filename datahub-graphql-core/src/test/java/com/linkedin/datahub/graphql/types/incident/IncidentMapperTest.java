@@ -71,7 +71,10 @@ public class IncidentMapperTest {
                     .setActor(UrnUtils.getUrn("urn:li:corpGroup:test2"))
                     .setAssignedAt(lastStatus))));
     // TODO: Support multiple entities per incident.
-    incidentInfo.setEntities(new com.linkedin.common.UrnArray(Collections.singletonList(urn)));
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            Collections.singletonList(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.incident,PROD)"))));
     Long incidentStartedAt = 10L;
     incidentInfo.setStartedAt(incidentStartedAt);
 
@@ -337,7 +340,10 @@ public class IncidentMapperTest {
                 new IncidentAssignee()
                     .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
                     .setAssignedAt(auditStamp))));
-    incidentInfo.setEntities(new com.linkedin.common.UrnArray(Collections.singletonList(urn)));
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            Collections.singletonList(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.incident,PROD)"))));
 
     envelopedIncidentInfo.setValue(new Aspect(incidentInfo.data()));
 
