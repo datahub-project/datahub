@@ -2876,9 +2876,7 @@ def test_full_name_to_urn_quoted_identifier() -> None:
     ex.report = UnityCatalogReport()
 
     quoted = "main.`schema.with.dots`.orders"
-    expected_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:databricks,main.schema.with.dots.orders,PROD)"
-    )
+    expected_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,main.schema.with.dots.orders,PROD)"
 
     # A well-formed name this run did not ingest still becomes a URN, built from
     # the split parts rather than the raw backtick-quoted string.
@@ -2898,9 +2896,7 @@ def test_full_name_to_urn_quoted_identifier() -> None:
     assert ex.report.num_lineage_tables_unresolvable == 0
 
 
-_NOT_INGESTED_URN = (
-    "urn:li:dataset:(urn:li:dataPlatform:databricks,other_catalog.finance.invoices,PROD)"
-)
+_NOT_INGESTED_URN = "urn:li:dataset:(urn:li:dataPlatform:databricks,other_catalog.finance.invoices,PROD)"
 
 
 def test_full_name_to_urn_returns_registered_urn_for_ingested_table() -> None:
@@ -3734,7 +3730,11 @@ def _dataset_subjects(workunits: List[MetadataWorkUnit]) -> List[List[str]]:
         aspect = wu.get_aspect_of_type(QuerySubjectsClass)
         if aspect is not None:
             subjects.append(
-                [s.entity for s in aspect.subjects if s.entity.startswith("urn:li:dataset:")]
+                [
+                    s.entity
+                    for s in aspect.subjects
+                    if s.entity.startswith("urn:li:dataset:")
+                ]
             )
     return subjects
 

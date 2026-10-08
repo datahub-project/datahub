@@ -155,6 +155,8 @@ Requirements:
 
 - #17678 **(Ingestion / Trino)** `oracle` and `starrocks` are now part of the known connector-platform mapping, so Trino catalogs backed by them emit `Siblings` and `UpstreamLineage` to the native platform instead of being skipped. Because Trino lowercases identifiers in `information_schema`, catalogs whose source identifiers are quoted/mixed-case (common for Oracle) will generate lowercased URNs that do not match the case-preserving URNs produced by the native `oracle` ingestion, which creates unmatched sibling/lineage targets. **Action:** if you ingest an Oracle- or StarRocks-backed Trino catalog and rely on unquoted (uppercase) or mixed-case source identifiers, confirm the generated URNs line up with your native ingestion before upgrading — see the Trino source docs for the case, two- vs three-tier, and StarRocks-via-`mysql` caveats.
 
+- **(Ingestion / Databricks)** Unity Catalog usage no longer looks up tables in DataHub, matching the Snowflake, BigQuery and Redshift connectors. Usage statistics, operations and dataset status are written only for tables the recipe itself ingests. Tables from other catalogs still appear as subjects on Query entities; a query that touches only another catalog's tables is emitted by the recipe that ingests that catalog when it uses the system-tables usage path with `include_queries` and `include_query_usage_statistics` enabled. **Action:** if you run several Databricks recipes and are upgrading from 1.7.0.14 or 1.7.0.15rc1, run each recipe once after upgrading. A recipe's first run may soft-delete datasets owned by another recipe; they are restored when the owning recipe runs again.
+
 ### Known Issues
 
 ### Potential Downtime

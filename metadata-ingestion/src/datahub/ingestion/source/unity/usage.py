@@ -251,7 +251,8 @@ class UnityCatalogUsageExtractor:
             "total=%s preparsed=%s (%.1f%%) "
             "sqlglot_no_lineage=%s skipped_no_system_table_lineage=%s "
             "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s "
-            "redacted=%s",
+            "not_ingested_lineage_tables=%s system_lineage_tables_skipped=%s "
+            "skipped_system_tables_only=%s redacted=%s",
             total,
             preparsed,
             preparsed_pct,
@@ -260,6 +261,9 @@ class UnityCatalogUsageExtractor:
             fallback,
             self.report.num_queries_observed_sqlglot,
             self.report.num_lineage_tables_unresolvable,
+            self.report.num_lineage_tables_not_ingested,
+            self.report.num_lineage_tables_system_skipped,
+            self.report.num_queries_skipped_system_tables_only,
             redacted,
         )
 
@@ -495,8 +499,9 @@ class UnityCatalogUsageExtractor:
             (
                 self.report.num_queries_preparsed_fallback_to_sqlglot,
                 "System-table lineage fell back to SQL parsing",
-                "Queries had table lineage from system tables but no resolvable "
-                "dataset URNs; those queries were parsed with sqlglot instead.",
+                "Queries had table lineage from system tables but no usable table "
+                "names (not catalog.schema.table identifiers); those queries were "
+                "parsed with sqlglot instead.",
             ),
         ):
             if count > 0:
@@ -542,8 +547,9 @@ class UnityCatalogUsageExtractor:
             self.report.warning(
                 title="Unresolvable lineage table names",
                 message=(
-                    "Table names from system.access.table_lineage could not be mapped "
-                    "to dataset URNs and were omitted from preparsed usage."
+                    "Table names from system.access.table_lineage were not "
+                    "catalog.schema.table identifiers and were omitted from "
+                    "preparsed usage."
                 ),
                 context=context,
                 log=False,
