@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "Logiikka",
     "viewDefinitionTab.materializedFalse": "Ei",
     "viewDefinitionTab.materializedLabel": "Materialisoitu",
-    "viewDefinitionTab.materializedTrue": "Kyllä"
+    "viewDefinitionTab.materializedTrue": "Kyllä",
+    "viewDefinitionTab.noViewPermission": "Sinulla ei ole käyttöoikeutta tarkastella tämän näkymän SQL-logiikkaa."
 }

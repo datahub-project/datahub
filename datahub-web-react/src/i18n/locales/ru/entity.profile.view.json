@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "Логика",
     "viewDefinitionTab.materializedFalse": "Нет",
     "viewDefinitionTab.materializedLabel": "Материализовано",
-    "viewDefinitionTab.materializedTrue": "Да"
+    "viewDefinitionTab.materializedTrue": "Да",
+    "viewDefinitionTab.noViewPermission": "У вас нет прав на просмотр SQL-логики этого представления."
 }

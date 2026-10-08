@@ -56,6 +56,8 @@
     "incidentStage.noAction": "Без действий",
     "incidentStage.triage": "Разбор",
     "input.placeholder": "Плейсхолдер",
+    "multiSelectInput.clearAllAriaLabel": "Очистить все теги",
+    "multiSelectInput.removeTagAriaLabel": "Удалить {{tag}}",
     "loadedImage.error": "Изображение не найдено",
     "loadedVideo.error": "Не удалось загрузить видео",
     "loadedVideo.unsupportedFallback": "Ваш браузер не поддерживает видео HTML5. Вот <anchor>ссылка на видео</anchor>.",

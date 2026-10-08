@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "許可された値を追加",
     "allowedValues.anyValueAllowed": "任意の<type>{{valueType}}</type>の値を使用できます",
     "allowedValues.descriptionPlaceholder": "説明を入力してください",
+    "allowedValues.descriptionTooltip": "説明を追加",
+    "allowedValues.dragTooltip": "ドラッグして並べ替え",
     "allowedValues.editExistingTooltip": "既存の許可された値を編集することはできません",
     "allowedValues.fieldTooltip": "このプロパティに有効な値のセットを定義してください。何も指定しない場合、任意の値が許可されます",
+    "allowedValues.hideDescriptionTooltip": "説明を非表示",
     "allowedValues.removeTooltip": "許可された値のリストから外す",
     "allowedValues.title": "許可された値",
     "allowedValues.updateButton": "許可された値を更新",
@@ -33,6 +36,7 @@
     "appliesTo.title": "適用対象",
     "appliesTo.titleCapitalized": "適用対象",
     "appliesTo.tooltip": "このプロパティを追加できるEntityのタイプを選択してください",
+    "badgeReplaceError": "Structured Propertyは保存されましたが、Assetバッジを更新できませんでした。",
     "create.nameError": "名前を入力してください",
     "create.namePlaceholder": "名前を入力してください",
     "create.propertyType": "プロパティタイプ",
@@ -64,6 +68,7 @@
     "page.subtitle": "Data Asset用のカスタムプロパティを作成・管理します",
     "page.title": "Structured Property",
     "permissionTooltip": "Structured Propertyを管理する権限が必要です。DataHub管理者にお問い合わせください。",
+    "table.allowedPlatformsColumn": "プラットフォーム",
     "table.confirmDeleteText": "削除してもよろしいですか?削除すると、このStructured Propertyが現在設定されているすべてのAssetから削除されます。",
     "table.confirmDeleteTitle": "削除の確認",
     "table.copyUrn": "Urnをコピー",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Entityタイプ",
     "table.noPropertiesYet": "プロパティがまだありません!",
     "table.noSearchResults": "検索結果がありません!",
+    "table.typeColumn": "タイプ",
     "updateError": "Structured Propertyの更新に失敗しました。",
     "updateSuccess": "Structured Propertyを更新しました!",
     "valueType.dateDescription": "特定の日付",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "文字列の値",
     "valueType.textLabel": "テキスト",
     "valueType.textListDescription": "文字列値のリスト",
-    "valueType.textListLabel": "テキスト - リスト"
+    "valueType.textListLabel": "テキスト - リスト",
+    "viewTitle": "Structured Propertyを表示"
 }

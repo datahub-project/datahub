@@ -149,6 +149,7 @@
     "searchBar.sections.bestMatches": "最佳匹配",
     "searchBar.sections.recentlySearched": "你最近搜索过",
     "searchBar.sections.recentlyViewed": "你最近查看过",
+    "searchBar.viewAll": "查看全部 →",
     "searchBar.viewAllResults": "查看 <bold>{{query}}</bold> 的所有结果",
     "searchHeader.discover": "发现",
     "sidebar.loadingError": "侧边栏加载失败。",

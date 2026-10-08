@@ -21,6 +21,7 @@
     "deactivate": "Désactiver",
     "delete": "Supprimer",
     "disable": "Désactiver",
+    "discard": "Abandonner",
     "disconnect": "Déconnecter",
     "dismiss": "Ignorer",
     "done": "Terminé",
@@ -83,5 +84,10 @@
     "viewAllCount": "Afficher tout ({{count}})",
     "viewLess": "Afficher moins",
     "viewMore": "Afficher plus",
-    "yes": "Oui"
+    "yes": "Oui",
+    "documentationAdded": "Documentation ajoutée",
+    "documentationRemoved": "Documentation retirée",
+    "documentationUpdated": "Documentation mise à jour",
+    "showDiff": "afficher les différences",
+    "hideDiff": "masquer les différences"
 }
