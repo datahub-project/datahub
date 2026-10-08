@@ -10,12 +10,17 @@ from databricks.sdk.service.sql import QueryStatementType
 
 import datahub.ingestion.source.unity.usage as usage_mod
 from datahub.configuration.time_window_config import BucketDuration
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    QuerySubjectsClass,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 
@@ -3666,3 +3671,104 @@ def test_allowed_table_predicate_allows_nothing_when_nothing_ingested() -> None:
     predicate = UnityCatalogUsageExtractor._make_allowed_table_predicate(set())
 
     assert not predicate("main.sales.orders")
+
+
+# ---------------------------------------------------------------------------
+# Tables not ingested by this run, through the real aggregator
+# ---------------------------------------------------------------------------
+
+_INGESTED_URN = "urn:li:dataset:(urn:li:dataPlatform:databricks,main.sales.orders,PROD)"
+_INGESTED_REF = TableReference(
+    metastore=None, catalog="main", schema="sales", table="orders"
+)
+
+
+def _real_usage_extractor(proxy: MagicMock) -> UnityCatalogUsageExtractor:
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "t",
+            "workspace_url": "https://test.databricks.com",
+            "warehouse_id": "wh1",
+            "include_hive_metastore": False,
+            "start_time": "2026-06-01T00:00:00Z",
+            "end_time": "2026-06-02T00:00:00Z",
+            "include_queries": True,
+            "include_query_usage_statistics": True,
+            "include_operational_stats": False,
+        }
+    )
+    return UnityCatalogUsageExtractor(
+        config=config,
+        report=UnityCatalogReport(),
+        proxy=proxy,
+        table_urn_builder=lambda ref: (
+            f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
+        ),
+        user_urn_builder=lambda u: f"urn:li:corpuser:{u}",
+        schema_resolver=SchemaResolver(platform="databricks", env="PROD"),
+    )
+
+
+def _cross_catalog_proxy() -> MagicMock:
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query_with_lineage(
+            "SELECT * FROM main.sales.orders o "
+            "JOIN other_catalog.finance.invoices i ON o.id = i.order_id",
+            "q1",
+            sources=["main.sales.orders", "other_catalog.finance.invoices"],
+        ),
+        _query_with_lineage(
+            "SELECT * FROM other_catalog.finance.invoices",
+            "q2",
+            sources=["other_catalog.finance.invoices"],
+        ),
+    ]
+    return proxy
+
+
+def _dataset_subjects(workunits: List[MetadataWorkUnit]) -> List[List[str]]:
+    subjects: List[List[str]] = []
+    for wu in workunits:
+        aspect = wu.get_aspect_of_type(QuerySubjectsClass)
+        if aspect is not None:
+            subjects.append(
+                [s.entity for s in aspect.subjects if s.entity.startswith("urn:li:dataset:")]
+            )
+    return subjects
+
+
+def test_tables_not_ingested_are_query_subjects_without_usage() -> None:
+    ex = _real_usage_extractor(_cross_catalog_proxy())
+    _register_tables(ex, ["main.sales.orders"])
+
+    workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
+
+    # No workunit of any kind for the table this run did not ingest, so it never
+    # gets usage, operations, a status aspect or a stale-entity checkpoint entry.
+    assert not [wu for wu in workunits if wu.get_urn() == _NOT_INGESTED_URN]
+    # The cross-catalog query lists both tables; the query touching only the
+    # other catalog is not emitted by this run.
+    assert _dataset_subjects(workunits) == [[_INGESTED_URN, _NOT_INGESTED_URN]]
+    usage = [
+        wu.get_aspect_of_type(DatasetUsageStatisticsClass)
+        for wu in workunits
+        if wu.get_urn() == _INGESTED_URN
+    ]
+    assert [u.totalSqlQueries for u in usage if u is not None] == [1]
+    assert ex.report.num_queries_observed_sqlglot == 0
+    assert ex.report.num_lineage_tables_not_ingested == 2
+
+
+def test_run_that_ingested_nothing_emits_no_usage_or_queries() -> None:
+    ex = _real_usage_extractor(_cross_catalog_proxy())
+
+    workunits = list(ex.get_usage_workunits(set()))
+
+    assert not [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+        or wu.get_aspect_of_type(QuerySubjectsClass) is not None
+    ]
