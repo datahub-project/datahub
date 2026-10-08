@@ -36,7 +36,7 @@
     "appliesTo.title": "Aplica-se a",
     "appliesTo.titleCapitalized": "Aplica-se A",
     "appliesTo.tooltip": "Selecione os tipos de entidades aos quais esta propriedade pode ser adicionada",
-    "badgeReplaceError": "Propriedade estruturada salva, mas não foi possível atualizar o selo do ativo.",
+    "badgeReplaceError": "Propriedade estruturada salva, mas não foi possível atualizar o badge do ativo.",
     "create.nameError": "Por favor, insira o nome",
     "create.namePlaceholder": "Forneça um nome",
     "create.propertyType": "Tipo de Propriedade",
